@@ -141,20 +141,15 @@ public interface TicklerManager {
 
     public void completeTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
-    public void deleteTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
-
     /**
-     * Erases a task that is already in the Deleted queue, so "Erase Completely" removes it from
-     * that queue instead of re-applying the Deleted status. The task row, its comments, links and
-     * attachments are removed; the {@code tickler_update} status history is kept as the audit
-     * trail, and the erase itself is written to the audit log.
+     * Marks the tickler Deleted while retaining the task, comments, links, attachments and
+     * status history as part of the clinical record.
      *
      * @param loggedInInfo LoggedInInfo the acting user
-     * @param ticklerId    Integer the task to erase
-     * @return boolean true when the task was erased, false when it does not exist or is not
-     * currently Deleted (an Active or Completed task must be deleted first)
+     * @param tickler_id Integer the task to mark Deleted
+     * @param provider String the provider recording the status change
      */
-    public boolean eraseTickler(LoggedInInfo loggedInInfo, Integer ticklerId);
+    public void deleteTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,
                                            String remString);

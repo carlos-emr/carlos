@@ -8,12 +8,11 @@
  *   "Move to" filter (Active / Completed / Deleted ▸ Create Report).
  * Asserts the `tickler` status of every owned tickler after each action (only the ticked ones
  * change), one `tickler_update` row per change, the return to the same patient's list, the
- * buttons each view offers (Complete and Delete on Active and Completed; Erase Completely, and
- * neither of the others, on Deleted), and that GET and a tokenless POST to DbTicklerDemoMain are
+ * buttons each view offers (Complete and Delete on Active and Completed; neither and no erase
+ * action on Deleted), and that GET and a tokenless POST to DbTicklerDemoMain are
  * refused without writing. Complete from the Active view is also covered by
- * workflow-tickler-suggested-text. Erase Completely removes only the ticked deleted tickler from
- * the Deleted queue, keeps its tickler_update history and leaves the unticked deleted tickler alone
- * (#4993).
+ * workflow-tickler-suggested-text. A legacy Erase Completely submission retains the tickler,
+ * comments, links, attachments and status history, and leaves the unticked deleted tickler alone.
  * Fixtures: the synthetic patient from lib/workflow-session.js, three active ticklers due today,
  * and one PDF document (row, ctl_document link and file) so the document viewer offers the list;
  * all removed and verified gone.
@@ -65,10 +64,12 @@ async function workflow(s) {
   const tickler = {};
   const ownedTicklers = `SELECT tickler_no FROM tickler WHERE demographic_no=${patient}`;
   s.cleanup(() => {
+    const idList = Object.values(tickler).join(',') || '0';
     sql.execute([
-      `DELETE FROM tickler_update WHERE tickler_no IN (${ownedTicklers}) OR tickler_no=${tickler.first || 0}`,
+      `DELETE FROM tickler_update WHERE tickler_no IN (${ownedTicklers})`,
       `DELETE FROM tickler_comments WHERE tickler_no IN (${ownedTicklers})`,
       `DELETE FROM tickler_link WHERE tickler_no IN (${ownedTicklers})`,
+      `DELETE FROM ticklerdocs WHERE tickler_id IN (${ownedTicklers})`,
       `DELETE FROM tickler WHERE demographic_no=${patient}`,
       `DELETE FROM ctl_document WHERE module='demographic' AND module_id=${patient}`,
       `DELETE FROM document WHERE docdesc=${h.sqlString(marker)}`,
@@ -76,6 +77,10 @@ async function workflow(s) {
     ].join(';'));
     if (fs.existsSync(docFile)) fs.unlinkSync(docFile);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM tickler WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM tickler_comments WHERE tickler_no IN (${idList}))
+      + (SELECT COUNT(*) FROM tickler_link WHERE tickler_no IN (${idList}))
+      + (SELECT COUNT(*) FROM ticklerdocs WHERE tickler_id IN (${idList}))
+      + (SELECT COUNT(*) FROM tickler_update WHERE tickler_no IN (${idList}))
       + (SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${patient})
       + (SELECT COUNT(*) FROM document WHERE docdesc=${h.sqlString(marker)})`) === '0'
       && !fs.existsSync(docFile), 'Owned tickler or document rows were not removed');
@@ -88,7 +93,6 @@ async function workflow(s) {
       SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(tickler[label]), `The ${label} tickler fixture was not created`);
   }
-  // An erased tickler has no row; it reads as "-".
   const statuses = () => ['first', 'second', 'third']
     .map(label => sql.value(`SELECT COALESCE((SELECT status FROM tickler WHERE tickler_no=${tickler[label]}),'-')`)).join('');
   const updates = (label, status) => sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${tickler[label]}
@@ -104,6 +108,23 @@ async function workflow(s) {
   h.assert(/^[1-9]\d*$/.test(documentNo), 'The document fixture was not created');
   sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${documentNo},'A')`);
 
+  // Retain the complete clinical context, including a detached attachment association.
+  sql.execute([
+    `INSERT INTO tickler_comments (tickler_no,message,provider_no,update_date)
+      VALUES (${tickler.first},${h.sqlString(`${marker} retained note`)},${h.sqlString(provider)},NOW())`,
+    `INSERT INTO tickler_link (table_name,table_id,tickler_no) VALUES ('DOC',${documentNo},${tickler.first})`,
+    `INSERT INTO ticklerdocs (tickler_id,document_no,doctype,deleted,attach_date,provider_no)
+      VALUES (${tickler.first},${documentNo},'D',NULL,CURDATE(),${h.sqlString(provider)}),
+             (${tickler.first},${documentNo},'D','Y',CURDATE(),${h.sqlString(provider)})`,
+  ].join(';'));
+  const clinicalRecord = () => JSON.stringify([
+    sql.rows(`SELECT tickler_no,demographic_no,message FROM tickler WHERE tickler_no=${tickler.first}`),
+    sql.rows(`SELECT * FROM tickler_comments WHERE tickler_no=${tickler.first} ORDER BY id`),
+    sql.rows(`SELECT * FROM tickler_link WHERE tickler_no=${tickler.first} ORDER BY id`),
+    sql.rows(`SELECT * FROM ticklerdocs WHERE tickler_id=${tickler.first} ORDER BY id`),
+  ]);
+  const originalRecord = clinicalRecord();
+
   let viewer;
   let list;
   /** The viewer's alert link opens the list in a named window; close the old one so each open is a fresh popup. */
@@ -118,8 +139,12 @@ async function workflow(s) {
   const box = label => list.locator(`${FORM} input[name="checkbox"][value="${tickler[label]}"]`);
   async function press(button) {
     await Promise.all([
-      list.waitForURL(/\/tickler\/ViewTicklerMain\?/, { timeout: TIMEOUT }),
-      list.locator(BUTTON[button]).click(),
+      list.waitForEvent('domcontentloaded', { timeout: TIMEOUT }),
+      button === 'legacyErase' ? list.evaluate(() => {
+        const form = document.forms['ticklerform'];
+        form.submit_form.value = 'Erase Completely';
+        form.submit();
+      }) : list.locator(BUTTON[button]).click(),
     ]);
     await h.assertNotErrorPage(list, `the tickler list after ${button}`);
     const returned = new URL(list.url()).searchParams;
@@ -166,6 +191,7 @@ async function workflow(s) {
     await expectValue(sql, `SELECT status FROM tickler WHERE tickler_no=${tickler.first}`, 'D', 'Delete did not mark the ticked tickler deleted');
     h.assert(statuses() === 'DAA', `Delete changed an unticked tickler (statuses first/second/third: ${statuses()})`);
     h.assert(updates('first', 'D') === '1', 'Delete wrote no tickler_update row for the deleted tickler');
+    h.assert(clinicalRecord() === originalRecord, 'Delete changed or removed the clinical record or its related rows');
   });
 
   await s.step('Complete with two ticklers ticked marks both completed and leaves the deleted one deleted', async () => {
@@ -179,11 +205,11 @@ async function workflow(s) {
     h.assert(updates('second', 'C') === '1' && updates('third', 'C') === '1', 'Complete wrote no tickler_update row for each ticked tickler');
   });
 
-  await s.step('Move to ▸ Deleted lists only the deleted tickler and offers Erase Completely instead of Complete and Delete', async () => {
+  await s.step('Move to ▸ Deleted lists the retained tickler without Complete, Delete or erase actions', async () => {
     await openList();
     await moveTo('D');
     await lists({ first: true, second: false, third: false });
-    await offers({ complete: false, delete: false, erase: true });
+    await offers({ complete: false, delete: false, erase: false });
   });
 
   await s.step('Move to ▸ Completed lists both completed ticklers, and Delete there marks only the ticked one deleted', async () => {
@@ -196,21 +222,21 @@ async function workflow(s) {
     h.assert(statuses() === 'DDC', `Delete from the Completed view left first/second/third as ${statuses()}`);
   });
 
-  await s.step('Move to ▸ Deleted ▸ Erase Completely removes only the ticked tickler and keeps its history', async () => {
+  await s.step('a legacy erase submission retains the Deleted tickler and all its clinical context', async () => {
     await openList();
     await moveTo('D');
     await lists({ first: true, second: true, third: false });
-    await offers({ complete: false, delete: false, erase: true });
+    await offers({ complete: false, delete: false, erase: false });
     const history = sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${tickler.first}`);
     await box('first').check();
-    await press('erase');
-    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE tickler_no=${tickler.first}`) === '0', 'Erase Completely left the ticked tickler in the database');
+    await press('legacyErase');
+    h.assert(clinicalRecord() === originalRecord, 'A legacy erase submission changed or removed the clinical record or its related rows');
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${tickler.first}`) === history && history !== '0',
-      'Erase Completely did not keep the erased tickler\'s status history');
-    await expectValue(sql, `SELECT status FROM tickler WHERE tickler_no=${tickler.second}`, 'D', 'Erase Completely changed the unticked deleted tickler');
+      'A legacy erase submission changed the task status history');
+    h.assert(statuses() === 'DDC', `A legacy erase submission changed first/second/third to ${statuses()}`);
     await openList();
     await moveTo('D');
-    await lists({ first: false, second: true, third: false });
+    await lists({ first: true, second: true, third: false });
   });
 
   await s.step('GET and a tokenless POST to DbTicklerDemoMain are refused and change nothing', async () => {
@@ -221,7 +247,7 @@ async function workflow(s) {
       response: await s.context.request.get(route, { params: fields, maxRedirects: 0 }) });
     await h.assertRefused(s, { label: 'POST DbTicklerDemoMain without a CSRF token', table: 'tickler', where, before: '1',
       response: await s.context.request.post(route, { form: fields, maxRedirects: 0 }) });
-    h.assert(statuses() === '-DC', `A refused request changed a tickler (first/second/third: ${statuses()})`);
+    h.assert(statuses() === 'DDC', `A refused request changed a tickler (first/second/third: ${statuses()})`);
   });
 }
 

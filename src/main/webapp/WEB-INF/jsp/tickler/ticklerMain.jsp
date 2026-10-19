@@ -499,14 +499,12 @@
             });
 
             /**
-             * Shows the bulk actions that fit the selected status view: Erase Completely for
-             * Deleted, Complete and Delete otherwise. The filter reloads the table without
-             * re-rendering the page, so the footer must follow it.
+             * Shows Complete and Delete outside the Deleted view. Deleted tasks remain part
+             * of the clinical record and have no further deletion action. The filter reloads
+             * the table without re-rendering the page, so the footer must follow it.
              */
             function syncStatusActions() {
                 var deletedView = document.getElementById('ticklerview').value === 'D';
-                var erase = document.getElementById('eraseButton');
-                if (erase) { erase.hidden = !deletedView; }
                 jQuery('.status-action-live').each(function () { this.hidden = deletedView; });
             }
 
@@ -1017,13 +1015,8 @@
                                          href="javascript:CheckAll();"><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a> - <a href="javascript:ClearAll();"><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
 
                         <input type="hidden" name="submit_form" value="">
-                        <%-- All three bulk-action buttons are always rendered; syncStatusActions() shows
-                             Erase Completely only for the Deleted view and Complete/Delete for the others.
-                             The filter reloads the DataTable in place, so the server cannot choose them (#4993). --%>
-                        <input type="button" class="btn btn-secondary status-action-erase" id="eraseButton"
-                               value="<fmt:message key="tickler.ticklerMain.btnEraseCompletely"/>"
-                               <%= ticklerview.compareTo("D") == 0 ? "" : "hidden" %>
-                               onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
+                        <%-- Retain Deleted tasks for clinical record keeping. syncStatusActions()
+                             hides Complete/Delete in that view as the filter changes in place (#4993). --%>
                         <input type="button" class="btn btn-secondary status-action-live" id="completeButton"
                                value="<fmt:message key="tickler.ticklerMain.btnComplete"/>"
                                <%= ticklerview.compareTo("D") == 0 ? "hidden" : "" %>

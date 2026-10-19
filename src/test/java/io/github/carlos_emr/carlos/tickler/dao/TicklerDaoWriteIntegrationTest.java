@@ -121,40 +121,4 @@ public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTes
             assertThat(updated.getPriority()).isEqualTo(Tickler.PRIORITY.High);
         }
     }
-
-    @Test
-    @DisplayName("should delete only the targeted tickler row")
-    void shouldDeleteOnlyTargetedTickler_whenDeletingById() {
-        Tickler tickler = createTickler(5002, "Erase me", Tickler.STATUS.D);
-        Tickler other = createTickler(5002, "Keep me", Tickler.STATUS.D);
-        entityManager.flush();
-        entityManager.clear();
-        Integer erasedId = tickler.getId();
-
-        // A bulk statement, so Hibernate does not null the join column of the tickler_update
-        // history rows the manager deliberately keeps (production has no foreign key on them).
-        int deleted = ticklerDao.deleteDeletedById(erasedId);
-        entityManager.clear();
-
-        assertThat(deleted).isEqualTo(1);
-        assertThat(ticklerDao.find(erasedId)).isNull();
-        assertThat(ticklerDao.find(other.getId())).isNotNull();
-    }
-
-    @Test
-    @DisplayName("should delete nothing when the tickler does not exist")
-    void shouldDeleteNothing_whenTicklerMissing() {
-        assertThat(ticklerDao.deleteDeletedById(987654321)).isZero();
-    }
-
-    @Test
-    @DisplayName("should keep a tickler that is no longer deleted")
-    void shouldKeepTickler_whenNotDeletedAnymore() {
-        Tickler reactivated = createTickler(5003, "Reactivated meanwhile", Tickler.STATUS.A);
-        entityManager.flush();
-        entityManager.clear();
-
-        assertThat(ticklerDao.deleteDeletedById(reactivated.getId())).isZero();
-        assertThat(ticklerDao.find(reactivated.getId())).isNotNull();
-    }
 }

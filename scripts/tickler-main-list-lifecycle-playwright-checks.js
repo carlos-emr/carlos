@@ -3,13 +3,13 @@
 /*
  * Provider-wide task list (tickler/ViewTicklerMain) status lifecycle, issue #4993:
  *   1. The footer follows the status filter in place. Active and Completed offer Complete and
- *      Delete; Deleted offers Erase Completely instead. The filter only reloads the DataTable,
+ *      Delete; Deleted offers neither and has no erase action. The filter only reloads the DataTable,
  *      so the page cannot choose the buttons at render time.
  *   2. Reactivating a Completed task from its row pencil (tickler/ViewTicklerEdit popup) refreshes
  *      this list on its own: the popup broadcasts on the shared 'carlos_tickler_refresh_all'
  *      channel and the list reloads (a ListTicklers request) without Create Report.
- *   3. Erase Completely removes only the ticked task from the Deleted queue (the row is gone, the
- *      status-change history in tickler_update is kept) and leaves an unticked deleted task alone.
+ *   3. A legacy Erase Completely submission retains the Deleted task and its status history,
+ *      and leaves an unticked deleted task alone.
  * Fixtures: the synthetic patient from lib/workflow-session.js and four ticklers carrying the run
  * marker; every tickler row, comment, link, attachment and update row is removed and verified gone.
  */
@@ -30,7 +30,6 @@ async function workflow(s) {
   const owned = `SELECT tickler_no FROM tickler WHERE demographic_no=${patient}`;
   const ids = [];
   s.cleanup(() => {
-    // tickler_update rows outlive an erased tickler by design, so they are found by id, not by join.
     const idList = ids.length ? ids.join(',') : '0';
     sql.execute([
       `DELETE FROM tickler_update WHERE tickler_no IN (${idList}) OR tickler_no IN (${owned})`,
@@ -106,10 +105,14 @@ async function workflow(s) {
   }
   async function press(button) {
     await Promise.all([
-      list.waitForURL(/\/tickler\/ViewTicklerMain/, { timeout: TIMEOUT }),
-      list.locator(BUTTON[button]).click(),
+      list.waitForEvent('domcontentloaded', { timeout: TIMEOUT }),
+      button === 'legacyErase' ? list.evaluate(() => {
+        const form = document.forms['ticklerform'];
+        form.submit_form.value = 'Erase Completely';
+        form.submit();
+      }) : list.locator(BUTTON[button]).click(),
     ]);
-    await list.waitForLoadState('domcontentloaded');
+    h.assert(new URL(list.url()).pathname.endsWith('/tickler/ViewTicklerMain'), 'The bulk action returned to an unexpected page');
     await h.assertNotErrorPage(list, `the task list after ${button}`);
     h.assert(!new URL(list.url()).searchParams.has('failCount'), `${button} reported tasks it could not change`);
     await settled();
@@ -158,24 +161,28 @@ async function workflow(s) {
     h.assert(statuses() === 'ACDD', `Delete left first..fourth as ${statuses()}`);
   });
 
-  await s.step('the footer follows the filter in place: Deleted offers Erase Completely only, Active gets Complete and Delete back', async () => {
+  await s.step('the footer follows the filter in place: Deleted has no deletion action, Active gets Complete and Delete back', async () => {
     await filter('D');
     await lists({ first: false, second: false, third: true, fourth: true });
-    await offers({ complete: false, delete: false, erase: true });
+    await offers({ complete: false, delete: false, erase: false });
+    h.assert(await list.locator(BUTTON.erase).count() === 0, 'The Deleted view still renders an erase action');
     await filter('A');
     await offers({ complete: true, delete: true, erase: false });
     await filter('D');
-    await offers({ complete: false, delete: false, erase: true });
+    await offers({ complete: false, delete: false, erase: false });
   });
 
-  await s.step('Erase Completely removes only the ticked task from Deleted and keeps the unticked one', async () => {
+  await s.step('a legacy erase submission retains both Deleted tasks and their clinical history', async () => {
     const history = updateRows('third');
+    const record = sql.rows(`SELECT * FROM tickler WHERE tickler_no=${tickler.third}`);
     await box('third').check();
-    await press('erase');
-    h.assert(statuses() === 'AC-D', `Erase left first..fourth as ${statuses()} (a - is an erased task)`);
-    h.assert(updateRows('third') === history && history !== '0', 'Erase did not keep the status history of the erased task');
+    await press('legacyErase');
+    h.assert(statuses() === 'ACDD', `A legacy erase submission left first..fourth as ${statuses()}`);
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${tickler.third}`)) === JSON.stringify(record),
+      'A legacy erase submission changed or removed the Deleted task');
+    h.assert(updateRows('third') === history && history !== '0', 'A legacy erase submission changed the task status history');
     await filter('D');
-    await lists({ first: false, second: false, third: false, fourth: true });
+    await lists({ first: false, second: false, third: true, fourth: true });
   });
 }
 

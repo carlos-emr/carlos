@@ -33,6 +33,8 @@ import io.github.carlos_emr.carlos.tickler.TicklerUnitTestBase;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -81,9 +83,6 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
     @Mock
     private TicklerDocsDao mockTicklerDocsDao;
 
-    @Mock
-    private io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao mockTicklerLinkDao;
-
     private TicklerManagerImpl ticklerManager;
 
     @BeforeEach
@@ -105,7 +104,6 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         injectDependency(ticklerManager, "ticklerUpdateDao", mockTicklerUpdateDao);
         injectDependency(ticklerManager, "ticklerCommentDao", mockTicklerCommentDao);
         injectDependency(ticklerManager, "ticklerDocsDao", mockTicklerDocsDao);
-        injectDependency(ticklerManager, "ticklerLinkDao", mockTicklerLinkDao);
         injectDependency(ticklerManager, "securityInfoManager", mockSecurityInfoManager);
     }
 
@@ -332,100 +330,52 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
     }
 
     @Nested
-    @DisplayName("Erase Completely (#4993)")
+    @DisplayName("Clinical record retention on deletion")
     @Tag("delete")
-    class EraseTickler {
+    class DeleteTickler {
 
-        @Test
-        @DisplayName("should erase the row and its dependants when the tickler is deleted")
-        void shouldEraseTicklerAndDependants_whenTicklerIsDeleted() {
-            Tickler deleted = createTestTicklerWithId(77);
-            deleted.setStatus(Tickler.STATUS.D);
+        @ParameterizedTest
+        @EnumSource(value = Tickler.STATUS.class, names = {"A", "C"})
+        @DisplayName("should retain the task and comments and append history when marking deleted")
+        void shouldRetainClinicalRecord_whenMarkingDeleted(Tickler.STATUS initialStatus) {
+            Tickler tickler = createTestTicklerWithId(77);
+            tickler.setStatus(initialStatus);
             var comment = new io.github.carlos_emr.carlos.commn.model.TicklerComment();
-            deleted.getComments().add(comment);
-            var link = new io.github.carlos_emr.carlos.commn.model.TicklerLink();
-            var attachment = new TicklerDocs();
-            when(mockTicklerDao.lockForAttachmentSync(77)).thenReturn(deleted);
-            when(mockTicklerDao.deleteDeletedById(77)).thenReturn(1);
-            when(mockTicklerLinkDao.getLinkByTickler(77)).thenReturn(List.of(link));
-            when(mockTicklerDocsDao.findAllByTicklerIdForUpdate(77)).thenReturn(List.of(attachment));
+            tickler.getComments().add(comment);
+            TicklerUpdate history = new TicklerUpdate();
+            tickler.getUpdates().add(history);
+            when(mockTicklerDao.find(77)).thenReturn(tickler);
 
-            boolean erased = ticklerManager.eraseTickler(mockLoggedInInfo, 77);
+            ticklerManager.deleteTickler(mockLoggedInInfo, 77, TEST_PROVIDER);
 
-            assertThat(erased).isTrue();
-            verify(mockTicklerCommentDao).remove(comment);
-            verify(mockTicklerLinkDao).remove(link);
-            verify(mockTicklerDocsDao).remove(attachment);
-            verify(mockTicklerDao).deleteDeletedById(77);
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
+            assertThat(tickler.getMessage()).isEqualTo(TEST_MESSAGE);
+            assertThat(tickler.getComments()).containsExactly(comment);
+            assertThat(tickler.getUpdates()).containsExactly(history);
+            var update = org.mockito.ArgumentCaptor.forClass(TicklerUpdate.class);
+            verify(mockTicklerUpdateDao).persist(update.capture());
+            assertThat(update.getValue().getTicklerNo()).isEqualTo(77);
+            assertThat(update.getValue().getStatus()).isEqualTo(Tickler.STATUS.D);
+            assertThat(update.getValue().getProviderNo()).isEqualTo(TEST_PROVIDER);
+            verify(mockTicklerDao).find(77);
+            verify(mockTicklerDao).merge(tickler);
+            verifyNoMoreInteractions(mockTicklerDao, mockTicklerUpdateDao);
+            verifyNoInteractions(mockTicklerCommentDao, mockTicklerDocsDao);
         }
 
         @Test
-        @DisplayName("should keep the status history when erasing")
-        void shouldKeepStatusHistory_whenErasing() {
-            Tickler deleted = createTestTicklerWithId(78);
-            deleted.setStatus(Tickler.STATUS.D);
-            when(mockTicklerDao.lockForAttachmentSync(78)).thenReturn(deleted);
-            when(mockTicklerDao.deleteDeletedById(78)).thenReturn(1);
+        @DisplayName("should retain an already deleted task without rewriting history")
+        void shouldRetainDeletedTask_whenDeletedAgain() {
+            Tickler tickler = createTestTicklerWithId(78);
+            tickler.setStatus(Tickler.STATUS.D);
+            when(mockTicklerDao.find(78)).thenReturn(tickler);
 
-            ticklerManager.eraseTickler(mockLoggedInInfo, 78);
+            ticklerManager.deleteTickler(mockLoggedInInfo, 78, TEST_PROVIDER);
 
-            verifyNoInteractions(mockTicklerUpdateDao);
-        }
-
-        @Test
-        @DisplayName("should fail the erase when the tickler stopped being deleted before the delete ran")
-        void shouldFailErase_whenTicklerNoLongerDeletedAtDelete() {
-            Tickler deleted = createTestTicklerWithId(83);
-            deleted.setStatus(Tickler.STATUS.D);
-            when(mockTicklerDao.lockForAttachmentSync(83)).thenReturn(deleted);
-            when(mockTicklerDao.deleteDeletedById(83)).thenReturn(0);
-
-            assertThatThrownBy(() -> ticklerManager.eraseTickler(mockLoggedInInfo, 83))
-                    .isInstanceOf(IllegalStateException.class);
-        }
-
-        @Test
-        @DisplayName("should refuse to erase an active tickler")
-        void shouldRefuseToErase_whenTicklerIsActive() {
-            Tickler active = createTestTicklerWithId(79);
-            when(mockTicklerDao.lockForAttachmentSync(79)).thenReturn(active);
-
-            boolean erased = ticklerManager.eraseTickler(mockLoggedInInfo, 79);
-
-            assertThat(erased).isFalse();
-            verify(mockTicklerDao, never()).deleteDeletedById(any());
-        }
-
-        @Test
-        @DisplayName("should refuse to erase a completed tickler")
-        void shouldRefuseToErase_whenTicklerIsCompleted() {
-            Tickler completed = createTestTicklerWithId(80);
-            completed.setStatus(Tickler.STATUS.C);
-            when(mockTicklerDao.lockForAttachmentSync(80)).thenReturn(completed);
-
-            assertThat(ticklerManager.eraseTickler(mockLoggedInInfo, 80)).isFalse();
-            verify(mockTicklerDao, never()).deleteDeletedById(any());
-        }
-
-        @Test
-        @DisplayName("should return false when the tickler does not exist")
-        void shouldReturnFalse_whenTicklerMissing() {
-            when(mockTicklerDao.lockForAttachmentSync(81)).thenReturn(null);
-
-            assertThat(ticklerManager.eraseTickler(mockLoggedInInfo, 81)).isFalse();
-            verify(mockTicklerDao, never()).deleteDeletedById(any());
-        }
-
-        @Test
-        @DisplayName("should require the tickler update privilege")
-        void shouldRequireUpdatePrivilege_whenErasing() {
-            when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), eq("u"), any())).thenReturn(false);
-
-            assertThatThrownBy(() -> ticklerManager.eraseTickler(mockLoggedInInfo, 82))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("missing required sec object (_tickler)");
-            verifyNoInteractions(mockTicklerDao);
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
+            verify(mockTicklerDao).find(78);
+            verifyNoMoreInteractions(mockTicklerDao);
+            verifyNoInteractions(mockTicklerUpdateDao, mockTicklerCommentDao, mockTicklerDocsDao);
         }
     }
-
 }
