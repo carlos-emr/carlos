@@ -181,6 +181,7 @@
             // Typing a different code makes the shown registry description stale.
             $(document).on('input', '#jsonDxSearch', function () {
                 $("#codeTxt").val('');
+                $(this).prop('title', '');
                 $("#jsonDxSearchDescription").text('');
             });
 

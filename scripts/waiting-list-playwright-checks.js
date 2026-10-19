@@ -102,6 +102,13 @@ async function workflow(s) {
     sql.execute(`DELETE FROM waitingListName WHERE name IN (${ownedNames})`);
     h.assert(sql.value(`SELECT COUNT(*) FROM waitingListName WHERE name IN (${ownedNames})`) === '0',
       'The owned waiting-list names were not removed');
+    // Master Record Update also writes these support rows. runWorkflow removes
+    // demographicExt/demographicArchive, but these two need their own cleanup.
+    sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${patient};
+      DELETE FROM demographiccust WHERE demographic_no=${patient}`);
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient})
+      +(SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${patient})`) === '0',
+      'The owned Master Record extension archive or custom fields remain');
   });
 
   await s.step('Report ▸ Waiting List ▸ Create List creates a current list for the login group', async () => {

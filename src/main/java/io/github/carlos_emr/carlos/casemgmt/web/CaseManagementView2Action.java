@@ -1649,6 +1649,13 @@ public class CaseManagementView2Action extends ActionSupport {
             request.setAttribute("moreNotes", true);
         }
         request.setAttribute("notesToDisplay", result.getNotes());
+        // ChartNotesAjax.jsp shortens notes older than the provider's stale date and, with the single-line
+        // format preference, folds them onto one line with their date. It reads both preferences from the
+        // request, as the viewCurrentIssuesTab paths set them; without them it applied a one-year stale date
+        // to everyone and never used the single-line format.
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        request.setAttribute(UserProperty.STALE_NOTEDATE, caseManagementMgr.getUserProperty(providerNo, UserProperty.STALE_NOTEDATE));
+        request.setAttribute(UserProperty.STALE_FORMAT, caseManagementMgr.getUserProperty(providerNo, UserProperty.STALE_FORMAT));
         return "ajaxDisplayNotes";
     }
 

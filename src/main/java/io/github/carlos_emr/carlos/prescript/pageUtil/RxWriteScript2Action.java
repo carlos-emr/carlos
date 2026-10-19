@@ -113,9 +113,6 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final String POST_REQUIRED = "POST required";
     /** One to nine digits: an id or count that fits an int. */
     private static final String UP_TO_NINE_DIGITS = "\\d{1,9}";
-    /** Fixed bodies of the inline-property refusals the card explains (#5003). */
-    private static final String INVALID_DOSE_JSON = "{\"error\":\"INVALID_RX_DOSE\"}";
-    private static final String INVALID_REPEATS_JSON = "{\"error\":\"INVALID_RX_REPEATS\"}";
     /** Medication audit-log content prefix, followed by the drug id. */
     private static final String AUDIT_DRUG_ID = "drugid=";
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
@@ -1349,13 +1346,13 @@ public final class RxWriteScript2Action extends ActionSupport {
             } else if (elem.equals("minimum_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
                     Float dose = parseDoseAmount(val);
-                    if (dose == null) return reportInvalidProperty(INVALID_DOSE_JSON);
+                    if (dose == null) return reportInvalidDose();
                     rx.setTakeMin(dose);
                 }
             } else if (elem.equals("maximum_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
                     Float dose = parseDoseAmount(val);
-                    if (dose == null) return reportInvalidProperty(INVALID_DOSE_JSON);
+                    if (dose == null) return reportInvalidDose();
                     rx.setTakeMax(dose);
                 }
             } else if (elem.equals("duration_" + num)) {
@@ -1364,7 +1361,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setDurationUnit(val);
             } else if (elem.equals("repeats_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
-                    if (!val.matches(UP_TO_NINE_DIGITS)) return reportInvalidProperty(INVALID_REPEATS_JSON);
+                    if (!val.matches(UP_TO_NINE_DIGITS)) return reportInvalidRepeats();
                     rx.setRepeat(Integer.parseInt(val));
                 }
             } else if (elem.equals("prnVal_" + num)) {
@@ -1876,13 +1873,21 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     /**
-     * Refuses an inline property update with 400 and one of the fixed JSON bodies above, which the
-     * card reports to the prescriber. The staged card is left unchanged.
+     * Refuses an inline Min/Max update with 400 and a fixed JSON error the card reports to the
+     * prescriber (#5003). The staged card is left unchanged.
      */
-    private String reportInvalidProperty(String fixedJsonBody) throws IOException {
+    private String reportInvalidDose() throws IOException {
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         response.setContentType("application/json");
-        response.getWriter().write(fixedJsonBody);
+        response.getWriter().write("{\"error\":\"INVALID_RX_DOSE\"}");
+        return NONE;
+    }
+
+    /** As {@link #reportInvalidDose()}, for an inline repeats value that is not a whole number. */
+    private String reportInvalidRepeats() throws IOException {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"INVALID_RX_REPEATS\"}");
         return NONE;
     }
 

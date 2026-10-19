@@ -3,7 +3,7 @@
 // rx-static-script-pickup: the pick-up line of a saved prescription, on the static script (rx/ViewStaticScript2,
 // StaticScript2.jsp) and on the drug record it links to (rx/ViewDisplayRxRecord, DisplayRxRecord.jsp). A pick-up date
 // saved without a time is stored at midnight and should show as the date alone; a pick-up time shows as a time.
-// rx-card-options (open PR) covers saving and re-prescribing a pick-up date and time, not how they are shown.
+// rx-card-options covers saving and re-prescribing a pick-up date and time, not how they are shown.
 // User path: Schedule ▸ Search ▸ Master Record ▸ Prescriptions ▸ type a name ▸ Custom Drug ▸ Instructions ▸ the card's
 // "more" ▸ Pick up date (and time) ▸ Save Only ▸ the drug's name in the profile (the static script) ▸ the drug record.
 //   1. a pick-up date with the time 14:30 is stored as 14:30 and shows its time on both pages;
@@ -70,15 +70,22 @@ async function workflow(s) {
     await rx.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
     const link = rx.locator(`#prescrip_${drug}[href*="ViewStaticScript2"]`);
     await link.waitFor({ state: 'visible', timeout: 20000 });
-    const page = await s.context.newPage();
-    await page.goto(new URL(await link.getAttribute('href'), rx.url()).toString(), { waitUntil: 'domcontentloaded' });
+    // Open the real profile link in another tab, keeping the prescribing
+    // window available for the second medication's entry.
+    const [page] = await Promise.all([
+      s.context.waitForEvent('page'),
+      link.click({ modifiers: ['ControlOrMeta'] }),
+    ]);
+    await page.waitForURL(/\/rx\/ViewStaticScript2(?:\?|$)/);
     await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
     const text = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
     const script = (/Pickup Date (\d{4}-\d{2}-\d{2})(?: (\d{1,2}:\d{2} ?[ap]\.? ?m\.?))?/i.exec(text) || []).slice(1);
     // The static script's drug-record link (rx/ViewDisplayRxRecord) opens the drug's own record.
-    await h.gotoApp(page, s.config.baseUrl, `/rx/ViewDisplayRxRecord?id=${drug}`);
-    const record = (await page.locator('td.label', { hasText: 'Pickup Date/Time' }).first()
+    const details = await s.popup(page,
+      page.locator(`a[onclick*="/rx/ViewDisplayRxRecord?id=${drug}'"]`).first(), 'pickup-drug-record');
+    const record = (await details.locator('td.label', { hasText: 'Pickup Date/Time' }).first()
       .locator('xpath=following-sibling::td[1]').innerText()).trim();
+    await details.close();
     await page.close();
     return { scriptDate: script[0], scriptTime: script[1], record };
   }

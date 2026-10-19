@@ -130,6 +130,34 @@ test('a numeric inline dose is sent, and a server refusal is explained', () => {
   assert.equal(s.refused.length, 1, 'other refusals keep the generic message');
 });
 
+test('a late answer for an older inline edit does not decide the field\'s invalid state', () => {
+  const s = cardFields();
+  const el = s.element('minimum_5', { textContent: '0.5' });
+  s.context.updateProperty('minimum_5');
+  el.textContent = '0.25';
+  s.context.updateProperty('minimum_5');
+  const [older, newer] = s.requests;
+  newer.options.onFailure({ status: 400, responseJSON: { error: 'INVALID_RX_DOSE' } });
+  assert.equal(el.attributes['aria-invalid'], 'true');
+  el.removeAttribute = name => { delete el.attributes[name]; };
+  older.options.onSuccess({ status: 200 });
+  assert.equal(el.attributes['aria-invalid'], 'true', 'the older success cleared the newer refusal');
+  older.options.onFailure({ status: 400, responseJSON: { error: 'INVALID_RX_DOSE' } });
+  assert.equal(s.alerts.length, 1, 'a stale refusal raised a second alert');
+});
+
+test('a value refused on the card supersedes an older edit still in flight', () => {
+  const s = cardFields();
+  const el = s.element('maximum_5', { textContent: '2' });
+  el.removeAttribute = name => { delete el.attributes[name]; };
+  s.context.updateProperty('maximum_5');
+  el.textContent = 'two';
+  s.context.updateProperty('maximum_5');
+  assert.equal(s.requests.length, 1, 'the refused value was sent');
+  s.requests[0].options.onSuccess({ status: 200 });
+  assert.equal(el.attributes['aria-invalid'], 'true', 'the older success cleared the card-side refusal');
+});
+
 test('a cleared pick-up field raises nothing; an invalid one names the entry and is cleared', () => {
   const s = cardFields();
   for (const kind of ['date', 'time']) {

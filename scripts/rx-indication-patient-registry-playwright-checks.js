@@ -53,6 +53,18 @@ async function workflow(s) {
     h.assert(shown === description, `The description beside the box is ${JSON.stringify(shown)}, not ${JSON.stringify(description)}`);
   });
 
+  await s.step('typing over a picked diagnosis drops its description and tooltip until one is picked again', async () => {
+    const box = popup.locator('#jsonDxSearch');
+    h.assert((await box.getAttribute('title') || '').includes(description), 'The picked diagnosis is not in the box tooltip');
+    await box.press('End');
+    await box.press('Backspace');
+    const shown = (await popup.locator('#jsonDxSearchDescription').innerText()).trim();
+    const title = await box.getAttribute('title');
+    h.assert(shown === '' && !title, `After retyping the box still shows ${JSON.stringify(shown)} with tooltip ${JSON.stringify(title)}`);
+    await popup.locator('a[onclick^="assignPatientDxLink(\'401\'"]').click();
+    h.assert(await box.inputValue() === '401', 'Picking the diagnosis again did not restore the code');
+  });
+
   await s.step('the Patient Dx Registry link fills and saves exactly that drug indication', async () => {
     const [saved] = await Promise.all([
       popup.waitForResponse(r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/rx/RxReason')),

@@ -3141,3 +3141,24 @@ locking is on (two rows, deleted by hand). The server-log audit had no unexplain
 
 A `systemctl restart carlos-emr` repeated within a few minutes trips the unit's start-rate limit and the next one fails with "start of
 the service was attempted too often"; run `systemctl reset-failed carlos-emr` first and wait for `:443` to answer before the suite.
+
+### Contacts: a professional contact added from the External search (2026-10-18, issue #4987)
+
+Master Record ▸ Contacts ▸ Add (professional contact) ▸ External ▸ Search ▸ "Add/Edit Professional Contact" opened the form as a
+professional specialist whichever type the row asked for, so the contact was saved as a `professionalSpecialists` row, the row was not
+filled and the External search never listed it. `release/2026.08` at `cae31c74` plus the fix branch was packaged unstamped as
+`2026.09.0~snapshot26`. The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags, DrugRef was built on the
+host from `1941e14`, `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`, and carlos-ctl was
+1.1.2 from its release. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl
+check`: all checks passed; `BUILD_CA_BUNDLE` named the egress proxy's CA for the image's npm install).
+
+| Run | `contact-external-professional` |
+|---|---|
+| fixed packages | **PASS**, 6 steps through `:443`: the External row's Add link asks for `contactType=2` (and the Health Care Team's for 3, also for a missing, `0`, `2x` or `99` type); the Add saves one `Contact` row of type `ProfessionalContact`, no `professionalSpecialists` row and no association, fills the row and closes; Contacts Save links `2\|professional\|<id>`; the External search lists the contact and selects it; a row whose type was changed while the form was open is left unfilled; the Health Care Team panel still adds a new external contact as a professional specialist on the team |
+| pre-fix `procontactSearch.jsp`, `ManageContacts.jsp` and `addEditProfessionalContact.jsp` swapped into the installed webapp | **FAILS** at step 1: "External row's Add link asks for contactType=3" |
+
+`contact-lifecycle`, `health-care-team`, `health-care-team-heading` and `gap-records-health-care-team-panel` passed, and the check left no
+`FAKE-PW` rows behind. The smoke tier passed 11 of 12: `browser-surface` timed out waiting for the Tickler popup from the patient page,
+identically with the pre-fix JSPs restored, so it is not from this change. The server-log audit reported no unexplained signature.
+
+The WAF answers 403 to a `contactType` value carrying `"` and `=` before the page sees it, so the check's tampered values are plain text.

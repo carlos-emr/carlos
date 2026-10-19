@@ -15,6 +15,11 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openRx, stageCustomDrug, saveOnly } = require('./rx-stash-patient-isolation-playwright-checks');
 
+const dismissal = process.env.RX_PREVIEW_RETURN;
+if (dismissal && !['close', 'escape'].includes(dismissal)) throw new Error('Unknown RX_PREVIEW_RETURN');
+const checkName = dismissal === 'escape' ? 'rx-preview-escape-return-edit'
+  : dismissal === 'close' ? 'rx-preview-close-return-edit' : 'rx-preview-return-edit';
+
 const isPost = (route, value) => response => response.request().method() === 'POST'
   && h.pathOnly(response.url()).endsWith(route)
   && (!value || new URL(response.url()).searchParams.get('parameterValue') === value);
@@ -69,7 +74,7 @@ async function workflow(s) {
       await page.locator('#carlosModalLabel').click();
       await page.keyboard.press('Escape');
     }],
-  ]) {
+  ].filter(([label]) => !dismissal || label === (dismissal === 'escape' ? 'Escape' : 'X'))) {
     const name = `${marker} ${label}`;
     const rows = () => sql.rows(`SELECT drugid, archived, archived_reason, freqcode, duration FROM drugs
       WHERE demographic_no=${patient} AND customName=${h.sqlString(name)} ORDER BY drugid`);
@@ -115,5 +120,5 @@ async function workflow(s) {
   }
 }
 
-if (require.main === module) runWorkflow('rx-preview-return-edit', workflow, { openPatient: true });
+if (require.main === module) runWorkflow(checkName, workflow, { openPatient: true });
 module.exports = { workflow };

@@ -4,7 +4,7 @@
 // external professional contact (a Contact row), is chosen for that row, can be found by the External search, and
 // links to the patient when the editor is saved. The Health Care Team panel's "Add/Edit Professional Contact"
 // link still creates professional specialists.
-const { assert, sqlString } = require('./lib/playwright-harness');
+const { assert, sqlString, gotoApp } = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { masterRecordLink } = require('./lib/master-record-link');
@@ -30,6 +30,8 @@ async function workflow(s) {
 
   let editor;
   const open = async () => {
+    // A popup with the same window name is reused, not reopened.
+    if (editor && !editor.isClosed()) await editor.close();
     editor = await s.popup(s.master, masterRecordLink(s.master, 'Contact?method=manage').first(), 'contacts');
   };
   const pro = (name, row = 1) => editor.locator(`[name="procontact_${row}.${name}"]`);
@@ -59,11 +61,12 @@ async function workflow(s) {
 
   await s.step('contact type falls back to the Health Care Team behaviour for anything but External', async () => {
     const probe = await s.context.newPage();
+    const contextPath = `/${new URL(s.master.url()).pathname.split('/')[1]}`;
     for (const [query, expected] of [
       ['', SPECIALIST], ['&contactType=3', SPECIALIST], ['&contactType=2', EXTERNAL],
-      ['&contactType=0', SPECIALIST], ['&contactType=2%22%20onmouseover%3D%22x', SPECIALIST],
+      ['&contactType=0', SPECIALIST], ['&contactType=2x', SPECIALIST], ['&contactType=99', SPECIALIST],
     ]) {
-      await probe.goto(new URL(`/demographic/ViewProContactSearch?form=updatedelete&elementName=contactName&elementId=contactId${query}`,
+      await probe.goto(new URL(`${contextPath}/demographic/ViewProContactSearch?form=updatedelete&elementName=contactName&elementId=contactId${query}`,
         s.master.url()).toString());
       const href = new URL(await probe.getByRole('link', { name: 'Add/Edit Professional Contact' }).getAttribute('href'), probe.url());
       assert(href.searchParams.get('contactType') === expected,
@@ -106,6 +109,51 @@ async function workflow(s) {
     await result.click();
     assert(await pro('contactName', 2).inputValue() === `${lastName},External`, 'The listed contact could not be chosen');
     await editor.locator('[name="cancel"]').click();
+  });
+
+  await s.step('a row whose type was changed while the form was open is not filled with the saved contact', async () => {
+    await open();
+    // The saved association is row 1; the new row is row 2.
+    await editor.locator('a[onclick="addProContact();"]').click();
+    const search = await openExternalSearch(2);
+    await search.getByRole('link', { name: 'Add/Edit Professional Contact' }).click();
+    await search.locator('#addEditProfessionalForm').waitFor();
+    await search.locator('[id="pcontact.lastName"]').fill(lastName);
+    await search.locator('[id="pcontact.firstName"]').fill('Retyped');
+    await search.locator('[id="pcontact.workPhone"]').fill('555-0102');
+    await pro('type', 2).selectOption('0');
+    await search.locator('input[name="submitbtn"]').click();
+    await expectValue(sql, `SELECT COUNT(*) FROM Contact WHERE type='ProfessionalContact'
+      AND lastName=${sqlString(lastName)} AND firstName='Retyped'`, '1', 'The contact was not saved');
+    assert(await pro('contactId', 2).inputValue() === '0', 'A row that is no longer External was filled with the external contact');
+    assert(!search.isClosed(), 'The form closed although it did not hand the contact back');
+    await search.close();
+    await editor.locator('[name="cancel"]').click();
+  });
+
+  await s.step('the Health Care Team panel still adds a new external contact as a professional specialist', async () => {
+    if (!await s.master.locator('#healthCareTeam').count()) return; // panel disabled; the other steps stand
+    sql.execute(`DELETE FROM DemographicContact WHERE demographicNo=${patient}`);
+    const panel = await s.context.newPage();
+    await gotoApp(panel, s.config.baseUrl, `/demographic/ViewManageHealthCareTeam?view=detached&demographicNo=${patient}`);
+    await panel.locator('#searchInternalExternal').selectOption({ index: 1 });
+    await panel.locator('#searchHealthCareTeamInput').fill(marker);
+    const search = await s.popup(panel, panel.locator('#searchHealthCareTeamButton'), 'health-care-team-search');
+    const add = search.getByRole('link', { name: 'Add/Edit Professional Contact' });
+    const href = new URL(await add.getAttribute('href'), search.url());
+    assert(href.searchParams.get('contactType') === SPECIALIST, 'The Health Care Team Add link no longer asks for a specialist');
+    await add.click();
+    await search.locator('#addEditProfessionalForm').waitFor();
+    await search.locator('[id="pcontact.lastName"]').fill(lastName);
+    await search.locator('[id="pcontact.firstName"]').fill('Team');
+    await search.locator('[id="pcontact.workPhone"]').fill('555-0101');
+    await search.locator('input[name="submitbtn"]').click();
+    // The panel's popUpData hands the contact to its own AJAX save and the popup stays open; wait on the rows.
+    await expectValue(sql, `SELECT COUNT(*) FROM professionalSpecialists WHERE lName=${sqlString(lastName)} AND fName='Team'`, '1',
+      'The Health Care Team Add did not create a professional specialist');
+    await expectValue(sql, `SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${patient}
+      AND type=3 AND category='professional' AND deleted=0`, '1', 'The specialist was not put on the patient\'s team');
+    await panel.close();
   });
 }
 if (require.main === module) runWorkflow('contact-external-professional', workflow);

@@ -30,9 +30,11 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -66,6 +68,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class WCBAction22Action extends ActionSupport {
+    /** A saved form's id, as the form posts it back in {@code wcbFormId}; a new form posts 0. */
+    private static final Pattern SAVED_FORM_ID = Pattern.compile("[1-9]\\d{0,8}");
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -93,6 +98,18 @@ public class WCBAction22Action extends ActionSupport {
         }
 
         MiscUtils.getLogger().debug("In WCBAction22Action Jackson");
+
+        // A saved form opens for viewing only (#4947). Every save inserts a new row, so a post that names a
+        // saved form would store a second copy of it.
+        String postedFormId = request.getParameter("wcbFormId");
+        if (postedFormId != null && SAVED_FORM_ID.matcher(postedFormId).matches()) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType("text/plain;charset=UTF-8");
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.getWriter().write("This WCB form is already saved.");
+            return NONE;
+        }
 
         // The web context holds two beans of this type (the scanned billingmasterDAO and
         // applicationContext.xml's), so a lookup by type there fails; SpringUtils resolves the one the
@@ -140,7 +157,10 @@ public class WCBAction22Action extends ActionSupport {
 
 
         MiscUtils.getLogger().debug("OVER AND OUT.");
-        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/viewformwcb");
+        // Plain Save shows the form just saved, for viewing (#4947). The bare route named no form, so the
+        // page failed after every successful save.
+        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/viewformwcb?demographic_no="
+                + wcb.getDemographic_no() + "&formId=" + wcb.getId());
         return NONE;
     }
 

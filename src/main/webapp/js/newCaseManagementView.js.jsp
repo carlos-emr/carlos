@@ -1982,6 +1982,14 @@ function updateCPPNote() {
 
     }
 
+    // The Maximize image of a note folded onto one line, and the click handler that expands the note through
+    // xpandView, which removes the image again. minView and minStaleNoteView both fold a note this way; the
+    // markup is here once so the two cannot drift apart or give a note the same image id twice.
+    function addExpandImage(txt, nId) {
+        $(txt).insertAdjacentHTML('afterbegin', "<img title='Maximize Display' alt='Maximize Display' id='xpImg" + nId + "' name='expandViewTrigger' onclick='xpandView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_down.gif'>");
+        Element.observe(txt, 'click', xpandView);
+    }
+
     function minView(e) {
         var divHeight = "1.1em";
         var txt = Event.element(e).parentNode.id;
@@ -2035,9 +2043,39 @@ function updateCPPNote() {
         $(print).insertAdjacentHTML('afterend', anchor);
 
 
-        img = "<img title='Maximize Display' alt='Maximize Display' id='xpImg" + nId + "' name='expandViewTrigger' onclick='xpandView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_down.gif'>";
-        $(txt).insertAdjacentHTML('afterbegin', img);
-        Element.observe(txt, 'click', xpandView);
+        addExpandImage(txt, nId);
+    }
+
+    // Folds a shortened (stale) note onto one line with its date, as minView folds a note shown in full,
+    // for the provider's single-line stale-note format (ChartNotesAjax.jsp). The note's full text is loaded
+    // first, as fullView loads it, so expanding the folded note (xpandView) shows all of it.
+    function minStaleNoteView(nId) {
+        var txt = "n" + nId;
+        if ($(txt) == null) return;
+        // The shortened note expands when clicked (ChartNotesAjax.jsp); folded, it expands through xpandView.
+        $(txt).removeEventListener('click', fullView);
+        var trigger = $("quitImg" + nId);
+        if (trigger != null) Element.remove(trigger);
+
+        CarlosAjax.request(ctx + "/CaseManagementView", {
+            method: 'post',
+            postBody: "method=viewNote&raw=false&noteId=" + nId,
+            evalScripts: true,
+            onSuccess: function (response) {
+                $("txt" + nId).update(response.responseText.trim());
+                $("full" + nId).value = "true";
+            }
+        });
+
+        var dateValue = $("obs" + nId) != null ? $("obs" + nId).innerHTML : "";
+        dateValue = dateValue.substring(0, dateValue.indexOf(" "));
+        var line = $("txt" + nId).innerHTML.substr(0, 90).replace(/<br>/g, " ");
+        $(txt).style.overflow = "hidden";
+        $(txt).setStyle('height', '14px');
+        $("txt" + nId).hide();
+        if ($("sig" + nId) != null) $("sig" + nId).hide();
+        $(txt).insertAdjacentHTML('afterbegin', "<div id='d" + nId + "' style='width:10%;'><b>" + dateValue + "<\/b><\/div><div id='c" + nId + "' style='float:left; width:70%;'>" + line + "<\/div>");
+        addExpandImage(txt, nId);
     }
 
     var idHeight;
@@ -2052,8 +2090,14 @@ function updateCPPNote() {
 
 // this func fires only if maximize button is clicked after fullView
     function xpandView(e) {
-        var id = Event.element(e).id;
-        xpandViewById(id);
+        // Expand the note whose div (n<id>) holds the click. The click can land on a child with no id of its
+        // own, such as the bold date of a folded note, whose id would name no note.
+        var note = Event.element(e);
+        while (note != null && !(note.id && /^n\d+$/.test(note.id))) {
+            note = note.parentNode;
+        }
+        if (note == null) return;
+        xpandViewById(note.id);
         Event.stop(e);
     }
 

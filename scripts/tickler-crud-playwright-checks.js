@@ -418,10 +418,16 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   assert(comments.includes(editedMessage), 'edited tickler comment was not saved');
 }
 
-async function completeTicklerViaEdit(context, ticklerNo) {
-  const page = await context.newPage();
+async function completeTicklerViaEdit(context, listPage, ticklerNo) {
+  await findRowInList(listPage, createdMessage, 'A');
+  const row = listPage.locator('#ticklerResults tbody tr').filter({ hasText: createdMessage }).first();
+  const popup = context.waitForEvent('page');
+  await row.locator('a[onclick*="openTicklerEdit"]').click();
+  const page = await popup;
   wirePage(page, 'tickler-complete-edit');
-  await gotoApp(page, '/tickler/ViewTicklerEdit', 'domcontentloaded', { tickler_no: ticklerNo });
+  await page.waitForURL(url => url.pathname.endsWith('/tickler/ViewTicklerEdit')
+    && url.searchParams.get('tickler_no') === String(ticklerNo),
+    { timeout: 30000, waitUntil: 'domcontentloaded' });
   await page.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#status').selectOption('C');
   await page.locator('input[name="updateTickler"]').click();
@@ -501,9 +507,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     const activeRow = await findRowInList(listPage, createdMessage, 'A');
     assert(String(activeRow.id) === String(ticklerNo), `list row id ${activeRow.id} did not match created id ${ticklerNo}`);
     const searchFoundCreated = await probeTicklerSearch(listPage, createdMessage);
-    if (!searchFoundCreated) {
-      console.log(`WARN tickler list search did not return the created message ${createdMessage}`);
-    }
+    assert(searchFoundCreated, 'Tickler list search did not return the created message');
 
     await editTicklerFromList(context, listPage, ticklerNo);
     await listPage.reload({ waitUntil: 'domcontentloaded' });
@@ -511,7 +515,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     const editedRow = await findRowInList(listPage, createdMessage, 'A');
     assert(String(editedRow.id) === String(ticklerNo), `edited list row id ${editedRow.id} did not match ${ticklerNo}`);
 
-    await completeTicklerViaEdit(context, ticklerNo);
+    await completeTicklerViaEdit(context, listPage, ticklerNo);
     await listPage.reload({ waitUntil: 'domcontentloaded' });
     await waitForTicklerListReady(listPage);
     await setTicklerListStatus(listPage, 'C');

@@ -9,18 +9,18 @@ const jsp = fs.readFileSync(path.join(__dirname,
   '../src/main/webapp/WEB-INF/jsp/demographic/addEditProfessionalContact.jsp'), 'utf8');
 
 // Run the page's own fillParentFields, replacing only its three server-rendered request values (#4987).
-function fillParentFields(rendered, opener, contactId, contactName) {
-  const match = jsp.match(/function fillParentFields\(contactId, contactName\) \{([\s\S]*?)^ {12}\}/m);
+function fillParentFields(rendered, opener, contactId, contactName, contactType = '2') {
+  const match = jsp.match(/function fillParentFields\(contactId, contactName, contactType\) \{([\s\S]*?)^ {12}\}/m);
   assert.ok(match, 'fillParentFields was not found');
   const values = [rendered.form, rendered.id, rendered.name];
   const body = match[1].replace(/'\$\{carlos:forJavaScript\(param\.\w+\)\}'/g, () => JSON.stringify(values.shift()));
   assert.equal(values.length, 0, 'the three parent field names must be supplied');
-  return vm.runInNewContext(`(function (contactId, contactName) {${body}})(contactId, contactName)`,
-    { opener, contactId, contactName }, { timeout: 1000 });
+  return vm.runInNewContext(`(function (contactId, contactName, contactType) {${body}})(contactId, contactName, contactType)`,
+    { opener, contactId, contactName, contactType }, { timeout: 1000 });
 }
 
-const openerWith = () => {
-  const elements = { 'procontact_1.contactId': {}, 'procontact_1.contactName': {} };
+const openerWith = (rowType = '2') => {
+  const elements = { 'procontact_1.contactId': {}, 'procontact_1.contactName': {}, 'procontact_1.type': { value: rowType } };
   return { elements, opener: { document: { forms: { contactForm: { elements } } } } };
 };
 
@@ -40,6 +40,17 @@ test('nothing is filled when the opener named no row', () => {
     assert.equal(fillParentFields(rendered, opener, '42', 'x'), false);
   }
   assert.equal(elements['procontact_1.contactId'].value, undefined);
+});
+
+test('a row whose type was changed while the popup was open is left alone', () => {
+  for (const rowType of ['0', '3']) {
+    const { elements, opener } = openerWith(rowType);
+    const filled = fillParentFields({ form: 'contactForm', id: 'procontact_1.contactId', name: 'procontact_1.contactName' },
+      opener, '42', 'x');
+    assert.equal(filled, false);
+    assert.equal(elements['procontact_1.contactId'].value, undefined);
+    assert.equal(elements['procontact_1.contactName'].value, undefined);
+  }
 });
 
 test('the form prefers the Health Care Team hand-back when the opener offers one', () => {

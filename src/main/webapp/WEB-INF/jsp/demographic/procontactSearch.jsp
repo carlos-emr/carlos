@@ -29,6 +29,23 @@
 
 --%>
 
+<%--
+    Search popup for professional contacts, opened by the Contacts editor
+    (ManageContacts.jsp) and by the Health Care Team panel (manageHealthCareTeam.jsp).
+    Features: name search over external professional contacts (or, with list=all,
+    professional specialists too), paging, and "Add/Edit Professional Contact".
+    Parameters: form, elementName and elementId name the opener's fields that a
+    picked result fills (or the popUpData callback when the opener has one);
+    keyword and contactRole prefill the add form; contactType is the kind of
+    contact the opener is choosing: 2 (DemographicContact.TYPE_CONTACT) from the
+    Contacts editor's External row, which creates an external professional contact;
+    anything else, including no value, is treated as 3
+    (TYPE_PROFESSIONALSPECIALIST), the Health Care Team panel's choice.
+    The Add link hands form/elementName/elementId on to the add form as
+    parentForm/parentElementName/parentElementId so it can fill the row.
+    @since 2026.08 (#4987)
+--%>
+
 <!--
 /*
 *
