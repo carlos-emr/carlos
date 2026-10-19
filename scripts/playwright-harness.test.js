@@ -1305,3 +1305,18 @@ test('shouldLogOutOnlyWhenNotOptedOut_whenLaunchBrowserClosesTheBrowser', async 
   await wrapped.close();
   assert.deepEqual(wrapped.events, ['cookies context1', 'close browser'], 'by default the session is looked for first');
 });
+
+test('shouldKeepTheSession_whenTheCheckMarksTheContextBeforeClosingIt', async () => {
+  // echart-note-draft-recovery closes a context to stand in for a crash, then asserts the lock the session left.
+  const browser = fakeClosingBrowser();
+  const log = warnings();
+  harness.logoutOnClose(browser, logoutConfig, {
+    log, logout: async (context) => { browser.events.push(`logout ${context.name}`); },
+  });
+  const crashed = harness.keepSessionOnClose(await browser.newContext());
+  await browser.newContext();
+  await crashed.close();
+  await browser.close();
+  assert.deepEqual(browser.events, ['close context1', 'logout context2', 'close browser'],
+    'the kept context is closed without a logout, now and when the browser closes');
+});

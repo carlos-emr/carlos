@@ -972,6 +972,23 @@ async function logoutContext(context, config, { log = console, timeout = TEARDOW
   }
 }
 
+/** Contexts whose session must outlive their close (keepSessionOnClose); never logged out on close. */
+const SESSIONS_KEPT_ON_CLOSE = new WeakSet();
+
+/**
+ * Keep this context's session alive when it is closed: no teardown logout for it.
+ *
+ * For a check that closes a context to stand in for a crashed window and then asserts what that
+ * session left behind (echart-note-draft-recovery's stale note lock). The session then lives on until
+ * it times out, so the check's own cleanup must remove what the session held.
+ *
+ * @returns the same context
+ */
+function keepSessionOnClose(context) {
+  SESSIONS_KEPT_ON_CLOSE.add(context);
+  return context;
+}
+
 /**
  * Make closing a context, or the browser, log its sessions out first (see logoutContext).
  *
@@ -982,7 +999,7 @@ async function logoutContext(context, config, { log = console, timeout = TEARDOW
 function logoutOnClose(browser, config, { log = console, logout = logoutContext } = {}) {
   const done = new WeakSet();
   const logoutOnce = async (context) => {
-    if (done.has(context)) return;
+    if (done.has(context) || SESSIONS_KEPT_ON_CLOSE.has(context)) return;
     done.add(context);
     try {
       await logout(context, config, { log });
@@ -1017,7 +1034,8 @@ function logoutOnClose(browser, config, { log = console, logout = logoutContext 
  * Lazy so the harness stays require()-able in CI, which has no browser binary.
  *
  * Closing the browser or one of its contexts logs its sessions out first (logoutOnClose). A check that
- * needs its session to outlive the browser passes `{ logoutOnClose: false }`; none does today.
+ * needs every session to outlive the browser passes `{ logoutOnClose: false }` (none does today); one that
+ * needs a single context's session kept marks it with keepSessionOnClose(context).
  */
 async function launchBrowser(config, { logoutOnClose: logout = true } = {}) {
   // Deliberately not a top-level require: see the module header.
@@ -1561,6 +1579,7 @@ module.exports = {
   explainTlsFailure,
   isLocalTlsTarget,
   isWafPage,
+  keepSessionOnClose,
   launchBrowser,
   logoutContext,
   logoutOnClose,
