@@ -11,19 +11,22 @@ and 44 Rx checks. Earlier batches added 21, so the cumulative manifest changes
 from **692 to 775**. External administration is excluded. Passing checks remain
 on `codex/ui-workflow-coverage-2026-08` alongside the defect reproductions.
 
+Registered check names below use the published contribution handles. Finding
+numbers and archived results retain the original validation IDs.
+
 | Round | Workflow / task | Registered checks |
 |---|---|---|
 | 1 | Episode diagnosis selection and literal descriptions | `episode-coded-diagnosis`; `episode-literal-description` (finding 296) |
 | 2 | Embedded internal/external health-care team | `health-care-team-embedded-actions`; `health-care-team-external-picker` |
-| 3 | Consultation date/completion filters and overdue follow-up | `consultation-date-completion-filters`; `consultation-overdue-tickler` (finding 297) |
+| 3 | Consultation date/completion filters and overdue follow-up | `consultation-date-completion-filters`; `consultation-overdue-tickler-handoff` (finding 297) |
 | 4 | Paged bulk task actions | `tickler-last-page-complete`; `tickler-first-page-delete` |
 | 5 | Patient set repeat and empty saves | `patient-set-repeat-save` (finding 82); `patient-set-empty-query` |
 | 6 | Message Select All actions | `messenger-select-all-read-controls`; `messenger-select-all-archive-restore` |
 | 7 | Appointment search filters and limits | `appointment-search-weekday-time-code`; `appointment-search-result-limit` |
 | 8 | Prevention reminder suppression and resumption | `prevention-next-date-never-remind`; `prevention-resume-reminders` |
 | 9 | Saved Rourke record and lab requisition corrections | `clinical-followup-rourke-revise`; `clinical-followup-labreq-revise` |
-| 10 | Indications | `rx-indication-archive`; `rx-indication-patient-registry` (finding 298) |
-| 11 | CPP visibility | `rx-cpp-visibility-roundtrip`; `rx-cpp-visibility-save-refusal` (finding 299) |
+| 10 | Indications | `rx-indication-archive`; `rx-indication-registry-roundtrip` (finding 298) |
+| 11 | CPP visibility | `rx-cpp-visibility-roundtrip`; `rx-cpp-visibility-refused-state` (finding 299) |
 | 12 | Structured dose and PRN | `rx-inline-structured-dose-save`; `rx-inline-prn-toggle` |
 | 13 | Empty final saves | `rx-empty-save-only`; `rx-empty-save-print` |
 | 14 | Cancel custom entry | `rx-custom-drug-decline`; `rx-custom-note-decline` |
@@ -42,7 +45,7 @@ on `codex/ui-workflow-coverage-2026-08` alongside the defect reproductions.
 | 27 | Written-date correction | `rx-written-date-future-correction`; `rx-written-date-impossible-correction` (finding 301) |
 | 28 | Duplicate final clicks | `rx-double-save-only`; `rx-double-save-print` |
 | 29 | Preferred pharmacy removal | `rx-pharmacy-remove-primary-return`; `rx-pharmacy-remove-all-return` |
-| 30 | Timeline selections | `rx-timeline-multiple-selection`; `rx-timeline-clear-selection` (finding 303) |
+| 30 | Timeline selections | `rx-timeline-multiple-selection`; `rx-timeline-empty-selection` (finding 303) |
 | 31 | Preview return and correction | `rx-preview-close-return-edit` (finding 304); `rx-preview-escape-return-edit` (finding 304) |
 
 The Rx control inventory, existing coverage and limitations are in

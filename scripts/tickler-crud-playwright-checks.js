@@ -425,8 +425,9 @@ async function completeTicklerViaEdit(context, listPage, ticklerNo) {
   await row.locator('a[onclick*="openTicklerEdit"]').click();
   const page = await popup;
   wirePage(page, 'tickler-complete-edit');
-  await page.waitForLoadState('domcontentloaded');
-  assert(new URL(page.url()).searchParams.get('tickler_no') === String(ticklerNo), 'Complete opened a different tickler');
+  await page.waitForURL(url => url.pathname.endsWith('/tickler/ViewTicklerEdit')
+    && url.searchParams.get('tickler_no') === String(ticklerNo),
+    { timeout: 30000, waitUntil: 'domcontentloaded' });
   await page.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#status').selectOption('C');
   await page.locator('input[name="updateTickler"]').click();

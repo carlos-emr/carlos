@@ -35,8 +35,9 @@ async function prepareRx(s) {
       quantity:'30',repeat:0,dosage:'1',freqcode:'OD',duration:'30',durunit:'D',method:'tab',route:'PO',
       create_date:`${today} 09:00:00`,lastUpdateDate:`${today} 09:00:00`,...overrides};
     h.assert(Object.keys(values).every(key => /^[a-zA-Z_]+$/.test(key)), 'Invalid fixture column');
+    const literal = value => value === null || value === undefined ? 'NULL' : h.sqlString(value);
     return h.insertId(sql, `INSERT INTO drugs (${Object.keys(values).map(key=>`\`${key}\``).join(',')})
-      VALUES (${Object.values(values).map(h.sqlString).join(',')})`, 'owned medication');
+      VALUES (${Object.values(values).map(literal).join(',')})`, 'owned medication');
   }
   async function open() {
     const chart = await s.chart();

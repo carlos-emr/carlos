@@ -12844,7 +12844,7 @@
         "RX_FAVOURITE_ACTION"
       ],
       "fixtures": "Owned synthetic patient and marker-named rows only; cleanup verifies removal.",
-      "notes": "Chart > Rx > Edit favourites: change dosing, frequency, duration, quantity, repeats, flags and quoted directions; save/reopen, stage from sidebar, preserve a control and save no prescription. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 295."
+      "notes": "Chart > Rx > Edit favourites: change dosing, frequency, duration, quantity, repeats, flags and quoted directions; save/reopen, stage from sidebar, preserve a control and save no prescription. Reproduced on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 298, fixed by #5023."
     },
     {
       "name": "rx-favourite-editor-validation",
@@ -12980,7 +12980,7 @@
       "envSet": {
         "RX_FAVOURITE_ACTION": "multiline"
       },
-      "notes": "Edit a favourite with multiline directions through the actual editor, reopen it, choose it from Rx and require the prescribing card to preserve its line break. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 292.",
+      "notes": "Edit a favourite with multiline directions through the actual editor, reopen it, choose it from Rx and require the prescribing card to preserve its line break. Reproduced on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 295, fixed by #5023.",
       "fixtures": "Owned patient and two marker-named favourites; staging saves no prescription; cleanup verified."
     },
     {
@@ -13003,7 +13003,7 @@
       "envSet": {
         "PATIENT_LETTER_ACTION": "labels"
       },
-      "notes": "Master Record > Generate Letters > Manage Letters: field labels and action names must not show unresolved resource keys. Independent of template deletion and generation. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 294.",
+      "notes": "Master Record > Generate Letters > Manage Letters: field labels and action names must not show unresolved resource keys. Independent of template deletion and generation. Reproduced on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 297, fixed by #4932.",
       "fixtures": "Two UI-uploaded owned templates and an owned patient; cleanup verified. The template library is shared; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "report_letters"

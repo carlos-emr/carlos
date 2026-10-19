@@ -188,21 +188,29 @@ async function clickScheduleLink(context, schedulePage, linkSpec) {
   // popups. The old fallback inspected the last context page (often Scratch),
   // allowing Report/Inbox/eDoc to pass without judging their actual destination.
   const onPopup = popup => wirePage(popup, linkSpec.label);
+  const scheduleUrl = schedulePage.url();
   context.on('page', onPopup);
   let outcome;
   try {
     outcome = await clickOpensPopupOrNavigates(schedulePage, locator,
-      { context, label: linkSpec.label, timeout: 30000 });
+      { context, label: linkSpec.label, timeout: 30000, checkErrorPage: false });
     const targetPage = outcome.page;
-    const expected = `${baseUrl.pathname}${linkSpec.path}`;
-    if (new URL(targetPage.url()).pathname !== expected) {
-      throw new Error(`${linkSpec.label} opened ${new URL(targetPage.url()).pathname}; expected ${expected}`);
-    }
     visited.push({ label: linkSpec.label, url: targetPage.url() });
     await assertNoErrorPage(targetPage, linkSpec.label);
+    const expected = `${baseUrl.pathname}${linkSpec.path}`;
+    if (new URL(targetPage.url()).pathname !== expected) {
+      findings.push({ label: linkSpec.label, type: 'unexpected-destination',
+        path: new URL(targetPage.url()).pathname, expected });
+    }
   } finally {
     context.off('page', onPopup);
     if (outcome && outcome.isPopup && !outcome.page.isClosed()) await outcome.page.close();
+    if (outcome && !outcome.isPopup) {
+      // Reopen the observed schedule address with GET; history may otherwise
+      // replay the provider-selection POST that produced the schedule.
+      await schedulePage.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await schedulePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    }
   }
 }
 

@@ -48,7 +48,8 @@ async function workflow(s) {
       const link=list.locator('a[href*="/tickler/ViewAddTickler?"]');
       h.assert(await link.count()===1,'No overdue Add Tickler control');
       const href=await link.getAttribute('href');
-      h.assert(new URL(href,list.url()).searchParams.getAll('demo').every(x=>x===patient),'Bulk control targets unowned patients');
+      const patients=new URL(href,list.url()).searchParams.getAll('demographic_no');
+      h.assert(patients.length===1&&patients[0]===patient,'Follow-up control targets another patient or carries no patient');
       const dialogs=await h.withExpectedDialogs(list,async()=>{
         await Promise.all([list.waitForEvent('dialog'),link.click()]);
       },{accept:false});

@@ -9,9 +9,12 @@ const clear=process.env.RX_TIMELINE_ACTION==='clear';
 const name=clear?'rx-timeline-empty-selection':'rx-timeline-multiple-selection';
 async function workflow(s){
   const {sql,patient}=s,f=await prepareRx(s);
-  const products=sql.rows("SELECT regional_identifier,MIN(BN) FROM drugs WHERE demographic_no<>"+patient+" AND customName IS NULL AND regional_identifier IS NOT NULL AND regional_identifier<>'' GROUP BY regional_identifier ORDER BY regional_identifier LIMIT 2");
+  const products=sql.rows("SELECT regional_identifier,COALESCE(MIN(BN),'FAKE catalogue product') FROM drugs WHERE demographic_no<>"+patient+" AND customName IS NULL AND regional_identifier IS NOT NULL AND regional_identifier<>'' GROUP BY regional_identifier ORDER BY regional_identifier LIMIT 2");
   h.assert(products.length===2,'Two established product identifiers are required');
-  for(const [din,brand]of products)f.seed('timeline',{regional_identifier:din,BN:brand,customName:null});
+  for(const [din,brand]of products){
+    const id=f.seed('timeline',{regional_identifier:din,BN:brand,customName:null});
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE drugid=${id} AND customName IS NULL`)==='1','The catalogue fixture has a custom name');
+  }
   f.seed('custom not graphed');
   const before=JSON.stringify(sql.rows(`SELECT * FROM drugs WHERE demographic_no=${patient} ORDER BY drugid`)),rx=await f.open();
   const chart=await s.popup(rx,rx.locator('a[href*="/rx/ViewChartDrugProfile"]').first(),'rx-timeline');
