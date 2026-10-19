@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Calendar;
@@ -217,7 +218,7 @@ class NotesServiceEndpointTest extends CarlosRestTestBase {
             ProgramProvider pp = new ProgramProvider();
             pp.setProgramId(1L);
             when(mockProgramManager2.getCurrentProgramInDomain(any(LoggedInInfo.class), eq("100"))).thenReturn(pp);
-            var note = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay.class);
+            var note = mock(io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay.class);
             when(note.getNoteId()).thenReturn(17);
             when(note.getObservationDate()).thenReturn(midnight);
             when(note.getUpdateDate()).thenReturn(epochDay);

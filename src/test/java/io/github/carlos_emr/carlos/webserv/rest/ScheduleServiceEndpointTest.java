@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Calendar;
@@ -190,9 +191,9 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
             // AppointmentConverter looks these up through SpringUtils; neither is reached here
             // (no demographic/provider include), but the converter needs them to construct.
             registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class,
-                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
+                    mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
             registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,
-                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
+                    mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
             var appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
             appointment.setId(23);
             appointment.setDemographicNo(42);

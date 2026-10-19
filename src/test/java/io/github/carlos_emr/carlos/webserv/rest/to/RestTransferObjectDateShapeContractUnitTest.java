@@ -233,14 +233,17 @@ class RestTransferObjectDateShapeContractUnitTest {
             keys.add(property.key());
         }
 
+        // Reached through, in order: MeasurementResponse's entities, appointmentHistory's
+        // billingDetail, getAppointment's demographic, saveNote's NoteTo1.issues,
+        // ProviderService.getProviders, and /schedule/day/{date}.
         assertThat(restServiceClasses()).hasSizeGreaterThan(30);
         assertThat(keys).contains(
-                "commn.model.Measurement.createDate",                // MeasurementResponse's entities
-                "commn.model.BillingONItem.lastEditDT",              // appointmentHistory > billingDetail
-                "commn.model.Demographic.lastUpdateDate",            // getAppointment > demographic
-                "casemgmt.model.CaseManagementIssue.update_date",    // saveNote > NoteTo1.issues
+                "commn.model.Measurement.createDate",
+                "commn.model.BillingONItem.lastEditDT",
+                "commn.model.Demographic.lastUpdateDate",
+                "casemgmt.model.CaseManagementIssue.update_date",
                 "webserv.transfer_objects.ProviderTransfer.signedConfidentiality",
-                "web.PatientListApptItemBean.date");                  // /schedule/day/{date}
+                "web.PatientListApptItemBean.date");
     }
 
     @Test
@@ -412,7 +415,7 @@ class RestTransferObjectDateShapeContractUnitTest {
             Constructor<?> constructor = type.getDeclaredConstructor();
             constructor.setAccessible(true);
             return constructor.newInstance();
-        } catch (NoSuchMethodException e) {
+        } catch (NoSuchMethodException _) {
             return new ObjenesisStd().newInstance(type);
         }
     }
