@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "test:rx-strength-quantity-playwright": "node scripts/rx-strength-quantity-playwright-checks.js",
     "test:rx-profile-legend": "node scripts/rx-profile-legend-playwright-checks.js",
     "docusaurus": "docusaurus",
     "start": "docusaurus start",

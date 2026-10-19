@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
@@ -59,6 +60,58 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "000000", 0);
         rx.setSpecial(special);
         return rx;
+    }
+
+    @Nested
+    @DisplayName("strengths and dispense quantities (issue #3876)")
+    class StrengthQuantities {
+
+        @ParameterizedTest(name = "{0} gives 21 units")
+        @ValueSource(strings = {
+            "1000 mg po tid x 7 days", "Take 1000 mg po tid x 7 days",
+            "1000mg po tid x 7 days", "Take 1000MG po tid x 7 days",
+            "5 mg po tid x 7 days", "0.5 mg po tid x 7 days", ".5mg po tid x 7 days",
+            "250 mcg po tid x 7 days", "250 µg po tid x 7 days", "250 μg po tid x 7 days",
+            "1 g po tid x 7 days", "5 mL po tid x 7 days", "1000 IU po tid x 7 days",
+            "20 mEq po tid x 7 days", "20 units po tid x 7 days",
+            "500-1000 mg po tid x 7 days", "500-1000mg po tid x 7 days",
+            "1/2 g po tid x 7 days", "1/2g po tid x 7 days"
+        })
+        void shouldDefaultToOneUnit_whenLeadingNumberHasStrengthUnit(String instructions) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(1f);
+            assertThat(rx.getTakeMax()).isEqualTo(1f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("TID");
+            assertThat(rx.getDuration()).isEqualTo("7");
+            assertThat(rx.getDurationUnit()).isEqualTo("D");
+            assertThat(rx.getQuantity()).isEqualTo("21");
+        }
+
+        @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
+        @CsvSource(delimiter = '|', value = {
+            "2 tabs po tid x 7 days | 2 | 2 | 42",
+            "Take 2 tablets (1000 mg) po tid x 7 days | 2 | 2 | 42",
+            "1000 mg po 2 tid x 7 days | 2 | 2 | 42",
+            "1000mg po 2 tid x 7 days | 2 | 2 | 42",
+            "1000 mg po 1-2 tid x 7 days | 1 | 2 | 42",
+            "Take 20 tabs (20 mg) po tid x 7 days | 20 | 20 | 420",
+            "1/2 tab po tid x 8 days | 0.5 | 0.5 | 12",
+            "0.5 tab po tid x 8 days | 0.5 | 0.5 | 12",
+            "1-2 tabs po tid x 7 days | 1 | 2 | 42",
+            "two tablets po tid x 7 days | 2 | 2 | 42",
+            "2 mgtablets po tid x 7 days | 2 | 2 | 42"
+        })
+        void shouldPreserveExplicitCounts_whenStrengthAppearsElsewhere(String instructions,
+                float minimum, float maximum, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(minimum);
+            assertThat(rx.getTakeMax()).isEqualTo(maximum);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
     }
 
     // -------------------------------------------------------------------------

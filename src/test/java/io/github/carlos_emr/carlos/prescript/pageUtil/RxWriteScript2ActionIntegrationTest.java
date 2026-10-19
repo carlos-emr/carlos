@@ -37,6 +37,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -84,6 +86,34 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         // MockHttpServletRequest defaults to no method; the mutating entry points require POST.
         mockRequest.setMethod("POST");
         action = new RxWriteScript2Action();
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "1000 mg po tid x 7 days | 1 | 21",
+        "Take 5mg po tid x 7 days | 1 | 21",
+        "1000 mg po 2 tid x 7 days | 2 | 42"
+    })
+    void shouldReturnCorrectQuantity_whenParsingStrengthInstructions(String instruction,
+            int dose, String quantity) throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "parseInstructions");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("instruction", instruction);
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMin").asDouble()).isEqualTo(dose);
+        assertThat(body.path("takeMax").asDouble()).isEqualTo(dose);
+        assertThat(body.path("calQuantity").asText()).isEqualTo(quantity);
+        assertThat(bean.getStashItem2(123).getQuantity()).isEqualTo(quantity);
+        assertThat(bean.getStashItem2(123).getSpecial()).contains(instruction);
     }
 
     @Test

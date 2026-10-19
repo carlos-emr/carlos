@@ -56,6 +56,28 @@
   ],
   "checks": [
     {
+      "name": "rx-strength-quantity",
+      "script": "scripts/rx-strength-quantity-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "mutates": [
+        "demographic",
+        "drugs",
+        "prescription",
+        "DigitalSignature"
+      ],
+      "fixtures": "Owned synthetic patient and custom prescription; cleanup after browser closes; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue #3876: strength values default to one unit per dose; explicit counts take precedence; AJAX, card quantity and saved drugs row are asserted."
+    },
+    {
       "name": "retired-view-aliases",
       "script": "scripts/retired-view-aliases-playwright-checks.js",
       "tiers": [

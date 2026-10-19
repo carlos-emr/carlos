@@ -52,6 +52,8 @@ public class RxUtil {
     private static Locale locale = Locale.CANADA;
     private static String defaultQuantity = "30";
     private static final Logger logger = MiscUtils.getLogger();
+    private static final Pattern STRENGTH_UNIT = Pattern.compile(
+            "(?:mg|mcg|[µμ]g|g|ml|iu|meq|units?)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
 
     public static void setDefaultQuantity(String quantity) {
@@ -648,6 +650,12 @@ public class RxUtil {
 		//if no, check if a number is specified at beginning.
 		if (!instructions.isEmpty()) {
 			InstructionSegment instructionSegment = scanInstruction(instructions, methods);
+            // A strength describes the dose, not a count of dispensable units. Explicit
+            // counts before the frequency still take precedence in the selection below.
+            if (instructionSegment.strength) {
+                takeMin = "1";
+                takeMax = "1";
+            }
 			if (instructionSegment.method != null) {
 				method = instructionSegment.method;
                     }
@@ -1034,7 +1042,7 @@ public class RxUtil {
         if (index == denominatorStart) {
             return null;
         }
-        if (!hasTokenBoundaryAt(text, index)) {
+        if (!hasTokenBoundaryAt(text, index) && !hasStrengthUnitAfter(text, index)) {
             return null;
         }
 
@@ -1067,6 +1075,11 @@ public class RxUtil {
 
     private static boolean isDigit(char c) {
         return c >= '0' && c <= '9';
+    }
+
+    private static boolean hasStrengthUnitAfter(String instructions, int amountEnd) {
+        return STRENGTH_UNIT.matcher(instructions)
+                .region(skipWhitespaceForward(instructions, amountEnd), instructions.length()).lookingAt();
     }
 
 
@@ -1114,7 +1127,14 @@ public class RxUtil {
 
     private static boolean setRangeAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
         NumberRange methodRange = findRangeAt(instructions, amountStart);
-        if (methodRange == null || !hasTokenBoundaryAt(instructions, methodRange.end)) {
+        if (methodRange == null) {
+            return false;
+        }
+        if (hasStrengthUnitAfter(instructions, methodRange.end)) {
+            segment.strength = true;
+            return true;
+        }
+        if (!hasTokenBoundaryAt(instructions, methodRange.end)) {
             return false;
         }
 
@@ -1126,7 +1146,14 @@ public class RxUtil {
 
     private static boolean setDecimalAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
         NumberToken methodAmount = findDecimalAt(instructions, amountStart);
-        if (methodAmount == null || !hasTokenBoundaryAt(instructions, methodAmount.end)) {
+        if (methodAmount == null) {
+            return false;
+        }
+        if (hasStrengthUnitAfter(instructions, methodAmount.end)) {
+            segment.strength = true;
+            return true;
+        }
+        if (!hasTokenBoundaryAt(instructions, methodAmount.end)) {
             return false;
         }
 
@@ -1142,6 +1169,11 @@ public class RxUtil {
         String fraction = findFractionAt(instructions, amountStart);
         if (fraction == null) {
             return false;
+        }
+
+        if (hasStrengthUnitAfter(instructions, amountStart + fraction.length())) {
+            segment.strength = true;
+            return true;
         }
 
         segment.amountFrequency = convertFractionToAmount(fraction);
@@ -1202,6 +1234,7 @@ public class RxUtil {
     }
 
     private static class InstructionSegment {
+        boolean strength;
         String method;
         String takeMin;
         String takeMax;
