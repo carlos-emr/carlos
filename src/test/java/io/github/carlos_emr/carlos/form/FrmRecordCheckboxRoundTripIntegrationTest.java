@@ -27,13 +27,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import javax.sql.DataSource;
@@ -82,8 +79,6 @@ class FrmRecordCheckboxRoundTripIntegrationTest {
     private static final int PATIENT = 101;
     private static final String CHECKED = "checked='checked'";
     private static final Path BASELINE = Path.of("database/mysql/migration/common/V1__baseline_schema.sql");
-    private static final Pattern CREATE_TABLE = Pattern.compile(
-            "CREATE TABLE `(?<name>\\w+)` \\((?<body>.*?)\\n\\)[^;]*;", Pattern.DOTALL);
 
     private Connection keeper;
     private JdbcTemplate jdbc;
@@ -100,8 +95,11 @@ class FrmRecordCheckboxRoundTripIntegrationTest {
 
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
-        spring.when(() -> SpringUtils.getBean(DemographicManager.class)).thenReturn(mock(DemographicManager.class));
-        spring.when(() -> SpringUtils.getBean(DemographicExtDao.class)).thenReturn(mock(DemographicExtDao.class));
+        // FrmRecord's constructor looks both up; saving and reopening a form uses neither.
+        var demographicManager = mock(DemographicManager.class);
+        var demographicExtDao = mock(DemographicExtDao.class);
+        spring.when(() -> SpringUtils.getBean(DemographicManager.class)).thenReturn(demographicManager);
+        spring.when(() -> SpringUtils.getBean(DemographicExtDao.class)).thenReturn(demographicExtDao);
         var config = mock(CarlosProperties.class);
         when(config.getProperty("db_type", "")).thenReturn("mysql");
         when(config.getProperty("save_as_xml", "false")).thenReturn("false");
@@ -152,18 +150,21 @@ class FrmRecordCheckboxRoundTripIntegrationTest {
                 .map(c -> Arguments.of(c.name(), c.table(), c.factory()));
     }
 
+    /**
+     * Creates each named table from its {@code CREATE TABLE} statement in the baseline schema. A statement runs from
+     * its opening line to the first line that starts with the closing parenthesis; the trailing {@code ENGINE=...}
+     * options are MySQL-only and are dropped.
+     */
     private void loadBaselineTables(List<String> tables) throws IOException {
         String baseline = Files.readString(BASELINE, StandardCharsets.UTF_8);
-        List<String> found = new ArrayList<>();
-        Matcher matcher = CREATE_TABLE.matcher(baseline);
-        while (matcher.find()) {
-            String name = matcher.group("name");
-            if (tables.contains(name)) {
-                found.add(name);
-                jdbc.execute("CREATE TABLE `" + name + "` (" + matcher.group("body") + "\n)");
-            }
+        for (String table : tables) {
+            String opening = "CREATE TABLE `" + table + "` (";
+            int start = baseline.indexOf(opening);
+            assertThat(start).as("CREATE TABLE of " + table + " in the baseline schema").isGreaterThanOrEqualTo(0);
+            int end = baseline.indexOf("\n)", start);
+            assertThat(end).as("end of the CREATE TABLE of " + table).isGreaterThan(start);
+            jdbc.execute(baseline.substring(start, end + 2));
         }
-        assertThat(found).as("tables found in the baseline schema").containsExactlyInAnyOrderElementsOf(tables);
     }
 
     /**
@@ -171,8 +172,8 @@ class FrmRecordCheckboxRoundTripIntegrationTest {
      * with {@code ID} set to 0, which MySQL turns into the next generated id; H2 stores the 0 itself, so the new
      * row is numbered here the way MySQL would have numbered it.
      */
-    private int save(FrmRecord record, String table, Properties post) throws SQLException {
-        record.saveFormRecord(post);
+    private int save(FrmRecord formRecord, String table, Properties post) throws SQLException {
+        formRecord.saveFormRecord(post);
         Integer last = jdbc.queryForObject("SELECT COALESCE(MAX(ID), 0) FROM `" + table + "`", Integer.class);
         int id = last + 1;
         assertThat(jdbc.update("UPDATE `" + table + "` SET ID = ? WHERE ID = 0", id))
@@ -202,16 +203,16 @@ class FrmRecordCheckboxRoundTripIntegrationTest {
         assertThat(boxes).as("checkbox columns of " + table).hasSizeGreaterThanOrEqualTo(2);
         String ticked = boxes.get(0);
         String unticked = boxes.get(1);
-        FrmRecord record = factory.get();
+        FrmRecord formRecord = factory.get();
 
         Properties posted = browserPost();
         posted.setProperty(ticked, "on"); // what a browser posts for a ticked box; an unticked one posts nothing
-        int formId = save(record, table, posted);
+        int formId = save(formRecord, table, posted);
 
         assertThat(jdbc.queryForObject("SELECT `" + ticked + "` FROM `" + table + "` WHERE ID = ?", Integer.class,
                 formId)).as("stored value of the ticked box").isEqualTo(1);
 
-        Properties reopened = record.getFormRecord(null, PATIENT, formId);
+        Properties reopened = formRecord.getFormRecord(null, PATIENT, formId);
 
         assertThat(reopened.getProperty(ticked)).as("ticked box " + ticked).isEqualTo(CHECKED);
         assertThat(reopened.getProperty(unticked)).as("unticked box " + unticked).isEmpty();
@@ -223,21 +224,21 @@ class FrmRecordCheckboxRoundTripIntegrationTest {
             throws Exception {
         List<String> boxes = checkboxColumns(table);
         String ticked = boxes.get(0);
-        FrmRecord record = factory.get();
+        FrmRecord formRecord = factory.get();
 
         Properties firstPost = browserPost();
         firstPost.setProperty(ticked, "on");
-        int firstId = save(record, table, firstPost);
+        int firstId = save(formRecord, table, firstPost);
 
         // The reopened page: a box shown ticked is posted back as "on", one shown blank is not posted.
-        Properties reopened = record.getFormRecord(null, PATIENT, firstId);
+        Properties reopened = formRecord.getFormRecord(null, PATIENT, firstId);
         Properties secondPost = browserPost();
         for (String box : boxes) {
             if (CHECKED.equals(reopened.getProperty(box))) {
                 secondPost.setProperty(box, "on");
             }
         }
-        int secondId = save(record, table, secondPost);
+        int secondId = save(formRecord, table, secondPost);
 
         assertThat(secondId).isNotEqualTo(firstId);
         assertThat(jdbc.queryForObject("SELECT `" + ticked + "` FROM `" + table + "` WHERE ID = ?", Integer.class,

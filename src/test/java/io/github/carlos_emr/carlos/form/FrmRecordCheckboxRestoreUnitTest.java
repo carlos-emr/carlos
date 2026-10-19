@@ -30,7 +30,6 @@ import java.sql.ResultSetMetaData;
 import java.util.List;
 import java.util.Properties;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
@@ -110,12 +109,12 @@ class FrmRecordCheckboxRestoreUnitTest extends CarlosUnitTestBase {
 
     private static Stream<Arguments> recordClassesAndCheckboxTypeNames() {
         return recordClasses().stream()
-                .flatMap(record -> Stream.of("BIT", "TINYINT", "TINYINT UNSIGNED")
-                        .map(typeName -> Arguments.of(record.name(), record.factory(), typeName)));
+                .flatMap(formRecord -> Stream.of("BIT", "TINYINT", "TINYINT UNSIGNED")
+                        .map(typeName -> Arguments.of(formRecord.name(), formRecord.factory(), typeName)));
     }
 
     private static Stream<Arguments> recordClassesOnly() {
-        return recordClasses().stream().map(record -> Arguments.of(record.name(), record.factory()));
+        return recordClasses().stream().map(formRecord -> Arguments.of(formRecord.name(), formRecord.factory()));
     }
 
     /**
@@ -147,10 +146,10 @@ class FrmRecordCheckboxRestoreUnitTest extends CarlosUnitTestBase {
         return row;
     }
 
-    private static Properties reopen(FrmRecord record, ResultSet row) throws Exception {
+    private static Properties reopen(FrmRecord formRecord, ResultSet row) throws Exception {
         try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(anyString(), any(Object[].class))).thenReturn(row);
-            return record.getFormRecord(null, PATIENT, SAVED_FORM);
+            return formRecord.getFormRecord(null, PATIENT, SAVED_FORM);
         }
     }
 
@@ -200,7 +199,7 @@ class FrmRecordCheckboxRestoreUnitTest extends CarlosUnitTestBase {
                     })
                     .map(Path::toString)
                     .sorted()
-                    .collect(Collectors.toList());
+                    .toList();
 
             assertThat(offenders).as("sources comparing a column type with \"TINY\"").isEmpty();
         }
