@@ -1176,3 +1176,132 @@ test('shouldOmitBrowserVersion_whenNoBrowserWasLaunched', async () => {
   });
   assert.equal('browserVersion' in result, false, 'a skipped or non-browser check records none rather than a guess');
 });
+
+/**
+ * A browser context double for the teardown logout: a session cookie or none, and a page whose
+ * /logoutPage load either posts to /logout (answering `status`) or fails.
+ */
+function fakeLogoutContext({ signedIn = true, gotoError, status = 302 } = {}) {
+  const calls = { newPage: 0, goto: [], pageClosed: 0, predicates: [] };
+  const logoutPost = {
+    request: () => ({ method: () => 'POST' }), url: () => 'http://127.0.0.1:8080/carlos/logout', status: () => status,
+  };
+  const page = {
+    waitForResponse(predicate) {
+      calls.predicates.push(predicate);
+      return gotoError ? Promise.reject(new Error('no response')) : Promise.resolve(logoutPost);
+    },
+    async goto(url) {
+      calls.goto.push(url);
+      if (gotoError) throw gotoError;
+    },
+    async close() { calls.pageClosed++; },
+  };
+  return {
+    calls,
+    async cookies() { return signedIn ? [{ name: 'JSESSIONID', value: 'ABC' }] : []; },
+    async newPage() { calls.newPage++; return page; },
+  };
+}
+
+const logoutConfig = { baseUrl: new URL('http://127.0.0.1:8080/carlos') };
+const warnings = () => { const lines = []; return { lines, warn: (line) => lines.push(line) }; };
+
+test('shouldLogOutThroughTheLogoutPage_whenTheContextHasASession', async () => {
+  const context = fakeLogoutContext();
+  const log = warnings();
+  assert.equal(await harness.logoutContext(context, logoutConfig, { log }), true);
+  assert.deepEqual(context.calls.goto, ['http://127.0.0.1:8080/carlos/logoutPage'],
+    'the app\'s own logout page, which POSTs its form to /logout (a GET of /logout is refused)');
+  const [isLogoutPost] = context.calls.predicates;
+  assert.equal(isLogoutPost({ request: () => ({ method: () => 'POST' }), url: () => 'http://127.0.0.1:8080/carlos/logout' }), true);
+  assert.equal(isLogoutPost({ request: () => ({ method: () => 'GET' }), url: () => 'http://127.0.0.1:8080/carlos/logout' }), false);
+  assert.equal(context.calls.pageClosed, 1, 'the logout page is closed again');
+  assert.deepEqual(log.lines, []);
+});
+
+test('shouldLeaveTheContextAlone_whenItNeverSignedIn', async () => {
+  const context = fakeLogoutContext({ signedIn: false });
+  assert.equal(await harness.logoutContext(context, logoutConfig, { log: warnings() }), false);
+  assert.equal(context.calls.newPage, 0, 'no session cookie, so nothing to end');
+});
+
+test('shouldWarnAndSwallow_whenTheTeardownLogoutFails', async () => {
+  for (const context of [fakeLogoutContext({ gotoError: new Error('net::ERR_CONNECTION_REFUSED') }),
+    fakeLogoutContext({ status: 403 })]) {
+    const log = warnings();
+    assert.equal(await harness.logoutContext(context, logoutConfig, { log }), false);
+    assert.equal(log.lines.length, 1);
+    assert.match(log.lines[0], /^WARN teardown logout did not complete: /);
+    assert.equal(context.calls.pageClosed, 1, 'the page is closed even when the logout failed');
+  }
+});
+
+/** A browser double whose contexts are created and closed through it, recording the order of events. */
+function fakeClosingBrowser() {
+  const events = [];
+  const open = [];
+  const browser = {
+    events,
+    async newContext() {
+      const context = {
+        name: `context${open.length + 1}`,
+        // The real teardown logout starts by reading the session cookie; none here, so it stops there.
+        async cookies() { events.push(`cookies ${this.name}`); return []; },
+        async close() { events.push(`close ${this.name}`); },
+      };
+      open.push(context);
+      return context;
+    },
+    contexts: () => open.slice(),
+    async close() { events.push('close browser'); },
+  };
+  return browser;
+}
+
+test('shouldLogEachContextOutOnce_beforeItOrTheBrowserCloses', async () => {
+  const browser = fakeClosingBrowser();
+  const log = warnings();
+  harness.logoutOnClose(browser, logoutConfig, {
+    log, logout: async (context) => { browser.events.push(`logout ${context.name}`); },
+  });
+  const first = await browser.newContext();
+  await browser.newContext();
+  await first.close();
+  await browser.close();
+  assert.deepEqual(browser.events, [
+    'logout context1', 'close context1',
+    // context1 is still listed by the double; it is not logged out a second time.
+    'logout context2', 'close browser',
+  ]);
+  assert.deepEqual(log.lines, []);
+});
+
+test('shouldStillCloseTheBrowser_whenALogoutThrows', async () => {
+  const browser = fakeClosingBrowser();
+  const log = warnings();
+  harness.logoutOnClose(browser, logoutConfig, { log, logout: async () => { throw new Error('page crashed'); } });
+  await browser.newContext();
+  await browser.close();
+  assert.deepEqual(browser.events, ['close browser'], 'a failed logout never stops the teardown');
+  assert.deepEqual(log.lines, ['WARN teardown logout did not complete: page crashed']);
+});
+
+test('shouldLogOutOnlyWhenNotOptedOut_whenLaunchBrowserClosesTheBrowser', async (t) => {
+  const Module = require('node:module');
+  const load = Module._load;
+  Module._load = function stubbed(request, ...rest) {
+    if (request === 'playwright') return { chromium: { launch: async () => fakeClosingBrowser() } };
+    return load.call(this, request, ...rest);
+  };
+  t.after(() => { Module._load = load; harness.recordBrowserVersion(null); });
+  const config = { ...logoutConfig, chromePath: '', headless: true };
+  const kept = await harness.launchBrowser(config, { logoutOnClose: false });
+  await kept.newContext();
+  await kept.close();
+  assert.deepEqual(kept.events, ['close browser'], 'an opted-out browser closes without a logout');
+  const wrapped = await harness.launchBrowser(config);
+  await wrapped.newContext();
+  await wrapped.close();
+  assert.deepEqual(wrapped.events, ['cookies context1', 'close browser'], 'by default the session is looked for first');
+});
