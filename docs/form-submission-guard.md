@@ -69,6 +69,15 @@ otherwise refuse the repeat as a duplicate of the patient it just created.
 `PreventionSubmissionGuard` (#4410) and `EFormSubmissionGuard` predate this class. They keep
 form-specific state (the DHIR review, opener-session effects) and stay separate.
 
+`EFormSubmissionGuard` frees a token by the same rule. When a submission fails after its storage
+transaction started, `AddEForm2Action` keeps the token spent and answers HTTP 409 with its own
+text, never the replay refusal `eform.submitUnavailable` (#4424). After a confirmed commit,
+`eform.submitSavedStepIncomplete` says the eForm was saved and names the step that did not
+complete: Add to Documents, the chart notes and other entries the template writes, the fax,
+download or email preparation, or "a follow-on step" for work with no name of its own. When the
+commit's outcome is unknown, `eform.submitOutcomeUnknown` says the save could not be confirmed.
+The log records the step and `LogSafe.exceptionTrace`, never the exception's message.
+
 ### Browser checks that replay requests
 
 `lib/mutation-families.js` and `get-reject-consult-config` replay a POST that the page already
