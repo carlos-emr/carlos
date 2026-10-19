@@ -1573,10 +1573,11 @@
         "EXCLUSIVE"
       ],
       "mutates": [
-        "Flowsheet"
+        "Flowsheet",
+        "secObjPrivilege"
       ],
-      "notes": "Requires EXCLUSIVE=1 on a disposable deployment. Pins issue #4623 (finding 267): a doctor holding only _admin.flowsheet read opens Manage Flowsheets read-only from the Administration nav, a direct enable/disable from that login answers 403 and changes nothing, and a doctor granted _admin.flowsheet write is offered the controls and can disable and re-enable one flowsheet.",
-      "fixtures": "One throwaway doctor login and one per-provider _admin.flowsheet write grant, both removed. The toggled flowsheet's Flowsheet row is restored (or deleted when the toggle had to create it) and the whole table is compared before and after. The flowsheet list is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "notes": "Requires EXCLUSIVE=1 on a disposable deployment. Pins issue #4623 (finding 267): a doctor holding only _admin.flowsheet read opens Manage Flowsheets read-only from the Administration nav (also when the doctor role carries a _admin.misc no-rights row), a direct enable/disable from that login answers 403 and changes nothing, and a doctor granted _admin.flowsheet write is offered the controls and can disable and re-enable one flowsheet.",
+      "fixtures": "One throwaway doctor login, one per-provider _admin.flowsheet write grant and, for a few seconds, a _admin.misc no-rights row on the doctor role; all removed. The toggled flowsheet's Flowsheet row is restored (or deleted when the toggle had to create it) and the whole table is compared before and after. The flowsheet list and the doctor role are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "billing-unbilled-report",

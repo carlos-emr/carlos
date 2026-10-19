@@ -11,13 +11,16 @@
  * HTTP 403. Viewing the list is a read; enabling or disabling a flowsheet, and uploading a custom
  * one, are writes.
  *
- * User path: sign in as a plain doctor > Schedule > Administration > System Management > Manage
- * Flowsheets (the page loads in the Administration shell's frame).
+ * User path: sign in as a plain doctor > Administration (opened by its address; see
+ * openManageFlowsheets for why not the day sheet's link) > System Management > Manage Flowsheets
+ * (the page loads in the Administration shell's frame).
  *
  * Asserted:
  *  - a throwaway login holding exactly the seeded doctor role opens the page from the nav, sees the
  *    flowsheet list and an Edit link per row, and is offered NO enable/disable link and NO upload
  *    form (a control the login cannot use is not shown);
+ *  - a doctor role that also carries an explicit no-rights (`o`) row on _admin.misc still gets the
+ *    list: the page defers to the action's per-object decision instead of a second, combined check;
  *  - the same login's direct POST of enable and of disable (a valid CSRF token, so the action's own
  *    privilege check is what answers) is refused with the application's HTTP 403 and the Flowsheet
  *    table is unchanged;
@@ -26,19 +29,22 @@
  *    disables one flowsheet through the page (the row reads false and offers Enable, the stored
  *    flag is 0) and enables it again (stored flag 1), through the real PRG redirect.
  *
- * Fixtures: one throwaway doctor login (own provider and security rows) and one per-provider
- * _admin.flowsheet grant. The toggled flowsheet's own Flowsheet row is restored (or removed, when
- * the toggle had to create it) and the whole table is compared before and after. Mutates:
- * Flowsheet; do not run it concurrently with another check that lists or toggles flowsheets.
+ * Fixtures: one throwaway doctor login (own provider and security rows), one per-provider
+ * _admin.flowsheet grant and, for a few seconds, one `o` row on _admin.misc for the doctor role.
+ * The toggled flowsheet's own Flowsheet row is restored (or removed, when the toggle had to create
+ * it) and the whole table is compared before and after. Mutates: Flowsheet, secObjPrivilege; do
+ * not run it concurrently with another check that lists or toggles flowsheets or signs in.
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
-const { openAdminPage, submitInFrame } = require('./lib/admin-frame');
+const { frameAt, submitInFrame } = require('./lib/admin-frame');
+const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { csrfToken } = require('./lib/front-door-checks');
 
 const ROUTE = 'admin/ManageFlowsheets';
 const OBJECT = '_admin.flowsheet';
+const TIMEOUT = 30000;
 // CARLOS's own filters put this header on every response; a WAF or proxy block page lacks it, so a
 // 403 that carries it is the application's authorization decision.
 const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
@@ -58,8 +64,23 @@ async function workflow(s) {
     const schedule = await h.login(context, { ...config, testUser: fixture.username }, recorder, { label });
     return { context, schedule };
   }
-  const openManageFlowsheets = (session, label) =>
-    openAdminPage({ schedule: session.schedule, context: session.context, recorder }, ROUTE, { label });
+  // The Administration shell is opened by its address, which is what the day sheet's Administration
+  // link opens. That link is not a reliable way in for the seeded doctor: its security tag names
+  // thirteen objects and OscarRoleObjectPrivilege keeps ONE privilege per role, so the doctor's
+  // `_admin.reporting` `o` row can mask `_admin.flowsheet` `r` depending on the order the database
+  // returns the rows. The shell's own left nav lists Manage Flowsheets from two objects only.
+  async function openManageFlowsheets(session, label) {
+    const admin = await session.context.newPage();
+    await h.gotoApp(admin, config.baseUrl, '/administration');
+    await admin.locator('#adminNav').waitFor({ state: 'attached', timeout: TIMEOUT });
+    const link = admin.locator(`#adminNav a.xlink[rel$="/${ROUTE}"]`).first();
+    await link.waitFor({ state: 'attached', timeout: TIMEOUT });
+    await revealAuditLink(admin, link, TIMEOUT);
+    await link.click();
+    const frame = await frameAt(admin, ROUTE, { timeout: TIMEOUT });
+    await h.assertNotErrorPage(frame, label);
+    return { admin, frame };
+  }
   const toggleControls = frame => frame.locator('a[onclick^="submitFlowsheetAction("]');
   const uploadForm = frame => frame.locator('form[action$="/admin/ManageFlowsheetsUpload"]');
 
@@ -96,6 +117,34 @@ async function workflow(s) {
         'A read-only doctor was offered the custom flowsheet upload');
       h.assert(await admin.locator(`#adminNav a.xlink[rel$="/${ROUTE}"]`).count() === 1, 'The nav no longer lists Manage Flowsheets once');
     } finally { await session.context.close(); }
+  });
+
+  await s.step('an explicit no-rights row on _admin.misc beside the doctor\'s read does not turn the page away', async () => {
+    // The page used to re-check _admin, _admin.misc and _admin.flowsheet in ONE security tag, and
+    // OscarRoleObjectPrivilege keeps a single privilege per role across those objects, so a
+    // role's `_admin.misc` `o` row could mask its `_admin.flowsheet` `r` and bounce a reader the
+    // action had admitted. The action's decision is the only one now. The row is clinic-wide for
+    // the few seconds this step needs and is removed in `finally`, and again by cleanup.
+    const where = `roleUserGroup='doctor' AND objectName='_admin.misc'`;
+    h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE ${where}`) === '0', 'The doctor role already carries a _admin.misc row');
+    const remove = () => {
+      sql.execute(`DELETE FROM secObjPrivilege WHERE ${where} AND privilege='o' AND provider_no=${h.sqlString(s.provider)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE ${where}`) === '0', 'The _admin.misc no-rights row was not removed');
+    };
+    s.cleanup(remove);
+    sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
+      VALUES ('doctor','_admin.misc','o',0,${h.sqlString(s.provider)})`);
+    const session = await throwawaySession('manage-flowsheets-reader-masked');
+    try {
+      const { frame } = await openManageFlowsheets(session, 'manage-flowsheets-reader-masked');
+      await frame.locator('table.table').waitFor({ state: 'attached' });
+      h.assert(await frame.locator('table.table tbody tr').count() === rowCount, 'The masked reader sees a different flowsheet list');
+      h.assert(await toggleControls(frame).count() === 0 && await uploadForm(frame).count() === 0,
+        'The masked reader was offered write controls');
+    } finally {
+      await session.context.close();
+      remove();
+    }
   });
 
   await s.step('the read-only doctor\'s direct enable and disable are refused with 403 and change nothing', async () => {

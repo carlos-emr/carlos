@@ -32,32 +32,28 @@
     Purpose: administer system and uploaded measurement flowsheet definitions.
     Features: list definitions and their triggers, enable/disable and download definitions,
     and display escaped upload errors once before removing the session flash message.
-    Access: read on _admin, _admin.misc or _admin.flowsheet opens the list with each row's Edit
-    link; the enable/disable links and the custom flowsheet upload are rendered only when
-    ManageFlowsheets2Action reports write access through the flowsheetWriteAccess request
-    attribute (issue #4623). Without the attribute the page renders read-only, the safe default.
+    Access: ManageFlowsheets2Action is the only route here. It admits read on _admin, _admin.misc
+    or _admin.flowsheet, checked one object at a time, and publishes its write decision as the
+    flowsheetWriteAccess request attribute (issue #4623). Read opens the list with each row's Edit
+    link; the enable/disable links and the custom flowsheet upload are rendered only when the
+    attribute is true. A request that arrives without the attribute is refused.
     Parameters: this listing takes no query parameters; its action form submits method/name
     to ManageFlowsheets. The optional session flashError supplies upload feedback.
     @since 2026-07-07
 --%>
 <!DOCTYPE html>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
-%>
-<security:oscarSec roleName="<%=roleName$%>"
-                   objectName="_admin,_admin.misc,_admin.flowsheet" rights="r" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc&type=_admin.flowsheet");%>
-</security:oscarSec>
-<%
-    if (!authed) {
+    // The action's decision is the only one made here. A second, combined oscarSec tag
+    // over the three objects would disagree with it: the tag keeps ONE privilege per role across the
+    // objects it names, so a role's _admin.misc "o" row can mask its _admin.flowsheet "r" and bounce a
+    // reader the action admitted. Reaching the page without that decision is refused.
+    Object flowsheetWriteAccess = request.getAttribute("flowsheetWriteAccess");
+    if (!(flowsheetWriteAccess instanceof Boolean)) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc&type=_admin.flowsheet");
         return;
     }
-    // The action's write decision is authoritative; the view only mirrors it.
-    boolean canModify = Boolean.TRUE.equals(request.getAttribute("flowsheetWriteAccess"));
+    boolean canModify = (Boolean) flowsheetWriteAccess;
 %>
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>

@@ -45,7 +45,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * parameter is the mutation: it routes to {@code enable} or {@code disable}, applies the change via
  * {@link MeasurementTemplateFlowSheetConfig}, then redirects (PRG pattern). Anything else returns
  * SUCCESS to render the list view, and publishes {@value #WRITE_ACCESS_ATTRIBUTE} so the view
- * offers the enable/disable and upload controls only to a login that may use them.</p>
+ * offers the enable/disable and upload controls only to a login that may use them. Each gate
+ * object is checked on its own: the combined {@code oscarSec} tag keeps one privilege per role
+ * across the objects it names, so it must not be repeated as a second gate in the view.</p>
  *
  * @since 2026-04-05
  */
@@ -53,7 +55,9 @@ public class ManageFlowsheets2Action extends ActionSupport {
 
     /**
      * Request attribute read by {@code manageFlowsheets.jsp}: {@link Boolean#TRUE} when the login
-     * holds write on a gate object. A view that does not receive it renders read-only.
+     * holds write on a gate object, {@link Boolean#FALSE} for a read-only login. Its presence is
+     * this action's statement that the login may view the list; the view refuses a request that
+     * arrives without it rather than re-deciding access with a second, differently-evaluated check.
      */
     static final String WRITE_ACCESS_ATTRIBUTE = "flowsheetWriteAccess";
 
