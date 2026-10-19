@@ -15,9 +15,9 @@
  * included; a GET carrying a save parameter is refused with 405 and nothing changes. Direct
  * requests are negative probes only.
  *
- * Expected to FAIL while app-findings-log.md findings 147 and 145 stand: the adjust page throws a
- * TypeError on load (the strict page fails the Edit step), and past it the save writes the note
- * back as "patient\'s", one more backslash per save.
+ * Expected to FAIL while app-findings-log.md finding 145 stands: the save writes the note back as
+ * "patient\'s", one more backslash per save. (Finding 147, the adjust page's TypeError on load,
+ * was fixed with #4551.)
  *
  * Fixtures: one billing + billingmaster + billingnote row for the workflow's own FAKE patient,
  * stamped with the run marker; cleanup deletes exactly those rows (and the history and notes the
@@ -26,6 +26,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { expectValue, runWorkflow } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const TIMEOUT = 30000;
 
@@ -84,7 +85,7 @@ async function workflow(s) {
 
   let billStatus;
   await s.step('Invoice List on the master record lists the owned bill', async () => {
-    const link = s.master.locator('a[onclick*="/billing/CA/BC/reprocessBill?"]').first();
+    const link = masterRecordLink(s.master, '/billing/CA/BC/reprocessBill?').first();
     h.assert(await link.count() === 1, 'The BC master record has no Invoice List link');
     // Click the visible words: on BC the inline eligibility menu widens the navigation cell to
     // 350px under the content pane, so the link's centre is covered (app-findings-log.md finding 146).

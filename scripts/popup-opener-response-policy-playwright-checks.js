@@ -23,7 +23,7 @@ async function workflow(s) {
     });
   }
   await s.step('the unauthenticated redirect retains the same opener policy', async () => {
-    const anonymous = await s.context.browser().newContext({ ignoreHTTPSErrors: true });
+    const anonymous = await s.context.browser().newContext({ ignoreHTTPSErrors: s.config.ignoreHTTPSErrors === true });
     try {
       const response = await anonymous.request.get(h.appUrl(s.config.baseUrl, `/demographic/DemographicEdit?demographic_no=${s.patient}`),
         { maxRedirects: 0 });

@@ -34,11 +34,110 @@ import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.servlet.http.HttpSession;
 
-public class QuickBillingBCFormBean {
+
+/**
+ * The BC quick billing form: the header (billing physician, service location, service date) and the
+ * bills added so far. It lives in the HTTP session under {@link #SESSION_ATTRIBUTE} from the page's
+ * first open until the bills are saved, because the page adds and removes one bill per request.
+ * Struts 1 kept it in session scope ({@code scope="session"}); the Struts 2 actions use
+ * {@link #fromSession(HttpSession)} to do the same. It is serializable, as the Struts 1 form was, so a
+ * session the container saves and restores (a restart or redeploy) keeps the bills added so far.
+ */
+public class QuickBillingBCFormBean implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * Session attribute that holds the form. {@code quickBillingBC.jsp} reads it as
+     * {@code quickBillingBC}.
+     *
+     * @since 2026-10-16
+     */
+    public static final String SESSION_ATTRIBUTE = "quickBillingBC";
+
+    /** Guards the get-or-create in {@link #fromSession(HttpSession)}, so two first requests share one form. */
+    private static final Object SESSION_LOCK = new Object();
+
+    /**
+     * Guards the bill list. It is private, so no other code can hold it, and an empty array, so it is
+     * serializable and a restored form gets its own.
+     */
+    private final Serializable billsLock = new Object[0];
+
+    /**
+     * Returns this session's quick billing form, storing a new empty one (no header, no bills) on
+     * first use.
+     *
+     * @param session the signed-in user's session
+     * @return the session's form, never {@code null}
+     * @since 2026-10-16
+     */
+    public static QuickBillingBCFormBean fromSession(HttpSession session) {
+        synchronized (SESSION_LOCK) {
+            if (session.getAttribute(SESSION_ATTRIBUTE) instanceof QuickBillingBCFormBean form) {
+                return form;
+            }
+            QuickBillingBCFormBean form = new QuickBillingBCFormBean();
+            form.setBillingData(new ArrayList<BillingSessionBean>());
+            session.setAttribute(SESSION_ATTRIBUTE, form);
+            return form;
+        }
+    }
+
+    /**
+     * Takes the bills added so far and leaves an empty list in their place, in one step, so a second
+     * Submit of the same page (a double click) finds nothing left to save.
+     *
+     * @return the bills to save, never {@code null}
+     * @since 2026-10-16
+     */
+    public ArrayList<BillingSessionBean> takeBillingData() {
+        synchronized (billsLock) {
+            ArrayList<BillingSessionBean> taken = billingData == null ? new ArrayList<BillingSessionBean>() : billingData;
+            billingData = new ArrayList<BillingSessionBean>();
+            return taken;
+        }
+    }
+
+    /**
+     * Adds one bill to the list.
+     *
+     * @param bill the bill to add
+     * @return {@code true}, as {@link java.util.List#add(Object)}
+     * @since 2026-10-16
+     */
+    public boolean addBill(BillingSessionBean bill) {
+        synchronized (billsLock) {
+            if (billingData == null) {
+                billingData = new ArrayList<BillingSessionBean>();
+            }
+            return billingData.add(bill);
+        }
+    }
+
+    /**
+     * Removes the bill at a row of the list.
+     *
+     * @param index the row the page showed
+     * @return {@code true} when the row was removed; {@code false}, with nothing removed, when it is not a
+     *         current row (for example a second click on Remove for the last row)
+     * @since 2026-10-16
+     */
+    public boolean removeBill(int index) {
+        synchronized (billsLock) {
+            if (billingData == null || index < 0 || index >= billingData.size()) {
+                return false;
+            }
+            billingData.remove(index);
+            return true;
+        }
+    }
 
     /**
      * @author Dennis Warren
@@ -50,8 +149,9 @@ public class QuickBillingBCFormBean {
     private String billingProviderNo;
     private String serviceDate;
     private String visitLocation;
-    private List<BillingVisit> billingVisitTypes;
-    private List<ProviderData> providerList;
+    // The page's choice lists are rebuilt on every open, so they are not kept when a session is restored.
+    private transient List<BillingVisit> billingVisitTypes;
+    private transient List<ProviderData> providerList;
     private Boolean isHeaderSet;
     private String creator;
     private String halfBilling;
@@ -157,13 +257,23 @@ public class QuickBillingBCFormBean {
     }
 
 
+    /**
+     * The bills added so far, for showing them: a copy taken under the bill list's lock, so the page can
+     * go through it while another request of the same session adds or removes a bill. Changes go
+     * through {@link #addBill}, {@link #removeBill} and {@link #takeBillingData}.
+     *
+     * @return a copy of the bill list, never {@code null}
+     */
     public ArrayList<BillingSessionBean> getBillingData() {
-        return billingData;
+        synchronized (billsLock) {
+            return billingData == null ? new ArrayList<BillingSessionBean>() : new ArrayList<BillingSessionBean>(billingData);
+        }
     }
 
     public void setBillingData(ArrayList<BillingSessionBean> billingData) {
-
-        this.billingData = billingData;
+        synchronized (billsLock) {
+            this.billingData = billingData;
+        }
     }
 
     @Override

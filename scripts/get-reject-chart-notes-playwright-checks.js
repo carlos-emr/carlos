@@ -24,6 +24,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { captureRequest, replayParams, createLedger } = require('./lib/get-reject-probe');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const NAME = 'get-reject-chart-notes';
 
@@ -94,7 +95,7 @@ async function workflow(s) {
   const ticklerText = `${marker} tickler note`;
 
   await s.step('Master Record ▸ Tickler ▸ note icon ▸ Save stores a signed note linked to the owned tickler', async () => {
-    const list = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'tickler-list');
+    const list = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(), 'tickler-list');
     const row = list.locator('#ticklerResults tbody tr').filter({ hasText: message }).first();
     await row.waitFor({ state: 'visible' });
     await row.locator('a.noteDialogLink').click();

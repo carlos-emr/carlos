@@ -40,6 +40,9 @@ public interface DrugDao extends AbstractDao<Drug> {
 
     public boolean addNewDrug(Drug d);
 
+    /** Atomically archives an active drug owned by the patient; returns one only to the winning request. */
+    int archiveIfActive(int drugId, int demographicNo, String reason, Date archivedDate);
+
     public List<Drug> findByPrescriptionId(Integer prescriptionId);
 
     public List<Drug> findByDemographicId(Integer demographicId);

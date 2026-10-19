@@ -282,7 +282,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0}, use_http_response_code={1}")
     @MethodSource("responseCases")
-    void shouldPinDraftResponseChanges(Case testCase, boolean useHttpResponseCode) throws Exception {
+    void shouldPinDraftResponses_forEveryUploadCase(Case testCase, boolean useHttpResponseCode) throws Exception {
         currentCase = testCase;
         if (useHttpResponseCode) request.setParameter("use_http_response_code", "true");
         switch (testCase) {
@@ -583,7 +583,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRetainPosixPermissionsAfterWritingAndCloseDecryptedStream() throws Exception {
+    void shouldKeepOwnerOnlyPermissions_whenStagingDecryptedBytes() throws Exception {
         assumeTrue(Files.getFileStore(fixtureRoot).supportsFileAttributeView("posix"));
         Path staged = Files.createTempFile(fixtureRoot, "stage-mode", ".tmp",
                 java.nio.file.attribute.PosixFilePermissions.asFileAttribute(EnumSet.of(
@@ -601,7 +601,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldCloseDecryptedStreamWhenOpeningStagingOutputFails() throws Exception {
+    void shouldCloseDecryptedStream_whenStagingOutputCannotOpen() throws Exception {
         Path directory = Files.createDirectory(fixtureRoot.resolve("cannot-open-as-file"));
         InputStream decrypted = spy(new ByteArrayInputStream(MESSAGE));
         assertThatThrownBy(() -> LabUpload2Action.stageDecrypted(decrypted, directory.toFile()))

@@ -412,7 +412,14 @@ function runOne(check, options, run = spawnSync) {
     } else if (result.status === EXIT_PASS) {
       raw = { outcome: 'PASS', detail: '' };
     } else if (result.status === EXIT_SKIP) {
-      raw = { outcome: 'SKIP', detail: 'a fixture or credential this check needs is not configured' };
+      // The check printed its own reason above; the summary repeats the manifest's fixture
+      // note so the table says what to stage, not just that something was missing (#4412).
+      raw = {
+        outcome: 'SKIP',
+        detail: check.fixtures
+          ? `a fixture or credential this check needs is not configured (its output says which). Fixtures: ${check.fixtures}`
+          : 'a fixture or credential this check needs is not configured',
+      };
     } else {
       // The failing step counts only for an ordinary failure (exit 1) whose record says FAIL:
       // exit 130/143 is an interruption, and a missing record means the child never reached runCheck.

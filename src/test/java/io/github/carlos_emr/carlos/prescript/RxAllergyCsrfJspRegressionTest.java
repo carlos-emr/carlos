@@ -101,6 +101,28 @@ class RxAllergyCsrfJspRegressionTest {
     }
 
     @Test
+    @DisplayName("an inactive allergy's Reactivate should post action=activate, not an amendment the stale guard refuses")
+    void shouldOfferActivateLinkNotAmendment_forInactiveAllergyRows() throws IOException {
+        String jsp = normalizeWhitespace(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
+
+        // The inactive branch prepares Reactivate as the activate action of rx/deleteAllergy2.
+        indexOfRequired(jsp, "labelStatus = \"Inactive\"; labelAction = \"Reactivate\"; actionPath = \"activate\";");
+        int deleteAccess = indexOfRequired(jsp, "if (securityManager.hasDeleteAccess(\"_allergies\", roleName$)) {");
+        int actionLink = indexOfRequired(jsp, "class=\"deleteAllergyLink\"");
+        int modifyLink = indexOfRequired(jsp, "class=\"modifyAllergyLink\"");
+
+        assertThat(jsp.substring(deleteAccess, actionLink))
+                .as("the Inactivate/Reactivate link must be rendered for inactive rows too")
+                .doesNotContain("intArchived == 0");
+        assertThat(jsp.substring(actionLink, modifyLink))
+                .as("the amendment dialogue (Modify) must be offered for active rows only")
+                .contains("if (intArchived == 0) {");
+        assertThat(jsp)
+                .as("an inactive row must not label the amendment dialogue Reactivate")
+                .doesNotContain("intArchived == 0 ? \"Modify\" : labelAction");
+    }
+
+    @Test
     @DisplayName("add-allergy form should carry a single-save token for idempotent retries (#3488)")
     void shouldCarrySaveToken_whenAddReactionFormIsRendered() throws IOException {
         Element form = addAllergyForm();

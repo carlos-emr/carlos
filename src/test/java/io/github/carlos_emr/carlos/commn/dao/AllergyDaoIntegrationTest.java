@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
+import io.github.carlos_emr.carlos.prescript.data.AllergyAtcClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -304,6 +305,55 @@ public class AllergyDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should archive nothing for an id that does not exist")
         void shouldReturnZero_whenAllergyDoesNotExist() {
             assertThat(allergyDao.archiveIfActive(Integer.MAX_VALUE, DEMO_1)).isZero();
+        }
+    }
+
+    /**
+     * ATC class allergens (issue #4576): what the Penicillin and Sulfa shortcuts store is what the
+     * drug-allergy check reads back, for a new allergy and for one an old shortcut recorded.
+     */
+    @Nested
+    @DisplayName("ATC class allergens")
+    class AtcClassAllergens {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should read back the ATC class of a class allergen stored with no DrugRef id")
+        void shouldReadBackAtcClass_forClassAllergenWithNoDrugrefId() {
+            Allergy allergy = createAllergy(DEMO_3, false);
+            allergy.setDescription("PENICILLINS");
+            allergy.setTypeCode(AllergyAtcClass.TYPE_CODE);
+            allergy.setAtc("J01C");
+            allergy.setDrugrefId("");
+            allergyDao.merge(allergy);
+            entityManager.flush();
+            entityManager.clear();
+
+            List<Allergy> active = allergyDao.findActiveAllergies(DEMO_3);
+
+            assertThat(active).singleElement().satisfies(stored -> {
+                assertThat(stored.getDrugrefId()).isNull();
+                assertThat(stored.getTypeCode()).isEqualTo(8);
+                assertThat(AllergyAtcClass.classCodeOf(stored)).isEqualTo("J01C");
+            });
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should read an allergy an old Sulfa shortcut recorded as the ATC class J01E")
+        void shouldReadShortcutClass_forAllergyAnOldShortcutRecorded() {
+            Allergy allergy = createAllergy(DEMO_3, false);
+            allergy.setDescription("SULFONAMIDES");
+            allergy.setTypeCode(10);
+            allergy.setDrugrefId("44159");
+            allergyDao.merge(allergy);
+            entityManager.flush();
+            entityManager.clear();
+
+            List<Allergy> active = allergyDao.findActiveAllergies(DEMO_3);
+
+            assertThat(active).singleElement()
+                    .satisfies(stored -> assertThat(AllergyAtcClass.classCodeOf(stored)).isEqualTo("J01E"));
         }
     }
 }

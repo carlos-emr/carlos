@@ -291,7 +291,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                                     <a href="javascript:window.close()"> <% } else { // we were called from lab module %>
 
                                                                         <a
-                                                                                href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>', 'searchPatientWindow')">
+                                                                                href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&amp;segmentID=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/>&amp;name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
                                                                             <% } %> <carlos:encode value='<%= pd.getPatientName() %>' context="html"/>
                                                                         </a></div>
                                                             </td>
@@ -463,6 +463,14 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                             </table>
                         </td>
                     </tr>
+                    <% if (mDSSegmentData.isLoadFailed()) { %>
+                    <%-- A failed query leaves the report partly read; say so rather than show it as complete. --%>
+                    <tr>
+                        <td bgcolor="white" colspan="2">
+                            <div class="FieldData mds-load-failed" id="mdsLoadFailed" role="alert" style="color:#a00000; font-weight:bold;"><fmt:message key="oscarMDS.segmentDisplay.msgLoadFailed"/></div>
+                        </td>
+                    </tr>
+                    <% } %>
                     <tr>
                         <td align="center" bgcolor="white" colspan="2">
                             <%
@@ -475,6 +483,13 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                     if (multiID[j].equals(request.getParameter("segmentID")))
                                         startFlag = true;
                                     if (startFlag) {
+                                        // A version that could not be read would otherwise just lose its routing
+                                        // status lines; the current version's failure is announced above.
+                                        if (currentData.isLoadFailed() && !multiID[j].equals(request.getParameter("segmentID"))) {
+                            %>
+                            <div class="FieldData mds-load-failed" role="alert" style="color:#a00000; font-weight:bold;"><b>Version:</b> v<%= j + 1 %> &mdash; <fmt:message key="oscarMDS.segmentDisplay.msgLoadFailed"/></div>
+                            <%
+                                        }
                                         if (currentData.statusArray.size() > 0) {
                             %>
 

@@ -52,6 +52,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -261,7 +262,7 @@ async function checkUncertainUpdateResponse(context) {
     // a real exposure rather than the self-signed localhost cert the runbook expects.
     const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
     const isLoopback = loopback.has(config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase());
-    const context = await browser.newContext({ ignoreHTTPSErrors: isLoopback, viewport: { width: 1280, height: 900 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl), viewport: { width: 1280, height: 900 } });
     const landing = await login(context, config, recorder);
     await landing.close();
 

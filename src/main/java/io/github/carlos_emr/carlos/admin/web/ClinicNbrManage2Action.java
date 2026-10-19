@@ -145,6 +145,8 @@ public class ClinicNbrManage2Action extends ActionSupport {
                 if (j == 0) {
                     error = "Add Failure: Could not add entry to database.";
                 } else {
+                    // The page lists codes by row id and removes by row id, so it needs the new row's id.
+                    json.put("id", j);
                     success = true;
                 }
             }

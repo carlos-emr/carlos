@@ -600,7 +600,7 @@
                                 2)<br>
                                 <textarea name="c_riskFactor" style="width: 100%" cols="50"
                                           rows="2" @oscar.formDB
-                                          dbType="varchar(255)"> <%= props.getProperty("c_riskFactor", "") %> </textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("c_riskFactor", "") %>'/></textarea>
                             </td>
                         </tr>
                     </table>
@@ -654,7 +654,7 @@
                         </tr>
                         <tr>
                             <td colspan="2"><span class="small9"> <a href=#
-                                                                     onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup?fieldname=c_phyMid'); return false;"><fmt:message key='form.bcnewborn.physicianMidwifeName'/></a></span><br>
+                                                                     onClick="popupFixedPage(600, 300, 'form/formbcarpg1namepopup?fieldname=c_phyMid'); return false;"><fmt:message key='form.bcnewborn.physicianMidwifeName'/></a></span><br>
                                 <input type="text" name="c_phyMid" style="width: 100%" size="30"
                                        maxlength="60" value="<%= props.getProperty("c_phyMid", "") %>"
                                        @oscar.formDB/></td>
@@ -1267,7 +1267,7 @@
                         <tr>
                             <td colspan="2"><fmt:message key='form.bcnewborn.comments'/>: <textarea name="pg1_ResComment"
                                                                 style="width: 100%" cols="60" rows="2" @oscar.formDB
-                                                                dbType="varchar(255)"> <%= props.getProperty("pg1_ResComment", "") %> </textarea>
+                                                                dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_ResComment", "") %>'/></textarea>
                             </td>
 
                         </tr>
@@ -1344,7 +1344,7 @@
                                         <td align="center"><fmt:message key='form.bcnewborn.comments'/><br>
                                             <textarea name="pg1_phy1Comm" style="width: 100%" cols="30"
                                                       rows="2" @oscar.formDB
-                                                      dbType="varchar(255)"> <%= props.getProperty("pg1_phy1Comm", "") %> </textarea>
+                                                      dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy1Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1395,7 +1395,7 @@
                                         </td>
                                         <td><textarea name="pg1_phy2Comm" style="width: 100%"
                                                       cols="30" rows="2" @oscar.formDB
-                                                      dbType="varchar(255)"> <%= props.getProperty("pg1_phy2Comm", "") %> </textarea>
+                                                      dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy2Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1418,7 +1418,7 @@
                                                                dbType="tinyint(1)"/></td>
                                         <td colspan="2"><textarea name="pg1_phy3Comm"
                                                                   style="width: 100%" cols="30" rows="1" @oscar.formDB
-                                                                  dbType="varchar(255)"> <%= props.getProperty("pg1_phy3Comm", "") %> </textarea>
+                                                                  dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy3Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1448,7 +1448,7 @@
                                         </td>
                                         <td><textarea name="pg1_phy4Comm" style="width: 100%"
                                                       cols="30" rows="2" @oscar.formDB
-                                                      dbType="varchar(255)"> <%= props.getProperty("pg1_phy4Comm", "") %> </textarea>
+                                                      dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy4Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1485,7 +1485,7 @@
                                         </td>
                                         <td><textarea name="pg1_phy5Comm" style="width: 100%"
                                                       cols="30" rows="2" @oscar.formDB
-                                                      dbType="varchar(255)"> <%= props.getProperty("pg1_phy5Comm", "") %> </textarea>
+                                                      dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy5Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1518,7 +1518,7 @@
                                         </td>
                                         <td><textarea name="pg1_phy6Comm" style="width: 100%"
                                                       cols="30" rows="2" @oscar.formDB
-                                                      dbType="varchar(255)"> <%= props.getProperty("pg1_phy6Comm", "") %> </textarea>
+                                                      dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy6Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1554,7 +1554,7 @@
                                         </td>
                                         <td><textarea name="pg1_phy7Comm" style="width: 100%"
                                                       cols="30" rows="2" @oscar.formDB
-                                                      dbType="varchar(255)"> <%= props.getProperty("pg1_phy7Comm", "") %> </textarea>
+                                                      dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy7Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1585,7 +1585,7 @@
                                         </td>
                                         <td><textarea name="pg1_phy8Comm" style="width: 100%"
                                                       cols="30" rows="2" @oscar.formDB
-                                                      dbType="varchar(255)"> <%= props.getProperty("pg1_phy8Comm", "") %> </textarea>
+                                                      dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy8Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1618,7 +1618,7 @@
                                         </td>
                                         <td><textarea name="pg1_phy9Comm" style="width: 100%"
                                                       cols="30" rows="2" @oscar.formDB
-                                                      dbType="varchar(255)"> <%= props.getProperty("pg1_phy9Comm", "") %> </textarea>
+                                                      dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy9Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1650,7 +1650,7 @@
                                         </td>
                                         <td><textarea name="pg1_phy10Comm" style="width: 100%"
                                                       cols="30" rows="2" @oscar.formDB
-                                                      dbType="varchar(255)"> <%= props.getProperty("pg1_phy10Comm", "") %> </textarea>
+                                                      dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy10Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1686,7 +1686,7 @@
                                         </td>
                                         <td><textarea name="pg1_phy11Comm" style="width: 100%"
                                                       cols="30" rows="2" @oscar.formDB
-                                                      dbType="varchar(255)"> <%= props.getProperty("pg1_phy11Comm", "") %> </textarea>
+                                                      dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy11Comm", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -1702,7 +1702,7 @@
                                         <td width="15%"><fmt:message key='form.bcnewborn.other'/></td>
                                         <td colspan="4"><textarea name="pg1_phy12Other"
                                                                   style="width: 100%" cols="30" rows="2" @oscar.formDB
-                                                                  dbType="varchar(255)"> <%= props.getProperty("pg1_phy12Other", "") %> </textarea>
+                                                                  dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_phy12Other", "") %>'/></textarea>
                                         </td>
                                     </tr>
                                 </table>

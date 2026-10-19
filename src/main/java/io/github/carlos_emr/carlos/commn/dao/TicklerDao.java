@@ -71,6 +71,7 @@ public interface TicklerDao extends AbstractDao<Tickler> {
 
     /**
      * Finds non-deleted ticklers for the specified tickler IDs and demographic.
+     * The assignee is loaded with each tickler, so callers may read it after the transaction ends.
      */
     public List<Tickler> findByTicklerNosDemo(List<Integer> ticklerNos, Integer demoNo);
 
@@ -78,6 +79,7 @@ public interface TicklerDao extends AbstractDao<Tickler> {
 
     /**
      * Finds non-deleted ticklers for the specified tickler IDs, assignee, and demographic.
+     * The assignee is loaded with each tickler, so callers may read it after the transaction ends.
      */
     public List<Tickler> findByTicklerNosAssignedTo(List<Integer> ticklerNos, String assignedTo, Integer demoNo);
 

@@ -9,6 +9,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -69,5 +70,33 @@ class SecurityUpdatePinHandlerUnitTest extends CarlosUnitTestBase {
         SecurityUpdatePinHandler.apply(security, "", legacyEncoding);
         assertThat(security.getPin()).isEmpty();
         assertThat(security.getPinUpdateDate()).isAfterOrEqualTo(before).isBeforeOrEqualTo(new Date());
+    }
+
+    @Test
+    void shouldKeepLockFlags_whenCheckboxesNotEditable() {
+        Security security = record();
+        security.setBLocallockset(1);
+        security.setBRemotelockset(1);
+        SecurityUpdatePinHandler.applyLockFlags(security, false, null, null);
+        assertThat(security.getBLocallockset()).isEqualTo(1);
+        assertThat(security.getBRemotelockset()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldClearLockFlags_whenEditableAndUnticked() {
+        Security security = record();
+        security.setBLocallockset(1);
+        security.setBRemotelockset(1);
+        SecurityUpdatePinHandler.applyLockFlags(security, true, null, null);
+        assertThat(security.getBLocallockset()).isZero();
+        assertThat(security.getBRemotelockset()).isZero();
+    }
+
+    @Test
+    void shouldApplySubmittedLockFlags_whenEditable() {
+        Security security = record();
+        SecurityUpdatePinHandler.applyLockFlags(security, true, "1", null);
+        assertThat(security.getBLocallockset()).isEqualTo(1);
+        assertThat(security.getBRemotelockset()).isZero();
     }
 }

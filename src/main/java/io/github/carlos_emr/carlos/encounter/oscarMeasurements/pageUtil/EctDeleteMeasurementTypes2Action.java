@@ -67,6 +67,13 @@ public class EctDeleteMeasurementTypes2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        // Writes only from the form's POST: a link, image tag or prefetch must never change the
+        // measurement configuration (issue #3335).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
             if (deleteCheckbox != null) {
                 for (int i = 0; i < deleteCheckbox.length; i++) {
@@ -103,7 +110,7 @@ public class EctDeleteMeasurementTypes2Action extends ActionSupport {
             return SUCCESS;
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin.measurements)");
         }
     }
     private String[] deleteCheckbox;

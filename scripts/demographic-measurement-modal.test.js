@@ -11,13 +11,18 @@ const source = jsp.slice(jsp.indexOf('<script>') + '<script>'.length, jsp.lastIn
   .replace(/<fmt:message key=["']([^"']+)["']\s*\/>/g, '$1')
   .replaceAll('<%=request.getContextPath()%>', '/carlos');
 
-function setup(history = null, saveResult = {success:true}, DateImpl = Date) {
+function setup(history = null, saveResult = {success:true}, DateImpl = Date, type = 'WT') {
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = {}; this.value = ''; this.classList = { add() {}, remove() {} }; }
-    appendChild(child) { this.children.push(child); return child; }
+    appendChild(child) { this.children.push(child); child.parentNode = this; return child; }
     removeChild(child) { const i = this.children.indexOf(child); assert.ok(i >= 0); this.children.splice(i, 1); }
     addEventListener(name, callback) { this.listeners[name] = callback; }
     removeEventListener(name) { delete this.listeners[name]; }
+    dispatchEvent(event) {
+      if (this.listeners[event.type]) this.listeners[event.type](event);
+      if (event.bubbles && this.parentNode) this.parentNode.dispatchEvent(event);
+      return !event.defaultPrevented;
+    }
     setAttribute() {}
     focus() {}
     find(predicate) { return predicate(this) ? this : this.children.map(child => child.find(predicate)).find(Boolean); }
@@ -27,7 +32,8 @@ function setup(history = null, saveResult = {success:true}, DateImpl = Date) {
   Object.assign(document, { body, createElement: tag => new Element(tag),
     createTextNode: text => Object.assign(new Element('text'), { textContent: text }),
     getElementById: id => body.find(element => element.id === id) || null });
-  const target = body.appendChild(Object.assign(new Element('input'), { id: 'weight', value: '3.4' }));
+  const form = body.appendChild(Object.assign(new Element('form'), { id: 'clinicalForm' }));
+  const target = form.appendChild(Object.assign(new Element('input'), { id: 'weight', value: '3.4' }));
   const requests = [];
   const jQuery = { each(data, callback) { for (const value of Object.values(data)) callback.call(value); }, ajax(options) {
     requests.push(options);
@@ -37,13 +43,28 @@ function setup(history = null, saveResult = {success:true}, DateImpl = Date) {
       options.success(options.url.includes('saveMeasurement') ? saveResult : (history || {'-1':'No Results Found'}));
     }
   }};
-  const context = vm.createContext({ document, jQuery, Date: DateImpl, setTimeout() {}, requestAnimationFrame: callback => callback() });
+  const context = vm.createContext({ document, jQuery, Date: DateImpl, Event,
+    window: { addEventListener() {} }, setInterval() {}, setTimeout() {}, requestAnimationFrame: callback => callback() });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/main/webapp/share/javascript/forms/forms-timed-autosave.js'), 'utf8'), context);
+  const autosaver = vm.runInContext("new FormsTimedAutosave('clinicalForm', 10000, '/save', () => true, '', '', true)", context);
+  const autosaved = [];
+  autosaver.sendRequest = () => autosaved.push(target.value);
   vm.runInContext(source, context);
-  context.displayDemographicMeasurements('weight', 'WT', '17', '2026-01-01', '42');
+  context.displayDemographicMeasurements('weight', type, '17', '2026-01-01', '42');
   document.getElementById('currentMeasurementValue').value = '3.75';
   document.getElementById('currentMeasurementObservationDate').value = '2026-01-08';
   const click = className => body.find(element => element.className === className).listeners.click();
-  return { context, document, target, requests, click, body };
+  return { context, document, target, requests, click, body, autosaver, autosaved };
+}
+
+function assertTrackedImport(fixture, value) {
+  assert.equal(fixture.autosaver.changed, true, 'import must reach the form change listener');
+  const closing = new Event('beforeunload', { cancelable: true });
+  fixture.autosaver.promptSaveBeforeClose(closing);
+  assert.equal(closing.defaultPrevented, true, 'an unsaved import must warn before closing');
+  fixture.autosaver.timerIncrement();
+  fixture.autosaver.timerIncrement();
+  assert.deepEqual(fixture.autosaved, [value], 'the timer must autosave the imported value');
 }
 
 function closed(fixture) {
@@ -67,6 +88,7 @@ test('Okay imports the value without creating a measurement', () => {
   const f = setup();
   f.click('meas-btn-cancel');
   assert.equal(f.target.value, '3.75');
+  assertTrackedImport(f, '3.75');
   assert.equal(f.requests.length, 1);
   closed(f);
 });
@@ -76,6 +98,7 @@ test('Save imports a selected existing measurement without duplicating it', () =
   f.context.setDemographicMeasurementModalValues('4.1', 'in kg', '2026-02-01');
   f.click('meas-btn-save');
   assert.equal(f.target.value, '4.1');
+  assertTrackedImport(f, '4.1');
   assert.equal(f.requests.length, 1);
   closed(f);
 });
@@ -116,6 +139,7 @@ for (const dismissal of ['Escape', 'overlay']) {
       overlay.listeners.click({target:overlay});
     }
     assert.equal(f.target.value, '3.4');
+    assert.equal(f.autosaver.changed, false);
     assert.equal(f.requests.length, 1);
     closed(f);
   });
@@ -126,6 +150,7 @@ for (const failure of [{success:false}, null, 'network-error']) {
     f.click('meas-btn-save');
     assert.equal(f.requests.length, 2);
     assert.equal(f.target.value, '3.4');
+    assert.equal(f.autosaver.changed, false);
     closed(f);
   });
 }
@@ -177,4 +202,26 @@ test('history uses the server-formatted observation day when the browser zone di
   } finally {
     if (previousTz === undefined) delete process.env.TZ; else process.env.TZ = previousTz;
   }
+});
+
+
+test('Head circumference saves HEAD in centimetres and imports the value', () => {
+  const f = setup(null, {success: true}, Date, 'HEAD');
+  f.document.getElementById('currentMeasurementValue').value = '35.5';
+  f.click('meas-btn-save');
+  assert.equal(f.requests[1].url, '/carlos/encounter/MeasurementData?action=saveMeasurement&demographicNo=17&appointmentNo=42&type=HEAD');
+  assert.deepEqual(JSON.parse(JSON.stringify(f.requests[1].data)), {value: '35.5', instruction: 'in cm', dateObserved: '2026-01-08'});
+  assert.equal(f.target.value, '35.5');
+  assertTrackedImport(f, '35.5');
+  closed(f);
+});
+
+test('accepting an unchanged measurement does not dirty the form', () => {
+  const f = setup();
+  f.document.getElementById('currentMeasurementValue').value = f.target.value;
+  f.click('meas-btn-cancel');
+  assert.equal(f.autosaver.changed, false);
+  f.autosaver.timerIncrement();
+  f.autosaver.timerIncrement();
+  assert.deepEqual(f.autosaved, []);
 });

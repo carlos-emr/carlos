@@ -91,7 +91,6 @@ public final class dxSetupResearch2Action extends ActionSupport {
         }
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
-        dxResearchBeanHandler hd = new dxResearchBeanHandler(demographicNo);
 
         dxQuickListBeanHandler quicklistHd;
         dxQuickListItemsHandler quicklistItemsHd;
@@ -112,10 +111,26 @@ public final class dxSetupResearch2Action extends ActionSupport {
         session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("allDiagnostics", hd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("demographicNo", demographicNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // The patient and its diagnoses belong to this request. In the session they were the
+        // registry opened last in any window, and dxResearch.jsp's ${demographicNo} also leaked
+        // into every other page that resolves that name from session scope (issue #4673).
+        publishPatient(request, demographicNo, providerNo);
 
         return SUCCESS;
+    }
+
+    /**
+     * Publishes the registry page's patient, its diagnosis list and the provider as request
+     * attributes, which is where {@code dxResearch.jsp} and its quick-list include read them.
+     *
+     * @param request the request rendering the registry page
+     * @param demographicNo the canonical patient number the page is for
+     * @param providerNo the provider the page acts for
+     */
+    static void publishPatient(HttpServletRequest request, String demographicNo, String providerNo) {
+        request.setAttribute("demographicNo", demographicNo);
+        request.setAttribute("allDiagnostics", new dxResearchBeanHandler(demographicNo));
+        request.setAttribute("providerNo", providerNo);
     }
 }

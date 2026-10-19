@@ -18,6 +18,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { MODES, rapid, settledCount, watchPosts, verdicts, armSlowServer, sleep, recorderMark, forgiveAbortedSecondRequest } = require('./lib/double-submit-helpers');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const DRUG_TERM = process.env.RX_EDIT_DRUG_TERM || 'LIPITOR 20';
 const DRUG_NAME = process.env.RX_EDIT_DRUG_NAME || 'LIPITOR 20MG';
@@ -66,7 +67,7 @@ async function workflow(s) {
   for (const mode of MODES.filter((m) => m.key !== 'doubleEnter')) {
     await s.step(`Rx Save via ${mode.label} writes one drug`, async () => {
       wipe();
-      const rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+      const rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
       await rx.locator('#searchString').waitFor({ state: 'visible' });
       await rx.waitForLoadState('networkidle');
       const card = await stage(rx);

@@ -36,10 +36,11 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.apache.commons.validator.GenericValidator;
@@ -51,16 +52,16 @@ import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.form.FrmRecordHelp;
-import io.github.carlos_emr.carlos.form.data.FrmData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidationsBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation;
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /*
@@ -138,25 +139,31 @@ public class FrmForm2Action extends ActionSupport {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "Case folding is limited to form flags; redirects use the fixed local SetupForm route, a registry-validated alphanumeric form name, and canonical numeric patient/form IDs")
     public String execute()
             throws ServletException, IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
+        final String demographicNo;
+        final String formId;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+            formId = FrmSetupForm2Action.requireFormId(request);
+        } catch (IllegalArgumentException invalidContext) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", demographicNo)) {
             throw new SecurityException("missing required sec object (_form)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         boolean valid = true;
         logger.debug("FrmForm2Action is called " + currentMem());
 
         logger.debug("current mem 1 " + currentMem());
-
-        HttpSession session = request.getSession();
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        // nosemgrep: tainted-session-from-http-request -- bean is retrieved from existing session attribute, not raw user input
-        request.getSession().setAttribute("EctSessionBean", bean);
 
         String formName = (String) this.getValue("formName");
         logger.debug("formNme Top " + formName);
@@ -165,6 +172,16 @@ public class FrmForm2Action extends ActionSupport {
         if (trustedFormName == null) {
             logger.warn("Invalid form name attempted: {}", formName != null ? formName.replaceAll("[\\r\\n\\t]", "_") : "null");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form name");
+            return NONE;
+        }
+        final Properties currentRecord;
+        try {
+            currentRecord = FrmSetupForm2Action.loadFormRecord(trustedFormName, formId, demographicNo);
+        } catch (IllegalArgumentException foreignRecord) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
+            return NONE;
+        } catch (SQLException lookupFailure) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to read form record");
             return NONE;
         }
 
@@ -190,10 +207,7 @@ public class FrmForm2Action extends ActionSupport {
             return NONE;
         }
         logger.debug("num measurements " + measurementTypes.size());
-        String demographicNo = null;
-        String providerNo = (String) session.getAttribute("user");
-        if (bean != null)
-            demographicNo = bean.getDemographicNo();
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         logger.debug("current mem 3 " + currentMem());
 
@@ -212,6 +226,10 @@ public class FrmForm2Action extends ActionSupport {
         logger.debug("current mem 5 " + currentMem());
         for (int i = 0; i < measurementTypes.size(); i++) {
             mt = (EctMeasurementTypesBean) measurementTypes.elementAt(i);
+            if (isRetainedVtType(trustedFormName, mt.getType())) {
+                // These types have no editor in VT. Client carriers are not clinical input.
+                continue;
+            }
             validation = (EctValidationsBean) mt.getValidationRules().elementAt(0);
             String inputValue = (String) this.getValue(mt.getType() + "Value");
             String observationDate = (String) this.getValue(mt.getType() + "Date");
@@ -234,17 +252,22 @@ public class FrmForm2Action extends ActionSupport {
         long delTime = endTime - startTime;
         logger.debug("Time spent on validation: " + Long.toString(delTime));
 
+        int savedFormId;
         if (valid) {
             DemographicData demoData = new DemographicData();
             Demographic demo = demoData
                     .getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
+            if (demo == null) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
+                return NONE;
+            }
             logger.debug("is valid, procede write to table");
             // Store form information as properties for saving to form table
             props.setProperty("demographic_no", demographicNo);
             props.setProperty("provider_no", providerNo);
             props.setProperty("visitCod", (String) this.getValue("visitCod"));
             props.setProperty("dob", DemographicData.getDob(demo, "-"));
-            props.setProperty("gender", demo.getSex());
+            props.setProperty("gender", StringUtils.defaultString(demo.getSex()));
             props.setProperty("surname", demo.getLastName());
             props.setProperty("givenName", demo.getFirstName());
 
@@ -266,8 +289,12 @@ public class FrmForm2Action extends ActionSupport {
             for (int i = 0; i < measurementTypes.size(); i++) {
                 logger.debug("current mem 7.1." + i + " " + currentMem());
                 mt = (EctMeasurementTypesBean) measurementTypes.elementAt(i);
-                validation = (EctValidationsBean) mt.getValidationRules().elementAt(0);
                 String type = mt.getType();
+                if (isRetainedVtType(trustedFormName, type)) {
+                    retainStoredTriplet(props, currentRecord, type);
+                    continue;
+                }
+                validation = (EctValidationsBean) mt.getValidationRules().elementAt(0);
                 String inputValue = (String) this.getValue(type + "Value");
                 String lastData = (String) this.getValue(type + "LastData");
                 String lastDataEnteredDate = (String) this.getValue(type + "LastDataEnteredDate");
@@ -330,42 +357,37 @@ public class FrmForm2Action extends ActionSupport {
                 String sql = setupFormSaveSql(trustedFormName);
                 FrmRecordHelp frh = new FrmRecordHelp();
                 frh.setDateFormat(_dateFormat);
-                (frh).saveFormRecord(props, sql, demographicNo);
+                savedFormId = frh.saveFormRecord(props, sql, demographicNo);
             } catch (SQLException e) {
                 logger.error("Error ({})", e.getClass().getSimpleName());
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to save form record");
+                return NONE;
             }
 
             logger.debug("current mem 9 " + currentMem());
         } else {
             // return to the orignal form
-            return "/form/SetupForm?formName=" + trustedFormName + "&formId=0";
+            response.sendRedirect(setupLocation(trustedFormName, formId, demographicNo));
+            return NONE;
         }
 
         // return SUCCESS;
         // forward to the for with updated formId
 
-        logger.debug("submit value: " + submit);
+        logger.debug("submit value: {}", LogSafe.sanitize(submit));
         if (submit.equalsIgnoreCase("exit")) {
+            request.setAttribute("demographicNo", demographicNo);
             request.setAttribute("diagnosisVT", "See Vascular Tracker Template");
-            return "/WEB-INF/jsp/form/formSaveAndExit.jsp";
-        }
-        logger.debug("formName from Frm ForamAction" + formName);
-        EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
-        EncounterForm encounterForm = encounterFormDao
-                .find("../form/SetupForm?formName=" + trustedFormName + "&demographic_no=");
-        if (encounterForm == null) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form configuration");
+            request.getRequestDispatcher("/WEB-INF/jsp/form/formSaveAndExit.jsp").forward(request, response);
             return NONE;
         }
-        String formNameByFormTable = encounterForm.getFormName();
-        logger.debug("formNameByFormTable" + formNameByFormTable);
-        String[] formPath = {"", "0"};
-        try {
-            formPath = (new FrmData()).getShortcutFormValue(demographicNo, formNameByFormTable);
-        } catch (SQLException e) {
-            logger.error("Error ({})", e.getClass().getSimpleName());
-        }
-        return "/form/SetupForm?formName=" + trustedFormName + "&formId=" + formPath[1];
+        response.sendRedirect(setupLocation(trustedFormName, Integer.toString(savedFormId), demographicNo));
+        return NONE;
+    }
+
+    private String setupLocation(String trustedFormName, String formId, String demographicNo) {
+        return request.getContextPath() + "/form/SetupForm?formName=" + trustedFormName
+                + "&formId=" + formId + "&demographic_no=" + demographicNo;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -418,6 +440,20 @@ public class FrmForm2Action extends ActionSupport {
             }
         }
         return valid;
+    }
+
+    private static boolean isRetainedVtType(String formName, String type) {
+        return "VTForm".equals(formName) && ("iEx".equals(type) || "WHR".equals(type));
+    }
+
+    private static void retainStoredTriplet(Properties target, Properties currentRecord, String type) {
+        if (currentRecord == null) return;
+        for (String suffix : List.of("Value", "Date", "Comments")) {
+            String key = type + suffix;
+            String value = currentRecord.getProperty(key);
+            // An absent property is SQL NULL; preserve it instead of inventing a date or value.
+            if (value != null) target.setProperty(key, value);
+        }
     }
 
     private boolean write2MeasurementTable(String demographicNo, String providerNo,
@@ -492,7 +528,9 @@ public class FrmForm2Action extends ActionSupport {
     }
 
     public Object getValue(String key) {
-        return values.get(key);
+        // These legacy controls use literal value(name), not a Struts 2 map property.
+        String submitted = request.getParameter("value(" + key + ")");
+        return submitted != null ? submitted : values.get(key);
     }
 
     /**
@@ -542,6 +580,7 @@ public class FrmForm2Action extends ActionSupport {
         while (index >= 0) {
             boolean hasRoutePrefix = index == 0 || formValue.charAt(index - 1) == '/';
             int next = index + "SetupForm".length();
+            if (formValue.startsWith(".do", next)) next += 3;
             boolean hasRouteSuffix = next == formValue.length()
                     || formValue.charAt(next) == '?'
                     || formValue.charAt(next) == '&'

@@ -44,6 +44,9 @@
       - Legacy values: a stored reading that is no longer one of the rule's options (e.g. an AACP
         "Yes" recorded before the Provided/Revised/Reviewed rule) is shown as a selected, disabled
         option, so editing the row neither hides nor silently rewrites the historical value.
+      - Saved reading (id set): opens read-only with Delete as its only action. Only the visible
+        data controls are disabled; hidden inputs, including the CSRF-TOKEN CSRFGuard adds, stay
+        enabled so Delete is submitted with its token (issue #4715).
 
     Request parameters:
       demographic_no  patient whose flowsheet is being updated
@@ -368,7 +371,9 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>
-                            <oscar:nameage demographicNo="<%=demographic_no%>"/>
+                            <%-- This is a server-side tag parameter, not HTML output. The tag parses it as
+                                 an integer and encodes the rendered patient label with SafeEncode. --%>
+                            <oscar:nameage demographicNo="${param.demographic_no}"/>
                         </td>
                         <td>&nbsp;
 
@@ -530,8 +535,9 @@
                                         // chosen for a new reading.
                                         //
                                         // Being disabled, it is deliberately NOT submitted, and nothing depends on it:
-                                        //  - viewing a saved reading (id set): the whole form is disabled and only
-                                        //    Delete posts (to DeleteData2, which reads deleteCheckbox, not the value);
+                                        //  - viewing a saved reading (id set): every visible data control is disabled
+                                        //    and only Delete posts, with the form's hidden inputs (to DeleteData2,
+                                        //    which reads deleteCheckbox, not the value);
                                         //  - a value bounced back after validation errors: a legacy value can only
                                         //    arrive by bypassing this dropdown, and the server already rejected it
                                         //    against the current rule, so re-submitting it would fail again.
@@ -603,11 +609,24 @@
         </tr>
     </table>
     <script type="text/javascript">
+        <%-- A saved reading opens read-only: Delete is its only action. Disable only the visible data
+             controls. Never touch a hidden input: a disabled control is left out of the submission,
+             and the hidden inputs carry what Delete needs -- CSRFGuard's CSRF-TOKEN (without it
+             DeleteData2 answers 403, issue #4715), deleteCheckbox (the reading) and demographicNo
+             (which makes EctDeleteData2Action check the reading belongs to this chart's patient).
+             CSRFGuard's observer adds CSRF-TOKEN as soon as a script after the form has run, so it
+             may or may not exist yet when this block runs; sparing every hidden input does not
+             depend on that order. Fieldsets are skipped as well: disabling one disables every
+             control nested in it. scripts/add-measurement-readonly-form.test.js runs this block. --%>
         <% if ( id != null ) { %>
-        (function() { var f = document.getElementById('measurementForm'); if(f) { Array.from(f.elements).forEach(function(el) { el.disabled = true; }); } })();
-        document.getElementById('deleteButton').disabled = false;
-        document.getElementById('deleteCheck').disabled = false;
-
+        (function () {
+            var form = document.getElementById('measurementForm');
+            if (!form) { return; }
+            Array.from(form.elements).forEach(function (el) {
+                var isDataControl = /^(input|select|textarea|button)$/i.test(el.tagName) && el.type !== 'hidden';
+                if (isDataControl && el.id !== 'deleteButton') { el.disabled = true; }
+            });
+        })();
         <% } %>
         <% for (int i =0; i < iDate; i++){ %>
         Calendar.setup({

@@ -54,7 +54,6 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 import java.util.*;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -375,6 +374,8 @@ public class DemographicManagerImpl implements DemographicManager {
     private static final Pattern SAFE_NAME_RANGE_REGEX = Pattern.compile("^\\^\\[[A-Za-z]-[A-Za-z]\\]$");
 
     @Override
+    // FindSecBugs IMPROPER_UNICODE: report-name ordering is not an authorization identity. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Locale.ROOT case mapping for an ASCII A-Z report range; not a security or authorization decision")
     public List<Demographic> getDemographicsNameRangeByProvider(LoggedInInfo loggedInInfo, Provider provider,
                                                                 String regex) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
@@ -390,8 +391,7 @@ public class DemographicManagerImpl implements DemographicManager {
             return new ArrayList<>();
         }
 
-        // Validate that the character range is not reversed (e.g. "^[Z-A]" would pass the
-        // allowlist but throw PatternSyntaxException in Pattern.compile).
+        // Validate that the character range is not reversed (e.g. "^[Z-A]").
         char rangeStart = Character.toUpperCase(regex.charAt(2));
         char rangeEnd = Character.toUpperCase(regex.charAt(4));
         if (rangeStart > rangeEnd) {
@@ -408,12 +408,13 @@ public class DemographicManagerImpl implements DemographicManager {
          */
         List<Demographic> demographicFilterList = new ArrayList<>();
         if (demographicList != null && !demographicList.isEmpty()) {
-            Pattern pattern = Pattern.compile(regex);
-            Matcher matcher;
             for (Demographic demographic : demographicList) {
-                if (demographic.getLastName() != null) {
-                    matcher = pattern.matcher(demographic.getLastName().toUpperCase());
-                    if (matcher.find()) {
+                String lastName = demographic.getLastName();
+                if (lastName != null && !lastName.isEmpty()) {
+                    // The only accepted expression is an anchored one-letter range.
+                    // Compare its bounds directly rather than compiling client-derived regex.
+                    char first = lastName.toUpperCase(java.util.Locale.ROOT).charAt(0);
+                    if (first >= rangeStart && first <= rangeEnd) {
                         demographicFilterList.add(demographic);
                     }
                 }

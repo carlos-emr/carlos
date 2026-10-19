@@ -58,6 +58,7 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -209,18 +210,18 @@
             Vector vecAddress = null;
             Vector vecAddressPhone = null;
             Vector vecAddressFax = null;
+            // The clinic site of this patient's current visit, preselected in the address list. It
+            // stays on this page: the session's RX_ADDR holds only the address the prescriber last
+            // chose by hand (rx/ViewSetDefaultAddr), so one patient's visit site cannot become the
+            // default for another patient's prescription (issue #4673).
+            String appointmentAddressIndex = null;
             CarlosProperties props = CarlosProperties.getInstance();
             if (bMultisites) {
-                String appt_no = (String) session.getAttribute("cur_appointment_no");
-                String location = null;
-                if (appt_no != null) {
-                    try {
-                        Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
-                        if (result != null) location = result.getLocation();
-                    } catch (NumberFormatException e) {
-                        // Malformed appointment number in session — skip location lookup
-                    }
-                }
+                // The appointment this patient was opened for from the day sheet, never the one last
+                // opened for another patient.
+                Appointment currentAppointment = EncounterPatientContext.currentAppointment(request,
+                        String.valueOf(viewScriptDemographicNo), appointmentDao);
+                String location = currentAppointment == null ? null : currentAppointment.getLocation();
 
                 RxProviderData.Provider rxprovider = new RxProviderData().getProvider(bean.getProviderNo());
                 ProSignatureData sig = new ProSignatureData();
@@ -259,7 +260,7 @@
                             s.getCity(), s.getProvince(), s.getPostal(), s.getPhone(), s.getFax(), encodedTelLabel, encodedFaxLabel);
                     vecAddress.add(addressHtml);
                     if (s.getName().equals(location))
-                        session.setAttribute("RX_ADDR", String.valueOf(i));
+                        appointmentAddressIndex = String.valueOf(i);
                 }
 
 
@@ -895,11 +896,14 @@
                 encounterWindow.rxToPaste = rxToPaste;
             }
 
-            function addressSelect() {
+            // rememberChoice is true only when the prescriber picks an address. The page-load call
+            // passes false so the address preselected for this patient's visit site is shown
+            // without becoming the remembered default for other patients (issue #4673).
+            function addressSelect(rememberChoice) {
                 if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
                 <% if(vecAddressName != null) {
                  %>
-                setDefaultAddr();
+                if (rememberChoice) setDefaultAddr();
                 <%      for(int i=0; i<vecAddressName.size(); i++) {%>
                 var clinicAddress = frames['preview'].document.getElementById("clinicAddress");
                 if (clinicAddress && document.getElementById("addressSel").value == "<%=i%>") {
@@ -1423,9 +1427,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
     </head>
 
 <body topmargin="0" leftmargin="0" vlink="#0000FF"
-	onload="addressSelect();showFaxWarning();">
+	onload="addressSelect(false);showFaxWarning();">
 
-    <!-- HSFO functionality removed -->
     <div id="bodyView">
         <p id="signatureAssociationError" class="alert alert-danger" role="alert" hidden><fmt:message key="ViewScript.js.signatureAssociationFailed"/></p>
 
@@ -1563,17 +1566,18 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <% //vecAddress=null;
                                             if (vecAddress != null) { %>
                                         <tr>
-                                            <td align="left" colspan=2><fmt:message key="ViewScript.msgAddress"/>
-                                                <select name="addressSel" id="addressSel" onChange="addressSelect()"
+                                            <td align="left" colspan=2><label for="addressSel"><fmt:message key="ViewScript.msgAddress"/></label>
+                                                <select name="addressSel" id="addressSel" onChange="addressSelect(true)"
                                                         style="width:200px;">
-                                                    <% String rxAddr = (String) session.getAttribute("RX_ADDR");
+                                                    <% String rxAddr = appointmentAddressIndex != null
+                                                            ? appointmentAddressIndex : (String) session.getAttribute("RX_ADDR");
                                                         for (int i = 0; i < vecAddressName.size(); i++) {
                                                             String te = (String) vecAddressName.get(i);
                                                             String tf = (String) vecAddress.get(i);%>
 
                                                     <option value="<%=i%>"
                                                             <% if ( rxAddr != null && rxAddr.equals(""+i)){ %>SELECTED<%}%>
-                                                    ><%=te%>
+                                                    ><carlos:encode value='<%= te %>'/>
                                                     </option>
                                                     <% }%>
 
@@ -1758,7 +1762,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         %>
                                         <tr>
                                             <td><span><a
-                                                    href="javascript:ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptAttribute"/>');">
+                                                    href="${pageContext.request.contextPath}/rx/drugInfo?GN=<carlos:encode value='<%= rx.getGenericName() %>' context="uriComponent"/><% if (rx.getRegionalIdentifier() != null && !rx.getRegionalIdentifier().isEmpty() && !"null".equals(rx.getRegionalIdentifier()) && !"0".equals(rx.getRegionalIdentifier())) { %>&amp;DIN=<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="uriComponent"/><% } %>" onclick="ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptAttribute"/>'); return false;">
 						<carlos:encode value="<%= rx.getGenericName() %>" context="html"/> (<carlos:encode value="<%= rx.getBrandName() %>" context="html"/>) </a></span></td>
                                         </tr>
                                         <%

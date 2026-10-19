@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.A1cPercent;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Paint;
@@ -44,6 +45,7 @@ import java.util.*;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
@@ -117,12 +119,19 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", null)) {
+        final String patient;
+        try {
+            patient = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", patient)) {
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
 
-        Integer demographicNo = Integer.valueOf(request.getParameter("demographic_no"));
+        Integer demographicNo = Integer.valueOf(patient);
         String typeIdName = request.getParameter("type");
         String typeIdName2 = request.getParameter("type2");
 
@@ -268,7 +277,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
                         newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                                plottedValue(mdb.getType(), result));
                     }
                 }
                 try {
@@ -373,7 +382,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
                         newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                                plottedValue(mdb.getType(), result));
                     }
                 }
             }
@@ -501,7 +510,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
                         newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                                plottedValue(mdb.getType(), result));
                     }
                 }
             }
@@ -885,7 +894,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
                         newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                                plottedValue(mdb.getType(), result));
                     }
                 }
                 try {
@@ -996,7 +1005,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
                         newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                                plottedValue(mdb.getType(), result));
                     }
                 } else {
                     log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
@@ -1025,7 +1034,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
                         newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                                plottedValue(mdb.getType(), result));
                     }
                 } else {
                     log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
@@ -1117,5 +1126,12 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return renderer;
     }
 
-
+    /**
+     * Parses a measurement result for plotting. An A1C reported as a fraction (0.095) is plotted
+     * as percent (9.5) so labs that report either form share one axis (issue #4614).
+     */
+    private static double plottedValue(String measurementType, String result) {
+        double value = Double.parseDouble(result);
+        return A1cPercent.appliesTo(measurementType) ? A1cPercent.toPercent(value) : value;
+    }
 }

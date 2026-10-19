@@ -25,6 +25,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 // Declared before the validateBaseUrl() call below: `const` bindings are in the
 // temporal dead zone until initialized, so a set declared further down the file
@@ -294,7 +295,7 @@ async function restoreSubject(page, subject) {
 
   const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({
-    ignoreHTTPSErrors: baseUrl.protocol === 'https:' && isLocalHost(baseUrl.hostname),
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
   });
   let page = null;
   let subject = null;

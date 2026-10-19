@@ -96,8 +96,9 @@ class RichTextLetterPrintAssetRegressionTest {
     void shouldExemptLetterPayload_fromPackagedWafScoring() throws IOException {
         // Verified on a packaged Ubuntu 26.04 install: CRS 932100 scored ordinary letter prose in
         // ARGS:Letter (entity-decoded by the WAF first) and answered the save with a 403, so a typed
-        // letter was lost while the application log stayed silent. The exclusion mirrors the eForm
-        // editor's formHtml one and must stay scoped to ARGS:Letter on POST /carlos/eform/addEForm.
+        // letter was lost while the application log stayed silent. A leading pasted IP URL also
+        // triggers 931100: unlike formHtml, the first line can be plain text. Keep the exception
+        // scoped to ARGS:Letter on POST /carlos/eform/addEForm.
         String exclusions = read(Path.of("debian", "assets", "modsecurity",
                 "REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"));
         int ruleStart = exclusions.indexOf("id:1045,");
@@ -107,7 +108,7 @@ class RichTextLetterPrintAssetRegressionTest {
         assertThat(rule).contains("^/carlos/eform/addEForm(?:[;?]|$)");
         assertThat(rule).contains("@streq POST");
         for (String tag : new String[] {"attack-sqli", "attack-xss", "attack-rce",
-                "attack-injection-php", "attack-protocol", "attack-lfi"}) {
+                "attack-injection-php", "attack-protocol", "attack-lfi", "attack-rfi"}) {
             assertThat(rule).contains("ctl:ruleRemoveTargetByTag=" + tag + ";ARGS:Letter");
         }
         // Per-argument only: nothing here may remove a rule request-wide.

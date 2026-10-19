@@ -118,6 +118,15 @@ The `csrfguard.js` script (served by the JavascriptServlet) automatically handle
 - A form built in script and submitted at once (`createElement('form')` … `form.submit()`)
   gets the token at submission time (CARLOS patch 3). Do not hand-roll token copying for new
   code; set `method="post"` and a real same-origin `action`.
+- **Never disable a form's hidden inputs.** A page that makes a form read-only by setting
+  `disabled` on every `form.elements` entry also disables the injected `CSRF-TOKEN` field, and a
+  disabled control is not submitted. CSRFGuard only refreshes an existing token field's value, it
+  never enables the field, so the POST is refused with 403 ("Required Token is missing from the
+  Request") — this is what broke Delete on a saved flowsheet reading (issue #4715,
+  `AddMeasurementData.jsp`). Disable only the visible controls (skip `type="hidden"`), and skip
+  `<fieldset>`: disabling one disables every control nested in it. Do not rely on the token field
+  being absent or present when your script runs; the `MutationObserver` can add it as soon as any
+  script after the form has run.
 - **No manual token handling is needed for `<form>` submissions or `XMLHttpRequest` calls**
 - **`fetch()` calls require manual CSRF token inclusion** — CSRFGuard (as of 4.5) does
   **not** auto-intercept `fetch()`. Use the `getCsrfToken()` helper from `oscarMDSIndex.js`
@@ -469,7 +478,8 @@ The login flow creates the session and generates tokens on the first GET to a pr
 **Check**:
 1. View page source — confirm `<script src="/carlos/csrfguard"></script>` is present in `<head>`
 2. Browser dev tools (Network tab) — confirm the `csrfguard` script loaded successfully
-3. Browser dev tools (Elements tab) — confirm forms have a hidden `CSRF-TOKEN` input
+3. Browser dev tools (Elements tab) — confirm forms have a hidden `CSRF-TOKEN` input, and that it
+   is not `disabled` (a read-only form that disables every control omits the token from the POST)
 4. If the script tag is missing, check `CsrfGuardScriptInjectionFilter` is mapped in `web.xml`
 5. If the hidden input is missing, check browser console for JavaScript errors
 6. If the form is built in JavaScript or arrives inside `.load()`-injected HTML, submit it

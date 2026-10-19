@@ -39,7 +39,9 @@
  *      configure is NOT silently rendered with a blank field: the download is
  *      withheld and the clinician gets the missing-content approval page whose
  *      "Failed content resources" count is non-zero, while the page never
- *      names the key (only the operator log does);
+ *      names the key (only the operator log does); Approve and download then
+ *      downloads a %PDF without saving a second instance, and replaying the same
+ *      one-time approval is answered with the expired-approval message and no PDF;
  *   3. optional (APCACHE_JOURNAL_UNIT=carlos-emr, run as root on the packaged
  *      install): the application journal carries the servlet's WARN line
  *      naming the rejected key and reason only, with no fdid, throwable, or AP
@@ -47,6 +49,9 @@
  *   4. optional (APCACHE_PROBE_URL=http://127.0.0.1:18080/carlos, a loopback
  *      Tomcat base): direct requests without a render grant answer 401, and a
  *      non-GET answers 405 (or 403 from the CSRF guard); the front door (BASE_URL) also refuses.
+ *
+ * Last assertion: the eForm view an approved download leaves on screen answers its
+ * APCache lookups. On release/2026.08 it fails until #4979 is fixed (finding 458).
  *
  * Requires pdftotext from poppler-utils.
  *
@@ -77,7 +82,9 @@ const path = require('path');
 const { execFileSync } = require('node:child_process');
 const { chromium, request: playwrightRequest } = require('playwright');
 const h = require('./lib/playwright-harness');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { bundleMessage } = require('./lib/throwaway-login-fixture');
 const {
   assert,
   assertNotErrorPage,
@@ -114,6 +121,22 @@ const config = {
 };
 
 const recorder = createRecorder();
+// Interactive lookups the eForm view left on screen after Approve and download answered with an error. Kept apart
+// from the run-wide lookup assertion and asserted last, so this one defect cannot hide any other.
+const approvedViewLookupFailures = [];
+// recorder.badResponses length when Approve was clicked; everything recorded after it is split at the end.
+let approvedViewMark = null;
+const LOOKUP_PATH = '/eform/efmformapconfig_lookup';
+
+/** Move the interactive-lookup errors recorded since the approval out of the run-wide list. */
+function splitApprovedViewLookups() {
+  if (approvedViewMark === null) return;
+  const after = recorder.badResponses.splice(approvedViewMark);
+  approvedViewMark = null;
+  for (const entry of after) {
+    (entry.url.includes(LOOKUP_PATH) ? approvedViewLookupFailures : recorder.badResponses).push(entry);
+  }
+}
 
 // Failure output must not carry patient-correlating identifiers: response URLs the recorder keeps
 // include fdid and demographic numbers. Same contract as eform-test-pattern-playwright-checks.js.
@@ -389,8 +412,60 @@ async function checkPositiveRender(context, fid, runId, artifactPaths) {
   return { fdid, providerValue, todayValue };
 }
 
+/** The value of the hidden input efmshowform_data.jsp writes with this id (EForm.addHiddenInputElement), or ''. */
+function hiddenInputValue(html, id) {
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- id is one of this check's literal field ids (eFormPDF, errorMessage)
+  const input = new RegExp(`<input[^>]*\\bid="${id}"[^>]*>`).exec(html);
+  const value = input && /\bvalue="([^"]*)"/.exec(input[0]);
+  if (!value) return '';
+  // The page attribute-encodes the value (Encode.forHtmlAttribute): decode it to the text the clinician reads.
+  return value[1]
+    .replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (match, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+}
+
+/**
+ * Part 2b: Approve and download on the approval page serves the incomplete render as a PDF once, saves no
+ * second instance, and the same approval cannot be used again: a replay is answered with the expired-approval
+ * message and no PDF (DownloadEFormPdf2Action consumes the one-time ticket).
+ */
+async function checkApprovedDownload(page, sql, fdid, runId, artifactPaths) {
+  const savedRows = () => sql.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${Number(config.demographicNo)}`);
+  const rowsBefore = savedRows();
+  const form = page.locator('form[action*="/eform/downloadEFormPdf"]');
+  assert(await form.count() === 1, 'the approval page offers no Approve and download');
+  const fields = await form.evaluate((element) => Object.fromEntries(new FormData(element)));
+  assert(fields.fdid === fdid && fields.renderApproval, 'the approval form does not carry the saved fdid and its one-time token');
+  const pdfPath = buildArtifactPath(config.screenshotDir, `eform-apcache-approved-${runId}`, '.pdf');
+  approvedViewMark = recorder.badResponses.length;
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 90000 }),
+    form.locator('button[type="submit"]').click(),
+  ]);
+  await download.saveAs(pdfPath);
+  artifactPaths.add(pdfPath);
+  assert(fs.readFileSync(pdfPath).subarray(0, 5).toString('utf8') === '%PDF-', 'Approve and download served no PDF');
+  assert(savedRows() === rowsBefore, 'Approve and download saved another eForm instance');
+  // The download lands on the eForm view, whose APCache lookups run again: give them time to answer (their errors are
+  // split out just before the final assertions).
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+
+  const downloadUrl = new URL(`${config.baseUrl.pathname.replace(/\/$/, '')}/eform/downloadEFormPdf`, config.baseUrl.origin).href;
+  const replay = await page.context().request.post(downloadUrl, { form: fields });
+  const html = await replay.text();
+  assert(replay.status() === 200, `the replayed approval answered HTTP ${replay.status()}`);
+  assert(!hiddenInputValue(html, 'eFormPDF'), 'the replayed approval served the PDF a second time');
+  // As getText shows it: MessageFormat turns a bundle's '' into one apostrophe.
+  const expired = bundleMessage('eform.download.approvalExpired',
+    'The incomplete-render approval is no longer valid. Download the eForm again to review the listed issues and approve them.')
+    .replace(/''/g, "'");
+  assert(hiddenInputValue(html, 'errorMessage') === expired, 'the replayed approval was not answered with the expired-approval message');
+  assert(savedRows() === rowsBefore, 'the replayed approval saved another eForm instance');
+}
+
 /** Part 2: an unconfigured key withholds the PDF and offers the approval page; the key is not shown. */
-async function checkNegativeRender(context, fid, missingKey, runId, artifactPaths) {
+async function checkNegativeRender(context, sql, fid, missingKey, runId, artifactPaths) {
   const page = await openAddEform(context, fid, 'apcache-negative');
   await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo');
 
@@ -409,6 +484,7 @@ async function checkNegativeRender(context, fid, missingKey, runId, artifactPath
   assert(!downloadFired, 'a PDF was downloaded despite the unconfigured APCache key');
   const fdid = await savedFdidOnPage(page);
   assert(fdid, 'approval page does not carry the saved fdid');
+  await checkApprovedDownload(page, sql, fdid, runId, artifactPaths);
   await page.close().catch(() => {});
   return { fdid };
 }
@@ -454,7 +530,7 @@ async function checkDirectProbes() {
     results.loopbackPost = post.status;
     assert([403, 405].includes(post.status), `POST to the read-only bridge answered ${post.status}, expected 403/405`);
   }
-  const front = await playwrightRequest.newContext({ ignoreHTTPSErrors: true });
+  const front = await playwrightRequest.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl) });
   try {
     const response = await front.get(`${config.baseUrl.origin}${config.baseUrl.pathname}${SERVLET_PATH}?key=${TODAY_KEY}`, { maxRedirects: 0 });
     results.frontDoorNoGrant = response.status();
@@ -498,7 +574,7 @@ async function main() {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     context = await browser.newContext({
       acceptDownloads: true,
-      ignoreHTTPSErrors: config.baseUrl.protocol === 'https:',
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1280, height: 1200 },
     });
     const landing = await login(context, config, recorder);
@@ -511,7 +587,7 @@ async function main() {
     if (positive.fdid) {
       savedFdids.add(positive.fdid);
     }
-    const negative = await checkNegativeRender(context, negativeFid, missingKey, runId, artifactPaths);
+    const negative = await checkNegativeRender(context, sql, negativeFid, missingKey, runId, artifactPaths);
     savedFdids.add(negative.fdid);
 
     const journal = checkJournal(sinceIso, missingKey, [positive.fdid, negative.fdid].filter(Boolean), positive.providerValue);
@@ -523,7 +599,8 @@ async function main() {
     // one either: the save result view's efmfid/efmdemographic_no query string once produced
     // "Invalid fid" 400s on every post-save lookup, and APCache.js turns any lookup failure
     // into a "contact an administrator" alert the recorder captures as a dialog.
-    const lookupFailures = recorder.badResponses.filter((response) => response.url.includes('/eform/efmformapconfig_lookup'));
+    splitApprovedViewLookups();
+    const lookupFailures = recorder.badResponses.filter((response) => response.url.includes(LOOKUP_PATH));
     assert(lookupFailures.length === 0, `interactive APCache lookups answered errors: ${describe(lookupFailures)}`);
     assert(!recorder.badResponses.some((response) => response.url.includes(SERVLET_PATH)), `this browser saw the renderer bridge answer an error: ${describe(recorder.badResponses)}`);
     assert(recorder.badResponses.length === 0, `Unexpected HTTP errors: ${describe(recorder.badResponses)}`);
@@ -543,6 +620,11 @@ async function main() {
       // screenshot() returns null when screenshots are disabled; there is no file to remove then.
       if (artifactPath) fs.rmSync(artifactPath, { force: true });
     }
+    // Last: the eForm view an approved download leaves on screen is a POST result with no query string, so APCache.js
+    // forwards no fid and efmformapconfig_lookup refuses every lookup ("Invalid fid", 400): the form's APCache fields
+    // stay blank there.
+    assert(approvedViewLookupFailures.length === 0,
+      `after Approve and download, the eForm view's APCache lookups answered errors: ${describe(approvedViewLookupFailures)}`);
     console.log('PASS eForm renderer APCache bridge check');
   } catch (error) {
     console.error('FAIL eForm renderer APCache bridge check');

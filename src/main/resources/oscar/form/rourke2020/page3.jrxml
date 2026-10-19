@@ -10,8 +10,8 @@
 	<property name="com.jaspersoft.studio.unit.rightMargin" value="pixel" />
 	<property name="com.jaspersoft.studio.unit.columnWidth" value="pixel" />
 	<property name="com.jaspersoft.studio.unit.columnSpacing" value="pixel" />
-	<style name="defaultStyle" default="true" fontSize="16" />
-	<parameter name="background_image" />
+	<style name="defaultStyle" default="true" fontName="DejaVu Sans" fontSize="16" />
+	<parameter name="background_image" class="net.sf.jasperreports.renderers.Renderable" />
 	<parameter name="check_image" />
 	<parameter name="cross_image" />
 	<parameter name="c_birthRemarks" />
@@ -301,13 +301,13 @@
 			<element kind="textField" uuid="1b730795-e3e8-47f1-b6b3-72e328201b12" x="750" y="155" width="200" height="22">
 				<expression><![CDATA[$P{c_birthDate}]]></expression>
 			</element>
-			<element kind="textField" uuid="ee3ad726-9317-449b-b1be-fc606f3720ce" x="210" y="335" width="160" height="22">
+			<element kind="textField" uuid="ee3ad726-9317-449b-b1be-fc606f3720ce" x="210" y="335" width="160" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_date9m}]]></expression>
 			</element>
-			<element kind="textField" uuid="c3d29a64-8c02-48d7-93c2-0e7b90fbd76f" x="740" y="335" width="160" height="22">
+			<element kind="textField" uuid="c3d29a64-8c02-48d7-93c2-0e7b90fbd76f" x="740" y="335" width="160" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_date12m}]]></expression>
 			</element>
-			<element kind="textField" uuid="649a2451-2f4c-4014-8d4e-f46cf75d3ab1" x="1270" y="335" width="160" height="22">
+			<element kind="textField" uuid="649a2451-2f4c-4014-8d4e-f46cf75d3ab1" x="1270" y="335" width="160" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_date15m}]]></expression>
 			</element>
 			<element kind="textField" uuid="3b612a08-7159-4322-b448-bab50a82e7b6" x="78" y="435" width="100" height="22">

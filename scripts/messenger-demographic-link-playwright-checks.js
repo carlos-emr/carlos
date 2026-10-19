@@ -211,4 +211,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('messenger-demographic-link', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, settle, clickAndLoad };
