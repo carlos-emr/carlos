@@ -20,16 +20,14 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
-const { serverLogFromEnvironment, splitLogEvents } = require('./lib/server-log');
+const { splitLogEvents } = require('./lib/server-log');
+const { requiredRxServerLog, verifyActiveRxServerLog } = require('./lib/rx-server-log-prerequisite');
 
 const DRUG_TERM = process.env.RX_INFO_DRUG_TERM || 'LIPITOR 20';
 const DRUG_NAME = process.env.RX_INFO_DRUG_NAME || 'LIPITOR 20MG';
 
 async function workflow(s) {
-  const log = serverLogFromEnvironment();
-  if (!log.configured) {
-    throw new h.SkipCheck('LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG is required to verify the Info fallback server log');
-  }
+  const log = requiredRxServerLog();
   const { patient, config, sql } = s;
   const appHost = new URL(config.baseUrl).host;
   s.cleanup(() => {
@@ -53,6 +51,7 @@ async function workflow(s) {
     rx = await s.popup(chart, chart.locator('#menuTitleRx a').first(), 'rx-page');
     await rx.locator('#searchString').waitFor({ state: 'visible' });
     await rx.waitForLoadState('networkidle').catch(() => {});
+    await verifyActiveRxServerLog(log, s, rx);
     const card = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME);
     await rx.locator(`#instructions_${card}`).fill('1 tab PO BID x 14 days');
     await rx.locator(`label[for="jsonDxSearch_${card}"]`).click();

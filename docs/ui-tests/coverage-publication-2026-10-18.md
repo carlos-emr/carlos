@@ -118,7 +118,12 @@ Rx selection covers 104 distinct checks, including the upstream print/pharmacy
 workflow and revised Rx-notes path. Latest actual results are 101 passes and
 three exact known failures (Info finding 311; both discarded-card callbacks
 finding 312), with zero unexpected failures/skips and clean residue audits.
-The readable journal is mandatory for these server-error assertions. The fresh
+The readable journal is mandatory for these server-error assertions. Before
+judging a defect, the checks also require a fresh application warning from a
+read-only, invalid-key Rx history lookup. Empty, unrelated or historical logs
+cannot satisfy that positive control. Unreadable sources, including a read
+failure after preflight, produce a prerequisite skip outside defect classification.
+The fresh
 package evidence remains pinned to application source `4c33e615976`; its affected
 Rx controller and DrugRef pin are unchanged in `fefceecc62aa`. The inherited
 release also changes CSRF replay diagnostics; this is not a claim of a freshly

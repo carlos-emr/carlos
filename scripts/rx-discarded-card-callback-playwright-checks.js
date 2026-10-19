@@ -7,7 +7,8 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { prepareRx } = require('./lib/rx-ui-workflow');
 const { openRx, stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
 const { waitUntil, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
-const { serverLogFromEnvironment, splitLogEvents } = require('./lib/server-log');
+const { splitLogEvents } = require('./lib/server-log');
+const { requiredRxServerLog, verifyActiveRxServerLog } = require('./lib/rx-server-log-prerequisite');
 
 const mode = process.env.RX_DISCARD_CALLBACK || 'quantity';
 const variants = {
@@ -17,12 +18,12 @@ const variants = {
 
 async function workflow(s) {
   h.assert(variants[mode], 'RX_DISCARD_CALLBACK must be quantity or instructions');
-  const log = serverLogFromEnvironment();
-  if (!log.configured) throw new h.SkipCheck('A readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG is required');
+  const log = requiredRxServerLog();
   const variant = variants[mode], fixture = await prepareRx(s);
   const control = fixture.seed('untouched control');
   const stored = () => JSON.stringify(s.sql.rows(`SELECT * FROM drugs WHERE demographic_no=${s.patient} ORDER BY drugid`));
   const before = stored(), rx = await fixture.open();
+  await verifyActiveRxServerLog(log, s, rx);
   const key = await stageCustomDrug(rx, s.marker + ' discarded callback');
   // A directions parse uses synchronous XHR in the originating window. The
   // same patient's second Rx window can still discard that pending draft.
