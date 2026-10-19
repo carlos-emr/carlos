@@ -91,7 +91,9 @@
 <script type="text/javascript">
 <% for (NavBarDisplayDAO.AutoCompleteItem acItem : acItems) { %>
 itemColours['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>'] = '<carlos:encode value='<%= acItem.bgColour() %>' context="javaScriptBlock"/>';
-autoCompList.push('<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>');
+if (autoCompList.indexOf('<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>') === -1) {
+    autoCompList.push('<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>');
+}
 autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>'] = "<carlos:encode value='<%= acItem.jsExpression() %>' context="javaScriptBlock"/>";
 <% } %>
 </script>
