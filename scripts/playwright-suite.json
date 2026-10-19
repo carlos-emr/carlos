@@ -15500,8 +15500,12 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned marker-named consultation service and seven specialists with text, numeric, zero, empty and NULL specialty types. Cleanup deletes exactly the marker-owned rows and verifies they are gone. Run sequentially: specialists are visible on the shared Consultation Settings list.",
-      "notes": "Issue #4188: Administration > Consultation Settings opens every specialist editor with HTTP 200; matching service IDs stay selected and all unmatched specialties select the blank option. Opening the form must not change the stored specialty."
+      "fixtures": "Owned marker-named consultation service and seven specialists with text, numeric, zero, empty and NULL specialty types. Cleanup deletes exactly the marker-owned rows and verifies they are gone. These rows are visible in clinic-wide lists and pickers, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue #4188: Administration > Consultation Settings opens every specialist editor with HTTP 200; matching service IDs stay selected and all unmatched specialties select the blank option. Opening the form must not change the stored specialty.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists"
+      ]
     }
   ]
 }
