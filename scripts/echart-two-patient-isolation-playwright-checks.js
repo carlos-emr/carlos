@@ -35,14 +35,29 @@
  * opener navigates to B must leave B's editor and complete clinical rows unchanged. Invalid patient
  * parameters and cross-patient form IDs are rejected without exposing names or changing either
  * patient's rows. CPP signature hashes and VT forms are included in owned fixture cleanup.
+ *
+ * Issue #4673 adds the bean's other readers, each driven in both directions right after the other
+ * chart was entered: the chart print's MRP line (B's MRP is a second named doctor); the legacy
+ * encounter save, its Sign, Save and Exit of the chart's own appointment and its refusals; the
+ * legacy editor and history prints; the legacy immunization schedule (template add, Save, set
+ * delete, the dose window, and a Save, template add or set restore without one valid patient,
+ * refused); the author of a template made after a chart was entered from another provider's day
+ * sheet; the legacy case-management navigation and its list of the patient's own messages; and the
+ * notes list's edit rights and the notes panel's entry provider once a chart was entered from
+ * another provider's day sheet. One owned appointment per patient, its archive rows and the
+ * immunization schedules are in the snapshot and the cleanup, as are the owned template and one
+ * message linked to each patient; the provider's encounterWindow row is restored.
  */
 const crypto = require('node:crypto');
+const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, csrfTokenPresent } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const print = require('./lib/gap-clinical-print');
+const { squash } = require('./lib/export-content-helpers');
 
 const TIMEOUT = 20000;
 const A_WEIGHT = '61.2';
@@ -76,7 +91,10 @@ function patientStateQueries(patient) {
     demographicExtensions: `SELECT * FROM demographicExt WHERE demographic_no=${id} ORDER BY id`,
     measurements: `SELECT * FROM measurements WHERE demographicNo=${id} ORDER BY id`,
     deletedMeasurements: `SELECT * FROM measurementsDeleted WHERE demographicNo=${id} ORDER BY id`,
-    measurementExtensions: `SELECT * FROM measurementsExt WHERE measurement_id IN (${measurements}) ORDER BY id`,
+    // The id set is a derived table so it is materialized once: MariaDB 11.8 runs a bare IN (... UNION ...)
+    // as a dependent subquery for every extension row, which takes minutes on the demonstration dataset.
+    measurementExtensions: `SELECT * FROM measurementsExt WHERE measurement_id IN
+      (SELECT id FROM (${measurements}) owned) ORDER BY id`,
     diagnoses: `SELECT * FROM dxresearch WHERE demographic_no=${id} ORDER BY dxresearch_no`,
     notes: `SELECT * FROM casemgmt_note WHERE demographic_no=${id} ORDER BY note_id`,
     noteExtensions: `SELECT * FROM casemgmt_note_ext WHERE note_id IN (${notes}) ORDER BY id`,
@@ -91,6 +109,9 @@ function patientStateQueries(patient) {
     preventionExtensions: `SELECT * FROM preventionsExt WHERE prevention_id IN
       (SELECT id FROM preventions WHERE demographic_no=${id}) ORDER BY id`,
     forms: `SELECT * FROM formVTForm WHERE demographic_no=${id} ORDER BY ID`,
+    appointments: `SELECT * FROM appointment WHERE demographic_no=${id} ORDER BY appointment_no`,
+    archivedAppointments: `SELECT * FROM appointmentArchive WHERE demographic_no=${id} ORDER BY id`,
+    immunizationSchedules: `SELECT * FROM immunizations WHERE demographic_no=${id} ORDER BY ID`,
   };
 }
 
@@ -358,10 +379,18 @@ async function run(s) {
   // ---- Fixtures --------------------------------------------------------------------------------
   prepareVascularTrackerFixture(s);
   // Two first names no page text or script contains, so a page that prints one names its patient.
-  sql.execute(`UPDATE demographic SET first_name=${q(A_FIRST_NAME)} WHERE demographic_no=${A} AND last_name=${q(marker)}`);
+  sql.execute(`UPDATE demographic SET first_name=${q(A_FIRST_NAME)}, provider_no=${q(provider)}
+    WHERE demographic_no=${A} AND last_name=${q(marker)}`);
+  // B's most responsible provider is another named provider, so a chart print says whose MRP it names.
+  const mrpB = sql.value(`SELECT provider_no FROM provider WHERE provider_no<>${q(provider)} AND status='1'
+    AND provider_type='doctor' AND provider_no REGEXP '^[1-9][0-9]{0,5}$'
+    AND TRIM(first_name)<>'' AND TRIM(last_name)<>'' AND CONCAT(TRIM(first_name),' ',TRIM(last_name))<>
+      (SELECT CONCAT(TRIM(first_name),' ',TRIM(last_name)) FROM provider WHERE provider_no=${q(provider)})
+    ORDER BY provider_no LIMIT 1`);
+  h.assert(/^[1-9]\d{0,5}$/.test(mrpB), 'A second named doctor is required as patient B\'s MRP');
   const B = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth, month_of_birth,
     date_of_birth, sex, patient_status, provider_no, hc_type, province, roster_status, lastUpdateDate)
-    VALUES (${q(marker)}, ${q(B_FIRST_NAME)}, '1975', '03', '04', 'M', 'AC', ${q(provider)}, 'ON', 'ON', 'NR', NOW());
+    VALUES (${q(marker)}, ${q(B_FIRST_NAME)}, '1975', '03', '04', 'M', 'AC', ${q(mrpB)}, 'ON', 'ON', 'NR', NOW());
     SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(B), 'Patient B fixture was not created');
   const patients = `${A},${B}`;
@@ -404,7 +433,10 @@ async function run(s) {
       DELETE FROM measurementsExt WHERE measurement_id IN (${ownedMeasurements});
       DELETE FROM measurements WHERE demographicNo IN (${patients});
       DELETE FROM measurementsDeleted WHERE demographicNo IN (${patients});
-      DELETE FROM formVTForm WHERE demographic_no IN (${patients})`);
+      DELETE FROM formVTForm WHERE demographic_no IN (${patients});
+      DELETE FROM appointmentArchive WHERE demographic_no IN (${patients});
+      DELETE FROM appointment WHERE demographic_no IN (${patients});
+      DELETE FROM immunizations WHERE demographic_no IN (${patients})`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM casemgmt_cpp WHERE demographic_no IN (${patients}))
@@ -420,6 +452,9 @@ async function run(s) {
       + (SELECT COUNT(*) FROM preventionsExt WHERE prevention_id IN (${ownedPreventions}))
       + (SELECT COUNT(*) FROM measurementsExt WHERE measurement_id IN (${ownedMeasurements}))
       + (SELECT COUNT(*) FROM formVTForm WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM appointmentArchive WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM appointment WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM immunizations WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM measurements WHERE demographicNo IN (${patients}))
       + (SELECT COUNT(*) FROM measurementsDeleted WHERE demographicNo IN (${patients}))`) === '0',
     'Owned chart rows were not removed');
@@ -505,9 +540,18 @@ async function run(s) {
     return handlers.map(onclick => (onclick.match(/demographic(?:_no|No)=(\d+)/) || [])[1]);
   }
 
+  /**
+   * Shows the Forms module's Add Form menu. Its "+" is hovered by firing its mouseover, as
+   * bpmh-form does: the menu opens over the "+" itself whenever its list is wide enough to reach
+   * it, so Playwright's hover, which waits for the "+" to receive the pointer, never settles.
+   */
+  async function showFormMenu(chart) {
+    await chart.locator('#menuTitle1 a').dispatchEvent('mouseover');
+  }
+
   /** Open the first Add Form item of a chart window's Forms module. */
   async function openFirstForm(chart, label) {
-    await chart.locator('#menuTitle1 a').hover();
+    await showFormMenu(chart);
     const item = chart.locator(FORM_MENU_ITEMS).first();
     await item.waitFor({ state: 'visible', timeout: TIMEOUT });
     return s.popup(chart, item, label);
@@ -547,19 +591,30 @@ async function run(s) {
    * could pass only because an earlier step had pointed the session at its own patient. A new
    * window rather than chartB.reload(): leaving a chart sends its note-lock release beacon, which
    * the browser reports as an aborted ping and the strict recorder counts as a failure.
+   * entryProvider is the entry's providerNo: the provider whose day sheet the chart is opened from.
    */
-  async function activateOther(chart) {
+  async function activateOther(chart, entryProvider = provider) {
     const patient = new URL(chart.url()).searchParams.get('demographicNo');
     h.assert(patient === String(A) || patient === String(B), 'The chart to select belongs to neither owned patient');
     const fresh = await context.newPage();
     await h.gotoApp(fresh, s.config.baseUrl,
-      `/encounter/IncomingEncounter?demographicNo=${encodeURIComponent(patient)}&providerNo=${encodeURIComponent(provider)}`);
+      `/encounter/IncomingEncounter?demographicNo=${encodeURIComponent(patient)}&providerNo=${encodeURIComponent(entryProvider)}`);
     await waitForNavbars(fresh, TIMEOUT);
     h.assert(new URL(fresh.url()).searchParams.get('demographicNo') === patient,
       'Entering the other chart opened a different patient');
     const banner = await bannerOwner(fresh);
     h.assert(patient === String(A) ? banner.namesA && !banner.namesB : banner.namesB && !banner.namesA,
       'The freshly entered chart names another patient in its identity banner');
+  }
+
+  /** Enter a patient's chart for an entry provider as a window that is closed again would. */
+  async function enterChartElsewhere(patient, entryProvider) {
+    const entered = await context.request.get(h.appUrl(s.config.baseUrl,
+      `/encounter/IncomingEncounter?demographicNo=${encodeURIComponent(patient)}&providerNo=${encodeURIComponent(entryProvider)}`),
+    {failOnStatusCode: false});
+    try {
+      h.assert(entered.status() === 200, `Entering a chart answered HTTP ${entered.status()}`);
+    } finally { await entered.dispose(); }
   }
 
   /**
@@ -844,7 +899,7 @@ async function run(s) {
     });
 
     await isolatedWrite(d, 'Vascular Tracker setup and Update', async () => {
-      await d.chart.locator('#menuTitle1 a').hover();
+      await showFormMenu(d.chart);
       const item = d.chart.locator(FORM_MENU_ITEMS).filter({hasText: /^\s*Vascular Tracker\s*$/});
       await item.waitFor({state: 'visible', timeout: TIMEOUT});
       h.assert(await item.count() === 1, 'The Forms menu must offer exactly one Vascular Tracker');
@@ -985,6 +1040,455 @@ async function run(s) {
     assertPatientStateUnchanged(before.A, snapshot(A), 'Rejected requests for A');
     assertPatientStateUnchanged(before.B, snapshot(B), 'Rejected requests for B');
   });
+
+  // ---- Issue #4673: the other readers of the login-wide encounter bean. The chart print's MRP
+  // line, the legacy encounter save and its prints, the legacy immunization schedule and the legacy
+  // case-management navigation each used to read the bean IncomingEncounter rewrites for whichever
+  // chart was entered last. Every request below names only its own patient and is sent right after
+  // the other chart was entered. (chart-session-state-two-window-isolation drives the notes
+  // service's new-note visit type.)
+  // As the print names a provider (EctProviderData): "Dr. " before a first name that lacks it.
+  const providerName = no => norm(sql.value(`SELECT CONCAT(IF(INSTR(BINARY first_name, 'Dr.')>0, '', 'Dr. '),
+    first_name, ' ', last_name) FROM provider WHERE provider_no=${q(no)}`));
+  const mrp = {A: providerName(provider), B: providerName(mrpB)};
+  h.assert(mrp.A && mrp.B && squash(mrp.A) !== squash(mrp.B), 'The two patients\' MRP names must differ');
+  const otherLabelOf = d => (d.label === 'A' ? 'B' : 'A');
+  const read = async route => {
+    const response = await context.request.get(h.appUrl(s.config.baseUrl, route), {maxRedirects: 0, failOnStatusCode: false});
+    try {
+      return {status: response.status(), body: norm(await response.text())};
+    } finally { await response.dispose(); }
+  };
+
+  for (const d of directions) {
+    await isolatedWrite(d, 'chart print', async () => {
+      const scratch = print.scratchDir();
+      try {
+        await print.openPrintDialog(d.chart);
+        await d.chart.locator('#printopAll').check();
+        await print.setFlags(d.chart, []);
+        await activateOther(d.otherChart);
+        const {text} = await print.pressPrint(d.chart, scratch);
+        // The header is two columns (patient, clinic), so text extraction may continue the MRP line.
+        // The other patient's MRP may still appear elsewhere, as the signer of this patient's notes.
+        const compact = squash(text);
+        const at = compact.indexOf('MRP:');
+        h.assert(at >= 0 && compact.startsWith(squash(mrp[d.label]), at + 'MRP:'.length),
+          `${d.label}'s chart print does not name ${d.label}'s own MRP${compact.startsWith(squash(mrp[otherLabelOf(d)]),
+            at + 'MRP:'.length) ? ' (it names the other patient\'s)' : ''}`);
+      } finally {
+        fs.rmSync(scratch, {recursive: true, force: true});
+      }
+    });
+  }
+
+  // The legacy encounter editor (Index2.jsp) renders only with the CAISI module; its save action is
+  // reachable in every configuration, so it is driven here with the editor's own form fields.
+  const appointmentOf = {A: undefined, B: undefined};
+  for (const [label, patient] of [['A', A], ['B', B]]) {
+    appointmentOf[label] = h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time,
+      end_time, name, demographic_no, notes, reason, status, createdatetime, updatedatetime, creator, lastupdateuser)
+      VALUES (${q(provider)}, ${q(OBSERVED)}, '23:00:00', '23:14:59', ${q(marker)}, ${patient}, ${q(marker)},
+      ${q(marker)}, 't', NOW(), NOW(), ${q(provider)}, ${q(provider)})`, 'appointment');
+  }
+  // A legacy save stores the editor's row sizes for its provider; restore the provider's exact row.
+  const layoutQuery = `SELECT provider_no,rowOneSize,rowTwoSize,presBoxSize,rowThreeSize FROM encounterWindow
+    WHERE provider_no=${q(provider)}`;
+  const layoutBefore = sql.rows(layoutQuery);
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM encounterWindow WHERE provider_no=${q(provider)}`
+      + layoutBefore.map(row => `; INSERT INTO encounterWindow (provider_no,rowOneSize,rowTwoSize,presBoxSize,rowThreeSize)
+        VALUES (${q(row[0])},${row.slice(1).map(Number).join(',')})`).join(''));
+    h.assert(JSON.stringify(sql.rows(layoutQuery)) === JSON.stringify(layoutBefore),
+      'The provider\'s legacy encounter layout was not restored');
+  });
+  const revisionsOf = patient => sql.rows(`SELECT eChartId FROM eChart WHERE demographicNo=${patientKey(patient)}
+    ORDER BY eChartId`).map(row => row[0]);
+  const legacy = {A: {}, B: {}};
+  const legacyForm = (d, text, overrides = []) => {
+    const form = new URLSearchParams([['demographicNo', d.patient], ['btnPressed', 'Save'], ['enTextarea', text],
+      ['shTextarea', `${marker}-${d.label}-history`], ['fhTextarea', ''], ['mhTextarea', ''], ['ocTextarea', ''],
+      ['reTextarea', ''], ['subject', ''], ['appointment_no', '']]);
+    for (const [name, value] of overrides) {
+      if (value === undefined) form.delete(name); else form.set(name, value);
+    }
+    return form;
+  };
+  async function postLegacySave(token, form) {
+    form.set('CSRF-TOKEN', token);
+    return context.request.post(h.appUrl(s.config.baseUrl, '/encounter/SaveEncounter2'), {
+      data: form.toString(), headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token},
+      maxRedirects: 0, failOnStatusCode: false,
+    });
+  }
+
+  for (const d of directions) {
+    await isolatedWrite(d, 'legacy encounter save', async () => {
+      const token = await csrfTokenPresent(d.chart);
+      const base = revisionsOf(d.patient).at(-1) || '';
+      const text = `${marker}-${d.label}-legacy-encounter`;
+      const response = await postLegacySave(token, legacyForm(d, text, [['eChartId', base]]));
+      try {
+        h.assert(response.status() === 302, `The legacy save answered HTTP ${response.status()}`);
+        const location = new URL(response.headers().location, h.appUrl(s.config.baseUrl, '/'));
+        h.assert(location.pathname.endsWith('/casemgmt/ViewForward') && location.searchParams.get('demographicNo') === d.patient,
+          'The saved legacy editor reopened another patient\'s chart');
+      } finally { await response.dispose(); }
+      const saved = revisionsOf(d.patient).at(-1);
+      h.assert(saved && saved !== base && sql.value(`SELECT encounter FROM eChart WHERE eChartId=${saved}`) === text
+        && sql.value(`SELECT providerNo FROM eChart WHERE eChartId=${saved}`) === provider,
+      'The legacy save did not write a revision of its own patient');
+      legacy[d.label] = {base, revision: saved};
+    });
+  }
+
+  for (const d of directions) {
+    await isolatedWrite(d, 'legacy Sign, Save and Exit of its own appointment', async () => {
+      const token = await csrfTokenPresent(d.chart);
+      const appointment = appointmentOf[d.label];
+      const text = `${marker}-${d.label}-signed-encounter`;
+      const response = await postLegacySave(token, legacyForm(d, text, [['eChartId', legacy[d.label].revision],
+        ['appointment_no', appointment], ['btnPressed', 'Sign,Save and Exit']]));
+      try {
+        h.assert(response.status() === 200, `The legacy sign answered HTTP ${response.status()}`);
+        h.assert((await response.text()).includes('opener.refresh()'),
+          'The legacy sign did not refresh the schedule that opened the chart');
+      } finally { await response.dispose(); }
+      h.assert(JSON.stringify(sql.rows(`SELECT demographic_no,status,lastupdateuser FROM appointment
+        WHERE appointment_no=${appointment}`)) === JSON.stringify([[d.patient, 'tS', provider]]),
+      'The legacy sign did not sign the chart\'s own appointment');
+      h.assert(JSON.stringify(sql.rows(`SELECT demographic_no,status FROM appointmentArchive
+        WHERE appointment_no=${appointment}`)) === JSON.stringify([[d.patient, 't']]),
+      'The legacy sign did not archive the appointment\'s previous status');
+      const saved = revisionsOf(d.patient).at(-1);
+      h.assert(saved !== legacy[d.label].revision
+        && sql.value(`SELECT encounter FROM eChart WHERE eChartId=${saved}`).startsWith(`${text}\n[`),
+      'The legacy sign did not write its own patient\'s signed revision');
+      legacy[d.label].revision = saved;
+    });
+  }
+
+  for (const d of directions) {
+    await s.step(`the legacy encounter save refuses ${d.label}'s stale, foreign or ambiguous identities without writing`, async () => {
+      const token = await csrfTokenPresent(d.chart);
+      const other = otherLabelOf(d);
+      await activateOther(d.otherChart);
+      const before = {own: snapshot(d.patient), other: snapshot(d.other)};
+      const text = `${marker}-${d.label}-refused-encounter`;
+      const conflicts = [
+        ['a stale revision', [['eChartId', legacy[d.label].base]]],
+        ['no revision field', [['eChartId', undefined]]],
+        ['another patient\'s appointment', [['eChartId', legacy[d.label].revision], ['appointment_no', appointmentOf[other]],
+          ['btnPressed', 'Sign,Save and Exit']]],
+      ];
+      for (const [label, overrides] of conflicts) {
+        const response = await postLegacySave(token, legacyForm(d, text, overrides));
+        try {
+          h.assert(response.status() === 409, `A legacy save with ${label} answered HTTP ${response.status()}`);
+          const body = norm(await response.text());
+          h.assert(body.includes(text) && !body.includes(`${marker}-${other}-`) && !namesA(body) && !namesB(body),
+            `The refused legacy save with ${label} did not return only its own unsaved text`);
+        } finally { await response.dispose(); }
+      }
+      const rejected = [
+        ['another patient\'s revision', [['eChartId', legacy[other].revision]]],
+        ['a malformed revision', [['eChartId', 'latest']]],
+        ['a malformed appointment', [['eChartId', legacy[d.label].revision], ['appointment_no', '7e2']]],
+      ];
+      for (const [label, parameters] of invalidPatientParameters(d.patient, d.other)) {
+        const overrides = [['demographicNo', undefined], ['eChartId', legacy[d.label].revision]];
+        rejected.push([`a ${label} patient`, overrides, parameters]);
+      }
+      for (const [label, overrides, extra = []] of rejected) {
+        const form = legacyForm(d, text, overrides);
+        for (const [name, value] of extra) form.append(name, value);
+        const response = await postLegacySave(token, form);
+        try {
+          h.assert(response.status() === 400, `A legacy save with ${label} answered HTTP ${response.status()}`);
+          const body = await response.text();
+          h.assert(!namesA(body) && !namesB(body), 'A rejected legacy save exposed an owned patient name');
+        } finally { await response.dispose(); }
+      }
+      const query = new URLSearchParams(legacyForm(d, text, [['eChartId', legacy[d.label].revision]]));
+      const get = await context.request.get(h.appUrl(s.config.baseUrl, `/encounter/SaveEncounter2?${query}`),
+        {maxRedirects: 0, failOnStatusCode: false});
+      try {
+        h.assert(get.status() === 405, `A legacy save by GET answered HTTP ${get.status()}`);
+      } finally { await get.dispose(); }
+      assertPatientStateUnchanged(before.own, snapshot(d.patient), `${d.label}'s refused legacy saves (own rows)`);
+      assertPatientStateUnchanged(before.other, snapshot(d.other), `${d.label}'s refused legacy saves`);
+    });
+  }
+
+  for (const d of directions) {
+    await s.step(`the legacy encounter prints for ${d.label} print only ${d.label}'s revisions`, async () => {
+      const other = otherLabelOf(d);
+      await activateOther(d.otherChart);
+      const before = snapshot(d.other);
+      const own = text => d.ownName(text) && !d.otherName(text) && text.includes(`${marker}-${d.label}-signed-encounter`)
+        && !text.includes(`${marker}-${other}-`);
+      const editor = await read(`/encounter/ViewEncounterPrint?demographicNo=${d.patient}&echartid=${legacy[d.label].revision}`);
+      h.assert(editor.status === 200 && own(editor.body), `${d.label}'s legacy editor print is not ${d.label}'s chart alone`);
+      const history = await read(`/encounter/ViewEcharthistoryprint?echartid=${legacy[d.label].revision}&demographic_no=${d.patient}`);
+      h.assert(history.status === 200 && own(history.body), `${d.label}'s chart history print is not ${d.label}'s revision alone`);
+      const foreign = await read(`/encounter/ViewEcharthistoryprint?echartid=${legacy[other].revision}&demographic_no=${d.patient}`);
+      h.assert(foreign.status === 200 && d.ownName(foreign.body) && !d.otherName(foreign.body)
+        && !foreign.body.includes(`${marker}-${other}-`), `${d.label}'s history print showed the other patient's revision`);
+      for (const route of [`/encounter/ViewEncounterPrint?echartid=${legacy[d.label].revision}`,
+        `/encounter/ViewEcharthistoryprint?echartid=${legacy[d.label].revision}&demographic_no=0`]) {
+        const refused = await read(route);
+        h.assert(refused.status === 400 && !namesA(refused.body) && !namesB(refused.body),
+          `A legacy print without a valid patient answered HTTP ${refused.status}`);
+      }
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s legacy prints`);
+    });
+  }
+
+  const [template] = sql.rows(`SELECT setId,setName FROM config_Immunization WHERE archived=0 ORDER BY setId LIMIT 1`);
+  h.assert(template && /^[1-9]\d*$/.test(template[0]), 'An immunization schedule template is required');
+  for (const d of directions) {
+    await isolatedWrite(d, 'legacy immunization schedule template and delete', async () => {
+      const page = await context.newPage();
+      const schedule = `SELECT ID,provider_no,immunizations FROM immunizations WHERE demographic_no=${d.patient} ORDER BY ID`;
+      h.assert(sql.rows(schedule).length === 0, `${d.label} already has an immunization schedule`);
+      await h.gotoApp(page, s.config.baseUrl, `/encounter/immunization/initSchedule?demographic_no=${d.patient}`);
+      const chooser = page.locator('form[action$="/encounter/immunization/saveConfig"]');
+      await chooser.waitFor({state: 'visible', timeout: TIMEOUT});
+      const chooserText = norm(await page.locator('body').innerText());
+      h.assert(d.ownName(chooserText) && !d.otherName(chooserText)
+        && await chooser.locator('input[name="demographic_no"]').inputValue() === d.patient,
+      `${d.label}'s schedule template chooser is for another patient`);
+      await chooser.locator(`input[type="checkbox"][value="${template[0]}"]`).check();
+      await activateOther(d.otherChart);
+      await clickAndAwaitReload(page, chooser.locator('input[type="submit"]'), {label: `${d.label} add immunization template`});
+      const scheduleText = norm(await page.locator('body').innerText());
+      h.assert(d.ownName(scheduleText) && !d.otherName(scheduleText) && squash(scheduleText).includes(squash(template[1])),
+        `The schedule redisplayed after ${d.label}'s template was added is not ${d.label}'s`);
+      const added = sql.rows(schedule);
+      h.assert(added.length === 1 && added[0][1] === provider && added[0][2].includes(`name="${template[1].replace(/&/g, '&amp;')}"`),
+        `${d.label}'s template was not added to ${d.label}'s schedule by the logged-in provider`);
+      // Save, made after the other chart was entered, writes this patient's next schedule version,
+      // by the logged-in provider, and shows this patient's schedule again.
+      await activateOther(d.otherChart);
+      await clickAndAwaitReload(page, page.locator('input[type="button"][value="Save"]').first(),
+        {label: `${d.label} save immunization schedule`});
+      const savedText = norm(await page.locator('body').innerText());
+      h.assert(d.ownName(savedText) && !d.otherName(savedText),
+        `The schedule redisplayed after ${d.label}'s Save is not ${d.label}'s`);
+      const resaved = sql.rows(schedule);
+      h.assert(resaved.length === 2 && resaved[1][1] === provider,
+        `${d.label}'s Save did not write a new version of ${d.label}'s schedule by the logged-in provider`);
+      // Record a dose from the schedule (a set item's edit link): the dose window names this
+      // patient, and choosing Given offers the logged-in provider as the giver. Both came from the
+      // login-wide encounter bean, here the other chart's, entered from another doctor's day sheet.
+      await activateOther(d.otherChart, mrpB);
+      // Sets render collapsed: ticking the set's box shows its doses.
+      await page.locator('#chkSet0').check();
+      const doseLink = page.locator('#tblSet0 a[href^="javascript:edit("]').first();
+      h.assert(await doseLink.count() === 1, `${d.label}'s schedule offers no dose to record`);
+      const [dose] = await Promise.all([context.waitForEvent('page', {timeout: TIMEOUT}), doseLink.click()]);
+      await dose.waitForLoadState('domcontentloaded');
+      await h.assertNotErrorPage(dose, `${d.label}'s dose window`);
+      const doseText = norm(await dose.locator('body').innerText());
+      h.assert(d.ownName(doseText) && !d.otherName(doseText),
+        `${d.label}'s dose window names ${d.otherName(doseText) ? 'the other patient' : 'no patient'}`);
+      await dose.locator('input[name="chkStatus"][onclick*="changeStatus(1)"]').check();
+      h.assert(await dose.locator('#provider').inputValue() === provider,
+        `${d.label}'s dose window does not offer the logged-in provider as the giver`);
+      await dose.close();
+      await activateOther(d.otherChart);
+      const deletion = page.locator('a[onclick*="submitScheduleMutation(\'delete\', 0)"]');
+      h.assert(await deletion.count() === 1, `${d.label}'s schedule does not offer exactly one set to delete`);
+      const dialogs = await h.withExpectedDialogs(page, () => clickAndAwaitReload(page, deletion,
+        {label: `${d.label} delete immunization set`}));
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Deleting the set did not ask for confirmation once');
+      const afterDelete = norm(await page.locator('body').innerText());
+      h.assert(d.ownName(afterDelete) && !d.otherName(afterDelete),
+        `The schedule redisplayed after ${d.label}'s set was deleted is another patient's`);
+      const versions = sql.rows(schedule);
+      h.assert(versions.length === 3 && versions[2][1] === provider && versions[2][2].includes('status="deleted"'),
+        `Deleting ${d.label}'s set did not write a new version of ${d.label}'s schedule`);
+      await page.close();
+      // A schedule Save, template add or set restore that names no patient, a malformed one or two
+      // is refused before it writes, so neither schedule changes.
+      const token = await csrfTokenPresent(d.chart);
+      const version = sql.value(`SELECT ID FROM immunizations WHERE demographic_no=${d.patient} AND archived=0`);
+      const schedules = `SELECT ID,demographic_no,archived FROM immunizations WHERE demographic_no IN (${patients}) ORDER BY ID`;
+      const schedulesBefore = JSON.stringify(sql.rows(schedules));
+      for (const [route, fields] of [
+        ['/encounter/immunization/saveSchedule', [['hdnAction', 'Save'], ['scheduleVersion', version]]],
+        ['/encounter/immunization/saveConfig', [['chkSet', template[0]]]],
+        ['/encounter/immunization/deleteSchedule', [['method', 'restore'], ['tblSet', '0'], ['scheduleVersion', version]]],
+      ]) {
+        for (const [label, parameters] of invalidPatientParameters(d.patient, d.other)) {
+          const form = new URLSearchParams([...fields, ...parameters, ['CSRF-TOKEN', token]]);
+          const response = await context.request.post(h.appUrl(s.config.baseUrl, route), {
+            data: form.toString(), headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token},
+            maxRedirects: 0, failOnStatusCode: false,
+          });
+          try {
+            h.assert(response.status() === 400, `${route} with a ${label} patient answered HTTP ${response.status()}, not 400`);
+          } finally { await response.dispose(); }
+        }
+      }
+      h.assert(JSON.stringify(sql.rows(schedules)) === schedulesBefore, 'A refused immunization schedule request wrote a schedule');
+      for (const route of ['/encounter/immunization/ViewSchedule', '/encounter/immunization/ViewScheduleConfig',
+        `/encounter/immunization/ViewScheduleConfig?demographic_no=${d.patient}&demographicNo=${d.other}`]) {
+        const refused = await read(route);
+        h.assert(refused.status === 400 && !namesA(refused.body) && !namesB(refused.body),
+          `An immunization schedule page without one valid patient answered HTTP ${refused.status}`);
+      }
+    });
+  }
+
+  // A template made in the template administration is the logged-in provider's. Its author was the
+  // provider of the login-wide bean, here B's chart entered from another doctor's day sheet.
+  const templateName = `${marker} template author`;
+  const ownedTemplate = `FROM config_Immunization WHERE setName=${q(templateName)} AND providerNo IN (${q(provider)},${q(mrpB)})`;
+  s.cleanup(() => {
+    sql.execute(`DELETE ${ownedTemplate}`);
+    h.assert(sql.value(`SELECT COUNT(*) ${ownedTemplate}`) === '0', 'The owned immunization template was not removed');
+  });
+  await s.step('an immunization template made after a chart was entered from another provider\'s day sheet is the logged-in provider\'s', async () => {
+    await activateOther(chartB, mrpB);
+    const admin = await context.newPage();
+    await h.gotoApp(admin, s.config.baseUrl, '/encounter/immunization/config/initConfig');
+    await clickAndAwaitReload(admin, admin.locator('input[value="Add New"]'), {label: 'add a new immunization template'});
+    await admin.locator('#setName').fill(templateName);
+    await admin.locator('#numRows').fill('1');
+    await admin.locator('#numCols').fill('1');
+    await clickAndAwaitReload(admin, admin.locator('input[type="submit"][value="Next Step"]'), {label: 'the template grid'});
+    await admin.locator('textarea[name="heading0D1"]').fill('2 mo');
+    await admin.locator('textarea[name="immunization1D0"]').fill(`${marker}-T1`);
+    await admin.locator('input[name="yearAge1D1"]').check();
+    await clickAndAwaitReload(admin, admin.locator('input[type="submit"][value="Render Immunization Set"]'),
+      {label: 'render the template'});
+    const authors = sql.rows(`SELECT providerNo ${ownedTemplate}`).map(row => row[0]);
+    h.assert(authors.length === 1, `Render stored ${authors.length} templates instead of one`);
+    h.assert(authors[0] === provider, 'The template was stored as made by the provider of the chart entered last');
+    await admin.close();
+    // Later steps expect the other chart's entry to be the logged-in provider's again.
+    await activateOther(chartB);
+  });
+
+  // One message linked to each patient, for each navigation's message list.
+  const navigationSubject = label => `${marker} ${label} navigation message`;
+  const ownedMessages = `SELECT messageid FROM messagetbl WHERE thesubject LIKE ${q(`${marker} % navigation message`)}`;
+  s.cleanup(() => {
+    const ids = sql.rows(ownedMessages).map(row => patientKey(row[0]));
+    if (ids.length) {
+      sql.execute(`DELETE FROM msgDemoMap WHERE messageID IN (${ids.join(',')}) AND demographic_no IN (${patients});
+        DELETE FROM messagetbl WHERE messageid IN (${ids.join(',')})`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM msgDemoMap WHERE messageID IN (${ids.join(',')})
+        AND demographic_no IN (${patients})`) === '0', 'The owned navigation messages\' patient links were not removed');
+    }
+    h.assert(sql.rows(ownedMessages).length === 0, 'The owned navigation messages were not removed');
+  });
+  const messageLocation = sql.value('SELECT locationId FROM oscarcommlocations WHERE current1=1 LIMIT 1');
+  h.assert(/^\d+$/.test(messageLocation), 'No current messenger location is configured');
+  for (const d of directions) {
+    const id = h.insertId(sql, `INSERT INTO messagetbl(thedate, theime, themessage, thesubject, sentby, sentto,
+        sentbyNo, sentByLocation, type)
+      VALUES(CURDATE(), CURTIME(), 'FAKE-PW', ${q(navigationSubject(d.label))}, 'FAKE-PW sender', 'FAKE-PW recipient',
+        ${q(provider)}, ${messageLocation}, 0)`, 'navigation message');
+    sql.execute(`INSERT INTO msgDemoMap(messageID, demographic_no) VALUES(${id}, ${d.patient})`);
+  }
+
+  for (const d of directions) {
+    await s.step(`the legacy case-management navigation for ${d.label} links only to ${d.label}`, async () => {
+      await activateOther(d.otherChart);
+      const before = snapshot(d.other);
+      const navigation = await read(`/casemgmt/ViewNavigation?demographicNo=${d.patient}`);
+      // Its messenger list used to fail every rendering (a literal items string), cutting the page
+      // off after the first sections while the response still said 200.
+      h.assert(navigation.status === 200 && navigation.body.includes('Clinical Resources'),
+        `${d.label}'s legacy navigation did not render past its messenger list`);
+      h.assert(navigation.body.includes(navigationSubject(d.label)) && !navigation.body.includes(navigationSubject(otherLabelOf(d))),
+        `${d.label}'s legacy navigation does not list exactly the messages linked to ${d.label}`);
+      const owners = [...navigation.body.matchAll(/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=(\d+)/g)]
+        .map(match => match[1]);
+      h.assert(owners.length > 0 && owners.every(owner => owner === d.patient),
+        `${d.label}'s legacy navigation links to ${[...new Set(owners)].map(ownerLabel).join(', ') || 'no patient'}`);
+      // Its form links read ${bean.demographicNo}, which used to name no scoped bean.
+      h.assert(!/[?&;](?:demographic_no|demographicNo)=(?!\d)/.test(navigation.body),
+        `${d.label}'s legacy navigation has links that name no patient`);
+      const anonymous = await read('/casemgmt/ViewNavigation');
+      h.assert(anonymous.status === 200 && !/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=\d/.test(anonymous.body),
+        'The legacy navigation without a patient linked to one');
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s legacy navigation`);
+    });
+  }
+
+  // The notes list (ChartNotesAjax.jsp) compares each unsigned note's author with its chart entry's
+  // provider. It used to take that provider from the bean, so once the other chart was entered from
+  // another provider's day sheet, this chart's list treated the logged-in author's own unsigned
+  // notes as another provider's: Edit first asked to confirm editing a note "not been signed by the
+  // owner".
+  for (const d of directions) {
+    await s.step(`${d.label}'s notes list keeps the logged-in provider's unsigned notes editable after the other chart was entered from another provider's day sheet`, async () => {
+      const own = sql.rows(`SELECT note_id FROM casemgmt_note n WHERE demographic_no=${d.patient}
+        AND provider_no=${q(provider)} AND signed=0
+        AND note_id=(SELECT MAX(note_id) FROM casemgmt_note WHERE uuid=n.uuid) ORDER BY note_id`).map(row => row[0]);
+      h.assert(own.length > 0, `${d.label} has no unsigned note by the logged-in provider`);
+      await activateOther(d.otherChart, mrpB);
+      const before = snapshot(d.other);
+      const token = await csrfTokenPresent(d.chart);
+      // The chart's own notes loader (newCaseManagementView.js.jsp notesLoader) sends this request.
+      const response = await context.request.post(h.appUrl(s.config.baseUrl, '/CaseManagementView'), {
+        form: {method: 'viewNotesOpt', offset: '0', numToReturn: '50', demographicNo: d.patient, 'CSRF-TOKEN': token},
+        headers: {'CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest'},
+        maxRedirects: 0, failOnStatusCode: false,
+      });
+      let body;
+      try {
+        h.assert(response.status() === 200, `${d.label}'s notes list answered HTTP ${response.status()}`);
+        body = await response.text();
+      } finally { await response.dispose(); }
+      const warnings = own.map(id => (body.match(new RegExp(`id="editWarn${id}" value="(true|false)"`)) || [])[1])
+        .filter(Boolean);
+      h.assert(warnings.length > 0, `${d.label}'s notes list does not show its own unsigned notes`);
+      h.assert(warnings.every(value => value === 'false'),
+        `${d.label}'s notes list treats the logged-in provider's own unsigned notes as another provider's`);
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s notes list`);
+      // Later steps expect the other chart's entry to be the logged-in provider's again.
+      await activateOther(d.otherChart);
+    });
+  }
+
+  // The notes panel (ChartNotes.jsp, rendered again after every note save) hands its chart's entry
+  // provider to the page, in its view form and its script. It took the bean's provider only when the
+  // bean was this chart's and the logged-in provider otherwise, so once the other chart was entered
+  // last, a chart opened from another provider's day sheet named the logged-in provider.
+  for (const d of directions) {
+    await s.step(`${d.label}'s notes panel, saved after the other chart was entered, keeps ${d.label}'s own entry provider`, async () => {
+      // This patient's chart entered from another doctor's day sheet in a window since closed (a
+      // second open chart of the same patient would hold its note), then the other chart.
+      await enterChartElsewhere(d.patient, mrpB);
+      await activateOther(d.otherChart);
+      const before = snapshot(d.other);
+      const editor = d.chart.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
+      await editor.waitFor({state: 'visible', timeout: TIMEOUT});
+      await editor.click();
+      await editor.press('Control+End');
+      await editor.pressSequentially(` ${marker}-${d.label}-entry-provider`, {delay: 5});
+      await saveCurrentChartNote(d.chart, sql, d.patient, await editor.inputValue());
+      const field = await d.chart.locator('form[name="caseManagementViewForm"] input[name="providerNo"]').inputValue();
+      const script = await d.chart.evaluate(() => window.providerNo);
+      h.assert(field === mrpB && script === mrpB,
+        `${d.label}'s notes panel names ${field === provider ? 'the logged-in provider' : 'another provider'} as its entry provider, not the one ${d.label} was entered for`);
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s notes panel`);
+      // Later steps expect both entries, and this page's provider, to be the logged-in provider's
+      // again: once the patient's entry is, the next note save renders the panel with it.
+      await enterChartElsewhere(d.patient, provider);
+      await editor.click();
+      await editor.press('Control+End');
+      await editor.pressSequentially(` ${marker}-${d.label}-entry-restored`, {delay: 5});
+      await saveCurrentChartNote(d.chart, sql, d.patient, await editor.inputValue());
+      h.assert(await d.chart.evaluate(() => window.providerNo) === provider,
+        `${d.label}'s notes panel did not return to the logged-in provider's entry`);
+      await activateOther(d.otherChart);
+    });
+  }
 
   async function reopenVascularTracker(chart, label, expectedId) {
     const item = chart.locator('#forms a[onclick*="forwardshortcutname"]').filter({hasText: 'Vascular Tracker'}).first();
@@ -1132,6 +1636,9 @@ async function run(s) {
       await expectValue(sql, lockQuery, '0', 'Navigation left A\'s note lock behind');
       h.assert(JSON.stringify(sql.rows(otherLockQuery)) === JSON.stringify(otherLocks),
         'Releasing A\'s note lock changed B\'s note locks');
+      // The browser can report the delivered beacon as aborted only after A's document is gone:
+      // wait until each release has settled, so that its report is in before it is excused.
+      await Promise.all(releases.map(request => request.response().catch(() => null)));
       consumeDeliveredLockReleases(recorder, candidates);
     } finally {
       chartA.off('requestfailed', onFailure);

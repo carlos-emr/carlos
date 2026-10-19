@@ -264,7 +264,10 @@ test('the document browser link carries a scope token, never the patient-named h
   assert.match(browserLinks[0], /&categorykey=<%= currentScope %>/);
   assert.doesNotMatch(browserLinks[0], /currentkey/);
   const edit = fs.readFileSync(path.join(WEBAPP, 'WEB-INF/jsp/demographic/edit.jsp'), 'utf8');
-  assert.match(edit, /ViewDocumentBrowser\?[^']*&categorykey=private'/);
+  const destination = edit.match(/<c:url var="([^"]+)" value="\/documentManager\/ViewDocumentBrowser">([\s\S]*?)<\/c:url>/);
+  assert(destination, 'The Master Record must expose a real document-browser destination');
+  assert.match(destination[2], /<c:param name="categorykey" value="private"\/>/);
+  assert(edit.includes('${carlos:forHtmlAttribute(' + destination[1] + ')}'), 'Encode the URL at the href sink');
 });
 
 test('the note browser re-opens its GET-only gate with GET and keeps Print from submitting', () => {

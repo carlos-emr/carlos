@@ -78,7 +78,8 @@
     double totalRefunds = 0;
     String color = "", colorflag = "";
     BillingHistoryDAO dao = new BillingHistoryDAO();
-    BillingViewBean bean = (BillingViewBean) pageContext.findAttribute("billingViewBean");
+    // This request's invoice (BillingView2Action), never the one viewed last in any window (#4673).
+    BillingViewBean bean = (BillingViewBean) request.getAttribute("billingViewBean");
     request.setAttribute("paymentTypes", bean.getPaymentTypes());
     DemographicData demoData = new DemographicData();
     Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
@@ -286,6 +287,10 @@
           marginheight="0">
     <form action="${pageContext.request.contextPath}/billing/CA/BC/UpdateBilling" method="post">
         <input type="hidden" name="billingNo" id="billingNo" value="${carlos:forHtmlAttribute(billingViewBean.billingNo)}"/>
+        <%-- Every bill this receipt combines, so the receipt shown after the update lists all of them. --%>
+        <c:forEach var="receiptBillingNo" items="${requestScope.receiptBillingNos}">
+            <input type="hidden" name="receiptBillingNo" value="${carlos:forHtmlAttribute(receiptBillingNo)}"/>
+        </c:forEach>
         <table width="650" border="0" align="center" style="border:black solid 1px ">
             <tr>
                 <td>

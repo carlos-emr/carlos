@@ -138,6 +138,8 @@ public class HttpMethodGuardFilter implements Filter {
             "cancel", "close",
             // MfaActions2Action dispatches its privileged MFA-secret reset via ?method=resetMfa;
             // classify it as a mutation so GET/HEAD are rejected before the action runs.
+            "makeissue", "issueadd", "issuedelete", "issuechange",
+            "submitchangediagnosis", "ajaxchangediagnosis",
             "resetmfa"
     );
 

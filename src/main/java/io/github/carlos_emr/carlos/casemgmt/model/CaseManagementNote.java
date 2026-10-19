@@ -714,6 +714,12 @@ public class CaseManagementNote extends BaseObject {
     }
 
     private boolean isLinkTo(Integer tableName) {
+        // A note not saved yet has no links. The DAO refuses a null note id outright, so asking
+        // made every response that shows a new note fail, among them the notes REST service's
+        // new note (issue #4784). Nothing is cached: once saved, the note looks its link up.
+        if (this.id == null) {
+            return false;
+        }
         if (!cmnLinkRetrieved) {
             cmnLink = lookupNoteLinkDao().getLastLinkByNote(this.id);
             cmnLinkRetrieved = true;

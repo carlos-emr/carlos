@@ -25,6 +25,7 @@ const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 const {
   requirePoppler, pdfFacts, sha, directory, ownedPdfDocuments, seedOwnedPdfDocuments,
   removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
@@ -63,7 +64,7 @@ async function workflow(s) {
 
   let report;
   await s.step('Master Record > Documents lists both owned PDFs', async () => {
-    report = await s.popup(s.master, s.master.locator('a[onclick*="/documentManager/ViewDocumentReport"]').first(), 'edoc-report');
+    report = await s.popup(s.master, masterRecordLink(s.master, '/documentManager/ViewDocumentReport').first(), 'edoc-report');
     for (const doc of docs) {
       await report.locator(`#docNo${doc.id}`).waitFor({ state: 'attached' });
       h.assert(await report.locator(`a[title="${doc.label}"]`).count() === 1, 'An owned document is missing from the report');

@@ -70,6 +70,12 @@ fetch(url, {
         'CSRF-TOKEN': csrfToken
     },
     body: 'appointment_no=' + encodeURIComponent(apptNo)
+}).then(function (response) {
+    // Read the (empty) answer: a response nobody reads is abandoned by the browser and reported as
+    // a failed request.
+    return response.text();
+}).catch(function () {
+    // Best effort, as before: without it the patient's chart just names no current visit.
 });
 }
 

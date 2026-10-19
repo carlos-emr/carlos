@@ -1212,7 +1212,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td><span class="small9">OTHER TESTS<br>
                                             <!--input type="text" name="ar2_labOtherTest" style="width:100%"  size="20" maxlength="200" value="<%--= props.getProperty("ar2_labOtherTest", "")--%>"  @oscar.formDB /-->
           <textarea name="ar2_labOtherTest" style="width:100%" cols="50"
-                    rows="3"><%= props.getProperty("ar2_labOtherTest", "") %></textarea></td>
+                    rows="3"><carlos:encode value='<%= props.getProperty("ar2_labOtherTest", "") %>'/></textarea></td>
                             </td>
                         </tr>
                     </table>
@@ -2306,13 +2306,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             </td>
                             <td><span class="small9">COMMENTS</span><br>
                                 <textarea name="ar2_probComment" style="width:100%" cols="40" rows="1" @oscar.formDB
-                                          dbType="varchar(255)"><%= props.getProperty("ar2_probComment", "") %></textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("ar2_probComment", "") %>'/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td colspan="3"><textarea name="ar2_investigation" style="width:100%" cols="50" rows="5"
                                                       @oscar.formDB
-                                                      dbType="text"><%= props.getProperty("ar2_investigation", "") %></textarea>
+                                                      dbType="text"><carlos:encode value='<%= props.getProperty("ar2_investigation", "") %>'/></textarea>
                             </td>
                         </tr>
                     </table>

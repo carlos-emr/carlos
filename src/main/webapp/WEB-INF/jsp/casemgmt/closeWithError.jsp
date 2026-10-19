@@ -62,6 +62,7 @@
 <h3 style="text-align:center;">
     <c:choose>
         <c:when test="${noteRevisionConflict}"><fmt:message key="encounter.noteLockLostError.msg"/></c:when>
+        <c:when test="${observationDateRejected and not empty DateError}"><c:out value="${DateError}"/></c:when>
         <c:when test="${observationDateRejected}"><fmt:message key="encounter.observationDateUnreadable.msg"/></c:when>
         <c:otherwise><carlos:encode value="<%= error %>"/></c:otherwise>
     </c:choose>

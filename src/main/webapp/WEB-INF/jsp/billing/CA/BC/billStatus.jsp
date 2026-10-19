@@ -372,11 +372,15 @@
                     <div class="mb-3">
 
                         <% String billTypes = request.getParameter("billTypes");
-                            if (billTypes == null) {
-                                billTypes = MSPReconcile.REJECTED;
-                            }
                             if ("true".equals(readonly)) {
-                                billTypes = "%";
+                                // The Master Record's Invoice List opens on all of the patient's bills, and a blank
+                                // status keeps All; a status picked from the radios then filters them, as on the
+                                // clinic-wide page.
+                                if (billTypes == null || billTypes.isBlank()) {
+                                    billTypes = "%";
+                                }
+                            } else if (billTypes == null) {
+                                billTypes = MSPReconcile.REJECTED;
                             }
 
                         %>

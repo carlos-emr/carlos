@@ -24,6 +24,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const TIMEOUT = 30000;
 
@@ -79,7 +80,7 @@ async function workflow(s) {
 
   let billStatus;
   await s.step('Invoice List on the master record lists the owned bill', async () => {
-    const link = s.master.locator('a[onclick*="/billing/CA/BC/reprocessBill?"]').first();
+    const link = masterRecordLink(s.master, '/billing/CA/BC/reprocessBill?').first();
     h.assert(await link.count() === 1, 'The BC master record has no Invoice List link');
     billStatus = await ui.clickOpensPopup(s.master, link, { context: s.context, recorder: s.recorder,
       label: 'bc-bill-status', timeout: 20000, position: { x: 8, y: 8 } });
