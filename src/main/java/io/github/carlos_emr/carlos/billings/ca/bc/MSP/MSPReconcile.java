@@ -1132,47 +1132,63 @@ public class MSPReconcile {
         billSearch.count = 0;
         billSearch.justBillingMaster = new ArrayList<String>();
 
-        ResultSet rs = null;
+        List<MSPBill> bills = new ArrayList<>();
         MiscUtils.getLogger().debug("p=" + p);
         try {
+            // Close the report cursor before loading totals and enriching its rows. The managed
+            // ResultSet also owns the JDBC statement and connection.
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray())) {
 
-            rs = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
+                while (rs.next()) {
+                    MSPBill b = new MSPBill();
+                    b.billingtype = rs.getString("b.billingtype");
+                    b.billing_no = rs.getString("billing_no");
+                    b.demoNo = rs.getString("demographic_no");
+                    b.billingUnit = rs.getString("billing_unit");
+                    b.demoName = rs.getString("demographic_name");
+                    b.apptDate = rs.getString("update_date");
+                    b.reason = rs.getString("billingstatus");
+                    b.serviceEndTime = rs.getString("service_end_time");
+                    b.serviceStartTime = rs.getString("service_start_time");
+                    b.serviceToDate = rs.getString("service_to_day");
+                    b.status = b.reason;
+                    b.billMasterNo = rs.getString("billingmaster_no");
+                    b.amount = rs.getString("bill_amount");
+                    b.code = rs.getString("billing_code");
+                    b.dx1 = rs.getString("dx_code1");
+                    b.serviceDate = rs.getString("service_date").equals("") ? "00000000" : rs.getString("service_date");
+                    b.mvaCode = rs.getString("mva_claim_code");
+                    b.hin = rs.getString("phn");
+                    b.serviceLocation = rs.getString("service_location");
+                    b.demoDOB = rs.getString("dob");
+                    b.demoSex = rs.getString("oin_sex_code");
+                    b.apptDoctorNo = rs.getString("apptProvider_no");
+                    b.accountNo = rs.getString("b.provider_no");
+                    b.updateDate = rs.getString("update_date");
+                    b.providerFirstName = rs.getString("first_name");
+                    b.providerLastName = rs.getString("last_name");
+                    bills.add(b);
+                }
+            }
 
-            while (rs.next()) {
-                MSPBill b = new MSPBill();
-                b.billingtype = rs.getString("b.billingtype");
-                b.billing_no = rs.getString("billing_no");
-                b.demoNo = rs.getString("demographic_no");
-                b.billingUnit = rs.getString("billing_unit");
-                b.demoName = rs.getString("demographic_name");
-                b.apptDate = rs.getString("update_date");
-                b.reason = rs.getString("billingstatus");
-                b.serviceEndTime = rs.getString("service_end_time");
-                b.serviceStartTime = rs.getString("service_start_time");
-                b.serviceToDate = rs.getString("service_to_day");
-                b.status = b.reason;
-                b.billMasterNo = rs.getString("billingmaster_no");
+            Map<Integer, Double> paidTotals = Collections.emptyMap();
+            if (!bills.isEmpty() && (REP_INVOICE.equals(type) || REP_ACCOUNT_REC.equals(type))) {
+                Set<Integer> billingMasterNos = new HashSet<>();
+                for (MSPBill bill : bills) {
+                    billingMasterNos.add(ConversionUtils.fromIntString(bill.billMasterNo));
+                }
+                BillingHistoryDao historyDao = SpringUtils.getBean(BillingHistoryDao.class);
+                paidTotals = historyDao.getTotalPaidFromHistoryByBillingMasterNos(billingMasterNos);
+            }
+
+            for (MSPBill b : bills) {
                 String expStr = getS00String(b.billMasterNo);
                 b.expString = "".equals(expStr) ? expStr : "(" + expStr + ")";
                 b.reason = this.getStatusDesc(b.reason);
-                b.amount = rs.getString("bill_amount");
-                b.code = rs.getString("billing_code");
-                b.dx1 = rs.getString("dx_code1");
-                b.serviceDate = rs.getString("service_date").equals("") ? "00000000" : rs.getString("service_date");
-                b.mvaCode = rs.getString("mva_claim_code");
-                b.hin = rs.getString("phn");
-                b.serviceLocation = rs.getString("service_location");
-                b.demoDOB = rs.getString("dob");
-                b.demoSex = rs.getString("oin_sex_code");
-                b.apptDoctorNo = rs.getString("apptProvider_no");
-                b.accountNo = rs.getString("b.provider_no");
-                b.updateDate = rs.getString("update_date");
                 Provider accountProvider = this.getProvider(b.accountNo, 0);
                 b.accountName = accountProvider.getFullName();
                 b.payeeName = accountProvider.getInitials();
-                b.providerFirstName = rs.getString("first_name");
-                b.providerLastName = rs.getString("last_name");
                 b.provName = this.getProvider(b.apptDoctorNo, 1).getInitials();
 
                 // WCB SECTION ---------------------------------------------------------
@@ -1215,7 +1231,8 @@ public class MSPReconcile {
                         }
                     }
                 } else if (MSPReconcile.REP_INVOICE.equals(type)) {
-                    double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype);
+                    double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
+                            paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
                     b.amtOwing = String.valueOf(dblAmtOwing);
                     //append the explanatory code to end of reason field
                     String expString = c12.getProperty(b.billing_no) != null ? c12.getProperty(b.billing_no) : "";
@@ -1233,7 +1250,8 @@ public class MSPReconcile {
                  * we need to get the difference between what was billed and what was paid
                  **/
                 if (type.equals(MSPReconcile.REP_ACCOUNT_REC)) {
-                    double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype);
+                    double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
+                            paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
                     b.amtOwing = String.valueOf(dblAmtOwing);
                     skipBill = Double.valueOf(b.amtOwing).doubleValue() == 0.0;
                 }
@@ -1248,14 +1266,6 @@ public class MSPReconcile {
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-        } finally {
-            try {
-                if (rs != null) {
-                    rs.close();
-                }
-            } catch (SQLException ex1) {
-                MiscUtils.getLogger().error("Error", ex1);
-            }
         }
         return billSearch;
     }
@@ -1272,11 +1282,17 @@ public class MSPReconcile {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public double getAmountOwing(String billingMasterNo, String amountBilled, String billingType) {
+        return getAmountOwing(billingMasterNo, amountBilled, billingType,
+                getTotalPaidFromHistory(billingMasterNo, false));
+    }
 
+    // The report supplies its request-local grouped total; single-bill callers still load theirs.
+    // FindSecBugs IMPROPER_UNICODE: internal billing-type comparison, not an authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal billing type; not a security decision")
+    private double getAmountOwing(String billingMasterNo, String amountBilled, String billingType,
+                                 double totalPaidFromHistory) {
         amountBilled = (amountBilled != null && !amountBilled.equals("")) ? amountBilled : "0.0";
         double dbltBilled = Double.valueOf(amountBilled).doubleValue();
-        //Gets the total 'paid' or adjusted for any type of bill from billinghistory
-        double totalPaidFromHistory = getTotalPaidFromHistory(billingMasterNo, false);
         double totalPaidFromS00 = 0.0;
         if (!MSPReconcile.BILLTYPE_PRI.equalsIgnoreCase(billingType)) {
             //bills of type msp, icbc, wcb

@@ -18,6 +18,8 @@
  * each with its own amount so a report's text shows which it took: MSP open (O), private (P), ICBC rejected (R),
  * MSP deleted (D) and MSP written off (X). Cleanup deletes every BC billing row of the patient, then the
  * billing-report row and the provider, and asserts each is gone.
+ * Also checks payment and internal-adjustment balances, negative history totals and a later payment
+ * balancing the private claim: the next Invoice refreshes its total and A/R omits it (#3967).
  * PDF text is read with Poppler pdftotext (lib/export-content-helpers.js); without it the check SKIPs.
  */
 const fs = require('node:fs');
@@ -62,6 +64,8 @@ const STEP = {
   receivable: 'Accounts Receivable lists the open claims, not the deleted or written-off ones',
   rejection: 'Rejection lists the rejected claim only',
   payers: 'the payer boxes filter Invoice to MSP, Private or ICBC claims',
+  payments: 'Invoice and Accounts Receivable deduct payments and internal adjustments from the correct claims',
+  refreshed: 'a later payment updates Invoice and removes the balanced claim from Accounts Receivable',
 };
 
 async function preflight({ sql }) {
@@ -104,8 +108,10 @@ async function workflow(s) {
   const provider = createReportProvider(s);
   bc.makeBcPatient(s);
   bc.registerOwnedBcBillCleanup(s);
-  for (const claim of Object.values(CLAIMS)) {
+  const seededClaims = {};
+  for (const [name, claim] of Object.entries(CLAIMS)) {
     const seeded = bc.seedOwnedBcBill({ ...s, provider }, claim);
+    seededClaims[name] = seeded;
     // Each report row names its appointment provider (MSPReconcile.getBillsByType), so the bill carries one.
     sql.execute(`UPDATE billing SET apptProvider_no=${q(provider)}, billingtype=${q(claim.billingtype)}
       WHERE billing_no=${seeded.billingNo} AND demographic_no=${patient}`);
@@ -187,6 +193,37 @@ async function workflow(s) {
     lists(await report('REP_INVOICE', only('showMSP')), 'Invoice with only MSP', ['open', 'writtenOff']);
     lists(await report('REP_INVOICE', only('showPRIV')), 'Invoice with only Private', ['private']);
     lists(await report('REP_INVOICE', only('showICBC')), 'Invoice with only ICBC', ['rejected']);
+  });
+  // #3967: the grouped history lookup must include internal adjustments, preserve negative
+  // totals, keep bills without history and reload after another payment. The Java tests pin
+  // query count; these assertions pin the balances rendered by the installed application.
+  const history = (name, amount, paymentType) => sql.execute(`INSERT INTO billing_history
+      (billingmaster_no, amount_received, payment_type_id, creation_date)
+    VALUES (${seededClaims[name].billingmasterNo},${q(amount)},${paymentType},NOW())`);
+  const owes = (text, amount) => h.assert(new RegExp(`(^|[^0-9.])${amount.replace('.', '\\.')}([^0-9]|$)`).test(text),
+    `The report does not show the expected balance ${amount}`);
+  await s.step(STEP.payments, async () => {
+    history('private', '7.11', 1);
+    history('private', '2.22', 10);
+    history('open', '-1.23', 10);
+    const invoice = await report('REP_INVOICE', ALL_PAYERS);
+    lists(invoice, 'Invoice after payments', ['open', 'private', 'rejected', 'writtenOff']);
+    owes(invoice, '10.69');
+    owes(invoice, '8.78');
+    const receivable = await report('REP_ACCOUNT_REC', ALL_PAYERS);
+    owes(receivable, '10.69');
+    owes(receivable, '8.78');
+    owes(receivable, '40.04');
+  });
+  await s.step(STEP.refreshed, async () => {
+    history('private', '10.69', 2);
+    const invoice = await report('REP_INVOICE', ALL_PAYERS);
+    lists(invoice, 'Invoice after final payment', ['open', 'private', 'rejected', 'writtenOff']);
+    h.assert(!/(^|[^0-9.])10\.69([^0-9]|$)/.test(invoice), 'Invoice retained the old private balance');
+    const receivable = await report('REP_ACCOUNT_REC', ALL_PAYERS);
+    h.assert(!/(^|[^0-9.])(20\.02|10\.69)([^0-9]|$)/.test(receivable), 'Accounts Receivable retained the balanced private claim');
+    owes(receivable, '8.78');
+    owes(receivable, '40.04');
   });
   await admin.close();
 }

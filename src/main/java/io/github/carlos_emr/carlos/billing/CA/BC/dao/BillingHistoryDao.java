@@ -28,7 +28,10 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 
@@ -97,5 +100,28 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
         }
 
         return ((Number) d).doubleValue();
+    }
+
+    /**
+     * Loads payment and internal-adjustment totals for one report in a single query.
+     * Bills without history are absent; callers should use a zero default.
+     *
+     * @param billingMasterNos billing line IDs selected by the report
+     * @return totals keyed by billing line ID, including internal adjustments
+     */
+    public Map<Integer, Double> getTotalPaidFromHistoryByBillingMasterNos(Collection<Integer> billingMasterNos) {
+        Map<Integer, Double> totals = new HashMap<>();
+        if (billingMasterNos.isEmpty()) {
+            return totals;
+        }
+        List<Object[]> rows = entityManager.createQuery(
+                "SELECT bh.billingMasterNo, SUM(CAST(bh.amountReceived AS double)) FROM BillingHistory bh "
+                        + "WHERE bh.billingMasterNo IN :billingMasterNos GROUP BY bh.billingMasterNo", Object[].class)
+                .setParameter("billingMasterNos", billingMasterNos)
+                .getResultList();
+        for (Object[] row : rows) {
+            totals.put((Integer) row[0], row[1] == null ? 0.0 : ((Number) row[1]).doubleValue());
+        }
+        return totals;
     }
 }
