@@ -126,3 +126,18 @@ test('Forms refresh collapses duplicate current registrations into one updated c
   assert.equal(root.autoCompleted['Caregiver (new)'], 'updated()');
   assert.equal(root.itemColours['Caregiver (new)'], 'orange');
 });
+
+test('the ECARES camel-case patient parameter is checked and opened for its clicked chart', async () => {
+  const f = fixture();
+  await f.root.openEncounterForm('/clinic/formeCARES.do?method=fetch&demographicNo=456&formId=0', 'ecares456', 'ECARES');
+  assert.equal(f.requests[0].searchParams.get('demographicNo'), '456');
+  const opened = f.calls.find(call => call[0] === 'open');
+  assert.equal(new URL(opened[4]).searchParams.get('demographicNo'), '456');
+});
+
+test('conflicting patient parameter aliases fail closed before any request or popup', () => {
+  const f = fixture();
+  f.root.openEncounterForm('/clinic/form/formcaregiver?demographic_no=123&demographicNo=456', 'new123', 'Caregiver');
+  assert.equal(f.requests.length, 0);
+  assert.deepEqual(f.calls.map(call => call[0]), ['alert']);
+});

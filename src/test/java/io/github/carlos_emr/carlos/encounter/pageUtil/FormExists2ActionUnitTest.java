@@ -119,7 +119,7 @@ class FormExists2ActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {"0", "-1", "123x", " 123", "1000000000"})
+    @ValueSource(strings = {"0", "-1", "123x", " 123", "2147483648", "10000000000"})
     void shouldRejectInvalidPatient_beforeLookup(String patient) throws Exception {
         if (patient == null) request.removeParameter("demographicNo");
         else request.setParameter("demographicNo", patient);
@@ -128,12 +128,26 @@ class FormExists2ActionUnitTest extends CarlosUnitTestBase {
         data.verifyNoInteractions();
     }
 
-    @Test
-    void shouldRejectInvalidAppointment_beforeLookup() throws Exception {
-        request.setParameter("appointmentNo", "1&other=2");
+    @ParameterizedTest
+    @ValueSource(strings = {"1&other=2", "2147483648", "10000000000", "-2"})
+    void shouldRejectInvalidAppointment_beforeLookup(String appointment) throws Exception {
+        request.setParameter("appointmentNo", appointment);
         new FormExists2Action().execute();
         assertThat(response.getStatus()).isEqualTo(400);
         data.verifyNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1000000000", "2147483647"})
+    void shouldAcceptFullSignedIntegerIds_withoutTruncating(String id) throws Exception {
+        request.setParameter("demographicNo", id);
+        request.setParameter("appointmentNo", id);
+        when(security.hasPrivilege(login, "_form", "r", id)).thenReturn(true);
+        new FormExists2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).isEqualTo("{\"exists\":false}");
+        verify(security).hasPrivilege(login, "_form", "r", id);
+        data.verify(() -> EctFormData.getShortcutLatestPatientForm(id, "formCaregiver"));
     }
 
     @Test

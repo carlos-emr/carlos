@@ -54,9 +54,10 @@ public class FormExists2Action extends ActionSupport {
     }
 
     private static boolean validInput(String patient, String appointment, String name) {
-        return patient != null && patient.matches("[1-9]\\d{0,8}")
+        return patient != null && patient.matches("[1-9]\\d{0,9}") && Long.parseLong(patient) <= Integer.MAX_VALUE
                 && name != null && !name.isBlank() && name.length() <= 255
-                && (appointment == null || appointment.isEmpty() || appointment.matches("-1|\\d{1,9}"));
+                && (appointment == null || appointment.isEmpty() || "-1".equals(appointment)
+                    || (appointment.matches("\\d{1,10}") && Long.parseLong(appointment) <= Integer.MAX_VALUE));
     }
 
     private static ObjectNode findExisting(ObjectMapper mapper, String patient, String name,
