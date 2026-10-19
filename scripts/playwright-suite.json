@@ -10729,6 +10729,21 @@
       ]
     },
     {
+      "name": "echart-forms-latest-item",
+      "script": "scripts/echart-forms-latest-item-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Issue #4678: the eChart Forms module's started-form item is dated from the row its formId=latest link opens (formEdited DESC, ID DESC), not the most recently created row. With rows whose creation and edit order disagree, A's Annual item names the row edited last; with patient B's chart open in a second tab, clicking A's item opens that same row (ID, patient and stored Current Concerns), never B's later, higher-numbered row; an edit-time tie resolves item and form to the higher ID.",
+      "fixtures": "Owned FAKE patients A (workflow patient) and B (run marker as last name) and three owned formAnnual rows carrying the marker; the shipped Annual registration is used unchanged. Cleanup deletes the formAnnual rows by ID, B's chart support rows and B, asserting each is gone; the harness removes A."
+    },
+    {
       "name": "session-state-two-window-isolation",
       "script": "scripts/session-state-two-window-isolation-playwright-checks.js",
       "tiers": [
