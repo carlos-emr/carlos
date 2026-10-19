@@ -752,6 +752,38 @@ public class MSPReconcile {
     }
 
     /**
+     * Loads the two history totals once for all rows in a Bill Status result.
+     *
+     * @param bills initialized result from {@link #getBills(String, String, String, String)}
+     * @return totals keyed by billing line ID; bills without history are absent
+     */
+    public Map<Integer, BillingHistoryDao.PaymentTotals> getPaymentHistoryTotals(BillSearch bills) {
+        Set<Integer> billingMasterNos = new HashSet<>();
+        for (String billingMasterNo : bills.justBillingMaster) {
+            billingMasterNos.add(ConversionUtils.fromIntString(billingMasterNo));
+        }
+        if (billingMasterNos.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        BillingHistoryDao historyDao = SpringUtils.getBean(BillingHistoryDao.class);
+        return historyDao.getPaymentTotalsByBillingMasterNos(billingMasterNos);
+    }
+
+    /**
+     * Uses preloaded private payments; other payers still derive PAID from Teleplan.
+     *
+     * @param billingMasterNo billing line ID
+     * @param billType payer type
+     * @param history preloaded totals for this billing line, or zero totals if it has no history
+     * @return amount paid, excluding internal adjustments for private bills
+     */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal billing type; not a security decision")
+    public double getAmountPaid(String billingMasterNo, String billType, BillingHistoryDao.PaymentTotals history) {
+        return BILLTYPE_PRI.equalsIgnoreCase(billType)
+                ? history.excludingAdjustments() : getTotalPaidFromS00(billingMasterNo);
+    }
+
+    /**
      * Returns the sum total of payments that were received for the specified billingmaster record
      * from the teleplanS00 table.
      *
@@ -1284,6 +1316,20 @@ public class MSPReconcile {
     public double getAmountOwing(String billingMasterNo, String amountBilled, String billingType) {
         return getAmountOwing(billingMasterNo, amountBilled, billingType,
                 getTotalPaidFromHistory(billingMasterNo, false));
+    }
+
+    /**
+     * Uses the same amount-owing rules with the bulk-settle list's preloaded history.
+     *
+     * @param billingMasterNo billing line ID
+     * @param amountBilled original amount billed
+     * @param billingType payer type
+     * @param history preloaded totals for this billing line, or zero totals if it has no history
+     * @return rounded amount owing, including internal adjustments
+     */
+    public double getAmountOwing(String billingMasterNo, String amountBilled, String billingType,
+                                 BillingHistoryDao.PaymentTotals history) {
+        return getAmountOwing(billingMasterNo, amountBilled, billingType, history.includingAdjustments());
     }
 
     // The report supplies its request-local grouped total; single-bill callers still load theirs.

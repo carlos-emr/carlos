@@ -262,6 +262,40 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnEmptyMap_forEmptySelection() {
             assertThat(dao.getTotalPaidFromHistoryByBillingMasterNos(List.of())).isEmpty();
         }
+
+        @Test
+        void shouldLoadBothTotals_forSelectedBulkSettleBills() throws Exception {
+            history(1800, "100.50", 1);
+            history(1800, "-20.25", 10);
+            history(1801, null, 2);
+            history(1801, "2.25", 10);
+            history(1802, "999.00", 1);
+            entityManager.flush();
+
+            Map<Integer, BillingHistoryDao.PaymentTotals> totals = dao.getPaymentTotalsByBillingMasterNos(
+                    List.of(1800, 1801, 1899, 1800));
+
+            assertThat(totals).containsExactlyInAnyOrderEntriesOf(Map.of(
+                    1800, new BillingHistoryDao.PaymentTotals(80.25, 100.50),
+                    1801, new BillingHistoryDao.PaymentTotals(2.25, 0.0)));
+            for (Map.Entry<Integer, BillingHistoryDao.PaymentTotals> entry : totals.entrySet()) {
+                assertThat(entry.getValue().includingAdjustments()).isEqualTo(dao.getTotalPaidFromHistory(entry.getKey(), false));
+                assertThat(entry.getValue().excludingAdjustments()).isEqualTo(dao.getTotalPaidFromHistory(entry.getKey(), true));
+            }
+        }
+
+        @Test
+        void shouldReturnZeroTotals_forNullOnlyBulkSettleHistory() throws Exception {
+            history(1800, null, 1);
+            entityManager.flush();
+            assertThat(dao.getPaymentTotalsByBillingMasterNos(List.of(1800)))
+                    .containsEntry(1800, BillingHistoryDao.PaymentTotals.ZERO);
+        }
+
+        @Test
+        void shouldSkipQuery_forEmptyBulkSettleSelection() {
+            assertThat(dao.getPaymentTotalsByBillingMasterNos(List.of())).isEmpty();
+        }
     }
 
 }

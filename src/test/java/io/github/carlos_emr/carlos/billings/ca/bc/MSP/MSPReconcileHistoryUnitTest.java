@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -222,4 +223,63 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         assertThat(report(MSPReconcile.REP_INVOICE).list).isEmpty();
         verify(rows).close();
     }
+    @Test
+    void shouldBatchPaidAndOwing_forLargeBulkSettleList() {
+        MSPReconcile.BillSearch bills = reconcile.new BillSearch();
+        bills.justBillingMaster = new ArrayList<>();
+        for (int id = 41; id < 2041; id++) bills.justBillingMaster.add(String.valueOf(id));
+        BillingHistoryDao.PaymentTotals first = new BillingHistoryDao.PaymentTotals(35.0, 30.0);
+        when(historyDao.getPaymentTotalsByBillingMasterNos(anyCollection())).thenReturn(Map.of(41, first));
+
+        Map<Integer, BillingHistoryDao.PaymentTotals> totals = reconcile.getPaymentHistoryTotals(bills);
+        for (String id : bills.justBillingMaster) {
+            BillingHistoryDao.PaymentTotals history = totals.getOrDefault(Integer.valueOf(id), BillingHistoryDao.PaymentTotals.ZERO);
+            assertThat(reconcile.getAmountPaid(id, "Pri", history)).isEqualTo("41".equals(id) ? 30.0 : 0.0);
+            assertThat(reconcile.getAmountOwing(id, "100", "Pri", history)).isEqualTo("41".equals(id) ? 65.0 : 100.0);
+        }
+
+        verify(historyDao).getPaymentTotalsByBillingMasterNos(argThat(ids -> ids.size() == 2000));
+        verify(historyDao, never()).getTotalPaidFromHistory(anyInt(), anyBoolean());
+        verifyNoInteractions(teleplanDao);
+    }
+
+    @Test
+    void shouldReloadBothTotals_forAnotherBulkSettleRequest() {
+        MSPReconcile.BillSearch bills = reconcile.new BillSearch();
+        bills.justBillingMaster = new ArrayList<>(List.of("41"));
+        when(historyDao.getPaymentTotalsByBillingMasterNos(Set.of(41)))
+                .thenReturn(Map.of(41, new BillingHistoryDao.PaymentTotals(35.0, 30.0)),
+                        Map.of(41, new BillingHistoryDao.PaymentTotals(45.0, 40.0)));
+        assertThat(reconcile.getPaymentHistoryTotals(bills).get(41).includingAdjustments()).isEqualTo(35.0);
+        assertThat(reconcile.getPaymentHistoryTotals(bills).get(41).includingAdjustments()).isEqualTo(45.0);
+        verify(historyDao, times(2)).getPaymentTotalsByBillingMasterNos(Set.of(41));
+    }
+
+    @Test
+    void shouldKeepTeleplanPayments_forNonPrivateBulkSettleRows() {
+        TeleplanS00 payment = new TeleplanS00();
+        payment.setPaidAmount("002500");
+        when(teleplanDao.findByOfficeNumber("0000041")).thenReturn(List.of(payment));
+        BillingHistoryDao.PaymentTotals history = new BillingHistoryDao.PaymentTotals(9.0, 3.0);
+        assertThat(reconcile.getAmountPaid("41", "MSP", history)).isEqualTo(25.0);
+        assertThat(reconcile.getAmountOwing("41", "100", "MSP", history)).isEqualTo(66.0);
+        verifyNoInteractions(historyDao);
+    }
+
+    @Test
+    void shouldSkipHistoryQuery_forEmptyBulkSettleList() {
+        MSPReconcile.BillSearch bills = reconcile.new BillSearch();
+        bills.justBillingMaster = new ArrayList<>();
+        assertThat(reconcile.getPaymentHistoryTotals(bills)).isEmpty();
+        verifyNoInteractions(historyDao);
+    }
+
+    @Test
+    void shouldKeepIaExclusion_forStandalonePrivatePaymentLookup() {
+        when(historyDao.getTotalPaidFromHistory(41, true)).thenReturn(30.0);
+        assertThat(reconcile.getAmountPaid("41", "Pri")).isEqualTo(30.0);
+        verify(historyDao).getTotalPaidFromHistory(41, true);
+        verify(historyDao, never()).getPaymentTotalsByBillingMasterNos(anyCollection());
+    }
+
 }
