@@ -108,7 +108,8 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         });
         registerMock(OscarLogDao.class, mock(OscarLogDao.class));
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
-        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        ProviderLabRoutingDao routingDao = mock(ProviderLabRoutingDao.class);
+        registerMock(ProviderLabRoutingDao.class, routingDao);
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(MeasurementsDeletedDao.class, mock(MeasurementsDeletedDao.class));
@@ -120,7 +121,9 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         registerMock(Hl7TextInfoDao.class, mock(Hl7TextInfoDao.class));
         registerMock(Hl7TextMessageDao.class, mock(Hl7TextMessageDao.class));
         registerMock(EFormDocsDao.class, mock(EFormDocsDao.class));
-        Mockito.reset(staticRoutingDao());
+        // An integration test may have initialized the legacy static field with a real DAO.
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                CommonLabResultData.class, "providerLabRoutingDao", routingDao);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -517,10 +520,8 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
     /**
      * The ProviderLabRoutingDao instance CommonLabResultData actually holds.
      *
-     * <p>It resolves its DAOs in a static initializer, so the field binds to whichever mock was
-     * registered when the class first loaded in this Surefire fork — not to whatever a later
-     * registerMock() call supplies. Reading the field is the only way to stub the instance the
-     * production code will really use.
+     * <p>Read the legacy field so every stub and verification targets the DAO production uses,
+     * including tests that temporarily replace it while exercising concurrent writers.
      */
     private static ProviderLabRoutingDao staticRoutingDao() {
         try {
