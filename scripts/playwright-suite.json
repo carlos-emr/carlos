@@ -3835,6 +3835,23 @@
       "fixtures": "Seeds and removes one billing physician (bc.createBillingPhysician; its unique practitioner number keeps Generate to the owned claims) and two MSP claims on the workflow's own FAKE patient, made a BC patient; cleanup deletes every BC billing row of the patient and the physician and asserts each is gone. Records the clinic-wide Teleplan state first (the billactivity, log_teleplantx and teleplan_submission_link high-water marks and the teleplan_sequence property) and restores it at the end: it deletes the rows written after the record, once each is proven the run's (each batch written during the run, each log line an owned claim's or a batch header, each link a run batch's to an owned claim) and the HOME_DIR files those batches name (batch file names only, inside HOME_DIR), puts the sequence back or removes it, and asserts all of it. Needs HOME_DIR, the server's Teleplan output directory reachable from the runner (SKIP without it). The batch number and the sequence are clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "billing-bc-teleplan-sequence",
+      "script": "scripts/billing-bc-teleplan-sequence-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "mutates": [
+        "property:teleplan_sequence"
+      ],
+      "notes": "Manage Teleplan's Manually Set Sequence #, which billing-bc-teleplan-file only reads: Schedule ▸ Administration ▸ Billing ▸ Manage Teleplan ▸ Manually Set Sequence # ▸ save. Only that save is pressed; the page's username/password, change password, Get Sequence # and code-list buttons log in to Teleplan (live MSP) and are never touched. The form is shown only to the BILLING_SUPERUSER login (SKIP otherwise). The page shows the stored number as its Last Sequence #; a saved number is stored exactly and shown; a number that is not one, or is out of range, stores nothing; last, such a refused number says why. The last step fails on 2026.08 until #5066 (findings log 446) is fixed: a refused number returns the page with nothing stored and no message (ManageTeleplan2Action.setSequenceNumber). Notes only, no pin.",
+      "fixtures": "None of its own. Every teleplan_sequence row is recorded first and put back exactly (a row the save added is removed), and the check asserts it. The sequence is clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "billing-bc-reprocess-bill",
       "script": "scripts/billing-bc-reprocess-bill-playwright-checks.js",
       "tiers": [
