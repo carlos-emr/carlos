@@ -582,7 +582,11 @@ public final class MessageUploader {
 						pstmt.setString(pi + 1, sqlParams.get(pi));
 					}
 					ResultSet rs = pstmt.executeQuery();
-					int count = 0;
+					// A merged source record and its head share the patient's HIN, so both rows match. Count
+					// distinct head records rather than rows: those rows are one patient, whereas two different
+					// heads are a genuinely ambiguous match and must stay unmatched.
+					DemographicMerged mergeChain = new DemographicMerged();
+					Set<Integer> matchedHeads = new HashSet<>();
 
 					while (rs.next()) {
 						result = new PatientLabRoutingResult();
@@ -590,11 +594,11 @@ public final class MessageUploader {
 						provider_no = Misc.getString(rs, "provider_no");
 						result.setDemographicNo(Integer.parseInt(demo));
 						result.setProviderNo(provider_no);
-						count++;
+						matchedHeads.add(mergeChain.getHead(result.getDemographicNo()));
 					}
 					rs.close();
 					pstmt.close();
-					if (count > 1) {
+					if (matchedHeads.size() > 1) {
 						result = null;
 					}
 				}
@@ -604,8 +608,7 @@ public final class MessageUploader {
 
 
         if (result != null) {
-            DemographicMerged dm = new DemographicMerged();
-            Integer headDemo = dm.getHead(result.getDemographicNo());
+            Integer headDemo = new DemographicMerged().getHead(result.getDemographicNo());
             if (headDemo != null && headDemo.intValue() != result.getDemographicNo()) {
                 Demographic demoTmp = demographicManager.getDemographic(loggedInInfo, headDemo);
                 if (demoTmp != null) {

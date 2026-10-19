@@ -1380,6 +1380,27 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
+        @DisplayName("should refuse a merge that would create a cycle")
+        void shouldRefuseMerge_whenItWouldCreateACycle() {
+            DemographicMerged alreadyMerged = new DemographicMerged();
+            alreadyMerged.setDemographicNo(1001);
+            alreadyMerged.setMergedTo(1000);
+            when(mockDemographicMergedDao.findCurrentByDemographicNo(1001)).thenReturn(List.of(alreadyMerged));
+
+            // the target is itself merged into another record
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1001, List.of(1002)))
+                .isInstanceOf(IllegalArgumentException.class);
+            // a source that is already merged
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, List.of(1002, 1001)))
+                .isInstanceOf(IllegalArgumentException.class);
+            // a record merged into itself
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, List.of(1000)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+            verify(mockDemographicMergedDao, never()).persist(any(DemographicMerged.class));
+        }
+
+        @Test
         @DisplayName("should unmerge children from parent")
         void shouldUnmergeChildren_fromParent() {
             Integer parentId = 1000;

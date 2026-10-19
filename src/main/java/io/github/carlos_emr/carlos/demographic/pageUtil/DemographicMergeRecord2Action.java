@@ -41,6 +41,8 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -93,10 +95,17 @@ public class DemographicMergeRecord2Action extends ActionSupport {
         DemographicMerged dmDAO = new DemographicMerged();
 
         if (action.equals("merge") && head != null && records.size() > 1 && records.contains(head)) {
+            records = new ArrayList<String>(new LinkedHashSet<String>(records));
 
-            for (int i = 0; i < records.size(); i++) {
-                if (!(records.get(i)).equals(head))
-                    dmDAO.Merge(loggedInInfo, records.get(i), head);
+            // Validate every id before the first write so a rejected request leaves no partial merge behind.
+            if (!isMergeable(dmDAO, records, head)) {
+                logger.warn("Rejected demographic merge: a selected record is not a mergeable head record");
+                request.setAttribute("mergeoutcome", "failure");
+                return "failure";
+            }
+            for (String record : records) {
+                if (!record.equals(head))
+                    dmDAO.Merge(loggedInInfo, record, head);
 
             }
 
@@ -118,5 +127,24 @@ public class DemographicMergeRecord2Action extends ActionSupport {
         }
 
         return outcome;
+    }
+
+    /**
+     * Server-side guard for a merge request. The merge page only offers head records, but the request is
+     * attacker-controllable, so each id must be numeric and none of the selected records, the target
+     * included, may already be merged into another record: merging a merged source (or into one) can close a
+     * loop in {@code demographic_merged}, which makes {@code getHead} and lab routing recurse forever.
+     */
+    private static boolean isMergeable(DemographicMerged dmDAO, List<String> records, String head) {
+        try {
+            for (String record : records) {
+                if (dmDAO.isMergedSource(Integer.parseInt(record))) {
+                    return false;
+                }
+            }
+            return !dmDAO.isMergedSource(Integer.parseInt(head));
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 }
