@@ -8,6 +8,7 @@ import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.util.Date;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,52 @@ class LabForwardingTypesIntegrationTest extends CarlosTestBase {
         new ProviderLabRouting().routeMagic(REPORT, MRP, source);
         assertThat(routes.findAllLabRoutingByIdandType(REPORT, source))
                 .extracting(ProviderLabRoutingModel::getProviderNo).containsExactlyInAnyOrder(MRP, RECIPIENT);
+    }
+
+    @Test
+    void shouldReactivateRemovedRoutingAndApplyRules_whenLabIsForwardedAgain() {
+        saveRule("HL7");
+        var removed = new ProviderLabRoutingModel(MRP, REPORT, "X", "previous comment", new Date(1000), "HL7");
+        removed.setMrpDemographicNo(101);
+        routes.persist(removed);
+        em.flush();
+        Integer originalId = removed.getId();
+        Date before = new Date();
+
+        new ProviderLabRouting().routeMagic(REPORT, MRP, "HL7");
+        em.flush();
+        em.clear();
+
+        assertThat(routes.findAllLabRoutingByIdandType(REPORT, "HL7")).hasSize(2);
+        assertThat(routes.findByLabNoAndLabTypeAndProviderNo(REPORT, "HL7", MRP)).singleElement().satisfies(row -> {
+            assertThat(row.getId()).isEqualTo(originalId);
+            assertThat(row.getStatus()).isEqualTo("F");
+            assertThat(row.getComment()).isEqualTo("previous comment");
+            assertThat(row.getTimestamp()).isAfterOrEqualTo(before);
+            assertThat(row.getMrpDemographicNo()).isNull();
+        });
+        assertThat(routes.findByLabNoAndLabTypeAndProviderNo(REPORT, "HL7", RECIPIENT)).singleElement()
+                .satisfies(row -> assertThat(row.getStatus()).isEqualTo("N"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"A", "F", "N"})
+    void shouldPreserveExistingRoutingAndSkipRules_whenLabIsForwardedAgain(String status) {
+        saveRule("HL7");
+        var existing = new ProviderLabRoutingModel(MRP, REPORT, status, "review comment", new Date(1000), "HL7");
+        routes.persist(existing);
+        em.flush();
+
+        new ProviderLabRouting().routeMagic(REPORT, MRP, "HL7");
+        em.flush();
+        em.clear();
+
+        assertThat(routes.findAllLabRoutingByIdandType(REPORT, "HL7")).singleElement().satisfies(row -> {
+            assertThat(row.getId()).isEqualTo(existing.getId());
+            assertThat(row.getStatus()).isEqualTo(status);
+            assertThat(row.getComment()).isEqualTo("review comment");
+            assertThat(row.getTimestamp().getTime()).isEqualTo(1000L);
+        });
     }
 
     @Test
