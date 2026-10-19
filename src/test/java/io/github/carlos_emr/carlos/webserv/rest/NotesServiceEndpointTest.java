@@ -25,7 +25,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 
 import jakarta.ws.rs.core.Response;
 
@@ -189,6 +191,52 @@ class NotesServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/notelist")).hasSize(1);
             assertThat(wireJson.at("/notelist/0/noteId").intValue()).isEqualTo(17);
             assertThat(wireJson.at("/notelist/0/note").textValue()).isEqualTo("Synthetic follow-up note");
+        }
+
+        @Test
+        @DisplayName("should write midnight and epoch-day note timestamps as epoch milliseconds")
+        void shouldWriteNoteTimestampsAsEpochMillis_whenTheyFallOnMidnightOrEpochDay() {
+            // Issue #3877: an observation date picked as a bare date is stored at midnight and used
+            // to leave /ws/services as "yyyy-MM-dd"; a 1970-01-01 value left as "HH:mm:ss".
+            Calendar calendar = Calendar.getInstance();
+            calendar.clear();
+            calendar.set(2026, Calendar.MARCH, 11);
+            Date midnight = calendar.getTime();
+            calendar.clear();
+            calendar.set(1970, Calendar.JANUARY, 1, 9, 30);
+            Date epochDay = calendar.getTime();
+            Provider testProvider = new Provider();
+            testProvider.setProviderNo("100");
+            when(mockLoggedInInfo.getLoggedInProvider()).thenReturn(testProvider);
+            when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+            when(mockLoggedInInfo.getSession()).thenReturn(null);
+            var role = new io.github.carlos_emr.carlos.PMmodule.model.SecUserRole();
+            role.setRoleName("doctor");
+            when(mockSecUserRoleDao.getUserRoles("100")).thenReturn(java.util.List.of(role));
+            when(mockCaseManagementMgr.isClientInProgramDomain("100", "456")).thenReturn(true);
+            ProgramProvider pp = new ProgramProvider();
+            pp.setProgramId(1L);
+            when(mockProgramManager2.getCurrentProgramInDomain(any(LoggedInInfo.class), eq("100"))).thenReturn(pp);
+            var note = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay.class);
+            when(note.getNoteId()).thenReturn(17);
+            when(note.getObservationDate()).thenReturn(midnight);
+            when(note.getUpdateDate()).thenReturn(epochDay);
+            var selection = new NoteSelectionResult();
+            selection.getNotes().add(note);
+            when(mockNoteService.findNotes(any(LoggedInInfo.class), any(NoteSelectionCriteria.class)))
+                .thenReturn(selection);
+
+            Response response = request().path("/notes/456/all")
+                .query("numToReturn", 20)
+                .query("offset", 0)
+                .post(objectMapper.createObjectNode());
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/notelist/0/observationDate").isIntegralNumber()).isTrue();
+            assertThat(wireJson.at("/notelist/0/observationDate").longValue()).isEqualTo(midnight.getTime());
+            assertThat(wireJson.at("/notelist/0/updateDate").isIntegralNumber()).isTrue();
+            assertThat(wireJson.at("/notelist/0/updateDate").longValue()).isEqualTo(epochDay.getTime());
         }
     }
 }

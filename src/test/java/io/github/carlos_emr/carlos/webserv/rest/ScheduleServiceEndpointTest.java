@@ -22,9 +22,12 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -166,6 +169,57 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson).hasSize(1);
             assertThat(wireJson.at("/0/appointmentNo").intValue()).isEqualTo(17);
             assertThat(wireJson.at("/0/name").textValue()).isEqualTo("Reserved clinic time");
+        }
+    }
+
+    /** Tests for POST /schedule/{demographicNo}/appointmentHistory. */
+    @Nested
+    @DisplayName("POST /schedule/{demographicNo}/appointmentHistory")
+    class AppointmentHistory {
+
+        @Test
+        @DisplayName("should write midnight create/update timestamps as epoch milliseconds and keep slot shapes")
+        void shouldWriteTimestampsAsEpochMillis_whenTheyFallOnMidnight() {
+            // Issue #3877: createDateTime/updateDateTime are DATETIME columns, so a value at local
+            // midnight used to leave /ws/services as "yyyy-MM-dd". The appointment's own date and
+            // times are DATE/TIME columns and keep their string shapes (#2957 round-trips them).
+            Calendar calendar = Calendar.getInstance();
+            calendar.clear();
+            calendar.set(2026, Calendar.MARCH, 11);
+            Date midnight = calendar.getTime();
+            // AppointmentConverter looks these up through SpringUtils; neither is reached here
+            // (no demographic/provider include), but the converter needs them to construct.
+            registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class,
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
+            registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
+            var appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+            appointment.setId(23);
+            appointment.setDemographicNo(42);
+            appointment.setProviderNo("999998");
+            appointment.setAppointmentDate(java.sql.Date.valueOf("2026-03-11"));
+            appointment.setStartTime(java.sql.Time.valueOf("09:30:00"));
+            appointment.setEndTime(java.sql.Time.valueOf("09:45:00"));
+            appointment.setCreateDateTime(midnight);
+            appointment.setUpdateDateTime(midnight);
+            when(mockAppointmentManager.getAppointmentHistoryWithoutDeleted(any(LoggedInInfo.class), eq(42), anyInt(),
+                    anyInt())).thenReturn(List.of(appointment));
+            when(mockBillingONCHeader1Dao.findByDemoNoWithItems(eq(42), anyInt(), anyInt()))
+                .thenReturn(Collections.emptyList());
+
+            Response response = request().path("/schedule/42/appointmentHistory").post("{}");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/appointments/0/id").intValue()).isEqualTo(23);
+            for (String field : List.of("createDateTime", "updateDateTime")) {
+                var value = wireJson.at("/appointments/0/" + field);
+                assertThat(value.isIntegralNumber()).as("%s on the wire: %s", field, value).isTrue();
+                assertThat(value.longValue()).as(field).isEqualTo(midnight.getTime());
+            }
+            assertThat(wireJson.at("/appointments/0/appointmentDate").textValue()).isEqualTo("2026-03-11");
+            assertThat(wireJson.at("/appointments/0/startTime").textValue()).isEqualTo("09:30:00");
+            assertThat(wireJson.at("/appointments/0/endTime").textValue()).isEqualTo("09:45:00");
         }
     }
 }

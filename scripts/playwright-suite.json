@@ -282,6 +282,30 @@
       "notes": "Issue #3446: /ws/oauth and /ws/services are published and fail closed; full OAuth 1.0a out-of-band handshake through the consent page; /ws/rs keeps epoch-millisecond dates; SOAP unaffected. Seeds and removes its own ServiceClient and tokens."
     },
     {
+      "name": "oauth-rest-epoch-dates",
+      "script": "scripts/oauth-rest-epoch-dates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "OAUTH_DEMOGRAPHIC_NO",
+        "EXPECT_OAUTH_MODE"
+      ],
+      "mutates": [
+        "demographic",
+        "allergies",
+        "measurements",
+        "appointment"
+      ],
+      "notes": "Issue #3877: on /ws/services each seeded timestamp is epoch milliseconds equal to /ws/rs for the same call (GET /demographics/{id} with allergies and measurements in every mode; /allergies/active and appointment history in scoped or legacy-full mode), while a DATE column keeps its yyyy-MM-dd string.",
+      "fixtures": "Sets one demo patient's demographic.lastUpdateDate, one active allergy's lastUpdateDate and (outside legacy-restricted mode) its latest appointment's createdatetime/updatedatetime to local midnight or 1970-01-01, and inserts one measurement of type PWEPOCH; cleanup writes the original values back and deletes the measurement and its own ServiceClient, tokens and nonces. Another check editing that patient meanwhile would see its record timestamps change, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "oauth-ws-rate-limit",
       "script": "scripts/oauth-ws-rate-limit-playwright-checks.js",
       "tiers": [
