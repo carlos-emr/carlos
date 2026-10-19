@@ -88,13 +88,14 @@ public class EForm extends EFormBase {
     private static final String SCRIPT_TAG = "script";
     private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
     private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
-    /** A whole opening &lt;script ...&gt; tag, for the SRI strip in jQuery aliases. */
+    /** A whole opening tag, including any {@code >} characters inside quoted attribute values. */
     private static final Pattern ALIASED_SCRIPT_TAG =
-            Pattern.compile("<script\\b[^>]*>", Pattern.CASE_INSENSITIVE);
-    /** An {@code integrity=} or {@code crossorigin=} attribute, either quoting style. */
-    private static final Pattern SRI_ATTRIBUTE = Pattern.compile(
-            "\\s+(?:integrity|crossorigin)\\s*=\\s*(?:\"[^\"]*\"|'[^']*')",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.compile("<script(?=[\\t\\n\\f\\r />])(?:[^\"'>]++|\"[^\"]*\"|'[^']*')*+>",
+                    Pattern.CASE_INSENSITIVE);
+    /** Consume complete attributes in order; never restart a match inside a quoted value. */
+    private static final Pattern SCRIPT_ATTRIBUTE = Pattern.compile(
+            "\\G[\\t\\n\\f\\r ]*([^\\t\\n\\f\\r /=>\"'<]+)"
+            + "(?:[\\t\\n\\f\\r ]*=[\\t\\n\\f\\r ]*(?:\"[^\"]*\"|'[^']*'|[^\\t\\n\\f\\r >]*))?");
 
     /** jQuery build actually deployed under the webapp's library path. */
     private static final String DEPLOYED_LIBRARY_JQUERY_PATH = "/library/jquery/jquery-3.7.1.min.js";
@@ -639,8 +640,16 @@ public class EForm extends EFormBase {
                 scriptTag.appendReplacement(out, Matcher.quoteReplacement(tag));
                 continue;
             }
-            String cleaned = SRI_ATTRIBUTE.matcher(tag).replaceAll("");
-            scriptTag.appendReplacement(out, Matcher.quoteReplacement(cleaned));
+            Matcher attributes = SCRIPT_ATTRIBUTE.matcher(tag).region("<script".length(), tag.length() - 1);
+            StringBuilder cleaned = new StringBuilder();
+            while (attributes.find()) {
+                String name = attributes.group(1);
+                if ("integrity".equalsIgnoreCase(name) || "crossorigin".equalsIgnoreCase(name)) {
+                    attributes.appendReplacement(cleaned, "");
+                }
+            }
+            attributes.appendTail(cleaned);
+            scriptTag.appendReplacement(out, Matcher.quoteReplacement(cleaned.toString()));
         }
         scriptTag.appendTail(out);
         return out.toString();
