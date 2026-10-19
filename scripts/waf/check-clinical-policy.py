@@ -341,6 +341,17 @@ def build_cases(phrases, corpus):
     cases.append(request_case("eform-error-xss-other-route", 0, ERROR_LOG + "Evil", "error", XSS, extra=form_id,
                               expect="inbound", signatures=("941100", "941110")))
 
+    # Image placeholder transport was renamed together with browser and server.
+    # The RCE marker distinguishes argument-level rule 1030 from the broader
+    # data-URI-only exclusion 1040: stale/mismatched field names must fail here.
+    image_source = '{"id":"signature","value":"data:image/png;base64,AQID$(id)"}'
+    cases.append(request_case("carlos-image-link-save", 3352, LETTER, "carlos-image-link", image_source))
+    for field in ("openosp-image-link", "clinicalNote"):
+        cases.append(request_case(f"image-link-inspected-{field}", 3352, LETTER, field, image_source, **rce))
+    for method in ("GET", "PUT"):
+        cases.append(request_case(f"image-link-wrong-{method}", 3352, LETTER, "carlos-image-link", image_source, method, **rce))
+    cases.append(request_case("image-link-wrong-route", 3352, LETTER + "Evil", "carlos-image-link", image_source, **rce))
+
     if len({case.name for case in cases}) != len(cases):
         raise ValueError("duplicate case names")
     return cases

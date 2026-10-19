@@ -15483,6 +15483,38 @@
         "finding": 312,
         "step": "a discarded draft calculation is handled without a server exception"
       }
+    },
+    {
+      "name": "eform-image-links",
+      "script": "scripts/eform-image-links-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient(s) and related rows; cleanup verifies removal. Must not run concurrently with other checks.",
+      "notes": "Verifies image transport through save/reopen and the packaged WAF."
+    },
+    {
+      "name": "demographic-add-relation",
+      "script": "scripts/demographic-add-relation-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient(s) and related rows; cleanup verifies removal. Must not run concurrently with other checks.",
+      "notes": "Issue #3352: GET opens, search/select does not write, GET/HEAD save is 405, and a form POST saves the relation. Clicks the legacy master-record link when enabled; otherwise opens its supported route."
     }
   ]
 }
