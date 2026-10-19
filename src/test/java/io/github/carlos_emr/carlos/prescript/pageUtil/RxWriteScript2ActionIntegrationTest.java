@@ -98,10 +98,14 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         "2g TOP. BID x 7 days | 2 | 28",
         "20 IU SC BID x 7 days | 20 | 280",
         "20IU IM BID x 7 days | 20 | 280",
+        "100IU/mL SC tid x 7 days | 1 | 21",
+        "100IU/5mL IM tid x 7 days | 1 | 21",
+        "Take 0.5mL po OD x 7 days | 0.5 | 4",
+        "0.5IU SC OD x 7 days | 0.5 | 4",
         "1000 mg po 2 tid x 7 days | 2 | 42"
     })
     void shouldReturnCorrectQuantity_whenParsingStrengthInstructions(String instruction,
-            int dose, String quantity) throws Exception {
+            double dose, String quantity) throws Exception {
         RxSessionBean bean = stageReRxSession(1001);
         RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
         rx.setRandomId(123);

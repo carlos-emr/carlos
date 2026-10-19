@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.prescript.util;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -55,6 +57,7 @@ public class RxUtil {
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
             "(?:mg|mcg|[µμ]g|g|iu|meq)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CONCENTRATION_SEPARATOR = Pattern.compile("(?:/|per\\b)\\s*", Pattern.CASE_INSENSITIVE);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
 
     public static void setDefaultQuantity(String quantity) {
@@ -854,11 +857,7 @@ public class RxUtil {
             rx.setDurationSpecifiedByUser(true);
             rx.setDuration(duration);
             if (!isUnitNameUsed && !durationUnit.equals("") && !takeMin.equals("0") && !takeMax.equals("0") && !frequency.equals("")) {
-                nPerDay = findNPerDay(frequency);
-                nDays = findNDays(durationUnit);
-                //quantity=takeMax * nDays * duration * nPerDay
-                double quantityD = (Double.parseDouble(takeMax)) * nPerDay * nDays * (Double.parseDouble(duration));
-                quantity = (int) quantityD;
+                quantity = calculateDispenseQuantity(takeMax, duration, durationUnit, frequency);
             }
 
         }
@@ -901,6 +900,26 @@ public class RxUtil {
         hm.put("policyViolations", policyViolations);
 
         return;
+    }
+
+    private static int calculateDispenseQuantity(String maximumDose, String duration, String durationUnit, String frequency) {
+        BigDecimal total = new BigDecimal(maximumDose).multiply(new BigDecimal(duration))
+                .multiply(BigDecimal.valueOf(findNDays(durationUnit)));
+        // Use exact day intervals instead of the approximate daily frequency for
+        // weekly/monthly prescriptions, so an exact total does not round up twice.
+        int intervalDays = switch (frequency.toUpperCase(Locale.ROOT)) {
+            case "Q1WEEK" -> 7;
+            case "Q2WEEK" -> 14;
+            case "Q1MONTH" -> 30;
+            case "Q3MONTH" -> 90;
+            default -> 0;
+        };
+        BigDecimal quantity = intervalDays == 0
+                ? total.multiply(BigDecimal.valueOf(findNPerDay(frequency))).setScale(0, RoundingMode.CEILING)
+                : total.divide(BigDecimal.valueOf(intervalDays), 0, RoundingMode.CEILING);
+        // Keep the legacy integer quantity range while avoiding under-dispensing
+        // fractional totals and floating-point error in decimal dose products.
+        return quantity.min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
     }
 
     public static boolean isStringToNumber(String s) {//see if string contains decimal or integer
@@ -1091,7 +1110,7 @@ public class RxUtil {
         if (!unit.lookingAt()) {
             return false;
         }
-        if (segment == null) {
+        if (segment == null || hasConcentrationAfterUnit(instructions, unit.end())) {
             return true;
         }
         // Grams applied topically and IU injected through supported parenteral
@@ -1104,6 +1123,22 @@ public class RxUtil {
             return !("SC".equalsIgnoreCase(segment.route) || "IM".equalsIgnoreCase(segment.route));
         }
         return true;
+    }
+
+    private static boolean hasConcentrationAfterUnit(String instructions, int unitEnd) {
+        Matcher separator = CONCENTRATION_SEPARATOR.matcher(instructions)
+                .region(skipWhitespaceForward(instructions, unitEnd), instructions.length());
+        if (!separator.lookingAt()) {
+            return false;
+        }
+        int denominatorStart = separator.end();
+        NumberToken denominatorAmount = findDecimalAt(instructions, denominatorStart);
+        if (denominatorAmount != null) {
+            denominatorStart = denominatorAmount.end;
+        }
+        // A recognized denominator unit distinguishes product concentrations
+        // such as IU/mL and g/g from administered amounts such as IU per dose.
+        return hasStrengthUnitAfter(instructions, denominatorStart) || hasDoseUnitAfter(instructions, denominatorStart);
     }
 
     private static boolean hasDoseUnitAfter(String instructions, int amountEnd) {

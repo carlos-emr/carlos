@@ -75,6 +75,10 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1 g po tid x 7 days", "2g po tid x 7 days", "Take 2g po tid x 7 days",
             "1000 IU po tid x 7 days", "20 mEq po tid x 7 days",
             "20 IU po tid x 7 days", "20IU po tid x 7 days",
+            "100 IU/mL SC tid x 7 days", "100IU/mL SC tid x 7 days",
+            "100 IU/5mL IM tid x 7 days", "100 IU / 5 mL SC tid x 7 days",
+            "Apply 2g/g tid x 7 days", "2g/g TOP. tid x 7 days",
+            "100IU per mL SC tid x 7 days", "Apply 2g per g tid x 7 days",
             "500-1000 mg po tid x 7 days", "500-1000mg po tid x 7 days",
             "1/2 g po tid x 7 days", "1/2g po tid x 7 days"
         })
@@ -134,6 +138,21 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "10-20IU SC BID x 7 days | 10 | 20 | 280",
             "20-10IU IM BID x 7 days | 10 | 20 | 280",
             "0IU SC BID x 7 days | 0 | 0 | 0",
+            "100IU/mL SC 2 tid x 7 days | 2 | 2 | 42",
+            "20IU/dose SC BID x 7 days | 20 | 20 | 280",
+            "20IU per dose SC BID x 7 days | 20 | 20 | 280",
+            "Take 0.5mL po OD x 7 days | 0.5 | 0.5 | 4",
+            "Take 1/2mL po OD x 7 days | 0.5 | 0.5 | 4",
+            "Take 1/2 tab po OD x 7 days | 0.5 | 0.5 | 4",
+            "Apply 0.5g OD x 7 days | 0.5 | 0.5 | 4",
+            "0.5IU SC OD x 7 days | 0.5 | 0.5 | 4",
+            "1-1.5mL po OD x 7 days | 1 | 1.5 | 11",
+            "0.1mL po tid x 10 days | 0.1 | 0.1 | 3",
+            "1 tab po Q1Week x 7 days | 1 | 1 | 1",
+            "1 tab po Q2Week x 14 days | 1 | 1 | 1",
+            "1 tab po Q1Month x 30 days | 1 | 1 | 1",
+            "1 tab po Q3Month x 90 days | 1 | 1 | 1",
+            "1 tab po Q3Month x 3 months | 1 | 1 | 1",
             "2 mgtablets po tid x 7 days | 2 | 2 | 42"
         })
         void shouldPreserveDoseCounts_whenInstructionsSpecifyAdministeredAmounts(String instructions,
