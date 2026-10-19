@@ -10,7 +10,7 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
-  const name = `${s.marker}-relation`;
+  const name = `${s.marker}-rel`; // demographic.last_name is varchar(30).
   const ownedContact = `SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(name)}`;
   s.cleanup(() => {
     s.sql.execute(`DELETE FROM relationships WHERE demographic_no=${s.patient} OR relation_demographic_no=${s.patient}
@@ -55,7 +55,7 @@ async function workflow(s) {
   });
 
   await s.step('GET and HEAD with save parameters return 405 without writing', async () => {
-    const query = new URLSearchParams({ origDemo: s.patient, linkingDemo: contact, relation: 'Spouse' });
+    const query = new URLSearchParams({ origDemo: s.patient, linkingDemo: contact, relation: 'Partner' });
     for (const method of ['GET', 'HEAD']) {
       const response = await s.context.request.fetch(`${s.config.baseUrl}/demographic/AddRelation?${query}`, { method });
       h.assert(response.status() === 405 && response.headers().allow === 'POST', `${method} save did not return 405 with Allow: POST`);
@@ -64,7 +64,7 @@ async function workflow(s) {
   });
 
   await s.step('the form saves the chosen relationship through a real POST', async () => {
-    await popup.locator('select[name="relation"]').selectOption('Spouse');
+    await popup.locator('select[name="relation"]').selectOption('Partner');
     await popup.locator('textarea[name="notes"]').fill(s.marker);
     const posted = popup.waitForRequest(request => request.method() === 'POST'
       && new URL(request.url()).pathname.endsWith('/demographic/AddRelation'));
@@ -73,7 +73,7 @@ async function workflow(s) {
     await posted;
     await h.assertNotErrorPage(popup, 'relation save');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM relationships WHERE demographic_no=${s.patient}
-      AND relation_demographic_no=${contact} AND relation='Spouse' AND notes=${h.sqlString(s.marker)}`) === '1',
+      AND relation_demographic_no=${contact} AND relation='Partner' AND notes=${h.sqlString(s.marker)}`) === '1',
       'The selected relationship was not saved exactly once');
     h.assert(await popup.locator('body').innerText().then(text => text.includes(s.marker)), 'The saved relationship is not visible');
   });
