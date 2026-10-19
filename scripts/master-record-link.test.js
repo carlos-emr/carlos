@@ -11,13 +11,20 @@ const fakePage = () => ({ locator: selector => ({ selector }) });
 
 test('shouldMatchTheNavigationHrefOrAnOnclick_forOneFragment', () => {
   assert.equal(masterRecordLink(fakePage(), '/rx/choosePatient').selector,
-    '.patient-nav a[href*="/rx/choosePatient"], a[onclick*="/rx/choosePatient"], a[href*="/rx/choosePatient"][onclick*="this.href"]');
+    '.patient-nav a[href*="/rx/choosePatient"], a[onclick*="/rx/choosePatient"], '
+    + 'a[href*="/rx/choosePatient"][onclick*="this.href"]');
+});
+
+// #5007 (alpha20 back-merge): edit.jsp's links put the URL in href and open it with popupPage(w, h, this.href).
+test('shouldMatchAnHrefOpenedByItsOnclick_forTheContextPathLinks', () => {
+  assert.match(masterRecordLink(fakePage(), '/billing/CA/BC/reprocessBill?').selector,
+    /, a\[href\*="\/billing\/CA\/BC\/reprocessBill\?"\]\[onclick\*="this\.href"\]$/);
 });
 
 test('shouldRequireEveryFragment_inEachForm', () => {
   assert.equal(masterRecordLink(fakePage(), '/billing?', 'apptProvider_no=none').selector,
     '.patient-nav a[href*="/billing?"][href*="apptProvider_no=none"], a[onclick*="/billing?"][onclick*="apptProvider_no=none"], '
-      + 'a[href*="/billing?"][href*="apptProvider_no=none"][onclick*="this.href"]');
+    + 'a[href*="/billing?"][href*="apptProvider_no=none"][onclick*="this.href"]');
 });
 
 test('shouldRefuseFragments_thatWouldBreakTheSelector', () => {

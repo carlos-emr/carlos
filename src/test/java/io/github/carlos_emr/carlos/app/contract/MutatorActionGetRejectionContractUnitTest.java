@@ -510,6 +510,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Favourite sharing/copying writes require POST; the selection page permits GET.
         // Targeted guard from PR #2478, covered by CopyFavorites2ActionUnitTest.
         "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
+        // Satellite-sites Admin (#4700): the list, Add New Site and method=edit permit GET; method=save stores
+        // a site and must be a POST. Covered by SitesManage2ActionUnitTest (shouldRefuseSave_whenNotPost).
+        "io.github.carlos_emr.carlos.commn.web.SitesManage2Action",
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
@@ -563,7 +566,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.documentManager.actions.AnnotateDocument2Action",
         // Returns word bounding boxes for snap-to-text highlighting. Read-only.
         "io.github.carlos_emr.carlos.documentManager.actions.DocumentTextBoxes2Action",
-        "io.github.carlos_emr.carlos.report.gate.ViewReport2Action"
+        "io.github.carlos_emr.carlos.report.gate.ViewReport2Action",
+        // CDS 4 report results: the shared report gate plus a functional centre in use. Read-only.
+        "io.github.carlos_emr.carlos.report.gate.ViewCds4ReportResults2Action"
     );
 
     /**
@@ -684,6 +689,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // prescript slice: RxReason2Action's add/archive drug-reason writes are POST-only; the popup
         // view stays GET (conditional mutator, #3908).
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action",
+        // commn.web slice: the package is not in IN_SCOPE_PACKAGE_PREFIXES, so SitesManage2Action registers
+        // explicitly (conditional mutator, #4700).
+        "io.github.carlos_emr.carlos.commn.web.SitesManage2Action",
         // prescript slice (#3908): re-prescribe staging, drug deletion/discontinue/clears and
         // pharmacy links are POST-only.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",

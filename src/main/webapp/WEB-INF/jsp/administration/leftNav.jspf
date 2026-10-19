@@ -374,11 +374,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						class="contentLink"><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
 					<li><a href="${ctx}/oscarReport/obec" class="contentLink"><fmt:message key="admin.admin.overnightBatch"/></a></li>
 								
-					<caisi:isModuleLoad moduleName="caisi">		
-						<li><a href="javascript:void(0);"
-						class="xlink contentLink" rel="${ctx}/PMmodule/Reports/ProgramActivityReport"><fmt:message key="admin.admin.activityRpt"/></a></li>
-					</caisi:isModuleLoad>			
-								
 					<li><a href="${ctx}/oscarReport/ViewPatientlist"
 						class="contentLink"><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
 					<li><a
@@ -386,7 +381,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						class="contentLink"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
 								
 					<caisi:isModuleLoad moduleName="caisi">
-						<li><a page="${pageContext.request.contextPath}/PopulationReport" class="contentLink"> <fmt:message key="admin.admin.popRpt"/></a></li>
+						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/PopulationReport"><fmt:message key="admin.admin.popRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ViewCds4ReportForm"	class="contentLink"><fmt:message key="admin.admin.cdsRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ViewMisReportForm" class="contentLink"><fmt:message key="admin.admin.misRpt"/></a></li>
 					</caisi:isModuleLoad>

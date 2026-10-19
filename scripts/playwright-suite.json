@@ -554,6 +554,21 @@
       "env": []
     },
     {
+      "name": "consultation-overdue-tickler",
+      "script": "scripts/consultation-overdue-tickler-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Three owned FAKE-PW patients, one consultation service, two specialists and five Nothing Done referrals; the one task the Save step writes (with its tickler_update/comments/link rows). All are removed by the run's marker and the owned patients, and asserted gone.",
+      "notes": "Issue #4999: the overdue Add ticklers control must open the standard Add Tickler form with its patient and the suggested message; dismissing the confirmation or pressing Back writes nothing, Save writes exactly one task."
+    },
+    {
       "name": "consultation-nullable-fields",
       "script": "scripts/consultation-nullable-fields-playwright-checks.js",
       "tiers": [
@@ -3049,6 +3064,25 @@
       "fixtures": "Creates and removes owned FAKE-PW patients, directory contact and relationship fixtures; local disposable database only."
     },
     {
+      "name": "contact-external-professional",
+      "script": "scripts/contact-external-professional-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "Issue #4987: a professional contact added from the Contacts editor's External search is saved as an external professional contact, chosen for the row, listed by that search and linked on save; the Add link keeps creating specialists for the Health Care Team panel.",
+      "fixtures": "Creates and removes an owned FAKE-PW patient and its external professional contact and association rows; local disposable database only."
+    },
+    {
       "name": "consultation-directory-crud",
       "script": "scripts/consultation-directory-crud-playwright-checks.js",
       "tiers": [
@@ -4166,7 +4200,7 @@
       "timeoutSec": 240,
       "env": [],
       "fixtures": "One waitingListName created for the provider's group through Report ▸ Waiting List ▸ Create List, a second one with a markup-bearing name seeded by SQL, and the owned patient's waitingList rows; all removed in cleanup and asserted gone.",
-      "notes": "Issue #4229: with DEMOGRAPHIC_WAITING_LIST=true the Master Record shows the Waiting List link and an editable list, note and date; Report ▸ Waiting List is the entry to the list manager; a list archived after the form was drawn is refused with 409 by DemographicUpdate and Add2WaitingList before any write. SKIPs when the login has no ProviderPreference.myGroupNo."
+      "notes": "Issue #4229: with DEMOGRAPHIC_WAITING_LIST=true the Master Record shows the Waiting List link and an editable list, note and date; Report ▸ Waiting List is the entry to the list manager; a list archived or moved to another group after the form was drawn is refused with 409 by DemographicUpdate and Add2WaitingList before any write, while a list_id=0 save still saves the patient. SKIPs when the login has no ProviderPreference.myGroupNo."
     },
     {
       "name": "appointment-search-history",
@@ -5731,12 +5765,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2006, Intake Information, Position Hazard and Self Efficacy, pinned to finding 234: Intake Information, Position Hazard and Self Efficacy each print ???key??? for a bundle entry that does not exist. Rourke 2006's window title now resolves, so it must pass first. Intake Information is the pinned step and the other two share the defect. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
-      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 234,
-        "step": "Intake Information: shows no unresolved message key"
-      }
+      "notes": "Rourke 2006, Intake Information, Position Hazard and Self Efficacy, finding 234 (fixed, #4593): each printed ???key??? for a bundle entry that did not exist, and now resolves its titles and headings. The four keys pairs stay in their own entry so a regression is attributed to the finding. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-position-hazard-css",
@@ -7008,6 +7038,21 @@
       "timeoutSec": 600,
       "env": [],
       "fixtures": "Throwaway login with its own day sheet plus an owned FAKE- patient; the eight recurring appointments it books belong to the throwaway provider and are deleted (with archive rows) in cleanup."
+    },
+    {
+      "name": "appointment-slot-lock-booker",
+      "script": "scripts/appointment-slot-lock-booker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Requires appointment_locking_timeout>0 and allowMultipleSameDayGroupAppt other than no (SKIPs otherwise); issue #4917. A booker holding only the doctor role (no _admin) must get the slot lock: the viewer count, the locked state, hidden Add/Repeat/Group, Search back after a duration change, and a released monitor on close.",
+      "fixtures": "Two throwaway logins (admin+doctor owner, doctor booker); nothing is booked; both providers' PageMonitor rows are removed and verified at teardown."
     },
     {
       "name": "appointment-group-paste-restriction",
@@ -11857,6 +11902,26 @@
       "fixtures": "Owns a patient and one PDF document (row and file); the replacement is uploaded through the popup with the run marker in its name. All removed."
     },
     {
+      "name": "document-viewer-macro",
+      "script": "scripts/document-viewer-macro-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "property:labMacroJSON"
+      ],
+      "notes": "Runs the provider's lab macros (Preferences > Lab Recall Macros) from the document viewer's Macros menu (#4988): an acknowledge-only macro acknowledges the document with its comment and files no tickler; a run naming another patient is refused as a whole; an acknowledge + tickler macro acknowledges the document and files the tickler for the document's patient with the document attached as a document (ticklerdocs doctype D, not a lab). lab-macro-tickler covers the same macros on an HL7 lab.",
+      "fixtures": "Owns a patient, one PDF document (row, file, patient link) with a New routing row for the login's provider, and two labMacroJSON macros set on that provider for the run. The provider's macro list is restored; the ticklers (with attachments), routing row, document and file are removed and verified gone. The macro list is the login provider's property row, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "messenger-reply-conversation",
       "script": "scripts/messenger-reply-conversation-playwright-checks.js",
       "tiers": [
@@ -11961,11 +12026,7 @@
       "timeoutSec": 240,
       "env": [],
       "fixtures": "One owned site named with the run marker; removed in cleanup with any providersite link and asserted gone. Needs multisites=on; SKIPs without the Satellite-sites Admin menu entry.",
-      "expectedFailure": {
-        "finding": 276,
-        "step": "Add New Site ▸ Save stores the new site and lists it"
-      },
-      "notes": "Satellite-sites Admin add, open and edit, and a GET save refusal. Expected to fail at the Save step while finding 276 (#4700) stands: the detail form's site.* fields do not bind, the list's edit link is a GET with method=update that the GET guard refuses, and the edit form shows no stored values."
+      "notes": "Satellite-sites Admin add, open and edit, a GET save refusal, and the site pages' stylesheets. Finding 276 (#4700) is fixed by #4875, and the site pages' stylesheet link (finding 100) by #4922."
     },
     {
       "name": "consultation-letterhead",

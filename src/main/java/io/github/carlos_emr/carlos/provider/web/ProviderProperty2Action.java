@@ -855,16 +855,20 @@ public class ProviderProperty2Action extends ActionSupport {
             drugrefId2 = UdrugrefId2.getValue();
         }
 
-        UserProperty prop2 = this.userPropertyDAO.getProp(providerNo, UserProperty.ONTARIO_MD_PASSWORD);
+        // The password box always opens empty (the stored password is never sent to the browser), so an empty
+        // box means "keep the stored password": saving only the username must not clear it.
+        if (drugrefId2 != null && !drugrefId2.isEmpty()) {
+            UserProperty prop2 = this.userPropertyDAO.getProp(providerNo, UserProperty.ONTARIO_MD_PASSWORD);
 
-        if (prop2 == null) {
-            prop2 = new UserProperty();
-            prop2.setName(UserProperty.ONTARIO_MD_PASSWORD);
-            prop2.setProviderNo(providerNo);
+            if (prop2 == null) {
+                prop2 = new UserProperty();
+                prop2.setName(UserProperty.ONTARIO_MD_PASSWORD);
+                prop2.setProviderNo(providerNo);
+            }
+            prop2.setValue(drugrefId2);
+
+            this.userPropertyDAO.saveProp(prop2);
         }
-        prop2.setValue(drugrefId2);
-
-        this.userPropertyDAO.saveProp(prop2);
 
 
         request.setAttribute("status", "success");

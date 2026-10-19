@@ -24,7 +24,8 @@
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
-<%-- This JSP is the multi-site admin site detail page --%>
+<%-- This JSP is the multi-site admin site detail page. Its fields post as site.* (SitesManage2Action.getSite());
+     each one is filled from that site, so an opened site shows its stored values and its Save updates it. --%>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -87,77 +88,75 @@
                                 ${carlos:forHtml(savedMessage)}
                         </div>
                     </c:if>
+                    <c:if test="${not empty missingFields}">
+                        <%-- errors.required is bundle text (the Struts 1 page printed it the same way); each argument is a label. --%>
+                        <ul class="messages">
+                            <c:forEach items="${missingFields}" var="labelKey">
+                                <fmt:message key="errors.required"><fmt:param><fmt:message key="${labelKey}"/></fmt:param></fmt:message>
+                            </c:forEach>
+                        </ul>
+                    </c:if>
 
                     <table>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.siteName"/>:<sup style="color:red">*</sup></td>
-                            <td><input type="text" name="site.name" maxlength="30" /></td>
+                            <td><label for="siteName"><fmt:message key="admin.sitesAdminDetail.label.siteName"/>:</label><sup style="color:red">*</sup></td>
+                            <td><input type="text" id="siteName" name="site.name" maxlength="30" value="${carlos:forHtmlAttribute(site.name)}" /></td>
                         </tr>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.shortName"/>:<sup style="color:red">*</sup></td>
-                            <td><input type="text" name="site.shortName" maxlength="10" /></td>
+                            <td><label for="siteShortName"><fmt:message key="admin.sitesAdminDetail.label.shortName"/>:</label><sup style="color:red">*</sup></td>
+                            <td><input type="text" id="siteShortName" name="site.shortName" maxlength="10" value="${carlos:forHtmlAttribute(site.shortName)}" /></td>
                         </tr>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.themeColor"/>:<sup style="color:red">*</sup></td>
-                            <td><input type="text" id="colorField" name="site.bgColor" type="color"
+                            <td><label for="colorField"><fmt:message key="admin.sitesAdminDetail.label.themeColor"/>:</label><sup style="color:red">*</sup></td>
+                            <td><input type="text" id="colorField" name="site.bgColor" type="color" value="${carlos:forHtmlAttribute(site.bgColor)}"
                                              onchange="this.style.backgroundColor = this.value;" />
                             </td>
                         </tr>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.active"/>:</td>
-                            <td><input type="checkbox" name="site.status" value="1" /></td>
+                            <td><label for="siteStatus"><fmt:message key="admin.sitesAdminDetail.label.active"/>:</label></td>
+                            <td><input type="checkbox" id="siteStatus" name="site.status" value="1" <c:if test="${site.status == 1}">checked</c:if> /></td>
                         </tr>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.telephone"/>:</td>
-                            <td><input type="text" name="site.phone" /></td>
+                            <td><label for="sitePhone"><fmt:message key="admin.sitesAdminDetail.label.telephone"/>:</label></td>
+                            <td><input type="text" id="sitePhone" name="site.phone" value="${carlos:forHtmlAttribute(site.phone)}" /></td>
                         </tr>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.fax"/>:</td>
-                            <td><input type="text" name="site.fax" /></td>
+                            <td><label for="siteFax"><fmt:message key="admin.sitesAdminDetail.label.fax"/>:</label></td>
+                            <td><input type="text" id="siteFax" name="site.fax" value="${carlos:forHtmlAttribute(site.fax)}" /></td>
                         </tr>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.address"/>:</td>
-                            <td><input type="text" name="site.address" /></td>
+                            <td><label for="siteAddress"><fmt:message key="admin.sitesAdminDetail.label.address"/>:</label></td>
+                            <td><input type="text" id="siteAddress" name="site.address" value="${carlos:forHtmlAttribute(site.address)}" /></td>
                         </tr>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.city"/>:</td>
-                            <td><input type="text" name="site.city" /></td>
+                            <td><label for="siteCity"><fmt:message key="admin.sitesAdminDetail.label.city"/>:</label></td>
+                            <td><input type="text" id="siteCity" name="site.city" value="${carlos:forHtmlAttribute(site.city)}" /></td>
                         </tr>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.province"/>:</td>
-                            <td><select name="site.province">
-                                <option value="AB"><fmt:message key="admin.sitesAdminDetail.province.AB"/></option>
-                                <option value="BC"><fmt:message key="admin.sitesAdminDetail.province.BC"/></option>
-                                <option value="MB"><fmt:message key="admin.sitesAdminDetail.province.MB"/></option>
-                                <option value="NB"><fmt:message key="admin.sitesAdminDetail.province.NB"/></option>
-                                <option value="NL"><fmt:message key="admin.sitesAdminDetail.province.NL"/></option>
-                                <option value="NT"><fmt:message key="admin.sitesAdminDetail.province.NT"/></option>
-                                <option value="NS"><fmt:message key="admin.sitesAdminDetail.province.NS"/></option>
-                                <option value="NU"><fmt:message key="admin.sitesAdminDetail.province.NU"/></option>
-                                <option value="ON"><fmt:message key="admin.sitesAdminDetail.province.ON"/></option>
-                                <option value="PE"><fmt:message key="admin.sitesAdminDetail.province.PE"/></option>
-                                <option value="QC"><fmt:message key="admin.sitesAdminDetail.province.QC"/></option>
-                                <option value="SK"><fmt:message key="admin.sitesAdminDetail.province.SK"/></option>
-                                <option value="YT"><fmt:message key="admin.sitesAdminDetail.province.YT"/></option>
+                            <td><label for="siteProvince"><fmt:message key="admin.sitesAdminDetail.label.province"/>:</label></td>
+                            <td><select id="siteProvince" name="site.province">
+                                <c:forTokens items="AB,BC,MB,NB,NL,NT,NS,NU,ON,PE,QC,SK,YT" delims="," var="code">
+                                <option value="${carlos:forHtmlAttribute(code)}" <c:if test="${site.province == code}">selected</c:if>><fmt:message key="admin.sitesAdminDetail.province.${code}"/></option>
+                                </c:forTokens>
                             </select></td>
                         </tr>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.postalCode"/>:</td>
-                            <td><input type="text" name="site.postal" /></td>
+                            <td><label for="sitePostal"><fmt:message key="admin.sitesAdminDetail.label.postalCode"/>:</label></td>
+                            <td><input type="text" id="sitePostal" name="site.postal" value="${carlos:forHtmlAttribute(site.postal)}" /></td>
                         </tr>
                         <% if (IsPropertiesOn.isProviderFormalizeEnable()) { %>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.providerIdFrom"/>:</td>
-                            <td><input type="text" name="site.providerIdFrom" /></td>
+                            <td><label for="siteProviderIdFrom"><fmt:message key="admin.sitesAdminDetail.label.providerIdFrom"/>:</label></td>
+                            <td><input type="text" id="siteProviderIdFrom" name="site.providerIdFrom" value="${carlos:forHtmlAttribute(site.providerIdFrom)}" /></td>
                         </tr>
                         <tr>
-                            <td><fmt:message key="admin.sitesAdminDetail.label.providerIdTo"/>:</td>
-                            <td><input type="text" name="site.providerIdTo" /></td>
+                            <td><label for="siteProviderIdTo"><fmt:message key="admin.sitesAdminDetail.label.providerIdTo"/>:</label></td>
+                            <td><input type="text" id="siteProviderIdTo" name="site.providerIdTo" value="${carlos:forHtmlAttribute(site.providerIdTo)}" /></td>
                         </tr>
                         <% } %>
                     </table>
 
-                    <input type="hidden" name="site.siteId" />
+                    <input type="hidden" name="site.siteId" value="${carlos:forHtmlAttribute(site.siteId)}" />
                     <input type="hidden" name="method" value="save" />
                     <input type="submit" class="button" value="<fmt:message key='global.btnSave'/>" /> <input type="submit" class="button"
                                                                                            onclick="this.form.method.value='view'" value="<fmt:message key='global.btnCancel'/>" />

@@ -1631,7 +1631,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                             }
                         } else if (elem.equals("pickupTime_" + num)) {
                             if ((val != null) && (!val.equals(""))) {
-                                pickupTime = RxUtil.StringToDate(val, "hh:mm");
+                                pickupTime = RxUtil.parsePickupTime(val);
                             }
                         } else if (elem.equals("writtenDate_" + num)) {
                             if (val == null || (val.equals(""))) {

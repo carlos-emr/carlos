@@ -7,9 +7,9 @@
  * Since #4468 the record's navigation is demographic/patient-nav.jsp: each link is a plain href inside
  * `.patient-nav`, which share/javascript/demographic/patient-nav.js opens as a popup. The rest of the record
  * (edit-view.jsp) and older builds (release/2026.08) still open the same URLs from an onclick. A check that
- * matches only `a[onclick*="..."]` finds nothing in the navigation, so this matches either form. Some of those
- * older links keep the URL only in their href and open it with `onclick="popupX(..., this.href)"` (the
- * release/2026.08 Prescriptions link in edit.jsp), so that third form is matched too.
+ * matches only `a[onclick*="..."]` finds nothing in the navigation, so this matches either form.
+ * Since the alpha20 back-merge (#5007) the record's other links (edit.jsp) carry the URL in their href and open it
+ * with popupPage(..., this.href), so the URL is in neither the navigation nor the onclick: that form matches too.
  */
 
 /**
