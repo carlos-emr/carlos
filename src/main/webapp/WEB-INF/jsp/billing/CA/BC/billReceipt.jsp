@@ -671,13 +671,13 @@
                                                             <tr>
                                                                 <td colspan="2" align="left" valign="bottom">
                                                                     <input type="submit" name="submit" class="header" value="Update Invoice" />
-                                                                    <button class="header" value="Edit Invoice"
-                                                                            onclick="editInvoice('<carlos:encode value='<%= StringUtils.noNull(bean.getBillingMasterNo()) %>' context="javaScriptAttribute"/>')">
-                                                                        Edit Invoice
+                                                                    <button type="button" class="header" value="Edit Invoice"
+                                                                        onclick="editInvoice('<carlos:encode value='<%= StringUtils.noNull(bean.getBillingMasterNo()) %>' context="javaScript"/>')">
+                                                                           Edit Invoice
                                                                     </button>
-                                                                    <button class="header" onclick="printInvoiceWithoutNotes()">Print</button>
-                                                                    <button class="header" onclick="printInvoiceWithNotes()">Print With Notes</button>
-                                                                    <button class="header" onclick="window.close()">Cancel</button>
+                                                                    <button type="button" class="header" onclick="printInvoiceWithoutNotes()">Print</button>
+                                                                    <button type="button" class="header" onclick="printInvoiceWithNotes()">Print With Notes</button>
+                                                                    <button type="button" class="header" onclick="window.close()">Cancel</button>
                                                                 </td>
                                                             </tr>
                                                         </table>
