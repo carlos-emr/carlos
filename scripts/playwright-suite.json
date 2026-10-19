@@ -7758,6 +7758,21 @@
       "notes": "Fails at its final assertion on 2026.08: Send Message double Enter, a re-click during a slow response and a POST replay (reload of the result page) each deliver two messages (CreateMessage.jsp:485-486,585 no guard; MsgCreateMessage2Action.java:175 sendMessage2 is not idempotent; SentMessage.jsp is rendered directly, no redirect-after-POST)."
     },
     {
+      "name": "classic-note-editor-billing-link",
+      "script": "scripts/classic-note-editor-billing-link-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owns the synthetic patient only; opens and closes the billing window without saving, so no billing rows are written.",
+      "notes": "Issue #4677: the E-Chart note editor's add billing button opens the billing route with the context path once. Before the fix it opened /carlos/carlos/billing (casemgmt_oscar_baseurl already holds the context path)."
+    },
+    {
       "name": "double-submit-chart-note",
       "script": "scripts/double-submit-chart-note-playwright-checks.js",
       "tiers": [

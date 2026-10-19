@@ -574,6 +574,7 @@
     "test:double-submit-appointment-playwright": "node scripts/double-submit-appointment-playwright-checks.js",
     "test:double-submit-tickler-playwright": "node scripts/double-submit-tickler-playwright-checks.js",
     "test:double-submit-messenger-playwright": "node scripts/double-submit-messenger-playwright-checks.js",
+    "test:classic-note-editor-billing-link-playwright": "node scripts/classic-note-editor-billing-link-playwright-checks.js",
     "test:double-submit-chart-note-playwright": "node scripts/double-submit-chart-note-playwright-checks.js",
     "test:double-submit-billing-on-playwright": "node scripts/double-submit-billing-on-playwright-checks.js",
     "test:double-submit-chart-adds-playwright": "node scripts/double-submit-chart-adds-playwright-checks.js",
