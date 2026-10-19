@@ -1,6 +1,6 @@
 # Signatures scripts/deb-server-log-audit.sh printed for the 2026.08.0~alpha19 promotion
 # validation (Ontario demo install, full Playwright suite, docs/ui-tests/deb-install-validation.md),
-# plus the entries added later, each marked "Added with <check>" above it (so far two, for mcedt-mailbox-outbox and cml-version-chain).
+# plus the entries added later, each marked "Added with <check>" above it (so far one, for mcedt-mailbox-outbox).
 # Signatures carry no message text (numeric path segments read {n}). scripts/deb-server-log-audit.test.js requires every
 # baseline entry to match at least one of these, so a regex that drifts from the real
 # signature shape fails the test rather than silently explaining nothing.
@@ -72,5 +72,3 @@ ERROR actions.DmsInboxManage2Action (DmsInboxManage2Action.java:676) @QueueDaoIm
 ERROR ON.labValuesGraph_jsp (labValuesGraph_jsp.java:524)
 # Added with scripts/mcedt-mailbox-outbox-playwright-checks.js: printed by the audit on the same alpha19 install when that check refuses a Delete Selected list with a path in it.
 ERROR mailbox.Upload2Action (Upload2Action.java:351) @PathValidationUtils.validateStrictFileName :: io.github.carlos_emr.carlos.utility.FileValidationException
-# Added with scripts/cml-version-chain-playwright-checks.js: printed by the audit on a 2026.09.0~snapshot26 install when that check matches a legacy CML report through the patient-search popup (app-findings-log.md finding 276).
-ERROR parsers.Factory (Factory.java:85) @Factory.getHandler :: java.lang.NullPointerException

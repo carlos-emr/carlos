@@ -27,6 +27,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.TimeZone;
+import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.LogEvent;
@@ -55,8 +57,8 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
  * {@code YYYYMMDD}. The lookup used to cast those columns to {@code Date}, threw a
  * {@code ClassCastException} on every CML view and acknowledgement, logged it at ERROR and fell back
  * to a one-lab chain, so a CML report never showed, filed or forwarded its other versions. Every row
- * in these tests is therefore built the way the DAO really returns it: an {@code Integer} id and two
- * {@code String} dates. A mock that hands back {@code Date} objects is what let the defect through.</p>
+ * in these tests starts with the real projection types: an {@code Integer} id and two
+ * {@code String} dates, followed by source identity entities and print metadata. A mock that hands back {@code Date} objects is what let the defect through.</p>
  *
  * @since 2026-10-15
  */
@@ -79,7 +81,16 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
 
     /** One row as the DAO returns it: the candidate's id, its service date, and the requested lab's service date. */
     private static Object[] row(int id, String serviceDate, String requestedServiceDate) {
-        return new Object[] {id, serviceDate, requestedServiceDate};
+        return new Object[] {id, serviceDate, requestedServiceDate, patient(), patient(), "20260901", "09:30"};
+    }
+
+    private static LabPatientPhysicianInfo patient() {
+        var patient = new LabPatientPhysicianInfo();
+        patient.setPatientHin("TEST-HIN");
+        patient.setPatientDob("19800101");
+        patient.setPatientFirstName("Test");
+        patient.setPatientLastName("Patient");
+        return patient;
     }
 
     private void daoReturns(int requested, Object[]... rows) {
@@ -200,8 +211,8 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return the requested report as its own chain when the lookup finds no rows")
     void shouldReturnRequestedReport_whenTheLookupFindsNothing() {
-        // A report with no accession number, or no print header, matches nothing, yet it is still its own
-        // version: the report page renders its acknowledgement status from this chain, and an empty one hides it.
+        // A report with no accession number matches nothing, yet remains its own version:
+        // the page renders its acknowledgement status from this chain, and an empty one hides it.
         daoReturns(42);
 
         assertThat(new MDSResultsData().getMatchingCMLLabs("42")).isEqualTo("42");
@@ -211,9 +222,8 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return only the requested report when the lookup could not place it among its siblings")
     void shouldReturnRequestedReportAlone_whenTheLookupOmitsIt() {
-        // The lookup joins the print header to the sibling, not to the selected report, so a selected report without
-        // a header is missing from its own rows while a sibling is not. Forwarding the sibling instead of the report
-        // the clinician opened, or a chain that lacks the selected report, are both wrong: it has no chain.
+        // Defensive guard against an inconsistent lookup: a sibling must never replace the selected report.
+        // Missing headers are now retained by the DAO and validated separately.
         daoReturns(42, row(41, "20260831", "20260901"));
 
         assertThat(new MDSResultsData().getMatchingCMLLabs("42")).isEqualTo("42");
@@ -289,6 +299,80 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
 
         MDSResultsData data = new MDSResultsData();
         assertThatThrownBy(() -> data.getMatchingCMLLabs("42", true))
-                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version lookup failed");
+                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
     }
+    @ParameterizedTest
+    @CsvSource({"America/Havana,20260308,20260708", "America/Santiago,20260906,20270106", "UTC,20260131,20260528"})
+    void shouldExcludeExactFourMonthBoundary_whenMidnightSkipsOrMonthEndsClamp(String zone, String first, String last) {
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone(zone));
+            daoReturns(42, row(41, first, last), row(42, last, last));
+            assertThat(new MDSResultsData().getMatchingCMLLabs("42", true)).isEqualTo("42");
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
+    void shouldRefuseAllMutations_whenSourcePatientIdentityConflicts() {
+        Object[] sibling = row(41, "20260831", "20260901");
+        ((LabPatientPhysicianInfo) sibling[3]).setPatientHin("OTHER-HIN");
+        daoReturns(42, sibling, row(42, "20260901", "20260901"));
+        var data = new MDSResultsData();
+        assertThat(data.getCmlVersionChain("42")).isEqualTo(new MDSResultsData.CmlVersionChain("42", false));
+        assertThatThrownBy(() -> data.getMatchingCMLLabs("42", true)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPermitNameOrDobCorrection_whenSourceHinAndOtherFieldMatch(boolean correctName) {
+        Object[] sibling = row(41, "20260831", "20260901");
+        if (correctName) ((LabPatientPhysicianInfo) sibling[3]).setPatientFirstName("Corrected");
+        else ((LabPatientPhysicianInfo) sibling[3]).setPatientDob("19810101");
+        daoReturns(42, sibling, row(42, "20260901", "20260901"));
+        assertThat(new MDSResultsData().getMatchingCMLLabs("42", true)).isEqualTo("41,42");
+    }
+
+    @Test
+    void shouldUseNameAndDob_whenSourceHinIsMissing() {
+        Object[] sibling = row(41, "20260831", "20260901");
+        ((LabPatientPhysicianInfo) sibling[3]).setPatientHin(null);
+        ((LabPatientPhysicianInfo) sibling[3]).setPatientFirstName(" TEST ");
+        daoReturns(42, sibling, row(42, "20260901", "20260901"));
+        assertThat(new MDSResultsData().getMatchingCMLLabs("42", true)).isEqualTo("41,42");
+        ((LabPatientPhysicianInfo) sibling[3]).setPatientDob(null);
+        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void shouldRefusePartialChain_whenCandidatePrintHeaderIsMissing() {
+        Object[] sibling = row(41, "20260831", "20260901");
+        sibling[5] = null;
+        sibling[6] = null;
+        daoReturns(42, sibling, row(42, "20260901", "20260901"));
+        assertThat(new MDSResultsData().getCmlVersionChain("42").reliable()).isFalse();
+        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void shouldRefuseSharedPlaceholderHin_whenNamesAndDobDiffer() {
+        Object[] sibling = row(41, "20260831", "20260901");
+        ((LabPatientPhysicianInfo) sibling[3]).setPatientFirstName("Different");
+        ((LabPatientPhysicianInfo) sibling[3]).setPatientDob("19810101");
+        daoReturns(42, sibling, row(42, "20260901", "20260901"));
+        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"20260230,09:30", "2026-09-01,09:30", "20260901,24:00", "20260901,9:30"})
+    void shouldRefuseUnreliablePrintOrder_whenHeaderValuesAreNotCanonicalDatesAndTimes(String date, String time) {
+        Object[] sibling = row(41, "20260831", "20260901");
+        sibling[5] = date;
+        sibling[6] = time;
+        daoReturns(42, sibling, row(42, "20260901", "20260901"));
+        assertThat(new MDSResultsData().getCmlVersionChain("42").reliable()).isFalse();
+        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true)).isInstanceOf(IllegalStateException.class);
+    }
+
 }

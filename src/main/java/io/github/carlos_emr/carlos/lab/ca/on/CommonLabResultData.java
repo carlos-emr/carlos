@@ -560,7 +560,7 @@ public class CommonLabResultData {
      */
     static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
         String chain = labType == null ? null
-                : new CommonLabResultData().getMatchingLabs(String.valueOf(labNo), labType);
+                : new CommonLabResultData().getMatchingLabsForWrite(String.valueOf(labNo), labType);
         return LabVersionChain.olderThan(labNo, chain);
     }
 
@@ -699,7 +699,7 @@ public class CommonLabResultData {
 
     public static boolean updatePatientLabRouting(String labNo, String demographicNo, String labType) {
         try {
-            String chain = new CommonLabResultData().getMatchingLabs(labNo, labType);
+            String chain = new CommonLabResultData().getMatchingLabsForWrite(labNo, labType);
             List<Integer> versions = java.util.Arrays.stream(chain.split(","))
                     .map(String::trim).map(Integer::valueOf).distinct().toList();
             return updatePatientLabRouting(versions, demographicNo, labType);
@@ -809,26 +809,28 @@ public class CommonLabResultData {
     public static boolean updateLabRouting(ArrayList<String[]> flaggedLabs, String[] providersArray) {
         try {
             CommonLabResultData data = new CommonLabResultData();
-            ProviderLabRouting plr = new ProviderLabRouting();
-            // Routing owns its Spring transaction; do not reserve an unused legacy
-            // JDBC connection for the duration of the forwarding loop.
+            record ForwardVersion(int id, String type) { }
+            List<ForwardVersion> versions = new ArrayList<>();
+            // Resolve the complete selection before any write. An uncertain CML chain cannot
+            // forward only some versions, or leave earlier selections committed on refusal.
             for (String[] flaggedLab : flaggedLabs) {
-                String lab = flaggedLab[0];
-                String labType = flaggedLab[1];
-
-                // Forward all versions of the lab.
-                String[] labIds = data.getMatchingLabs(lab, labType).split(",");
-                for (String labId : labIds) {
-                    for (String provider : providersArray) {
-                        plr.route(labId, provider, labType);
-                    }
-                    // Delete old unassigned entries after forwarding this version.
-                    for (ProviderLabRoutingModel p : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(Integer.parseInt(labId), labType, "0")) {
-                        providerLabRoutingDao.remove(p.getId());
-                    }
+                for (String id : data.getMatchingLabsForWrite(flaggedLab[0], flaggedLab[1]).split(",")) {
+                    versions.add(new ForwardVersion(Integer.parseInt(id), flaggedLab[1]));
                 }
             }
-
+            var transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+            transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+            transaction.executeWithoutResult(status -> {
+                versions.stream().map(ForwardVersion::id).distinct().sorted().forEach(providerLabRoutingDao::lockRoutingReport);
+                ProviderLabRouting routing = new ProviderLabRouting();
+                for (ForwardVersion version : versions) {
+                    for (String provider : providersArray) routing.routeMagic(version.id(), provider, version.type());
+                    for (ProviderLabRoutingModel unassigned : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(
+                            version.id(), version.type(), "0")) {
+                        providerLabRoutingDao.remove(unassigned.getId());
+                    }
+                }
+            });
             return true;
         } catch (Exception e) {
             Logger l = MiscUtils.getLogger();
@@ -863,8 +865,14 @@ public class CommonLabResultData {
             }
             if ("DOC".equals(selection[1])) requireDocumentFilingAccess(info, Integer.parseInt(selection[0]));
         }
-        boolean committed = false;
         CommonLabResultData data = new CommonLabResultData();
+        java.util.Map<String, String> cmlChains = new java.util.HashMap<>();
+        for (String[] selection : flaggedLabs) {
+            if ("CML".equals(selection[1])) {
+                cmlChains.put(selection[0], data.getMatchingLabsForMutation(selection[0], "CML"));
+            }
+        }
+        boolean committed = false;
         for (String[] selection : flaggedLabs) {
             try {
                 if ("DOC".equals(selection[1])) {
@@ -872,7 +880,12 @@ public class CommonLabResultData {
                     committed = true;
                     continue;
                 }
-                String matching = data.getMatchingLabs(selection[0], selection[1]);
+                if ("CML".equals(selection[1])) {
+                    fileCmlChain(cmlChains.get(selection[0]), provider);
+                    committed = true;
+                    continue;
+                }
+                String matching = data.getMatchingLabsForWrite(selection[0], selection[1]);
                 String[] versions = matching == null || matching.isEmpty() ? new String[]{selection[0]} : matching.split(",");
                 for (String version : versions) {
                     // Lab numeric IDs are a separate namespace: never touch document queues here.
@@ -890,6 +903,26 @@ public class CommonLabResultData {
             }
         }
         return true;
+    }
+
+    /** All versions file together, including rollback when a later version fails. */
+    private static void fileCmlChain(String chain, String provider) {
+        List<Integer> versions = java.util.Arrays.stream(chain.split(",")).map(Integer::valueOf).distinct().sorted().toList();
+        var transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        try {
+            transaction.executeWithoutResult(status -> {
+                versions.forEach(providerLabRoutingDao::lockRoutingReport);
+                for (Integer version : versions) {
+                    if (!updateReportStatus(version, provider, 'F', "", "CML")) {
+                        throw new IllegalStateException("Lab filing was not confirmed");
+                    }
+                }
+            });
+        } catch (RuntimeException failure) {
+            // A failed commit may have an unknown outcome. The caller must not silently retry it.
+            throw new FilingFailure(failure, true);
+        }
     }
 
     private static void requireDocumentFilingAccess(LoggedInInfo info, int document) {
@@ -961,6 +994,38 @@ public class CommonLabResultData {
     // //
 
     /**
+     * Collapses visible HL7/CML versions without mixing the source-specific numeric ID spaces.
+     * If the newest version is not in this patient/visibility result set, retain the newest one
+     * that is present; a lookup must never make the patient's only visible report disappear.
+     * Other sources retain their individual rows and never enter the HL7 lookup.
+     * @param labs the reports already selected for this view
+     * @return one visible report per resolved chain, preserving the input groups' order
+     */
+    public static ArrayList<LabResultData> latestVisibleVersions(List<LabResultData> labs) {
+        java.util.Map<String, LabResultData> visible = new java.util.LinkedHashMap<>();
+        for (LabResultData lab : labs) visible.putIfAbsent(lab.labType + ":" + lab.getSegmentID(), lab);
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        ArrayList<LabResultData> latest = new ArrayList<>();
+        for (LabResultData lab : labs) {
+            String prefix = lab.labType + ":";
+            if (seen.contains(prefix + lab.getSegmentID())) continue;
+            String chain = lab.getSegmentID();
+            if ("CML".equals(lab.labType)) chain = new MDSResultsData().getMatchingCMLLabs(lab.getSegmentID());
+            else if ("HL7".equals(lab.labType)) chain = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
+            List<String> ids = chain == null ? List.of() : java.util.Arrays.asList(chain.split(","));
+            if (!ids.contains(lab.getSegmentID())) ids = List.of(lab.getSegmentID());
+            LabResultData newestVisible = lab;
+            for (String id : ids) {
+                seen.add(prefix + id);
+                LabResultData candidate = visible.get(prefix + id);
+                if (candidate != null) newestVisible = candidate;
+            }
+            latest.add(newestVisible);
+        }
+        return latest;
+    }
+
+    /**
      * Resolves all versions for a mutation without hiding a failed source query behind one report id.
      * @param labNo selected report identifier
      * @param labType source-qualified lab type
@@ -974,6 +1039,10 @@ public class CommonLabResultData {
             case "BCP" -> new PathnetResultsData().getMatchingLabs(labNo, true);
             default -> throw new IllegalArgumentException("Unsupported lab source");
         };
+    }
+
+    private String getMatchingLabsForWrite(String labNo, String labType) {
+        return "CML".equals(labType) ? getMatchingLabsForMutation(labNo, labType) : getMatchingLabs(labNo, labType);
     }
 
     public String getMatchingLabs(String lab_no, String lab_type) {

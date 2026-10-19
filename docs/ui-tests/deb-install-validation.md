@@ -3263,3 +3263,42 @@ refresh; that is the likely cause, and it is not pursued here.
 
 The swaps used `docker cp` of the compiled classes and a `carlos-ctl restart`; Tomcat takes about a minute to be ready after it,
 and an HTTP 200 from the front door before then is nginx's, not the application's.
+
+### PR #4670 follow-up validation (2026-10-19)
+
+The follow-up includes `release/2026.08` through `da14420497750b5109914d461598899570270ace`.
+This is a local WAR deployment on Tomcat 11/JDK 25 and MariaDB 11.8.8, using the Ontario
+migration set and development fixtures with `CML_LABS=yes`. It is not a repeat of the older
+Debian/nginx packaged-install validation above.
+
+- All 1,703 lab-tagged Java tests pass with no failures, errors or skips. The suite includes the
+  real H2 candidate query, source identity conflicts, differently routed valid versions, missing or malformed
+  print headers, exact four-month DST boundaries in Havana and Santiago, month-end clamping,
+  and injected later-version failures proving Forward/File rollback.
+- Another 36 HTTP mutation and document-authorization tests pass. A failed acknowledgement
+  returns HTTP 500 instead of success, and successful/audited outcomes retain their behavior.
+- All 88 JavaScript cleanup, log-audit and browser-manifest checks pass; BDD naming and encoder
+  null-safety lint pass. The 25 cleanup/log-audit checks also pass after the final fixture cleanup edit.
+- `mvn -B -DskipTests package` passes, including dependency-lock verification, compilation,
+  Checkstyle and Javadoc. Maven emits existing documentation/deprecation warnings.
+- The seven-step `cml-version-chain` workflow passes: seed; display; older-version navigation;
+  acknowledge final/file older; forward both versions through the picker; match both unmatched
+  versions; display an explicit warning without sibling links for conflicting source identities.
+  Recycled accessions remain untouched, and fixture cleanup is verified.
+- The browser-window server log contains no ERROR or SEVERE entries and one expected,
+  identifier-free warning from the deliberate ambiguous-identity fixture. This is checked on
+  the running application's raw log, without the removed missing-HL7 baseline exception.
+
+The first browser pass revealed another cross-source lookup in the patient list's service-date
+loader. Both copies of that loader now query the HL7 factory only for HL7 reports, with tests
+covering overlapping numeric IDs. The patient-search popup has the same source guard. The chart and patient lab list also use
+source-qualified version grouping, retaining the newest visible report when a later version
+is outside the current result set. Tests cover CML/HL7 numeric-ID collisions and the browser
+checks actual list collapsing when CML lists are enabled. The warning
+message is present in every shipped locale bundle.
+
+Source patient identities establish CML membership; current chart assignments do not. An HIN
+match needs matching DOB or full name, and absent HINs require matching DOB plus full name.
+Conflicting HINs or insufficient source evidence block chain-wide mutations and require source
+review, including corrections that change all corroborating identity fields. The resolver does
+not silently omit an uncertain sibling. Other lab sources retain their existing membership rules.

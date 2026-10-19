@@ -78,6 +78,17 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 @Tag("lab")
 class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
 
+    private ProviderLabRoutingDao originalRoutingDao;
+    private boolean routingDaoReplaced;
+
+    @org.junit.jupiter.api.AfterEach
+    void restoreRoutingDao() {
+        if (routingDaoReplaced) {
+            org.springframework.test.util.ReflectionTestUtils.setField(CommonLabResultData.class,
+                    "providerLabRoutingDao", originalRoutingDao);
+        }
+    }
+
     @Test
     @DisplayName("should fail closed without logging HRM linkage exception details")
     void shouldKeepHrmLinkDiagnosticsPrivate_whenLookupFails() {
@@ -108,7 +119,8 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         });
         registerMock(OscarLogDao.class, mock(OscarLogDao.class));
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
-        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        ProviderLabRoutingDao routingDao = mock(ProviderLabRoutingDao.class);
+        registerMock(ProviderLabRoutingDao.class, routingDao);
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(MeasurementsDeletedDao.class, mock(MeasurementsDeletedDao.class));
@@ -120,7 +132,12 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         registerMock(Hl7TextInfoDao.class, mock(Hl7TextInfoDao.class));
         registerMock(Hl7TextMessageDao.class, mock(Hl7TextMessageDao.class));
         registerMock(EFormDocsDao.class, mock(EFormDocsDao.class));
-        Mockito.reset(staticRoutingDao());
+        // Other classes may have initialized this static field with the real Spring DAO.
+        // Replace it for this test and restore it afterwards instead of resetting a non-mock.
+        originalRoutingDao = staticRoutingDao();
+        org.springframework.test.util.ReflectionTestUtils.setField(CommonLabResultData.class,
+                "providerLabRoutingDao", routingDao);
+        routingDaoReplaced = true;
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -627,7 +644,7 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<MDSResultsData> constructed = Mockito.mockConstruction(
                 MDSResultsData.class, (mock, context) -> {
                     when(mock.getMatchingLabs("42")).thenReturn("40,41,42,43");
-                    when(mock.getMatchingCMLLabs("42")).thenReturn("40,41,42,43");
+                    when(mock.getMatchingCMLLabs("42", true)).thenReturn("40,41,42,43");
                 })) {
             assertThat(CommonLabResultData.olderVersionsOf(42, type, "900,901,42"))
                     .containsExactly(40, 41);
@@ -635,7 +652,7 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             if ("MDS".equals(type)) {
                 Mockito.verify(constructed.constructed().get(0)).getMatchingLabs("42");
             } else {
-                Mockito.verify(constructed.constructed().get(0)).getMatchingCMLLabs("42");
+                Mockito.verify(constructed.constructed().get(0)).getMatchingCMLLabs("42", true);
             }
         }
     }
@@ -651,4 +668,73 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             Mockito.verify(constructed.constructed().get(0)).getMatchingLabs("42");
         }
     }
+    @Test
+    void shouldRefuseAcknowledgementBeforeWriting_whenCmlChainIsAmbiguous() {
+        registerStaticInitializerMocks();
+        try (var lookup = Mockito.mockConstruction(MDSResultsData.class,
+                (bean, context) -> when(bean.getMatchingCMLLabs("42", true))
+                        .thenThrow(new IllegalStateException("ambiguous chain")))) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> CommonLabResultData.updateReportStatusWithOlderVersions(
+                    42, "991001", 'A', "", "CML", false, "41,42"))
+                    .isInstanceOf(IllegalStateException.class);
+            Mockito.verifyNoInteractions(staticRoutingDao());
+        }
+    }
+
+    private LabResultData visibleLab(String type, int id) {
+        LabResultData lab = new LabResultData(type);
+        lab.labType = type;
+        lab.segmentID = String.valueOf(id);
+        return lab;
+    }
+
+    @Test
+    void shouldCollapseCmlSeparately_whenHl7HasTheSameNumericIds() {
+        registerStaticInitializerMocks();
+        LabResultData preliminary = visibleLab("CML", 41);
+        LabResultData corrected = visibleLab("CML", 42);
+        LabResultData unrelated = visibleLab("HL7", 41);
+        try (var cml = Mockito.mockConstruction(MDSResultsData.class,
+                (bean, context) -> when(bean.getMatchingCMLLabs("41")).thenReturn("41,42"));
+             var hl7 = mockStatic(Hl7textResultsData.class)) {
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("41")).thenReturn("41");
+            assertThat(CommonLabResultData.latestVisibleVersions(java.util.List.of(preliminary, unrelated, corrected)))
+                    .containsExactly(corrected, unrelated);
+        }
+    }
+
+    @Test
+    void shouldKeepVisibleVersion_whenTheNewestIsOutsideThePatientList() {
+        registerStaticInitializerMocks();
+        LabResultData preliminary = visibleLab("CML", 41);
+        try (var cml = Mockito.mockConstruction(MDSResultsData.class,
+                (bean, context) -> when(bean.getMatchingCMLLabs("41")).thenReturn("41,42"))) {
+            assertThat(CommonLabResultData.latestVisibleVersions(java.util.List.of(preliminary))).containsExactly(preliminary);
+        }
+    }
+
+    @Test
+    void shouldKeepAmbiguousReportsSeparate_whenNoSafeChainIsAvailable() {
+        registerStaticInitializerMocks();
+        LabResultData first = visibleLab("CML", 41);
+        LabResultData second = visibleLab("CML", 42);
+        try (var cml = Mockito.mockConstruction(MDSResultsData.class, (bean, context) -> {
+            when(bean.getMatchingCMLLabs("41")).thenReturn("41");
+            when(bean.getMatchingCMLLabs("42")).thenReturn("42");
+        })) {
+            assertThat(CommonLabResultData.latestVisibleVersions(java.util.List.of(first, second))).containsExactly(first, second);
+        }
+    }
+
+    @Test
+    void shouldKeepOtherSourcesVisible_whenTheirIdsOverlapHl7() {
+        registerStaticInitializerMocks();
+        LabResultData mds = visibleLab("MDS", 41);
+        LabResultData doc = visibleLab("DOC", 41);
+        try (var hl7 = mockStatic(Hl7textResultsData.class)) {
+            assertThat(CommonLabResultData.latestVisibleVersions(java.util.List.of(mds, doc))).containsExactly(mds, doc);
+            hl7.verifyNoInteractions();
+        }
+    }
+
 }

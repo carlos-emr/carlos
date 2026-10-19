@@ -85,6 +85,10 @@ class MDSResultsDataCmlVersionChainIntegrationTest extends CarlosTestBase {
 
         LabPatientPhysicianInfo info = new LabPatientPhysicianInfo();
         EntityDataGenerator.generateTestDataForModelClass(info);
+        info.setPatientHin("TEST-HIN");
+        info.setPatientDob("19800101");
+        info.setPatientFirstName("Test");
+        info.setPatientLastName("Patient");
         info.setLabReportInfoId(header.getId());
         info.setAccessionNum(accession);
         info.setServiceDate(serviceDate);
@@ -145,7 +149,8 @@ class MDSResultsDataCmlVersionChainIntegrationTest extends CarlosTestBase {
 
         assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(orphan.getId()))).isEqualTo(String.valueOf(orphan.getId()));
         assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(sibling))).isEqualTo(String.valueOf(sibling));
-        assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(sibling), true)).isEqualTo(String.valueOf(sibling));
+        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs(String.valueOf(sibling), true))
+                .isInstanceOf(IllegalStateException.class);
         // A mutation starting from the orphan refuses: its sibling exists, and it cannot be placed beside it.
         String orphanId = String.valueOf(orphan.getId());
         MDSResultsData data = new MDSResultsData();
@@ -173,6 +178,10 @@ class MDSResultsDataCmlVersionChainIntegrationTest extends CarlosTestBase {
         for (String serviceDate : new String[] {"20260901", "20260902", "20260903"}) {
             LabPatientPhysicianInfo info = new LabPatientPhysicianInfo();
             EntityDataGenerator.generateTestDataForModelClass(info);
+            info.setPatientHin("TEST-HIN");
+            info.setPatientDob("19800101");
+            info.setPatientFirstName("Test");
+            info.setPatientLastName("Patient");
             info.setLabReportInfoId(header.getId());
             info.setAccessionNum(ACCESSION);
             info.setServiceDate(serviceDate);
@@ -216,4 +225,27 @@ class MDSResultsDataCmlVersionChainIntegrationTest extends CarlosTestBase {
                     .isEmpty();
         }
     }
+    @Test
+    void shouldRefuseCrossPatientAccession_whenSourceIdentitiesDiffer() throws Exception {
+        int first = version(ACCESSION, "20260901", "20260901", "08:00");
+        int second = version(ACCESSION, "20260902", "20260902", "09:00");
+        labPatientPhysicianInfoDao.find(first).setPatientHin("OTHER-HIN");
+        entityManager.flush();
+        var data = new MDSResultsData();
+        assertThat(data.getCmlVersionChain(String.valueOf(second)).reliable()).isFalse();
+        assertThatThrownBy(() -> data.getMatchingCMLLabs(String.valueOf(second), true))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void shouldKeepAllVersions_whenOneVersionWasRoutedToTheWrongChart() throws Exception {
+        int first = version(ACCESSION, "20260901", "20260901", "08:00");
+        int second = version(ACCESSION, "20260902", "20260902", "09:00");
+        entityManager.persist(new io.github.carlos_emr.carlos.commn.model.PatientLabRouting(first, "CML", 100));
+        entityManager.persist(new io.github.carlos_emr.carlos.commn.model.PatientLabRouting(second, "CML", 200));
+        entityManager.flush();
+        assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(second), true))
+                .isEqualTo(first + "," + second);
+    }
+
 }

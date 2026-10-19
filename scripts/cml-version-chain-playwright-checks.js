@@ -33,12 +33,9 @@
  *                in the matching popup (oscarMDS/SearchPatient -> oscarMDS/PatientMatch) answers 200 and links BOTH
  *                versions to the patient and not the recycled report. This is the strict form of the chain
  *                (MrpRoutingService), which threw for every CML report before the fix: the match answered HTTP 500.
- *                The popup also writes two ERROR entries to the server log for a CML report (it asks the HL7 factory
- *                for the lab, finding 313); scripts/lib/server-log-baseline.tsv explains them for the log audit.
- *
- * NOT ASSERTED, on purpose: Forward. legacy-lab-display and lab-forward-picker drive it (finding 184, fixed:
- * #4558), but each seeds a single report, so no browser check yet shows Forward routing a whole version
- * chain; it resolves the same chain Acknowledge does.
+ *   Forward      the provider picker routes both versions to an owned recipient, preserving sender status
+ *                and leaving the recycled accession untouched.
+ *   Ambiguity    a conflicting source patient identifier produces a visible warning and no version links.
  *
  * HOW THE LAB IS OPENED. As in legacy-lab-display: the lists that link CML labs show them only when CML_LABS is
  * "yes" (off in the package), so the check opens the owned patient's lab list, adds the row link that list
@@ -55,7 +52,7 @@ const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { bundleMessage } = require('./lib/throwaway-login-fixture');
+const { throwawayLoginFixture, bundleMessage } = require('./lib/throwaway-login-fixture');
 
 const NAME = 'cml-version-chain';
 const TIMEOUT = 30000;
@@ -71,6 +68,8 @@ const STEP = Object.freeze({
   display: 'the newest version lists the older one as a Version link and does not mention the recycled report',
   older: 'the older version opens from its link, shows its own result and links back to the newest',
   acknowledge: 'acknowledging the newest version files the older one and leaves the recycled report untouched',
+  forward: 'forwarding the final report routes both versions and leaves the recycled report untouched',
+  ambiguous: 'a conflicting source patient identity shows an incomplete-chain warning and no sibling link',
   match: 'matching one unmatched version to the owned patient links every version of it and not the recycled report',
 });
 
@@ -214,6 +213,19 @@ async function workflow(s) {
   h.assert(/^FAKE-PW[0-9a-f]{16}$/.test(marker), 'The run marker is not in the FAKE-PW<hex> form this check relies on');
   const { v1, v2, recycled, matchFirst, matchSecond, matchRecycled } = describeReports({ sql, marker });
   const reports = [v1, v2, recycled, matchFirst, matchSecond, matchRecycled];
+  const recipient = throwawayLoginFixture({ sql, marker, provider, testUser: config.testUser });
+  s.cleanup(() => recipient.cleanup());
+  const favouritesBefore = sql.rows(`SELECT id,route_to_provider_no FROM providerLabRoutingFavorites WHERE provider_no=${q(provider)} ORDER BY id`);
+  s.cleanup(() => {
+    const currentFavorites = () => sql.rows(`SELECT id,route_to_provider_no FROM providerLabRoutingFavorites WHERE provider_no=${q(provider)} ORDER BY id`);
+    if (JSON.stringify(currentFavorites()) === JSON.stringify(favouritesBefore)) return;
+    sql.execute(`DELETE FROM providerLabRoutingFavorites WHERE provider_no=${q(provider)}`);
+    for (const [id, to] of favouritesBefore) {
+      h.assert(/^[1-9]\d*$/.test(id), 'Invalid stored favorite key');
+      sql.execute(`INSERT INTO providerLabRoutingFavorites(id,provider_no,route_to_provider_no) VALUES(${id},${q(provider)},${q(to)})`);
+    }
+    h.assert(JSON.stringify(currentFavorites()) === JSON.stringify(favouritesBefore), 'Sender forwarding favorites were not restored');
+  });
   for (const report of reports) report.marker = marker;
   const comment = `${marker} version chain acknowledged`;
   const promptText = bundleMessage('oscarMDS.segmentDisplay.msgComment', 'Please enter a comment (max. 255 characters)');
@@ -308,6 +320,7 @@ async function workflow(s) {
 
   // ---- Fixtures ---------------------------------------------------------------------------------------------
   await s.step(STEP.seed, async () => {
+    recipient.create();
     for (const report of reports) {
       seedReport({ sql, marker, patient, provider, report });
       h.assert(sql.value(`SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE id=${report.id} AND patient_last_name=${q(marker)}`) === '1',
@@ -329,6 +342,13 @@ async function workflow(s) {
   // ---- Display ----------------------------------------------------------------------------------------------
   await s.step(STEP.display, async () => {
     excuseAbandonedLoads();
+    const listLinks = opener.locator('#labResultsTbl a[href*="ViewCMLDisplay"]');
+    // Packaged installs can disable CML lists. When enabled, validate the real source-aware grouping too.
+    if (await listLinks.count()) {
+      const listedIds = await listLinks.evaluateAll((links) => links.map((link) => new URL(link.href).searchParams.get('segmentID')));
+      h.assert(listedIds.includes(String(v2.id)) && listedIds.includes(String(recycled.id)) && !listedIds.includes(String(v1.id)),
+        'The patient list did not collapse exactly the two current CML versions while retaining the recycled report');
+    }
     const popup = await openReport(v2, `${NAME}-v2-display`);
     try {
       const row = await versionRow(popup, 'The final report page');
@@ -417,6 +437,34 @@ async function workflow(s) {
     }
   });
 
+  await s.step(STEP.forward, async () => {
+    const before = [statusOf(v1), statusOf(v2), rowsOf(recycled)];
+    const page = await openReport(v2, `${NAME}-forward-report`);
+    let picker;
+    try {
+      picker = await s.popup(page, page.getByRole('button', { name: 'Forward', exact: true }).first(), `${NAME}-forward-picker`);
+      await picker.locator('#autocompleteprov').fill(`${marker}, Throwaway`);
+      const offered = picker.locator('.ui-autocomplete:visible .ui-menu-item').filter({ hasText: marker }).first();
+      await offered.waitFor({ state: 'visible', timeout: TIMEOUT });
+      await offered.click();
+      h.assert(JSON.stringify(await picker.locator('#fwdProviders option').evaluateAll((options) => options.map((o) => o.value)))
+        === JSON.stringify([recipient.providerNo]), 'The forward list does not contain exactly the owned recipient');
+      const response = page.waitForResponse((r) => r.request().method() === 'POST' && /\/lab\/CA\/ON\/Forward$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT });
+      await picker.locator('#submitButton').click();
+      const posted = await response;
+      h.assert(posted.status() >= 200 && posted.status() < 400, `Forward returned HTTP ${posted.status()}`);
+      await expectValue(sql, `SELECT GROUP_CONCAT(lab_no ORDER BY lab_no) FROM providerLabRouting
+        WHERE lab_type='CML' AND provider_no=${q(recipient.providerNo)}`, [v1.id, v2.id].sort((a, b) => a - b).join(','),
+      'Forward did not route exactly both versions to the recipient');
+      h.assert(JSON.stringify([statusOf(v1), statusOf(v2), rowsOf(recycled)]) === JSON.stringify(before),
+        'Forward changed sender statuses or the recycled report');
+    } finally {
+      if (picker) await picker.close().catch(() => {});
+      await page.close().catch(() => {});
+    }
+    excuseAbandonedLoads();
+  });
+
   // ---- Match ------------------------------------------------------------------------------------------------
   await s.step(STEP.match, async () => {
     excuseAbandonedLoads();
@@ -471,6 +519,20 @@ async function workflow(s) {
       await older.close().catch(() => {});
     }
   });
+  await s.step(STEP.ambiguous, async () => {
+    sql.execute(`UPDATE labPatientPhysicianInfo SET patient_health_num='OTHER-TEST' WHERE id=${v1.id}`);
+    const before = [rowsOf(v1), rowsOf(v2)];
+    const page = await openReport(v2, `${NAME}-ambiguous-report`);
+    try {
+      await page.getByRole('alert').filter({ hasText: 'The complete report version chain could not be verified' }).waitFor({ timeout: TIMEOUT });
+      h.assert(await page.locator(`a[href*="segmentID=${v1.id}"]`).count() === 0, 'An ambiguous sibling is still linked');
+      h.assert(JSON.stringify([rowsOf(v1), rowsOf(v2)]) === JSON.stringify(before), 'Viewing ambiguity changed routing');
+    } finally {
+      await page.close().catch(() => {});
+    }
+    excuseAbandonedLoads();
+  });
+
 }
 
 if (require.main === module) {
