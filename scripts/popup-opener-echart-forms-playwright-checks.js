@@ -31,6 +31,7 @@ async function workflow(s) {
   const chain = documentChain(s.context);
   const rows = () => sql.value(`SELECT COUNT(*) FROM formRourke2017 WHERE demographic_no=${patient}`);
   s.cleanup(() => {
+    sql.execute(`DELETE FROM form_boolean_value WHERE form_name='formRourke2017' AND form_id IN (SELECT ID FROM formRourke2017 WHERE demographic_no=${patient})`);
     sql.execute(`DELETE FROM formRourke2017 WHERE demographic_no=${patient}`);
     h.assert(rows() === '0', 'Owned formRourke2017 rows were not removed');
   });
@@ -73,6 +74,44 @@ async function workflow(s) {
       `The chart's Forms module never listed the saved form (the form popup's window.opener was ${state}; `
       + `form documents: ${chain.describe(form)})`);
   });
+  await s.step('Reopening the template warns before starting blank, and Cancel creates no record', async () => {
+    const link = chart.locator('#forms .menu a[data-encounter-form-name="Rourke2017"]');
+    await revealAuditLink(chart, link, 20000);
+    await link.click();
+    const dialog = chart.getByRole('dialog', {name: 'Saved form exists'});
+    await dialog.waitFor();
+    await dialog.getByRole('button', {name: 'Cancel', exact: true}).click();
+    h.assert(rows() === '1', 'Cancelling the new form changed saved versions');
+  });
+
+  await s.step('Open the existing version reuses the latest saved form instead of a blank instance', async () => {
+    const link = chart.locator('#forms .menu a[data-encounter-form-name="Rourke2017"]');
+    await revealAuditLink(chart, link, 20000);
+    await link.click();
+    const dialog = chart.getByRole('dialog', {name: 'Saved form exists'});
+    await dialog.waitFor();
+    const existing = await s.popup(chart, dialog.getByRole('button', {name: 'Open the existing version', exact: true}), 'rourke-existing');
+    const id = sql.value(`SELECT ID FROM formRourke2017 WHERE demographic_no=${patient}`);
+    h.assert(await existing.locator('input[name="formId"]').first().inputValue() === id,
+      'The existing-version choice opened a blank or different form');
+    h.assert(await existing.evaluate(() => window.name.endsWith('started')), 'The existing-version choice did not reuse the started-form window name');
+    await existing.close();
+    h.assert(rows() === '1', 'Opening the saved form changed its versions');
+  });
+
+  await s.step('Create a new blank version remains available only after an explicit choice', async () => {
+    const link = chart.locator('#forms .menu a[data-encounter-form-name="Rourke2017"]');
+    await revealAuditLink(chart, link, 20000);
+    await link.click();
+    const dialog = chart.getByRole('dialog', {name: 'Saved form exists'});
+    await dialog.waitFor();
+    const blank = await s.popup(chart, dialog.getByRole('button', {name: 'Create a new blank version', exact: true}), 'rourke-blank');
+    h.assert(await blank.locator('input[name="formId"]').first().inputValue() === '0',
+      'The explicit blank choice did not start a new form');
+    await blank.close();
+    h.assert(rows() === '1', 'Opening a blank form unexpectedly saved a version');
+  });
+
 }
 
 if (require.main === module) runWorkflow('popup-opener-echart-forms', workflow, { openPatient: true });

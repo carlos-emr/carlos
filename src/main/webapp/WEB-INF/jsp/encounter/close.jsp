@@ -29,6 +29,9 @@
 
 --%>
 
+<%-- Successful encounter-form Save and Exit: refresh only the owning patient's chart
+     or Forms list, preserving an unsaved encounter draft, then close the popup. --%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -37,12 +40,9 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
-        <script type="text/javascript">
-            if (window.opener != null && !window.opener.closed && window.opener.location.href.includes("<%= request.getContextPath() %>/encounter/ViewFormlist")) {
-                window.opener.location.reload();
-            }
-
-            window.close();
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/form-completion.js"></script>
+        <script>
+            completeEncounterForm(window, "${carlos:forJavaScript(param.demographic_no)}", "");
         </script>
     </head>
     <body>

@@ -142,6 +142,11 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
                     style = "menuItemleft";
                 }%>
         <a href="javascript:void(0)" class="<%=style%>"
+<% if ("forms".equals(navbarName) && dao.getPopUpConfig(idx) != null) { %>
+           data-encounter-form-url="<carlos:encode value='<%= dao.getPopUpConfig(idx).url() %>' context="htmlAttribute"/>"
+           data-encounter-form-window="<carlos:encode value='<%= dao.getPopUpConfig(idx).windowName() %>' context="htmlAttribute"/>"
+           data-encounter-form-name="<carlos:encode value='<%= dao.getPopUpText(idx) %>' context="htmlAttribute"/>"
+<% } %>
            onmouseover='this.style.color="black"'
            onmouseout='this.style.color="white"'
 <%         NavBarDisplayDAO.PopupConfig popCfg = dao.getPopUpConfig(idx);

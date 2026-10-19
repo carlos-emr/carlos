@@ -156,3 +156,16 @@ test('the completion JSP encodes each request attribute once in JavaScript conte
   assert.match(jsp, /\/form\/form-completion\.js/);
   assert.doesNotMatch(jsp, /write2Parent|self\.open\.window|onunload|request\.getAttribute\("diagnosisVT"\)/);
 });
+
+test('Save and Exit refreshes only the owning patient Forms list and never reloads another chart', () => {
+  for (const patient of ['123', '456']) {
+    const f = fixture({globalId: undefined, query: `?demographic_no=${patient}`, hidden: []});
+    f.opener.location = new URL(`https://fixture.invalid/clinic/encounter/ViewFormlist?demographic_no=${patient}`);
+    let reloaded = false;
+    f.opener.location.reload = () => { reloaded = true; };
+    completeEncounterForm(f.popup, '123', '');
+    assert.equal(reloaded, patient === '123');
+    assert.equal(f.editor.value, 'Existing draft');
+    assert.deepEqual(f.actions, [['close']]);
+  }
+});

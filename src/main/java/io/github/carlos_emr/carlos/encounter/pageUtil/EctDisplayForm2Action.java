@@ -34,6 +34,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -194,7 +195,9 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                         Dao.addPopUpText(encounterForm.getFormName());
 
                         // auto completion arrays and colour code are set
-                        Dao.addAutoCompleteItem(key, "popupPage(700,960,'" + hash + "new','" + newFormPath + "');", BGCOLOUR);
+                        Dao.addAutoCompleteItem(key, "openEncounterForm('"
+                                + SafeEncode.forJavaScript(newFormPath) + "','" + hash + "new','"
+                                + SafeEncode.forJavaScript(encounterForm.getFormName()) + "');", BGCOLOUR);
                     }
                 }
                 Dao.setRightURL("return !showMenu('" + menuId + "', event);");

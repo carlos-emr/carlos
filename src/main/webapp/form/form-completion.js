@@ -25,6 +25,10 @@
     }
 
     function refreshChart(opener, patient) {
+        if (opener.location.pathname.endsWith('/encounter/ViewFormlist')) {
+            opener.location.reload();
+            return;
+        }
         if (typeof opener.loadDiv !== 'function' || typeof opener.ctx !== 'string') return;
         ['forms', 'measurements'].forEach(function (panel) {
             try {
