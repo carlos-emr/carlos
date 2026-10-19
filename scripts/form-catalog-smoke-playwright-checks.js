@@ -39,8 +39,8 @@
 // elsewhere and never as the known one (lib/form-claims.js classify()).
 //
 // Fixtures: the owned synthetic patient (given a complete demographic record, as every registered patient
-// has, after the bare concern has run: Position Hazard and Health Passport throw on NULL address and
-// health-card columns, finding 241), and one marker-named Forms-menu
+// has, after the bare concern has run: Position Hazard and Health Passport threw on NULL address and
+// health-card columns until #4599, finding 241), and one marker-named Forms-menu
 // registration per form (the shipped rows are hidden on Ontario installs and are clinic-wide, so run
 // EXCLUSIVE=1). Cleanup deletes every form row of the owned patient and every registration and asserts both.
 const h = require('./lib/playwright-harness');
@@ -196,11 +196,9 @@ function validatePin(env = process.env) {
  * table cannot drift from the wording below.
  */
 const PINNED = Object.freeze({
-  'positionhazard.bare': 'Position Hazard: opens for a patient whose address, phone and health-card columns are NULL',
   'alpha.open': 'ALPHA: opens from the Forms menu with no error page, script error or failed asset',
   'cesd.redisplay': 'CESD: Save redisplays the saved record in the window it was pressed in',
   'cesd.restore': 'CESD: the redisplayed and the reopened form show every saved value again',
-  'intakeinfo.keys': 'Intake Information: shows no unresolved message key',
   'rourke2006.reopen': "Rourke Baby Record 2006: a fresh chart's saved-form entry reopens the saved record",
   'positionhazard.open': 'Position Hazard: opens from the Forms menu with no error page, script error or failed asset',
 });
@@ -427,7 +425,7 @@ async function workflow(s, { select = validatePin() } = {}) {
   }
 
   // FIXTURE, not an assertion. The shipped templates read the patient's address and health-card columns, and two
-  // of them (Position Hazard, Health Passport) throw on NULL (finding 241, pinned by the bare concern above); every
+  // of them (Position Hazard, Health Passport) threw on NULL until #4599 (finding 241, asserted by the bare concern above); every
   // registered patient has them, the harness's bare fixture row does not, so they are filled in before the rest.
   sql.execute(`UPDATE demographic SET address='1 Test St',city='Toronto',postal='M5V 2T6',phone='416-555-0100',
     phone2='416-555-0101',hin='9876543217',ver='AB',email='fake@example.invalid',roster_status='RO'

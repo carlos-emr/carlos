@@ -235,8 +235,9 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
             subject.append(forwardMessage.getSubject());
             themessage = forwardMessage.getMessage();
-            // Add quote markers (Note: bug - this replaces newlines incorrectly)
-            themessage = themessage.replace('\n', '>');
+            // Quote each line, as Reply does. Replacing the line break itself joined the lines of a message
+            // stored with "\n" breaks; a "\r\n" break keeps its "\r" ahead of the "\n>".
+            themessage = themessage.replace("\n", "\n>");
             theSendMessage = new StringBuilder(themessage);
             theSendMessage.insert(0, "\n\n\n>");
 

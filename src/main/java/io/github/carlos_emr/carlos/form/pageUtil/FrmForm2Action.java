@@ -36,6 +36,8 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -265,7 +267,7 @@ public class FrmForm2Action extends ActionSupport {
             props.setProperty("provider_no", providerNo);
             props.setProperty("visitCod", (String) this.getValue("visitCod"));
             props.setProperty("dob", DemographicData.getDob(demo, "-"));
-            props.setProperty("gender", demo.getSex());
+            props.setProperty("gender", StringUtils.defaultString(demo.getSex()));
             props.setProperty("surname", demo.getLastName());
             props.setProperty("givenName", demo.getFirstName());
 

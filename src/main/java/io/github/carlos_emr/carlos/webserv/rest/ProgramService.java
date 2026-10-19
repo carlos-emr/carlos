@@ -98,7 +98,7 @@ public class ProgramService extends AbstractServiceImpl {
         }
 
         if (programNo == null) {
-            throw new Exception("Can't get a program for this providers to use as default");
+            throw new Exception("Can't get a program for this provider to use as default");
         }
 
 

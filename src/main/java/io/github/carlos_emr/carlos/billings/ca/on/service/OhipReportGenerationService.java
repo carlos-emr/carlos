@@ -282,7 +282,7 @@ public class OhipReportGenerationService {
         StringBuilder errorMsg = new StringBuilder();
         String provider = request.getParameter("providers");
         if (provider == null || provider.length() != PROVIDER_BILLINGNO_LENGTH) {
-            errorMsg.append("The providers's billing code is not correct!<br>");
+            errorMsg.append("The provider's billing code is not correct!<br>");
         }
 
         Date dateBegin = ConversionUtils.fromDateString(request.getParameter("xml_vdate"));
@@ -304,11 +304,11 @@ public class OhipReportGenerationService {
 
             if (specialty == null || specialty.isEmpty() || "null".equals(specialty)
                     || specialty.length() != PROVIDER_SPECIALTYCODE_LENGTH) {
-                errorMsg.append("The providers's specialty code is not correct!<br>");
+                errorMsg.append("The provider's specialty code is not correct!<br>");
                 specialty = "00";
             }
             if (!BillingGroupNumber.isWellFormed(groupNo)) {
-                errorMsg.append("The providers's group no is not correct!<br>");
+                errorMsg.append("The provider's group no is not correct!<br>");
                 groupNo = "0000";
             }
 

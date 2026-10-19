@@ -176,6 +176,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_billing", "w"),
             Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action",
                     "_billing", "w"),
+            // The WCB form's save writes a wcb row (issue #4864 item 8).
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.WCBAction22Action",
+                    "_billing", "w"),
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
@@ -252,6 +255,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
                     "_flowsheet", "w"),
+            // Links a diagnosis or a drug to a patient's flowsheet (issue #4974).
+            Arguments.of("io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action",
+                    "_demographic", "w"),
             // --- report ---
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action",
                     "_admin.reporting", "w"),
@@ -424,6 +430,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // billCheck or billingmasterNo is save intent and needs POST.
         // Covered by BillingReProcessBill2ActionUnitTest.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action",
+        // BC WCB claim correction: GET with billing_no opens the correction page; id, billingNo
+        // or submit is save intent and needs POST. Covered by TeleplanCorrectionActionWCB2ActionUnitTest.
+        "io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionActionWCB2Action",
         // Rx: only method=updateDB mutates (it rebuilds the DrugRef database) and rejects
         // GET; the read-only status methods stay reachable by GET. Covered in detail by
         // RxUpdateDrugref2ActionUnitTest.
@@ -501,6 +510,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Favourite sharing/copying writes require POST; the selection page permits GET.
         // Targeted guard from PR #2478, covered by CopyFavorites2ActionUnitTest.
         "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
+        // Satellite-sites Admin (#4700): the list, Add New Site and method=edit permit GET; method=save stores
+        // a site and must be a POST. Covered by SitesManage2ActionUnitTest (shouldRefuseSave_whenNotPost).
+        "io.github.carlos_emr.carlos.commn.web.SitesManage2Action",
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
@@ -554,7 +566,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.documentManager.actions.AnnotateDocument2Action",
         // Returns word bounding boxes for snap-to-text highlighting. Read-only.
         "io.github.carlos_emr.carlos.documentManager.actions.DocumentTextBoxes2Action",
-        "io.github.carlos_emr.carlos.report.gate.ViewReport2Action"
+        "io.github.carlos_emr.carlos.report.gate.ViewReport2Action",
+        // CDS 4 report results: the shared report gate plus a functional centre in use. Read-only.
+        "io.github.carlos_emr.carlos.report.gate.ViewCds4ReportResults2Action"
     );
 
     /**
@@ -612,6 +626,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
         "io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
         "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
+        // BC billing administration is not in IN_SCOPE_PACKAGE_PREFIXES; the WCB correction registers explicitly.
+        "io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionActionWCB2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
@@ -623,6 +639,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
+        "io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action",
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
         // (EctMeasurements2Action, HealthTrackerUpdate2Action and EctDeleteData2Action are covered by
         // the encounter.oscarMeasurements. entry in IN_SCOPE_PACKAGE_PREFIXES.)
@@ -672,6 +689,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // prescript slice: RxReason2Action's add/archive drug-reason writes are POST-only; the popup
         // view stays GET (conditional mutator, #3908).
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action",
+        // commn.web slice: the package is not in IN_SCOPE_PACKAGE_PREFIXES, so SitesManage2Action registers
+        // explicitly (conditional mutator, #4700).
+        "io.github.carlos_emr.carlos.commn.web.SitesManage2Action",
         // prescript slice (#3908): re-prescribe staging, drug deletion/discontinue/clears and
         // pharmacy links are POST-only.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",

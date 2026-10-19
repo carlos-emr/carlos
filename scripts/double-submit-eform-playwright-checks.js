@@ -40,6 +40,9 @@ async function eformPdfRenders(s, formName) {
   const input = /<input[^>]*\bid="eFormPDF"[^>]*>/.exec(await response.text());
   return Boolean(input && /\bvalue="[A-Za-z0-9+/=]{100,}"/.test(input[0]));
 }
+
+// What the 409 for a replayed submission tells the clinician to do (eform.submitUnavailable, as getText formats it).
+const RECOVERY_GUIDANCE = "Check the patient's eForms";
 const { MODES_REPLAY: MODES, rapid, settledCount, watchPosts, verdicts, armSlowServer, sleep, recorderMark, forgiveAbortedSecondRequest } = require('./lib/double-submit-helpers');
 
 const q = h.sqlString;
@@ -171,8 +174,10 @@ async function workflow(s) {
           `Reload did not reject the consumed submission (AddEForm responses seen: [${responses.map(response => response.status()).join(', ')}]; owned rows: ${count})`);
         const conflict = responses.find(response => response.status() === 409);
         const conflictText = await conflict.text().catch(error => `<body unavailable: ${String(error.message).split('\n')[0]}>`);
-        h.assert(conflictText.includes('Check the patient'),
-          `Replay did not explain how to check the saved eForm (HTTP 409 body of ${conflictText.length} characters)`);
+        // The full phrase, apostrophe included: getText formats the message through MessageFormat, which drops a
+        // single quote, so "Check the patient" alone also matched the broken "patients eForms" (#4424, finding 169).
+        h.assert(conflictText.includes(RECOVERY_GUIDANCE),
+          `Replay did not explain how to check the saved eForm, as "${RECOVERY_GUIDANCE}" (HTTP 409 body of ${conflictText.length} characters)`);
         // This exact, asserted conflict is the expected result of the deliberately replayed POST.
         consumeExpectedFailure(s.recorder, failures, { status: 409, path: /\/eform\/addEForm$/ });
       }
@@ -184,8 +189,8 @@ async function workflow(s) {
         data: original.postData(), headers: { 'Content-Type': original.headers()['content-type'] },
         maxRedirects: 0,
       });
-      h.assert(repeated.status() === 409 && (await repeated.text()).includes('Check the patient'),
-        `Server accepted a repeated eForm POST or omitted recovery guidance (HTTP ${repeated.status()})`);
+      h.assert(repeated.status() === 409 && (await repeated.text()).includes(RECOVERY_GUIDANCE),
+        `Server accepted a repeated eForm POST or omitted the recovery guidance "${RECOVERY_GUIDANCE}" (HTTP ${repeated.status()})`);
       h.assert(sql.value(`SELECT COUNT(*) FROM eform_values v JOIN eform_data d ON d.fdid=v.fdid
         WHERE d.demographic_no=${patient} AND d.form_name=${q(formName)} AND d.subject=${q(subject)}
         AND v.var_name='note' AND v.var_value='double submit'`) === '1', 'Clinical field was lost or duplicated');

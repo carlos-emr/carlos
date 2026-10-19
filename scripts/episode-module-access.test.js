@@ -151,7 +151,7 @@ test('shouldGrantBeforeOpeningChart_inEveryCheckThatDrivesTheModule', () => {
   // A check that clicks the module's heading must grant it first, or it fails on every seeded build.
   const scripts = fs.readdirSync(__dirname).filter(name => name.endsWith('-playwright-checks.js'));
   const drivers = scripts.filter(name => fs.readFileSync(path.join(__dirname, name), 'utf8').includes('#menuTitleepisode'));
-  assert.deepEqual(drivers.sort(), ['episode-lifecycle-playwright-checks.js', 'record-access-playwright-checks.js']);
+  assert.deepEqual(drivers.sort(), ['episode-coding-playwright-checks.js', 'episode-lifecycle-playwright-checks.js', 'record-access-playwright-checks.js']);
   for (const name of drivers) {
     const source = fs.readFileSync(path.join(__dirname, name), 'utf8');
     const grant = source.indexOf('grantEpisodeModule(s)');

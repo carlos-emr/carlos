@@ -416,7 +416,8 @@
                                 String givenDate = cell.getAttribute("givenDate");
                                 String refusedDate = cell.getAttribute("refusedDate");
                                 String lot = cell.getAttribute("lot");
-                                String provider = cell.getAttribute("providers");
+                                // A schedule saved before a namespace rename has "provider"; one saved during it has "providers".
+                                String provider = cell.getAttribute("providers").isEmpty() ? cell.getAttribute("provider") : cell.getAttribute("providers");
                                 String comments = cell.getAttribute("comments");
 
                                 s += "<input type=hidden name='" + id + "_givenDate' value='" + SafeEncode.forHtmlAttribute(givenDate) + "' />"

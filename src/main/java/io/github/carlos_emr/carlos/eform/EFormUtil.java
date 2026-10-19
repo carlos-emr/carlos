@@ -77,6 +77,7 @@ import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -1215,11 +1216,22 @@ public class EFormUtil {
 
             ConsultationRequest consult = new ConsultationRequest();
 
-            ProfessionalSpecialist ps = professionalSpecialistDao().find(Integer.parseInt(referredToSpecialist));
+            // A request whose specialist or service id is missing, not a number or too long for an int is
+            // skipped like one whose specialist is not found; parsing it would throw and stop the eForm's
+            // submission after the eForm and its other outputs were saved. The warning names only the eForm's
+            // form id, so a clinic can find the template to correct.
+            int specialistId = NumberUtils.toInt(referredToSpecialist, -1);
+            int serviceId = NumberUtils.toInt(referredToService, -1);
+            if (specialistId <= 0 || serviceId <= 0) {
+                logger.warn("eForm template consultRequest skipped: service or specialist missing or not a number (eForm fid {})",
+                        NumberUtils.toInt(eForm.getFid()));
+                continue;
+            }
+            ProfessionalSpecialist ps = professionalSpecialistDao().find(specialistId);
             if (ps == null) continue;
-            if (referredToService == null || referredBy == null) continue;
+            if (referredBy == null) continue;
 
-            consult.setServiceId(Integer.parseInt(referredToService));
+            consult.setServiceId(serviceId);
             consult.setDemographicId(Integer.parseInt(eForm.getDemographicNo()));
             consult.setProviderNo(referredBy);
             consult.setFdid(Integer.parseInt(fdid));
@@ -1295,18 +1307,14 @@ public class EFormUtil {
     public static String getAttribute(String key, String htmlTag, boolean startsWith) {
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return null;
 
-        Matcher m = getAttributeMatcher(key, htmlTag, startsWith);
+        AttributeMatch m = findAttribute(key, htmlTag, startsWith);
         if (m == null) return null;
 
-        // With the new regex pattern:
-        // Group 0: Full match (attribute with optional value)
-        // Group 1: Attribute name
-        // Group 2: =value part (optional, including =)
-        // Group 3: Just the value (optional, without = and quotes)
-        String value = m.group();
-        if (!startsWith && m.group(3) != null) {
+        // text: the whole attribute, name and optional value; value: just the value, with its quotes
+        String value = m.text();
+        if (!startsWith && m.value() != null) {
             // Return just the value part without quotes
-            value = m.group(3);
+            value = m.value();
             // Remove quotes if present
             if ((value.startsWith("\"") && value.endsWith("\"")) || 
                 (value.startsWith("'") && value.endsWith("'"))) {
@@ -1321,7 +1329,7 @@ public class EFormUtil {
         int pos = -1;
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return pos;
 
-        Matcher m = getAttributeMatcher(key, htmlTag, false);
+        AttributeMatch m = findAttribute(key, htmlTag, false);
         if (m == null) return pos;
 
         return m.start();
@@ -1340,7 +1348,7 @@ public class EFormUtil {
         int pos = -1;
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return pos;
 
-        Matcher m = getAttributeMatcher(key, htmlTag, false);
+        AttributeMatch m = findAttribute(key, htmlTag, false);
         if (m == null) return pos;
 
         return m.end();
@@ -1477,30 +1485,89 @@ public class EFormUtil {
         return thisStr;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static Matcher getAttributeMatcher(String key, String htmlTag, boolean startsWith) {
-        Matcher m_return = null;
-        if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return m_return;
+    /**
+     * The name of an HTML attribute in an eForm tag.
+     *
+     * <p>Names may contain {@code $} because eForm markup uses it for its own attributes
+     * ({@code eform$name}, {@code var$value}, {@code ref$<field>} and {@code link$eform}); without it
+     * those attributes are never found, and their halves are read as ordinary attributes. The name
+     * class must stay disjoint from whitespace and {@code =}, so the end of a name is never ambiguous
+     * and matching stays linear (this replaced a ReDoS-prone pattern).</p>
+     */
+    static final Pattern ATTRIBUTE_NAME_PATTERN = Pattern.compile("[a-zA-Z][a-zA-Z0-9_:$-]*");
 
-        // Fixed ReDoS vulnerability by removing word boundaries and simplifying the regex
-        // This pattern matches HTML attributes in a safer way without polynomial complexity
-        Pattern p = Pattern.compile("([a-zA-Z][a-zA-Z0-9_:-]*)(\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+))?", Pattern.CASE_INSENSITIVE);
-        Matcher m = p.matcher(htmlTag);
+    /**
+     * The optional value right after an attribute name: group 1 is the value with its quotes. It is
+     * applied with {@code lookingAt} to a region that starts at the end of each name, and the {@code ^}
+     * says so: it is only ever tried there, never at every position of the tag. Because a name never
+     * ends at whitespace or {@code =}, trying the value only after the whole name finds exactly what one
+     * combined {@code name(value)?} pattern found; it is kept separate so each pattern stays simple.
+     */
+    static final Pattern ATTRIBUTE_VALUE_PATTERN = Pattern.compile("^\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+)");
 
-        while (m.find()) {
-            // Group 1 contains the attribute name
-            String keypart = m.group(1);
-            if (keypart == null) continue;
-            
-            keypart = keypart.trim().toLowerCase();
-            key = key.trim().toLowerCase();
-            if ((keypart.equals(key)) || (startsWith && keypart.startsWith(key))) {
-                m_return = m;
-                break;
+    /**
+     * One attribute found in a tag.
+     *
+     * @param name  the attribute name
+     * @param text  the whole attribute, name and optional value
+     * @param value the value with its quotes, or {@code null} for a name without a value
+     * @param start the index of the name in the tag
+     * @param end   the index after the attribute
+     */
+    record AttributeMatch(String name, String text, String value, int start, int end) { }
+
+    /** Every attribute of a tag, in order (see {@link #firstAttribute}). */
+    static List<AttributeMatch> scanAttributes(CharSequence htmlTag) {
+        List<AttributeMatch> attributes = new ArrayList<>();
+        firstAttribute(htmlTag, attribute -> {
+            attributes.add(attribute);
+            return false;
+        });
+        return attributes;
+    }
+
+    /**
+     * Scans a tag's attributes in order, the way one combined attribute pattern's {@code find()} loop
+     * did (each name, then its value if one follows, then the next name after it), and stops at the
+     * first one {@code wanted} accepts.
+     *
+     * @return that attribute, or {@code null} if none is accepted
+     */
+    private static AttributeMatch firstAttribute(CharSequence htmlTag, Predicate<AttributeMatch> wanted) {
+        Matcher name = ATTRIBUTE_NAME_PATTERN.matcher(htmlTag);
+        Matcher value = ATTRIBUTE_VALUE_PATTERN.matcher(htmlTag);
+        int from = 0;
+        while (from < htmlTag.length() && name.find(from)) {
+            int end = name.end();
+            String attributeValue = null;
+            value.region(end, htmlTag.length());
+            if (value.lookingAt()) {
+                end = value.end();
+                attributeValue = value.group(1);
             }
+            AttributeMatch attribute = new AttributeMatch(name.group(), htmlTag.subSequence(name.start(), end).toString(),
+                    attributeValue, name.start(), end);
+            if (wanted.test(attribute)) {
+                return attribute;
+            }
+            from = end;
         }
-        return m_return;
+        return null;
+    }
+
+    private static AttributeMatch findAttribute(String key, String htmlTag, boolean startsWith) {
+        if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return null;
+
+        String wanted = lowerCase(key.trim());
+        return firstAttribute(htmlTag, attribute -> {
+            String keypart = lowerCase(attribute.name());
+            return keypart.equals(wanted) || (startsWith && keypart.startsWith(wanted));
+        });
+    }
+
+    /** Attribute names are ASCII, so lower-casing them must not depend on the server's locale. */
+    private static String lowerCase(String attributeName) {
+        return attributeName.toLowerCase(Locale.ROOT);
     }
 
     private static String putTemplateValues(ArrayList<String> paramNames, ArrayList<String> paramValues, String template) {

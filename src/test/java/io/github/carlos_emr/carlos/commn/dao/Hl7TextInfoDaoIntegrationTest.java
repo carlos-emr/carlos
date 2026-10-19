@@ -366,6 +366,102 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * A lab routed to two providers (a lab forwarding rule adds the second routing row) has one
+     * routing row per provider. Only the provider filter narrowed that to one row per lab, so an
+     * Any provider search listed the lab once per provider in every query shape but the mixed
+     * provider-wide list, which grouped by lab (#5016).
+     *
+     * <p>The mixed provider-wide list and both unmatched lists are not run here: they order by the
+     * routing row's id, and H2 refuses a non-grouped column that differs inside a group, which two
+     * routing rows always do; MariaDB takes either row. {@link Hl7TextInfoDaoImplOneRowPerLabUnitTest}
+     * pins their grouping on the statement.</p>
+     */
+    @Nested
+    @DisplayName("Any provider search on a lab routed to two providers")
+    @Tag("search")
+    class LabRoutedToTwoProviders {
+
+        private static final String FIRST_PROVIDER = "778811";
+        private static final String SECOND_PROVIDER = "778812";
+
+        private void routeLab(int labNo, String firstStatus, String secondStatus, Integer demographicNo) {
+            Hl7TextInfo info = createHl7TextInfo("TWO-ROUTES-" + labNo, "Tworoutes", "Fixture", "");
+            info.setLabNumber(labNo);
+            info.setObrDate("2026-10-01 10:00:00");
+            hibernateTemplate.flush();
+            for (String[] route : new String[][] {{FIRST_PROVIDER, firstStatus}, {SECOND_PROVIDER, secondStatus}}) {
+                ProviderLabRoutingModel routing = new ProviderLabRoutingModel();
+                routing.setLabNo(labNo);
+                routing.setLabType("HL7");
+                routing.setProviderNo(route[0]);
+                routing.setStatus(route[1]);
+                entityManager.persist(routing);
+            }
+            if (demographicNo != null) {
+                entityManager.persist(new PatientLabRouting(labNo, "HL7", demographicNo));
+            }
+            entityManager.flush();
+        }
+
+        private Integer createPatient() {
+            Demographic demo = new Demographic();
+            demo.setFirstName("Tworoutes");
+            demo.setLastName("Patient");
+            demo.setSex("F");
+            demo.setProviderNo(FIRST_PROVIDER);
+            demo.setPatientStatus("AC");
+            demo.setPatientStatusDate(new Date());
+            demo.setDateJoined(new Date());
+            hibernateTemplate.save(demo);
+            hibernateTemplate.flush();
+            return demo.getDemographicNo();
+        }
+
+        /**
+         * Shapes as in {@link AcknowledgedSinceBound}: the labs-only whole list; one patient; a name
+         * search answered by the lab's own names or by the linked patient's name. Status "N" is
+         * the New list (both routing rows New) and "" is All.
+         */
+        @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}, status=\"{2}\"")
+        @CsvSource({"provider,false,N", "patient,true,N", "patient,false,N",
+                "nameSearch,true,N", "nameSearch,false,N", "patientNameSearch,true,N", "patientNameSearch,false,N",
+                "provider,false,''", "patient,true,''", "patient,false,''",
+                "nameSearch,true,''", "nameSearch,false,''", "patientNameSearch,true,''", "patientNameSearch,false,''"})
+        @DisplayName("should list the lab once when no provider is searched")
+        void shouldListLabOnce_whenAnyProviderIsSearched(String shape, boolean mixLabsAndDocs, String status) {
+            Integer patient = "patient".equals(shape) || "patientNameSearch".equals(shape) ? createPatient() : null;
+            routeLab(9837001, "N", "N", patient);
+            String demographicNo = "patient".equals(shape) ? String.valueOf(patient) : null;
+            String lastName = "nameSearch".equals(shape) ? "Fixture" : "patientNameSearch".equals(shape) ? "Patient" : "";
+
+            List<Object[]> rows = hl7TextInfoDao.findLabAndDocsViaMagic("", demographicNo, "", lastName, "",
+                    status, false, 0, 100, mixLabsAndDocs, null, false, !lastName.isEmpty(), null, null, null);
+
+            // Any provider is the whole clinic, so other labs could be listed too; only this one counts.
+            List<Object[]> lab = rows.stream().filter(row -> ((Number) row[1]).intValue() == 9837001).toList();
+            assertThat(lab).as("the lab is listed once, not once per routing row").hasSize(1);
+            assertThat(lab.get(0)[14]).isEqualTo("N");
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should show the searched provider's own status for a lab routed to two providers")
+        void shouldShowSearchedProvidersStatus_whenOneProviderIsSearched(boolean mixLabsAndDocs) {
+            routeLab(9837002, "A", "N", null);
+
+            List<Object[]> first = hl7TextInfoDao.findLabAndDocsViaMagic(FIRST_PROVIDER, null, "", "", "",
+                    "", false, 0, 100, mixLabsAndDocs, null, true, false, null, null, null);
+            List<Object[]> second = hl7TextInfoDao.findLabAndDocsViaMagic(SECOND_PROVIDER, null, "", "", "",
+                    "", false, 0, 100, mixLabsAndDocs, null, true, false, null, null, null);
+
+            assertThat(first).extracting(row -> ((Number) row[1]).intValue()).containsExactly(9837002);
+            assertThat(first.get(0)[14]).isEqualTo("A");
+            assertThat(second).extracting(row -> ((Number) row[1]).intValue()).containsExactly(9837002);
+            assertThat(second.get(0)[14]).isEqualTo("N");
+        }
+    }
+
     @ParameterizedTest
     @CsvSource({"serviceObservation,true", "serviceObservation,false", "receivedCreated,true", "receivedCreated,false"})
     void shouldIncludeWholeEndDay_whenInboxHasObservationAndReceivedTimestamps(String mode, boolean mixed) {

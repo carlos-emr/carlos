@@ -163,6 +163,8 @@ async function clickOpensPopup(page, locator, options = {}) {
  * the only honest reading of a control whose behaviour is a deployment setting.
  *
  * Returns { page, isPopup }. The caller closes the page only when isPopup.
+ * checkErrorPage defaults to true; an aggregate audit may pass false and record
+ * the destination's error page itself before continuing with its next control.
  */
 async function clickOpensPopupOrNavigates(page, locator, options = {}) {
   const context = options.context || page.context();
@@ -206,7 +208,7 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
     await outcome.page.waitForURL(url => String(url) !== 'about:blank', { timeout, waitUntil: 'domcontentloaded' });
     await outcome.page.waitForLoadState('domcontentloaded', { timeout });
     await outcome.page.waitForLoadState('networkidle', { timeout }).catch(() => {});
-    await assertNotErrorPage(outcome.page, label, options);
+    if (options.checkErrorPage !== false) await assertNotErrorPage(outcome.page, label, options);
     return outcome;
   } catch (error) {
     // The caller never receives a rejected popup. Close it here so the next

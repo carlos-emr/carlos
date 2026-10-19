@@ -144,7 +144,7 @@
                 return false;
                 //} else if(document.forms[0].xml_provider.options[0].selected){
             } else if (document.forms[0].xml_provider.value == "000000") {
-                alert("Please select a providers.");
+                alert("Please select a provider.");
                 return false;
             }
             <c:if test="${!shortcutPg1Model.rmaEnabled}">

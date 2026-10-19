@@ -42,9 +42,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The provider edit page, the annual female V2, HOME FAST and FDI function forms and the Rourke 2006 pages showed raw
- * {@code ???key???} labels: they named keys that no bundle defined (the raw-label finding behind #4949; the Rourke
- * 2006 page 1 title is part of #4593). Every label key these pages render must be defined in every shipped locale.
+ * The provider edit page, the annual female V2, HOME FAST and FDI function forms, the Rourke 2006 pages and the Intake
+ * Information, Position Hazard and Self Efficacy forms showed raw {@code ???key???} labels: they named keys that no
+ * bundle defined (the raw-label finding behind #4949, and #4593 for the form titles and headings). Every label key
+ * these pages render must be defined in every shipped locale.
  *
  * @since 2026-10-18
  */
@@ -83,7 +84,7 @@ class RawLabelPagesI18nKeysUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"admin/providerupdateprovider.jsp", "form/formannualfemaleV2.jsp", "form/formhomefalls.jsp",
             "form/formlatelifeFDIfunction.jsp", "form/formrourke2006p1.jsp", "form/formrourke2006p2.jsp", "form/formrourke2006p3.jsp",
-            "form/formrourke2006p4.jsp"})
+            "form/formrourke2006p4.jsp", "form/formintakeinfo.jsp", "form/formPositionHazard.jsp", "form/formselfefficacy.jsp"})
     void shouldDefineEveryLabelKey_inEveryLocale(String page) throws IOException {
         Set<String> keys = renderedKeys(page);
         assertThat(keys).as("%s renders message keys", page).isNotEmpty();
