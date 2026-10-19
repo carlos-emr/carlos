@@ -96,7 +96,7 @@ async function workflow(s) {
     return item;
   }
 
-  async function openItem(chart, label) {
+  async function openItem(chart, label, beforeClose = () => {}) {
     const popup = await s.popup(chart, await itemOf(chart), label);
     await popup.locator('textarea[name="currentConcerns"]').waitFor({ state: 'attached', timeout: TIMEOUT });
     const url = new URL(popup.url());
@@ -107,8 +107,9 @@ async function workflow(s) {
       field: await popup.locator('input[type="hidden"][name="demographic_no"]').first().inputValue(),
       concerns: await popup.locator('textarea[name="currentConcerns"]').inputValue(),
     };
-    // The item is a tracked popup: closing it reloads the Forms module. Await that reload so it
-    // is never left in flight (and aborted) by the next step's navigation.
+    beforeClose();
+    // The item is a tracked popup: closing it reloads the Forms module. Await that reload so the
+    // module is current, and never left in flight, when the next step reads it.
     const reloaded = chart.waitForResponse(response =>
       new URL(response.url()).pathname.endsWith('/encounter/displayForms'), { timeout: TIMEOUT });
     reloaded.catch(() => {});
@@ -155,17 +156,21 @@ async function workflow(s) {
     h.assert(/^Annual 01-04-2026 /.test(title || ''), `B's Annual item is dated "${title}", not from B's own row`);
   });
 
+  // Gives A's newer-created row the same edit time as the row edited last. Applied while the form
+  // popup is still open, so the module refresh its close triggers renders the tie: reloading the
+  // chart page instead would abort the chart's note-lock release beacon.
+  function tieEditTimes() {
+    h.assert(sql.value(`UPDATE formAnnual SET formEdited='2026-03-09 12:00:00' WHERE ID=${createdLast}
+      AND demographic_no=${A}; SELECT ROW_COUNT()`) === '1', 'The tie fixture did not update A\'s newer row');
+  }
+
   await s.step('with B\'s chart open, A\'s Annual item opens the row it is dated from', async () => {
     await chartA.bringToFront();
-    assertOpened(await openItem(chartA, 'annual-latest-a'), editedLast, 'A-created-first-edited-last',
-      'A\'s Annual item');
+    assertOpened(await openItem(chartA, 'annual-latest-a', tieEditTimes), editedLast,
+      'A-created-first-edited-last', 'A\'s Annual item');
   });
 
   await s.step('when A\'s rows share an edit time, the item and the form both resolve to the higher ID', async () => {
-    h.assert(sql.value(`UPDATE formAnnual SET formEdited='2026-03-09 12:00:00' WHERE ID=${createdLast}
-      AND demographic_no=${A}; SELECT ROW_COUNT()`) === '1', 'The tie fixture did not update A\'s newer row');
-    await chartA.reload({ waitUntil: 'domcontentloaded' });
-    await waitForNavbars(chartA, TIMEOUT);
     const title = await (await itemOf(chartA)).getAttribute('title');
     h.assert(/^Annual 09-03-2026 /.test(title || ''), `The tied Annual item is dated "${title}"`);
     assertOpened(await openItem(chartA, 'annual-latest-tie'), createdLast, 'A-created-last',
