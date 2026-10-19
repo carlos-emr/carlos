@@ -1170,7 +1170,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     @Test
     void shouldPropagateFailure_whenProviderRoutingDenied() throws Exception {
         doThrow(new SecurityException("missing _edoc")).when(providerInboxRoutingDao)
-                .addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+                .addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
         Method route = ManageDocument2Action.class.getDeclaredMethod(
                 "routeDocumentToProviders", String[].class, String.class);
         route.setAccessible(true);
@@ -1179,7 +1179,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
                 .isInstanceOf(java.lang.reflect.InvocationTargetException.class)
                 .hasCauseInstanceOf(SecurityException.class);
 
-        verify(providerInboxRoutingDao).addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+        verify(providerInboxRoutingDao).addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
     }
 
     @Test
@@ -1532,12 +1532,46 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
         request.setParameter("flagproviders", "999998");
         doThrow(new SecurityException("private denial")).when(providerInboxRoutingDao)
-                .addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+                .addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
         assertThat(runAddIncomingDocumentWithEdocMock()).isEqualTo("none");
         assertThat(sourceFile).doesNotExist();
         assertThat(listStoredDocuments()).hasSize(1);
         assertThat(response.getContentAsString()).contains("\"accepted\":true", "\"success\":false", "\"retryable\":false")
                 .doesNotContain("private denial");
+        verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true,true", "true,false", "false,true", "false,false"})
+    @DisplayName("Real DAO routing failure reports accepted but unconfirmed filing, never successful delivery")
+    void shouldReportUnconfirmedWhenRealDaoStrictRoutingFails(boolean contract, boolean denied) throws Exception {
+        // Keep the real legacy wrapper: it catches this strict failure. Mocking that
+        // wrapper to throw cannot reproduce the delivery failure seen by this action.
+        var realRouting = spy(new io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDaoImpl());
+        RuntimeException failure = denied ? new SecurityException("private routing denial")
+                : new IllegalStateException("private routing persistence failure");
+        doThrow(failure).when(realRouting).addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
+        registerMock(ProviderInboxRoutingDao.class, realRouting);
+        action = new TestManageDocument2Action();
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "real-routing.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("real-routing.pdf");
+        if (contract) request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        request.setParameter("flagproviders", "999998");
+
+        assertThat(runAddIncomingDocumentWithEdocMock()).isEqualTo("none");
+        assertThat(sourceFile).doesNotExist();
+        assertThat(listStoredDocuments()).hasSize(1);
+        assertThat(Files.readString(listStoredDocuments().get(0))).isEqualTo("source-content");
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).doesNotContain("private routing");
+        if (contract) {
+            assertThat(response.getContentAsString()).contains("\"accepted\":true", "\"success\":false", "\"retryable\":false");
+        } else {
+            assertThat(response.getContentAsString()).contains("could not be confirmed").doesNotContain("Retry saving");
+        }
+        verify(realRouting).addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
+        Mockito.verify(realRouting, Mockito.never()).addToProviderInbox(anyString(), anyInt(), anyString());
         verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
     }
 

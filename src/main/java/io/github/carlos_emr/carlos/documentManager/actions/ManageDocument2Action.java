@@ -1716,7 +1716,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
         }
         for (String proNo : flagproviders) {
-            providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(docNo), LabResultData.DOCUMENT);
+            providerInboxRoutingDAO.addToProviderInboxStrict(proNo, Integer.parseInt(docNo), LabResultData.DOCUMENT);
         }
     }
 
