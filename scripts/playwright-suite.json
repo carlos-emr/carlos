@@ -12164,6 +12164,20 @@
       "fixtures": "Throwaway login plus an owned FAKE- patient and three SQL-seeded appointments for today; appointment and archive rows deleted in cleanup."
     },
     {
+      "name": "schedule-hide-cancelled",
+      "script": "scripts/schedule-hide-cancelled-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "notes": "The day sheet's Hide/Show Cancelled button (toggleCancelled, kept in localStorage hideCancelled), which appointment-cancel-no-show leaves unpressed: on a throwaway login's own day sheet with two owned appointments for today, one cancelled and one booked, the day sheet shows both (the cancelled one greyed); Hide hides exactly the cancelled one and the button then offers Show; the choice holds after a reload; last, Show brings it back, also after a reload.",
+      "fixtures": "The throwaway login (lib/gap-provider-fixture.js, a number owning no appointment rows), the owned FAKE- patient and its two appointments for today, seeded by SQL. The browser's hideCancelled flag is removed at the end. Cleanup deletes the appointment rows by the throwaway's number, then the throwaway, and asserts they are gone."
+    },
+    {
       "name": "echart-note-lifecycle",
       "script": "scripts/echart-note-lifecycle-playwright-checks.js",
       "tiers": [

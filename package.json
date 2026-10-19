@@ -183,6 +183,7 @@
     "test:appointment-recurrence-playwright": "node scripts/appointment-recurrence-playwright-checks.js",
     "test:appointment-lifecycle-playwright": "node scripts/appointment-lifecycle-playwright-checks.js",
     "test:appointment-cancel-no-show-playwright": "node scripts/appointment-cancel-no-show-playwright-checks.js",
+    "test:schedule-hide-cancelled-playwright": "node scripts/schedule-hide-cancelled-playwright-checks.js",
     "test:appointment-status-editing-playwright": "node scripts/appointment-status-editing-playwright-checks.js",
     "test:edit-appointment-direct-link-playwright": "node scripts/edit-appointment-direct-link-playwright-checks.js",
     "test:appointment-patient-typeahead-playwright": "node scripts/appointment-patient-typeahead-playwright-checks.js",
