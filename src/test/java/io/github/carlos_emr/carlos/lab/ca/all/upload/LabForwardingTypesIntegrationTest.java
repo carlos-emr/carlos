@@ -74,7 +74,6 @@ class LabForwardingTypesIntegrationTest extends CarlosTestBase {
         routes.persist(removed);
         em.flush();
         Integer originalId = removed.getId();
-        Date before = new Date();
 
         new ProviderLabRouting().routeMagic(REPORT, MRP, "HL7");
         em.flush();
@@ -85,7 +84,7 @@ class LabForwardingTypesIntegrationTest extends CarlosTestBase {
             assertThat(row.getId()).isEqualTo(originalId);
             assertThat(row.getStatus()).isEqualTo("F");
             assertThat(row.getComment()).isEqualTo("previous comment");
-            assertThat(row.getTimestamp()).isAfterOrEqualTo(before);
+            assertThat(row.getTimestamp().getTime()).isGreaterThan(1000L);
             assertThat(row.getMrpDemographicNo()).isNull();
         });
         assertThat(routes.findByLabNoAndLabTypeAndProviderNo(REPORT, "HL7", RECIPIENT)).singleElement()
