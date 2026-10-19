@@ -72,8 +72,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1000mg po tid x 7 days", "Take 1000MG po tid x 7 days",
             "5 mg po tid x 7 days", "0.5 mg po tid x 7 days", ".5mg po tid x 7 days",
             "250 mcg po tid x 7 days", "250 µg po tid x 7 days", "250 μg po tid x 7 days",
-            "1 g po tid x 7 days", "5 mL po tid x 7 days", "1000 IU po tid x 7 days",
-            "20 mEq po tid x 7 days", "20 units po tid x 7 days",
+            "1 g po tid x 7 days", "1000 IU po tid x 7 days", "20 mEq po tid x 7 days",
             "500-1000 mg po tid x 7 days", "500-1000mg po tid x 7 days",
             "1/2 g po tid x 7 days", "1/2g po tid x 7 days"
         })
@@ -101,6 +100,12 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "0.5 tab po tid x 8 days | 0.5 | 0.5 | 12",
             "1-2 tabs po tid x 7 days | 1 | 2 | 42",
             "two tablets po tid x 7 days | 2 | 2 | 42",
+            "Take 5 mL po tid x 7 days | 5 | 5 | 105",
+            "Take 5mL po tid x 7 days | 5 | 5 | 105",
+            "1/2mL po tid x 8 days | 0.5 | 0.5 | 12",
+            "5-10mL po tid x 7 days | 5 | 10 | 210",
+            "20 units po tid x 7 days | 20 | 20 | 420",
+            "20units po tid x 7 days | 20 | 20 | 420",
             "2 mgtablets po tid x 7 days | 2 | 2 | 42"
         })
         void shouldPreserveExplicitCounts_whenStrengthAppearsElsewhere(String instructions,

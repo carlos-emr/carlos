@@ -53,7 +53,8 @@ public class RxUtil {
     private static String defaultQuantity = "30";
     private static final Logger logger = MiscUtils.getLogger();
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
-            "(?:mg|mcg|[µμ]g|g|ml|iu|meq|units?)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+            "(?:mg|mcg|[µμ]g|g|iu|meq)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?)\\b", Pattern.CASE_INSENSITIVE);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
 
     public static void setDefaultQuantity(String quantity) {
@@ -1042,7 +1043,8 @@ public class RxUtil {
         if (index == denominatorStart) {
             return null;
         }
-        if (!hasTokenBoundaryAt(text, index) && !hasStrengthUnitAfter(text, index)) {
+        if (!hasTokenBoundaryAt(text, index) && !hasStrengthUnitAfter(text, index)
+                && !hasDoseUnitAfter(text, index)) {
             return null;
         }
 
@@ -1079,6 +1081,13 @@ public class RxUtil {
 
     private static boolean hasStrengthUnitAfter(String instructions, int amountEnd) {
         return STRENGTH_UNIT.matcher(instructions)
+                .region(skipWhitespaceForward(instructions, amountEnd), instructions.length()).lookingAt();
+    }
+
+    private static boolean hasDoseUnitAfter(String instructions, int amountEnd) {
+        // Volumes and explicit unit counts are administered amounts, including
+        // attached forms such as 5mL; retain them rather than assuming one tablet.
+        return DOSE_UNIT.matcher(instructions)
                 .region(skipWhitespaceForward(instructions, amountEnd), instructions.length()).lookingAt();
     }
 
@@ -1134,7 +1143,7 @@ public class RxUtil {
             segment.strength = true;
             return true;
         }
-        if (!hasTokenBoundaryAt(instructions, methodRange.end)) {
+        if (!hasTokenBoundaryAt(instructions, methodRange.end) && !hasDoseUnitAfter(instructions, methodRange.end)) {
             return false;
         }
 
@@ -1153,7 +1162,7 @@ public class RxUtil {
             segment.strength = true;
             return true;
         }
-        if (!hasTokenBoundaryAt(instructions, methodAmount.end)) {
+        if (!hasTokenBoundaryAt(instructions, methodAmount.end) && !hasDoseUnitAfter(instructions, methodAmount.end)) {
             return false;
         }
 

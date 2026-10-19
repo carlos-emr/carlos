@@ -19,7 +19,9 @@ async function workflow(s) {
   const cases = [
     ['1000 mg po tid x 7 days', 1, 1, '21'],
     ['Take 5mg po tid x 7 days', 1, 1, '21'],
-    ['0.5 mL po tid x 7 days', 1, 1, '21'],
+    ['Take 5 mL po tid x 7 days', 5, 5, '105'],
+    ['Take 5mL po tid x 7 days', 5, 5, '105'],
+    ['20 units po tid x 7 days', 20, 20, '420'],
     ['500-1000 mg po tid x 7 days', 1, 1, '21'],
     ['Take 2 tablets (1000 mg) po tid x 7 days', 2, 2, '42'],
     ['1000 mg po 1-2 tid x 7 days', 1, 2, '42'],

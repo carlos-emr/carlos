@@ -92,6 +92,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     @CsvSource(delimiter = '|', value = {
         "1000 mg po tid x 7 days | 1 | 21",
         "Take 5mg po tid x 7 days | 1 | 21",
+        "Take 5mL po tid x 7 days | 5 | 105",
         "1000 mg po 2 tid x 7 days | 2 | 42"
     })
     void shouldReturnCorrectQuantity_whenParsingStrengthInstructions(String instruction,
