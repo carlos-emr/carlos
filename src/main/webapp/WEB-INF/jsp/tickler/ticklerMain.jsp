@@ -340,6 +340,7 @@
                         url: ctx + '/tickler/ListTicklers',
                         type: 'GET',
                         error: function(xhr, error, thrown) {
+                            syncStatusActions();
                             console.error('[ticklerMain] DataTables AJAX error (HTTP ' + xhr.status + '):', error, thrown);
                             jQuery('#ticklerResults_wrapper').prepend(
                                 '<div class="alert alert-danger alert-dismissible">' +
@@ -348,6 +349,8 @@
                             );
                         },
                         data: function(d) {
+                            // Keep checked rows from the previous result set inert until this request draws.
+                            syncStatusActions();
                             d.status = document.getElementById('ticklerview').value || 'A';
                             d.provider = document.getElementById('providerview') ? document.getElementById('providerview').value : '';
                             d.assignee = document.getElementById('assignedTo') ? document.getElementById('assignedTo').value : '';
@@ -482,6 +485,7 @@
                         });
 
                         localStorage.setItem('ticklerPageLength', api.page.len());
+                        syncStatusActions(settings);
                     }
                 });
 
@@ -499,13 +503,18 @@
             });
 
             /**
-             * Shows Complete and Delete outside the Deleted view. Deleted tasks remain part
-             * of the clinical record and have no further deletion action. The filter reloads
-             * the table without re-rendering the page, so the footer must follow it.
+             * Only offers Complete/Delete after the latest request draws for the selected status.
+             * Loading or failed requests leave the previous rows on screen, so those rows must not
+             * become actionable when leaving Deleted. Deleted tasks have no further deletion action.
              */
-            function syncStatusActions() {
-                var deletedView = document.getElementById('ticklerview').value === 'D';
-                jQuery('.status-action-live').each(function () { this.hidden = deletedView; });
+            function syncStatusActions(settings) {
+                var status = document.getElementById('ticklerview').value || 'A';
+                var request = settings && settings.oAjaxData;
+                var response = settings && settings.json;
+                var ready = request && response && !response.error && !response.sError
+                    && Number(response.draw) === settings.iDraw
+                    && Number(request.draw) === settings.iDraw && request.status === status;
+                jQuery('.status-action-live').each(function () { this.hidden = !ready || status === 'D'; });
             }
 
             /**
@@ -1015,15 +1024,15 @@
                                          href="javascript:CheckAll();"><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a> - <a href="javascript:ClearAll();"><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
 
                         <input type="hidden" name="submit_form" value="">
-                        <%-- Retain Deleted tasks for clinical record keeping. syncStatusActions()
-                             hides Complete/Delete in that view as the filter changes in place (#4993). --%>
+                        <%-- Actions stay hidden until the first matching draw, and while requests are pending.
+                             Deleted tasks remain part of the clinical record (#4993). --%>
                         <input type="button" class="btn btn-secondary status-action-live" id="completeButton"
                                value="<fmt:message key="tickler.ticklerMain.btnComplete"/>"
-                               <%= ticklerview.compareTo("D") == 0 ? "hidden" : "" %>
+                               hidden
                                onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
                         <input type="button" class="btn btn-danger status-action-live" id="deleteButton"
                                value="<fmt:message key="tickler.ticklerMain.btnDelete"/>"
-                               <%= ticklerview.compareTo("D") == 0 ? "hidden" : "" %>
+                               hidden
                                onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
