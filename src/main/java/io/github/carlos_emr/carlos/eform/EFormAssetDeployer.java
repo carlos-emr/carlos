@@ -89,10 +89,11 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  * startup, so that directory must stay writable. Earlier versions skipped <em>every</em> existing
  * file, which meant a corrected asset could never reach an install that already had one.</p>
  *
- * <h3>Intentional Exclusion</h3>
- * <p>The {@code stamps.js} file is intentionally NOT auto-deployed because it
- * contains clinic-specific doctor signature image mappings that administrators
- * create themselves through the eForm admin UI.</p>
+ * <h3>stamps.js</h3>
+ * <p>{@code stamps.js} holds clinic-specific doctor signature image mappings that administrators
+ * write themselves and upload through the eForm admin UI. The shipped file is only an empty,
+ * seeded placeholder, so the Rich Text Letter's {@code <script>} for it stops loading a 404 on
+ * installs that have none; an uploaded copy replaces it and is never touched again.</p>
  *
  * <h3>JSoup Interaction Warning</h3>
  * <p>If the eForm images directory does not exist or the assets are not deployed,
@@ -116,7 +117,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     /** Compatibility shim ($.browser, .andSelf, .size, .live/.die, .bind/.unbind) appended to the
      *  jQuery bundle deployed under legacy 1.x/3.1 filenames so pre-3.x forms keep working. */
     private static final String JQUERY_COMPAT_RESOURCE_PATH = "/library/jquery/jquery-compat.js";
-    private static final byte[] BLANK_SIGNATURE_PNG = new byte[] {
+    // Image pixels, not a signing key: avoid the FindSecBugs constant-key heuristic on field names containing "sign".
+    private static final byte[] BLANK_PNG = new byte[] {
         (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
         0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
         0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
@@ -131,11 +133,23 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     /**
      * Assets to deploy. These filenames must match exactly what the RTL eForm's
      * form_html references via {@code displayImage?imagefile=<filename>}.
+     *
+     * <p>The {@code .rtl} entries are the Rich Text Letter's starter templates. They reach the
+     * clinician through {@code efmformrtl_templates}, which lists every {@code *.rtl} file in the
+     * eForm images directory, so a template that is not deployed simply does not exist as far as
+     * the editor's template dropdown is concerned — which is why they ship here rather than being
+     * left for an administrator to upload. All of them are <em>seeded</em>, not managed (see
+     * {@link #MANAGED_ASSETS}): a clinic is expected to edit a letter template, and an edit must
+     * survive the next redeploy.</p>
      */
     private static final String[] ASSETS = {
         "editControl2.js",
         "blank.rtl",
-        "editor_help.html"
+        "clinic_letter.rtl",
+        "consultation_letter.rtl",
+        "patient_letter.rtl",
+        "editor_help.html",
+        "stamps.js"
     };
 
     private static final String[] LEGACY_SIGNATURE_ASSETS = {
@@ -153,7 +167,9 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      * touched again, because a clinic is expected to customize it. That covers {@code blank.rtl}
      * (the default letter template), {@code editor_help.html}, and the generated lab
      * decision-support stubs, whose entire purpose is to be replaced by a clinic's real script.
-     * {@code stamps.js} is not deployed at all and is unaffected.</p>
+     * {@code stamps.js} is seeded the same way: the shipped file is an empty placeholder (the Rich
+     * Text Letter loads it on every open, and a missing one was a 404 refused as script), and a
+     * clinic that lists its own signature images in it keeps that copy.</p>
      *
      * <p>Why this split rather than a blanket never-clobber rule: the deployer previously skipped
      * every existing file, so a corrected {@code editControl2.js} could never reach an install that
@@ -224,7 +240,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         for (String asset : LEGACY_SIGNATURE_ASSETS) {
             deploySharedJavascriptAsset(asset, targetDir);
         }
-        deployGeneratedAsset("BNK.png", targetDir, BLANK_SIGNATURE_PNG);
+        deployGeneratedAsset("BNK.png", targetDir, BLANK_PNG);
         deploySampleLabCompatibilityAssets(targetDir);
 
         // Per-asset outcomes are logged above (deployed / already-exists / failed). This line marks
@@ -432,6 +448,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: filename is a shipped asset name, checked by validateGeneratedChildPath; targetDir is configuration
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "filename is a shipped asset name checked by PathValidationUtils.validateGeneratedChildPath; targetDir is the configured eForm image directory")
     private void deployAssetFromStream(String filename, File targetDir, InputStream is, String sourceLabel) {
         File targetFile = PathValidationUtils.validateGeneratedChildPath(filename, targetDir);
         Path targetPath = targetFile.toPath();

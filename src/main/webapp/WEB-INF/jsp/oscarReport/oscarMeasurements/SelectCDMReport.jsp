@@ -49,6 +49,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <link rel="stylesheet" type="text/css"
@@ -89,14 +90,14 @@
                             <td><fmt:message key="oscarReport.CDMReport.msgSelectCDMGroup"/>
                                 <select name="value(CDMgroup)">
                                     <c:forEach var="CDMGroup" items="${CDMGroups}">
-                                        <option value="${CDMGroup.groupName}">
-                                                ${CDMGroup.groupName}
+                                        <option value="${carlos:forHtmlAttribute(CDMGroup.groupName)}">
+                                                ${carlos:forHtml(CDMGroup.groupName)}
                                         </option>
                                     </c:forEach>
                             </select></td>
                             <td style="text-align: right"><a
-                                    href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                    href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                    href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                         </tr>
                     </table>
                 </td>

@@ -22,10 +22,12 @@
  */
 
 const { chromium } = require('playwright');
+const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -51,6 +53,9 @@ const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through e
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
+// Set before the tickler is created; until then the run owns no rows to clean. Note
+// links at or below it predate the run and are never deleted (#4409).
+let linkIdFloor = null;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -63,7 +68,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -142,10 +151,10 @@ function assert(condition, message) {
 }
 
 function cleanupRows() {
-  // The stamp sits after the scoring text, so match it anywhere in the message.
-  const escapedStamp = escapeSql(`%${stamp}%`);
-  sql(`DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE message LIKE '${escapedStamp}')`);
-  sql(`DELETE FROM tickler WHERE message LIKE '${escapedStamp}'`);
+  if (linkIdFloor === null) {
+    return;
+  }
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, linkIdFloor });
 }
 
 function getTicklerRows() {
@@ -468,12 +477,24 @@ async function deleteTicklerFromList(page, message) {
   await waitForTicklerStatus('D');
 }
 
+// Issue #3600: a finally does not run when the process is killed, which would leave
+// the synthetic ticklers (and the cleartext MySQL password file) behind. Both steps
+// are idempotent; the handler is removed once the normal finally has run them.
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    cleanupRows();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+});
+
 (async () => {
-  cleanupRows();
+  linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -523,8 +544,11 @@ async function deleteTicklerFromList(page, message) {
     await browser.close().catch(() => {});
     cleanupRows();
     cleanupMysqlDefaultsFile();
+    // Last, so a signal arriving during cleanup still reaches the handler.
+    signalHandlers.dispose();
   }
 })().catch((error) => {
+  signalHandlers.dispose();
   cleanupMysqlDefaultsFile();
   console.error(`FAIL tickler CRUD interface flow: ${error.stack || error.message}`);
   process.exit(1);

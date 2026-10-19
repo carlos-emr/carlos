@@ -37,7 +37,7 @@ var TableExport = (function () {
     function escapeCsvCell(text) {
         // Guard against formula injection: prefix with a tab so spreadsheet
         // applications treat the cell as a text value, not a formula.
-        if (FORMULA_PREFIX_RE.test(text)) {
+        if (FORMULA_PREFIX_RE.test(text) && !/^-\d+(?:\.\d+)?$/.test(text)) {
             text = "\t" + text;
         }
         var needsQuoting =
@@ -69,12 +69,15 @@ var TableExport = (function () {
             var table = document.getElementById(tableId);
             if (!table) return false;
 
-            var output = "";
+            var output = "\uFEFF";
             for (var r = 0; r < table.rows.length; r++) {
                 var row = table.rows[r];
                 for (var c = 0; c < row.cells.length; c++) {
                     if (c > 0) output += CSV_SEP;
-                    output += escapeCsvCell(row.cells[c].textContent.trim());
+                    var cell = row.cells[c];
+                    var text = cell.textContent.trim();
+                    if (cell.tagName === "TH") text = text.replace(/\s+/g, " ");
+                    output += escapeCsvCell(text);
                 }
                 output += CSV_NEWLINE;
             }

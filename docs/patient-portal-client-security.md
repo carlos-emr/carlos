@@ -69,6 +69,12 @@ old pin and restart CARLOS again.
 Certificate renewal with the same public key preserves the pin. Operators must
 coordinate automated key rotation with this process; failures stop portal calls.
 
+[`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md) turns this into steps: choosing
+where HTTPS ends, setting and checking the first pin, renewing without changing the key, keeping a
+standby pin, rotating, responding to a compromised key, and diagnosing a mismatch. Each clinic
+records its own answers in a copy of
+[`patient-portal-deployment-record-template.md`](patient-portal-deployment-record-template.md).
+
 This authenticates the configured TLS endpoint. It does not protect a compromised
 portal, a stolen pinned private key, modified CARLOS configuration, or patients
 who visit a separate phishing site. Deployment and the actual pins need separate
@@ -109,20 +115,20 @@ check current state before retrying.
 
 ## Inviting a patient
 
-Staff invite a patient from the **Patient portal** link on the demographic record. The link appears
+Staff invite a patient from the **Patient Portal** link on the demographic record. The link appears
 only when the portal is configured and the user holds `_portal.invite` or `_portal.account` read for
 the patient. Resolving an unfinished delivery needs `_portal.invite` and `_email` write, the same
 email privilege the rest of CARLOS requires to create or close an outbox row. Sending also needs
 `_edoc` write, because every sent email is archived as a patient document. Both are checked before the
 portal is asked for anything, and the page shows only the controls the user's rights allow.
 
-`V1.0.43` grants `doctor` full `_portal.invite`, because `doctor` is the only non-admin role the
-baseline grants `_email`. Read-only `_portal.account`, which the invitation panel uses to show whether
-the patient already has an account, comes from `V1.0.41`; `V1.0.43` does not grant it again, so a
-clinic that removed it keeps that choice. Unlocking a portal account stays with `admin`, where
-`V1.0.41` put it. Front-desk roles hold `_demographic` but not `_email`: granting them `_portal.invite`
-in Administration > Security lets them see and revoke invitations, but not send one or resolve an
-unfinished delivery.
+`V1.0.75` grants `doctor` full `_portal.invite`, because `doctor` is the only
+non-admin role the baseline grants `_email`. Read-only `_portal.account`, which the invitation panel
+uses to show whether the patient already has an account, comes from `V1.0.73`; `V1.0.75` does not
+grant it again, so a clinic that removed it keeps that choice. Unlocking a portal account stays with
+`admin`, where `V1.0.73` put it. Front-desk roles hold `_demographic` but not `_email`: granting
+them `_portal.invite` in Administration > Security lets them see and revoke invitations, but not
+send one or resolve an unfinished delivery.
 
 Two settings are required, and invitations are refused until both are set:
 
@@ -365,3 +371,62 @@ the wrong hostname receive no HTTP requests. It also verifies successful pinned
 connections during key overlap, rejection of untrusted chains even with matching
 pins, and rejection of a genuine certificate appended behind an impostor leaf.
 Settings and transport construction tests reject absent pins before any connection.
+
+## Booking prompt API draft (#3849)
+
+`PatientPortalService` can create, list, and withdraw the portal's fixed-vocabulary booking prompts.
+`portal.booking_prompt.manage` maps to `_portal.booking_prompt`. The JSON action is
+`POST demographic/portalBookingPrompt`, with `method=create|list|panel|withdraw` and `demographicNo`
+(withdraw also takes `promptId`).
+Every request checks patient-record access and the patient's booking privilege; list and panel require read,
+and create/withdraw require write. Create also requires `_portal.account` read and checks for an
+active account before requesting a prompt. The CSRFGuard filter protects every POST, including list.
+
+Create accepts `operationId`, `urgency`, and `appointmentType`. Keep the same operation ID after
+an uncertain response. The portal returns HTTP 201 with `created=true` initially and also HTTP 201
+with `created=false` on a retry, without another notification. The staff action distinguishes those
+outcomes with HTTP 201/200 and the same `created` flag. A confirmed retry records the prompt ID as
+`create.confirmed`, allowing an earlier `create.unconfirmed` audit to be followed by a known result.
+The portal response does not echo `operation_id`; the client verifies patient scope and the supplied
+prompt fields, while the portal owns operation-ID matching.
+
+List returns the portal's latest 100 prompts, including read/unread and notice timestamps. Withdrawal
+first verifies the selected prompt belongs to the patient's list, then checks the returned prompt ID,
+patient, and withdrawn state. An ID omitted from that bounded list is refused. Provider attribution
+is optional; the action omits it until the staff UI has a server-verified provider selector, and never
+accepts a provider name from browser free text. Audit failures after a confirmed remote change do not
+turn that change into a retryable failure.
+
+The UI draft adds a shared box, styled like the record's Notes and placed after it on the master
+record, and at the bottom of the persisted appointment's form. It shows the newest request and how
+many are open; its "Ask / manage" button opens a dialog with the controls and the history.
+Changing the appointment's patient ID or editing/previewing its patient name blocks portal
+controls until save/reopen; every mutation rechecks the current inputs, including programmatic
+changes that emit no input event.
+The fragment checks patient access and booking read before rendering; create controls require
+booking write and account read. The `panel` POST reports account eligibility, prompt history, and
+current create/withdraw capabilities. It reads account status only when permitted and treats an
+explicit absent account separately from an outage. It never reads unrelated invitations.
+
+The browser waits for CSRF bootstrap, uses fixed pick-lists and text-only rendering, and disables
+concurrent changes. An uncertain create retains its operation ID and fixed choices in tab-scoped
+session storage, keyed by actor and patient, across refresh/navigation. No provider names, patient
+names, or portal credentials are stored. Until confirmed, retries retain those choices and ID.
+A definite refusal (HTTP 400, 403 or 404, given before anything reached the portal or by the
+portal itself, or no CSRF token after a 15-second wait) drops the ID only if it was created for
+that attempt, and the panel says the request was not sent. An ID that was tried before, or was
+read back from storage after a reload, is kept, since that earlier attempt may have been stored.
+Session storage is per tab, though a window opened from the tab starts with a copy of it.
+Sending is disabled if storage cannot retain the retry identity. Withdrawal failures require a
+status refresh; no prompt is presented as withdrawn without the confirmed ID/state response.
+The latest-100 history and optional provider attribution limitations above still apply.
+
+The labels are translated in all five catalogs. Offered-slot selection, atomic appointment creation,
+the polling system principal, and decline/expiry ticklers belong to #3850.
+
+`V1.0.60` seeds `_portal.booking_prompt` and grants it (full) to `admin`, `receptionist`, `doctor`,
+`locum`, `psychiatrist`, `nurse`, `Nurse Manager`, `RN` and `RPN`. A role that already has a
+`_portal.booking_prompt` row keeps the clinic's own setting. Until the booking eligibility change
+(#4136) replaces the `_portal.account` check, `receptionist` can list and withdraw prompts but not
+create one, because that role has no `_portal.account` read. Every request also needs `_demographic`
+read, which the baseline does not give `admin`, so a user whose only role is `admin` is refused.

@@ -174,16 +174,16 @@ public final class LoginCheckLoginBean {
      * Initializes the bean with authentication credentials.
      *
      * <p>This method must be called before {@link #authenticate()}. It sets the
-     * username, password, PIN, and IP address fields via their respective setters. The password and
-     * PIN setters preserve legacy space-to-backspace transformation behavior; username and IP are
-     * stored as supplied.
+     * username, password, PIN, and IP address fields via their respective setters. The
+     * PIN setter preserves legacy space-to-backspace transformation behavior. Passwords,
+     * usernames and IP addresses are stored as supplied.
      *
      * @param user_name String the username to authenticate
      * @param password String the plain-text password
      * @param pin1 String the 4-digit provider PIN (may be null if PIN not required)
      * @param ip1 String the client IP address for LAN/WAN detection
      * @see #setUsername for username storage
-     * @see #setPassword for legacy password space-to-backspace transformation
+     * @see #setPassword for exact password storage
      * @see #setPin for legacy PIN space-to-backspace transformation
      * @see #setIp for IP address storage
      */
@@ -222,6 +222,8 @@ public final class LoginCheckLoginBean {
      *   <li>Legacy passwords (&lt; 20 chars): plain-text comparison</li>
      *   <li>Modern passwords (>= 20 chars): BCrypt validation via {@link SecurityManager}</li>
      *   <li>Successful legacy password login triggers automatic BCrypt migration</li>
+     *   <li>Historical space-to-backspace passwords are verified only after the exact value fails,
+     *       then migrated to a hash of the exact entered password</li>
      * </ul>
      *
      * <p>Return value formats:
@@ -296,6 +298,11 @@ public final class LoginCheckLoginBean {
             auth = MessageDigest.isEqual(
                     password.getBytes(StandardCharsets.UTF_8),
                     userpassword.getBytes(StandardCharsets.UTF_8));
+            if (!auth && password.indexOf(' ') >= 0) {
+                auth = MessageDigest.isEqual(
+                        password.replace(' ', '\b').getBytes(StandardCharsets.UTF_8),
+                        userpassword.getBytes(StandardCharsets.UTF_8));
+            }
             // Migrate legacy password to BCrypt on successful authentication
             if (auth) {
                 boolean isPasswordUpgraded = this.securityManager.upgradeSavePasswordHash(this.password, this.security);
@@ -308,6 +315,14 @@ public final class LoginCheckLoginBean {
         // Modern password (>= 20 chars): BCrypt validation
         else {
             auth = this.securityManager.validatePassword(this.password, this.security);
+            if (!auth && password.indexOf(' ') >= 0) {
+                // Older login code replaced ASCII spaces before checking or upgrading passwords.
+                // Verify that historical candidate without upgrading it to another backspace hash.
+                auth = this.securityManager.matchesPassword(password.replace(' ', '\b'), userpassword);
+                if (auth && !this.securityManager.upgradeSavePasswordHash(password, security)) {
+                    logger.error("Error while upgrading legacy space password hash");
+                }
+            }
         }
 
         // Return provider information array on successful authentication
@@ -396,8 +411,16 @@ public final class LoginCheckLoginBean {
         return dummySecurity;
     }
 
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "Timing-only verification against the precomputed dummy BCrypt hash; "
+                    + "neither result can authorize a login")
     private void validateDummyPassword() {
         securityManager.validatePassword(password == null ? "" : password, missingUserDummySecurity());
+        if (password != null && password.indexOf(' ') >= 0) {
+            // A failed real BCrypt login with spaces performs the same compatibility check.
+            // Keep missing-user and legacy-plaintext failures at the same BCrypt work factor.
+            securityManager.matchesPassword(password.replace(' ', '\b'), MISSING_USER_DUMMY_PASSWORD_HASH);
+        }
     }
 
     /**
@@ -518,16 +541,13 @@ public final class LoginCheckLoginBean {
     }
 
     /**
-     * Sets the password for authentication using the legacy space-to-backspace transformation.
-     *
-     * <p>This method replaces ASCII space characters with backspace characters. This preserves
-     * historical authentication behavior; it does not trim or remove all whitespace.
+     * Sets the exact password for authentication without trimming or replacing whitespace.
+     * Historical space-to-backspace compatibility is handled only after exact verification fails.
      *
      * @param password String the plain-text password
      */
     public void setPassword(String password) {
-        // Preserve legacy space-to-backspace behavior.
-        this.password = password == null ? "" : password.replace(' ', '\b');
+        this.password = password == null ? "" : password;
     }
 
     /**

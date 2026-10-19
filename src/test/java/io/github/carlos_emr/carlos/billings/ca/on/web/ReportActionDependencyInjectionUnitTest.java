@@ -57,6 +57,7 @@ class ReportActionDependencyInjectionUnitTest {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private MockedStatic<io.github.carlos_emr.carlos.log.LogAction> logActionMock;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private SecurityInfoManager securityInfoManager;
@@ -77,10 +78,12 @@ class ReportActionDependencyInjectionUnitTest {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
+        logActionMock = mockStatic(io.github.carlos_emr.carlos.log.LogAction.class);
     }
 
     @AfterEach
     void tearDown() {
+        if (logActionMock != null) logActionMock.close();
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
     }
@@ -91,10 +94,83 @@ class ReportActionDependencyInjectionUnitTest {
                 .thenReturn(true);
         BillingOnDiskService service = mock(BillingOnDiskService.class);
 
+        request.setParameter("providers", "999998");
+        request.setParameter("billcenter", "4");
+        request.setParameter("xml_vdate", "2026-04-01");
+        request.setParameter("xml_appointment_date", "2026-04-30");
+
         assertThat(new ViewOnReportGeneration2Action(securityInfoManager, service).execute())
                 .isEqualTo(ActionSupport.SUCCESS);
 
         verify(service).generateNewDisk(request);
+        // OSCAR 19 contract: a generated OHIP file leaves an audit row (generate / ohip file).
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(
+                eq(loggedInInfo), eq(io.github.carlos_emr.carlos.log.LogConst.GENERATE),
+                eq(io.github.carlos_emr.carlos.log.LogConst.CON_OHIP), isNull(), isNull(),
+                eq("provider_no=999998; billCenter=4; dateBegin=2026-04-01; dateEnd=2026-04-30")));
+    }
+
+    @Test
+    void shouldNotAuditGeneration_whenBillingGroupIsInvalid() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
+        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException(
+                java.util.List.of("999998"))).when(service).generateNewDisk(request);
+
+        new ViewOnReportGeneration2Action(securityInfoManager, service).execute();
+
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldAuditSimulation_asOhipFileSimulate() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("r"), isNull()))
+                .thenReturn(true);
+        var assembler = mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOhipSimulationViewModelAssembler.class);
+        request.setParameter("submit", "Create Report");
+        request.setParameter("providers", "999998");
+        request.setParameter("xml_vdate", "2026-04-01");
+        request.setParameter("xml_appointment_date", "2026-04-30");
+
+        assertThat(new ViewBillingOhipSimulation2Action(securityInfoManager, assembler).execute())
+                .isEqualTo(ActionSupport.SUCCESS);
+
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(
+                eq(loggedInInfo), eq(io.github.carlos_emr.carlos.log.LogConst.SIMULATE),
+                eq(io.github.carlos_emr.carlos.log.LogConst.CON_OHIP), isNull(), isNull(),
+                eq("provider_no=999998; dateBegin=2026-04-01; dateEnd=2026-04-30")));
+    }
+
+    @Test
+    void shouldReturnProviderConfigurationGuidance_whenBillingGroupIsInvalid() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
+        var providers = java.util.List.of("999998", "999997");
+        org.mockito.Mockito.doThrow(
+                new io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException(providers))
+                .when(service).generateNewDisk(request);
+
+        assertThat(new ViewOnReportGeneration2Action(securityInfoManager, service).execute())
+                .isEqualTo(ActionSupport.INPUT);
+        assertThat(request.getAttribute("ohipInvalidGroupProviders")).isEqualTo(providers);
+    }
+
+    @Test
+    void shouldReturnGenerationGuidance_whenSelectedProviderIsNotBillable() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
+        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                "Selected provider is not available for group billing."))
+                .when(service).generateNewDisk(request);
+
+        assertThat(new ViewOnReportGeneration2Action(securityInfoManager, service).execute())
+                .isEqualTo(ActionSupport.INPUT);
+        assertThat(request.getAttribute("ohipGenerationError"))
+                .isEqualTo("Selected provider is not available for group billing.");
+        assertThat(request.getAttribute("ohipInvalidGroupProviders")).isNull();
     }
 
     @Test
@@ -162,5 +238,71 @@ class ReportActionDependencyInjectionUnitTest {
                 .isEqualTo(ActionSupport.SUCCESS);
 
         verify(service).settle("123", OnRaSettlementService.Mode.I2_35_WITH_QCODES);
+    }
+
+    @Test
+    void shouldNotAuditSimulation_whenOnlyDisplayingTheForm() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("r"), isNull()))
+                .thenReturn(true);
+        var assembler = mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOhipSimulationViewModelAssembler.class);
+
+        assertThat(new ViewBillingOhipSimulation2Action(securityInfoManager, assembler).execute())
+                .isEqualTo(ActionSupport.SUCCESS);
+
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldAuditStoppedGeneration_whenValidationFailsMidRun() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
+        request.setParameter("providers", "all");
+        request.setParameter("billcenter", "4");
+        request.setParameter("xml_vdate", "2026-04-01");
+        request.setParameter("xml_appointment_date", "2026-04-30");
+        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.billings.ca.on.validator.ClaimFileValidationException(
+                "999997", "Header1: Date of birth missing or invalid! - 77")).when(service).generateNewDisk(request);
+
+        assertThat(new ViewOnReportGeneration2Action(securityInfoManager, service).execute())
+                .isEqualTo(ActionSupport.INPUT);
+
+        assertThat(request.getAttribute("ohipGenerationError")).asString().contains("Provider 999997");
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(
+                eq(loggedInInfo), eq(io.github.carlos_emr.carlos.log.LogConst.GENERATE),
+                eq(io.github.carlos_emr.carlos.log.LogConst.CON_OHIP), isNull(), isNull(),
+                eq("provider_no=all; billCenter=4; dateBegin=2026-04-01; dateEnd=2026-04-30; outcome=stopped: ClaimFileValidationException")));
+    }
+
+    @Test
+    void shouldReturnRegenerationGuidance_whenRegenerationIsRejected() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
+        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                "No billable provider remains on disk 20")).when(service).regenerateDisk(request);
+
+        assertThat(new ViewOnReportRegeneration2Action(securityInfoManager, service).execute())
+                .isEqualTo(ActionSupport.INPUT);
+
+        assertThat(request.getAttribute("ohipGenerationError")).isEqualTo("No billable provider remains on disk 20");
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldAuditRegeneration_asOhipFileGenerate() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
+        request.setParameter("diskId", "20");
+        request.setParameter("billcenter", "4");
+
+        assertThat(new ViewOnReportRegeneration2Action(securityInfoManager, service).execute())
+                .isEqualTo(ActionSupport.SUCCESS);
+
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(
+                eq(loggedInInfo), eq(io.github.carlos_emr.carlos.log.LogConst.GENERATE),
+                eq(io.github.carlos_emr.carlos.log.LogConst.CON_OHIP), isNull(), isNull(),
+                eq("regenerate diskId=20; billCenter=4")));
     }
 }

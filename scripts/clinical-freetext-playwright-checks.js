@@ -35,13 +35,20 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   CLINICAL_DEMOGRAPHIC_NO=1
  *   CLINICAL_CONSULT_SERVICE_ID=1
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
  *   ALLOW_NON_LOCAL_BASE_URL=true only for a disposable install that is not
  *     loopback — this check writes, so a private LAN address, host.docker.internal
  *     and the compose name `carlos` all need the opt-in too
- *   CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true only when the target patient is
- *     known to be test data but does not carry the FAKE-/PLAYWRIGHT- name prefix
+ *
+ * FIXTURE. Both workflows run on a FAKE patient this check creates (lib/owned-patient.js: last
+ * name = a FAKE-PW run marker) and removes. It used to run on DEMO patient 1, and the Master
+ * Record save is not a round trip: it also rewrites the record's province and newsletter codes
+ * ("ON" became "CA-ON", "U" became "Unknown") and archives the previous state into
+ * demographicArchive and demographicExtArchive, so putting the Alert and Notes back could never
+ * put the demo record back. The patient, its consultation requests (and their extension, document
+ * and signature rows), its archive rows and its chart rows are now deleted by the patient's key at the
+ * end and asserted gone, so the runbook's stamp-keyed cleanup SQL is no longer needed.
  *
  * What it writes, and what it leaves behind. MEASURED on a packaged install
  * (2026-09-12, deb 2026.09.0~snapshot22), because the two workflows differ:
@@ -61,31 +68,35 @@
  *                              prose through and the application then failed
  *                              to save it (exactly how the blank-consultant
  *                              save defect in #3623 presented), so it FAILS the
- *                              check rather than passing as "not a 403". The
- *                              rows stay: there is no delete route, and the
- *                              stamp is the cleanup key -- see
- *                              docs/ui-tests/deb-install-validation.md.
+ *                              check rather than passing as "not a 403". There
+ *                              is no delete route in the application, so the
+ *                              requests (with their extension rows) are removed
+ *                              by the owned patient's key in the cleanup, where
+ *                              they used to stay behind on demo patient 1 keyed
+ *                              only by the run stamp.
  *
  * The loopback guard bounds the HOST, not the data: a local install can hold
  * real patient records, so before the first write the check opens the patient's
  * master record and refuses to run unless the first or last name carries the
  * synthetic-data prefix the demo dataset uses (FAKE-, see
  * .devcontainer/db/scripts/demo-name-sanitization.sql) or the PLAYWRIGHT- prefix
- * the other checks give their own fixtures. Each replayed phrase carries a
- * "(Playwright clinical-freetext run <epoch>)" stamp so that text left behind by
- * a run that died before its restore can be recognised for what it is.
+ * the other checks give their own fixtures; the owned patient always does. Each
+ * replayed phrase carries a "(Playwright clinical-freetext run <epoch>)" stamp
+ * so that text a run that died left behind can be recognised for what it is.
  */
 
 const { chromium } = require('playwright');
+const h = require('./lib/playwright-harness');
+const { CONSULTATION_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const demographicNo = requireDigits(process.env.CLINICAL_DEMOGRAPHIC_NO || '1', 'CLINICAL_DEMOGRAPHIC_NO');
+// The owned patient main() creates and removes (never a demo patient); the workflows read it when they open their pages.
+let demographicNo = null;
 const consultationServiceId = requireDigits(process.env.CLINICAL_CONSULT_SERVICE_ID || '1', 'CLINICAL_CONSULT_SERVICE_ID');
-const allowNonSyntheticPatient = process.env.CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT === 'true';
 
 // Name prefixes that mark a patient as test data: FAKE- is what the demo dataset's
 // sanitisation writes on every person name, PLAYWRIGHT- is what the fixture-owning
@@ -96,10 +107,12 @@ const SYNTHETIC_NAME_PREFIXES = ['FAKE-', 'PLAYWRIGHT-'];
 // is a shape the CRS scores, so the phrase in front of it is still what the WAF is
 // measured on. For the demographic workflow the restore below is what puts the
 // record back; for the consultation workflow, which files a request per phrase,
-// this stamp in `reason` is the key the runbook's cleanup SQL deletes by.
+// this stamp in `reason` tells a request of this check from any other.
 const RUN_STAMP = `(Playwright clinical-freetext run ${Date.now()})`;
 
 const saveResults = [];
+// The browser runFreeTextChecks() launches; the cleanup closes it before it removes the rows.
+let browser = null;
 const badResponses = [];
 // Set when a response arrives through the packaged nginx front door. Against bare
 // Tomcat every phrase saves for the boring reason that nothing inspected it, so a
@@ -108,26 +121,10 @@ const badResponses = [];
 let frontDoorObserved = false;
 const expectFrontDoor = /^(1|true|yes)$/i.test(process.env.EXPECT_FRONT_DOOR || '');
 
-// Each phrase is a sentence a clinician would actually write, measured through
-// the packaged front door to score over the CRS inbound threshold on its own.
-// The rule ids are what the ModSecurity audit log reported. The pasted link goes
-// FIRST in its phrase on purpose: 931100 is anchored on the start of the
-// argument, so a link buried mid-sentence does not exercise attack-rfi.
-//
-// There is deliberately NO phrase carrying HTML markup. Unlike the note route
-// (1010), the survey exclusions keep the CRS XSS family ON every argument —
-// ClinicalProseWafExclusionRegressionTest pins that — so a "<span style=...>"
-// pasted into a referral is expected to answer 403 behind the front door, and a
-// corpus that carried one would fail this check against a correct rule set.
-const PROSE_CORPUS = [
-  { label: 'plain prose', text: 'Routine follow up. Patient doing well.', crs: 'none' },
-  { label: 'sentence semicolon', text: 'Reviewed labs with the patient; find attached the CBC and lytes.', crs: '932100/932110 attack-rce' },
-  { label: 'shell-shaped cost', text: 'Cost ${45} per month; patient declined the brand.', crs: '932130 attack-rce' },
-  { label: 'either-or plan', text: 'Select one of the two and order 1,2 tests.', crs: '932115/942350 rce+sqli' },
-  { label: 'relative file path', text: 'See scanned report ../../images/ecg.png for the tracing.', crs: '930100/930110 attack-lfi' },
-  { label: 'pasted PACS link first', text: 'http://10.0.0.5/pacs/study?id=1&cmd=view reviewed prior imaging with the patient.', crs: '931100 attack-rfi + 932110 attack-rce' },
-  { label: 'wound measurement', text: 'Wound <2cm, clean. <?> follow up in 1 week.', crs: '933100 attack-injection-php' },
-];
+// The phrase corpus is shared with waf-clinical-text-corpus, which replays the same sentences through
+// every other route that has a prose exclusion; see lib/clinical-prose-corpus.js for what each phrase
+// trips and why none of them carries HTML markup.
+const { PROSE_CORPUS } = require('./lib/clinical-prose-corpus');
 
 /*
  * Deliberately NARROWER than the guard the read-only checks share: this one
@@ -304,6 +301,8 @@ const WORKFLOWS = [
     // An update overwrites the record in place, so the captured body, replayed
     // unchanged, puts the Alert and Notes back exactly as the page rendered them.
     restoreAfterReplays: true,
+    // The owned patient has no extension rows yet; see runWorkflow().
+    primeBeforeCapture: true,
   },
 ];
 
@@ -313,8 +312,7 @@ const WORKFLOWS = [
  * Opens the master record this run is about to overwrite and reads the names off
  * the form's own controls (not FormData: a name field the role cannot edit is
  * disabled and would be skipped). Either name carrying a synthetic prefix is
- * enough; a record with neither is refused unless the operator has said, with
- * CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true, that they know what it is.
+ * enough; a record with neither is refused.
  */
 async function verifySyntheticPatient(context) {
   const page = await context.newPage();
@@ -330,13 +328,12 @@ async function verifySyntheticPatient(context) {
     });
     const synthetic = [names.firstName, names.lastName].some((name) =>
       SYNTHETIC_NAME_PREFIXES.some((prefix) => name.trim().toUpperCase().startsWith(prefix)));
-    if (!synthetic && !allowNonSyntheticPatient) {
+    if (!synthetic) {
       // Deliberately does not print the names: if this is a real patient, the
       // whole point is not to spread that record any further.
       throw new Error(`demographic ${demographicNo} does not carry a synthetic-data name prefix `
         + `(${SYNTHETIC_NAME_PREFIXES.join(' or ')}), so this check will not overwrite its Alert/Notes or file `
-        + 'consultation requests against it. Point CLINICAL_DEMOGRAPHIC_NO at a test patient, or set '
-        + 'CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true only if you know this record is test data');
+        + 'consultation requests against it');
     }
     return synthetic;
   } finally {
@@ -417,7 +414,8 @@ function appUrlForPage(appPath) {
 async function runWorkflow(context, workflow) {
   const page = await context.newPage();
   wirePage(page, workflow.name);
-  try {
+  // Opens the workflow's page and waits until its form is there with its CSRF token populated.
+  const openForm = async () => {
     await page.goto(workflow.open(), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback unless explicitly opted out of
     await page.locator(workflow.ready).first().waitFor({ state: 'attached', timeout: 30000 });
     // CSRFGuard's client script fills the hidden input after the page loads, so wait
@@ -433,6 +431,22 @@ async function runWorkflow(context, workflow) {
       workflow.formName,
       { timeout: 15000 },
     ).catch(() => {});
+  };
+
+  try {
+    await openForm();
+    if (workflow.primeBeforeCapture) {
+      // A patient that has never been saved through the form has no demographicExt rows, so the form carries empty extension
+      // ids and EVERY save INSERTs them: the first creates them and each replay of the same stale body then violates
+      // uk_demo_ext (HTTP 500; the defect concurrency-demographic-ext-insert pins). The owned patient is therefore saved once,
+      // unchanged, and the page re-opened, so the body the replays carry holds the ids of rows that exist and they UPDATE.
+      const primed = await captureForm(page, workflow.formName);
+      assert(primed && primed.length, `${workflow.name}: form ${workflow.formName} was not on the page, so it could not be primed`);
+      const status = await replay(page, workflow, primed, null);
+      assert(status === 200 || status === 'redirect',
+        `${workflow.name}: the priming save of the unchanged form answered ${status}, so the replays would measure a broken save`);
+      await openForm();
+    }
 
     const entries = await captureForm(page, workflow.formName);
     assert(entries && entries.length,
@@ -501,8 +515,14 @@ async function runWorkflow(context, workflow) {
   }
 }
 
-(async () => {
-  const browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
+/** Everything the run wrote for the owned patient (its consultation requests among it), by its key, then the patient. */
+function removeFixturePatient(sql, patient, marker) {
+  removeOwnedPatient(sql, patient, marker, CONSULTATION_ROWS);
+}
+
+/** Both workflows and the assertions on their results, on the owned patient main() created. */
+async function runFreeTextChecks() {
+  browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
   // Certificate verification is only relaxed for loopback, where the packaged
   // install serves its own self-signed cert. A target opted in with
   // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
@@ -517,11 +537,7 @@ async function runWorkflow(context, workflow) {
   try {
     await login(context);
     // Before the first write: refuse a patient that does not look like test data.
-    const syntheticPatient = await verifySyntheticPatient(context);
-    if (!syntheticPatient) {
-      console.log(`WARNING demographic ${demographicNo} carries no synthetic-data name prefix; `
-        + 'proceeding because CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true');
-    }
+    await verifySyntheticPatient(context);
 
     for (const workflow of WORKFLOWS) {
       await runWorkflow(context, workflow);
@@ -560,11 +576,32 @@ async function runWorkflow(context, workflow) {
     console.log(`PASS ${WORKFLOWS.length} clinical free-text workflows saved `
       + `${PROSE_CORPUS.length} prose variants each without a WAF rejection`);
     const filed = saveResults.filter((result) => redirectRequired.has(result.workflow)).length;
-    console.log(`Alert/Notes restored. ${filed} consultation requests were filed for demographic ${demographicNo} `
+    console.log(`Alert/Notes restored. ${filed} consultation requests were filed for the owned patient `
       + `and answered with the confirmation redirect; each carries the run stamp "${RUN_STAMP}" in its reason, `
-      + 'which is the cleanup key (see docs/ui-tests/deb-install-validation.md).');
+      + 'and is removed with the patient.');
   } finally {
     await browser.close();
+    browser = null;
+  }
+}
+
+(async () => {
+  // The owned patient both workflows run on, created before anything else is written (never a demo patient).
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    await runFreeTextChecks();
+  } finally {
+    try {
+      // A browser that will not close must not skip the patient's removal below.
+      if (browser) await browser.close().catch(() => {});
+      if (demographicNo !== null) removeFixturePatient(sql, demographicNo, ownedMarker);
+    } finally {
+      sql.dispose();
+    }
   }
 })().catch((error) => {
   console.error('FAIL clinical free-text Playwright check');

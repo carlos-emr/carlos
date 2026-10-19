@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -128,6 +129,73 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(drug);
         entityManager.flush();
         return drug;
+    }
+
+    @Test
+    @DisplayName("should require both prescription and drug ownership when loading a patient's script")
+    void shouldScopeScriptLookup_toPersistedPatientOwnership() {
+        Prescription script = new Prescription();
+        script.setDemographicId(DEMO_NO);
+        script.setProviderNo(PROVIDER_NO);
+        script.setDatePrescribed(today);
+        script.setDatePrinted(today);
+        entityManager.persist(script);
+        entityManager.flush();
+
+        Drug owned = createDrug(DEMO_NO, "Owned medication", "", false);
+        owned.setScriptNo(script.getId());
+        entityManager.persist(owned);
+        // Inconsistent historical data must not leak another patient's drug through this script.
+        Drug foreign = createDrug(DEMO_NO_2, "Foreign medication", "", false);
+        foreign.setScriptNo(script.getId());
+        entityManager.persist(foreign);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Object[]> ownedRows = drugDao.findDrugsAndPrescriptionsByScriptNumber(script.getId(), DEMO_NO);
+
+        assertThat(ownedRows).hasSize(1);
+        assertThat(((Drug) ownedRows.getFirst()[0]).getId()).isEqualTo(owned.getId());
+        assertThat(((Prescription) ownedRows.getFirst()[1]).getDemographicId()).isEqualTo(DEMO_NO);
+        // The foreign drug's own demographic cannot read a prescription belonging to DEMO_NO.
+        assertThat(drugDao.findDrugsAndPrescriptionsByScriptNumber(script.getId(), DEMO_NO_2)).isEmpty();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "UPDATE drugs SET takemin=NULL WHERE drugid=:id",
+            "UPDATE drugs SET takemax=NULL WHERE drugid=:id",
+            "UPDATE drugs SET custom_instructions=NULL WHERE drugid=:id",
+            "UPDATE drugs SET hide_cpp=NULL WHERE drugid=:id",
+            "UPDATE drugs SET start_date_unknown=NULL WHERE drugid=:id"})
+    @DisplayName("should load schema-legal null prescription fields using existing primitive defaults")
+    void shouldLoadDefaultValues_whenLegacyDrugFieldIsNull(String query) {
+        Drug stored = createAndPersist(DEMO_NO, "Legacy synthetic drug", "TEST", false);
+        // Statements are fixed literals above; the fixture identifier remains bound.
+        entityManager.createNativeQuery(query)
+                .setParameter("id", stored.getId()).executeUpdate();
+        entityManager.clear();
+        Drug loaded = drugDao.find(stored.getId());
+        assertThat(loaded.getTakeMin()).isZero();
+        assertThat(loaded.getTakeMax()).isZero();
+        assertThat(loaded.isCustomInstructions()).isFalse();
+        assertThat(loaded.getHideFromCpp()).isFalse();
+        assertThat(loaded.getStartDateUnknown()).isFalse();
+        assertThat(loaded.getSpecial()).isEqualTo("1 tab PO daily");
+        loaded.setTakeMin(0.5f);
+        loaded.setTakeMax(2.5f);
+        loaded.setCustomInstructions(true);
+        loaded.setHideFromCpp(true);
+        loaded.setStartDateUnknown(true);
+        entityManager.flush();
+        entityManager.clear();
+        Drug reloaded = drugDao.find(stored.getId());
+        assertThat(reloaded.getTakeMin()).isEqualTo(0.5f);
+        assertThat(reloaded.getTakeMax()).isEqualTo(2.5f);
+        assertThat(reloaded.isCustomInstructions()).isTrue();
+        assertThat(reloaded.getHideFromCpp()).isTrue();
+        assertThat(reloaded.getStartDateUnknown()).isTrue();
+        assertThat(reloaded.getSpecial()).isEqualTo("1 tab PO daily");
     }
 
     // ========================================================================

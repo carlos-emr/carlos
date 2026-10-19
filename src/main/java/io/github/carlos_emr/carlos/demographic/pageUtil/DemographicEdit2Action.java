@@ -363,6 +363,8 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("userlastname", session.getAttribute("userlastname"));
         request.setAttribute("apptProvider", request.getParameter("apptProvider"));
         request.setAttribute("appointment", request.getParameter("appointment"));
+        request.setAttribute(PatientNavModel.REQUEST_ATTRIBUTE,
+                PatientNavModel.forRequest(request, demographic, PatientNavModel.Page.RECORD));
         request.setAttribute("oscarProps", oscarProps);
         request.setAttribute("firstNationCommunities", firstNationCommunities);
         request.setAttribute("phuLookupList", phuLookupList);

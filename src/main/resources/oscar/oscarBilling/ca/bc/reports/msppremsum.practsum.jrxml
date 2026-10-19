@@ -2,24 +2,24 @@
 <jasperReport name="practSum" pageWidth="535" pageHeight="842" columnWidth="535" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
-	<import value="io.github.carlos_emr.carlos.billings.MSP.*" />
-	<parameter name="payeeNo" class="java.lang.String" isForPrompting="false" />
-	<parameter name="s21id" class="java.lang.String" isForPrompting="false" />
-	<parameter name="subS23" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false" />
-	<parameter name="adj" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false" />
-	<queryString>
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
+	<import>io.github.carlos_emr.carlos.billings.ca.bc.MSP.*</import>
+	<parameter name="payeeNo" class="java.lang.String" forPrompting="false" />
+	<parameter name="s21id" class="java.lang.String" forPrompting="false" />
+	<parameter name="subS23" class="net.sf.jasperreports.engine.JasperReport" forPrompting="false" />
+	<parameter name="adj" class="net.sf.jasperreports.engine.JasperReport" forPrompting="false" />
+	<query>
 		<![CDATA[select t_payment,t_practitionerno,t_practitionername,t_amtbilled,t_amtpaid from teleplanS22 where t_payeeno = $P{payeeNo} and s21_id=$P{s21id}  and t_s22type<>'D' order by s22_id]]>
-	</queryString>
+	</query>
 	<field name="t_payment" class="java.lang.String" />
 	<field name="t_practitionerno" class="java.lang.String" />
 	<field name="t_practitionername" class="java.lang.String" />
 	<field name="t_amtbilled" class="java.lang.String" />
 	<field name="t_amtpaid" class="java.lang.String" />
 	<variable name="test" class="java.lang.String" resetType="None">
-		<variableExpression><![CDATA["test"]]></variableExpression>
+		<expression><![CDATA["test"]]></expression>
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
 	<background splitType="Stretch">
@@ -36,9 +36,7 @@
 			<text><![CDATA[Practioner Summary]]></text>
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="22" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 	</title>
 	<pageHeader splitType="Stretch">
@@ -48,14 +46,10 @@
 	<detail>
 		<band height="76" splitType="Stretch">
 			<element kind="rectangle" mode="Opaque" x="1" y="0" width="534" height="17" forecolor="#000000" backcolor="#999999" key="element-22" radius="0">
-				<graphicElement fill="Solid">
-					<pen lineWidth="0.5" lineStyle="Solid" />
-				</graphicElement>
+				<pen lineWidth="0.5" lineStyle="Solid" />
 			</element>
 			<element kind="line" mode="Opaque" x="0" y="18" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="element-89" direction="BottomUp">
-				<graphicElement fill="Solid">
-					<pen lineWidth="0.5" lineStyle="Solid" />
-				</graphicElement>
+				<pen lineWidth="0.5" lineStyle="Solid" />
 			</element>
 			<element kind="staticText" mode="Transparent" x="0" y="2" width="82" height="12" forecolor="#FFFFFF" backcolor="#FFFFFF" key="element-90" hTextAlign="Left" vTextAlign="Middle" rotation="None">
 				<paragraph lineSpacing="Single" />

@@ -48,12 +48,9 @@ public class RptMeasurementsData {
      * @return number or Patients seen in Integer
      */
     public int getNbPatientSeen(String startDateA, String endDateA) {
-        int nbPatient = 0;
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
-        for (Object o : dao.findByCreateDate(ConversionUtils.fromDateString(startDateA), ConversionUtils.fromDateString(endDateA))) {
-            nbPatient = (Integer) o;
-        }
-        return nbPatient;
+        return dao.findByCreateDate(ConversionUtils.fromDateString(startDateA),
+                ConversionUtils.fromDateString(endDateA)).size();
     }
 
     /**
@@ -61,12 +58,11 @@ public class RptMeasurementsData {
      *
      * @return ArrayList which contain the result in String format
      */
-    public ArrayList getPatientsSeen(String startDate, String endDate) {
-        ArrayList patients = new ArrayList();
+    public ArrayList<String> getPatientsSeen(String startDate, String endDate) {
+        ArrayList<String> patients = new ArrayList<>();
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
-        for (Object[] o : dao.findByCreateDate(ConversionUtils.fromDateString(startDate), ConversionUtils.fromDateString(endDate))) {
-            Integer i = (Integer) o[0];
-            patients.add("" + i);
+        for (Integer patientId : dao.findByCreateDate(ConversionUtils.fromDateString(startDate), ConversionUtils.fromDateString(endDate))) {
+            patients.add(patientId.toString());
         }
         return patients;
     }

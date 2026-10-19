@@ -33,6 +33,8 @@ import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -42,7 +44,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("PatientEndYearStatementService")
 @Tag("unit")
 @Tag("billing")
-class PatientEndYearStatementServiceUnitTest {
+class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
 
     @Test
     void shouldLoadInvoiceItemsInOneBulkQuery_andGroupThemByInvoice() throws Exception {
@@ -66,22 +68,60 @@ class PatientEndYearStatementServiceUnitTest {
 
         BillingONItem firstItem = item(101, "A001A", "10.00");
         BillingONItem secondItem = item(202, "K013A", "20.00");
-        when(itemDao.findByCh1IdsExcludingDeletedAndSettled(List.of(101, 202)))
+        when(itemDao.findByCh1IdsExcludingDeleted(List.of(101, 202)))
                 .thenReturn(List.of(firstItem, secondItem));
 
         PatientEndYearStatementService.Result result =
                 service.aggregateInvoices(demographic, from, to);
 
         assertThat(result.invoices()).hasSize(2);
+        assertThat(result.invoices().get(0).invoiced()).isEqualTo("30.00");
+        assertThat(result.invoices().get(0).paid()).isEqualTo("10.00");
+        assertThat(result.summary().getInvoiced()).isEqualTo("70.00");
+        assertThat(result.summary().getPaid()).isEqualTo("15.00");
         assertThat(result.invoices().get(0).services())
                 .extracting("code")
                 .containsExactly("A001A");
         assertThat(result.invoices().get(1).services())
                 .extracting("code")
                 .containsExactly("K013A");
-        verify(itemDao).findByCh1IdsExcludingDeletedAndSettled(List.of(101, 202));
+        verify(itemDao).findByCh1IdsExcludingDeleted(List.of(101, 202));
         verify(itemDao, never()).findByCh1Id(101);
         verify(itemDao, never()).findByCh1Id(202);
+    }
+
+    @Test
+    void shouldLeaveResponseUntouched_whenRenderingFailsAfterWritingPartialBytes() {
+        var service = spy(new PatientEndYearStatementService(
+                mock(BillingONCHeader1Dao.class), mock(BillingONItemDao.class), mock(DemographicManager.class)));
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        doAnswer(invocation -> {
+            ((java.io.OutputStream) invocation.getArgument(0)).write("%PDF-partial".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            throw new PatientEndYearStatementService.Failure(PatientEndYearStatementService.Reason.PDF_ERROR);
+        }).when(service).writePdfTo(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.writePdfResponse(response, "statement", null, null, null))
+                .isInstanceOf(PatientEndYearStatementService.Failure.class);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "<html>Error</html>"})
+    void shouldRejectInvalidRendererOutput_beforeSettingPdfHeaders(String rendered) {
+        var service = spy(new PatientEndYearStatementService(
+                mock(BillingONCHeader1Dao.class), mock(BillingONItemDao.class), mock(DemographicManager.class)));
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        doAnswer(invocation -> {
+            ((java.io.OutputStream) invocation.getArgument(0)).write(rendered.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            return null;
+        }).when(service).writePdfTo(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.writePdfResponse(response, "statement", null, null, null))
+                .isInstanceOf(PatientEndYearStatementService.Failure.class);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentType()).isNull();
     }
 
     private static BillingONCHeader1 header(int id, String total, String paid) throws Exception {

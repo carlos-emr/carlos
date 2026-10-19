@@ -82,7 +82,6 @@ import org.apache.xmlbeans.XmlOptions;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -95,6 +94,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -136,10 +136,12 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import javax.sql.DataSource;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -149,8 +151,29 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
+    // Struts creates this action per request; its Spring services are not serialized.
     private final transient SecurityInfoManager securityInfoManager;
+
     private static final Logger logger = MiscUtils.getLogger();
+
+    /**
+     * What this action's log lines name an imported file or folder by, never its path: the first 12
+     * hex digits of the path's SHA-256 (an import folder's or report file's name can identify a
+     * patient). For a known path: {@code printf '%s' "$path" | sha256sum | cut -c1-12}.
+     */
+    static String pathReference(String path) {
+        return path == null ? "ref:none" : "ref:" + DigestUtils.sha256Hex(path).substring(0, 12);
+    }
+
+    /**
+     * A failure's trace at debug, types and code locations only: an exception's message (or a
+     * cause's) can carry a path, so the error line names the exception type and attaches nothing.
+     */
+    private static void logTrace(String step, Throwable failure) {
+        if (logger.isDebugEnabled()) {
+            logger.debug("{} failure trace:{}", step, LogSafe.exceptionTrace(failure));
+        }
+    }
     private static final String PATIENTID = "Patient";
     private static final String ALERT = "Alert";
     private static final String ALLERGY = "Allergy";
@@ -172,6 +195,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     String admProviderNo = null;
     Demographic demographic = null;
     String demographicNo = null;
+    private int importedPatients;
+    private int refusedPatients;
     String patientName = null;
     String programId = null;
     HashMap<String, Integer> entries = new HashMap<String, Integer>();
@@ -295,15 +320,29 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
         matchProviderNames = this.isMatchProviderNames();
 
+        importedPatients = 0;
+        refusedPatients = 0;
         if (uploadValidationError != null) {
-            addActionError(uploadValidationError);
-            return SUCCESS;
+            generateResponse(response, new ArrayList<>(List.of(uploadValidationError)), null);
+            return NONE;
         }
 
         if (!hasUploadedImportFile(importFile, importFileFileName)) {
             return SUCCESS;
         }
 
+        try (CdsImportLock importLock = CdsImportLock.acquire(SpringUtils.getBean(DataSource.class))) {
+            if (importLock == null) {
+                generateResponse(response, new ArrayList<>(List.of("Another CDS import is still running. Please retry this file after it finishes.")), null);
+                return NONE;
+            }
+            return importUploadedFile(loggedInInfo);
+        }
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private String importUploadedFile(LoggedInInfo loggedInInfo) throws Exception {
         ArrayList<String> warnings = new ArrayList<>();
         ArrayList<String[]> logs = new ArrayList<>();
         List<Path> validXmlFiles = new ArrayList<>();
@@ -330,7 +369,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         try {
             filePath = PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir).toPath();
-        } catch (SecurityException e) {
+        } catch (SecurityException _) {
             throw new IllegalArgumentException("Invalid file path: Access outside the allowed directory is not permitted.");
         }
 
@@ -447,6 +486,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         try {
             json.set("warnings", jsonMapper.valueToTree(warnings));
             json.put("importLog", importLog);
+            json.put("importedPatients", importedPatients);
+            json.put("refusedPatients", refusedPatients);
             response.getWriter().write(json.toString());
         } catch (IOException e) {
             logger.error("An error occurred while writing JSON response to the output stream", e);
@@ -570,7 +611,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         } catch (SecurityException e) {
             // Do not log the entry name: uploaded export entry/file names can carry patient-identifying
             // content (PHI). PathValidationUtils already logs the sanitized rejected path internally.
-            logger.error("SECURITY: Skipping malicious ZIP entry during demographic import", e);
+            logger.error("SECURITY: Skipping malicious ZIP entry during demographic import ({})", e.getClass().getSimpleName());
+            logTrace("ZIP entry", e);
             return null;
         }
     }
@@ -579,8 +621,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
      * Process a single patient XML / CDS / CMS file import and add to OSCAR's database.
      */
     private void processXmlFile(LoggedInInfo loggedInInfo, Path xmlFile, Path importRoot, ArrayList<String> warnings, ArrayList<String[]> logs, HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId, List<Path> validXmlFiles) throws Exception {
+        int importedBefore = importedPatients;
         String[] logResult = importXML(loggedInInfo, xmlFile.toString(), importRoot, warnings, request, timeshiftInDays, students, courseId, false);
-        validXmlFiles.add(xmlFile);
+        // Refused patients must not receive a second pass that writes contacts.
+        if (importedPatients > importedBefore) {
+            validXmlFiles.add(xmlFile);
+        }
         logs.add(logResult);
     }
 
@@ -595,7 +641,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         } catch (IOException ex) {
             // Don't expose path in user-facing warnings (may contain PHI)
             warnings.add("Error while searching for XML files in directory");
-            logger.error("Error while locating .xml files in path: {}", path, ex);
+            logger.error("Error while locating .xml files in an import folder: {} ({})",
+                    pathReference(path == null ? null : path.toString()), ex.getClass().getSimpleName());
+            logTrace("Locating .xml files", ex);
         }
         return filteredFileList;
     }
@@ -664,6 +712,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             Integer pid = programManager.getProgramIdByProgramName("program" + student.getProviderNo());
             if (pid == null) {
                 logger.warn("student's program not found");
+                refusedPatients++;
+                warnings.add("Patient not imported: the target student's program was not found.");
                 continue;
             }
             Program p = programManager.getProgram(pid);
@@ -708,10 +758,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             omdCds.validate(opts);
 
 
-        } catch (IOException ex) {
-            logger.error("Error", ex);
-        } catch (XmlException ex) {
-            logger.error("Error", ex);
+        } catch (IOException | XmlException ex) {
+            // The message can carry the file's path or quote its content: log the type only.
+            logger.error("Error reading an imported patient file ({})", ex.getClass().getSimpleName());
+            logTrace("Reading an imported patient file", ex);
         }
         PatientRecord patientRec = omdCds.getPatientRecord();
 
@@ -894,6 +944,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     private String[] importXML(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, Provider student, Program admitTo, int courseId, boolean cleanFile) throws SQLException, Exception {
+        // A batch reuses this action; a refused record must not inherit the prior patient's ID.
+        demographicNo = null;
+        demographic = null;
         ArrayList<String> err_demo = new ArrayList<String>(); //errors: duplicate demographics
         ArrayList<String> err_data = new ArrayList<String>(); //errors: discrete data
         ArrayList<String> err_summ = new ArrayList<String>(); //errors: summary
@@ -922,10 +975,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             OmdCdsDocument.OmdCds omdCds = OmdCdsDocument.Factory.parse(xmlF, opts).getOmdCds();
             omdCds.validate(opts);
             patientRec = omdCds.getPatientRecord();
-        } catch (IOException ex) {
-            logger.error("Error", ex);
-        } catch (XmlException ex) {
-            logger.error("Error", ex);
+        } catch (IOException | XmlException ex) {
+            // The message can carry the file's path or quote its content: log the type only.
+            logger.error("Error reading an imported patient file ({})", ex.getClass().getSimpleName());
+            logTrace("Reading an imported patient file", ex);
         }
 
         //DEMOGRAPHICS
@@ -1026,6 +1079,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         if (demodup.size() > 0) {
             err_data.clear();
             err_demo.add("Error! Patient " + patientName + " already exist! Not imported.");
+            refusedPatients++;
             return packMsgs(err_demo, err_data, err_summ, err_othe, err_note, warnings);
         }
 
@@ -1359,6 +1413,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 */
         demoRes = dd.addDemographic(loggedInInfo, title, lastName, firstName, middleNames, address, city, province, postalCode, residentialAddress, residentialCity, residentialProvince, residentialPostalCode, homePhone, workPhone, year_of_birth, month_of_birth, date_of_birth, hin, versionCode, rosterStatus, rosterDate, termDate, termReason, rosterEnrolledTo, patient_status, psDate, ""/*date_joined*/, chart_no, official_lang, spoken_lang, primaryPhysician, sex, ""/*end_date*/, ""/*eff_date*/, ""/*pcn_indicator*/, hc_type, hc_renew_date, ""/*family_doctor*/, email, ""/*alias*/, ""/*previousAddress*/, ""/*children*/, ""/*sourceOfIncome*/, ""/*citizenship*/, sin);
         demographicNo = demoRes.getId();
+        if (StringUtils.filled(demographicNo)) {
+            importedPatients++;
+        } else {
+            refusedPatients++;
+        }
         /*        }
 
          */
@@ -2356,7 +2415,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 	                    			drug.setGcnSeqNo(dm.drugId + "");
                             }
                         }
-                    } catch (Exception e) {
+                    } catch (Exception _) {
                         logger.warn("Error looking up DIN");
                     }
                 }
@@ -2694,8 +2753,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
                         try {
                             hrmDocProvider.setSignedOffTimestamp(f.parse(reviewDateTime));
-                        } catch (ParseException e) {
-
+                        } catch (ParseException _) {
+                            // The sign-off is still recorded, without its time; the date itself is not logged.
+                            logger.warn("HRM review date is not yyyy-MM-dd; sign-off timestamp left unset");
                         }
 
                         HRMDocumentToProviderDao hRMDocumentToProviderDao = SpringUtils.getBean(HRMDocumentToProviderDao.class);
@@ -2807,7 +2867,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                                         PathValidationUtils.validateGeneratedFileName(docFileName),
                                         PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR"));
                             } catch (SecurityException e) {
-                                logger.error("SECURITY: rejected report destination filename", e);
+                                logger.error("SECURITY: rejected report destination filename ({})", e.getClass().getSimpleName());
+                                logTrace("Report destination", e);
                                 err_data.add("Error! Invalid filename for Report (" + (i + 1) + ")");
                                 continue;
                             }
@@ -2839,7 +2900,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                                 } catch (SecurityException e) {
                                     // Do not log the uploaded file/source names: they can carry
                                     // patient-identifying content (PHI). The rejection itself is the signal.
-                                    logger.error("SECURITY: Rejecting file copy - resolved path outside the allowed import directory", e);
+                                    logger.error("SECURITY: Rejecting file copy - resolved path outside the allowed import directory ({})",
+                                            e.getClass().getSimpleName());
+                                    logTrace("Report source", e);
                                     err_data.add("Error! Security violation for Report (" + (i + 1) + "): Invalid file path");
                                     continue;
                                 }
@@ -2943,6 +3006,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
             //CARE ELEMENTS
             CareElements[] careElems = patientRec.getCareElementsArray();
+            // NRTF shares the 67536-3 neurological exam code with FTLS; CARLOS exports add a
+            // NewCategory marker naming each NRTF screening by its ordinal among the record's
+            // 67536-3 screenings (document order), so it can be told apart here.
+            CdsNeurologicalExam.NrtfMarkers nrtfMarkers = CdsNeurologicalExam.readNrtfMarkers(patientRec.getNewCategoryArray());
+            int neurologicalExamOrdinal = 0;
             for (int i = 0; i < careElems.length; i++) {
                 CareElements ce = careElems[i];
                 cdsDt.Height[] heights = ce.getHeightArray();
@@ -3106,7 +3174,14 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                             ImportExportMeasurements.saveMeasurements("FTE", demographicNo, admProviderNo, dataField, dateObserved);
                             addOneEntry(CAREELEMENTS);
                         } else if (ds.getExamCode().equals(ExamCode.X_67536_3)) {
-                            ImportExportMeasurements.saveMeasurements("FTLS", demographicNo, admProviderNo, dataField, dateObserved);
+                            String nrtfResult = nrtfMarkers.claim(neurologicalExamOrdinal++, ds);
+                            if (nrtfResult != null) {
+                                // Keep the recorded value as exported, even when empty: an NRTF saved
+                                // without a value must not come back as a positive "Yes" finding.
+                                ImportExportMeasurements.saveMeasurements(CdsNeurologicalExam.NRTF, demographicNo, admProviderNo, nrtfResult, dateObserved);
+                            } else {
+                                ImportExportMeasurements.saveMeasurements(CdsNeurologicalExam.FTLS, demographicNo, admProviderNo, dataField, dateObserved);
+                            }
                             addOneEntry(CAREELEMENTS);
                         }
                     }
@@ -3147,6 +3222,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             String extraCategoryData = "";
             for (int i = 0; i < newCategories.length; i++) {
                 NewCategory ce = newCategories[i];
+                if (CdsNeurologicalExam.isNrtfMarkerCategory(ce)) {
+                    // Already consumed by the care element import above; not uncategorized data.
+                    continue;
+                }
 
                 Util.addLine("Uncategorized Data: ", ce.getCategoryName() + " : " + ce.getCategoryDescription());
                 for (int x = 0; x < ce.getResidualInfoArray().length; x++) {
@@ -3419,7 +3498,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             try {
                 File withExt = PathValidationUtils.validateGeneratedChildPath(candidate.getName() + contentType, candidate.getParentFile());
                 return tryValidateExisting(withExt, allowedRoot, originalPath);
-            } catch (SecurityException e) {
+            } catch (SecurityException _) {
                 logger.warn("Skipping report candidate with invalid generated name");
                 return null;
             }
@@ -3455,8 +3534,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             file = PathValidationUtils.validateExistingPath(file, allowedRoot);
             return file;
         } catch (SecurityException e) {
-            logger.error("SECURITY: Rejecting malicious file path from XML. originalPath='{}', resolvedPath='{}'",
-                    Encode.forJava(originalPath), Encode.forJava(file.getPath()), e);
+            logger.error("SECURITY: Rejecting malicious file path from XML. originalPath={}, resolvedPath={} ({})",
+                    pathReference(originalPath), pathReference(file.getPath()), e.getClass().getSimpleName());
+            logTrace("Report path", e);
             return null;
         }
     }
@@ -3775,7 +3855,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             } else {
                 return "";
             }
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dtfp);
             return "";
@@ -3798,7 +3878,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             } else {
                 return "";
             }
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dfp);
             return "";
@@ -3812,7 +3892,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             if (dfp.getYearMonth() != null) return PartialDate.YEARMONTH;
             else if (dfp.getYearOnly() != null) return PartialDate.YEARONLY;
             else return "";
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dfp);
             return "";
@@ -3826,7 +3906,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             if (dfp.getYearMonth() != null) return PartialDate.YEARMONTH;
             else if (dfp.getYearOnly() != null) return PartialDate.YEARONLY;
             else return "";
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dfp);
             return "";
@@ -4543,28 +4623,28 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy");
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
         try {
             SimpleDateFormat sdf = new SimpleDateFormat(DateFormatUtils.ISO_DATETIME_FORMAT.getPattern());
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
         try {
             SimpleDateFormat sdf = new SimpleDateFormat(DateFormatUtils.ISO_DATE_FORMAT.getPattern());
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
@@ -4623,6 +4703,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
     }
 
+    /** The handlers whose last lab number a CDS lab import can route to the patient. */
+    static boolean isImportableLabHandler(MessageHandler handler) {
+        return handler instanceof CMLHandler || handler instanceof GDMLHandler || handler instanceof MDSHandler
+                || handler instanceof ExcellerisOntarioHandler || handler instanceof PATHL7Handler;
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void importLabs(LoggedInInfo loggedInInfo, LaboratoryResults[] labResultArr) {
@@ -4648,9 +4734,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                 HL7CreateFile hl7CreateFile = new HL7CreateFile(demographic);
                 String observationMsg = hl7CreateFile.generateHL7(Arrays.asList(reportResults));
 
-                InputStream formFileIs = null;
-                InputStream localFileIs = null;
-
                 Integer labNo = null;
                 try {
                     String type = hl7CreateFile.LAB_TYPE;
@@ -4664,48 +4747,40 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                     }
                     File file = PathValidationUtils.validateExistingDocumentPath(filePath);
 
-                    localFileIs = new FileInputStream(file);
-
-                    int checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), localFileIs, admProviderNo);
-
-                    if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                        logger.debug("File uploaded successfully");
-                        logger.debug("Type: {}", type);
-                        MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
-                        if (msgHandler != null) {
-                            logger.debug("MESSAGE HANDLER " + msgHandler.getClass().getName());
+                    MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
+                    logger.debug("Type: {}", type);
+                    if (!isImportableLabHandler(msgHandler)) {
+                        FileUploadCheck.discardUnreferenced(file, PathValidationUtils.getRequiredDocumentDirectory());
+                        importErrors.add("Unregcognized lab facility: " + type);
+                    } else {
+                        // The checksum commits with the parsed lab or not at all: a parse that fails
+                        // or returns nothing rolls both back, so re-importing is not skipped as a
+                        // duplicate, and a failed duplicate lookup is reported as an error instead of
+                        // silently skipping the lab. The generated file is removed unless the stored
+                        // lab may reference it.
+                        AtomicReference<Integer> parsedLabNo = new AtomicReference<>();
+                        FileUploadCheck.StoreOutcome stored = FileUploadCheck.storeSavedFileIfNew(file,
+                                PathValidationUtils.getRequiredDocumentDirectory(), file.getName(), admProviderNo,
+                                checksumId -> {
+                                    if (msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath,
+                                            checksumId, "") == null) {
+                                        return false;
+                                    }
+                                    parsedLabNo.set(msgHandler.getLastLabNo());
+                                    return true;
+                                });
+                        if (stored == FileUploadCheck.StoreOutcome.STORED) {
+                            labNo = parsedLabNo.get();
+                            logger.info("successfully added lab");
+                            addOneEntry(LABS);
+                        } else if (stored == FileUploadCheck.StoreOutcome.REJECTED) {
+                            importErrors.add("Error adding lab");
                         }
-
-                        if (msgHandler instanceof CMLHandler && ((CMLHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((CMLHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof GDMLHandler && ((GDMLHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((GDMLHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof MDSHandler && ((MDSHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((MDSHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof ExcellerisOntarioHandler && ((ExcellerisOntarioHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((ExcellerisOntarioHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof PATHL7Handler && ((PATHL7Handler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((PATHL7Handler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else {
-                            importErrors.add("Unregcognized lab facility: " + type);
-                        }
+                        // ALREADY_RECORDED: the same lab content was imported before; skipped as before.
                     }
                 } catch (Exception e) {
                     logger.error("Error: ", e);
                     importErrors.add("Error adding lab");
-                } finally {
-                    IOUtils.closeQuietly(formFileIs);
-                    IOUtils.closeQuietly(localFileIs);
                 }
 
 
@@ -4988,7 +5063,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             UploadedFile uploaded = uploadedFiles.get(0);
             try {
                 this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
-            } catch (SecurityException e) {
+            } catch (SecurityException _) {
                 this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
                 this.importFile = null;
                 this.importFileFileName = null;
@@ -4996,7 +5071,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             }
             try {
                 this.importFileFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
-            } catch (FileValidationException e) {
+            } catch (FileValidationException _) {
                 this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
                 this.importFileFileName = null;
             }

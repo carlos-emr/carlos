@@ -28,6 +28,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays a legacy MDS laboratory report, its patient link, results, and acknowledgments.
+    Parameters: segmentID identifies the MDS report; providerNo/searchProviderNo preserve inbox context.
+    Requires _lab read privilege. Successful patient matches reload this report even when COOP
+    separates the matching popup from its opener.
+    @since 2026-10-02 (patient-match refresh notifications)
+--%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -116,6 +123,23 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
 
 </script>
 <script language="JavaScript">
+    // Refresh only this MDS report after the matching popup confirms persistence.
+    if (typeof BroadcastChannel !== 'undefined') {
+        try {
+            const matchChannel = new BroadcastChannel('lab-patient-match-${carlos:forJavaScript(pageContext.request.contextPath)}');
+            matchChannel.onmessage = function(event) {
+                const match = event.data;
+                if (match && match.type === 'patient-matched' && match.labType === 'MDS'
+                        && match.labNo === '${carlos:forJavaScript(param.segmentID)}') {
+                    matchChannel.close();
+                    window.location.reload();
+                }
+            };
+        } catch (e) {
+            console.warn('Live lab refresh notifications are unavailable; reload the lab view after matching.');
+        }
+    }
+
     function getComment() {
         var ret = true;
         var commentval = prompt("<fmt:message key="oscarMDS.segmentDisplay.msgComment"/>", "");

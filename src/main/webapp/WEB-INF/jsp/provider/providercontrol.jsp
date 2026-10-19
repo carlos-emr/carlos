@@ -47,7 +47,7 @@
 <%@ page import="io.github.carlos_emr.carlos.providers.gate.ProviderAppointmentReadGate" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="java.util.*,java.net.*, io.github.carlos_emr.carlos.util.*"
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" buffer="64kb" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDict" %>
@@ -170,11 +170,9 @@
             {"displaymygroup", "/provider/ViewProviderDisplayMyGroup"},
             {"encounter", "providerencounter.jsp"},
             {"encountersingle", "/provider/ViewProviderEncounterSingle"},
-            {"vary", request.getParameter("displaymodevariable") == null ? "" : URLDecoder.decode(request.getParameter("displaymodevariable"))},
             {"saveencounter", "providersaveencounter.jsp"},
             {"savebill", "providersavebill.jsp"},
             {"savedemographicaccessory", "/provider/SaveDemographicAccessory"},
-            {"encounterhistory", "/provider/ViewProviderEncounterHistory"},
             {"savedeletetemplate", "providertemplate.jsp"},
             {"ar1", "formar1_99_12.jsp"},
             {"ar2", "formar2_99_08.jsp"},
@@ -197,9 +195,20 @@
     // Day/month stay as WEB-INF JSP includes because Struts action includes render empty
     // under the response-buffering filter chain; keep the shared appointment gate above.
     String includeTarget = opToFileDict.getDef(operation, "");
+    // Only fixed, supported display modes may reach a server-side include.
+    // The retired history/vary modes and unknown values must not fall back to
+    // an empty dispatcher target or include a path supplied by the request.
+    if (includeTarget.isEmpty()) {
+        response.sendError(404);
+        return;
+    }
     boolean statusRequest = "addstatus".equals(operation);
+    // RequestNegotiation.isAjax, not an exact match: CSRFGuard's client script appends its own
+    // marker to whatever jQuery set, so the real header is "XMLHttpRequest, OWASP CSRFGuard
+    // Project". Missing it left this reply as text/html, which the response-decorating filters
+    // then append their script blocks to — the caller renders the body as the status text.
     boolean ajaxStatusRequest = statusRequest
-      && "XMLHttpRequest".equals(request.getHeader("X-Requested-With"));
+      && io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request);
     if (ajaxStatusRequest) {
         response.setContentType("text/plain;charset=UTF-8");
     }

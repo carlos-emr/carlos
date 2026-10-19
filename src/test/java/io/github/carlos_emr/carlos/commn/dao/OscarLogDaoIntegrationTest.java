@@ -33,10 +33,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -99,6 +102,33 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(patient);
         entityManager.flush();
         return patient.getDemographicNo();
+    }
+
+    @Test
+    @DisplayName("should sort persisted recent patients with NULL and blank providers without dropping rows")
+    void shouldSortRecentPatients_whenProviderIsMissing() throws Exception {
+        int assigned = createRecentPatient();
+        int missing = createRecentPatient();
+        int blank = createRecentPatient();
+        entityManager.find(Demographic.class, assigned).setProviderNo("999998");
+        entityManager.find(Demographic.class, missing).setProviderNo(null);
+        entityManager.find(Demographic.class, blank).setProviderNo("");
+        entityManager.flush();
+        createOscarLog(assigned, "recent", "read", "demographic", "assigned", new Date(3000));
+        createOscarLog(missing, "recent", "read", "demographic", "missing", new Date(2000));
+        createOscarLog(blank, "recent", "read", "demographic", "blank", new Date(1000));
+        entityManager.clear();
+
+        List<Demographic> patients = new ArrayList<>();
+        for (Integer id : dao.getRecentDemographicsAccessedByProvider("recent", 0, 3)) {
+            patients.add(entityManager.find(Demographic.class, id));
+        }
+        assertThat(patients).extracting(Demographic::getDemographicNo).containsExactly(assigned, missing, blank);
+        assertThat(patients).extracting(Demographic::getProviderNo).containsExactly("999998", null, "");
+
+        patients.sort(Demographic.ProviderNoComparator);
+
+        assertThat(patients).extracting(Demographic::getDemographicNo).containsExactly(missing, blank, assigned);
     }
 
     @Test
@@ -263,6 +293,40 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
     @Nested
     @DisplayName("findForReport")
     class FindForReport {
+
+        @ParameterizedTest
+        @CsvSource({
+                "2004-02-29 00:00:00, 2004-03-01 00:00:00, unrestricted",
+                "2004-02-29 00:00:00, 2004-03-01 00:00:00, provider",
+                "2004-02-29 00:00:00, 2004-03-01 00:00:00, site",
+                "2003-12-31 00:00:00, 2004-01-02 00:00:00, unrestricted",
+                "2003-12-31 00:00:00, 2004-01-02 00:00:00, provider",
+                "2003-12-31 00:00:00, 2004-01-02 00:00:00, site"
+        })
+        @Tag("query")
+        @DisplayName("should include the start and exclude next midnight for every report provider scope")
+        void shouldUseHalfOpenDateWindow_forEveryProviderScope(String startText, String endText, String scope)
+                throws Exception {
+            Date start = Timestamp.valueOf(startText);
+            Date endExclusive = Timestamp.valueOf(endText);
+            createOscarLog(null, "edge", "read", "admin", "before", new Date(start.getTime() - 1_000));
+            OscarLog first = createOscarLog(null, "edge", "read", "admin", "start", start);
+            OscarLog middle = createOscarLog(null, "edge", "read", "admin", "middle", new Date(start.getTime() + 43_200_000));
+            OscarLog last = createOscarLog(null, "edge", "read", "admin", "last", new Date(endExclusive.getTime() - 1_000));
+            createOscarLog(null, "edge", "read", "admin", "next-midnight", endExclusive);
+            createOscarLog(null, "edge", "read", "admin", "after", new Date(endExclusive.getTime() + 1_000));
+            createOscarLog(null, "edge", "read", "login", "other-content", start);
+            if (!"unrestricted".equals(scope)) {
+                createOscarLog(null, "outside", "read", "admin", "other-provider", start);
+            }
+
+            List<OscarLog> result = dao.findForReport(start, endExclusive, "admin",
+                    "provider".equals(scope) ? "edge" : null,
+                    "site".equals(scope) ? List.of("edge") : null);
+
+            assertThat(result).extracting(OscarLog::getId)
+                    .containsExactly(last.getId(), middle.getId(), first.getId());
+        }
 
         @Test
         @Tag("query")

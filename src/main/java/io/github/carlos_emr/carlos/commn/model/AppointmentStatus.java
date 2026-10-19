@@ -46,6 +46,10 @@ public class AppointmentStatus extends AbstractModel<Integer> {
 
     public static final String APPOINTMENT_STATUS_HERE = "H";
     public static final String APPOINTMENT_STATUS_CANCELLED = "C";
+    /** No-Show appointment status code (first character of {@code appointment.status}). */
+    public static final String APPOINTMENT_STATUS_NO_SHOW = "N";
+    /** Billed appointment status code (first character of {@code appointment.status}). */
+    public static final String APPOINTMENT_STATUS_BILLED = "B";
 
 
     @Id

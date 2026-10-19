@@ -91,6 +91,7 @@ public class Hl7TextInfo extends AbstractModel<Integer> implements Serializable 
     @Column(name = "sending_facility")
     private String sendingFacility;
 
+    @Column(name = "label", columnDefinition = "TEXT")
     private String label;
 
     @Override

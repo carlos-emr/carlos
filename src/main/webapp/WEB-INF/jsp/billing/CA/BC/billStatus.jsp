@@ -484,7 +484,8 @@
     </div><!-- row well-->
 
 
-    <form name="ReProcessBillingForm" method="post" action="reprocessBill">
+    <%-- Absolute: this page sets <base href> to the context root, so a relative action posted to /reprocessBill (404). --%>
+    <form name="ReProcessBillingForm" method="post" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
                value="<carlos:encode value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>

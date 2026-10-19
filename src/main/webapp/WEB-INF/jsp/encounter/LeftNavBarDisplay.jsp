@@ -122,7 +122,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 <%      NavBarDisplayDAO.PopupConfig rightCfg = dao.getRightPopup();
         String rightEvent = dao.numPopUpMenuItems() > 0 ? "onmouseover" : "onclick";
         if (rightCfg != null) { %>
-        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<carlos:encode value='<%= rightCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= rightCfg.url() %>' context="javaScriptAttribute"/>'); return false;">&#43;</a></h3>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="<%=trackHeadingPopup(dao, rightCfg)%>popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<carlos:encode value='<%= rightCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= rightCfg.url() %>' context="javaScriptAttribute"/>'); return false;">&#43;</a></h3>
 <%      } else { %>
         <h3><a href="javascript:void(0);" <%=rightEvent%>="<carlos:encode value='<%= dao.getRightURL() %>' context="htmlAttribute"/>">&#43;</a></h3>
 <%      } %>
@@ -156,7 +156,8 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
            onmouseout='this.style.color="white"'
 <%         NavBarDisplayDAO.PopupConfig popCfg = dao.getPopUpConfig(idx);
            if (popCfg != null) {
-               String popupOnclick = "popupPage(" + popCfg.width() + "," + popCfg.height()
+               String popupOnclick = trackHeadingPopup(dao, popCfg)
+                   + "popupPage(" + popCfg.width() + "," + popCfg.height()
                    + ",'" + SafeEncode.forJavaScriptAttribute(popCfg.windowName())
                    + "','" + SafeEncode.forJavaScriptAttribute(popCfg.url()) + "');";
                if (menuCallback != null) {
@@ -201,10 +202,10 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 <%      if (dao.hasInteractiveLeftHeading()) {
             NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
             if (leftCfg != null) { %>
-        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
+        <h3><a href="javascript:void(0)" onclick="<%=trackHeadingPopup(dao, leftCfg)%>popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
 <%          } else { %>
-        <h3 onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
+        <h3><a href="javascript:void(0)" onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
 <%          }
         } else { %>
@@ -219,8 +220,12 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         String div = navbarName.trim();
         int numItems = dao.numItems();
         String rawReloadURL = request.getParameter("reloadURL");
-        if (rawReloadURL == null) rawReloadURL = "";
-        StringBuilder reloadURL = new StringBuilder(rawReloadURL + "&reloadURL=" + rawReloadURL);
+        // Heading and reloadNav refreshes can omit reloadURL. Rebuild it from the
+        // display action so subsequent row popups never post to an empty path.
+        if (rawReloadURL == null || rawReloadURL.isBlank()) rawReloadURL = dao.getReloadUrl();
+        String reloadQuery = (rawReloadURL.contains("?") ? "&" : "?")
+                + "reloadURL=" + SafeEncode.forUriComponent(rawReloadURL);
+        StringBuilder reloadURL = new StringBuilder(rawReloadURL + reloadQuery);
         String strToDisplay = request.getParameter("numToDisplay");
         int numToDisplay;
         boolean xpanded = false;
@@ -230,7 +235,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
             numToDisplay = Integer.parseInt(strToDisplay);
             reloadURL.append("&numToDisplay=" + strToDisplay);
             if (numItems > numToDisplay) {
-                String xpandUrl = rawReloadURL + "&reloadURL=" + rawReloadURL + "&cmd=" + div;
+                String xpandUrl = rawReloadURL + reloadQuery + "&cmd=" + div;
                 manageItems = xpandUrl;
             }
         } else {
@@ -263,14 +268,22 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 
         StringBuilder jscode = new StringBuilder();
 
-        numDisplayed = display(noDates, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
+        if (dao.isFiledInFolders()) {
+            // One collapsible folder per distinct Item#getFolder() (the Documents panel's
+            // "File Documents in Folders by Document Type" eChart preference). Every row is
+            // rendered, collapsed inside its folder, so the date buckets and the 6-row cut-off
+            // below do not apply; the visible row count is the number of folders.
+            numDisplayed = displayFolders(dao, jscode, displayThreshold, reloadURL.toString(), request, out);
+        } else {
+            numDisplayed = display(noDates, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
 
-        if (numDisplayed < numToDisplay) {
-            numDisplayed += display(current, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
-        }
+            if (numDisplayed < numToDisplay) {
+                numDisplayed += display(current, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
+            }
 
-        if (numDisplayed < numToDisplay) {
-            numDisplayed += display(pastDates, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
+            if (numDisplayed < numToDisplay) {
+                numDisplayed += display(pastDates, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
+            }
         }
 
         if (numDisplayed == 0) {
@@ -380,6 +393,63 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         }
 
         return j;
+    }
+
+    /** Self-contained toggle for a folder button; static text, so no encoding is involved. */
+    private static final String FOLDER_TOGGLE_ONCLICK =
+            "var list=document.getElementById(this.getAttribute('aria-controls'));"
+            + "var open=this.getAttribute('aria-expanded')!=='true';"
+            + "this.setAttribute('aria-expanded',String(open));list.hidden=!open;return false;";
+
+    /**
+     * Renders the panel's rows filed into collapsed folders, one per distinct folder name, folders in
+     * alphabetical order for the viewer's locale and rows in the action's order (newest first for
+     * documents) inside each. Each folder is a button (name and row count) controlling a nested list.
+     *
+     * @return the number of folders, i.e. the rows visible before any folder is opened
+     */
+    public int displayFolders(NavBarDisplayDAO dao, StringBuilder js, int displayThreshold, String divReloadUrl,
+                              jakarta.servlet.http.HttpServletRequest request, jakarta.servlet.jsp.JspWriter out) throws IOException {
+        java.util.Map<String, ArrayList<NavBarDisplayDAO.Item>> folders = new java.util.LinkedHashMap<>();
+        for (int idx = 0; idx < dao.numItems(); idx++) {
+            NavBarDisplayDAO.Item item = dao.getItem(idx);
+            folders.computeIfAbsent(item.getFolder(), key -> new ArrayList<>()).add(item);
+        }
+        List<String> names = new ArrayList<>(folders.keySet());
+        java.text.Collator collator = java.text.Collator.getInstance(request.getLocale());
+        collator.setStrength(java.text.Collator.PRIMARY);
+        names.sort(collator);
+
+        String navbarName = (String) request.getAttribute("navbarName");
+        if (navbarName == null) navbarName = "";
+        int rowOffset = 0;
+        int folderIndex = 0;
+        for (String name : names) {
+            ArrayList<NavBarDisplayDAO.Item> items = folders.get(name);
+            String listId = SafeEncode.forHtmlAttribute(navbarName + "folder" + folderIndex);
+            out.println("<li class=\"nav-folder\">");
+            out.println("<button type=\"button\" class=\"nav-folder-toggle\" aria-expanded=\"false\" aria-controls=\""
+                    + listId + "\" onclick=\"" + FOLDER_TOGGLE_ONCLICK + "\"><i class=\"fa-solid fa-folder\" aria-hidden=\"true\"></i> "
+                    + SafeEncode.forHtmlContent(name) + " (" + items.size() + ")</button>");
+            out.println("<ul id=\"" + listId + "\" class=\"nav-folder-items\" hidden>");
+            // Offsets keep the per-row image ids unique across folders; with numToDisplay equal to
+            // numItems no "more"/collapse control is drawn inside a folder.
+            display(items, rowOffset + items.size(), rowOffset, "", false, rowOffset + items.size(), js,
+                    displayThreshold, divReloadUrl, dao.getDivId(), request, out);
+            out.println("</ul>");
+            out.println("</li>");
+            rowOffset += items.size();
+            folderIndex++;
+        }
+        return folderIndex;
+    }
+
+    public String trackHeadingPopup(NavBarDisplayDAO dao, NavBarDisplayDAO.PopupConfig popup) {
+        if (!dao.isTrackHeadingPopups()) return "";
+        return "reloadWindows['" + SafeEncode.forJavaScriptAttribute(popup.windowName())
+            + "'] = '" + SafeEncode.forJavaScriptAttribute(dao.getReloadUrl())
+            + "';reloadWindows['" + SafeEncode.forJavaScriptAttribute(popup.windowName() + "div")
+            + "'] = '" + SafeEncode.forJavaScriptAttribute(dao.getDivId()) + "';";
     }
 
     public String trackWindowString(String url, String reloadUrl, String cmd, Pattern pattern) {

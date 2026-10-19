@@ -23,3 +23,12 @@ for (const province of ['bc', 'on']) {
     assert.ok(versions.size > 10, 'must inspect the full combined migration set');
   });
 }
+
+// The demo reload reapplies data migrations after schema creation. A renamed file
+// must fail this contract before a fresh database is left partially initialized.
+test('devcontainer demo reapply paths name existing migrations', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../.devcontainer/db/scripts/populate_db.sh'), 'utf8');
+  const paths = [...script.matchAll(/"\$\{MIG\}\/([^"\n]+\.sql)"/g)].map(match => match[1]);
+  assert.ok(paths.length >= 4, 'must inspect the demo reapply migrations');
+  for (const migration of paths) assert.ok(fs.existsSync(path.join(root, migration)), migration);
+});

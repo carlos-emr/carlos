@@ -184,6 +184,7 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new RuntimeException("missing required sec object (_eform)");
         }
         EDoc eDoc = ConvertToEdoc.from(eForm, eFormPDFPath);
+        eDoc.setCreatorId(loggedInInfo.getLoggedInProviderNo());
         documentManager.moveDocumentToOscarDocuments(loggedInInfo, eDoc.getDocument(), eDoc.getFilePath());
         eDoc.setFilePath(null);
         return documentManager.saveDocument(loggedInInfo, eDoc);

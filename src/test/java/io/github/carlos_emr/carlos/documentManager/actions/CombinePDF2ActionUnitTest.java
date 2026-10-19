@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -45,6 +46,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
@@ -52,12 +54,18 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -68,6 +76,8 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("documentManager")
 class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
+
+    private static final byte[] COMBINED_PDF = "%PDF-1.4 combined fixture".getBytes(StandardCharsets.US_ASCII);
 
     private MockedStatic<ServletActionContext> servletActionContext;
     private MockHttpServletRequest request;
@@ -434,6 +444,80 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getDateHeader("Expires")).isZero();
         assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
         assertThat(response.getHeader("Content-Disposition")).startsWith("inline; filename=\"combinedPDF-");
+    }
+
+    /*
+     * Response framing (issue #4131): the inline preview used to set Transfer-Encoding: chunked by
+     * hand. Tomcat frames the body itself, so the response carried the header twice and nginx
+     * refused it with a 502 ("upstream sent duplicate header line"), leaving the preview empty
+     * behind the packaged front door. The action now sends an exact Content-Length instead.
+     */
+    @Test
+    @DisplayName("should frame the inline preview with Content-Length and no manual Transfer-Encoding")
+    void shouldFrameInlinePreview_withContentLengthAndNoTransferEncoding(@TempDir Path documentDir) throws Exception {
+        request.addParameter("ContentDisposition", "inline");
+        request.setParameter("docNo", "321", "654");
+
+        String result = executeCombine(documentDir);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getHeader("Transfer-Encoding")).isNull();
+        assertThat(response.getContentLengthLong()).isEqualTo(COMBINED_PDF.length);
+        assertThat(response.getContentAsByteArray()).isEqualTo(COMBINED_PDF);
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getHeader("Content-Disposition")).startsWith("inline;");
+    }
+
+    @Test
+    @DisplayName("should frame the download with Content-Length and no manual Transfer-Encoding")
+    void shouldFrameDownload_withContentLength(@TempDir Path documentDir) throws Exception {
+        request.setMethod("POST");
+        request.setParameter("docNo", "321", "654");
+
+        String result = executeCombine(documentDir);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getHeader("Transfer-Encoding")).isNull();
+        assertThat(response.getContentLengthLong()).isEqualTo(COMBINED_PDF.length);
+        assertThat(response.getHeader("Content-Disposition")).startsWith("attachment;");
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getContentAsByteArray()).isEqualTo(COMBINED_PDF);
+    }
+
+    /**
+     * Drives a full authorized combine of documents 321 and 654 (both linked to an accessible
+     * patient) from {@code documentDir}, with the PDF merge stubbed to emit {@link #COMBINED_PDF}.
+     */
+    private String executeCombine(Path documentDir) throws Exception {
+        Files.write(documentDir.resolve("a.pdf"), COMBINED_PDF);
+        Files.write(documentDir.resolve("b.pdf"), COMBINED_PDF);
+        Document first = new Document();
+        first.setDocumentNo(321);
+        first.setDocfilename("a.pdf");
+        Document second = new Document();
+        second.setDocumentNo(654);
+        second.setDocfilename("b.pdf");
+        when(documentDao.find(321)).thenReturn(first);
+        when(documentDao.find(654)).thenReturn(second);
+        when(ctlDocumentDao.findByDocumentNos(List.of(321, 654)))
+                .thenReturn(List.of(demographicLink(321, 123), demographicLink(654, 123)));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
+
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+        try (MockedStatic<ConcatPDF> concatPdf = mockStatic(ConcatPDF.class)) {
+            concatPdf.when(() -> ConcatPDF.concat(anyList(), any(OutputStream.class))).thenAnswer(invocation -> {
+                invocation.getArgument(1, OutputStream.class).write(COMBINED_PDF);
+                return 0;
+            });
+            return action.execute();
+        } finally {
+            if (previousDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
+            }
+        }
     }
 
     @Test
