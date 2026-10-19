@@ -625,7 +625,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient, service, active/inactive specialists, referral, archives and signatures; all removed by owned keys.",
+      "fixtures": "Owned FAKE-PW patient, service, active/inactive specialists, HL7 lab and routing rows, referral, archives and signatures; all removed by owned keys.",
       "notes": "Issue #3336: browser and server consultant validation, preserved clinical data, legacy unassigned reads and valid saves."
     },
     {

@@ -176,10 +176,13 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     }
 
     private ConsultationConsultantSelection resolveConsultant(LoggedInInfo loggedInInfo, int demographicId,
-            Integer consultationRequestId, ProfessionalSpecialistDao specialists, DemographicManager demographics) {
+            Integer consultationRequestId, ProfessionalSpecialistDao specialists) {
+        boolean healthCareTeam = CarlosProperties.getInstance()
+                .getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true");
         ConsultationConsultantSelection selection = ConsultationConsultantSelection.resolve(specialists,
-                demographics, loggedInInfo, demographicId, getSpecialist(), CarlosProperties.getInstance()
-                        .getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"));
+                healthCareTeam ? SpringUtils.getBean(DemographicContactDao.class) : null,
+                healthCareTeam ? SpringUtils.getBean(ContactDao.class) : null,
+                demographicId, getSpecialist(), healthCareTeam);
         if (selection == null) {
             request.setAttribute("demographicId", String.valueOf(demographicId));
             if (consultationRequestId != null) request.setAttribute("reqId", String.valueOf(consultationRequestId));
@@ -510,7 +513,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
 
                 ConsultationConsultantSelection consultant = resolveConsultant(loggedInInfo, demographicId,
-                        null, professionalSpecialistDao, demographicManager);
+                        null, professionalSpecialistDao);
                 if (consultant == null) return INPUT;
 
                 if (newSignature) {
@@ -605,7 +608,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
                 consult.setProfessionalSpecialist(consultant.specialist());
                 consult.setDemographicContact(consultant.contact());
-                request.setAttribute("professionalSpecialistName", consultant.specialist().getFormattedTitle());
+                request.setAttribute("professionalSpecialistName", consultant.displayName());
 
                 int consultationRequestId = saveConsultationWithAttachments(loggedInInfo, consult, true);
                 requestId = String.valueOf(consultationRequestId);
@@ -645,7 +648,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             }
 
             ConsultationConsultantSelection consultant = resolveConsultant(loggedInInfo, demographicId,
-                    consultationRequestId, professionalSpecialistDao, demographicManager);
+                    consultationRequestId, professionalSpecialistDao);
             if (consultant == null) return INPUT;
 
             try {
@@ -717,7 +720,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
                 consult.setProfessionalSpecialist(consultant.specialist());
                 consult.setDemographicContact(consultant.contact());
-                request.setAttribute("professionalSpecialistName", consultant.specialist().getFormattedTitle());
+                request.setAttribute("professionalSpecialistName", consultant.displayName());
 
                 if (this.getAppointmentDate() != null && !this.getAppointmentDate().equals("")) {
                     date = DateUtils.parseDate(this.getAppointmentDate(), format);

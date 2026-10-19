@@ -460,7 +460,10 @@
             for (DemographicContact demographicContact : demographicContacts) {
                 // ensure consent has been given to contact this specialist.
                 // ensure that this specialist has a cpso (specialist, msp, or college id)
-                if (demographicContact.isConsentToContact() &&
+                if (!demographicContact.isDeleted() && demographicContact.isActive()
+                        && demographicContact.isConsentToContact()
+                        && demographicContact.getDetails() instanceof ProfessionalContact
+                        && !demographicContact.getDetails().isDeleted() &&
                         (((ProfessionalContact) demographicContact.getDetails()).getCpso() != null) &&
                         (!((ProfessionalContact) demographicContact.getDetails()).getCpso().isEmpty())
                 ) {
@@ -3481,13 +3484,14 @@ if (userAgent != null) {
                     if (Array.from(form.querySelectorAll('input[name="' + field + '"]')).some(function(input) {
                         return input.value === value;
                     })) return;
+                    var key = field + String(value).replace(':', '');
                     var row = document.getElementById(tableId).insertRow();
-                    row.id = 'entry_' + field + value;
+                    row.id = 'entry_' + key;
                     var cell = row.insertCell();
                     cell.textContent = label + ' ' + value;
                     var input = document.createElement('input');
                     input.type = 'hidden'; input.name = field; input.value = value;
-                    input.id = 'delegate_' + field + value;
+                    input.id = 'delegate_' + key;
                     input.className = 'delegateAttachment';
                     cell.appendChild(input);
                 });
@@ -3506,7 +3510,9 @@ if (userAgent != null) {
             <% } %>
             // The extension checkbox is separate from the typed form bean.
             var title = document.getElementById('ext_letterheadTitle');
-            if (title) title.checked = <%= request.getParameter("ext_letterheadTitle") != null %>;
+            if (title) title.checked = <c:choose><c:when test="${not empty param.ext_letterheadTitle}">true</c:when><c:otherwise>false</c:otherwise></c:choose>;
+            var willBook = document.getElementById('patientWillBook');
+            if (willBook) willBook.checked = '<carlos:encode value='<%= thisForm.getPatientWillBook() %>' context="javaScriptBlock"/>' === '1';
         })();
     </script>
     <% } %>
@@ -3570,6 +3576,22 @@ if (userAgent != null) {
             *  3 : Clinic address.
             * Clinic address is set if no selection is detected.
             */
+            <% if (request.getAttribute("consultationSubmittedValues") != null) { %>
+            // Defaults must not overwrite the letterhead selected on a rejected submission.
+            var retryLetterhead = {
+                letterheadName: '<carlos:encode value='<%= thisForm.getLetterheadName() %>' context="javaScriptBlock"/>',
+                letterheadAddress: '<carlos:encode value='<%= thisForm.getLetterheadAddress() %>' context="javaScriptBlock"/>',
+                letterheadPhone: '<carlos:encode value='<%= thisForm.getLetterheadPhone() %>' context="javaScriptBlock"/>',
+                letterheadFax: '<carlos:encode value='<%= thisForm.getLetterheadFax() %>' context="javaScriptBlock"/>',
+                faxAccount: '<carlos:encode value='<%= thisForm.getFaxAccount() %>' context="javaScriptBlock"/>'
+            };
+            Object.keys(retryLetterhead).forEach(function(field) {
+                var input = document.getElementById(field);
+                if (input) input.value = retryLetterhead[field];
+                var span = document.getElementById(field + 'Span');
+                if (span) span.textContent = retryLetterhead[field];
+            });
+            <% } else { %>
             if("${empty pageScope.consultUtil.letterheadName}" === "true") {
                 // New consultation - set default letterhead
                 if("${pageScope.lhndType eq 'providers'}" === "true"){
@@ -3583,6 +3605,7 @@ if (userAgent != null) {
                 // Existing consultation - load saved letterhead
                 switchProvider("${carlos:forJavaScriptBlock(pageScope.consultUtil.letterheadName)}");
             }
+            <% } %>
         })
     </script>
 

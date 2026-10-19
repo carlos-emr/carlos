@@ -9,9 +9,12 @@ const { runWorkflow } = require('./lib/workflow-session');
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   let service;
+  let lab;
   const specialists = [];
   s.cleanup(() => {
-    sql.execute(`DELETE FROM consultationRequestExtArchive WHERE requestId IN
+    sql.execute(`DELETE FROM consultdocs WHERE requestId IN
+      (SELECT requestId FROM consultationRequests WHERE demographicNo=${patient});
+      DELETE FROM consultationRequestExtArchive WHERE requestId IN
       (SELECT requestId FROM consultationRequests WHERE demographicNo=${patient});
       DELETE FROM consultationRequestExt WHERE requestId IN
       (SELECT requestId FROM consultationRequests WHERE demographicNo=${patient});
@@ -22,6 +25,9 @@ async function workflow(s) {
       sql.execute(`DELETE FROM serviceSpecialists WHERE serviceId=${service};
         DELETE FROM consultationServices WHERE serviceId=${service}`);
     }
+    if (lab) sql.execute(`DELETE FROM patientLabRouting WHERE lab_no=${lab} AND lab_type='HL7';
+      DELETE FROM providerLabRouting WHERE lab_no=${lab} AND lab_type='HL7';
+      DELETE FROM hl7TextInfo WHERE lab_no=${lab}; DELETE FROM hl7TextMessage WHERE lab_id=${lab}`);
     for (const id of specialists) sql.execute(`DELETE FROM professionalSpecialists WHERE specId=${id}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM consultationRequests WHERE demographicNo=${patient}`) === '0',
       'Owned consultation fixtures remain');
@@ -33,7 +39,22 @@ async function workflow(s) {
       VALUES('Consultant',${h.sqlString(`${marker}-${deleted}`)},${deleted})`, 'specialist'));
   }
   const [active, inactive] = specialists;
-  sql.execute(`INSERT INTO serviceSpecialists(serviceId,specId) VALUES(${service},${active})`);
+  sql.execute(`INSERT INTO serviceSpecialists(serviceId,specId) VALUES(${service},${active}),(${service},${inactive})`);
+
+  const stamp = '20261019100000';
+  const message = [
+    `MSH|^~\\&|PATHL7|CW|CARLOS|TEST|${stamp}||ORU^R01|${marker}|P|2.3`,
+    `PID||9999999999|9999999999||${marker}^FAKE||19800101|F`,
+    `OBR|1||${marker}|CHEM^Chemistry||${stamp}|${stamp}|||||||${stamp}||99999^FAKE^DOC||||||${stamp}||CHEM4|F`,
+    `OBX|1|NM|2345-7^Glucose Random||5.2|mmol/L|3.3-7.7|N|||F|||${stamp}`,
+  ].join('\r');
+  lab = h.insertId(sql, `INSERT INTO hl7TextMessage(fileUploadCheck_id,message,type,serviceName,created)
+    VALUES(0,${h.sqlString(Buffer.from(message).toString('base64'))},'PATHL7','CONSULTTEST',NOW())`, 'owned lab');
+  sql.execute(`INSERT INTO hl7TextInfo(lab_no,sex,result_status,final_result_count,obr_date,priority,
+      requesting_client,discipline,last_name,first_name,report_status,accessionNum)
+    VALUES(${lab},'F','A',1,NOW(),'R','FAKE, DOC','CHEM',${h.sqlString(marker)},'FAKE','F',${h.sqlString(marker)});
+    INSERT INTO patientLabRouting(demographic_no,lab_no,lab_type,created) VALUES(${patient},${lab},'HL7',NOW());
+    INSERT INTO providerLabRouting(provider_no,lab_no,status,lab_type) VALUES(${h.sqlString(provider)},${lab},'N','HL7')`);
 
   const list = await s.context.newPage();
   h.wireStrictPage(list, 'patient-consultations', s.recorder);
@@ -58,6 +79,8 @@ async function workflow(s) {
   await s.step('browser requires a selected consultant and clears stale picker ids', async () => {
     const dialogs = await h.withExpectedDialogs(form, () => form.locator('[name="submitSaveOnly"]').click());
     h.assert(dialogs.some(d => /active consultant/.test(d.text)), 'Missing consultant was not explained');
+    h.assert(await form.evaluate(id => !allSpecialistsData.some(s => String(s.specId) === id), inactive),
+      'Inactive consultant remained in the picker');
     await pick('#specialistInput', `${marker}-0`);
     h.assert(await form.locator('#specialist').inputValue() === active, 'Picker did not select the active specialist');
     await form.locator('#specialistInput').fill('Changed unselected name');
@@ -65,6 +88,28 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM consultationRequests WHERE demographicNo=${patient}`) === '0',
       'Browser validation created a referral');
   });
+
+  const letterhead = await form.locator('#letterheadName').evaluate(select => {
+    const option = Array.from(select.options).find(option => option.value && option.value !== select.value);
+    return option ? option.value : select.value;
+  });
+  await form.locator('#letterheadName').selectOption(letterhead);
+  const letterheadFields = ['letterheadName', 'letterheadAddress', 'letterheadPhone', 'letterheadFax'];
+  const savedLetterhead = {};
+  for (const field of letterheadFields) savedLetterhead[field] = await form.locator(`#${field}`).inputValue();
+  const willBook = await form.locator('#patientWillBook').count() > 0;
+  if (willBook) await form.locator('#patientWillBook').check();
+  async function openAttachments() {
+    await form.locator('#attachDocumentPanelBtn').click();
+    await form.locator('#attachDocumentsForm').waitFor({ state: 'visible' });
+  }
+  async function closeAttachments() {
+    await form.locator('.ui-dialog .save-and-close-button').click();
+    await form.locator('#attachDocumentsForm').waitFor({ state: 'hidden' });
+  }
+  await openAttachments();
+  await form.locator(`#labNoHL7${lab}`).check();
+  await closeAttachments();
 
   async function reject(id, submission, requestId) {
     const dialogs = await h.withExpectedDialogs(form, async () => {
@@ -84,6 +129,11 @@ async function workflow(s) {
     h.assert(await form.locator('[name="reasonForConsultation"]').inputValue() === reason, 'Referral reason was lost');
     h.assert(await form.locator('[name="clinicalInformation"]').inputValue() === clinical, 'Clinical information was lost');
     h.assert(await form.locator('#service').inputValue() === service, 'Service selection was lost');
+    if (!requestId) {
+      for (const field of letterheadFields) h.assert(await form.locator(`#${field}`).inputValue() === savedLetterhead[field],
+        `${field} was overwritten on the retry form`);
+      if (willBook) h.assert(await form.locator('#patientWillBook').isChecked(), 'Patient will book choice was lost');
+    }
     h.assert(await form.locator('#specialist').inputValue() === '', 'Retry did not require a fresh active selection');
     h.assert(sql.value(`SELECT COUNT(*) FROM consultationRequestsArchive WHERE demographicNo=${patient}`) === '0',
       'Rejected update wrote an archive');
@@ -94,7 +144,14 @@ async function workflow(s) {
   }
   await s.step('server rejects missing, malformed, nonexistent and inactive consultant ids on create', async () => {
     const absent = String(Number(sql.value('SELECT MAX(specId) FROM professionalSpecialists')) + 1000);
-    for (const id of [null, '', 'abc', '-1', '2147483648', absent, inactive]) await reject(id, 'Submit Consultation Request');
+    await reject(null, 'Submit Consultation Request');
+    h.assert(await form.locator(`#delegate_labNoHL7${lab}`).inputValue() === `HL7:${lab}`, 'Lab selection was lost on retry');
+    await openAttachments();
+    h.assert(await form.locator(`#labNoHL7${lab}`).isChecked(), 'Retained lab was not checked in the dialog');
+    await form.locator(`#labNoHL7${lab}`).uncheck();
+    await closeAttachments();
+    h.assert(await form.locator(`#entry_labNoHL7${lab}`).count() === 0, 'Retained lab could not be removed');
+    for (const id of ['', 'abc', '-1', '2147483648', absent, inactive]) await reject(id, 'Submit Consultation Request');
   });
   await s.step('active directory selection saves a consultation', async () => {
     await pick('#specialistInput', `${marker}-0`);
