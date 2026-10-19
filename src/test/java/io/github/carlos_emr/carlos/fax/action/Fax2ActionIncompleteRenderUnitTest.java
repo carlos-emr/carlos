@@ -349,4 +349,51 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
             verify(faxManager, org.mockito.Mockito.never()).persistAndLogFaxJobs(any(), any(), any(), any());
         }
     }
+    @Test
+    @DisplayName("capacity waits for the same fax preparation without queuing or losing recipient fields")
+    void shouldWaitOnlyForUnacceptedPreparation_whenRendererAtCapacity() throws Exception {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager attachments = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        EFormRenderApprovalService approvals = mock(EFormRenderApprovalService.class);
+        EFormDataDao dao = mock(EFormDataDao.class);
+        EFormData form = new EFormData(); form.setDemographicId(123);
+        LoggedInInfo user = new LoggedInInfo();
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/fax/faxAction");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
+        when(security.hasPrivilege(user, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(security.hasPrivilege(user, "_eform", SecurityInfoManager.READ, "123")).thenReturn(true);
+        when(dao.find(42)).thenReturn(form);
+        when(faxManager.getFaxGatewayAccounts(user)).thenReturn(List.of(mock(FaxConfig.class)));
+        when(attachments.stageEFormPacketForFaxPreview(eq(request), eq(response), any()))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("capacity", true));
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, attachments);
+        registerMock(SecurityInfoManager.class, security);
+        registerMock(EFormRenderApprovalService.class, approvals);
+        registerMock(EFormDataDao.class, dao);
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            Fax2Action action = eFormAction();
+            action.setRecipient("Owned <recipient>");
+            action.setRecipientFaxNumber("5550100");
+            action.setLetterheadFax("5550101");
+            assertThat(action.prepareFax()).isEqualTo("renderBusy");
+        }
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getHeader("Retry-After")).isEqualTo("2");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(request.getAttribute("renderCapacityAction")).isEqualTo("/carlos/fax/faxAction");
+        assertThat(request.getAttribute("renderCapacityFields")).isEqualTo(Map.of(
+                "method", "prepareFax", "transactionType", "EFORM", "transactionId", "42",
+                "demographicNo", "123", "recipient", "Owned <recipient>",
+                "recipientFaxNumber", "5550100", "letterheadFax", "5550101"));
+        verify(faxManager, never()).persistAndLogFaxJobs(any(), any(), any(), any());
+        assertThat(request.getAttribute("documents")).isNull();
+        assertThat(request.getAttribute("renderApproval")).isNull();
+    }
+
 }

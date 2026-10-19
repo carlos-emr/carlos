@@ -89,6 +89,37 @@ class EmailNoteUtilUnitTest {
         assertThat(noteUtil(emailLog()).createNote()).contains("Consent: Not recorded");
     }
 
+    @Test
+    @DisplayName("should chart the message and the sent-by line but not the footer")
+    void shouldExcludeFooter_fromChartNote() {
+        EmailLog emailLog = emailLog();
+        emailLog.setChartDisplayOption(ChartDisplayOption.WITH_FULL_NOTE);
+        emailLog.setFooter("Riverside Clinic footer line");
+
+        String note = noteUtil(emailLog).createNote();
+
+        assertThat(note)
+                .contains("Email Subject: Subject", "Body", "[Sent on ")
+                .doesNotContain("Riverside Clinic footer line");
+    }
+
+    @Test
+    @DisplayName("should keep the footer out of an encrypted email's chart note")
+    void shouldExcludeFooter_fromEncryptedChartNote() {
+        EmailLog emailLog = emailLog();
+        emailLog.setChartDisplayOption(ChartDisplayOption.WITH_FULL_NOTE);
+        emailLog.setIsEncrypted(true);
+        emailLog.setBody("You have a secure message.");
+        emailLog.setEncryptedMessage("Protected message contents");
+        emailLog.setFooter("Riverside Clinic footer line");
+
+        String note = noteUtil(emailLog).createNote();
+
+        assertThat(note)
+                .contains("You have a secure message.", "Attached Message (message.pdf encrypted)")
+                .doesNotContain("Riverside Clinic footer line");
+    }
+
     private EmailLog emailLog() {
         EmailLog emailLog = new EmailLog();
         emailLog.setSubject("Subject");

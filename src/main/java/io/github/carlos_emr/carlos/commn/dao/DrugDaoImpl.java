@@ -414,6 +414,18 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         return query.getResultList();
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<Object[]> findDrugsAndPrescriptionsByScriptNumber(int scriptNumber, int demographicNo) {
+        Query query = entityManager.createQuery(
+                "SELECT d, p FROM Drug d, Prescription p WHERE d.scriptNo = p.id AND d.scriptNo = :scriptNo "
+                        + "AND d.demographicId = :demographicNo AND p.demographicId = :demographicNo "
+                        + "ORDER BY d.position DESC, d.rxDate DESC, d.id ASC");
+        query.setParameter("scriptNo", scriptNumber);
+        query.setParameter("demographicNo", demographicNo);
+        return query.getResultList();
+    }
+
     @Override
     public int getMaxPosition(int demographicNo) {
         Query query = entityManager.createQuery(

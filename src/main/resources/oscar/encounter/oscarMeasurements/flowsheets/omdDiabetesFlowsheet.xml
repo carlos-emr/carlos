@@ -300,13 +300,23 @@
 				</recommendation>
 			</rules>
 		</item>
-		<item measurement_type="FTLS" display_name="Monofilament 10g" guideline="Check for peripheral anesthesia with 10g monofilament or 128 Hz tuning fork" graphable="no" value_name="Normal"  >
+		<item measurement_type="FTLS" display_name="Neurological exam: 10g monofilament" guideline="Check for peripheral anesthesia with 10g monofilament" graphable="no" value_name="Normal"  >
 			<rules>
 				<recommendation strength="warning" >
 					<condition type="monthrange" param="FTLS" value="&gt;12" />
 				</recommendation>
 				<recommendation strength="warning" >
 					<condition type="monthrange" param="FTLS" value="-1" />
+				</recommendation>
+			</rules>
+		</item>
+		<item measurement_type="NRTF" display_name="Neurological exam: 128Hz tuning fork D1" guideline="Check for peripheral anesthesia with 128 Hz tuning fork" graphable="no" value_name="Normal"  >
+			<rules>
+				<recommendation strength="warning" >
+					<condition type="monthrange" param="NRTF" value="&gt;12" />
+				</recommendation>
+				<recommendation strength="warning" >
+					<condition type="monthrange" param="NRTF" value="-1" />
 				</recommendation>
 			</rules>
 		</item>
@@ -694,6 +704,10 @@
 	</measurement>
 	
 	<measurement type="FTLS" typeDesc="Foot Exam  Loss of Sensation" typeDisplayName="Foot Exam  Test loss of Sensation" measuringInstrc="Normal">
+		<validationRule name="Yes/No" maxValue="" minValue="" isDate="" isNumeric="" regularExp="YES|yes|Yes|Y|NO|no|No|N" maxLength="" minLength="" />
+	</measurement>
+
+	<measurement type="NRTF" typeDesc="Neurological exam: 128Hz tuning fork D1" typeDisplayName="Neurological exam: 128Hz tuning fork D1" measuringInstrc="Normal">
 		<validationRule name="Yes/No" maxValue="" minValue="" isDate="" isNumeric="" regularExp="YES|yes|Yes|Y|NO|no|No|N" maxLength="" minLength="" />
 	</measurement>
 	

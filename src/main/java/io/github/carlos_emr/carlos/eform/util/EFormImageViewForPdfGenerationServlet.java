@@ -67,10 +67,10 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String remoteAddress = request.getRemoteAddr();
-        logger.debug("EFormImageViewForPdfGenerationServlet request from : {}", remoteAddress);
+        logger.debug("EFormImageViewForPdfGenerationServlet request from : {}", LogSafe.sanitize(remoteAddress));
 
         if (!isLocalRequest(remoteAddress)) {
-            logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : {}", remoteAddress);
+            logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : {}", LogSafe.sanitize(remoteAddress));
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
@@ -135,6 +135,8 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             }
             response.setContentType(contentType);
             response.setHeader("Content-disposition", "inline; filename=\"" + sanitizeHeaderValue(fileName) + "\"");
+            // getImageFile validates containment in the configured image directory before this read.
+            // nosemgrep: carlos.httpservlet-path-traversal
             try (InputStream stream = new FileInputStream(file)) {
                 OutputStream outputStream = response.getOutputStream();
                 IOUtils.copy(stream, outputStream);

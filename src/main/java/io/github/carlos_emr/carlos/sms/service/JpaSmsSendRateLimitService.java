@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Date;
 import java.util.Objects;
+import java.util.Optional;
 
 @Primary
 @Service
@@ -47,15 +48,19 @@ public class JpaSmsSendRateLimitService implements SmsSendRateLimitService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean tryAcquire(SmsProviderType providerType) {
         SmsProviderType safeProviderType = providerType == null ? SmsProviderType.STUB : providerType;
-        Date now = Date.from(clock.instant());
-        rateLimitDao.insertIfMissing(safeProviderType, now);
-        SmsProviderRateLimit rateLimit = rateLimitDao
-                .findByProviderTypeForUpdate(safeProviderType)
-                .orElse(null);
+        // Materialize the key with one atomic upsert before locking it. A locking read of a missing key
+        // takes a gap lock under MariaDB repeatable read; concurrent inserts then deadlock while upgrading
+        // those gap locks. The upsert also takes an exclusive lock for an existing key, so it avoids the
+        // shared-lock upgrade deadlock caused by INSERT IGNORE.
+        rateLimitDao.ensureExists(safeProviderType, Date.from(clock.instant()));
+        Optional<SmsProviderRateLimit> lockedRow = rateLimitDao.findByProviderTypeForUpdate(safeProviderType);
+        SmsProviderRateLimit rateLimit = lockedRow.orElse(null);
         if (rateLimit == null) {
             return false;
         }
-        boolean acquired = rateLimit.tryAcquire(now, maxSendsPerWindow, window);
+        // A caller may have waited through a window rollover. Use the time after locking so an old
+        // timestamp cannot be mistaken for a backward clock change and reset the committed count.
+        boolean acquired = rateLimit.tryAcquire(Date.from(clock.instant()), maxSendsPerWindow, window);
         if (acquired) {
             rateLimitDao.merge(rateLimit);
             rateLimitDao.flush();

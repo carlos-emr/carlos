@@ -22,6 +22,7 @@ package io.github.carlos_emr.carlos.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -48,12 +49,14 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @Tag("unit")
 @Tag("security")
-class ProseSinkEncodingRegressionTest {
+class ProseSinkEncodingRegressionTest extends CarlosUnitTestBase {
 
     static Stream<Arguments> sinks() {
         return Stream.of(
                 Arguments.of("src/main/webapp/WEB-INF/jsp/casemgmt/showHistory.jsp",
                         "${note.note}", "${carlos:forHtmlContentWithBreaks(note.note)}"),
+                Arguments.of("src/main/webapp/WEB-INF/jsp/casemgmt/showHistory.jsp",
+                        "${note.history}", "${carlos:forHtmlContentWithBreaks(note.history)}"),
                 Arguments.of("src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java",
                         ".replace(\"\\n\", \"<br/>\")", "SafeEncode.forHtmlContent(textStr).replace(\"\\n\", \"<br>\")"),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/tickler/ticklerDemoMain.jsp",
@@ -109,6 +112,24 @@ class ProseSinkEncodingRegressionTest {
                 .contains("contentType=\"text/plain; charset=UTF-8\"")
                 .as("InsertTemplate2.jsp is the raw feed, not an HTML page")
                 .doesNotContain("text/html");
+    }
+
+    /**
+     * Not prose, but admin-entered the same way: the consent type key names and identifies the
+     * chart's consent inputs and is passed to the Clear button's script.
+     */
+    @Test
+    @DisplayName("the chart edit form should encode the consent type key everywhere it prints it")
+    void shouldEncodeConsentTypeKey_inChartEditForm() throws IOException {
+        String source = Files.readString(
+                resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp")),
+                StandardCharsets.UTF_8);
+
+        assertThat(source)
+                .as("no attribute or script prints the key raw")
+                .doesNotContainPattern("\\$\\{\\s*consentType\\.type\\s*\\}")
+                .contains("consentClearBtn('${carlos:forJavaScript(consentType.type)}')")
+                .contains("name=\"${carlos:forHtmlAttribute(consentType.type)}\"");
     }
 
     @ParameterizedTest(name = "{0}: {2}")

@@ -9,6 +9,8 @@
 package io.github.carlos_emr.carlos.utility.tld;
 
 import java.io.StringWriter;
+import java.util.Locale;
+import java.util.ResourceBundle;
 
 import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.JspWriter;
@@ -22,6 +24,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.owasp.encoder.Encode;
+import org.apache.commons.text.StringEscapeUtils;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -119,6 +124,18 @@ class CarlosEncodeTagUnitTest {
         }
 
         @Test
+        void shouldDispatchToForHtmlContentWithBreakMarkers_whenContextIsHtmlWithBreakMarkers() throws JspException {
+            run("htmlWithBreakMarkers", "5.2<br />Repeat <b>");
+            assertThat(captured.toString()).isEqualTo("5.2<br/>Repeat &lt;b&gt;");
+        }
+
+        @Test
+        void shouldRenderEmpty_whenHtmlWithBreakMarkersValueIsNull() throws JspException {
+            run("htmlWithBreakMarkers", null);
+            assertThat(captured.toString()).isEmpty();
+        }
+
+        @Test
         void shouldDispatchToForHtmlAttribute_whenContextIsHtmlAttribute() throws JspException {
             run("htmlAttribute", "\" onerror=alert(1)");
             assertThat(captured.toString()).isEqualTo(Encode.forHtmlAttribute("\" onerror=alert(1)"));
@@ -149,9 +166,40 @@ class CarlosEncodeTagUnitTest {
         }
 
         @Test
+        @DisplayName("should keep stored drug names inside a JavaScript href argument")
+        void shouldEncodeDrugNameQuotesAndEntities_forJavaScriptAttribute() throws JspException {
+            // WriteScript's ShowDrugInfo link uses this context inside a double-quoted href
+            // and a single-quoted JS argument. HTML entities must not reopen either quote.
+            run("javaScriptAttribute", "O'Brien');alert(1);//\" onmouseover=\"alert(2) &quot;");
+
+            assertThat(captured.toString())
+                    .doesNotContain("'", "\"", "&")
+                    .contains("\\x27", "\\x22", "\\x26");
+        }
+
+        @Test
         void shouldDispatchToForJavaScriptBlock_whenContextIsSet() throws JspException {
             run("javaScriptBlock", "value");
             assertThat(captured.toString()).isEqualTo(Encode.forJavaScriptBlock("value"));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"en", "es", "fr", "pl", "pt-BR"})
+        @DisplayName("should preserve quoted contact validation messages through the real JSP tag")
+        void shouldEncodeContactValidationMessages_forJavaScriptBlock(String language) throws JspException {
+            ResourceBundle messages = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language));
+            for (String key : new String[]{"demographic.contactForm.msgLastNameRequired",
+                    "demographic.contactForm.msgFirstNameRequired"}) {
+                String message = messages.getString(key);
+                assertThat(message).as("translated quote regression fixture %s/%s", language, key).contains("\"");
+                captured.getBuffer().setLength(0);
+                run("javaScriptBlock", message);
+                String encoded = captured.toString();
+                // The actual tag output must stay inside the JSP's double-quoted literal.
+                assertThat(encoded).doesNotContain("\r", "\n", "</script").contains("\\\"");
+                assertThat(encoded.replace("\\\"", "")).doesNotContain("\"");
+                assertThat(StringEscapeUtils.unescapeEcmaScript(encoded)).isEqualTo(message);
+            }
         }
 
         @Test

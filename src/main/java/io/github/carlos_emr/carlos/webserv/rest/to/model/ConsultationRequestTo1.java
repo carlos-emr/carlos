@@ -82,6 +82,7 @@ public class ConsultationRequestTo1 implements Serializable {
     private String letterheadPhone;
     private String letterheadFax;
     private List<ConsultationAttachmentTo1> attachments = Collections.emptyList();
+    private boolean attachmentSelectionProvided;
 
     private List<LetterheadTo1> letterheadList;
     private List<FaxConfigTo1> faxList;
@@ -297,6 +298,18 @@ public class ConsultationRequestTo1 implements Serializable {
 
     public void setAttachments(List<ConsultationAttachmentTo1> attachments) {
         this.attachments = attachments;
+        this.attachmentSelectionProvided = true;
+    }
+
+    /**
+     * Distinguishes a submitted empty selection from an omitted JSON field while retaining
+     * the legacy empty-list getter default for callers that only read this DTO.
+     *
+     * @return whether the caller explicitly supplied an attachment selection
+     */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean hasAttachmentSelection() {
+        return attachmentSelectionProvided;
     }
 
     public List<LetterheadTo1> getLetterheadList() {

@@ -29,15 +29,28 @@
 
 --%>
 
+<%--
+    Field Note administration summary: lists resident note counts and supervisor totals
+    from request-local report state. The view gate requires _admin.fieldnote read access;
+    only writers receive the eForm-selection control.
+    Parameters: date_start and date_end are inclusive ISO calendar dates; omitted/empty
+    values use the displayed defaults. Invalid or reversed dates show a warning without
+    querying reports. View and Download submit the selected resident and date interval.
+    @since 2026-10-02 (request-local reporting and strict date validation)
+--%>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteDateRange" %>
 <%@ page import="java.util.*, java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
+    FieldNoteManager fieldNoteManager = new FieldNoteManager();
     Calendar c = Calendar.getInstance();
     int year = c.get(Calendar.YEAR);
     if (c.get(Calendar.MONTH) < 7) year--;
@@ -59,27 +72,22 @@
     Date endDate = null;
     boolean invalidDate = false;
     try {
-        startDate = df.parse(dateStart);
-        endDate = df.parse(dateEnd);
-
-        //add one to endDate
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(endDate);
-        cal.add(Calendar.DATE, 1);
-        endDate = cal.getTime();
-    } catch (ParseException pex) {
+        FieldNoteDateRange range = FieldNoteDateRange.parse(dateStart, dateEnd);
+        startDate = range.startDate();
+        endDate = range.endExclusiveDate();
+    } catch (IllegalArgumentException ex) {
         invalidDate = true;
     }
 
-    TreeSet<Integer> fieldNoteEforms = FieldNoteManager.getFieldNoteEforms();
+    TreeSet<Integer> fieldNoteEforms = fieldNoteManager.getFieldNoteEforms();
     TreeMap<String, String> residentNameList = new TreeMap<String, String>();
     TreeMap<String, TreeMap<String, Integer>> supervisorResidentCountList = new TreeMap<String, TreeMap<String, Integer>>();
     TreeMap<String, Integer> supervisorCountList = new TreeMap<String, Integer>();
     int totalCount = 0;
 
-    if (showData) {
-        residentNameList = FieldNoteManager.getResidentNameList(fieldNoteEforms, startDate, endDate);
-        supervisorResidentCountList = FieldNoteManager.getSupervisorResidentCountList();
+    if (showData && !invalidDate) {
+        residentNameList = fieldNoteManager.getResidentNameList(fieldNoteEforms, startDate, endDate);
+        supervisorResidentCountList = fieldNoteManager.getSupervisorResidentCountList();
         for (String supervisor : supervisorResidentCountList.keySet()) {
             int noteCount = 0;
             for (Integer count : supervisorResidentCountList.get(supervisor).values()) {
@@ -176,9 +184,9 @@
                         if (fieldNoteEforms.isEmpty()) {
                     %> <fmt:message key="admin.fieldNote.noEformAssigned"/>
                     <% }
-                    %> <input type="button" value="<fmt:message key="admin.fieldNote.selectEformsButton"/>"
+                    %> <c:if test="${canManageFieldNotes}"><input type="button" value="<fmt:message key="admin.fieldNote.selectEformsButton"/>"
                               title="<fmt:message key="admin.fieldNote.selectEforms"/>"
-                              onclick="window.location.href='fieldnoteselect'"/>
+                              onclick="window.location.href='fieldnoteselect'"/></c:if>
                 </td>
             </tr>
             <tr style="background-color: #F2F2F2;">

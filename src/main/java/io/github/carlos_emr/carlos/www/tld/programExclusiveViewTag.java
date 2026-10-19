@@ -53,13 +53,6 @@ public class programExclusiveViewTag extends TagSupport {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Creates a new instance of programExclusiveViewTag
-     */
-    public programExclusiveViewTag() {
-        exclusiveView = "no";
-    }
-
     public void setProviderNo(String providerNo1) {
         providerNo = providerNo1;
     }
@@ -79,10 +72,12 @@ public class programExclusiveViewTag extends TagSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public int doStartTag() throws JspException {
+        // JSP tag instances are pooled: a previous provider must not supply this one's view.
+        String exclusiveView = "no";
         ProviderDefaultProgramDao dao = SpringUtils.getBean(ProviderDefaultProgramDao.class);
         for (Program p : dao.findProgramsByProvider(providerNo)) {
             exclusiveView = p.getExclusiveView();
-            if (exclusiveView.equals("")) {
+            if (exclusiveView == null || exclusiveView.isEmpty()) {
                 exclusiveView = "no";
             }
         }
@@ -106,5 +101,4 @@ public class programExclusiveViewTag extends TagSupport {
 
     private String providerNo;
     private String value;
-    private String exclusiveView;
 }

@@ -50,6 +50,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.ClientAbort;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
@@ -245,6 +246,14 @@ public class LogoutBroadcastFilter implements Filter {
             appendScript(delegatingResponse, httpRequest, httpRequest.getContextPath(), httpRequest.getLocale());
             httpRequest.setAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE, Boolean.TRUE);
         } catch (IOException e) {
+            if (ClientAbort.isClientAbort(e)) {
+                // The browser went away before the script could be appended (#4438): not a server fault.
+                logger.debug("Skipping logout broadcast script injection because the client aborted: uri={}",
+                        safeRequestUri);
+                // Nothing more can reach a client that has gone; do not flush the buffered body to it again.
+                delegatingResponse.discardDeferredContentLength();
+                return;
+            }
             logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
                     safeRequestUri, e);
             delegatingResponse.discardDeferredContentLength();

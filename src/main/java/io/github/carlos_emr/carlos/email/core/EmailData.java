@@ -52,12 +52,27 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class EmailData {
     /** Maximum persisted length of a consent override justification. */
     public static final int CONSENT_OVERRIDE_REASON_MAX_LENGTH = 255;
+    /**
+     * Maximum length of the footer sent below the message (issue #3981), counted in the characters
+     * of its plain-text version ({@link EmailFooterHtml#visibleLength}); its HTML may not exceed
+     * {@link EmailFooterHtml#MAX_HTML_LENGTH}.
+     */
+    public static final int FOOTER_MAX_LENGTH = 2000;
 
     private Integer senderConfigId;
     private String sender;
     private String[] recipients;
     private String subject;
     private String body;
+    private ClinicEmailFooterSnapshot clinicFooterSnapshot;
+    private boolean footerFrozen;
+    private String sentPersonalFooter;
+    private String frozenFooterHtml;
+
+    private String footer = "";
+    // Derived state; absent in older objects and rebuilt safely on the first read.
+    private transient String sentFooter;
+    private EmailInlineImage footerLogo;
     private String encryptedMessage = "";
     private String password;
     private String passwordClue;
@@ -73,6 +88,7 @@ public class EmailData {
     private boolean consentOverride;
     private String consentOverrideReason;
     private EmailComposeWorkingDirectory workingDirectory;
+    private List<String> archiveRedactions = List.of();
 
     /**
      * Default constructor for creating an empty EmailData instance.
@@ -237,6 +253,159 @@ public class EmailData {
      */
     public void setBody(String body) {
         this.body = body != null ? body : "";
+    }
+
+    /**
+     * Gets the footer sent to the recipient below the body (issue #3981), as posted: formatted
+     * HTML, not yet cleaned. {@link #getSentFooter()} is what is stored and sent.
+     *
+     * @return String the footer, or empty string if not set
+     * @since 2026-09-29
+     */
+    public String getFooter() {
+        return footer != null ? footer : "";
+    }
+
+    /**
+     * Sets the footer sent to the recipient below the body. The footer is not part of the body,
+     * so it is never written into the chart note and never put inside the encrypted PDF.
+     *
+     * @param footer String the footer as formatted HTML (plain text must first go through
+     *        {@link EmailFooterHtml#fromPlainText}); null values are converted to empty string
+     * @since 2026-09-29
+     */
+    public void setFooter(String footer) {
+        requireUnfrozenFooter();
+        this.footer = footer != null ? footer : "";
+        this.sentFooter = EmailFooterHtml.clean(this.footer);
+    }
+
+    /** Binds trusted authoring-time clinic content; HTTP footer fields only set personal text. */
+    public void setClinicFooterSnapshot(ClinicEmailFooterSnapshot snapshot) {
+        requireUnfrozenFooter();
+        this.clinicFooterSnapshot = snapshot;
+        this.sentFooter = null;
+    }
+
+    public ClinicEmailFooterSnapshot getClinicFooterSnapshot() {
+        return clinicFooterSnapshot;
+    }
+
+    /** Freeze the combined sanitized snapshot and reject a value the existing BLOB cannot store. */
+    public void freezeFooter(ClinicEmailFooterSnapshot snapshot) {
+        if (footerFrozen && clinicFooterSnapshot.equals(snapshot)) {
+            return;
+        }
+        requireUnfrozenFooter();
+        if (snapshot == null || snapshot.missingRequiredFooter()) {
+            throw new IllegalStateException("Clinic email footer is required");
+        }
+        String personal = EmailFooterHtml.clean(footer);
+        if (personal.length() > EmailFooterHtml.MAX_HTML_LENGTH
+                || EmailFooterHtml.visibleLength(personal) > FOOTER_MAX_LENGTH) {
+            throw new IllegalArgumentException("Personal email footer is too long");
+        }
+        // With the clinic footer turned off, the user's own footer is all there is.
+        String combined = personal.isEmpty() ? snapshot.html()
+                : snapshot.html().isEmpty() ? personal
+                : "<div>" + personal + "</div><br><div>" + snapshot.html() + "</div>";
+        combined = EmailFooterHtml.clean(combined);
+        int bytes = combined.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        // EmailLog stores Base64 in a BLOB whose maximum is 65,535 bytes.
+        if (4L * ((bytes + 2L) / 3L) > 65_535) {
+            throw new IllegalArgumentException("Combined email footers exceed storage capacity");
+        }
+        clinicFooterSnapshot = snapshot;
+        sentFooter = combined;
+        frozenFooterHtml = combined;
+        footerLogo = snapshot.logo();
+        sentPersonalFooter = personal;
+        footerFrozen = true;
+    }
+
+    public boolean isFooterFrozen() { return footerFrozen; }
+
+    private void requireUnfrozenFooter() {
+        if (footerFrozen) {
+            throw new IllegalStateException("Sent email footers are immutable");
+        }
+    }
+
+    /**
+     * Returns the plain-text body the transport sends: the body, then one blank line, then the
+     * footer as plain text ({@link EmailFooterHtml#toPlainText}).
+     *
+     * <p>Without a footer the body is returned unchanged. EmailManager refuses a send while no
+     * clinic footer is saved (issue #3981), so a new email always carries one; the footer-less
+     * result only applies to an EmailData built outside that send path. With encryption on, the body is the fixed secure-message notice, so the footer follows the notice
+     * in clear text; it is never part of the encrypted PDF.</p>
+     *
+     * @return String the transmitted body
+     * @since 2026-09-29
+     */
+    public String getTransmittedBody() {
+        String sentFooter = getSentFooter();
+        if (sentFooter.isEmpty()) {
+            return body;
+        }
+        String visibleBody = body != null ? body : "";
+        return visibleBody.stripTrailing() + "\n\n" + EmailFooterHtml.toPlainText(sentFooter);
+    }
+
+    /**
+     * Returns the formatted (HTML) version the transport sends alongside the plain-text body: the
+     * body, the clinic logo when one is attached ({@link #getFooterLogo()}), then the footer.
+     *
+     * @return the HTML document, or null for an EmailData without a footer (never a new send, which
+     *         always carries the clinic footer)
+     * @since 2026-10-08
+     */
+    public String getTransmittedHtml() {
+        String sentFooter = getSentFooter();
+        if (sentFooter.isEmpty()) {
+            return null;
+        }
+        if (footerFrozen) {
+            return EmailFooterHtml.toHtmlDocument(body, sentPersonalFooter,
+                    clinicFooterSnapshot.html(), footerLogo == null ? null : footerLogo.contentId());
+        }
+        return EmailFooterHtml.toHtmlDocument(body, sentFooter, footerLogo == null ? null : footerLogo.contentId());
+    }
+
+    /**
+     * Returns the footer as the recipient receives it: cleaned against the footer's allow-list
+     * ({@link EmailFooterHtml#clean}), and empty when it has no visible text. The email log stores
+     * this, so the log and a resend carry exactly the footer that was sent.
+     *
+     * @return String the sent footer HTML, never null
+     * @since 2026-09-29
+     */
+    public String getSentFooter() {
+        if (footerFrozen) {
+            return frozenFooterHtml;
+        }
+        if (sentFooter == null) {
+            sentFooter = EmailFooterHtml.clean(footer);
+        }
+        return sentFooter;
+    }
+
+    /**
+     * @return the clinic logo carried inline above the footer, or null for none; only an email with
+     *         a footer carries it
+     * @since 2026-10-08
+     */
+    public EmailInlineImage getFooterLogo() {
+        return footerFrozen ? clinicFooterSnapshot.logo() : getSentFooter().isEmpty() ? null : footerLogo;
+    }
+
+    /**
+     * @param footerLogo the clinic logo to carry inline above the footer, or null for none
+     * @since 2026-10-08
+     */
+    public void setFooterLogo(EmailInlineImage footerLogo) {
+        requireUnfrozenFooter();
+        this.footerLogo = footerLogo;
     }
 
     /**
@@ -568,6 +737,20 @@ public class EmailData {
     /** Sets the server-only owner for generated compose and encryption artifacts. */
     public void setWorkingDirectory(EmailComposeWorkingDirectory workingDirectory) {
         this.workingDirectory = workingDirectory;
+    }
+
+    /** @return values the outbound archive must not keep; empty for an ordinary email */
+    public List<String> getArchiveRedactions() {
+        return archiveRedactions;
+    }
+
+    /**
+     * Names values the message carries that the outbound archive must not keep, such as a one-time
+     * credential that stays usable after the send. The archived copy has each replaced with
+     * {@code [redacted]}; the message itself is sent unchanged. Server-only: never bound from a request.
+     */
+    public void setArchiveRedactions(List<String> archiveRedactions) {
+        this.archiveRedactions = archiveRedactions == null ? List.of() : List.copyOf(archiveRedactions);
     }
     /** @param consentOverride request value; only the exact value {@code true} enables override */
     public void setConsentOverride(String consentOverride) {

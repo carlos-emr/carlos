@@ -46,7 +46,9 @@ function applyTicklerNoteFields(data, contextPath) {
     if (data.noteId != null) {
         document.getElementById('tickler_note_noteId').value = data.noteId;
         document.getElementById('tickler_note_revision_url').setAttribute('onclick',
-            "window.open('" + contextPath + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(data.noteId) + "');return false;");
+            "window.open('" + contextPath + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(data.noteId)
+            + "&demographicNo=" + encodeURIComponent(document.getElementById('tickler_note_demographicNo').value)
+            + "');return false;");
     }
     if (data.note != null) {
         document.getElementById('tickler_note').value = data.note;

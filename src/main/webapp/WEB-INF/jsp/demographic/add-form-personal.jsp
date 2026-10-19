@@ -1,4 +1,17 @@
+<%-- Modifications by CARLOS Contributors, 2026. --%>
 <%-- add-form-personal.jsp: Name, address, phone, demographics, HIN (from demographicaddarecordhtm.jsp lines 767-1877) --%>
+<%--
+  Purpose: Personal-details section of the demographic registration form included by add.jsp.
+  Features: Identity, contact information, birth date, health-card details and
+  optional effective and renewal dates. Hidden date parts use the registration
+  action's parameter names and are synchronized by add.jsp before submission.
+  Inputs: DemographicAdd2Action request attributes supply patient-search defaults,
+  provincial configuration and country/lookup data. The authenticated session
+  supplies user and role context; search_mode and keyword preserve the search.
+  This fragment relies on the parent form and JavaScript in add.jsp and opens
+  the care-team row completed by add-form-clinical.jsp.
+  @since 2026-10-04 (date-field submission correction, issue #4155)
+--%>
 <%@ page import="java.util.*" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.Date" %>
@@ -50,7 +63,6 @@
     String defaultProvince = (String) request.getAttribute("defaultProvince");
     ProvinceNames pNames = (ProvinceNames) request.getAttribute("pNames");
     boolean privateConsentEnabled = Boolean.TRUE.equals(request.getAttribute("privateConsentEnabled"));
-    String today = (String) request.getAttribute("today");
     List<Provider> doctors = (List<Provider>) request.getAttribute("doctors");
     List<Provider> nurses = (List<Provider>) request.getAttribute("nurses");
     List<Provider> midwifes = (List<Provider>) request.getAttribute("midwifes");
@@ -835,12 +847,12 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="eff_date" id="eff_date"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('eff_date');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="eff_date_cal">
                                     <input type="hidden" name="eff_date_year">
-                                    <input type="hidden" name="eff_month">
-                                    <input type="hidden" name="eff">
+                                    <input type="hidden" name="eff_date_month">
+                                    <input type="hidden" name="eff_date_date">
                                 </div>
                             </div>
                         </div>
@@ -939,7 +951,7 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="hc_renew_date" id="hc_renew_date"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('hc_renew_date');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="hc_renew_date_cal">
                                     <input type="hidden" name="hc_renew_date_year">

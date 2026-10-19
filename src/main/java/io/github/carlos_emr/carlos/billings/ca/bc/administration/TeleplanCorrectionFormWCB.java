@@ -30,7 +30,6 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.administration;
 
 import java.sql.ResultSet;
-import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.Misc;
@@ -42,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
 
 public class TeleplanCorrectionFormWCB {
 
@@ -137,69 +137,69 @@ public class TeleplanCorrectionFormWCB {
 
             this.demographicNumber = String.valueOf(result[0]);
             this.id = String.valueOf(result[1]);
-            this.firstName = (String) result[2];
-            this.lastName = (String) result[3];
-            this.address = (String) result[4];
-            this.city = (String) result[5];
-            this.province = (String) result[6];
-            this.postal = (String) result[7];
-            this.hin = (String) result[8];
-            this.monthOfBirth = (String) result[9];
-            this.dayOfBirth = (String) result[10];
-            this.yearOfBirth = (String) result[11];
-            this.practitioner = (String) result[12];
-            this.billingCode = (String) result[13];
-            this.billingAmount = (String) result[14];
+            this.firstName = NativeQueryValues.asString(result[2]);
+            this.lastName = NativeQueryValues.asString(result[3]);
+            this.address = NativeQueryValues.asString(result[4]);
+            this.city = NativeQueryValues.asString(result[5]);
+            this.province = NativeQueryValues.asString(result[6]);
+            this.postal = NativeQueryValues.asString(result[7]);
+            this.hin = NativeQueryValues.asString(result[8]);
+            this.monthOfBirth = NativeQueryValues.asString(result[9]);
+            this.dayOfBirth = NativeQueryValues.asString(result[10]);
+            this.yearOfBirth = NativeQueryValues.asString(result[11]);
+            this.practitioner = NativeQueryValues.asString(result[12]);
+            this.billingCode = NativeQueryValues.asString(result[13]);
+            this.billingAmount = NativeQueryValues.asString(result[14]);
             this.billingUnit = String.valueOf(result[15]);
 
-            this.date = (String) result[16];
+            this.date = NativeQueryValues.asString(result[16]);
             this.billingNo = String.valueOf(result[17]);
-            this.dataSeqNo = (String) result[18];
+            this.dataSeqNo = NativeQueryValues.asString(result[18]);
             this.serviceLocation = String.valueOf(result[19]);
-            this.w_icd9 = (String) result[20];
+            this.w_icd9 = NativeQueryValues.asString(result[20]);
             w_reportype = String.valueOf(result[21]);
             w_mname = String.valueOf(result[22]);
             w_gender = String.valueOf(result[23]);
-            w_doi = ConversionUtils.toDateString((Date) result[24]);
+            w_doi = ConversionUtils.toDateString(NativeQueryValues.asDate(result[24]));
             w_area = String.valueOf(result[25]);
-            w_phone = (String) result[26];
-            w_empname = (String) result[27];
+            w_phone = NativeQueryValues.asString(result[26]);
+            w_empname = NativeQueryValues.asString(result[27]);
             w_emparea = String.valueOf(result[28]);
-            w_empphone = (String) result[29];
-            w_wcbno = (String) result[30];
-            w_opaddress = (String) result[31];
+            w_empphone = NativeQueryValues.asString(result[29]);
+            w_wcbno = NativeQueryValues.asString(result[30]);
+            w_opaddress = NativeQueryValues.asString(result[31]);
 
-            w_opcity = (String) result[32];
+            w_opcity = NativeQueryValues.asString(result[32]);
             w_rphysician = String.valueOf(result[33]);
             w_duration = String.valueOf(result[34]);
-            w_ftreatment = (String) result[35];
-            w_problem = (String) result[36];
-            w_servicedate = ConversionUtils.toDateString((Date) result[37]);
-            w_diagnosis = (String) result[38];
-            w_icd9 = (String) result[39];
-            w_bp = (String) result[40];
+            w_ftreatment = NativeQueryValues.asString(result[35]);
+            w_problem = NativeQueryValues.asString(result[36]);
+            w_servicedate = ConversionUtils.toDateString(NativeQueryValues.asDate(result[37]));
+            w_diagnosis = NativeQueryValues.asString(result[38]);
+            w_icd9 = NativeQueryValues.asString(result[39]);
+            w_bp = NativeQueryValues.asString(result[40]);
             w_side = String.valueOf(result[41]);
-            w_noi = (String) result[42];
+            w_noi = NativeQueryValues.asString(result[42]);
             w_work = String.valueOf(result[43]);
-            w_workdate = (String) result[44];
-            w_clinicinfo = (String) result[45];
-            w_capability = (String) result[46];
-            w_capreason = (String) result[47];
-            w_estimate = (String) result[48];
-            w_rehab = (String) result[49];
-            w_rehabtype = (String) result[50];
-            w_estimatedate = (String) result[51];
-            w_tofollow = (String) result[52];
-            w_wcbadvisor = (String) result[53];
-            w_feeitem = (String) result[54];
-            w_extrafeeitem = (String) result[55];
+            w_workdate = NativeQueryValues.asString(result[44]);
+            w_clinicinfo = NativeQueryValues.asString(result[45]);
+            w_capability = NativeQueryValues.asString(result[46]);
+            w_capreason = NativeQueryValues.asString(result[47]);
+            w_estimate = NativeQueryValues.asString(result[48]);
+            w_rehab = NativeQueryValues.asString(result[49]);
+            w_rehabtype = NativeQueryValues.asString(result[50]);
+            w_estimatedate = NativeQueryValues.asString(result[51]);
+            w_tofollow = NativeQueryValues.asString(result[52]);
+            w_wcbadvisor = NativeQueryValues.asString(result[53]);
+            w_feeitem = NativeQueryValues.asString(result[54]);
+            w_extrafeeitem = NativeQueryValues.asString(result[55]);
 
-            status = (String) result[56];
+            status = NativeQueryValues.asString(result[56]);
 
             formNeeded = String.valueOf(result[57]);
             providerNo = String.valueOf(result[58]);
-            w_payeeno = (String) result[59];
-            w_pracno = (String) result[60];
+            w_payeeno = NativeQueryValues.asString(result[59]);
+            w_pracno = NativeQueryValues.asString(result[60]);
         }
     }
 

@@ -41,27 +41,31 @@ public class HCMagneticStripe {
     private String issueDate;
 
     /**
-     * Constructor
+     * Parses the first track using the reader's existing fixed field offsets.
      *
-     * @param stripe
+     * @param stripe raw card tracks, separated by semicolons when present
+     * @throws IllegalArgumentException when the first track cannot be parsed
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public HCMagneticStripe(String stripe) {
 
         if ((stripe == null) || (stripe.isEmpty())) {
-            throw new RuntimeException("Card number is null");
+            throw new IllegalArgumentException("Card number is null");
         }
 
         String[] tmp = stripe.split(";", -1);
         stripe = tmp[0];
 
         if (stripe.length() < 78 || stripe.length() > 79) {
-            throw new RuntimeException("Card number must contain 78 or 79 characters");
+            throw new IllegalArgumentException("Card number must contain 78 or 79 characters");
         }
 
         healthNumber = stripe.substring(8, 18);
         String[] names = stripe.substring(19, 45).split("/");
+        if (names.length < 2) {
+            throw new IllegalArgumentException("Card name must contain a surname/given-name separator");
+        }
         lastName = names[0].trim();
         firstName = names[1].trim();
 

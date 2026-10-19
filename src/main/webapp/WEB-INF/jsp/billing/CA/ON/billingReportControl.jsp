@@ -22,9 +22,15 @@
 --%>
 <%--
   Purpose: Supports billingReportControl in the Ontario billing workflow.
+  Features: provider/date filters, report results and independent, default-off
+  No-Show and Cancelled opt-ins for unbilled appointments. Lowercase custom statuses remain eligible.
+  Request parameters: reportAction, providerview, xml_vdate, xml_appointment_date,
+  includeNoShow and includeCancelled. Each status opt-in requires one true value;
+  missing or repeated values preserve the exclusion default.
   Expected request model data includes: billingReportControlModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
+  @since 2006
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -126,6 +132,19 @@
                                                                        onClick="openBrWindow('${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=${billingReportControlModel.curYear}&amp;month=${billingReportControlModel.curMonth}','','width=300,height=300')">
                     To:</a></font> <input type="text" name="xml_appointment_date" size="10"
                                           value="<carlos:encode value='${billingReportControlModel.xmlAppointmentDate}' context='htmlAttribute'/>"></td>
+            <td></td>
+        </tr>
+        <tr>
+            <%-- Unbilled report only: No-Show / Cancelled visits are excluded unless
+                 opted in (issue #3960; filter UI from open-osp/Open-O PR #134/#186). --%>
+            <td style="text-align:right;font-size:small;color:#333;font-family:Verdana,Arial,Helvetica,sans-serif">
+                <b><fmt:message key="billing.unbilled.label"/>:</b>
+                <label><input type="checkbox" name="includeNoShow" value="true"
+                    ${billingReportControlModel.includeNoShow ? 'checked' : ''}><fmt:message key="billing.unbilled.includeNoShow"/></label>
+                <label><input type="checkbox" name="includeCancelled" value="true"
+                    ${billingReportControlModel.includeCancelled ? 'checked' : ''}><fmt:message key="billing.unbilled.includeCancelled"/></label>
+            </td>
+            <td></td>
             <td></td>
         </tr>
     </form>

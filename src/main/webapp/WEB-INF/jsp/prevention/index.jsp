@@ -51,6 +51,7 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
@@ -777,7 +778,7 @@
                 </oscar:oscarPropertiesCheck></td>
 
             <form name="printFrm" method="post" onsubmit="return onPrint();"
-                  action="<rewrite:reWrite jspPage="printPrevention" context="htmlAttribute"/>">
+                  action="<rewrite:reWrite jspPage="/prevention/printPrevention" context="htmlAttribute"/>">
                 <input type="hidden" name="immunizationOnly" value="false"/>
                 <td valign="top" class="MainTableRightColumn">
 
@@ -849,14 +850,19 @@
                     </div>
                     <% } %>
 
-                    <%if (!StringUtils.isEmpty(CarlosProperties.getInstance().getProperty("cvc.url"))) { %>
-                                <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm"
-                                       style="width: 300px;" placeholder="Add by Brand/Generic/Lot#" autocomplete="off">
-                                <div id="lotNumberToAdd2_choices" class="autocomplete"></div>
-                    <% } else {%>
+                    <%-- The brand picker is always offered. Once a National Vaccine Catalogue is
+                         installed (Administration > Integration > Update National Vaccine
+                         Catalogue) the catalogue brand/generic/lot search is offered as well:
+                         additive, so installing the catalogue never takes the curated brand
+                         picker (with its DIN/dose/route prefill) away from clinicians. --%>
                                 <input type="text" id="immunization" class="form-control form-control-sm"
                                        style="width: 300px;" placeholder="Pick vaccine brand/generic" autocomplete="off">
                                 <div id="immunization_choices" class="autocomplete"></div>
+                    <%if (SpringUtils.getBean(CanadianVaccineCatalogueManager.class).isCatalogueInstalled()) { %>
+                                <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm mt-1"
+                                       style="width: 300px;" placeholder="Add by NVC brand/generic/lot#" autocomplete="off"
+                                       aria-label="Add by National Vaccine Catalogue brand, generic or lot number">
+                                <div id="lotNumberToAdd2_choices" class="autocomplete"></div>
                     <% } %>
                     <%
                         String[] ColourCodesArray = new String[7];
@@ -970,7 +976,7 @@
                                 %>
 
                                 <div class="preventionProcedure" onclick="<%=onClickCode%>"
-                                     title="fade=[on] header=[<carlos:encode value='<%= (String)hdata.get("age") %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= (String)hExt.get("comments") %>' context="htmlAttribute"/>&lt;br/&gt;Administered By: <carlos:encode value='<%= (String)hdata.get("provider_name") %>' context="htmlAttribute"/>]">
+                                     title="fade=[on] header=[<%= SafeEncode.forTooltipText((String)hdata.get("age")) %> -- Date:<%= SafeEncode.forTooltipText((String)hdata.get("prevention_date_no_time")) %>] body=[<%= SafeEncode.forTooltipText((String)hExt.get("comments")) %>&lt;br/&gt;Administered By: <%= SafeEncode.forTooltipText((String)hdata.get("provider_name")) %>]">
 
 
                                     <p <%=r(hdata.get("refused"),result)%> >
@@ -1061,7 +1067,7 @@
                                         %>
                                         <div class="preventionProcedure"
                                              onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionData?id=<carlos:encode value='<%= hdata.get("id") %>' context="javaScriptAttribute"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>','addPreventionData')"
-                                             title="fade=[on] header=[<carlos:encode value='<%= (String)hdata.get("age") %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= (String)hExt.get("comments") %>' context="htmlAttribute"/>&lt;br/&gt;Administered By: <carlos:encode value='<%= (String)hdata.get("provider_name") %>' context="htmlAttribute"/>]">
+                                             title="fade=[on] header=[<%= SafeEncode.forTooltipText((String)hdata.get("age")) %> -- Date:<%= SafeEncode.forTooltipText((String)hdata.get("prevention_date_no_time")) %>] body=[<%= SafeEncode.forTooltipText((String)hExt.get("comments")) %>&lt;br/&gt;Administered By: <%= SafeEncode.forTooltipText((String)hdata.get("provider_name")) %>]">
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <carlos:encode value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' context="html"/> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
                                                 Date: <carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="html"/>
