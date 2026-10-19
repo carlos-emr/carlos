@@ -3435,7 +3435,7 @@ if (userAgent != null) {
                                         initializeConsultation(
                                             '<carlos:encode value='<%= thisForm.getService() %>' context="javaScriptBlock"/>',
                                             (allServicesData.find(function(s) { return String(s.serviceId) === '<carlos:encode value='<%= thisForm.getService() %>' context="javaScriptBlock"/>'; }) || {}).serviceDesc || '',
-                                            '<carlos:encode value='<%= thisForm.getSpecialist() %>' context="javaScriptBlock"/>',
+                                            '<carlos:encode value='<%= request.getAttribute("consultationSubmittedValues") == null ? consultUtil.specialist : thisForm.getSpecialist() %>' context="javaScriptBlock"/>',
                                             '<%=((consultUtil.specialist==null)?"":SafeEncode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
                                             '<carlos:encode value='<%= consultUtil.specPhone %>' context="javaScriptBlock"/>',
                                             '<carlos:encode value='<%= consultUtil.specFax %>' context="javaScriptBlock"/>',
@@ -3451,7 +3451,7 @@ if (userAgent != null) {
                                                     property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                     defaultVal="false">
                             <script type="text/javascript">
-                                const specialist = "${carlos:forJavaScript(EctConsultationFormRequest2Form.specialist)}";
+                                const specialist = "${carlos:forJavaScript(empty consultationSubmittedValues ? consultUtil.specialist : EctConsultationFormRequest2Form.specialist)}";
                                 const servicevalue = "${carlos:forJavaScript(EctConsultationFormRequest2Form.service)}";
 
                                 document.EctConsultationFormRequest2Form.specialist.value = specialist;

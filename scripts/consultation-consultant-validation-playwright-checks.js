@@ -66,13 +66,14 @@ async function workflow(s) {
   };
   await waitForm();
   async function pick(selector, text) {
+    await form.locator(selector).click();
     await form.locator(selector).fill(text);
-    await form.locator(selector).press('ArrowDown');
-    await form.locator('.ui-autocomplete:visible .ui-menu-item').first().click();
+    await form.locator('.ui-autocomplete:visible .ui-menu-item').filter({ hasText: text }).first().click();
   }
   const reason = `${marker} entered referral reason`;
   const clinical = `${marker} clinical information`;
   await pick('#serviceInput', marker);
+  h.assert(await form.locator('#service').inputValue() === service, 'Picker selected a service outside the owned fixture');
   await form.locator('[name="reasonForConsultation"]').fill(reason);
   await form.locator('[name="clinicalInformation"]').fill(clinical);
 
@@ -89,6 +90,10 @@ async function workflow(s) {
       'Browser validation created a referral');
   });
 
+  if (!(await form.locator('#collapseLetterhead').isVisible())) {
+    await form.locator('a[href="#collapseLetterhead"]').click();
+    await form.locator('#collapseLetterhead').waitFor({ state: 'visible' });
+  }
   const letterhead = await form.locator('#letterheadName').evaluate(select => {
     const option = Array.from(select.options).find(option => option.value && option.value !== select.value);
     return option ? option.value : select.value;
