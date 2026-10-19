@@ -70,19 +70,19 @@ async function workflow(s) {
   });
 
   await s.step('the work phone history lists each work phone, with an extension after an "x"', async () => {
-    await update({ phone2: '613-555-0300' });
-    await update({ phone2: '613-555-0301', wPhoneExt: '123' });
+    await update({ phone2: '613-555-0130' });
+    await update({ phone2: '613-555-0131', wPhoneExt: '123' });
     const rows = await history('Work phone History');
-    for (const phone of ['613-555-0300', '613-555-0301x123']) {
+    for (const phone of ['613-555-0130', '613-555-0131x123']) {
       h.assert(rows.some(([date, value]) => date === today && value === phone), `The work phone history does not list ${phone}: ${JSON.stringify(rows)}`);
     }
   });
 
   await s.step('the cell phone history lists each cell phone once', async () => {
-    await update({ demo_cell: '613-555-0400' });
-    await update({ demo_cell: '613-555-0401' });
+    await update({ demo_cell: '613-555-0140' });
+    await update({ demo_cell: '613-555-0141' });
     const cells = (await history('cell phone History')).map(([, value]) => value);
-    for (const phone of ['613-555-0400', '613-555-0401']) {
+    for (const phone of ['613-555-0140', '613-555-0141']) {
       h.assert(cells.filter(value => value === phone).length === 1, `The cell phone history does not list ${phone} once: ${JSON.stringify(cells)}`);
     }
   });

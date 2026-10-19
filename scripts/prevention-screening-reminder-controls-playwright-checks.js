@@ -46,12 +46,17 @@ async function workflow(s) {
     index = await openIndex();
     // The list shows the record first, so a page that did not render can't pass for one without a warning.
     await record().waitFor({ state: 'visible' });
+    // The page draws the Recommendations box only when it has something to say, right after this link, which it
+    // always draws: so a missing box below a rendered link means no warnings, not a page that stopped early.
+    await index.getByText('Immunization Schedules', { exact: false }).first().waitFor({ state: 'visible' });
     return (await index.locator('.recommendations').innerText().catch(() => '')).replace(/\s+/g, ' ');
   }
   /** Opens the record and its "Set Next Date" section, which holds both the next date and Never Remind. */
   async function openReminderSettings() {
     const editor = await s.popup(index, record(), 'prevention-editor');
     const disclosure = editor.getByRole('link', { name: /set next date/i }).first();
+    // Either the "Set Next Date" link or the section it opens is shown once the form has loaded.
+    await disclosure.or(editor.locator('#nextDateDiv')).first().waitFor({ state: 'visible' });
     if (await disclosure.isVisible()) await disclosure.click();
     await editor.locator('#nextDateDiv').waitFor({ state: 'visible' });
     return editor;
