@@ -512,6 +512,7 @@
     "test:form-catalog-smoke-rourke2006-reopen-playwright": "FORM_CATALOG_ONLY=rourke2006.reopen,rourke2006.print node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-catalog-smoke-adfv2-window-playwright": "FORM_CATALOG_ONLY=adfv2.redisplay node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-adfv2-save-exit-playwright": "node scripts/form-adfv2-save-exit-playwright-checks.js",
+    "test:form-checkbox-reopen-playwright": "node scripts/form-checkbox-reopen-playwright-checks.js",
     "test:form-catalog-smoke-bare-contact-playwright": "FORM_CATALOG_ONLY=positionhazard.bare,healthpassport.bare node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-catalog-smoke-bc-playwright": "FORM_CATALOG_ONLY=bcar,bcar2007,bclabourbirth,bcbirthsum2008,bcinr,bcchecklist,bcnewborn FORM_CATALOG_EXCEPT=bcar2007.bare,bcbirthsum2008.keys,bcinr.redisplay,bcchecklist.redisplay,bcinr.print,bcar.restore,bclabourbirth.restore,bcbirthsum2008.restore,bcnewborn.restore node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-catalog-smoke-bc-bare-contact-playwright": "FORM_CATALOG_ONLY=bcar2007.bare node scripts/form-catalog-smoke-playwright-checks.js",

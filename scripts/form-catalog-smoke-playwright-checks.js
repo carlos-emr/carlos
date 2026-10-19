@@ -198,7 +198,6 @@ function validatePin(env = process.env) {
 const PINNED = Object.freeze({
   'alpha.open': 'ALPHA: opens from the Forms menu with no error page, script error or failed asset',
   'cesd.redisplay': 'CESD: Save redisplays the saved record in the window it was pressed in',
-  'cesd.restore': 'CESD: the redisplayed and the reopened form show every saved value again',
   'rourke2006.reopen': "Rourke Baby Record 2006: a fresh chart's saved-form entry reopens the saved record",
   'positionhazard.open': 'Position Hazard: opens from the Forms menu with no error page, script error or failed asset',
 });
