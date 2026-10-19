@@ -71,18 +71,18 @@ function validateBaseUrl(rawBaseUrl) {
   return parsed;
 }
 
-function appUrl(appPath) {
+function appUrl(appPath, search = '') {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
     throw new Error(`Application path must be root-relative, got ${appPath}`);
   }
   const url = new URL(baseUrl.href);
   url.pathname = `${baseUrl.pathname}${appPath}`.replace(/\/{2,}/g, '/');
-  url.search = '';
+  url.search = search;
   return url.toString();
 }
 
-function safeGoto(page, appPath, options) {
-  return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
+function safeGoto(page, appPath, options, search = '') {
+  return page.goto(appUrl(appPath, search), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
 }
 
 async function responseWithTimeout(request, timeoutMs) {
@@ -188,7 +188,11 @@ async function clickScheduleLink(context, schedulePage, linkSpec) {
   // popups. The old fallback inspected the last context page (often Scratch),
   // allowing Report/Inbox/eDoc to pass without judging their actual destination.
   const onPopup = popup => wirePage(popup, linkSpec.label);
-  const scheduleUrl = schedulePage.url();
+  const scheduleUrl = new URL(schedulePage.url());
+  const scheduleLocation = new URL(appUrl('/provider/providercontrol'));
+  if (scheduleUrl.origin !== scheduleLocation.origin || scheduleUrl.pathname !== scheduleLocation.pathname) {
+    throw new Error('Schedule navigation started outside the expected application view');
+  }
   context.on('page', onPopup);
   let outcome;
   try {
@@ -208,7 +212,8 @@ async function clickScheduleLink(context, schedulePage, linkSpec) {
     if (outcome && !outcome.isPopup) {
       // Reopen the observed schedule address with GET; history may otherwise
       // replay the provider-selection POST that produced the schedule.
-      await schedulePage.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await safeGoto(schedulePage, '/provider/providercontrol',
+        { waitUntil: 'domcontentloaded', timeout: 30000 }, scheduleUrl.search);
       await schedulePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     }
   }
