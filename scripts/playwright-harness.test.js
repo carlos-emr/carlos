@@ -1237,17 +1237,26 @@ test('shouldWarnAndSwallow_whenTheTeardownLogoutFails', async () => {
   }
 });
 
-/** A browser double whose contexts are created and closed through it, recording the order of events. */
+/**
+ * A browser double whose contexts are created and closed through it, recording the order of events.
+ * newContext({ session }) gives the context that JSESSIONID (a context made from another one's
+ * storageState shares it); without one the context has no session cookie. Cookie reads are counted
+ * apart from the events.
+ */
 function fakeClosingBrowser() {
   const events = [];
+  const cookieReads = [];
   const open = [];
   const browser = {
     events,
-    async newContext() {
+    cookieReads,
+    async newContext({ session } = {}) {
       const context = {
         name: `context${open.length + 1}`,
-        // The real teardown logout starts by reading the session cookie; none here, so it stops there.
-        async cookies() { events.push(`cookies ${this.name}`); return []; },
+        async cookies() {
+          cookieReads.push(this.name);
+          return session ? [{ name: 'JSESSIONID', value: session }] : [];
+        },
         async close() { events.push(`close ${this.name}`); },
       };
       open.push(context);
@@ -1303,7 +1312,9 @@ test('shouldLogOutOnlyWhenNotOptedOut_whenLaunchBrowserClosesTheBrowser', async 
   const wrapped = await harness.launchBrowser(config);
   await wrapped.newContext();
   await wrapped.close();
-  assert.deepEqual(wrapped.events, ['cookies context1', 'close browser'], 'by default the session is looked for first');
+  assert.deepEqual(wrapped.events, ['close browser']);
+  assert.ok(wrapped.cookieReads.includes('context1'), 'by default the session is looked for first');
+  assert.deepEqual(kept.cookieReads, [], 'an opted-out browser does not look for a session at all');
 });
 
 test('shouldKeepTheSession_whenTheCheckMarksTheContextBeforeClosingIt', async () => {
@@ -1319,4 +1330,32 @@ test('shouldKeepTheSession_whenTheCheckMarksTheContextBeforeClosingIt', async ()
   await browser.close();
   assert.deepEqual(browser.events, ['close context1', 'logout context2', 'close browser'],
     'the kept context is closed without a logout, now and when the browser closes');
+});
+
+test('shouldLeaveASharedSessionToItsLastHolder_whenAContextMadeFromItsStorageStateCloses', async () => {
+  // report-age-sex-visit makes a mobile context from the main context's storageState and closes it mid-check.
+  const browser = fakeClosingBrowser();
+  const log = warnings();
+  harness.logoutOnClose(browser, logoutConfig, {
+    log, logout: async (context) => { browser.events.push(`logout ${context.name}`); },
+  });
+  await browser.newContext({ session: 'S1' });
+  const mobile = await browser.newContext({ session: 'S1' });
+  await mobile.close();
+  assert.deepEqual(browser.events, ['close context2'], 'the session the main context still uses is not ended');
+  await browser.close();
+  assert.deepEqual(browser.events, ['close context2', 'logout context1', 'close browser'],
+    'the last holder logs the shared session out, once');
+  assert.deepEqual(log.lines, []);
+});
+
+test('shouldLogEachSessionOut_whenTwoOpenContextsHoldDifferentSessions', async () => {
+  const browser = fakeClosingBrowser();
+  harness.logoutOnClose(browser, logoutConfig, {
+    log: warnings(), logout: async (context) => { browser.events.push(`logout ${context.name}`); },
+  });
+  await browser.newContext({ session: 'S1' });
+  await browser.newContext({ session: 'S2' });
+  await browser.close();
+  assert.deepEqual(browser.events, ['logout context1', 'logout context2', 'close browser']);
 });

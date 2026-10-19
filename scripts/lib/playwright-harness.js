@@ -995,13 +995,32 @@ function keepSessionOnClose(context) {
  * Wraps browser.newContext() so each context's own close() logs it out, and browser.close() so any
  * context still open is logged out before the browser goes. Each context is logged out at most once.
  * The check's own cleanup runs first and keeps its session for as long as its pages are open.
+ *
+ * A context made from another one's storageState carries the same session. Closing it must not end
+ * the session the other context is still using, so a session is logged out only by the last open
+ * context that holds it.
  */
 function logoutOnClose(browser, config, { log = console, logout = logoutContext } = {}) {
   const done = new WeakSet();
+  const sessionOf = async (context) => {
+    const baseUrl = config.baseUrl instanceof URL ? config.baseUrl : new URL(String(config.baseUrl));
+    const cookie = (await context.cookies(baseUrl.href)).find((entry) => entry.name === 'JSESSIONID');
+    return cookie ? cookie.value : null;
+  };
+  /** Whether a context not yet closing still holds this context's session. */
+  const sessionStillHeld = async (context) => {
+    const session = await sessionOf(context);
+    if (!session || typeof browser.contexts !== 'function') return false;
+    for (const other of browser.contexts()) {
+      if (other !== context && !done.has(other) && await sessionOf(other) === session) return true;
+    }
+    return false;
+  };
   const logoutOnce = async (context) => {
     if (done.has(context) || SESSIONS_KEPT_ON_CLOSE.has(context)) return;
     done.add(context);
     try {
+      if (await sessionStillHeld(context)) return;
       await logout(context, config, { log });
     } catch (error) {
       log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
