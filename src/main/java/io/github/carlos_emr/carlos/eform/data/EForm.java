@@ -660,7 +660,9 @@ public class EForm extends EFormBase {
                     && "/=>\"'<".indexOf(tag.charAt(nameEnd)) < 0) {
                 nameEnd++;
             }
-            if (nameEnd == nameStart) break;
+            if (nameEnd == nameStart) {
+                break;
+            }
             String name = tag.substring(nameStart, nameEnd);
             cursor = attributeEnd(tag, nameEnd);
             if (Ascii.equalsIgnoreCase("integrity", name) || Ascii.equalsIgnoreCase("crossorigin", name)) {
@@ -673,9 +675,13 @@ public class EForm extends EFormBase {
 
     private static int attributeEnd(String tag, int nameEnd) {
         int equals = skipHtmlWhitespace(tag, nameEnd);
-        if (equals >= tag.length() || tag.charAt(equals) != '=') return nameEnd;
+        if (equals >= tag.length() || tag.charAt(equals) != '=') {
+            return nameEnd;
+        }
         int valueStart = skipHtmlWhitespace(tag, equals + 1);
-        if (valueStart >= tag.length()) return valueStart;
+        if (valueStart >= tag.length()) {
+            return valueStart;
+        }
         char quote = tag.charAt(valueStart);
         if (quote == '\'' || quote == '"') {
             int quoteEnd = tag.indexOf(quote, valueStart + 1);
@@ -690,7 +696,9 @@ public class EForm extends EFormBase {
 
     private static int skipHtmlWhitespace(String tag, int start) {
         int end = start;
-        while (end < tag.length() && isHtmlWhitespace(tag.charAt(end))) end++;
+        while (end < tag.length() && isHtmlWhitespace(tag.charAt(end))) {
+            end++;
+        }
         return end;
     }
 
