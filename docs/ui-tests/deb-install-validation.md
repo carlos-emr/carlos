@@ -3162,3 +3162,37 @@ check`: all checks passed; `BUILD_CA_BUNDLE` named the egress proxy's CA for the
 identically with the pre-fix JSPs restored, so it is not from this change. The server-log audit reported no unexplained signature.
 
 The WAF answers 403 to a `contactType` value carrying `"` and `=` before the page sees it, so the check's tampered values are plain text.
+
+### Manage Flowsheets opens read-only for `_admin.flowsheet` read (2026-10-19, issue #4623)
+
+Finding 267. The seeded doctor holds `_admin.flowsheet` read only; the Administration nav and `manageFlowsheets.jsp` admitted it
+while `ManageFlowsheets2Action` required write for every request, so the link answered 403. `release/2026.08` at `fefceecc62` plus
+the fix branch was packaged unstamped as `2026.09.0~snapshot26`: the CARLOS WAR was compiled in an `ubuntu:26.04` container with
+JDK 25 and the `debian/rules` Maven flags (`-Dmaven.artifact.threads=2` and short `aether.connector.http` timeouts, because the
+egress proxy stalled a parallel Maven run), DrugRef was built from the commit `debian/drugref.pin` names (`1941e14`), and
+`dpkg-buildpackage -us -uc -b` ran with `CARLOS_WAR`, `DRUGREF_WAR` and `CHROMIUM_DIST`. carlos-ctl was 1.1.2 from its release.
+The packages were installed fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean) and the
+suite ran with `EXCLUSIVE=1` appended to `/root/suite-env.sh`.
+
+| Run | `manage-flowsheets-access` |
+|---|---|
+| fixed packages (fresh install of the final head) | PASS, 5 of 5 steps |
+| original `ManageFlowsheets2Action.class` and `manageFlowsheets.jsp` swapped into the installed webapp | FAILS at "a read-only doctor opens Manage Flowsheets from the Administration nav…": the page answers 403 |
+| fixed action with the first commit's page (its combined `oscarSec` tag over `_admin`, `_admin.misc`, `_admin.flowsheet`) | FAILS at "an explicit no-rights row on _admin.misc beside the doctor's read…": the reader is redirected to `/securityError` |
+
+`admin-role-management` passes on the fixed packages (16 of 16), `flowsheet-admin` and `gap-provider-flowsheet-upload` pass (an
+administrator still lists, uploads, disables and enables), and `authz-read-role-matrix` pins 16 refused routes for the doctor
+instead of 17 (`admin/ManageFlowsheets` is served now); it still ends at its known last step, 2 `oscarResearch` routes answering
+500 instead of 403. Those two ran on the first install (first-commit packages with the second commit's page swapped in; the second
+commit changed only comments in the action). The smoke tier passed 11 of 12 on the final install; `browser-surface` timed out
+waiting for a patient popup, the same failure recorded for earlier unrelated validations. `authz-read-admin-objects` stopped at
+its control step for a field-note eForm route that the full-privilege login was not served, which this change does not touch.
+The server-log audit's unexplained signatures were BC billing and dxresearch errors; the check's refusals are logged as
+`Authorization refused` WARN lines.
+
+**The seeded doctor has no Administration link on the day sheet on this install.** The link's tag names 13 objects, and
+`OscarRoleObjectPrivilege.getPrivilegeProp()` keeps one privilege per role across them: the doctor's `_admin.reporting` `o` row
+(`on/V1.0.6`) is returned after `_admin.flowsheet` `r`, overwrites it, and the link is not rendered. So `admin-role-management`'s
+doctor-panel step is skipped by its own `#admin-panel` guard and says nothing about this fix on such an install, and
+`manage-flowsheets-access` opens the shell by its address (`/administration`, which the link opens) instead. The same limit is
+why the page no longer repeats the access check in its own combined tag.
