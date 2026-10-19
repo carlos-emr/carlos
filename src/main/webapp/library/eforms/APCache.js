@@ -210,6 +210,31 @@ function showLookupFailureNotice(failedKeys) {
         + ". Check them before saving.";
 }
 
+/**
+ * Drops the names the page derives itself from a lookup's list of failed keys.
+ *
+ * A mapping may list another mapping's name among its values, and a template lookup sends each
+ * placeholder's name, so that efmformapconfig_lookup echoes the name back and that mapping's
+ * storeInCacheHandler runs: the Rich Text Letter's ageGender mapping lists "_age" and "gender", and
+ * its templates send "letterhead" and "_ClosingSalutation". The server cannot tell such a name from
+ * a misconfigured key and lists it as unconfigured, but whatever it returns for a mapping name is
+ * never stored, because the mapping's handler builds that value. Only a mapping that lists its own
+ * name among its values (the letter's "sex") reads it from the server, so that failure stays.
+ *
+ * @param {object} cache the cache whose mappings the lookup used
+ * @param {string} failedKeys comma-separated keys the server could not resolve
+ * @return {string} the failed keys a clinician would actually see blank, comma-separated
+ */
+function serverResolvedFailures(cache, failedKeys) {
+    return String(failedKeys == null ? "" : failedKeys)
+        .split(",")
+        .filter(function (key) {
+            var mapping = cache.getMapping(key);
+            return mapping == null || mapping.values.indexOf(key) >= 0;
+        })
+        .join(",");
+}
+
 function createCache(options) {
     function Cache(options) {
         this.flushCache = options.flushCache == null ? true : options.flushCache;
@@ -325,7 +350,7 @@ function createCache(options) {
                             // matched no rows are deliberately absent — that is data, and reporting it
                             // would fire on nearly every form.
                             if (_key == "oscarAPCacheLookupFailures") {
-                                showLookupFailureNotice(_val);
+                                showLookupFailureNotice(serverResolvedFailures(_cache, _val));
                                 continue;
                             }
                             // Checking if a key has a mapping.

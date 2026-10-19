@@ -117,6 +117,22 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
         order.verify(portal).publishUnlockSecret(eq(77L), any());
     }
 
+    @Test void shouldSendPortalBodyThenFooter_withoutStoringFooterInBody() {
+        // Issue #3981: the portal path rewrites the body, so the footer must still follow it at
+        // transmission, after one blank line, and must stay out of the stored body.
+        data.setFooter("  Riverside Clinic<br>Book online  ");
+        var transmitted = new java.util.concurrent.atomic.AtomicReference<String>();
+
+        outcome = delivery.send(user, log, data, this::encrypt, () -> {
+            send();
+            transmitted.set(data.getTransmittedBody());
+        });
+
+        assertThat(outcome.isTransportAccepted()).isTrue();
+        assertThat(log.getBody()).contains("Email 45").doesNotContain("Riverside Clinic");
+        assertThat(transmitted.get()).isEqualTo(log.getBody().stripTrailing() + "\n\nRiverside Clinic\nBook online");
+    }
+
     @Test void shouldRevokeWithoutPublishingOrSending_whenEncryptionFails() {
         outcome = delivery.send(user, log, data, () -> { throw new EmailSendingException("sensitive failure"); }, this::send);
         assertThat(operations).containsExactly("create", "revoke");

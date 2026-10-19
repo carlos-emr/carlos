@@ -268,14 +268,22 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 
         StringBuilder jscode = new StringBuilder();
 
-        numDisplayed = display(noDates, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
+        if (dao.isFiledInFolders()) {
+            // One collapsible folder per distinct Item#getFolder() (the Documents panel's
+            // "File Documents in Folders by Document Type" eChart preference). Every row is
+            // rendered, collapsed inside its folder, so the date buckets and the 6-row cut-off
+            // below do not apply; the visible row count is the number of folders.
+            numDisplayed = displayFolders(dao, jscode, displayThreshold, reloadURL.toString(), request, out);
+        } else {
+            numDisplayed = display(noDates, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
 
-        if (numDisplayed < numToDisplay) {
-            numDisplayed += display(current, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
-        }
+            if (numDisplayed < numToDisplay) {
+                numDisplayed += display(current, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
+            }
 
-        if (numDisplayed < numToDisplay) {
-            numDisplayed += display(pastDates, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
+            if (numDisplayed < numToDisplay) {
+                numDisplayed += display(pastDates, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
+            }
         }
 
         if (numDisplayed == 0) {
@@ -385,6 +393,55 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         }
 
         return j;
+    }
+
+    /** Self-contained toggle for a folder button; static text, so no encoding is involved. */
+    private static final String FOLDER_TOGGLE_ONCLICK =
+            "var list=document.getElementById(this.getAttribute('aria-controls'));"
+            + "var open=this.getAttribute('aria-expanded')!=='true';"
+            + "this.setAttribute('aria-expanded',String(open));list.hidden=!open;return false;";
+
+    /**
+     * Renders the panel's rows filed into collapsed folders, one per distinct folder name, folders in
+     * alphabetical order for the viewer's locale and rows in the action's order (newest first for
+     * documents) inside each. Each folder is a button (name and row count) controlling a nested list.
+     *
+     * @return the number of folders, i.e. the rows visible before any folder is opened
+     */
+    public int displayFolders(NavBarDisplayDAO dao, StringBuilder js, int displayThreshold, String divReloadUrl,
+                              jakarta.servlet.http.HttpServletRequest request, jakarta.servlet.jsp.JspWriter out) throws IOException {
+        java.util.Map<String, ArrayList<NavBarDisplayDAO.Item>> folders = new java.util.LinkedHashMap<>();
+        for (int idx = 0; idx < dao.numItems(); idx++) {
+            NavBarDisplayDAO.Item item = dao.getItem(idx);
+            folders.computeIfAbsent(item.getFolder(), key -> new ArrayList<>()).add(item);
+        }
+        List<String> names = new ArrayList<>(folders.keySet());
+        java.text.Collator collator = java.text.Collator.getInstance(request.getLocale());
+        collator.setStrength(java.text.Collator.PRIMARY);
+        names.sort(collator);
+
+        String navbarName = (String) request.getAttribute("navbarName");
+        if (navbarName == null) navbarName = "";
+        int rowOffset = 0;
+        int folderIndex = 0;
+        for (String name : names) {
+            ArrayList<NavBarDisplayDAO.Item> items = folders.get(name);
+            String listId = SafeEncode.forHtmlAttribute(navbarName + "folder" + folderIndex);
+            out.println("<li class=\"nav-folder\">");
+            out.println("<button type=\"button\" class=\"nav-folder-toggle\" aria-expanded=\"false\" aria-controls=\""
+                    + listId + "\" onclick=\"" + FOLDER_TOGGLE_ONCLICK + "\"><i class=\"fa-solid fa-folder\" aria-hidden=\"true\"></i> "
+                    + SafeEncode.forHtmlContent(name) + " (" + items.size() + ")</button>");
+            out.println("<ul id=\"" + listId + "\" class=\"nav-folder-items\" hidden>");
+            // Offsets keep the per-row image ids unique across folders; with numToDisplay equal to
+            // numItems no "more"/collapse control is drawn inside a folder.
+            display(items, rowOffset + items.size(), rowOffset, "", false, rowOffset + items.size(), js,
+                    displayThreshold, divReloadUrl, dao.getDivId(), request, out);
+            out.println("</ul>");
+            out.println("</li>");
+            rowOffset += items.size();
+            folderIndex++;
+        }
+        return folderIndex;
     }
 
     public String trackHeadingPopup(NavBarDisplayDAO dao, NavBarDisplayDAO.PopupConfig popup) {

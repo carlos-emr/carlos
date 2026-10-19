@@ -61,6 +61,8 @@ public record PatientPortalStaffContext(
     /** Review patient contact changes. */
     public static final String PERMISSION_CONTACT_REVIEW = "portal.contact.review";
 
+    /** Read saved Portal email footer attempts after actual CARLOS admin authorization. */
+    public static final String PERMISSION_EMAIL_AUDIT_READ = "portal.email.audit.read";
     /** Create, list and withdraw patient booking prompts. */
     public static final String PERMISSION_BOOKING_PROMPT_MANAGE = "portal.booking_prompt.manage";
 
@@ -78,6 +80,7 @@ public record PatientPortalStaffContext(
                     PERMISSION_ACCOUNT_MANAGE,
                     PERMISSION_SECRET_MANAGE,
                     PERMISSION_CONTACT_REVIEW,
+                    PERMISSION_EMAIL_AUDIT_READ,
                     PERMISSION_BOOKING_PROMPT_MANAGE,
                     PERMISSION_BOOKING_PROMPT_SYNC);
 

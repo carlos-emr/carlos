@@ -761,10 +761,14 @@
 
                     focus: function (event, ui) {
                         patientLink.highlight(ui.item);
+                        // Script changes fire no event; the portal booking box (portalBookingPrompt.js)
+                        // listens for this one to see that the patient may have changed.
+                        document.getElementById('keyword').dispatchEvent(new Event('change'));
                         return false;
                     },
                     select: function (event, ui) {
                         patientLink.commit(ui.item);
+                        document.getElementById('keyword').dispatchEvent(new Event('change'));
                         return false;
                     },
                     close: function (event) {
@@ -1593,6 +1597,12 @@
 
 </div> <!-- end of edit appointment screen -->
 </form>
+<% if (apptFromRequest != null && apptFromRequest.getDemographicNo() > 0) { %>
+<jsp:include page="/WEB-INF/jsp/demographic/portalBookingPrompt.jsp">
+    <jsp:param name="portalBookingPatient" value="<%= apptFromRequest.getDemographicNo() %>"/>
+    <jsp:param name="portalBookingPatientInput" value="#demographic_no"/>
+</jsp:include>
+<% } %>
     </body>
 
 </html>

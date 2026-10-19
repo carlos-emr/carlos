@@ -279,6 +279,70 @@ class PortalBookingPrompt2ActionUnitTest {
         verifyNoInteractions(resolver, portal);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"active", "disabled"})
+    void shouldExposeEligibilityAndReadStatus_whenPanelIsRequested(String accountStatus) throws Exception {
+        request.setParameter("method", "panel");
+        when(portal.findAccount(eq(123), same(staff))).thenReturn(account(accountStatus));
+        when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of(prompt(123, "read")));
+        execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("\"accountActive\":" + "active".equals(accountStatus),
+                "\"mayCreate\":true", "\"mayWithdraw\":true", "\"state\":\"read\"");
+        verify(portal, never()).createBookingPrompt(anyInt(), any(), any());
+        audit.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldReportInactiveAccount_whenPortalConfirmsAccountAbsent() throws Exception {
+        request.setParameter("method", "panel");
+        when(portal.findAccount(anyInt(), any())).thenThrow(PatientPortalException.ofStatus(
+                404, "/internal/carlos/patients/{id}/portal-account", PatientPortalException.ACCOUNT_NOT_FOUND_DETAIL));
+        when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of());
+        execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("\"accountActive\":false");
+        audit.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldRejectPanelRead_whenPatientBookingReadIsDenied() throws Exception {
+        request.setParameter("method", "panel");
+        when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT),
+                eq(SecurityInfoManager.READ), eq("123"))).thenReturn(false);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(resolver);
+        verify(portal, never()).findAccount(anyInt(), any());
+    }
+
+    @Test
+    void shouldOmitAccountLookup_whenPanelHasOnlyBookingRead() throws Exception {
+        request.setParameter("method", "panel");
+        when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT),
+                eq(SecurityInfoManager.READ), eq("123"))).thenReturn(false);
+        when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT),
+                eq(SecurityInfoManager.WRITE), eq("123"))).thenReturn(false);
+        when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of());
+        execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("\"mayCreate\":false", "\"mayWithdraw\":false")
+                .doesNotContain("accountActive");
+        verify(portal, never()).findAccount(anyInt(), any());
+        verify(resolver).resolveForPatient(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT)), eq(123));
+    }
+
+    @Test
+    void shouldFailClosed_whenPanelAccountLookupIsUnavailable() throws Exception {
+        request.setParameter("method", "panel");
+        when(portal.findAccount(anyInt(), any())).thenThrow(
+                PatientPortalException.ofTransportFailure("/internal/carlos/patients/{id}/portal-account", null));
+        execute();
+        assertThat(response.getStatus()).isEqualTo(504);
+        verify(portal, never()).listBookingPrompts(anyInt(), any());
+        audit.verifyNoInteractions();
+    }
+
     @Test
     void shouldRefuseForeignPrompt_beforeWithdrawal() throws Exception {
         request.setParameter("method", "withdraw");

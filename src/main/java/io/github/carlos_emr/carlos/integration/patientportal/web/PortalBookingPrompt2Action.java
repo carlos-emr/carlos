@@ -139,11 +139,14 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
         }
         requirePatientAccess(security, session, patient);
         String method = request.getParameter("method");
-        if (!Set.of("create", "list", "withdraw").contains(method == null ? "" : method)) {
+        if (!Set.of("create", "list", "panel", "withdraw").contains(method == null ? "" : method)) {
             return badRequest(response, "unsupported booking prompt action");
         }
         requirePatientPrivilege(security, session, PortalStaffContextResolver.OBJECT_BOOKING_PROMPT,
-                "list".equals(method) ? SecurityInfoManager.READ : SecurityInfoManager.WRITE, patient);
+                "list".equals(method) || "panel".equals(method)
+                        ? SecurityInfoManager.READ : SecurityInfoManager.WRITE, patient);
+        boolean mayReadAccount = "panel".equals(method) && security.hasPrivilege(session,
+                PortalStaffContextResolver.OBJECT_ACCOUNT, SecurityInfoManager.READ, String.valueOf(patient));
         PatientPortalBookingPromptRequest creation = null;
         OfferRequest offer = null;
         long promptId = 0;
@@ -177,7 +180,7 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
             return portalNotConfigured(response);
         }
         PatientPortalStaffContext staff = resolver.resolveForPatient(session,
-                "create".equals(method)
+                "create".equals(method) || mayReadAccount
                         ? Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT,
                                 PortalStaffContextResolver.OBJECT_ACCOUNT)
                         : Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT), patient);
@@ -185,6 +188,22 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
         try {
             ObjectNode payload = newPayload();
             payload.put("ok", true);
+            if ("panel".equals(method)) {
+                boolean mayWrite = security.hasPrivilege(session, PortalStaffContextResolver.OBJECT_BOOKING_PROMPT,
+                        SecurityInfoManager.WRITE, String.valueOf(patient));
+                payload.put("mayWithdraw", mayWrite);
+                payload.put("mayCreate", mayWrite && mayReadAccount);
+                if (mayReadAccount) {
+                    try {
+                        payload.put("accountActive", "active".equals(portal.findAccount(patient, staff).status()));
+                    } catch (PatientPortalException exception) {
+                        if (!exception.isAccountAbsent()) {
+                            throw exception;
+                        }
+                        payload.put("accountActive", false);
+                    }
+                }
+            }
             if ("create".equals(method)) {
                 if (!"active".equals(portal.findAccount(patient, staff).status())) {
                     return notFound(response, "portal_account_inactive",
@@ -229,7 +248,7 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
                         : HttpServletResponse.SC_OK, payload);
             }
             var prompts = portal.listBookingPrompts(patient, staff);
-            if ("list".equals(method)) {
+            if ("list".equals(method) || "panel".equals(method)) {
                 var items = payload.putArray("prompts");
                 for (PatientPortalBookingPromptDto prompt : prompts) {
                     items.add(promptJson(prompt));
