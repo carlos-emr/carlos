@@ -64,7 +64,10 @@ async function workflow(s) {
       AND message LIKE ${q(`${marker}%`)}`) === String(ticklers.length), 'Owned tickler identity changed');
     sql.execute(`DELETE FROM ticklerdocs WHERE tickler_id IN (${ids}); DELETE FROM tickler_comments WHERE tickler_no IN (${ids});
       DELETE FROM tickler_update WHERE tickler_no IN (${ids}); DELETE FROM tickler WHERE tickler_no IN (${ids})`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE tickler_no IN (${ids})`) === '0', 'Owned ticklers remain');
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM tickler WHERE tickler_no IN (${ids}))
+      + (SELECT COUNT(*) FROM ticklerdocs WHERE tickler_id IN (${ids}))
+      + (SELECT COUNT(*) FROM tickler_comments WHERE tickler_no IN (${ids}))
+      + (SELECT COUNT(*) FROM tickler_update WHERE tickler_no IN (${ids}))`) === '0', 'Owned ticklers or child rows remain');
   });
   for (const assignee of providers.slice(0, 2)) {
     const message = `${marker} assigned to ${assignee.no}`;
@@ -75,14 +78,15 @@ async function workflow(s) {
   }
 
   const list = await s.context.newPage();
-  await h.gotoApp(list, s.config.baseUrl, `/tickler/ViewTicklerMain?demoview=${patient}&ticklerview=A`);
+  await h.gotoApp(list, s.config.baseUrl, '/tickler/ViewTicklerMain?ticklerview=A');
   await waitForTicklerTable(list);
-  await resetProviderFilters(list);
   const clinic = list.locator('select#site');
   const assigned = list.locator('select#assignedTo');
   const values = () => assigned.locator('option').evaluateAll(options => options.map(o => o.value).sort());
   await s.step(STEP.providers, async () => {
     h.assert(await list.evaluate(() => typeof changeSite === 'function'), 'The clinic script failed to define changeSite');
+    await clinic.selectOption('none');
+    await resetProviderFilters(list);
     await clinic.selectOption(siteIds[0]);
     h.assert(JSON.stringify(await values()) === JSON.stringify([provider, ...providers.slice(0, 2).map(p => p.no)].sort()),
       'The multi-provider clinic has missing, inactive or unrelated providers');
@@ -98,11 +102,22 @@ async function workflow(s) {
     h.assert((await values()).length === 3, 'Returning to the multi-provider clinic lost providers');
   });
   await s.step(STEP.filter, async () => {
+    await list.locator('#xml_vdate').fill('2000-01-01');
+    await list.locator('#xml_appointment_date').fill('2099-12-31');
+    await list.locator('#ticklerview').selectOption('A');
+    const [searchResponse] = await Promise.all([
+      list.waitForResponse(r => r.request().method() === 'GET' && h.pathOnly(r.url()).endsWith('/tickler/ListTicklers')
+        && new URL(r.url()).searchParams.get('search[value]') === marker),
+      list.locator('#ticklerResults_filter input[type="search"]').fill(marker),
+    ]);
+    h.assert(searchResponse.status() === 200, 'Searching for the owned ticklers failed');
+    await waitForTicklerTable(list);
     for (const tickler of ticklers) {
       await assigned.selectOption(tickler.assignee);
       const [response] = await Promise.all([
         list.waitForResponse(r => r.request().method() === 'GET' && h.pathOnly(r.url()).endsWith('/tickler/ListTicklers')
-          && new URL(r.url()).searchParams.get('assignee') === tickler.assignee),
+          && new URL(r.url()).searchParams.get('assignee') === tickler.assignee
+          && new URL(r.url()).searchParams.get('search[value]') === marker),
         list.locator('#formSubmitBtn').click(),
       ]);
       h.assert(response.status() === 200, 'The assignee filter request failed');
