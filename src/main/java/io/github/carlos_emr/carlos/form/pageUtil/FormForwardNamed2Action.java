@@ -74,7 +74,7 @@ public class FormForwardNamed2Action extends ActionSupport {
         response.setContentType("text/html;charset=UTF-8");
         if ("true".equals(request.getParameter("saved"))) {
             String formId = request.getParameter("formId");
-            if (formId == null || !formId.matches("[1-9][0-9]{0,9}")) {
+            if (formId == null || !formId.matches("[1-9]\\d{0,9}")) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }

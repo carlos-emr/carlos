@@ -88,7 +88,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                 String fullTitle;
                 Date date = null;
                 String key;
-                int hash;
+                long hash;
                 // grab all of the forms
                 EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
                 List<EncounterForm> encounterForms = encounterFormDao.findAll();
@@ -147,7 +147,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                                 }
                             }
                             winName = winName + serviceDateStr;
-                            hash = Math.abs(winName.hashCode());
+                            hash = NavBarDisplayDAO.popupWindowHash(winName);
                             url = new StringBuilder(
                                     "popupPage(700,960,'" + hash + "started', '" +
                                             request.getContextPath() +
@@ -178,7 +178,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
 
                     // we add all unhidden forms to the pop up menu
                     if (!encounterForm.isHidden()) {
-                        hash = Math.abs(winName.hashCode());
+                        hash = NavBarDisplayDAO.popupWindowHash(winName);
                         // Legacy form_value stores paths like "../form/formX.jsp?demographic_no=".
                         // Form JSPs now live under /WEB-INF/jsp/form/ and are served by the
                         // form/* Struts wildcard action, so translate the legacy path to the

@@ -38,8 +38,7 @@ public class FormExists2Action extends ActionSupport {
         String patient = request.getParameter("demographicNo");
         String appointment = request.getParameter("appointmentNo");
         String name = request.getParameter("formname");
-        if (patient == null || !patient.matches("[1-9][0-9]{0,8}") || name == null || name.isBlank() || name.length() > 255
-                || (appointment != null && !appointment.isEmpty() && !appointment.matches("-1|[0-9]{1,9}"))) {
+        if (!validInput(patient, appointment, name)) {
             response.sendError(400);
             return NONE;
         }
@@ -48,21 +47,34 @@ public class FormExists2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_form)");
         }
         ObjectMapper mapper = new ObjectMapper();
+        ObjectNode result = findExisting(mapper, patient, name, appointment, request.getContextPath());
+        response.setContentType("application/json;charset=UTF-8");
+        mapper.writeValue(response.getWriter(), result);
+        return NONE;
+    }
+
+    private static boolean validInput(String patient, String appointment, String name) {
+        return patient != null && patient.matches("[1-9]\\d{0,8}")
+                && name != null && !name.isBlank() && name.length() <= 255
+                && (appointment == null || appointment.isEmpty() || appointment.matches("-1|\\d{1,9}"));
+    }
+
+    private static ObjectNode findExisting(ObjectMapper mapper, String patient, String name,
+                                           String appointment, String contextPath) {
         ObjectNode result = mapper.createObjectNode().put("exists", false);
         for (EncounterForm form : SpringUtils.getBean(EncounterFormDao.class).findByFormName(name)) {
             if (form.isHidden() || form.getFormTable() == null || !LONGITUDINAL.contains(form.getFormTable())) continue;
             var saved = EctFormData.getShortcutLatestPatientForm(patient, form.getFormTable());
-            if (saved == null) break;
-            String edited = saved.edited == null ? "" : saved.getEdited();
-            result.put("exists", true);
-            result.put("windowName", Math.abs((name + patient + edited).hashCode()) + "started");
-            result.put("url", request.getContextPath() + "/form/forwardshortcutname?formname="
-                    + SafeEncode.forUriComponent(name) + "&demographic_no=" + patient + "&formId=latest"
-                    + (appointment != null && !appointment.isEmpty() ? "&appointmentNo=" + appointment : ""));
-            break;
+            if (saved != null) {
+                String edited = saved.edited == null ? "" : saved.getEdited();
+                result.put("exists", true);
+                result.put("windowName", NavBarDisplayDAO.popupWindowHash(name + patient + edited) + "started");
+                result.put("url", contextPath + "/form/forwardshortcutname?formname="
+                        + SafeEncode.forUriComponent(name) + "&demographic_no=" + patient + "&formId=latest"
+                        + (appointment != null && !appointment.isEmpty() ? "&appointmentNo=" + appointment : ""));
+            }
+            return result;
         }
-        response.setContentType("application/json;charset=UTF-8");
-        mapper.writeValue(response.getWriter(), result);
-        return NONE;
+        return result;
     }
 }

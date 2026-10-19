@@ -123,7 +123,8 @@ class FormExists2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldDenyLookup_withoutFormPrivilege() {
         when(security.hasPrivilege(login, "_form", "r", "123")).thenReturn(false);
-        assertThatThrownBy(() -> new FormExists2Action().execute()).isInstanceOf(SecurityException.class)
+        var action = new FormExists2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_form)");
         data.verifyNoInteractions();
     }

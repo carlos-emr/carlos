@@ -113,6 +113,12 @@ class EctDisplayForm2ActionUnitTest {
     }
 
     @Test
+    void shouldKeepPopupHashPositive_whenStringHashIsMinimumInteger() {
+        assertThat("polygenelubricants".hashCode()).isEqualTo(Integer.MIN_VALUE);
+        assertThat(NavBarDisplayDAO.popupWindowHash("polygenelubricants")).isEqualTo(2147483648L);
+    }
+
+    @Test
     @DisplayName("should date, title and link the item from the row the latest shortcut opens")
     void shouldDescribeShortcutRow_whenFormHasBeenStarted() {
         register("Annual", "formAnnual", "../form/formannual.jsp?demographic_no=");

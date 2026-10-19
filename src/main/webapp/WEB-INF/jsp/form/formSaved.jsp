@@ -6,7 +6,7 @@
 --%>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!doctype html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8"/>
     <title>CARLOS - Saved form</title>
