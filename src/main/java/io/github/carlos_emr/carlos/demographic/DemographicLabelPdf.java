@@ -39,6 +39,8 @@ final class DemographicLabelPdf {
             response.setHeader("Content-Disposition", "inline; filename=label.pdf");
             response.setHeader("Cache-Control", "no-store");
             response.setContentLength(pdf.length);
+            // Jasper-generated PDF bytes with application/pdf, not an HTML response.
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
             response.getOutputStream().write(pdf);
         } catch (JRException | SQLException | RuntimeException ex) {
             // Report template/JDBC details can contain patient data. Keep the public

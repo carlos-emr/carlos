@@ -341,6 +341,8 @@ docker logs carlos-mariadb-dev | grep "ready for connections"
 
 **Important:** Volume removal destroys ALL database data. This forces recreation from the SQL initialization files but loses any test data you may have added during development.
 
+**Outbound email archive keyring after a rebuild (#3448).** Emails you send in development are archived encrypted, with keys CARLOS keeps in `/root/carlos-outbound-email-archive.keyring`. A container rebuild wipes that file and the document store (`/var/lib/CarlosDocument`), but this database volume keeps the archive rows. CARLOS then refuses to start with an ERROR saying the keyring is missing. Either copy the keyring out before rebuilding and put it back afterwards, or, if you don't need the old archived dev emails, add `email.archive.keyring.acknowledge_loss=true` to `/root/carlos.properties` for one start and remove it again (see "Encryption at rest" in `docs/outbound-email-archive.md`). Removing the database volume also clears the refusal.
+
 ### **Recent Database Configuration Updates:**
 Several important fixes have been applied to ensure stable database initialization:
 
@@ -348,6 +350,15 @@ Several important fixes have been applied to ensure stable database initializati
 - MariaDB server now defaults to UTF-8 encoding to match application expectations
 - Fixes foreign key constraint errors that occurred with charset mismatches
 - Configuration in `.devcontainer/development/config/shared/my.cnf`
+
+**Strict SQL mode:**
+- The development database keeps MariaDB's default strict `sql_mode`; `my.cnf` no longer sets `sql_mode = ""`.
+  A demo-data row whose value does not fit its column now stops `populate_db.sh` with an error naming the
+  table and column, instead of being silently coerced (issue #3151).
+- If the database container exits during first start, read `docker logs` for `ERROR 1366`, `1292`, `1406` or
+  `1136`: the demo snapshot (`.devcontainer/db/scripts/development.sql`) has a misaligned row.
+- `scripts/check-demo-data-strict-load.sh --self-test` reproduces the whole load in a throwaway container
+  and proves the check can fail. See `docs/database-schema-management.md`, "Demo data and strict `sql_mode`".
 
 **Hibernate Schema Management:**
 - Changed from `update` to `validate` mode to prevent automatic schema modifications

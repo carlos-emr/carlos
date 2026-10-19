@@ -37,6 +37,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -44,8 +45,10 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
+import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
  * Behavioral tests for {@link OhipReportGenerationService} — the orchestrator
@@ -68,6 +71,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     private ProviderDao providerDao;
     private BillingDao billingDao;
     private BillingDetailDao billingDetailDao;
+    private LoggedInInfo loggedInInfo;
     private OhipReportGenerationService service;
 
     @BeforeEach
@@ -76,6 +80,8 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         providerDao = mock(ProviderDao.class);
         billingDao = mock(BillingDao.class);
         billingDetailDao = mock(BillingDetailDao.class);
+        loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         // Round-7: OhipClaimExtractService is now Spring-prototype-scoped and
         // injected via ObjectFactory. The DI test stubs it with a no-op mock
         // factory; the report-generation tests below don't drive the per-claim
@@ -94,7 +100,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     void shouldRejectSimulationMode_onGenerateReport() {
         MockHttpServletRequest request = new MockHttpServletRequest();
 
-        assertThatThrownBy(() -> service.generateReport(request, OhipReportGenerationService.Mode.SIMULATION))
+        assertThatThrownBy(() -> service.generateReport(loggedInInfo, request, OhipReportGenerationService.Mode.SIMULATION))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("generateSimulation");
 
@@ -107,7 +113,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         request.setParameter("providers", "999998");
         // monthCode absent
 
-        service.generateReport(request, OhipReportGenerationService.Mode.GROUP_REPORT);
+        service.generateReport(loggedInInfo, request, OhipReportGenerationService.Mode.GROUP_REPORT);
 
         verifyNoInteractions(billActivityDao, providerDao, billingDao, billingDetailDao);
     }
@@ -118,7 +124,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         request.setParameter("monthCode", "OB");
         request.setParameter("providers", "   ");
 
-        service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
+        service.generateReport(loggedInInfo, request, OhipReportGenerationService.Mode.SOLO_REPORT);
 
         verifyNoInteractions(billActivityDao, providerDao, billingDao, billingDetailDao);
     }
@@ -207,15 +213,21 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
             request.setParameter("providers", "all");
             request.setParameter("verCode", "V03");
             request.setParameter("billcenter", "G");
-            request.setParameter("curUser", "tester");
+            request.setParameter("curUser", "spoofed");
 
-            twoProviderService.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
+            twoProviderService.generateReport(loggedInInfo, request, OhipReportGenerationService.Mode.SOLO_REPORT);
         }
 
         verify(trackingFactory, times(2)).getObject();
         // Each provider's extract instance receives its own setProviderNo.
         verify(extract1).setProviderNo("111111");
         verify(extract2).setProviderNo("222222");
+        // The creator on both BillActivity rows must be the session provider,
+        // never the caller-supplied curUser parameter.
+        ArgumentCaptor<BillActivity> persisted = ArgumentCaptor.forClass(BillActivity.class);
+        verify(billActivityDao, times(2)).persist(persisted.capture());
+        assertThat(persisted.getAllValues()).extracting(BillActivity::getCreator)
+                .containsOnly("999998");
     }
 
     @Test
@@ -266,7 +278,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
             request.setParameter("billcenter", "G");
             request.setParameter("curUser", "tester");
 
-            skipped = twoProviderService.generateReport(request,
+            skipped = twoProviderService.generateReport(loggedInInfo, request,
                     OhipReportGenerationService.Mode.SOLO_REPORT);
         }
 
@@ -311,7 +323,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
             MockHttpServletRequest request = new MockHttpServletRequest();
             request.setParameter("monthCode", "OB");
             request.setParameter("providers", "all");
-            skipped = oneProviderService.generateReport(request,
+            skipped = oneProviderService.generateReport(loggedInInfo, request,
                     OhipReportGenerationService.Mode.SOLO_REPORT);
         }
 
@@ -345,7 +357,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
             request.setParameter("monthCode", "OB");
             request.setParameter("providers", "all");
 
-            skipped = oneProviderService.generateReport(request,
+            skipped = oneProviderService.generateReport(loggedInInfo, request,
                     OhipReportGenerationService.Mode.SOLO_REPORT);
         }
 

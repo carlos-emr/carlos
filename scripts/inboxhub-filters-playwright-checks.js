@@ -461,5 +461,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  STATUS_FILTERS, TYPE_FILTERS, assertPartitions, assertReviewStatusCoverage, assertHrmCount, main, settle, shownRows,
+  STATUS_FILTERS, TYPE_FILTERS, applyStatusFilter, assertPartitions, assertReviewStatusCoverage, assertHrmCount, main, settle, shownRows,
 };

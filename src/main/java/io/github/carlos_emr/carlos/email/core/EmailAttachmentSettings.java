@@ -61,8 +61,49 @@ public record EmailAttachmentSettings(
     String subjectEmail,
     String bodyEmail,
     String encryptedMessageEmail,
-    String emailPatientChartOption
-) {
+    String emailPatientChartOption,
+    String footerEmail
+) implements java.io.Serializable {
+
+    /** Detach attachment selections from request-owned arrays before a draft is staged. */
+    public EmailAttachmentSettings {
+        attachedEForms = copyIds(attachedEForms);
+        attachedDocuments = copyIds(attachedDocuments);
+        attachedLabs = copyIds(attachedLabs);
+        attachedHRMDocuments = copyIds(attachedHRMDocuments);
+        attachedForms = copyIds(attachedForms);
+    }
+
+    @Override
+    public String[] attachedEForms() {
+        return copyIds(attachedEForms);
+    }
+    @Override
+    public String[] attachedDocuments() {
+        return copyIds(attachedDocuments);
+    }
+    @Override
+    public String[] attachedLabs() {
+        return copyIds(attachedLabs);
+    }
+    @Override
+    public String[] attachedHRMDocuments() {
+        return copyIds(attachedHRMDocuments);
+    }
+    @Override
+    public String[] attachedForms() {
+        return copyIds(attachedForms);
+    }
+
+    private static String[] copyIds(String[] ids) {
+        return ids == null ? null : ids.clone();
+    }
+
+    /** Redacted: the settings carry a patient's identifiers, message and sender; never log them. */
+    @Override
+    public String toString() {
+        return "EmailAttachmentSettings[redacted]";
+    }
 
     /** Simple email format validation pattern. */
     private static final Pattern EMAIL_PATTERN =
@@ -127,7 +168,9 @@ public record EmailAttachmentSettings(
             sanitizeSubject(req.getParameter("subjectEmail")),
             truncate(req.getParameter("bodyEmail"), MAX_BODY_LENGTH),
             truncate(req.getParameter("encryptedMessageEmail"), MAX_BODY_LENGTH),
-            validateChartOption(req.getParameter("emailPatientChartOption"))
+            validateChartOption(req.getParameter("emailPatientChartOption")),
+            // Match the compose footer limit without splitting a character or counting CRLF twice.
+            truncateFooter(req.getParameter("footerEmail"))
         );
     }
 
@@ -176,6 +219,23 @@ public record EmailAttachmentSettings(
             subject = subject.substring(0, MAX_SUBJECT_LENGTH);
         }
         return subject;
+    }
+
+    /** Uses the compose footer's textarea length rules, preserving complete Unicode characters. */
+    private static String truncateFooter(String footer) {
+        if (footer == null) {
+            return null;
+        }
+        String normalized = footer.replace("\r\n", "\n");
+        if (normalized.length() <= EmailData.FOOTER_MAX_LENGTH) {
+            return footer;
+        }
+        int end = EmailData.FOOTER_MAX_LENGTH;
+        if (Character.isHighSurrogate(normalized.charAt(end - 1))
+                && Character.isLowSurrogate(normalized.charAt(end))) {
+            end--;
+        }
+        return normalized.substring(0, end);
     }
 
     /**

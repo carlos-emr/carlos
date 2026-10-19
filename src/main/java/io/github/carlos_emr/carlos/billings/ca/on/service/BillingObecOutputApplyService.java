@@ -149,7 +149,9 @@ public class BillingObecOutputApplyService {
                         }
                         DemographicCust demographicCust = demographicCustDao.find(d.getDemographicNo());
                         if (demographicCust != null && batchEligibility != null) {
-                            String newAlert = demographicCust.getAlert() + "\n" + "Invalid old version code: "
+                            String existingAlert = demographicCust.getAlert();
+                            String newAlert = (existingAlert == null || existingAlert.isEmpty() ? "" : existingAlert + "\n")
+                                    + "Invalid old version code: "
                                     + bean.getVersion() + "\nReason: " + batchEligibility.getMOHResponse() + "- "
                                     + batchEligibility.getReason() + "\nResponse Code: " + responseCode;
                             demographicCust.setAlert(newAlert);

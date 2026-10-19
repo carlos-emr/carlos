@@ -103,6 +103,14 @@
         }
 
         nameEl.setAttribute('autocomplete', 'off');
+        // ARIA combobox (list autocomplete) so assistive technology announces the suggestions
+        // and the row reached with the arrow keys; focus stays in the name field throughout.
+        if (!dropEl.id) dropEl.id = nameEl.id + '-suggestions';
+        nameEl.setAttribute('role', 'combobox');
+        nameEl.setAttribute('aria-autocomplete', 'list');
+        nameEl.setAttribute('aria-controls', dropEl.id);
+        nameEl.setAttribute('aria-expanded', 'false');
+        dropEl.setAttribute('role', 'listbox');
 
         var abortCtrl = null;
         var SEARCH_DEBOUNCE_MS = 250;
@@ -118,6 +126,9 @@
             if (pendingSearch) { clearTimeout(pendingSearch); pendingSearch = null; }
             dropEl.style.display = 'none';
             dropEl.innerHTML = '';
+            dropEl.setAttribute('role', 'listbox');
+            nameEl.setAttribute('aria-expanded', 'false');
+            nameEl.removeAttribute('aria-activedescendant');
             activeIdx = -1;
         }
 
@@ -125,8 +136,15 @@
             var items = dropEl.querySelectorAll('.fax-ac-item');
             items.forEach(function (el, i) {
                 el.classList.toggle('fax-ac-active', i === idx);
+                el.setAttribute('aria-selected', i === idx ? 'true' : 'false');
             });
             activeIdx = idx;
+            if (items[idx]) {
+                nameEl.setAttribute('aria-activedescendant', items[idx].id);
+                items[idx].scrollIntoView({block: 'nearest'});
+            } else {
+                nameEl.removeAttribute('aria-activedescendant');
+            }
         }
 
         function selectItem(item) {
@@ -148,9 +166,12 @@
                 return;
             }
 
-            items.forEach(function (item) {
+            items.forEach(function (item, index) {
                 var row = document.createElement('div');
                 row.className = 'fax-ac-item';
+                row.id = dropEl.id + '-option-' + index;
+                row.setAttribute('role', 'option');
+                row.setAttribute('aria-selected', 'false');
 
                 // First line: full-width name
                 var nameSpan = document.createElement('span');
@@ -180,6 +201,7 @@
             });
 
             dropEl.style.display = 'block';
+            nameEl.setAttribute('aria-expanded', 'true');
         }
 
         // Each keystroke used to dispatch its own request: typing "cardiolo" sent seven, and

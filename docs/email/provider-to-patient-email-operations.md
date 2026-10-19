@@ -20,8 +20,12 @@ The currently supported provider-to-patient workflow is the eForm email flow:
    consent status, message fields, and attachments.
 5. Sending posts through `EmailSend2Action`, which delegates delivery to
    `EmailManager`.
-6. `EmailManager` creates an `EmailLog` row, attempts delivery through the
-   configured sender, and updates the log to `SUCCESS` or `FAILED`.
+6. `EmailManager` creates an `EmailLog` row, hands the message to the
+   configured sender (SMTP relay or API), and updates the log to `SUCCESS` when
+   the relay or API accepts it, or `FAILED` when it reports an error. `SUCCESS`
+   is shown as **ACCEPTED BY MAIL SERVER**, in grey rather than green. It does
+   not mean the patient received the message; see
+   [What "ACCEPTED BY MAIL SERVER" means](#what-accepted-by-mail-server-means).
 
 CARLOS Messenger is separate from this path. It handles internal messaging and
 document transfer workflows; it is not the confirmed mechanism for sending
@@ -37,12 +41,15 @@ separate chart composer is implemented, reviewed, and documented.
   handles the eForm Email button, valid-recipient checks, consent prompt, and
   hidden `emailEForm=true` submit flag.
 - `src/main/java/io/github/carlos_emr/carlos/eform/actions/AddEForm2Action.java`
-  saves the eForm and moves email options, attachment selections, and patient
-  context into session state for the compose redirect.
+  saves the eForm and stages its email options, attachment selections, and
+  patient context as one draft in the session under a one-time key, which its
+  redirect to the compose action carries (`&draft=<key>`, #4101). Two windows
+  that save close together therefore each open their own compose. At most eight
+  drafts wait per session; staging a ninth drops the oldest.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailCompose2Action.java`
   requires `_email` and read access to the patient (`_demographic`, including
   per-patient restrictions), and works in two steps. The first request takes
-  the staged session state once, prepares the attachments and the one-time send
+  the draft for its key once, prepares the attachments and the one-time send
   token, and redirects to `email/emailComposeAction?composeView=<id>`. That view
   URL loads consent, recipients and active sender accounts and renders the
   compose screen. Refreshing it shows the same compose screen, password and
@@ -57,8 +64,12 @@ separate chart composer is implemented, reviewed, and documented.
   - Tomcat restarted, or the request reached another server, because the
     prepared state is held in that server's memory.
 
+  The first request itself shows the expired message when its key is missing,
+  already used, or was dropped.
+
   If preparing the attachments or storing the state fails, the provider is
-  returned to the eForm with a generic error instead.
+  returned to the eForm with a generic error instead, and the draft is kept
+  under its key, so refreshing that page tries again.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailSend2Action.java`
   requires `_email`, collects compose fields, and calls `EmailManager`.
 - `src/main/java/io/github/carlos_emr/carlos/managers/EmailManager.java`
@@ -83,12 +94,79 @@ Before a clinic sends real patient communications, confirm all of these gates:
 - Production sender configuration uses real delivery infrastructure, such as an
   SMTP relay or an API sender such as SendGrid.
 - Production sender domains have SPF, DKIM, and DMARC configured and monitored.
+- The document store and the database live on encrypted volumes, and the outbound
+  email archive keyring is backed up with the server configuration. See
+  [Outbound Email Archive at Rest](#outbound-email-archive-at-rest).
 
 The current Configure Email admin page documents the `emailConfig` fields and
 sample SMTP/API payloads, but sender records are still managed as deployment
 configuration. Confirm the selected sender account is active before using real
 patient communications.
 
+## Email Footers
+
+By default every new CARLOS email requires the current clinic footer. An administrator sets its text on **Admin > Emails > Configure Email**; staff cannot edit or remove that clinic text from an individual email. While the footer is required, an empty clinic setting refuses preparation before any outbox row, archive, or transport action; compose disables Send and says where to set it, and a Patient Portal invitation is refused before the portal prepares any code (`clinic_footer_missing`). Before enabling production mail, configure a real clinic footer and verify it with the clinic. This change supplies no invented contact details.
+
+**Edit footer** opens one window holding the text, whether the clinic footer is **Required** (the default, and the behaviour before this choice existed) or **Off**, and **Add a logo to emails**; its **Save footer** saves all three in one step, with no second Save button on the page (My Email Footer's window saves the personal footer the same way). The window's choices are as follows. Off means emails sent from CARLOS carry no clinic footer and no logo and may be sent without one; personal footers are still added, and compose and My Email Footer say the footer is turned off. Off covers CARLOS's own emails only: the Patient Portal's emails still need the saved clinic footer (see below). The text and both choices are saved in one transaction under the footer lock, and each change is audited (`emailFooterClinicDefault`, `emailFooterClinicMode`, `emailFooterLogoShown`). Changing it, like changing the text, refuses a draft prepared before the change until staff review the new preview.
+
+A refused save (too long, or saved over a footer another administrator changed meanwhile) keeps what was typed: the text, and the choices made with it, come back in the window, marked not saved, for one view; a logo upload after that carries them through its own reload. After another administrator's change, the current footer is in the editor and the typed text is shown beside it to copy from.
+
+The compose screen shows optional personal text above a separate, read-only clinic preview. **Edit footer** changes only the personal text for that email. Removing all personal text keeps the clinic footer. An eForm's `footerEmail` supplies optional personal text, interpreted as plain text with its spacing and line breaks retained; changing the sender account does not change these footers. Saved personal defaults are managed under Preferences > Personal email footer, which opens the footer window on the Preferences page itself: the window reads the saved footer from the server and its one **Save footer** saves it there (an AJAX POST with the page's CSRF token, refused if the footer changed in another window meanwhile). The compose screen's **Edit my saved personal footer** opens the same window for the saved footer, leaving the email's own footer as it is. **My Email Footer** (`/email/myEmailFooter`) stays for direct visits and browsers without the window's scripts. A new composer uses the logged-in user’s saved personal text when an eForm supplies no personal field; an explicitly empty eForm field means no personal text. Clearing the saved personal default never removes the mandatory clinic footer. Clinic edits do not replace personal text. The optional “Also save this as my personal footer” updates only personal text after confirmed transport acceptance; failure or uncertain acceptance leaves the default unchanged. A failure to confirm that optional update keeps the result window open for review.
+
+At new send preparation, the server reads the current trusted clinic text and logo. If either differs from the server-owned compose preview, it refuses before outbox/archive/transport, preserves personal text, refreshes the clinic preview and issues a new single-use submission token. Staff review the changed preview and send again. Once an outbox row and message are prepared, that footer and logo stay frozen through dispatch and history even if an administrator edits the clinic setting.
+
+Both SMTP and SendGrid send a plain-text and formatted version, in order: message, optional personal footer, clinic logo in HTML, clinic footer. Formatting permits bold, italic, paragraph/div line breaks and HTTPS or mailto links. Server cleaning is authoritative; browser DOMPurify supports editing and preview. Both footers remain outside the password-protected message PDF and outside the chart note. Never put patient information in either footer.
+
+`emailLog.footer` stores the cleaned combined footer used to prepare the email. The outbound archive retains the prepared MIME/API payload and logo; usable portal invitation credentials are removed from every decoded archived text alternative before transport, while the transmitted copy stays unchanged. Redacted archive copies may be re-encoded. **Manage Emails** displays saved footer text in a section initially collapsed, with delivery status separate. A legacy log without footer content says none was recorded, rather than showing today's clinic setting. A resend is a new preparation with current clinic settings and the logged-in user’s current saved personal text; historical combined content never becomes the new personal footer.
+
+Each personal or clinic footer may contain at most 2,000 UTF-16 text units (including expanded link addresses) and 10,000 HTML units. Oversize submissions are refused. The combined UTF-8/base64 representation must fit the existing footer storage field; it is refused rather than cut. Plain eForm personal text is capped before compose by the existing eForm workflow.
+
+An administrator may upload a PNG/JPEG clinic logo, at most 100 KiB and 600 × 200 pixels. The page checks the type, file size and pixel size before sending a picture, naming both limits, so a picture CARLOS would refuse never reloads the page; the server checks everything again. CARLOS decodes and re-saves it, removes metadata, and embeds verified bytes under a CID rather than a hosted URL. Replaced/removed logo rows and admin changes remain auditable. Use RGB/grayscale; unsupported JPEG variants are refused. More than 64 raw JPEG start-of-scan markers are refused before decoding, conservatively including marker bytes in metadata.
+
+Until a clinic uploads its own logo, emails carry the CARLOS logo (the 96 × 96 "birdman", shipped as `email/carlos-default-email-logo.png`); **Remove logo** takes the clinic's own away and the CARLOS logo takes its place. **Add a logo to emails**, in the Edit footer window (on by default), is the one way to send without a logo; off, no logo goes into emails, previews or the Patient Portal footer snapshot. *Upgrade note:* clinics that never uploaded a logo start sending the CARLOS logo with every patient email after this change.
+
+**Patient Portal own mail.** Portal verification/MFA, password resets, contact changes and booking notices also require the current clinic footer, even when an administrator turned the footer **Off** for CARLOS's own emails (a Portal follow-up may change this). Its new read-only CARLOS endpoint `/ws/portal/email-footer` accepts only a clinic-scoped derived bearer and returns a nonce-bound Ed25519 signed snapshot under a distinct audience. Provision the endpoint's HMAC-derived read credential and public keyring to web/worker; the worker must not receive the full internal service token or a private signing key. Missing/invalid/unreachable configuration refuses SMTP without cached or footerless fallback. Each new worker transport attempt fetches current settings once; an already prepared attempt stays frozen. Portal footer-only attempt artifacts require a durable private shared volume before SMTP, with prepared snapshot separate from accepted/failed/unknown outcome. In Configure Email, staff with `_admin` READ can expand Patient Portal email footer history for a UTC date. Each attempt starts collapsed and displays the saved plain footer text and its separately recorded prepared/accepted/failed/unknown outcome. The viewer signs an audit-read request to the existing private Portal API; it never substitutes current clinic text for missing or unavailable history. Older results use an exclusive cursor. An unavailable audit service leaves clinic configuration visible and shows a localized error; it does not display an empty-history success.
+
+**Portal footer read credential.** The Portal's web and outbox processes need
+`PATIENT_PORTAL_EMAIL_FOOTER_READ_TOKEN`: a credential derived from CARLOS's `patient_portal.service_token`
+and `patient_portal.clinic_id` that opens only `/ws/portal/email-footer`. If it does not match, CARLOS answers
+401 and the Portal refuses every email. Derive it on the CARLOS server as root. The script reads the override
+properties file (Debian: `/etc/carlos-emr/carlos.properties`), so neither secret appears on a command line, and
+writes the result to a new private file. It expects plain `key=value` lines; CARLOS ignores spaces around the
+value and uses the last line for a key, and so does the script. It does not decode Java properties escapes, so a
+service token containing `\` gives a credential that does not match (the check below then answers 401).
+
+```sh
+umask 077
+python3 - /etc/carlos-emr/carlos.properties > /root/portal-footer-read-token <<'EOF'
+import hashlib, hmac, sys
+values = {}
+for line in open(sys.argv[1], encoding="utf-8"):
+    key, sep, value = line.partition("=")
+    if sep and key.strip() in ("patient_portal.service_token", "patient_portal.clinic_id"):
+        values[key.strip()] = value.strip()
+token = values["patient_portal.service_token"].encode("utf-8")
+clinic = values["patient_portal.clinic_id"].encode("utf-8")
+message = b"carlos-portal-email-footer-read-v1\0" + len(clinic).to_bytes(8, "big") + clinic
+print(hmac.new(token, message, hashlib.sha256).hexdigest())
+EOF
+```
+
+Copy the 64-character value into the Portal's private deployment files for web and outbox. Then check it
+from the Portal host with bash, reading the value from a private file there; it stays off the command line here too:
+
+```bash
+nonce=$(python3 -c 'import base64, secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode())')
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -H @<(printf 'Authorization: Bearer %s\n' "$(cat /root/portal-footer-read-token)") \
+  "https://carlos.example.ca/carlos/ws/portal/email-footer?nonce=$nonce"
+```
+
+`200` means the Portal can read the footer. `401`: the credential does not match the current service token and
+clinic id. `503`: no clinic footer is saved, or CARLOS's Portal signing settings are incomplete. Delete
+`/root/portal-footer-read-token` afterwards. Derive a new credential whenever the service token or clinic id changes.
+
+**Web application firewall.** Personal HTML is posted in `footerEmail`; admin clinic HTML uses `clinicFooter`. No broad XSS exemption is added. Test the configured ModSecurity rules and real clinic formatting before production deployment. These checks have not been run in the current private environment.
 ## Local Development
 
 Local development must not send real patient email.
@@ -117,8 +195,12 @@ For production use, treat email as an external delivery dependency:
   patient sends.
 - Verify attachment size limits and content policies with the relay or API
   provider.
+- Make the sending account's address a real mailbox that staff monitor. For SMTP
+  senders it is where bounces and non-delivery reports are returned; see
+  [Bounces and non-delivery reports](#bounces-and-non-delivery-reports).
 - Send non-PHI test messages after every sender configuration change.
-- Confirm successful test delivery and `EmailLog` status before sending patient
+- Confirm each test message arrived in the test mailbox, not only that its
+  `EmailLog` row shows **ACCEPTED BY MAIL SERVER**, before sending patient
   communications.
 
 ## Optional PDF Signing
@@ -237,6 +319,9 @@ Recommended operating checks:
 
 - Review failed email rows after sender configuration changes and during normal
   clinic operations.
+- Check the sending accounts' mailboxes for bounces and non-delivery reports.
+  Manage Emails does not show them; see
+  [Bounces and non-delivery reports](#bounces-and-non-delivery-reports).
 - Investigate repeated failures before retrying patient communications.
 - Test with non-PHI messages first whenever sender credentials, sender domains,
   relay/API settings, or DNS records change.
@@ -255,6 +340,99 @@ Repeated failures usually point to one of these causes:
 - Local development environment has no localhost SMTP capture service.
 - PDF generation or attachment rendering failure before send.
 
+### What "ACCEPTED BY MAIL SERVER" means
+
+Manage Emails shows an `EmailLog` row with status `SUCCESS` as **ACCEPTED BY
+MAIL SERVER**. CARLOS sets that status when the SMTP relay or email API (such
+as SendGrid) takes the message without an error. That hand-off is the last
+thing CARLOS sees. The relay or provider can still bounce the message, give up
+after retrying, or drop it (an API provider can drop a message to an address
+already on its bounce list), and none of that is reported back to CARLOS. The
+row keeps showing **ACCEPTED BY MAIL SERVER**.
+
+Treat the status as evidence that the message left CARLOS, not that the patient
+received it. When receipt matters clinically, confirm with the patient. The
+compose screen says the same thing after a send: the message was accepted for
+delivery, which is not confirmation that it arrived.
+
+This is a display label only. The stored value in `emailLog.status` is
+`SUCCESS`, and the Manage Emails status filter submits `SUCCESS`, so reports or
+queries that read the table directly still see `SUCCESS`.
+
+### Bounces and non-delivery reports
+
+Bounce processing and provider delivery webhooks are not implemented, so a
+bounce never changes an `EmailLog` row (tracked in
+[issue #3834](https://github.com/carlos-emr/carlos/issues/3834)). Until that
+exists, bounces reach staff only as email:
+
+- Make each sending account's address a real mailbox that staff check as part
+  of normal operations. The SMTP sender uses the sending address as the
+  envelope sender (Return-Path), so bounces and non-delivery reports (NDRs)
+  come back to that mailbox unless the relay rewrites the envelope sender.
+- An API provider such as SendGrid receives bounces itself. Check the
+  provider's activity and bounce lists, or set up its bounce notifications to
+  reach the monitored mailbox.
+- Bounces and NDRs often carry the whole original message: the subject, any
+  body text that was not moved into the encrypted PDF, and the attachments
+  (unencrypted attachments in clear). Treat the mailbox as holding patient
+  information and limit who can read it.
+- When a bounce arrives for a patient email, find the row in **Admin > Manage
+  Emails** by date and patient, correct the patient's email address if it is
+  wrong, and reach the patient another way if the message mattered clinically.
+- Record the bounce in the patient's chart. Any chart note written for the
+  email ("Sent on ...") stays as it was, and the row in Manage Emails still
+  reads "ACCEPTED BY MAIL SERVER", so without a note the chart still suggests
+  the patient was informed.
+- Once the bounce is handled and recorded, delete it from the mailbox,
+  following the clinic's retention policy for patient correspondence.
+
+## Outbound Email Archive at Rest
+
+Every email sent to a patient is kept permanently as an exact copy in the outbound
+email archive, attachments included. CARLOS encrypts each copy before writing it to
+the document store (#3448), with keys from its own archive keyring file, separate from
+`encryption.util.secret.key`. Full details, including the stored format, rotation and
+failure codes, are in
+[Encryption at rest](../outbound-email-archive.md#encryption-at-rest-3448).
+
+**Deployment prerequisite: encrypted volumes.** CARLOS's encryption does not replace
+disk encryption. Put the document store (`DOCUMENT_DIR`), the database data
+directory, the archive keyring and the backup repository on encrypted volumes
+(LUKS/dm-crypt or the cloud provider's volume encryption) before the archive holds
+real patient email, and keep their owner-only permissions. Disk encryption covers a
+stolen disk or snapshot; the archive keyring also covers a copy of the document
+store restored somewhere else without the server configuration.
+
+**The keyring.** CARLOS creates it on first start, owner-only, at the path in
+`CARLOS_OUTBOUND_EMAIL_ARCHIVE_KEYRING_FILE`, else `email.archive.keyring.file`, else
+`<context>-outbound-email-archive.keyring` (usually `carlos-outbound-email-archive.keyring`)
+in the CARLOS user's home directory. A Debian install keeps it in
+`/etc/carlos-emr/archive-keyring/`, which the nightly `carlos-emr-backup` already
+includes. Anywhere else, add it to the configuration backup yourself.
+
+- **Back it up with the server configuration**, keep a copy off the server, and back
+  it up again after every key rotation. Without it the archive cannot be read.
+- **Restore it before starting CARLOS.** If it is missing while encrypted archives
+  exist, or CARLOS cannot rule that out, CARLOS refuses to start and logs one ERROR
+  that names the fix: restore the keyring file from backup.
+  `email.archive.keyring.acknowledge_loss=true` gets past that only when the keyring
+  is lost for good, and leaves those archived emails unreadable. CARLOS also refuses to start
+  when the keyring holds the right key numbers but cannot decrypt the newest archived
+  emails: it is a different keyring, and the right one must be restored.
+- **Several servers:** create the keyring on one server and copy it to the others
+  before they first start; two servers starting without one would each make their own.
+- **Rotate** with `email.archive.keyring.rotate_to=<next key number>` and a restart.
+  Old keys are kept, so older archived emails stay readable. Rotation does not
+  re-encrypt what is already archived.
+
+**Capacity.** The archive only grows: each send keeps the full message and its
+attachments (up to 50 MiB), and encrypted copies do not compress or de-duplicate
+in backups. Estimate emails per day x average size x 365 per year plus backup copies,
+and alert on the document-store volume and backup repository before they fill. The
+[capacity note](../outbound-email-archive.md#capacity-and-growth-operational-note)
+has the measuring query.
+
 ## Safety Notes
 
 Do not put PHI in the email subject. The subject is normal email header content
@@ -268,6 +446,9 @@ is not the same as true end-to-end encrypted email.
 Password-protected PDFs reduce exposure for attachments or message PDFs, but the
 password clue and surrounding email body remain normal email content. Choose
 subjects, body text, and password clues accordingly.
+
+The footer and the clinic logo are always normal email content, even when the
+message is encrypted. Never put patient information in a footer.
 
 ## Known Gaps and Related Work
 
@@ -296,3 +477,9 @@ subjects, body text, and password clues accordingly.
   [PR #3097](https://github.com/carlos-emr/carlos/pull/3097).
 - Outbound email archive foundation:
   [PR #3138](https://github.com/carlos-emr/carlos/pull/3138).
+- Bounce processing and provider delivery webhooks are not implemented, so
+  **ACCEPTED BY MAIL SERVER** is the last status CARLOS records:
+  [issue #3834](https://github.com/carlos-emr/carlos/issues/3834).
+- Outbound email archive encryption at rest:
+  [issue #3448](https://github.com/carlos-emr/carlos/issues/3448). Archives written
+  before it stay plaintext until a re-encryption job exists.

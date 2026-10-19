@@ -377,6 +377,20 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
         }
 
         @Test
+        @DisplayName("should give the record its patient navigation")
+        void shouldSetPatientNavigation_onSuccess() throws Exception {
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(PatientNavModel.REQUEST_ATTRIBUTE))
+                    .isInstanceOfSatisfying(PatientNavModel.class, nav -> {
+                        assertThat(nav.getDemographicNo()).isEqualTo(12345);
+                        assertThat(nav.isOnPortalPage()).isFalse();
+                        assertThat(nav.isOntarioBilling()).isTrue();
+                        assertThat(nav.getRecordUrl()).endsWith("/demographic/DemographicEdit?demographic_no=12345");
+                    });
+        }
+
+        @Test
         @DisplayName("should set birth date fields when demographic has populated dates")
         void shouldSetBirthDateFields_whenDatesProvided() throws Exception {
             executeAction(action);
@@ -486,6 +500,48 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
             verify(mockPatientConsentManager).getActiveConsentTypes();
             verify(mockPatientConsentManager).getAllConsentsByDemographic(
                     any(LoggedInInfo.class), eq(12345));
+        }
+
+        @Test
+        @DisplayName("should name the consent types whose consent change the save refused")
+        void shouldSetConsentNotSavedNames_whenSaveRefusedConsent() throws Exception {
+            io.github.carlos_emr.carlos.commn.model.ConsentType email =
+                    new io.github.carlos_emr.carlos.commn.model.ConsentType();
+            email.setId(7);
+            email.setType("email_consent");
+            email.setName("Email <b>consent</b>");
+            when(mockPatientConsentManager.getActiveConsentTypes()).thenReturn(List.of(email));
+            addRequestParameter("consentNotSaved", "7,99");
+
+            executeAction(action);
+
+            // The name is stored raw and encoded by the page; an id the page does not show is dropped.
+            assertThat(mockRequest.getAttribute("consentNotSavedNames"))
+                    .isEqualTo(List.of("Email <b>consent</b>"));
+        }
+
+        @Test
+        @DisplayName("should ignore a consentNotSaved value that is not digits and commas")
+        void shouldNotSetConsentNotSavedNames_whenParameterIsMalformed() throws Exception {
+            io.github.carlos_emr.carlos.commn.model.ConsentType email =
+                    new io.github.carlos_emr.carlos.commn.model.ConsentType();
+            email.setId(7);
+            email.setType("email_consent");
+            email.setName("Email consent");
+            when(mockPatientConsentManager.getActiveConsentTypes()).thenReturn(List.of(email));
+            addRequestParameter("consentNotSaved", "7<script>");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute("consentNotSavedNames")).isNull();
+        }
+
+        @Test
+        @DisplayName("should set no warning on an ordinary page load")
+        void shouldNotSetConsentNotSavedNames_whenParameterIsAbsent() throws Exception {
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute("consentNotSavedNames")).isNull();
         }
 
         @Test

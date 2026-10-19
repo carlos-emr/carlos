@@ -33,8 +33,10 @@
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
  * Optional: PREVENTION_DEMOGRAPHIC_NO (1), PREVENTION_BRAND_QUERY (Tdap),
- * PREVENTION_CVC_UI=true (requires the configured CVC picker; exercises its
- * brand/generic/lot suggestions and saves a vaccine with an undated lot).
+ * PREVENTION_CVC_UI=true (requires the catalogue picker, which the Preventions
+ * page shows once a National Vaccine Catalogue is installed -- see
+ * vaccine-catalogue-update-playwright-checks.js; exercises its brand/generic/lot
+ * suggestions and saves a vaccine with an undated lot).
  */
 
 const { chromium } = require('playwright');

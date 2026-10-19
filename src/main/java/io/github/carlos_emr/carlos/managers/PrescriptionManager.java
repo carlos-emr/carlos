@@ -53,6 +53,12 @@ public interface PrescriptionManager {
 
     public List<Drug> getDrugsByScriptNo(LoggedInInfo loggedInInfo, Integer scriptNo, Boolean archived);
 
+    /**
+     * The patient's medication list, one row per product and regimen, newest first; the same
+     * selection as the E-Chart and print views ({@code UniqueMedicationList}).
+     *
+     * @return the selected rows, or an empty list without {@code _demographic} read access
+     */
     public List<Drug> getUniqueDrugsByPatient(LoggedInInfo loggedInInfo, Integer demographicNo);
 
     public List<Prescription> getPrescriptionsByProgramProviderDemographicDate(LoggedInInfo loggedInInfo,

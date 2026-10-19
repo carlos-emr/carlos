@@ -40,6 +40,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
@@ -86,46 +87,46 @@
     <body onload="cleanForm(); start();">
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
             <%//The action of the form is important.  Keep the same%>
-        <input type="hidden" name="demographic_no" value="<%= props.getProperty("demographic_no", "0") %>"/>
-        <input type="hidden" name="formCreated" value="<%= props.getProperty("formCreated", "") %>"/>
+        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= props.getProperty("demographic_no", "0") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="formCreated" value="<carlos:encode value='<%= props.getProperty("formCreated", "") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
         <input type="hidden" name="provider_no" value="<%=provNo%>"/>
         <input type="hidden" name="submit" value="exit"/>
-        <input type="hidden" name="billingreferral_no" value="<%=props.getProperty("billingreferral_no", "")%>"/>
-        <input type="hidden" name="doc_name" value="<%=props.getProperty("doc_name", "")%>"/>
-        <input type="hidden" name="cl_name" value="<%=props.getProperty("cl_name","")%>"/>
-        <input type="hidden" name="cl_address1" value="<%=props.getProperty("cl_address1","")%>"/>
-        <input type="hidden" name="cl_address2" value="<%=props.getProperty("cl_address2","")%>"/>
-        <input type="hidden" name="cl_phone" value="<%=props.getProperty("cl_phone","")%>"/>
-        <input type="hidden" name="cl_fax" value="<%=props.getProperty("cl_fax","")%>"/>
+        <input type="hidden" name="billingreferral_no" value="<carlos:encode value='<%= props.getProperty("billingreferral_no", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="doc_name" value="<carlos:encode value='<%= props.getProperty("doc_name", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="cl_name" value="<carlos:encode value='<%= props.getProperty("cl_name", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="cl_address1" value="<carlos:encode value='<%= props.getProperty("cl_address1", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="cl_address2" value="<carlos:encode value='<%= props.getProperty("cl_address2", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="cl_phone" value="<carlos:encode value='<%= props.getProperty("cl_phone", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="cl_fax" value="<carlos:encode value='<%= props.getProperty("cl_fax", "") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="project_home" value="<%=project_home%>"/>
         <div style="font-size: 24px; font-family: arial, helvetica, sans-serif;">
             <center>
-                <b><%=props.getProperty("doc_name", "")%>
+                <b><carlos:encode value='<%= props.getProperty("doc_name", "") %>' context="html"/>
                 </b>
             </center>
         </div>
         <div style="font-size: 19px; font-family: arial, helvetica, sans-serif;">
             <center>
-                <b><i><%=props.getProperty("cl_name", "")%>
+                <b><i><carlos:encode value='<%= props.getProperty("cl_name", "") %>' context="html"/>
                 </i></b>
             </center>
         </div>
         <font face="Arial, Helvetica, sans-serif">
             <TABLE WIDTH="100%" align="center" cellpadding="0" cellspacing="0" style="font-size: 13px;">
                 <TR>
-                    <TD><%=props.getProperty("cl_address1", "")%>
+                    <TD><carlos:encode value='<%= props.getProperty("cl_address1", "") %>' context="html"/>
                     </TD>
-                    <TD ALIGN="right">Phone: <%=props.getProperty("cl_phone", "")%>
+                    <TD ALIGN="right">Phone: <carlos:encode value='<%= props.getProperty("cl_phone", "") %>' context="html"/>
                     </TD>
                 </TR>
 
                 <TR>
-                    <TD><%=props.getProperty("cl_address2", "")%>
+                    <TD><carlos:encode value='<%= props.getProperty("cl_address2", "") %>' context="html"/>
                     </TD>
-                    <TD ALIGN="right">Fax: <%=props.getProperty("cl_fax", "")%>
+                    <TD ALIGN="right">Fax: <carlos:encode value='<%= props.getProperty("cl_fax", "") %>' context="html"/>
                     </TD>
                 </TR>
 
@@ -139,7 +140,7 @@
                                 <TD align="left">
                                     <INPUT name="consultTime" id="consultTime"
                                            style="border: none; font-size: 12px; text-decoration: underline; width: 80%;"
-                                           TYPE="text" value="<%=props.getProperty("consultTime", "")%>"/><span
+                                           TYPE="text" value="<carlos:encode value='<%= props.getProperty("consultTime", "") %>' context="htmlAttribute"/>"/><span
                                         id="dating"><a href="javascript: function myFunction() {return false; }"
                                                        id="hlSDate"><small>Select Date</small></a></span>
                                 </TD>
@@ -149,7 +150,7 @@
                                 <TD align="left">
                                     <INPUT name="t_name"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 80%; "
-                                           type="text" value="<%=props.getProperty("t_name", "")%>">&nbsp;</INPUT><span
+                                           type="text" value="<carlos:encode value='<%= props.getProperty("t_name", "") %>' context="htmlAttribute"/>">&nbsp;</INPUT><span
                                         id="searching"><a
                                         href="javascript:search('billingreferral_no', 't_name', 't_address1', 't_phone', 't_fax')"><small>Search #</small></a></span>
 
@@ -160,25 +161,25 @@
                                 <TD align="left">
 
                                     <textarea id="t_address1" name="t_address1"
-                                              style="font-size: 13px; text-decoration: underline; width: 90%;"><%=props.getProperty("t_address1", "")%></textarea>
+                                              style="font-size: 13px; text-decoration: underline; width: 90%;"><carlos:encode value='<%= props.getProperty("t_address1", "") %>' context="html"/></textarea>
 
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Phone:</TD>
+                                <TD align="left"><label for="t_phone">Phone:</label></TD>
                                 <TD align="left">
 
-                                    <INPUT value="<%=props.getProperty("t_phone", "")%>" id="t_phone" name="t_phone"
+                                    <INPUT value="<carlos:encode value='<%= props.getProperty("t_phone", "") %>' context="htmlAttribute"/>" id="t_phone" name="t_phone"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 90%;"
                                            TYPE="text">&nbsp;</INPUT>
 
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Fax:</TD>
+                                <TD align="left"><label for="t_fax">Fax:</label></TD>
                                 <TD align="left">
 
-                                    <INPUT value="<%=props.getProperty("t_fax", "")%>" id="t_fax" name="t_fax"
+                                    <INPUT value="<carlos:encode value='<%= props.getProperty("t_fax", "") %>' context="htmlAttribute"/>" id="t_fax" name="t_fax"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 90%;"
                                            TYPE="text">&nbsp;</INPUT>
 
@@ -194,7 +195,7 @@
 
                                     <INPUT NAME="p_name"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<%=props.getProperty("p_name","")%>">
+                                           TYPE="text" value="<carlos:encode value='<%= props.getProperty("p_name", "") %>' context="htmlAttribute"/>">
                                     </INPUT>
 
                                 </TD>
@@ -205,7 +206,7 @@
 
                                     <INPUT NAME="p_address1"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<%=props.getProperty("p_address1","")%>">
+                                           TYPE="text" value="<carlos:encode value='<%= props.getProperty("p_address1", "") %>' context="htmlAttribute"/>">
                                     </INPUT>
 
                                 </TD>
@@ -216,7 +217,7 @@
 
                                     <INPUT NAME="p_address2"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<%=props.getProperty("p_address2","")%>">
+                                           TYPE="text" value="<carlos:encode value='<%= props.getProperty("p_address2", "") %>' context="htmlAttribute"/>">
                                     </INPUT>
 
                                 </TD>
@@ -226,7 +227,7 @@
                                 <TD align="left">
                                     <INPUT NAME="p_phone"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<%=props.getProperty("p_phone","")%>">
+                                           TYPE="text" value="<carlos:encode value='<%= props.getProperty("p_phone", "") %>' context="htmlAttribute"/>">
                                     </INPUT>
 
                                 </TD>
@@ -236,7 +237,7 @@
                                 <TD align="left">
                                     <INPUT NAME="p_birthdate"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<%=props.getProperty("p_birthdate","")%>">
+                                           TYPE="text" value="<carlos:encode value='<%= props.getProperty("p_birthdate", "") %>' context="htmlAttribute"/>">
                                     </INPUT>
                                 </TD>
                             </TR>
@@ -245,7 +246,7 @@
                                 <TD align="left">
                                     <INPUT NAME="p_healthcard"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<%=props.getProperty("p_healthcard","")%>">
+                                           TYPE="text" value="<carlos:encode value='<%= props.getProperty("p_healthcard", "") %>' context="htmlAttribute"/>">
                                     </INPUT>
                                 </TD>
                             </TR>
@@ -258,14 +259,14 @@
                  style="visibility: hidden; font-size: 13px; font-family: arial, helvetica, sans-serif; align: left; position: absolute;">
             </div>
             <script type="text/javascript">
-                document.forms[0].t_name.value = "<%=props.getProperty("t_name","")%>";
-                document.forms[0].t_address.value = "<%=props.getProperty("t_address","")%>";
-                document.forms[0].t_phone.value = "<%=props.getProperty("t_phone","")%>";
-                document.forms[0].t_fax.value = "<%=props.getProperty("t_fax","")%>";
+                document.forms[0].t_name.value = "<carlos:encode value='<%= props.getProperty("t_name", "") %>' context="javaScript"/>";
+                document.forms[0].t_address1.value = "<carlos:encode value='<%= props.getProperty("t_address", props.getProperty("t_address1", "")) %>' context="javaScript"/>";
+                document.forms[0].t_phone.value = "<carlos:encode value='<%= props.getProperty("t_phone", "") %>' context="javaScript"/>";
+                document.forms[0].t_fax.value = "<carlos:encode value='<%= props.getProperty("t_fax", "") %>' context="javaScript"/>";
             </script>
             <div id="textareaDiv" style="position: relative;">
     <textarea id="comments" name="comments" class="ta1" rows="60">
-<%= props.getProperty("comments", "")%>
+<carlos:encode value='<%= props.getProperty("comments", "") %>' context="html"/>
     </textarea>
             </div>
             <div id="buttons">
@@ -320,7 +321,6 @@
 
         <script type="text/javascript">
             function onPrint() {
-                let ret;
                 document.forms[0].submit.value = "save";
                 setVisibility('buttons', 'hidden');
                 setVisibility('textareaDiv', 'hidden');
@@ -346,8 +346,6 @@
 
                 const ret = confirm("<fmt:message key='global.msgDoYouWishMakeChanges'/>");
                 if (ret) {
-                const ret = confirm("<fmt:message key='global.msgDoYouWishMakeChanges'/>");
-                if (ret) {
                     setStyle('textareaDiv', 'position', 'absolute');
                     setStyle('textDiv', 'position', 'absolute');
                     setVisibility('textDiv', 'hidden');
@@ -364,7 +362,6 @@
             function onSave() {
                 document.forms[0].submit.value = "save";
                 const ret = confirm("<fmt:message key='global.msgWannaSave'/>");
-                const ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 return ret;
             }
 
@@ -377,7 +374,6 @@
 
             function onSaveExit() {
                 document.forms[0].submit.value = "exit";
-                const ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 const ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 return ret;
             }

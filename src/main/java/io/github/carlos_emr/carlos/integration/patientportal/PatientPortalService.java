@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -95,6 +96,9 @@ public class PatientPortalService implements Closeable {
             "invite preparation unavailable", "invite delivery conflicts",
             "another invite delivery is being prepared", "invite delivery is not committed");
     private static final String NOT_AN_ARRAY = "portal returned a non-array invite listing";
+
+    private static final String BOOKING_PROMPTS_PATH = "/internal/carlos/patients/%d/booking-prompts";
+    private static final String BOOKING_WITHDRAW_PATH = "/internal/carlos/booking-prompts/%d/withdraw";
 
     private static final String INVITES_PATH = "/internal/carlos/patients/%d/invites";
     private static final String INVITE_PREPARE_PATH =
@@ -172,6 +176,56 @@ public class PatientPortalService implements Closeable {
         this.settings = settings;
         this.exchange = exchange;
         this.assertionSigner = assertionSigner;
+    }
+
+    /** Reads saved attempts using only the administrator read attestation and fixed audit endpoint. */
+    public PortalEmailFooterAuditPage listEmailFooterAttempts(LocalDate date, int limit, String before,
+            PatientPortalStaffContext staff) {
+        if (staff == null || !staff.permissions().equals(Set.of(
+                PatientPortalStaffContext.PERMISSION_EMAIL_AUDIT_READ))) {
+            throw new PortalRequestPreparationException("portal footer history requires a scoped admin read context");
+        }
+        if (date == null || date.getYear() < 1 || date.getYear() > 9999 || limit < 1 || limit > 100
+                || (before != null && !PortalEmailFooterAuditPage.validCursor(before))) {
+            throw new PortalRequestPreparationException("portal footer history query is invalid");
+        }
+        // Only validated fixed-alphabet query values; no caller-selected path or String.format %s.
+        String endpoint = "/internal/carlos/email-footer-attempts";
+        String path = endpoint + "?date=" + date + "&limit=" + limit
+                + (before == null ? "" : "&before=" + before);
+        PatientPortalHttpResponse response;
+        try {
+            response = exchange.send(buildRequest(GET, path, null, staff));
+        } catch (PortalResponseTooLargeException e) {
+            throw unreadableBody(e.statusCode(), endpoint,
+                    new PortalContractException("portal footer history exceeds size limit"));
+        } catch (PortalResponseDecodingException e) {
+            throw unreadableBody(e.statusCode(), endpoint,
+                    new PortalContractException("portal footer history is not valid UTF-8"));
+        } catch (IOException e) {
+            throw PatientPortalException.ofTransportFailure(endpoint, e);
+        }
+        if (!response.isSuccess()) {
+            throw PatientPortalException.ofStatus(response.statusCode(), endpoint, safeDetail(response.body()));
+        }
+        try {
+            if (response.statusCode() != OK) throw new PortalContractException(UNEXPECTED_SUCCESS_STATUS);
+            if (response.body() == null || response.body().getBytes(StandardCharsets.UTF_8).length
+                    > PortalEmailFooterAuditPage.MAX_PAGE_BYTES) {
+                throw new PortalContractException("portal footer history exceeds size limit");
+            }
+            JsonNode payload;
+            try {
+                payload = objectMapper.reader().with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                        .readTree(response.body());
+            } catch (JsonProcessingException e) {
+                // Parser exceptions can contain remote text; retain only a fixed diagnostic.
+                throw new PortalContractException("portal footer history is not valid JSON");
+            }
+            return PortalEmailFooterAuditPage.fromJson(payload, date, limit, before, settings.clinicId());
+        } catch (PortalContractException e) {
+            throw PatientPortalException.ofMalformedResponse(response.statusCode(), endpoint, e);
+        }
     }
 
     /** Releases the pooled connections held by the transport, when it owns any. */
@@ -266,6 +320,62 @@ public class PatientPortalService implements Closeable {
                 staff,
                 node -> confirmedCommittedInvite(node, inviteId, operationId, reference),
                 inviteId);
+    }
+
+    /** Stable operation IDs make a repeated create return the original prompt without another notice. */
+    public PatientPortalBookingPromptDto.Creation createBookingPrompt(
+            int demographicNo, PatientPortalBookingPromptRequest request,
+            PatientPortalStaffContext staff) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("operation_id", request.operationId());
+        body.put("urgency", request.urgency());
+        body.put("appointment_type", request.appointmentType());
+        body.put("suggested_by", request.suggestedBy());
+        Parsed parsed = send(POST, BOOKING_PROMPTS_PATH, body.toString(), staff, demographicNo);
+        try {
+            validateScope(parsed.payload(), BOOKING_PROMPTS_PATH, new Object[]{demographicNo});
+            PatientPortalBookingPromptDto prompt = PatientPortalBookingPromptDto.fromJson(parsed.payload());
+            boolean created = PortalJson.requiredBool(parsed.payload(), "created");
+            if (parsed.statusCode() != CREATED
+                    || created && !"sent".equals(prompt.state())
+                    || !request.urgency().equals(prompt.urgency())
+                    || !request.appointmentType().equals(prompt.appointmentType())
+                    || !Objects.equals(request.suggestedBy(), prompt.suggestedBy())) {
+                throw new PortalContractException("portal did not confirm the requested booking prompt");
+            }
+            return new PatientPortalBookingPromptDto.Creation(prompt, created);
+        } catch (PortalContractException exception) {
+            throw PatientPortalException.ofMalformedResponse(
+                    parsed.statusCode(), templateOf(BOOKING_PROMPTS_PATH), exception);
+        }
+    }
+
+    /** Latest 100 prompts; an omitted ID cannot authorize a subsequent withdrawal. */
+    public List<PatientPortalBookingPromptDto> listBookingPrompts(
+            int demographicNo, PatientPortalStaffContext staff) {
+        return fetch(GET, BOOKING_PROMPTS_PATH, null, OK, staff, payload -> {
+            if (!payload.isArray()) {
+                throw new PortalContractException("portal returned a non-array booking listing");
+            }
+            List<PatientPortalBookingPromptDto> prompts = new ArrayList<>();
+            for (JsonNode node : payload) {
+                prompts.add(PatientPortalBookingPromptDto.fromJson(node));
+            }
+            return List.copyOf(prompts);
+        }, demographicNo);
+    }
+
+    /** Caller first verifies the selected ID against the patient-scoped list. */
+    public PatientPortalBookingPromptDto withdrawBookingPrompt(
+            int demographicNo, long promptId, PatientPortalStaffContext staff) {
+        return fetch(POST, BOOKING_WITHDRAW_PATH, null, OK, staff, payload -> {
+            PatientPortalBookingPromptDto prompt = PatientPortalBookingPromptDto.fromJson(payload);
+            if (prompt.id() != promptId || prompt.demographicNo() != demographicNo
+                    || !"withdrawn".equals(prompt.state())) {
+                throw new PortalContractException("portal did not confirm the selected prompt withdrawal");
+            }
+            return prompt;
+        }, promptId);
     }
 
     /** Lists the patient's latest 100 invites, newest first as the portal orders them. */

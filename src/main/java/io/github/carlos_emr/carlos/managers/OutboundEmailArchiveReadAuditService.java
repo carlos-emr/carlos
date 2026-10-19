@@ -64,7 +64,11 @@ public class OutboundEmailArchiveReadAuditService {
         METADATA_READ("getActiveArchive"),
         ARTIFACT_READ("readArchivedArtifact"),
         READ_FAILURE("readArchivedArtifact.readFailure"),
-        INTEGRITY_FAILURE("readArchivedArtifact.integrityFailure");
+        INTEGRITY_FAILURE("readArchivedArtifact.integrityFailure"),
+        /** The encrypted artifact failed authentication, or its envelope is malformed or unsupported (#3448). */
+        DECRYPTION_FAILURE("readArchivedArtifact.decryptionFailure"),
+        /** The key named in the artifact's envelope is not in the archive keyring (#3448). */
+        KEY_UNAVAILABLE("readArchivedArtifact.keyUnavailable");
 
         private final String action;
 

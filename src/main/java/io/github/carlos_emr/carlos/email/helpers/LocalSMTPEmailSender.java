@@ -15,8 +15,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
-    public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, 
-                                String[] recipients, String subject, String body, 
+    public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig,
+                                String[] recipients, String subject, String body,
                                 List<EmailAttachment> attachments) {
         super(loggedInInfo, emailConfig, recipients, subject, body, attachments);
     }
@@ -58,8 +58,8 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean isLocalhost(String host) {
-        return "localhost".equalsIgnoreCase(host) || 
-            "127.0.0.1".equals(host) || 
+        return "localhost".equalsIgnoreCase(host) ||
+            "127.0.0.1".equals(host) ||
             "::1".equals(host);
     }
 }

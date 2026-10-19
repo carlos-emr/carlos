@@ -184,8 +184,8 @@
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td style="text-align: right"><a
-                                    href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                    href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                    href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -244,12 +244,12 @@
                 jakarta.servlet.jsp.jstl.core.LoopTagStatus i = (jakarta.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
                 String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
                 String strOnClick;
-                strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + SafeEncode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                strOnClick = "selectResult('" + SafeEncode.forJavaScript(contact.getSystemId() + "_" + contact.getId()) + "','" + SafeEncode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
             %>
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
-                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="javaScriptAttribute"/>">
+                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="htmlAttribute"/>">
                 <td>${carlos:forHtml(contact.lastName)}</td>
                 <td>${carlos:forHtml(contact.firstName)}</td>
                 <td>${carlos:forHtml(contact.residencePhone)}</td>

@@ -1460,10 +1460,13 @@
                                                                                 property="FIRST_NATIONS_MODULE">
                                                         <tr>
                                                             <td colspan="8">
+                                                                <%-- This editor redirects readers without write access, which breaks an included response. --%>
+                                                                <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w">
                                                                 <jsp:include page="/WEB-INF/jsp/demographic/manageFirstNationsModule.jsp">
                                                                     <jsp:param name="demo"
                                                                                value="<%= demographic_no %>"/>
                                                                 </jsp:include>
+                                                                </security:oscarSec>
                                                             </td>
                                                         </tr>
                                                     </oscar:oscarPropertiesCheck>

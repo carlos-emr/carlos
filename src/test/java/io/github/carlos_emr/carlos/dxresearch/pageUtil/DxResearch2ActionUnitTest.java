@@ -13,7 +13,9 @@
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
+import io.github.carlos_emr.carlos.commn.dao.Icd10Dao;
 import io.github.carlos_emr.carlos.commn.dao.Icd9Dao;
+import io.github.carlos_emr.carlos.commn.model.Icd9;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -33,6 +35,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 
@@ -41,7 +44,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DisplayName("DxResearch2Action Unit Tests")
@@ -135,5 +141,140 @@ class DxResearch2ActionUnitTest extends CarlosUnitTestBase {
         Object actionErrors = mockRequest.getAttribute("actionErrors");
         assertThat(actionErrors).isInstanceOf(Collection.class);
         assertThat((Collection<?>) actionErrors).isNotEmpty();
+    }
+
+    private static Icd9 icd9(String code) {
+        Icd9 icd9 = new Icd9();
+        icd9.setIcd9(code);
+        return icd9;
+    }
+
+    /** An action whose messages read "key[arg, ...]", so a test can see which message was chosen. */
+    private dxResearch2Action actionShowingMessageKeys(String codingSystem, String code) {
+        dxResearch2Action keyed = new dxResearch2Action() {
+            @Override
+            public String getText(String key, String[] args) {
+                return key + Arrays.toString(args);
+            }
+        };
+        keyed.setSelectedCodingSystem(codingSystem);
+        keyed.setDemographicNo("12345");
+        keyed.setProviderNo("999998");
+        keyed.setForward("");
+        keyed.setXml_research1(code);
+        keyed.setXml_research2("");
+        keyed.setXml_research3("");
+        keyed.setXml_research4("");
+        keyed.setXml_research5("");
+        return keyed;
+    }
+
+    @Test
+    @DisplayName("should suggest the ICD-9 code without its decimal point when that code exists, and add nothing")
+    void shouldSuggestCodeWithoutDecimal_whenIcd9CodeHasDecimal() throws Exception {
+        when(mockIcd9Dao.findByCode("1519")).thenReturn(icd9("1519"));
+        dxResearch2Action keyed = actionShowingMessageKeys("icd9", "151.9");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors())
+                .containsExactly("oscarResearch.oscarDxResearch.error.icd9DidYouMean[151.9, 1519]");
+        verify(mockDxresearchDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should explain the decimal point when the ICD-9 code is unknown with or without it")
+    void shouldExplainDecimalPoint_whenIcd9CodeWithoutDecimalIsUnknown() throws Exception {
+        dxResearch2Action keyed = actionShowingMessageKeys("icd9", "999.9");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors())
+                .containsExactly("oscarResearch.oscarDxResearch.error.icd9WithDecimal[999.9]");
+        verify(mockIcd9Dao).findByCode("9999");
+    }
+
+    @Test
+    @DisplayName("should suggest a V code without its decimal point when that code exists")
+    void shouldSuggestCodeWithoutDecimal_whenIcd9VCodeHasDecimal() throws Exception {
+        when(mockIcd9Dao.findByCode("V829")).thenReturn(icd9("V829"));
+        dxResearch2Action keyed = actionShowingMessageKeys("icd9", "V82.9");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors())
+                .containsExactly("oscarResearch.oscarDxResearch.error.icd9DidYouMean[V82.9, V829]");
+    }
+
+    @Test
+    @DisplayName("should suggest an E code without its decimal point when that code exists")
+    void shouldSuggestCodeWithoutDecimal_whenIcd9ECodeHasDecimal() throws Exception {
+        when(mockIcd9Dao.findByCode("E8809")).thenReturn(icd9("E8809"));
+        dxResearch2Action keyed = actionShowingMessageKeys("icd9", "E880.9");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors())
+                .containsExactly("oscarResearch.oscarDxResearch.error.icd9DidYouMean[E880.9, E8809]");
+    }
+
+    @Test
+    @DisplayName("should suggest the stored code for lower-case input with spaces around it, and show the input as typed")
+    void shouldSuggestStoredCode_whenInputIsLowerCaseWithSpaces() throws Exception {
+        when(mockIcd9Dao.findByCode("v829")).thenReturn(icd9("V829"));
+        dxResearch2Action keyed = actionShowingMessageKeys("icd9", " v82.9 ");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors())
+                .containsExactly("oscarResearch.oscarDxResearch.error.icd9DidYouMean[ v82.9 , V829]");
+    }
+
+    @Test
+    @DisplayName("should explain the decimal point without a suggestion when the input is not written like an ICD-9 code")
+    void shouldNotSuggest_whenDottedInputIsNotAnIcd9Form() throws Exception {
+        when(mockIcd9Dao.findByCode("1519")).thenReturn(icd9("1519"));
+        dxResearch2Action keyed = actionShowingMessageKeys("icd9", "15.19");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors())
+                .containsExactly("oscarResearch.oscarDxResearch.error.icd9WithDecimal[15.19]");
+        verify(mockIcd9Dao, never()).findByCode("1519");
+    }
+
+    @Test
+    @DisplayName("should explain the decimal point, and not look up an empty code, when the code is only a point")
+    void shouldExplainDecimalPoint_whenIcd9CodeIsOnlyAPoint() throws Exception {
+        dxResearch2Action keyed = actionShowingMessageKeys("icd9", ".");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors())
+                .containsExactly("oscarResearch.oscarDxResearch.error.icd9WithDecimal[.]");
+        verify(mockIcd9Dao, never()).findByCode("");
+    }
+
+    @Test
+    @DisplayName("should keep the general message for an unknown ICD-9 code typed without a decimal point")
+    void shouldUseGeneralMessage_whenIcd9CodeHasNoDecimal() throws Exception {
+        dxResearch2Action keyed = actionShowingMessageKeys("icd9", "9999");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors()).containsExactly("errors.codeNotFound[9999, icd9]");
+    }
+
+    @Test
+    @DisplayName("should keep the general message for other coding systems (the decimal-point help is ICD-9 only)")
+    void shouldUseGeneralMessage_whenCodingSystemIsNotIcd9() throws Exception {
+        Icd10Dao icd10Dao = mock(Icd10Dao.class);
+        registerMock(Icd10Dao.class, icd10Dao);
+        dxResearch2Action keyed = actionShowingMessageKeys("icd10", "A00.1");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors()).containsExactly("errors.codeNotFound[A00.1, icd10]");
+        verify(icd10Dao, never()).findByCode("A001");
     }
 }

@@ -46,18 +46,22 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest("POST", "/rx/WriteToEncounter");
         response = new MockHttpServletResponse();
         request.addParameter("expectedDemographicNo", "42");
+        request.addParameter("demographicNo", "42");
         request.addParameter("body", "exact prescription text");
         request.getSession().setAttribute("user", "999998");
         request.getSession().setAttribute("case_program_id", "0");
         sessionBean = new RxSessionBean();
         sessionBean.setDemographicNo(42);
-        request.getSession().setAttribute("RxSessionBean", sessionBean);
+        RxSessionBeanResolver.register(request.getSession(), sessionBean);
         security = mock(SecurityInfoManager.class);
         notes = mock(CaseManagementManager.class);
         tmpDao = mock(CaseManagementTmpSaveDao.class);
         login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("999998");
         when(security.hasPrivilege(eq(login), eq("_rx"), eq("w"), nullable(String.class))).thenReturn(true);
+        // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
+        when(security.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
         registerMock(SecurityInfoManager.class, security);
         registerMock(CaseManagementManager.class, notes);
         registerMock(CaseManagementTmpSaveDao.class, tmpDao);
@@ -98,8 +102,19 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectBeforeNoteAccess_whenRequestNamesNoPatient() throws Exception {
+        // expectedDemographicNo matches the session's active (fallback) patient, but the request
+        // does not name its patient: the write resolver refuses it before any note access (#3875).
+        request.removeParameter("demographicNo");
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        verifyNoInteractions(notes, tmpDao);
+    }
+
+    @Test
     void shouldRejectWithoutRedirect_whenRxSessionIsMissing() throws Exception {
-        request.getSession().removeAttribute("RxSessionBean");
+        request.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
         new RxWriteToEncounter2Action().execute();
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getRedirectedUrl()).isNull();
@@ -119,7 +134,8 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRejectAnonymous_beforeMethodDetails() {
         request.setMethod("GET");
         loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
-        assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(SecurityException.class);
+        RxWriteToEncounter2Action action = new RxWriteToEncounter2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verifyNoInteractions(security, notes, tmpDao);
     }
 
@@ -133,8 +149,18 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRejectBeforeNoteAccess_whenPatientWriteIsDenied() {
-        when(security.hasPrivilege(login, "_rx", "w", "42")).thenReturn(false);
-        assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(SecurityException.class);
+        when(security.hasPrivilege(login, "_rx", "w", 42)).thenReturn(false);
+        RxWriteToEncounter2Action action = new RxWriteToEncounter2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(notes, tmpDao);
+    }
+
+    @Test
+    void shouldRejectBeforeNoteAccess_whenPatientRecordAccessIsDenied() {
+        // Patient-level _rx write alone is not enough: the caller must be allowed to open the record.
+        when(security.isAllowedAccessToPatientRecord(login, 42)).thenReturn(false);
+        RxWriteToEncounter2Action action = new RxWriteToEncounter2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verifyNoInteractions(notes, tmpDao);
     }
 
@@ -183,7 +209,8 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         when(notes.getNote("7")).thenReturn(note);
         doThrow(new IllegalStateException("cleanup failed after commit"))
                 .when(tmpDao).remove("999998", 42, 0);
-        assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(IllegalStateException.class);
+        RxWriteToEncounter2Action action = new RxWriteToEncounter2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class);
         verify(notes).saveNoteSimple(note);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isNull();
     }

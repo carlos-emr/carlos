@@ -48,7 +48,7 @@
         </div>
     </div>
     <div class="card-body">
-        <textarea name="enTextarea" tabindex="7" wrap="hard" cols="90"
+        <textarea name="enTextarea" aria-label="<fmt:message key='encounter.noteBrowser.encounterNote'/>" tabindex="7" wrap="soft" cols="90"
                   style="height:<carlos:encode value='${rowThreeSize}' context="htmlAttribute"/>;overflow:auto">${carlos:forHtml(encounterText)}</textarea>
     </div>
 </div>

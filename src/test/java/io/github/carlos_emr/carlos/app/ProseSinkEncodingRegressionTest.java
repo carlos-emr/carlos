@@ -22,6 +22,7 @@ package io.github.carlos_emr.carlos.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -48,12 +49,14 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @Tag("unit")
 @Tag("security")
-class ProseSinkEncodingRegressionTest {
+class ProseSinkEncodingRegressionTest extends CarlosUnitTestBase {
 
     static Stream<Arguments> sinks() {
         return Stream.of(
                 Arguments.of("src/main/webapp/WEB-INF/jsp/casemgmt/showHistory.jsp",
                         "${note.note}", "${carlos:forHtmlContentWithBreaks(note.note)}"),
+                Arguments.of("src/main/webapp/WEB-INF/jsp/casemgmt/showHistory.jsp",
+                        "${note.history}", "${carlos:forHtmlContentWithBreaks(note.history)}"),
                 Arguments.of("src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java",
                         ".replace(\"\\n\", \"<br/>\")", "SafeEncode.forHtmlContent(textStr).replace(\"\\n\", \"<br>\")"),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/tickler/ticklerDemoMain.jsp",

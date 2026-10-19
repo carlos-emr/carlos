@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -69,6 +70,12 @@ public record PatientPortalSettings(
         Duration requestTimeout,
         Set<String> certificatePins) {
 
+    /**
+     * The master switch. The portal is off unless this is {@code true}, in any case, so a clinic that
+     * does not use it needs no other setting, and one that does can switch it off without removing
+     * its credentials.
+     */
+    public static final String ENABLED_KEY = "patient_portal.enabled";
     public static final String BASE_URL_KEY = "patient_portal.base_url";
     public static final String CLINIC_ID_KEY = "patient_portal.clinic_id";
     public static final String SERVICE_TOKEN_KEY = "patient_portal.service_token";
@@ -105,6 +112,10 @@ public record PatientPortalSettings(
     private static final String BAD_PIN_MESSAGE =
             "%s entries must look like sha256/<base64 sha-256 of the public key>";
     private static final String MISSING_MESSAGE = "patient portal is not configured: %s is required";
+    private static final String NOT_ENABLED_MESSAGE =
+            "patient portal is not enabled: set " + ENABLED_KEY + "=true to use it";
+    /** The switch's fixed error, naming only its key; public so tests in other packages can match it. */
+    public static final String ENABLED_VALUE_MESSAGE = ENABLED_KEY + " must be true or false";
     private static final String PLAINTEXT_MESSAGE = "%s must begin with a lowercase https://";
     private static final String MALFORMED_MESSAGE = "%s is not a valid URL";
     private static final String NO_HOST_MESSAGE = "%s must name a host";
@@ -142,15 +153,43 @@ public record PatientPortalSettings(
      * <p>The Spring wiring's entry point. Kept separate from {@link #fromProperties(Function)} so
      * the validation stays testable without the {@code CarlosProperties} singleton.
      *
-     * @throws PatientPortalConfigurationException if the portal is unconfigured or misconfigured
+     * @throws PatientPortalConfigurationException if the portal is switched off, the switch is
+     *     neither {@code true} nor {@code false}, or the connection settings are absent or invalid
      */
     public static PatientPortalSettings fromCarlosProperties() {
-        return fromProperties(PatientPortalSettings::rawProperty);
+        return fromDeploymentProperties(PatientPortalSettings::rawProperty);
     }
 
     /**
-     * Reports whether any connection setting is present. Partial configurations proceed to
-     * validation so they produce a configuration error instead of looking like an absent portal.
+     * Reads the settings a deployment runs with: the master switch must be on, then the connection
+     * settings are validated as {@link #fromProperties(Function)} does.
+     *
+     * @throws PatientPortalConfigurationException if {@link #ENABLED_KEY} is not {@code true}, or
+     *     the connection settings are absent or invalid
+     */
+    static PatientPortalSettings fromDeploymentProperties(Function<String, String> lookup) {
+        String enabled = switchValue(lookup);
+        if (isOff(enabled)) {
+            throw new PatientPortalConfigurationException(NOT_ENABLED_MESSAGE);
+        }
+        if (!"true".equals(enabled)) {
+            throw new PatientPortalConfigurationException(ENABLED_VALUE_MESSAGE);
+        }
+        return fromProperties(lookup);
+    }
+
+    /**
+     * Reports whether the clinic has switched the portal on. Absent, blank or {@code false} means
+     * off, the normal state for a clinic that does not use it, whatever connection settings are
+     * present.
+     *
+     * <p>Any other value counts as on, so that constructing the settings reports it: a mistyped
+     * switch, like a partial configuration, must surface as a configuration error rather than
+     * quietly looking like an absent portal. Once on, missing connection settings are reported the
+     * same way.
+     *
+     * @return {@code true} if the switch is on or holds an invalid value; it does not mean the
+     *     connection settings are complete, which only {@link #fromCarlosProperties()} checks
      */
     public static boolean isConfigured() {
         return isConfigured(PatientPortalSettings::rawProperty);
@@ -167,24 +206,29 @@ public record PatientPortalSettings(
     }
 
     static boolean isConfigured(Function<String, String> lookup) {
-        for (String key :
-                new String[] {
-                    BASE_URL_KEY,
-                    CLINIC_ID_KEY,
-                    SERVICE_TOKEN_KEY,
-                    STAFF_ASSERTION_KEY,
-                    STAFF_ASSERTION_KEY_ID,
-                    CONNECT_TIMEOUT_KEY,
-                    READ_TIMEOUT_KEY,
-                    REQUEST_TIMEOUT_KEY,
-                    CERTIFICATE_PINS_KEY
-                }) {
-            String value = lookup.apply(key);
-            if (value != null && !value.isBlank()) {
-                return true;
-            }
-        }
-        return false;
+        return !isOff(switchValue(lookup));
+    }
+
+    private static boolean isOff(String enabled) {
+        return enabled.isEmpty() || "false".equals(enabled);
+    }
+
+    /**
+     * The switch value, stripped and lower-cased, so {@code FALSE} switches the portal off like
+     * {@code false}; CARLOS's other boolean settings are case-insensitive too. Unlike
+     * {@code CarlosProperties.isPropertyActive}, {@code yes} and {@code on} are not accepted: the
+     * switch has exactly two words, and anything else is reported rather than guessed at.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case folding of an on/off setting compared with the ASCII words
+    // true and false; not a security or authorization decision.
+    @SuppressFBWarnings(
+            value = "IMPROPER_UNICODE",
+            justification =
+                    "case folding of an on/off setting compared with the ASCII words true and false;"
+                            + " not a security or authorization decision")
+    private static String switchValue(Function<String, String> lookup) {
+        String value = lookup.apply(ENABLED_KEY);
+        return value == null ? "" : value.strip().toLowerCase(Locale.ROOT);
     }
 
     /**
@@ -351,9 +395,24 @@ public record PatientPortalSettings(
      * the query string.
      */
     private static String validatedBaseUrl(String configured) {
+        String origin = validatedHttpsUrl(configured, BASE_URL_KEY);
+        // Checked here, not in validatedHttpsUrl: patient_portal.public_base_url shares that
+        // validator and may carry the prefix the portal's patient pages are served under.
+        if (!URI.create(origin).getRawPath().isEmpty()) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, PATH_MESSAGE, BASE_URL_KEY));
+        }
+        return origin;
+    }
+
+    /**
+     * Validates an {@code https://} URL read from {@code key}: a host, a valid port, no user-info, no
+     * query or fragment. Trailing slashes are removed. Messages name the key, never the value.
+     */
+    static String validatedHttpsUrl(String configured, String key) {
         if (!configured.startsWith(REQUIRED_SCHEME_PREFIX)) {
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, PLAINTEXT_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, PLAINTEXT_MESSAGE, key));
         }
         URI uri;
         try {
@@ -362,28 +421,23 @@ public record PatientPortalSettings(
             // URISyntaxException repeats the complete input, including malformed user-info. Keep a
             // bad URL from carrying an embedded password into a later log through its cause chain.
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, MALFORMED_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, MALFORMED_MESSAGE, key));
         }
         if (uri.getHost() == null) {
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, NO_HOST_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, NO_HOST_MESSAGE, key));
         }
         if (uri.getPort() == 0 || uri.getPort() > 65535) {
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, PORT_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, PORT_MESSAGE, key));
         }
         if (uri.getUserInfo() != null) {
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, USER_INFO_MESSAGE, BASE_URL_KEY));
-        }
-        String path = uri.getRawPath();
-        if (path != null && !path.chars().allMatch(c -> c == '/')) {
-            throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, PATH_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, USER_INFO_MESSAGE, key));
         }
         if (uri.getQuery() != null || uri.getFragment() != null) {
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, QUERY_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, QUERY_MESSAGE, key));
         }
         return stripTrailingSlashes(configured);
     }

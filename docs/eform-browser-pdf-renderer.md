@@ -90,7 +90,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > (`--js-flags=--max-old-space-size=256`) and the renderer-process fan-out
 > (`--renderer-process-limit=4`, all render content is same-origin loopback), and drop the GPU
 > process (`--disable-gpu`; headless print rasters in software). On the `.deb`, the
-> `carlos-emr-chromedriver` unit additionally carries a cgroup ceiling for the whole browser tree
+> `carlos-emr-render-browser` unit additionally carries a cgroup ceiling for the whole browser tree
 > (`MemoryHigh=1G`, `MemoryMax=1536M`): under pressure the kernel throttles and, at the limit,
 > OOM-kills **inside the unit** — a runaway form's render fails (retryably, via the normal
 > fail-closed render error, with `Restart=always` recycling the driver) instead of the browser
@@ -108,8 +108,8 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > orphans are reaped.
 
 > **Runbook: provision the browser before using eForm PDF workflows.** Run a chromedriver as its
-> own service and point `eform_pdf_browser_service_url` at it (the `.deb` does both via
-> `carlos-emr-eform-renderer`); set `eform_pdf_browser_chromium_path` to the browser binary the
+> own service and point `eform_pdf_browser_service_url` at it (the `carlos-emr` `.deb` does
+> both; before 2026.08.0-alpha14 that was the separate `carlos-emr-eform-renderer` package); set `eform_pdf_browser_chromium_path` to the browser binary the
 > driver should launch. CARLOS never spawns a chromedriver itself. It probes the renderer at
 > startup and logs a warning if it is unavailable, but continues deploying so other application
 > workflows remain available. Confirm `eForm browser renderer startup check passed.` in the log
@@ -144,8 +144,8 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 - **A RUNNING chromedriver, matching the browser's major version.** CARLOS connects to it over
   loopback (`eform_pdf_browser_service_url`); it does not launch one, and there is no
   Selenium Manager fallback to download a driver at first use. On the .deb this is the
-  `carlos-emr-chromedriver` service, which the `carlos-emr-eform-renderer` package installs
-  and starts. Elsewhere, run one yourself before the webapp deploys.
+  `carlos-emr-render-browser` service, which the `carlos-emr` package installs and starts (it
+  carries the pinned Chromium, which is why that package is amd64-only). Elsewhere, run one yourself before the webapp deploys.
 
   **Why it is a separate process and not a child of the JVM.** Chromium sandboxes its
   renderers with an unprivileged user namespace. A chromedriver the application spawns
@@ -342,7 +342,7 @@ web server. The account split is the control.
 it. A wedged session is ended by `quit()`, escalating to a targeted `DELETE` of that exact session id
 over a fresh short-deadline connection; the id is captured at session creation because
 `RemoteWebDriver.quit()` clears its own even when the quit fails. The backstop of last resort is now
-`systemctl stop carlos-emr-chromedriver`, which tears down the driver and every browser it launched.
+`systemctl stop carlos-emr-render-browser`, which tears down the driver and every browser it launched.
 
 **Selenium is not an isolation layer.** It only launches `chromedriver` → `chrome`; the
 chroot / namespace / seccomp confinement is Chromium's *own* sandbox (or the container). By default
@@ -438,13 +438,15 @@ would mint preview/write state on a read-only path).
 
 ### Optional assets that are referenced but not deployed
 
-`eformGenerator.jsp` injects a `stamps.js` tag into **every generated eForm**, while
-`EFormAssetDeployer` intentionally never deploys `stamps.js` (it holds clinic-specific signature-image
-mappings administrators create themselves). On a fresh install that tag 404s, and `Script` is a
-content-critical resource type — so the completeness gate blocked the PDF over an asset that is
-absent by design. `removeAbsentOptionalStamps` drops the tag only when the file is genuinely absent
-from the eForm image directory; if the directory cannot be read, the tag is left in place so the
-browser gate still reports the real failure rather than silently hiding it.
+`eformGenerator.jsp` injects a `stamps.js` tag into **every generated eForm**, and the Rich Text
+Letter loads one too. `stamps.js` holds clinic-specific signature-image mappings administrators
+create themselves, so `EFormAssetDeployer` seeds only a comment-only placeholder, once, when the
+file is absent, and never overwrites it. An install that removed it, or that predates the
+placeholder, has no file there; that tag 404s, and `Script` is a content-critical resource type —
+so the completeness gate blocked the PDF over an asset that is absent by design.
+`removeAbsentOptionalStamps` drops the tag only when the file is genuinely absent from the eForm
+image directory; if the directory cannot be read, the tag is left in place so the browser gate still
+reports the real failure rather than silently hiding it.
 
 ### Stored letters are decoded before they are spliced
 
@@ -454,6 +456,15 @@ so text a clinician actually typed as `&lt;` stays text. Diverging from that ord
 the on-screen editor disagree about the same stored letter; change both together or neither. Without
 the decode the PDF prints the clinician's own markup as visible text (`<h3>Consultation Letter</h3>`
 instead of a heading) — a clean render, gate-green, and clinically useless.
+
+The same encoding decides which signatures the render may fetch. A drawing from the letter's
+signature pad is an `<img>` whose `src` names `digitalSignatureId=<id>`; the editor serializes its
+`&` as `&amp;` and `saveRTL()` escapes the serialized letter again, so the stored `Letter` value
+carries `&amp;amp;digitalSignatureId=<id>`. `EFormSignatureViewForPdfGenerationServlet` streams only
+a signature the render's eForm references in its stored values (and only one that belongs to that
+eForm's patient, the authoritative check), and it accepts the reference raw, escaped once and
+escaped twice. Until it accepted the last form, every letter signed on the pad was refused its
+signature (403) and the render blocked as incomplete.
 
 Decoding turns previously-inert markup into live markup on a surface that permits
 `'unsafe-inline'`, so `hardenLetterHtml` strips event-handler attributes and `javascript:` URLs
@@ -601,11 +612,11 @@ operational configuration matter:
   ever appears, the fix is provenance tracking (record the digest CARLOS deployed; replace only when
   the on-disk copy still matches it), not a return to skip-if-exists, which silently pinned every
   install to whatever version it first received.
-- **`stamps.js` is still referenced by every generated eForm.** `removeAbsentOptionalStamps` hides
-  the consequence on the render path only; the interactive viewer still requests it and still logs a
-  404 in the browser console on a fresh install. Shipping a default empty `stamps.js` would not
-  clobber clinic files (the deployer's exists-guard already protects them), and not emitting the tag
-  when no stamps exist is the other option; neither is done here.
+- **`stamps.js` is still referenced by every generated eForm.** The deployer now seeds a
+  comment-only placeholder (its exists-guard keeps a clinic's own file), so a stock install no
+  longer logs a 404 for it. An install whose placeholder was removed still does in the interactive
+  viewer; `removeAbsentOptionalStamps` covers the render path only. Not emitting the tag when no
+  stamps exist would remove the request altogether; that is not done here.
 - **Viewer-relative URLs built inside JavaScript strings are not re-anchored.**
   `EForm.rewriteViewerRelativeAssetReferences` re-anchors `../` references in element attributes, but
   a URL assembled in a script literal (`var url = "../eform/displayAttachedFiles"`) resolves against
@@ -699,8 +710,8 @@ log. Check both, in this order:
 sudo carlos-ctl logs | grep -i renderer
 
 # 2. What did the browser itself say? Separate unit, separate journal.
-sudo systemctl status carlos-emr-chromedriver
-sudo journalctl -u carlos-emr-chromedriver -n 50
+sudo systemctl status carlos-emr-render-browser
+sudo journalctl -u carlos-emr-render-browser -n 50
 ```
 
 At startup the application probes the browser exactly once and reports the outcome. That report is
@@ -721,7 +732,7 @@ Anything else is a real finding. The two worth recognising:
 | What you see | What it means |
 |---|---|
 | `Chromium session creation exceeded the 30s startup budget` | The application reached chromedriver but could not get a usable session. Usually the browser cannot start — check its own journal, not this one. |
-| `The eForm render browser service is unavailable.` | Nothing was listening. `systemctl status carlos-emr-chromedriver`, and check `eform_pdf_browser_service_url`. |
+| `The eForm render browser service is unavailable.` | Nothing was listening. `systemctl status carlos-emr-render-browser`, and check `eform_pdf_browser_service_url`. |
 | `eForm browser renderer startup check is OFF` | The probe is disabled (`eform_pdf_browser_startup_check=off`). Expected in test contexts; on a deployment it means failures will surface at first print instead. |
 
 Two things the messages deliberately will **not** tell you, so do not go looking for them there. The

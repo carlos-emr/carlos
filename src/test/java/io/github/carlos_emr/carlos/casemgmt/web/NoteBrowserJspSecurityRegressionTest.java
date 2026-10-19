@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,6 +60,50 @@ class NoteBrowserJspSecurityRegressionTest {
         assertMutationFunctionPostsTo(jsp, "DeleteDoc", "/casemgmt/NoteBrowserDocumentDelete");
         assertMutationFunctionPostsTo(jsp, "UnDeleteDoc", "/casemgmt/NoteBrowserDocumentUndelete");
         assertMutationFunctionPostsTo(jsp, "RefileDoc", "/casemgmt/NoteBrowserDocumentRefile");
+    }
+
+    /**
+     * Issue #4368: casemgmt/ViewNoteBrowser is a GET/HEAD-only gate, and DisplayDoc's default
+     * action points at it. Any control that submits the form (an {@code <input type="image">},
+     * a submit input, or a {@code <button>} without {@code type="button"}) replaces the note
+     * browser with a 405, so the form must carry none.
+     */
+    @Test
+    @DisplayName("should carry no submit control inside the DisplayDoc form")
+    void shouldCarryNoSubmitControl_insideDisplayDocForm() throws Exception {
+        String form = displayDocForm(Files.readString(NOTE_BROWSER));
+
+        assertThat(form).doesNotContainPattern("(?i)<input\\b[^>]*\\btype\\s*=\\s*['\"]?(image|submit)\\b");
+        Matcher buttons = Pattern.compile("(?is)<button\\b[^>]*>").matcher(form);
+        int count = 0;
+        while (buttons.find()) {
+            count++;
+            assertThat(buttons.group()).as("every <button> in DisplayDoc must be type=\"button\"")
+                    .containsPattern("(?i)\\btype\\s*=\\s*['\"]button['\"]");
+        }
+        assertThat(count).as("the Print control is a <button>").isPositive();
+    }
+
+    @Test
+    @DisplayName("should open the print popup from a non-submitting Print control")
+    void shouldOpenPrintPopup_fromNonSubmittingControl() throws Exception {
+        String form = displayDocForm(Files.readString(NOTE_BROWSER));
+
+        Matcher print = Pattern.compile("(?is)<button\\b[^>]*\\bid=\"imgPrintEncounter\"[^>]*>").matcher(form);
+        assertThat(print.find()).as("the Print control is a <button id=\"imgPrintEncounter\">").isTrue();
+        assertThat(print.group())
+                .contains("type=\"button\"")
+                .contains("onclick=\"PrintEncounter();\"")
+                .doesNotContain("submit");
+    }
+
+    /** The markup between {@code <form name="DisplayDoc"} and its {@code </form>}. */
+    private static String displayDocForm(String jsp) {
+        int start = jsp.indexOf("<form name=\"DisplayDoc\"");
+        assertThat(start).as("DisplayDoc form").isNotNegative();
+        int end = jsp.indexOf("</form>", start);
+        assertThat(end).as("DisplayDoc form end").isGreaterThan(start);
+        return jsp.substring(start, end);
     }
 
     private void assertMutationFunctionPostsTo(String jsp, String functionName, String actionPath) {

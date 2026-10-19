@@ -18,7 +18,7 @@ async function workflow(s) {
       h.assert(s.sql.value(`SELECT COUNT(*) FROM pharmacyInfo WHERE recordID=${owned}`) === '0', 'Owned pharmacy cleanup failed');
     }
   });
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="rx/choosePatient"]').first(), 'pharmacy-editor-rx');
+  const rx = await s.popup(s.master, s.master.locator('.patient-nav a[href*="rx/choosePatient"]').first(), 'pharmacy-editor-rx');
   await rx.locator('a[href$="/rx/managePharmacy"]').click();
   await rx.waitForURL(/\/rx\/managePharmacy(?:\?|$)/);
   h.assert(await rx.locator('#demographicNo').inputValue() === s.patient, 'Pharmacy editor lost its owned patient');

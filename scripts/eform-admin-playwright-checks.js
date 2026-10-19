@@ -58,6 +58,10 @@ function jspFragmentToHtml(jsp) {
     .replace(/<%--[\s\S]*?--%>/g, '')
     .replace(/<%@[^%]*%>/g, '')
     .replace(/<%=\s*request\.getContextPath\(\)\s*%>/g, '/carlos')
+    // efmTopNav.jspf appends the administration shell's ?scheduleNav=1 suffix through a
+    // scriptlet; without the shell it renders empty, so strip it rather than turning it
+    // into a second path segment.
+    .replace(/<%=\s*efmScheduleNavSuffix\s*%>/g, '')
     .replace(/<%=\s*[^%]+\s*%>/g, '/carlos')
     .replace(/<fmt:setBundle\b[^>]*\/?>/g, '')
     .replace(/<fmt:message\s+key="([^"]+)"\s*\/?>/g, '$1');
