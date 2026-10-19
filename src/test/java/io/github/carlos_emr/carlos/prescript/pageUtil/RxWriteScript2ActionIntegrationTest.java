@@ -96,6 +96,8 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         "Apply 2 g BID x 7 days | 2 | 28",
         "Rub well in 2g BID x 7 days | 2 | 28",
         "2g TOP. BID x 7 days | 2 | 28",
+        "20 IU SC BID x 7 days | 20 | 280",
+        "20IU IM BID x 7 days | 20 | 280",
         "1000 mg po 2 tid x 7 days | 2 | 42"
     })
     void shouldReturnCorrectQuantity_whenParsingStrengthInstructions(String instruction,

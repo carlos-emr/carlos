@@ -54,7 +54,7 @@ public class RxUtil {
     private static final Logger logger = MiscUtils.getLogger();
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
             "(?:mg|mcg|[µμ]g|g|iu|meq)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
-    private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|g)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
 
     public static void setDefaultQuantity(String quantity) {
@@ -650,7 +650,7 @@ public class RxUtil {
         //check if method is specified, if yes, check the number after method, which maybe the number to take for a frequency.
 		//if no, check if a number is specified at beginning.
 		if (!instructions.isEmpty()) {
-			InstructionSegment instructionSegment = scanInstruction(instructions, methods, route.equalsIgnoreCase("TOP."));
+			InstructionSegment instructionSegment = scanInstruction(instructions, methods, route);
             // A strength describes the dose, not a count of dispensable units. Explicit
             // counts before the frequency still take precedence in the selection below.
             if (instructionSegment.strength) {
@@ -1091,24 +1091,32 @@ public class RxUtil {
         if (!unit.lookingAt()) {
             return false;
         }
-        // Topical application instructions specify grams to administer, rather
-        // than a product strength. Other strength units retain their meaning.
-        return !("g".equalsIgnoreCase(unit.group()) && segment != null
-                && (segment.topicalRoute || "Apply".equalsIgnoreCase(segment.method)
-                        || "Rub well in".equalsIgnoreCase(segment.method)));
+        if (segment == null) {
+            return true;
+        }
+        // Grams applied topically and IU injected through supported parenteral
+        // routes specify administered amounts. Oral strengths remain strengths.
+        if ("g".equalsIgnoreCase(unit.group())) {
+            return !("TOP.".equalsIgnoreCase(segment.route) || "Apply".equalsIgnoreCase(segment.method)
+                    || "Rub well in".equalsIgnoreCase(segment.method));
+        }
+        if ("iu".equalsIgnoreCase(unit.group())) {
+            return !("SC".equalsIgnoreCase(segment.route) || "IM".equalsIgnoreCase(segment.route));
+        }
+        return true;
     }
 
     private static boolean hasDoseUnitAfter(String instructions, int amountEnd) {
-        // Volumes, topical grams and explicit unit counts are administered amounts,
+        // Volumes, topical grams and injected/explicit unit counts are administered amounts,
         // including attached forms such as 5mL. Strength detection takes precedence.
         return DOSE_UNIT.matcher(instructions)
                 .region(skipWhitespaceForward(instructions, amountEnd), instructions.length()).lookingAt();
     }
 
 
-    private static InstructionSegment scanInstruction(String instructions, String[] methods, boolean topicalRoute) {
+    private static InstructionSegment scanInstruction(String instructions, String[] methods, String route) {
         InstructionSegment segment = new InstructionSegment();
-        segment.topicalRoute = topicalRoute;
+        segment.route = route;
 
         for (String s : methods) {
             Pattern p = Pattern.compile(s);
@@ -1259,7 +1267,7 @@ public class RxUtil {
 
     private static class InstructionSegment {
         boolean strength;
-        boolean topicalRoute;
+        String route;
         String method;
         String takeMin;
         String takeMax;
