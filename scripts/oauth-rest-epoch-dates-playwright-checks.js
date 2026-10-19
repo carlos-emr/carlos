@@ -119,6 +119,20 @@ function assertEpochOnBoth(oauthValue, sessionValue, label) {
     `${label}: /ws/services and /ws/rs wrote different instants for the same row`);
 }
 
+/**
+ * The session value really is the seeded wall-clock time: within a time-zone offset (at most 14
+ * hours either way, a whole number of quarter hours) of that time read as UTC. Without it, two
+ * surfaces agreeing on the wrong row would pass.
+ */
+function assertSeededInstant(sessionValue, seeded, label) {
+  const [date, time] = seeded.split(' ');
+  const [y, mo, d] = date.split('-').map(Number);
+  const [h, mi, sec] = time.split(':').map(Number);
+  const offset = sessionValue - Date.UTC(y, mo - 1, d, h, mi, sec);
+  assert(Math.abs(offset) <= 14 * 3600 * 1000 && offset % (15 * 60 * 1000) === 0,
+    `${label}: /ws/rs did not return the seeded time (offset from it is not a time-zone offset)`);
+}
+
 function byId(list, id, label) {
   assert(Array.isArray(list), `${label}: the response has no list`);
   const item = list.find((entry) => String(entry && entry.id) === String(id));
@@ -126,45 +140,55 @@ function byId(list, id, label) {
   return item;
 }
 
-/** Restores every changed column and removes everything the check created. */
+/**
+ * Restores every changed column and removes everything the check created. Each step runs on its
+ * own, so one failed statement (a timeout, say) cannot leave the rest of the fixture behind; the
+ * failures are reported together at the end.
+ */
 async function cleanup(state) {
-  try {
-    if (state.browser) await state.browser.close();
-  } finally {
-    const { sql } = state;
-    if (sql) {
-      try {
-        for (const restore of (state.restores || []).reverse()) {
-          sql.execute(restore);
-        }
-        if (state.measurementId) {
-          sql.execute(`DELETE FROM measurements WHERE id=${state.measurementId}`);
-        }
-        if (state.consumerKey) {
-          const key = sqlString(state.consumerKey);
-          const owned = `(SELECT id FROM ServiceClient WHERE clientKey=${key})`;
-          sql.execute(`DELETE FROM ServiceAccessToken WHERE clientId IN ${owned};
-            DELETE FROM ServiceRequestToken WHERE clientId IN ${owned};
-            DELETE FROM ServiceOAuthNonce WHERE consumerKey=${key};
-            DELETE FROM ServiceClient WHERE clientKey=${key}`);
-          assert(sql.value(`SELECT (SELECT COUNT(*) FROM ServiceClient WHERE clientKey=${key})
-              + (SELECT COUNT(*) FROM ServiceOAuthNonce WHERE consumerKey=${key})`) === '0',
-          'the OAuth client fixture or its nonces were not removed');
-        }
-        assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE type=${sqlString(MEASUREMENT_TYPE)}`) === '0',
-          `the ${MEASUREMENT_TYPE} measurement fixture was not removed`);
-      } finally {
-        sql.dispose();
-      }
+  const failures = [];
+  const step = async (label, action) => {
+    try {
+      await action();
+    } catch (error) {
+      failures.push(`${label}: ${(error && error.message) || 'failed'}`);
     }
+  };
+  if (state.browser) await step('closing the browser', () => state.browser.close());
+  const { sql } = state;
+  if (sql) {
+    for (const [label, restore] of (state.restores || []).slice().reverse()) {
+      await step(`restoring ${label}`, () => sql.execute(restore));
+    }
+    // By type rather than id, so a fixture whose id was never read back is removed too.
+    await step('removing the measurement fixture', () => {
+      sql.execute(`DELETE FROM measurements WHERE type=${sqlString(MEASUREMENT_TYPE)}`);
+      assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE type=${sqlString(MEASUREMENT_TYPE)}`) === '0',
+        `the ${MEASUREMENT_TYPE} measurement fixture was not removed`);
+    });
+    if (state.consumerKey) {
+      await step('removing the OAuth client fixture', () => {
+        const key = sqlString(state.consumerKey);
+        const owned = `(SELECT id FROM ServiceClient WHERE clientKey=${key})`;
+        sql.execute(`DELETE FROM ServiceAccessToken WHERE clientId IN ${owned};
+          DELETE FROM ServiceRequestToken WHERE clientId IN ${owned};
+          DELETE FROM ServiceOAuthNonce WHERE consumerKey=${key};
+          DELETE FROM ServiceClient WHERE clientKey=${key}`);
+        assert(sql.value(`SELECT (SELECT COUNT(*) FROM ServiceClient WHERE clientKey=${key})
+            + (SELECT COUNT(*) FROM ServiceOAuthNonce WHERE consumerKey=${key})`) === '0',
+        'the OAuth client fixture or its nonces were not removed');
+      });
+    }
+    await step('disposing the database client', () => sql.dispose());
   }
+  assert(failures.length === 0, `cleanup incomplete: ${failures.join('; ')}`);
 }
 
 /** Reads a DATETIME column and queues the statement that writes it back. */
 function rememberDatetime(sql, state, table, column, keyColumn, key) {
   const [isNull, value] = sql.rows(`SELECT ${column} IS NULL, ${column} FROM ${table} WHERE ${keyColumn}=${key}`)[0];
   const original = isNull === '1' ? 'NULL' : sqlString(value);
-  state.restores.push(`UPDATE ${table} SET ${column}=${original} WHERE ${keyColumn}=${key}`);
+  state.restores.push([`${table}.${column}`, `UPDATE ${table} SET ${column}=${original} WHERE ${keyColumn}=${key}`]);
 }
 
 async function main(state = {}) {
@@ -177,17 +201,20 @@ async function main(state = {}) {
   const providerNo = sql.value(
     `SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)} LIMIT 1`);
   assert(providerNo, `${config.testUser} has no security row; the check needs the login account's provider`);
-  const demographicNo = process.env.OAUTH_DEMOGRAPHIC_NO || sql.value(
-    `SELECT d.demographic_no FROM demographic d WHERE d.patient_status_date > '1900-01-01'
-      AND d.patient_status_date <> '1970-01-01'
-      AND EXISTS (SELECT 1 FROM allergies a WHERE a.demographic_no=d.demographic_no AND a.archived=0)
-      ORDER BY d.demographic_no LIMIT 1`);
+  // The patient needs a calendar-date column to act as the control (patient_status_date, not on
+  // 1970-01-01, which SmartDateSerializer would write as "00:00:00") and an active allergy.
+  const eligible = `d.patient_status_date > '1900-01-01' AND d.patient_status_date <> '1970-01-01'
+      AND EXISTS (SELECT 1 FROM allergies a WHERE a.demographic_no=d.demographic_no AND a.archived=0)`;
+  const override = process.env.OAUTH_DEMOGRAPHIC_NO;
+  assert(override === undefined || /^\d+$/.test(override), 'OAUTH_DEMOGRAPHIC_NO must be a demographic number');
+  const demographicNo = sql.value(`SELECT d.demographic_no FROM demographic d WHERE ${eligible}
+      ${override ? `AND d.demographic_no=${override}` : ''} ORDER BY d.demographic_no LIMIT 1`);
   if (!/^\d+$/.test(String(demographicNo))) {
-    throw new SkipCheck('no demographic with a patient status date and an active allergy; load the demo dataset or set OAUTH_DEMOGRAPHIC_NO');
+    throw new SkipCheck(`${override ? 'OAUTH_DEMOGRAPHIC_NO is not' : 'no demographic is'} a patient with a patient `
+      + 'status date and an active allergy; load the demo dataset or choose another OAUTH_DEMOGRAPHIC_NO');
   }
   const allergyId = sql.value(`SELECT allergyid FROM allergies WHERE demographic_no=${demographicNo} AND archived=0
       ORDER BY allergyid LIMIT 1`);
-  if (!/^\d+$/.test(String(allergyId))) throw new SkipCheck(`demographic ${demographicNo} has no active allergy`);
   assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE type=${sqlString(MEASUREMENT_TYPE)}`) === '0',
     `a ${MEASUREMENT_TYPE} measurement already exists; a previous run left its fixture behind`);
 
@@ -291,13 +318,16 @@ async function main(state = {}) {
   const includes = `includes[]=allergies&includes[]=measurements`;
   const demo = await both('GET', `/demographics/${demographicNo}?${includes}`, '/demographics/{id}');
   assertEpochOnBoth(demo.oauth.lastUpdateDate, demo.session.lastUpdateDate, 'DemographicTo1.lastUpdateDate');
+  assertSeededInstant(demo.session.lastUpdateDate, MIDNIGHT, 'DemographicTo1.lastUpdateDate');
   const oauthAllergy = byId(demo.oauth.allergies, allergyId, 'demographic allergies on /ws/services');
   const sessionAllergy = byId(demo.session.allergies, allergyId, 'demographic allergies on /ws/rs');
   assertEpochOnBoth(oauthAllergy.lastUpdateDate, sessionAllergy.lastUpdateDate, 'AllergyTo1.lastUpdateDate');
+  assertSeededInstant(sessionAllergy.lastUpdateDate, MIDNIGHT, 'AllergyTo1.lastUpdateDate');
   const oauthMeasurement = byId(demo.oauth.measurements, state.measurementId, 'demographic measurements on /ws/services');
   const sessionMeasurement = byId(demo.session.measurements, state.measurementId, 'demographic measurements on /ws/rs');
   assertEpochOnBoth(oauthMeasurement.dateObserved, sessionMeasurement.dateObserved, 'MeasurementTo1.dateObserved');
   assertEpochOnBoth(oauthMeasurement.createDate, sessionMeasurement.createDate, 'MeasurementTo1.createDate');
+  assertSeededInstant(sessionMeasurement.createDate, EPOCH_DAY, 'MeasurementTo1.createDate');
   // A DATE column beside them: still a calendar-date string on /ws/services. If this were a
   // number too, the OAuth mapper would not be running SmartDateSerializer, and the assertions
   // above would prove nothing about the fix.
@@ -320,6 +350,8 @@ async function main(state = {}) {
       const sessionAppt = byId(history.session.appointments, appointmentNo, '/ws/rs appointmentHistory');
       assertEpochOnBoth(oauthAppt.createDateTime, sessionAppt.createDateTime, 'AppointmentTo1.createDateTime');
       assertEpochOnBoth(oauthAppt.updateDateTime, sessionAppt.updateDateTime, 'AppointmentTo1.updateDateTime');
+      assertSeededInstant(sessionAppt.createDateTime, MIDNIGHT, 'AppointmentTo1.createDateTime');
+      assertSeededInstant(sessionAppt.updateDateTime, EPOCH_DAY, 'AppointmentTo1.updateDateTime');
       // The slot's DATE and TIME columns keep the shapes updateAppointment round-trips (#2957).
       assert(YYYY_MM_DD.test(String(oauthAppt.appointmentDate)) && HH_MM_SS.test(String(oauthAppt.startTime)),
         'AppointmentTo1.appointmentDate/startTime on /ws/services lost their yyyy-MM-dd / HH:mm:ss shapes');
@@ -335,4 +367,4 @@ if (require.main === module) {
   const state = {};
   runCheck({ name: 'oauth-rest-epoch-dates', run: () => main(state), cleanup: () => cleanup(state) });
 }
-module.exports = { main, cleanup, assertEpochOnBoth };
+module.exports = { main, cleanup, assertEpochOnBoth, assertSeededInstant };

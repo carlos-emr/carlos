@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { assertEpochOnBoth } = require('./oauth-rest-epoch-dates-playwright-checks');
+const { assertEpochOnBoth, assertSeededInstant } = require('./oauth-rest-epoch-dates-playwright-checks');
 
 /*
  * oauth-rest-epoch-dates-playwright-checks.js judges each timestamp with assertEpochOnBoth: the
@@ -35,4 +35,20 @@ test('a failure message names the type, never the value', () => {
   // Values can be clinical timestamps; the message carries only the JSON type and length.
   assert.throws(() => assertEpochOnBoth('2026-03-11', MIDNIGHT_MS, 'field'),
     (error) => !error.message.includes('2026-03-11') && error.message.includes('string of length 10'));
+});
+
+test('the seeded wall-clock time is accepted in any real time-zone offset', () => {
+  // 1970-01-01 09:30 local in Toronto (UTC-5), UTC and Kolkata (UTC+5:30).
+  for (const offsetMinutes of [-300, 0, 330]) {
+    const epoch = Date.UTC(1970, 0, 1, 9, 30) - offsetMinutes * 60 * 1000;
+    assert.doesNotThrow(() => assertSeededInstant(epoch, '1970-01-01 09:30:00', 'field'));
+  }
+});
+
+test('a value that is not the seeded time in any zone is refused', () => {
+  // Another row's timestamp: a day away, or off by a minute.
+  assert.throws(() => assertSeededInstant(Date.UTC(2026, 2, 12), '2026-03-11 00:00:00', 'field'),
+    /did not return the seeded time/);
+  assert.throws(() => assertSeededInstant(Date.UTC(2026, 2, 11, 0, 1), '2026-03-11 00:00:00', 'field'),
+    /did not return the seeded time/);
 });

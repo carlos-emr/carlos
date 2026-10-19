@@ -141,7 +141,7 @@ public final class ProductionRestObjectMappers {
     }
 
     /**
-     * Removes every top-level element except the provider, the mapper, the anonymous
+     * Removes every top-level element except the provider, the mapper, the
      * {@link MethodInvokingFactoryBean}s that target the mapper, and the beans those reference
      * (transitively), e.g. the {@code smartDateModule} bean the registration passes in.
      */
@@ -176,16 +176,18 @@ public final class ProductionRestObjectMappers {
         return "bean".equals(element.getLocalName());
     }
 
-    /** An anonymous MethodInvokingFactoryBean whose targetObject is the given bean. */
+    /**
+     * A MethodInvokingFactoryBean whose targetObject is the given bean, written either as
+     * {@code <property name="targetObject" ref="id"/>} or with a nested {@code <ref bean="id"/>}.
+     */
     private static boolean configures(Element bean, String id) {
-        if (!bean.getAttribute("id").isEmpty()
-                || !MethodInvokingFactoryBean.class.getName().equals(bean.getAttribute("class"))) {
+        if (!MethodInvokingFactoryBean.class.getName().equals(bean.getAttribute("class"))) {
             return false;
         }
         for (Node child = bean.getFirstChild(); child != null; child = child.getNextSibling()) {
             if (child instanceof Element property && "property".equals(property.getLocalName())
                     && "targetObject".equals(property.getAttribute("name"))
-                    && id.equals(property.getAttribute("ref"))) {
+                    && (id.equals(property.getAttribute("ref")) || referencedBeanIds(property).contains(id))) {
                 return true;
             }
         }

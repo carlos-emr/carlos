@@ -256,12 +256,12 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
      * <p>The session {@code /ws/rs} mapper in spring_ws.xml does not register SmartDateModule, so
      * it writes unannotated {@code java.util.Date} values as epoch milliseconds (issue #3446).
      *
-     * <p>The instance is shared across tests and must not be reconfigured; it is thread-safe.
+     * <p>Each call returns a copy, so a test that reconfigures its mapper cannot change another's.
      *
      * @return ObjectMapper configured for CARLOS REST API
      */
     protected ObjectMapper createTestObjectMapper() {
-        return ProductionRestObjectMappers.oauthSurface();
+        return ProductionRestObjectMappers.oauthSurface().copy();
     }
 
     private List<Object> createProviders() {
