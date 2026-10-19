@@ -159,6 +159,7 @@ const server = http.createServer((req, res) => {
 });
 
 async function style(page, selector, properties) {
+  // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- properties is always a literal CSS property-name list from this script
   return page.locator(selector).first().evaluate((element, names) => {
     const computed = getComputedStyle(element);
     return Object.fromEntries(names.map((name) => [name, computed[name]]));
