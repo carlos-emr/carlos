@@ -9097,8 +9097,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "fixtures": "Two marker-named eForm templates (one throws a marker error after load, consumed from the strict recorder); only their rows are removed.",
-      "notes": "Fails at its last step on 2026.08: a plain GET of eform/logEformError flips eform.stable to 0 (EformLogError2Action accepts GET; the flag is written but never read)."
+      "fixtures": "Three marker-named eForm templates (one calls a missing jQuery plugin after load, its marker error consumed from the strict recorder; one calls the CARLOS lab decision-support stub LabEngine_2023.js; one is clean); only their rows are removed.",
+      "notes": "Through the packaged front door, fails at the throwing form's step without WAF exclusion 1075 (CRS 932130 reads the browser's \"$(...)\" message as shell syntax and 403s the report), and at the stub step while the deployed stub still reports by token-less sendBeacon (CSRFGuard 403). eform.stable is written but never read."
     },
     {
       "name": "gap-encounter-visual-eform-editor",

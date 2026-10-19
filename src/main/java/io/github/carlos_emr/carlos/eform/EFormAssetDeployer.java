@@ -29,12 +29,16 @@ import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +86,9 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  *       unsupported and are reverted.</li>
  *   <li><b>Seeded</b> (everything else — {@code blank.rtl}, {@code editor_help.html}, the generated
  *       lab decision-support stubs): deployed once if absent, then never touched, because a clinic
- *       is expected to customize them.</li>
+ *       is expected to customize them. The one exception is a copy that is byte-for-byte a retired,
+ *       defective version CARLOS itself generated ({@code RETIRED_SEEDED_ASSET_SHA256}); nobody
+ *       customized it, so it is upgraded like a managed asset.</li>
  * </ul>
  * <p>An unchanged managed asset is compared and left in place: it is never rewritten and nothing is
  * logged above DEBUG. The comparison does stage a temp file in the target directory on every
@@ -194,6 +200,28 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         "CreativeCommonsIcon.png"
     };
     private static final Map<String, String> SAMPLE_LAB_COMPATIBILITY_SCRIPTS = buildSampleLabCompatibilityScripts();
+
+    /**
+     * SHA-256 of seeded-asset bytes that an earlier CARLOS release generated itself and that are
+     * known to be defective. A seeded asset is normally never touched once it exists, so without
+     * this a fix to a generated stub could reach only fresh installs. A copy whose bytes are exactly
+     * a retired CARLOS version is not a clinic customization, so it is upgraded like a managed asset;
+     * any other content — the clinic's real lab script, or an edited stub — is left in place.
+     *
+     * <p>The lab decision-support stubs shipped from 2026-07-28 reported their degradation with a
+     * {@code navigator.sendBeacon()} that carried no CSRF token, so CSRFGuard refused every report
+     * with 403 and the form was never flagged unstable. One version was ever shipped (identical in
+     * all three files); {@code EFormAssetDeployerUnitTest} pins this digest against those bytes.</p>
+     */
+    private static final String RETIRED_LAB_STUB_SENDBEACON_SHA256 =
+            "8c356fea404e2d0312fb2ea0c63cf5b11f8bb6c1c1040ae87c2d4d437553359d";
+    private static final Map<String, Set<String>> RETIRED_SEEDED_ASSET_SHA256 = Map.of(
+        "LocationsLab_Nov2020.js", Set.of(RETIRED_LAB_STUB_SENDBEACON_SHA256),
+        "LabDecisionSupport3_2024.js", Set.of(RETIRED_LAB_STUB_SENDBEACON_SHA256),
+        "LabEngine_2023.js", Set.of(RETIRED_LAB_STUB_SENDBEACON_SHA256)
+    );
+    /** Retired copies are small generated scripts; never hash a large clinic-provided file. */
+    private static final long RETIRED_SEEDED_ASSET_MAX_BYTES = 64 * 1024;
 
     /** Injected by Spring via {@link ServletContextAware} before {@link #afterPropertiesSet()}. */
     private jakarta.servlet.ServletContext servletContext;
@@ -448,7 +476,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         File targetFile = PathValidationUtils.validateGeneratedChildPath(filename, targetDir);
         Path targetPath = targetFile.toPath();
         Path tempFile = null;
-        boolean managed = isManagedAsset(filename);
+        boolean managed = isManagedAsset(filename) || isRetiredShippedCopy(filename, targetPath);
         if (targetFile.exists() && !managed) {
             logger.debug("Seeded eForm asset already exists, leaving clinic copy in place: {}",
                     targetFile.getAbsolutePath());
@@ -489,6 +517,33 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      */
     static boolean isManagedAsset(String filename) {
         return MANAGED_ASSETS.contains(filename);
+    }
+
+    /**
+     * True when {@code target} holds exactly the bytes of a retired CARLOS-generated version of a
+     * seeded asset (see {@link #RETIRED_SEEDED_ASSET_SHA256}), which may therefore be upgraded.
+     * Fails safe: a missing, linked, oversized or unreadable file is treated as a clinic copy.
+     *
+     * @param filename deployed asset filename
+     * @param target validated on-disk location of that asset
+     * @return {@code true} only for an exact retired-version match
+     */
+    static boolean isRetiredShippedCopy(String filename, Path target) {
+        Set<String> retired = RETIRED_SEEDED_ASSET_SHA256.get(filename);
+        if (retired == null || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+            return false;
+        }
+        try {
+            if (Files.size(target) > RETIRED_SEEDED_ASSET_MAX_BYTES) {
+                return false;
+            }
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(target));
+            return retired.contains(HexFormat.of().formatHex(digest));
+        } catch (IOException | NoSuchAlgorithmException e) {
+            logger.warn("Could not compare seeded eForm asset with retired shipped versions; leaving it in place: {}",
+                    target, e);
+            return false;
+        }
     }
 
     void moveTempFile(Path tempFile, Path targetPath) throws IOException {
@@ -572,11 +627,19 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
                       var ctxEl = doc && doc.getElementById ? doc.getElementById('context') : null;
                       var fidEl = doc && doc.getElementById ? doc.getElementById('fid') : null;
                       var ctx = ctxEl ? ctxEl.value : '';
-                      if (ctx && global.navigator && global.navigator.sendBeacon && global.URLSearchParams) {
+                      // XMLHttpRequest, never navigator.sendBeacon(): a beacon cannot carry the
+                      // CSRF-TOKEN header and this page has no token to put in its body, so
+                      // CSRFGuard refused every report with 403. CSRFGuard's client script, which
+                      // the server injects into every eForm page, adds the token to an XHR on its
+                      // own -- the same path the toolbar's window.onerror report takes.
+                      if (ctx && global.XMLHttpRequest && global.URLSearchParams) {
                         var params = new global.URLSearchParams();
                         params.append('formId', fidEl ? fidEl.value : '');
                         params.append('error', 'lab decision-support stub invoked (not deployed): ' + (fnName || 'unknown'));
-                        global.navigator.sendBeacon(ctx + '/eform/logEformError', params);
+                        var report = new global.XMLHttpRequest();
+                        report.open('POST', ctx + '/eform/logEformError', true);
+                        report.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+                        report.send(params.toString());
                       }
                     } catch (e) { /* best-effort visibility only; never break the form */ }
                   }
