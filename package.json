@@ -90,6 +90,7 @@
     "test:schedule-setting-playwright": "node scripts/schedule-setting-playwright-checks.js",
     "test:schedule-period-delete-playwright": "node scripts/schedule-period-delete-playwright-checks.js",
     "test:scripts": "node --test scripts/*.test.js",
+    "test:multisite-tickler-filter-playwright": "node scripts/multisite-tickler-filter-playwright-checks.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
     "test:tickler-attachments-playwright": "node scripts/tickler-attachments-playwright-checks.js",
     "test:fax-configure-playwright": "node scripts/fax-configure-playwright-checks.js",

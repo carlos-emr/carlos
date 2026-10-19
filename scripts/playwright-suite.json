@@ -3035,6 +3035,25 @@
       ]
     },
     {
+      "name": "multisite-tickler-filter",
+      "script": "scripts/multisite-tickler-filter-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Issue #4865: verifies all active providers in a multi-provider clinic, encoded provider names, exclusion of inactive providers, clinic switching and clearing, and both assignees through ListTicklers and the visible table. Skips unless multisites=on.",
+      "fixtures": "Requires multisites=on; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned patient, two clinics, three throwaway providers and two ticklers. Every owned row is removed and checked.",
+      "mutates": [
+        "site",
+        "providersite"
+      ]
+    },
+    {
       "name": "tickler-crud",
       "script": "scripts/tickler-crud-playwright-checks.js",
       "tiers": [
