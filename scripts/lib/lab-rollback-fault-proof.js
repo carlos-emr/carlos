@@ -15,6 +15,7 @@
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
+const {faultErrorRecords} = require('./lab-fault-log-records');
 const h = require('./playwright-harness');
 const normalize = value => String(value).replace(/\s+/g, ' ').trim();
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -146,7 +147,7 @@ function verifyOwnedFaultWindow(text, receipt, expectedSources, auditText) {
   }
   const request = receipt.requests.fault;
   assert(!/HHH000099|hibernate\.AssertionFailure|has a null identifier/.test(text), 'Poisoned-session errors remain failures');
-  const errors = [...text.matchAll(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) ERROR ([^\n]+)\n([\s\S]*?)(?=^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} (?:TRACE|DEBUG|INFO|WARN|ERROR) |$(?![\s\S]))/gm)];
+  const errors = faultErrorRecords(text, MESSAGE);
   assert.equal(errors.length, 2, 'Only two exact intentional CML error events are permitted');
   const lines = [];
   for (const event of errors) {

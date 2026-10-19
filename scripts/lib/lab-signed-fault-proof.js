@@ -15,6 +15,7 @@
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
+const {faultErrorRecords} = require('./lab-fault-log-records');
 const h = require('./playwright-harness');
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
 const MESSAGE = 'Synthetic signed upload failure probe';
@@ -120,7 +121,7 @@ function verifyOwnedFaultWindow(text, receipt, expectedSources, auditText) {
     previousFinishedAt = Date.parse(request.finishedAt);
   }
   const request = receipt.requests.fault;
-  const errors = [...text.matchAll(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) ERROR ([^\n]+)\n([\s\S]*?)(?=^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} (?:TRACE|DEBUG|INFO|WARN|ERROR) |$(?![\s\S]))/gm)];
+  const errors = faultErrorRecords(text, MESSAGE);
   assert.equal(errors.length, 2, 'Only two exact intentional CML error events are permitted');
   const lines = [];
   for (const event of errors) {

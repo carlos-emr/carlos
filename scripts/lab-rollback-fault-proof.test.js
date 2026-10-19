@@ -100,3 +100,55 @@ test('actual fault step refuses a preexisting collision without CREATE or DROP',
   const calls=[];const context={session:{step:async(_,fn)=>fn()},sql:{value:()=> '1',execute:s=>calls.push(s)},h:{assert,sqlString:s=>"'"+s+"'"},proof:{update(){}},failureTrigger:'lab_upload_probe_A1B2C3D4',triggerMayExist:false};
   vm.createContext(context);await assert.rejects(()=>vm.runInContext('(async()=>{'+text+'})()',context));assert.deepEqual(calls,[]);assert.equal(context.triggerMayExist,false);
 });
+
+// Independent structured records must not be consumed as a measured stack.
+const severeJul = '19-Oct-2026 18:55:32.900 SEVERE [main] org.apache.catalina.core.ApplicationContext log Unexpected independent server failure\n';
+const warningJul = '19-Oct-2026 18:55:32.900 WARNING [main] org.apache.catalina.core.ApplicationContext log Independent warning\n';
+for (const position of ['before', 'between', 'after']) {
+  test(`unrelated JUL SEVERE ${position} the measured pair remains a failure`, () => {
+    const original = errors();
+    const text = position === 'before' ? severeJul + original : position === 'after' ? original + severeJul
+      : original.replace('2026-10-19 18:55:32,100', severeJul + '2026-10-19 18:55:32,100');
+    assert.throws(() => verifyOwnedFaultWindow(text, valid(), sources, audit()), /severe JUL/);
+  });
+}
+test('recognized JUL warnings are separate records and do not alter the owned pair', () => {
+  const text = warningJul + errors().replace('2026-10-19 18:55:32,100', warningJul + '2026-10-19 18:55:32,100') + warningJul;
+  assert.equal(verifyOwnedFaultWindow(text, valid(), sources, audit()).intentionalFaultEvents, 2);
+});
+for (const [label, extra] of Object.entries({
+  'unknown JUL level': severeJul.replace('SEVERE', 'UNKNOWN'),
+  'normalized Catalina severe': 'CATALINA SEVERE [main] org.apache.catalina.core.ApplicationContext log failure\n',
+  'unrelated root trace': 'java.lang.IllegalStateException: independent server failure\n',
+  'unrelated SQL cause': 'Caused by: java.sql.SQLException: independent server failure\n',
+  'unknown continuation': 'unrecognized standalone journal event\n',
+  'fatal record': '2026-10-19 18:55:32,900 FATAL Other.Action (Action.java:1) - independent failure\n',
+  'trace followed by exception': '2026-10-19 18:55:32,900 TRACE Other.Action (Action.java:1) - trace\njava.lang.IllegalStateException: independent failure\n',
+})) {
+  test(`unknown/severe/trace evidence is refused: ${label}`, () => {
+    assert.throws(() => verifyOwnedFaultWindow(errors() + extra, valid(), sources, audit()));
+  });
+}
+test('normal Java frames and omitted-frame markers remain valid measured stack lines', () => {
+  const text = errors().replaceAll('Caused by:', '\tat io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl.persist(AbstractDaoImpl.java:170)\n\t... 3 more\nCaused by:');
+  assert.equal(verifyOwnedFaultWindow(text, valid(), sources, audit()).intentionalFaultEvents, 2);
+});
+test('a JUL warning cannot shelter a following independent exception trace', () => {
+  assert.throws(() => verifyOwnedFaultWindow(errors() + warningJul + 'java.lang.IllegalStateException: independent failure\n', valid(), sources, audit()));
+});
+
+test('an additional duplicate SQL cause cannot be hidden in the final measured trace', () => {
+  const cause = errors().split('\n').find(line => line.startsWith('Caused by:'));
+  assert.throws(() => verifyOwnedFaultWindow(errors() + cause + '\n', valid(), sources, audit()));
+});
+
+
+test('rejected private SQL cause is absent from the public failure diagnostic', () => {
+  const privateMarker = 'SYNTHETIC_PRIVATE_CLINICAL_MARKER_9F32';
+  const text = errors().replace('Caused by: java.sql.SQLException: Synthetic upload rollback probe', 'Caused by: java.sql.SQLException: ' + privateMarker);
+  assert.throws(() => verifyOwnedFaultWindow(text, valid(), sources, audit()), error => {
+    assert(error instanceof Error);
+    assert(!error.message.includes(privateMarker), 'Rejected SQL cause must remain private');
+    return true;
+  });
+});
