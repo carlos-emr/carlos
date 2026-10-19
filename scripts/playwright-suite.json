@@ -2696,11 +2696,15 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300
+      "timeoutSec": 300,
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "No rows of its own. Adds the first available encounter form through Administration > Select Forms, moves it up and down and deletes it again, asserting the panel's lists and the encounterForm list as seen (the shown forms and their order, since Select Forms renumbers the shown forms 1..n, #4952) are as it found them; afterwards it puts every recorded display order back and asserts the rows identical, also after a failed run. The form list is clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "specialist-add-cpso",

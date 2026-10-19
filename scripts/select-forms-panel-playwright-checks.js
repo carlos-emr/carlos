@@ -10,7 +10,13 @@
  * administration shell and asserts the panel keeps rendering.
  *
  * The check is state-neutral: it adds an available form, moves it up and back down, then
- * deletes it, leaving the encounter form display order as it was found.
+ * deletes it, leaving the shown forms and their order as it found them (asserted on the panel and
+ * on the encounterForm list as seen, lib/encounter-form-list). Select Forms gives the shown forms
+ * the orders 1..n before any change (#4952), so the stored numbers of forms it never touched can
+ * change while the menu stays the same: afterwards the run puts back the numbers it recorded before
+ * the browser started, and asserts the list identical. It reads and writes encounterForm, so it
+ * needs the MYSQL_* settings (lib/playwright-harness readConfig) and runs alone with other checks
+ * that change the form list.
  *
  * Defaults are for the local devcontainer:
  *   npm run test:select-forms-panel-playwright
@@ -25,7 +31,10 @@
  */
 
 const { chromium } = require('playwright');
-const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const h = require('./lib/playwright-harness');
+const { encounterForms, formListAsSeen } = require('./lib/encounter-form-list');
+
+const { shouldIgnoreHttpsErrors } = h;
 
 // Declared before the validateBaseUrl() call below: `const` bindings are in the
 // temporal dead zone until initialized, so a set declared further down the file
@@ -248,6 +257,16 @@ function sameMembers(actual, expected) {
   return sameOrder([...actual].sort(), [...expected].sort());
 }
 
+/** Put back every encounterForm display order recorded before the run, then assert the rows identical. */
+function restoreFormNumbers(sql, before) {
+  for (const [name, value, , hidden] of before) {
+    sql.execute(`UPDATE encounterForm SET hidden=${Number(hidden)}
+      WHERE form_name=${h.sqlString(name)} AND form_value=${h.sqlString(value)} AND hidden<>${Number(hidden)}`);
+  }
+  assert(JSON.stringify(encounterForms(sql)) === JSON.stringify(before),
+    'the encounter form display orders are not as the check found them');
+}
+
 /**
  * Best-effort rollback for a run that died between the Add and the Delete.
  *
@@ -293,6 +312,9 @@ async function restoreSubject(page, subject) {
     launchOptions.executablePath = chromePath;
   }
 
+  // Recorded before the browser starts, so even a run that fails at login owes the clinic only these numbers.
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const formsBefore = encounterForms(sql);
   const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({
     ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
@@ -300,6 +322,7 @@ async function restoreSubject(page, subject) {
   let page = null;
   let subject = null;
   let subjectRestored = false;
+  let passed = false;
   try {
     page = await context.newPage();
     wirePage(page, 'select-forms');
@@ -390,20 +413,34 @@ async function restoreSubject(page, subject) {
       `available form list was not restored: expected ${JSON.stringify(initial.available)},`
         + ` got ${JSON.stringify(afterDelete.available)}`,
     );
-    // The Delete step is itself the rollback; nothing is left for the finally block to undo.
+    assert(
+      formListAsSeen(encounterForms(sql)) === formListAsSeen(formsBefore),
+      'the encounter form list is not as the check found it (the shown forms and their order)',
+    );
+    // The Delete step is itself the rollback of the panel; the finally block puts back the stored numbers.
     subjectRestored = true;
 
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
 
-    console.log(`PASS Select Forms panel renders after add, delete, move up, and move down (subject form ${subject})`);
+    passed = true;
   } finally {
     if (page && subject && !subjectRestored) {
       await restoreSubject(page, subject);
     }
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
+    try {
+      restoreFormNumbers(sql, formsBefore);
+    } catch (cleanupError) {
+      // A run that already failed keeps its own error; the cleanup failure is reported beside it.
+      if (passed) throw cleanupError;
+      console.error(`cleanup: ${cleanupError.message}`);
+    } finally {
+      sql.dispose();
+    }
   }
+  console.log(`PASS Select Forms panel renders after add, delete, move up, and move down (subject form ${subject})`);
 })().catch((error) => {
   console.error(`FAIL Select Forms panel checks: ${error.stack || error.message}`);
   process.exit(1);
