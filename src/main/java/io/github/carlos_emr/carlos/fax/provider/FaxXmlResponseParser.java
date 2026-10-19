@@ -32,11 +32,14 @@ final class FaxXmlResponseParser {
                 var metadata = new StreamReaderDelegate(reader) {
                     @Override
                     public int next() throws XMLStreamException {
-                        int event = super.next();
-                        if (event == XMLStreamConstants.DTD || event == XMLStreamConstants.ENTITY_REFERENCE) {
-                            throw new XMLStreamException("DTD/entities are not allowed in fax responses");
-                        }
-                        if (event == XMLStreamConstants.START_ELEMENT && "document".equals(getLocalName())) {
+                        while (true) {
+                            int event = super.next();
+                            if (event == XMLStreamConstants.DTD || event == XMLStreamConstants.ENTITY_REFERENCE) {
+                                throw new XMLStreamException("DTD/entities are not allowed in fax responses");
+                            }
+                            if (event != XMLStreamConstants.START_ELEMENT || !"document".equals(getLocalName())) {
+                                return event;
+                            }
                             input.document = true;
                             int depth = 1;
                             while (depth > 0) {
@@ -48,9 +51,7 @@ final class FaxXmlResponseParser {
                                 }
                             }
                             input.document = false;
-                            return next();
                         }
-                        return event;
                     }
                 };
                 Object result = JAXBContext.newInstance(FaxJob.class).createUnmarshaller().unmarshal(metadata);

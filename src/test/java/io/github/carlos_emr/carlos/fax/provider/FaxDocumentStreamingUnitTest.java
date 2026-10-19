@@ -146,6 +146,14 @@ class FaxDocumentStreamingUnitTest {
                 .isInstanceOfAny(java.io.IOException.class, jakarta.xml.bind.JAXBException.class);
     }
 
+    @Test
+    void shouldSkipRepeatedXmlDocuments_withoutGrowingCallStack() throws Exception {
+        String xml = "<FaxJob>" + "<document/>".repeat(20000) + "<jobId>3512</jobId></FaxJob>";
+        FaxJob job = FaxXmlResponseParser.read(new StringEntity(xml, ContentType.APPLICATION_XML));
+        assertThat(job.getJobId()).isEqualTo(3512L);
+        assertThat(job.getDocument()).isNull();
+    }
+
     private StringEntity json(String text) {
         return new StringEntity(text, ContentType.APPLICATION_JSON);
     }
