@@ -82,5 +82,6 @@ findings 82, 99, 139 and 144 keep their numbers.
 
 Ticket bodies and archived output retain their original numbers as evidence.
 The [dated tracking audit](defect-tracking-2026-10-18.md) records the issue/PR
-states when tickets were filed. The current [application register](app-findings-log.md)+records the release fixes separately. Original validation commit hashes in the
+states when tickets were filed. The current [application register](app-findings-log.md)
+records the release fixes separately. Original validation commit hashes in the
 reports predate DCO sign-off; sign-off changes commit messages, not their trees.
