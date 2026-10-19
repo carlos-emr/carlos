@@ -462,6 +462,7 @@
     "test:login-facility-chooser-playwright": "node scripts/login-facility-chooser-playwright-checks.js",
     "test:demographic-open-writes-nothing-playwright": "node scripts/demographic-open-writes-nothing-playwright-checks.js",
     "test:admin-message-expiry-calendar-playwright": "node scripts/admin-message-expiry-calendar-playwright-checks.js",
+    "test:calendar-keyboard-playwright": "node scripts/calendar-keyboard-playwright-checks.js",
     "test:lab-to-flowsheet-long-value-playwright": "LAB_FLOWSHEET_PIN=value node scripts/lab-to-flowsheet-playwright-checks.js",
     "test:lab-to-flowsheet-observed-time-playwright": "LAB_FLOWSHEET_PIN=time node scripts/lab-to-flowsheet-playwright-checks.js",
     "test:lab-to-flowsheet-fraction-playwright": "LAB_FLOWSHEET_PIN=fraction node scripts/lab-to-flowsheet-playwright-checks.js",

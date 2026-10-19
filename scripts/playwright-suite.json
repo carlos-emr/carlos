@@ -12088,6 +12088,20 @@
       "notes": "The System Message and Facility Message editors' Expiry Day calendar (calendar/oscarCalendarPopup?type=caisi). Steps: the System Messages calendar opens on the current month for the editor's form and field; Next and Last move one month each way; the Facility Messages calendar opens for its own form and field; LAST, picking a day closes the popup and writes the date into the editor's Expiry Day box, in both editors. Fails at the last step on 2026.08 and develop: the editors' forms lost the names the popup looks them up by when the Struts 1 tags went, so the pick writes nothing (#4916; #4923 is its release fix). The check turns green when #4923 merges; drop this note then. Skips on the packaged default (caisi=off)."
     },
     {
+      "name": "calendar-keyboard",
+      "script": "scripts/calendar-keyboard-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "notes": "The shared date-box calendar (Calendar.setup over Flatpickr) from the keyboard, on four pages that use it (#5058): Allergies ▸ Custom Allergy ▸ Start Date, Report ▸ Prevention Report ▸ as-of date, Add Appointment ▸ Repeat ▸ End date (as a throwaway login on its own day sheet), and Master Record ▸ Create Invoice ▸ Service Date (the BC bill form on a BC install, the Ontario one elsewhere). On each, the calendar button is a named button or link that Tab reaches; Enter opens the calendar with focus on a day; ArrowRight and Enter pick the next day into the box, close the calendar and return focus to the button; Enter again and Escape close it without a change. On the allergy Start Date also: Tab from the box reaches the button, ArrowDown in the empty box moves into the open calendar and Escape returns to the box, and a mouse click on the button and on a day still fills the box without moving focus into the calendar.",
+      "fixtures": "The workflow's owned FAKE patient (made a BC patient on a BC install, for its bill form) and a throwaway login (lib/gap-provider-fixture.js) whose own day sheet opens the Add Appointment window. Nothing is saved (no allergy, appointment or bill), which the check asserts. The Add Appointment window's slot lock (PageMonitor, keyed to the throwaway) is removed, then the throwaway's appointment rows and the throwaway; the patient is removed with its chart rows by key."
+    },
+    {
       "name": "bc-master-record-navigation",
       "script": "scripts/bc-master-record-navigation-playwright-checks.js",
       "tiers": [
