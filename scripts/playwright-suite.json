@@ -1871,6 +1871,27 @@
       ]
     },
     {
+      "name": "lab-macro-prefs-editor",
+      "script": "scripts/lab-macro-prefs-editor-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "property:labMacroJSON"
+      ],
+      "notes": "The Lab Macros editor's Delete, delete-all confirmation and raw JSON editor, which lab-macro-tickler (defines one macro) and document-viewer-macro(s) (seed by SQL) leave out: Schedule ▸ Preferences ▸ the Lab section ▸ Lab Recall Macros ▸ Lab Macros. The editor lists the two owned macros; Delete on the first and Save stores exactly the second, as the editor writes it; the document viewer's Macros menu then offers the macro left and not the deleted one; Delete on the last and Save asks first (dismissed, nothing is sent; accepted, no macro is stored); last, Show macro JSON saves a hand-edited list as typed, and JSON that does not parse is refused with a message, kept in the editor, and stores nothing.",
+      "fixtures": "viewerDocuments: the owned FAKE- patient and one owned PDF (row and file under DOCUMENT_DIR, or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) routed New to the test provider and another active provider. The test login's labMacroJSON preference holds two macros named with the run marker while the run lasts and is put back byte for byte afterwards (the row removed if there was none), which the check asserts. lab-macro-tickler and document-viewer-macro(s) use the same row, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the document's rows and file and asserts them gone."
+    },
+    {
       "name": "rx-stash-patient-isolation",
       "script": "scripts/rx-stash-patient-isolation-playwright-checks.js",
       "tiers": [

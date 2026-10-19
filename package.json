@@ -176,6 +176,7 @@
     "test:allergy-add-penicillin-playwright": "node scripts/allergy-add-penicillin-playwright-checks.js",
     "test:allergy-add-penicillin-shortcut-id-playwright": "ALLERGY_PIN=shortcut-id node scripts/allergy-add-penicillin-playwright-checks.js",
     "test:lab-macro-tickler-playwright": "node scripts/lab-macro-tickler-playwright-checks.js",
+    "test:lab-macro-prefs-editor-playwright": "node scripts/lab-macro-prefs-editor-playwright-checks.js",
     "test:lab-recall-delegate-playwright": "node scripts/lab-recall-delegate-playwright-checks.js",
     "test:lab-linked-tickler-playwright": "node scripts/lab-linked-tickler-playwright-checks.js",
     "test:schedule-quick-search-appointment-playwright": "node scripts/schedule-quick-search-appointment-playwright-checks.js",
