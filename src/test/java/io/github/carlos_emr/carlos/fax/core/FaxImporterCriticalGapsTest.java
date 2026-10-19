@@ -140,6 +140,86 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
         saveToIncomingMethod.setAccessible(true);
     }
 
+    @Nested
+    @DisplayName("Streamed spool ownership and quarantine publication")
+    class StreamedSpoolTests {
+        @Test
+        void shouldConsumeSpool_whenPdfIsValid() throws Exception {
+            Path incoming = initializeFaxIncomingDir();
+            Path spool = createValidPdf(2).toPath();
+            byte[] expected = Files.readAllBytes(spool);
+            FaxJob downloaded = new FaxJob();
+            downloaded.setDocumentPath(spool);
+            Path saved = null;
+            try {
+                saved = (Path) saveToIncomingMethod.invoke(faxImporter, createFaxConfig(), createReceivedFax(), downloaded);
+                assertThat(saved).isNotNull();
+                assertThat(Files.readAllBytes(saved)).isEqualTo(expected);
+                assertThat(spool).doesNotExist();
+                assertThat(downloaded.getDocumentPath()).isNull();
+            } finally {
+                Files.deleteIfExists(spool);
+                if (saved != null) Files.deleteIfExists(saved);
+                Files.deleteIfExists(incoming.resolve(String.valueOf(createFaxConfig().getId())));
+                Files.deleteIfExists(incoming);
+            }
+        }
+
+        @Test
+        void shouldDeleteSpool_whenPdfIsRejected() throws Exception {
+            Path incoming = initializeFaxIncomingDir();
+            Path spool = Files.createTempFile("carlos-fax-rejected-", ".pdf");
+            Files.writeString(spool, "not a PDF");
+            FaxJob downloaded = new FaxJob();
+            downloaded.setDocumentPath(spool);
+            FaxJob metadata = createReceivedFax();
+            try {
+                assertThat(saveToIncomingMethod.invoke(faxImporter, createFaxConfig(), metadata, downloaded)).isNull();
+                assertThat(metadata.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+                assertThat(spool).doesNotExist();
+                assertThat(downloaded.getDocumentPath()).isNull();
+                try (var files = Files.list(incoming.resolve(String.valueOf(createFaxConfig().getId())))) {
+                    assertThat(files.toList()).isEmpty();
+                }
+            } finally {
+                Files.deleteIfExists(spool);
+                Files.deleteIfExists(incoming.resolve(String.valueOf(createFaxConfig().getId())));
+                Files.deleteIfExists(incoming);
+            }
+        }
+
+        @Test
+        void shouldHidePartialCopy_whenCrossFilesystemStagingFails() throws Exception {
+            Path spool = createValidPdf(1).toPath();
+            faxImporter = new FaxImporter(faxConfigDao, faxJobDao, queueDocumentLinkDao,
+                    providerLabRoutingDao, faxProviderClientFactory, null) {
+                @Override
+                void moveFile(Path source, Path target) throws IOException {
+                    assertThat(source).isEqualTo(spool);
+                    assertThat(target.getFileName().toString()).startsWith("fax-tmp-");
+                    Files.writeString(target, "%PDF partial copy");
+                    throw new IOException("Synthetic disk failure during cross-filesystem copy");
+                }
+            };
+            Path incoming = initializeFaxIncomingDir();
+            FaxJob downloaded = new FaxJob();
+            downloaded.setDocumentPath(spool);
+            FaxJob metadata = createReceivedFax();
+            try {
+                assertThat(saveToIncomingMethod.invoke(faxImporter, createFaxConfig(), metadata, downloaded)).isNull();
+                assertThat(metadata.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+                assertThat(spool).doesNotExist();
+                try (var files = Files.list(incoming.resolve(String.valueOf(createFaxConfig().getId())))) {
+                    assertThat(files.toList()).isEmpty();
+                }
+            } finally {
+                Files.deleteIfExists(spool);
+                Files.deleteIfExists(incoming.resolve(String.valueOf(createFaxConfig().getId())));
+                Files.deleteIfExists(incoming);
+            }
+        }
+    }
+
     /**
      * Tests for collision-free filename generation (Priority 10).
      *

@@ -448,13 +448,16 @@ public class FaxImporter {
             if (faxFile.getDocumentPath() != null) {
                 // Only a provider-created private temp file can enter this branch. The
                 // final name still comes from the independently validated listing metadata.
-                tempFile = faxFile.getDocumentPath().toFile();
-                if (!PathValidationUtils.isInAllowedTempDirectory(tempFile)) {
-                    tempFile = null; // Never delete a path outside the spool boundary.
+                File spoolFile = faxFile.getDocumentPath().toFile();
+                if (!PathValidationUtils.isInAllowedTempDirectory(spoolFile)) {
                     throw new SecurityException("Fax spool is outside the temporary directory");
                 }
-                PathValidationUtils.validateExistingPath(tempFile,
+                PathValidationUtils.validateExistingPath(spoolFile,
                         new File(System.getProperty("java.io.tmpdir")));
+                // The spool may be on another filesystem. Any copy/delete fallback must
+                // target a retry-invisible temporary name inside the quarantine directory.
+                tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
+                moveFile(spoolFile.toPath(), tempFile.toPath());
             } else {
                 // Older database backups and third-party clients may still supply base64.
                 // Decode incrementally; never allocate a document-sized byte array.
@@ -497,7 +500,7 @@ public class FaxImporter {
             }
 
             // Atomic move to final location within incoming directory
-            moveFile(tempFile.toPath(), targetFile);
+            Files.move(tempFile.toPath(), targetFile, StandardCopyOption.ATOMIC_MOVE);
             tempFile = null; // Moved successfully
             log.info("Fax saved to incoming directory for account {}", faxConfig.getId());
             return targetFile;
@@ -830,7 +833,8 @@ public class FaxImporter {
      * @param target target path
      * @throws IOException if the move fails
      */
-    private void moveFile(Path source, Path target) throws IOException {
+    // Package-private seam for simulating a failed cross-filesystem staging copy.
+    void moveFile(Path source, Path target) throws IOException {
         try {
             Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException e) {
