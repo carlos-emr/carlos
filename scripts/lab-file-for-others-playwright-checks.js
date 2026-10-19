@@ -119,16 +119,23 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE action='lab.fileOnBehalf' AND content=${q(labNo)}
       AND data=${q(`filedFor=${allowed.providerNo}`)} AND provider_no=${q(provider)}`) === '1', 'Strict filing audit is missing');
   });
-  await s.step('the combined dialog acknowledges the reviewer and files the selected colleague with its comment', async () => {
+  const reviewComment = `${marker} combined review: O'Brien; K < 3.5 & Hb > 100; repeat in 2-4 weeks.`;
+  await s.step('combined filing shows the existing comment and keeps acknowledgement failures visible', async () => {
     sql.execute(`INSERT INTO property (provider_no,name,value) VALUES (${q(denied.providerNo)},'hl7_allow_others_file_for_you','true')`);
+    const existing = `${marker} earlier reviewer comment: O'Brien < 3.5 & repeat`;
+    sql.execute(`UPDATE providerLabRouting SET comment=${q(existing)} WHERE lab_no=${labNo}
+      AND provider_no=${q(provider)} AND lab_type='HL7' AND status='N'`);
     await popup.reload();
     await popup.locator('input[onclick*="openLabFilingDialog"][onclick*="true"]').first().click();
     await dialog.waitFor({state: 'visible'});
     h.assert(await dialog.locator('[data-filing-comment]').isVisible(), 'Combined dialog hides the acknowledgement comment');
     h.assert(await dialog.locator('details').getAttribute('open') !== null, 'Combined dialog filing section is collapsed');
-    const comment = `${marker} combined review: O'Brien; K < 3.5 & Hb > 100; repeat in 2-4 weeks.`;
-    await dialog.locator('textarea[name="comment"]').fill(comment);
+    h.assert(await dialog.locator('textarea[name="comment"]').inputValue() === existing, 'Existing reviewer comment was hidden');
+    await dialog.locator('textarea[name="comment"]').fill(reviewComment);
     await dialog.locator(`input[value="${denied.providerNo}"]`).check();
+    // The legacy action can answer an application failure with HTTP 200. It must not
+    // close the dialog or remove the reviewer's outstanding routing row.
+    await popup.route('**/oscarMDS/UpdateStatus', route => route.fulfill({status: 200, contentType: 'text/plain', body: 'failure'}));
     const filing = popup.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/oscarMDS/FileLabsOnBehalf'));
     const acknowledgement = popup.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/oscarMDS/UpdateStatus'));
     filing.catch(() => {}); acknowledgement.catch(() => {});
@@ -136,13 +143,29 @@ async function workflow(s) {
       await dialog.locator('[type="submit"]').click();
       const response = await filing;
       h.assert(response.ok(), 'Combined filing was refused');
-      h.assert(new URLSearchParams(response.request().postData()).get('comment') === comment, 'Filing omitted the dialog comment');
-      h.assert((await acknowledgement).ok(), 'Combined acknowledgement failed');
+      h.assert(new URLSearchParams(response.request().postData()).get('comment') === reviewComment, 'Filing omitted the dialog comment');
+      h.assert(await (await acknowledgement).text() === 'failure', 'Failure probe did not intercept acknowledgement');
+    });
+    await dialog.locator('[data-filing-error]').filter({hasText: /.+/}).waitFor({state: 'visible'});
+    h.assert(await dialog.isVisible(), 'Acknowledgement failure closed the dialog');
+    h.assert(sql.value(`SELECT status FROM providerLabRouting WHERE lab_no=${labNo} AND provider_no=${q(provider)} AND lab_type='HL7'`) === 'N', 'Failure probe acknowledged the reviewer');
+    h.assert(await dialog.locator(`input[value="${denied.providerNo}"]`).isDisabled(), 'Confirmed colleague filing remained selectable');
+    await popup.unroute('**/oscarMDS/UpdateStatus');
+  });
+  await s.step('retry acknowledges the reviewer without filing the colleague twice', async () => {
+    const acknowledgement = popup.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/oscarMDS/UpdateStatus'));
+    acknowledgement.catch(() => {});
+    await h.withExpectedDialogs(popup, async () => {
+      await dialog.locator('[type="submit"]').click();
+      h.assert((await acknowledgement).ok(), 'Acknowledgement retry failed');
     });
     h.assert(sql.value(`SELECT status FROM providerLabRouting WHERE lab_no=${labNo} AND provider_no=${q(provider)} AND lab_type='HL7'`) === 'A', 'Reviewer was not acknowledged');
+    h.assert(sql.value(`SELECT comment FROM providerLabRouting WHERE lab_no=${labNo} AND provider_no=${q(provider)} AND lab_type='HL7'`) === reviewComment, 'Acknowledgement retry lost the reviewer comment');
     const target = sql.rows(`SELECT status,comment FROM providerLabRouting WHERE lab_no=${labNo}
       AND provider_no=${q(denied.providerNo)} AND lab_type='HL7'`);
-    h.assert(target.length === 1 && target[0][0] === 'F' && target[0][1].includes(comment), 'Colleague filing did not preserve the combined review comment');
+    h.assert(target.length === 1 && target[0][0] === 'F' && target[0][1].includes(reviewComment), 'Colleague filing did not preserve the combined review comment');
+    h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE action='lab.fileOnBehalf' AND content=${q(labNo)}
+      AND data=${q(`filedFor=${denied.providerNo}`)} AND provider_no=${q(provider)}`) === '1', 'Retry duplicated the colleague filing audit');
   });
 }
 if (require.main === module) runWorkflow('lab-file-for-others', workflow, {openMaster: false});

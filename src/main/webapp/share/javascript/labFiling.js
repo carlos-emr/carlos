@@ -4,6 +4,12 @@
     window.openLabFilingDialog = function (labNo, acknowledge) {
         const dialog = document.getElementById('labFiling_' + labNo);
         if (!dialog) return false;
+        if (acknowledge) {
+            const ackForm = document.forms['acknowledgeForm_' + labNo];
+            const provider = ackForm && ackForm.elements.providerNo;
+            const existing = provider && document.getElementById(provider.value + '_' + labNo + 'commentText');
+            dialog.querySelector('textarea[name="comment"]').value = existing ? existing.textContent : '';
+        }
         dialog.dataset.acknowledge = String(acknowledge);
         dialog.querySelector('[data-filing-comment]').hidden = !acknowledge;
         dialog.querySelector('details').open = true;
@@ -28,7 +34,7 @@
                 submit.disabled = true;
                 error.textContent = '';
                 async function fileSelected() {
-                    if (selected.length === 0) { dialog.close(); return; }
+                    if (selected.length === 0) return;
                     const token = Array.from(document.querySelectorAll('input[name="CSRF-TOKEN"]'))
                         .map(function (input) { return input.value; }).find(Boolean);
                     if (!token) throw new Error(dialog.dataset.errorMessage);
@@ -47,14 +53,17 @@
                     dialog.querySelectorAll('input[name="providerNo"]').forEach(function (input) {
                         if (selected.includes(input)) { input.checked = false; input.disabled = true; }
                     });
-                    dialog.close();
-                    if (!acknowledge) window.location.reload();
+                    if (!acknowledge) {
+                        dialog.close();
+                        window.location.reload();
+                    }
                 }
                 try {
                     if (acknowledge) {
                         const ackForm = document.forms['acknowledgeForm_' + dialog.dataset.labFiling];
                         ackForm.elements.comment.value = form.elements.comment.value;
-                        await window.handleLab(ackForm.id, dialog.dataset.labFiling, 'ackLab', fileSelected);
+                        const confirmed = await window.handleLab(ackForm.id, dialog.dataset.labFiling, 'ackLab', fileSelected);
+                        if (confirmed === true) dialog.close();
                     } else {
                         await fileSelected();
                     }

@@ -4,10 +4,12 @@ package io.github.carlos_emr.carlos.lab.service;
 import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.commn.model.Property;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -24,6 +26,7 @@ import static org.mockito.ArgumentMatchers.*;
 @Tag("unit")
 class LabFilingServiceUnitTest extends CarlosUnitTestBase {
     private final ProviderLabRoutingDao routes = mock(ProviderLabRoutingDao.class);
+    private final PatientLabRoutingDao patients = mock(PatientLabRoutingDao.class);
     private final PropertyDao properties = mock(PropertyDao.class);
     private final ProviderDao providers = mock(ProviderDao.class);
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
@@ -34,13 +37,15 @@ class LabFilingServiceUnitTest extends CarlosUnitTestBase {
     void fixture() {
         var ds = new JdbcDataSource();
         ds.setURL("jdbc:h2:mem:labFilingUnit");
-        service = spy(new LabFilingService(routes, properties, providers, security, new DataSourceTransactionManager(ds)));
+        service = spy(new LabFilingService(routes, patients, properties, providers, security, new DataSourceTransactionManager(ds)));
         // Deliberately nonnumeric version order: 90 is older than 30, 10 is newer.
         doReturn(List.of(90)).when(service).olderVersions(30);
         Provider actor = new Provider(); actor.setFirstName("Reviewer"); actor.setLastName("Test");
         when(info.getLoggedInProvider()).thenReturn(actor);
         when(info.getLoggedInProviderNo()).thenReturn("100001");
         when(security.hasPrivilege(info, "_lab", "w", null)).thenReturn(true);
+        when(patients.findByLabNoAndLabType(30, "HL7")).thenReturn(List.of(new PatientLabRouting(30, "HL7", 321)));
+        when(security.hasPrivilege(info, "_lab", "w", "321")).thenReturn(true);
         Provider target = new Provider(); target.setFirstName("Target"); target.setLastName("Test");
         when(providers.getProvider("100002")).thenReturn(target);
         when(properties.isActiveBooleanProperty(Property.PROPERTY_KEY.hl7_allow_others_file_for_you, "100002")).thenReturn(true);
@@ -82,6 +87,24 @@ class LabFilingServiceUnitTest extends CarlosUnitTestBase {
     void shouldRejectFiling_whenWritePrivilegeMissing() {
         when(security.hasPrivilege(info, "_lab", "w", null)).thenReturn(false);
         assertThatThrownBy(() -> file(List.of("100002"))).isInstanceOf(SecurityException.class); noWrites();
+    }
+    @Test
+    void shouldRejectPatientSpecificDenial_whenGlobalWriteIsAllowed() {
+        when(security.hasPrivilege(info, "_lab", "w", "321")).thenReturn(false);
+        assertThatThrownBy(() -> file(List.of("100002"))).isInstanceOf(SecurityException.class); noWrites();
+    }
+    @Test
+    void shouldCheckOlderPatientBeforeAnyWrite_whenVersionsHaveDifferentPatientRoutes() {
+        when(patients.findByLabNoAndLabType(90, "HL7")).thenReturn(List.of(new PatientLabRouting(90, "HL7", 654)));
+        when(security.hasPrivilege(info, "_lab", "w", "654")).thenReturn(false);
+        assertThatThrownBy(() -> file(List.of("100002"))).isInstanceOf(SecurityException.class); noWrites();
+        verify(security).hasPrivilege(info, "_lab", "w", "321");
+    }
+    @Test
+    void shouldRetainGlobalAuthorizationForUnmatchedLabs_whenNoPatientIsLinked() {
+        when(patients.findByLabNoAndLabType(30, "HL7")).thenReturn(List.of(new PatientLabRouting(30, "HL7", 0)));
+        assertThat(file(List.of("100002"))).isEqualTo(1);
+        verify(security, never()).hasPrivilege(info, "_lab", "w", "0");
     }
     @Test
     void shouldPreserveAcknowledgedAndFiledRows_whenOlderVersionAlreadyHandled() {

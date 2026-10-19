@@ -4,9 +4,11 @@ package io.github.carlos_emr.carlos.lab.service;
 import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -29,10 +31,12 @@ import static org.mockito.ArgumentMatchers.*;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class LabFilingServiceIntegrationTest extends CarlosTestBase {
     @Autowired private ProviderLabRoutingDao routes;
+    @Autowired private PatientLabRoutingDao patients;
     @Autowired private PlatformTransactionManager transactions;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager em;
     private final LoggedInInfo info = mock(LoggedInInfo.class);
     private LabFilingService service;
+    private SecurityInfoManager security;
     private TransactionTemplate tx;
     private MockedStatic<LogAction> audit;
     private static final int REVIEWED = 9835030;
@@ -44,6 +48,7 @@ class LabFilingServiceIntegrationTest extends CarlosTestBase {
         tx.executeWithoutResult(status -> {
             em.createNativeQuery("CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)").executeUpdate();
             for (int id : List.of(REVIEWED, OLDER, NEWER)) {
+                patients.persist(new PatientLabRouting(id, "HL7", 9835001));
                 for (String state : List.of("N", "A")) {
                     var row = new ProviderLabRoutingModel(); row.setLabNo(id); row.setLabType("HL7");
                     row.setProviderNo("100002"); row.setStatus(state); row.setComment("Existing " + state + ("N".equals(state) ? "x".repeat(250) : ""));
@@ -52,19 +57,22 @@ class LabFilingServiceIntegrationTest extends CarlosTestBase {
             }
         });
         var providers = mock(ProviderDao.class); var properties = mock(PropertyDao.class);
-        var security = mock(SecurityInfoManager.class); var provider = new Provider();
+        security = mock(SecurityInfoManager.class); var provider = new Provider();
         provider.setFirstName("Synthetic"); provider.setLastName("Reviewer");
         when(info.getLoggedInProvider()).thenReturn(provider); when(info.getLoggedInProviderNo()).thenReturn("100001");
         when(providers.getProvider("100002")).thenReturn(provider);
         when(properties.isActiveBooleanProperty(any(io.github.carlos_emr.carlos.commn.model.Property.PROPERTY_KEY.class), eq("100002"))).thenReturn(true);
         when(security.hasPrivilege(info, "_lab", "w", null)).thenReturn(true);
-        service = spy(new LabFilingService(routes, properties, providers, security, transactions));
+        when(security.hasPrivilege(info, "_lab", "w", "9835001")).thenReturn(true);
+        service = spy(new LabFilingService(routes, patients, properties, providers, security, transactions));
         doReturn(List.of(OLDER)).when(service).olderVersions(REVIEWED);
         audit = mockStatic(LogAction.class);
     }
     @AfterEach void cleanup() {
         if (audit != null) audit.close();
         tx.executeWithoutResult(status -> {
+            em.createQuery("delete from PatientLabRouting where labNo in :ids and labType = 'HL7'")
+                    .setParameter("ids", List.of(REVIEWED, OLDER, NEWER)).executeUpdate();
             em.createQuery("delete from ProviderLabRoutingModel where labNo in :ids")
                     .setParameter("ids", List.of(REVIEWED, OLDER, NEWER)).executeUpdate();
             em.createNativeQuery("delete from providerLabRoutingLock where lab_no in (?1, ?2, ?3)")
@@ -105,6 +113,13 @@ class LabFilingServiceIntegrationTest extends CarlosTestBase {
         assertThatThrownBy(() -> service.fileForProviders(info, REVIEWED, "HL7", List.of("100002", "100003"), null, true))
                 .isInstanceOf(SecurityException.class);
         assertThat(states(REVIEWED)).containsExactly("A", "N");
+        audit.verifyNoInteractions();
+    }
+    @Test void shouldLeaveAllVersionsUnchanged_whenPatientSpecificWriteIsDenied() {
+        when(security.hasPrivilege(info, "_lab", "w", "9835001")).thenReturn(false);
+        assertThatThrownBy(this::file).isInstanceOf(SecurityException.class);
+        assertThat(states(REVIEWED)).containsExactly("A", "N");
+        assertThat(states(OLDER)).containsExactly("A", "N");
         audit.verifyNoInteractions();
     }
 }

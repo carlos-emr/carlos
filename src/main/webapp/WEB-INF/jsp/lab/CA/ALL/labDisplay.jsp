@@ -723,7 +723,7 @@ input[id^='acklabel_']{
                                 console.log("Acknowledge confirmed. Labid: " + labid);
                                 return Promise.resolve(beforeAcknowledge ? beforeAcknowledge() : undefined).then(function () {
                                     document.getElementById("labStatus_" + labid).value = "A";
-                                    updateStatus(formid, labid);
+                                    return updateStatus(formid, Boolean(beforeAcknowledge));
                                 });
                             }
                         } else if (action === 'msgLab') {
@@ -757,7 +757,7 @@ input[id^='acklabel_']{
                             if (confirmAckUnmatched()) {
                                 return Promise.resolve(beforeAcknowledge ? beforeAcknowledge() : undefined).then(function () {
                                     document.getElementById("labStatus_" + labid).value = "A";
-                                    updateStatus(formid, labid);
+                                    return updateStatus(formid, Boolean(beforeAcknowledge));
                                 });
                             } else {
                                 matchMe();

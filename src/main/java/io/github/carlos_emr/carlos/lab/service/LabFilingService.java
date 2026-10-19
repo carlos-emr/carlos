@@ -16,6 +16,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -31,14 +32,16 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 @Service
 public class LabFilingService {
     private final ProviderLabRoutingDao routingDao;
+    private final PatientLabRoutingDao patientRoutingDao;
     private final PropertyDao propertyDao;
     private final ProviderDao providerDao;
     private final SecurityInfoManager security;
     private final TransactionTemplate transaction;
 
-    public LabFilingService(ProviderLabRoutingDao routingDao, PropertyDao propertyDao,
+    public LabFilingService(ProviderLabRoutingDao routingDao, PatientLabRoutingDao patientRoutingDao, PropertyDao propertyDao,
             ProviderDao providerDao, SecurityInfoManager security, PlatformTransactionManager transactions) {
         this.routingDao = routingDao;
+        this.patientRoutingDao = patientRoutingDao;
         this.propertyDao = propertyDao;
         this.providerDao = providerDao;
         this.security = security;
@@ -79,6 +82,20 @@ public class LabFilingService {
             versions.add(labNo);
             // A consistent numeric lock order prevents deadlocks; selection uses VERSION order.
             for (int version : versions) routingDao.lockRoutingReport(version);
+            // Patient-specific restrictions override global write access. Resolve every affected
+            // version on the server, after acquiring the report locks and before any mutation.
+            var patients = new LinkedHashSet<Integer>();
+            for (int version : versions) {
+                for (var route : patientRoutingDao.findByLabNoAndLabType(version, labType)) {
+                    Integer patient = route.getDemographicNo();
+                    if (patient != null && patient > 0) patients.add(patient);
+                }
+            }
+            for (int patient : patients) {
+                if (!security.hasPrivilege(info, "_lab", "w", String.valueOf(patient))) {
+                    throw new SecurityException("Missing patient-specific lab write access");
+                }
+            }
             List<Provider> providers = new ArrayList<>();
             for (String target : targets) {
                 Provider provider = providerDao.getProvider(target);
