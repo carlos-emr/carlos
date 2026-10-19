@@ -10939,6 +10939,19 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "portal-booking-prompt",
+      "script": "scripts/portal-booking-prompt-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": ["PORTAL_BOOKING_SCREENSHOT", "CHROME_PATH"]
     }
   ]
 }
