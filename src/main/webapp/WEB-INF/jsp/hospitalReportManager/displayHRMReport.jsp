@@ -16,6 +16,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMReportPatientLink" %>
 <%@page import="java.util.Objects" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -103,7 +104,8 @@
             hrmDuplicateNum = document.getNumDuplicatesReceived();
 
             demographicLinkList = hrmDocumentToDemographicDao.findByHrmDocumentId(document.getId());
-            demographicLink = (demographicLinkList.size() > 0 ? demographicLinkList.get(0) : null);
+            // The patient buttons act for the patient whose chart opened the report, when it is linked to them (#5060).
+            demographicLink = HRMReportPatientLink.choose(demographicLinkList, request.getParameter("demographicNo"));
 
             providerLinkList = hrmDocumentToProviderDao.findByHrmDocumentIdNoSystemUser(document.getId());
 
