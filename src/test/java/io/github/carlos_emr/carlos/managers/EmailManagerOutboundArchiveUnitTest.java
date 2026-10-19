@@ -114,6 +114,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                 outboundEmailArchiveService);
         injectDependency(emailManager, "oscarLogDao", mock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class));
         when(emailLogDao.transitionEmailStatus(any(), any(), any(), any(), any())).thenReturn(1);
+        injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "caseManagementManager", mock(CaseManagementManager.class));
@@ -177,6 +178,106 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM archive_capture", Integer.class)).isEqualTo(1);
         } finally {
             jdbc.execute("SHUTDOWN");
+        }
+    }
+
+    @Test
+    void shouldFreezeClinicAcrossPreparedArchiveGateAndActualMimeTransport() throws Exception {
+        var clinic = mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
+        var oldLogo = new io.github.carlos_emr.carlos.email.core.EmailInlineImage(
+                "old-clinic@carlos", "image/png", new byte[]{1, 2, 3});
+        var original = new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("<b>Old Clinic</b>", oldLogo);
+        var current = new java.util.concurrent.atomic.AtomicReference<>(original);
+        when(clinic.snapshot()).thenAnswer(invocation -> current.get());
+        injectDependency(emailManager, "clinicFooterService", clinic);
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        doAnswer(invocation -> { injectDependency(invocation.getArgument(0), "id", 88);
+            return null;
+        })
+                .when(emailLogDao).persist(any(EmailLog.class));
+        var capturedMime = new java.util.concurrent.atomic.AtomicReference<byte[]>();
+        var mail = new org.springframework.mail.javamail.JavaMailSenderImpl() {
+            @Override
+            public void send(jakarta.mail.internet.MimeMessage message) {
+                try {
+                    var out = new java.io.ByteArrayOutputStream();
+                    message.writeTo(out);
+                    capturedMime.set(out.toByteArray());
+                } catch (Exception failure) { throw new AssertionError(failure); }
+            }
+        };
+        var factory = new io.github.carlos_emr.carlos.email.core.EmailSenderFactory() {
+            @Override
+            public EmailSender create(LoggedInInfo user, EmailConfig config, EmailData data) {
+                var transport = new SMTPEmailSender(user, config, data.getRecipients(), data.getSubject(),
+                        data.getTransmittedBody(), List.of()) {
+                    @Override
+                    protected JavaMailSender createTLSMailSender(EmailConfig ignored) { return mail; }
+                };
+                transport.setFormattedVersion(data.getTransmittedHtml(), data.getFooterLogo());
+                return new EmailSender(user, config, data) {
+                    @Override
+                    public OutboundEmailArchiveDto prepareOutboundArchive(EmailLog log)
+                            throws EmailSendingException {
+                        var dto = new OutboundEmailArchiveDto();
+                        dto.setEmailLog(log);
+                        dto.setArtifactBytes(transport.prepareArtifactBytes());
+                        dto.setArtifactType(transport.getArchiveArtifactType());
+                        dto.setFileName(transport.getArchiveFileName(log));
+                        dto.setContentType(transport.getArchiveContentType());
+                        dto.setAttachments(List.of());
+                        return dto;
+                    }
+                    @Override public void sendPrepared() throws EmailSendingException { transport.sendPrepared(); }
+                    @Override public void discardPrepared() { transport.discardPrepared(); }
+                };
+            }
+        };
+        injectDependency(emailManager, "emailSenderFactory", factory);
+        EmailData data = emailData();
+        data.setFooter("<i>Personal</i>");
+        data.setClinicFooterSnapshot(original);
+        var result = emailManager.sendEmailWithResult(loggedInInfo, data, log -> {
+            var archive = ArgumentCaptor.forClass(OutboundEmailArchiveDto.class);
+            try {
+                verify(outboundEmailArchiveService).archive(eq(loggedInInfo), archive.capture());
+            } catch (IOException impossible) {
+                throw new AssertionError(impossible);
+            }
+            assertThat(archive.getValue().getArtifactBytes()).isNotEmpty();
+            assertThat(capturedMime.get()).isNull();
+            current.set(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("New Clinic", null));
+            oldLogo.bytes()[0] = 99;
+        });
+        assertThat(result.isTransportAccepted()).isTrue();
+        assertThat(result.getEmailLog().getFooter()).contains("Personal", "Old Clinic").doesNotContain("New Clinic");
+        var archive = ArgumentCaptor.forClass(OutboundEmailArchiveDto.class);
+        verify(outboundEmailArchiveService).archive(eq(loggedInInfo), archive.capture());
+        assertThat(capturedMime.get()).isEqualTo(archive.getValue().getArtifactBytes());
+        var mime = new jakarta.mail.internet.MimeMessage(jakarta.mail.Session.getInstance(new java.util.Properties()),
+                new java.io.ByteArrayInputStream(capturedMime.get()));
+        var parts = new ArrayList<String>();
+        var logos = new ArrayList<byte[]>();
+        collectMimeParts(mime, parts, logos);
+        assertThat(parts).hasSize(2).allSatisfy(text -> {
+            assertThat(text).contains("Personal", "Old Clinic").doesNotContain("New Clinic");
+            assertThat(text.indexOf("Personal")).isLessThan(text.indexOf("Old Clinic"));
+        });
+        assertThat(logos).hasSize(1);
+        assertThat(logos.get(0)).containsExactly((byte) 1, (byte) 2, (byte) 3);
+        verify(clinic, org.mockito.Mockito.times(1)).snapshot();
+    }
+
+    private static void collectMimeParts(jakarta.mail.Part part, List<String> text, List<byte[]> logos)
+            throws Exception {
+        if (part.isMimeType("multipart/*")) {
+            var multi = (jakarta.mail.Multipart) part.getContent();
+            for (int i = 0; i < multi.getCount(); i++) collectMimeParts(multi.getBodyPart(i), text, logos);
+        } else if (part.isMimeType("text/plain") || part.isMimeType("text/html")) {
+            text.add((String) part.getContent());
+        } else if (part.isMimeType("image/png")) {
+            assertThat(part.getHeader("Content-ID")).containsExactly("<old-clinic@carlos>");
+            logos.add(part.getInputStream().readAllBytes());
         }
     }
 
@@ -695,6 +796,148 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (SMTP recipient failure)");
             assertThat(emailLog.getErrorMessage()).doesNotContain(untrustedProviderText);
             assertThat(emailLog.getErrorMessage()).doesNotContain("patient@example.test");
+        }
+    }
+
+    @Test
+    @DisplayName("should label a refused sender and report the refusal on the result")
+    void shouldReportSenderRefusal_whenServerRefusesMailFrom() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 49);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        when(emailLogDao.transitionEmailStatus(eq(49), eq(EmailLog.EmailStatus.PENDING),
+                eq(EmailLog.EmailStatus.FAILED), any(String.class), any())).thenReturn(1);
+
+        // The shape Angus throws for a non-250 reply to MAIL FROM, as Spring aggregates it.
+        String untrustedProviderText = "550 5.7.1 <clinic@example.test> sender rejected";
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new org.eclipse.angus.mail.smtp.SMTPSendFailedException(
+                "MAIL FROM:<clinic@example.test>", 550, untrustedProviderText, null, null, null, null));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("SMTP failed before accepting the message.", aggregated,
+                            EmailSendingException.Refusal.SENDER))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.getTransportOutcome()).isEqualTo(
+                    io.github.carlos_emr.carlos.email.core.EmailSendResult.TransportOutcome.FAILED);
+            assertThat(result.isTransportOutcomeRecorded()).isTrue();
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.SENDER);
+            assertThat(result.getEmailLog().getErrorMessage())
+                    .isEqualTo("Failed to send email (SMTP sender refused)")
+                    .doesNotContain(untrustedProviderText)
+                    .doesNotContain("clinic@example.test");
+        }
+    }
+
+    @Test
+    @DisplayName("should still report the refusal when the FAILED status cannot be recorded")
+    void shouldReportRefusal_whenFailedStatusCannotBeRecorded() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 52);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        doThrow(new IllegalStateException("status write failed"))
+                .when(emailLogDao).transitionEmailStatus(eq(52), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new org.eclipse.angus.mail.smtp.SMTPSendFailedException(
+                "MAIL FROM:<clinic@example.test>", 553, "553 rejected", null, null, null, null));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("SMTP failed before accepting the message.", aggregated,
+                            EmailSendingException.Refusal.SENDER))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.isTransportOutcomeRecorded()).isFalse();
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.SENDER);
+        }
+    }
+
+    @Test
+    @DisplayName("should carry a refused recipient through to the result")
+    void shouldReportRecipientRefusal_whenServerRefusesRcptTo() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 50);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        when(emailLogDao.transitionEmailStatus(eq(50), eq(EmailLog.EmailStatus.PENDING),
+                eq(EmailLog.EmailStatus.FAILED), any(String.class), any())).thenReturn(1);
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new jakarta.mail.SendFailedException("Invalid Addresses"));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("SMTP failed before accepting the message.", aggregated,
+                            EmailSendingException.Refusal.RECIPIENT))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.RECIPIENT);
+            assertThat(result.getEmailLog().getErrorMessage()).isEqualTo("Failed to send email (SMTP recipient failure)");
+        }
+    }
+
+    @Test
+    @DisplayName("should label a DATA-stage failure neutrally and report no refused address")
+    void shouldLabelMessageTransferFailure_whenServerFailsAfterData() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 51);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new org.eclipse.angus.mail.smtp.SMTPSendFailedException(
+                ".", 554, "554 5.7.1 message content rejected", null, null, null, null));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    // The sender keeps an end-of-data (".") refusal uncertain (#3857); only the label changes.
+                    doThrow(new EmailSendingException("SMTP transport did not confirm whether the message was accepted.",
+                            aggregated, true))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.isDeliveryUnconfirmed()).isTrue();
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.NONE);
+            // Neutral: the row stays PENDING, and the message may have been delivered.
+            assertThat(result.getEmailLog().getErrorMessage()).isEqualTo("Failed to send email (SMTP message transfer failure)");
         }
     }
 

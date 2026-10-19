@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
@@ -173,6 +174,23 @@ class ConsentServiceEndpointTest extends CarlosRestTestBase {
             var wireJson = responseJson(response);
             assertThat(wireJson.at("/body").textValue()).isEqualTo("Consent type added successfully.");
             assertThat(wireJson.at("/status").textValue()).isEqualTo("SUCCESS");
+        }
+
+        @Test
+        @DisplayName("should return 403, not a server error, when the user lacks admin write privilege")
+        void shouldReturn403_whenAdminWriteDenied() {
+            ConsentTypeTo1 input = new ConsentTypeTo1();
+            input.setName("New Consent");
+            input.setDescription("Test description");
+            input.setType("1");
+            input.setActive(true);
+            when(mockPatientConsentManager.addConsentType(any(), any()))
+                .thenThrow(new SecurityException("missing required sec object (_admin)"));
+
+            Response response = request().path("/consentService/consentType")
+                .post(Entity.json(input));
+
+            assertThat(response.getStatus()).isEqualTo(403);
         }
     }
 }

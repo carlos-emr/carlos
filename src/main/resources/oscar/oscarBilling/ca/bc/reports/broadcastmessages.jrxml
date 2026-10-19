@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport name="broadcastmessages" pageWidth="535" pageHeight="842" columnWidth="535" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
 	<property name="ireport.scriptlethandling" value="0" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
-	<parameter name="s21id" class="java.lang.String" isForPrompting="false" />
-	<queryString>
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
+	<parameter name="s21id" class="java.lang.String" forPrompting="false" />
+	<query>
 		<![CDATA[select t_practitionerno,t_linecode,t_message
 FROM teleplanS25
 where s21_id=$P{s21id}
 order by s25_id]]>
-	</queryString>
+	</query>
 	<field name="t_linecode" class="java.lang.String" />
 	<field name="t_message" class="java.lang.String" />
 	<field name="t_practitionerno" class="java.lang.String" />
 	<variable name="test" class="java.lang.String" resetType="None">
-		<variableExpression><![CDATA["test"]]></variableExpression>
+		<expression><![CDATA["test"]]></expression>
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
 	<background splitType="Stretch">
@@ -32,14 +32,10 @@ order by s25_id]]>
 			<text><![CDATA[Broadcast Messages]]></text>
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="31" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="3" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 	</title>
 	<pageHeader splitType="Stretch">

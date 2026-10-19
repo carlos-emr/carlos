@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @DisplayName("Development Administration seed regressions")
 @Tag("unit")
@@ -33,8 +34,16 @@ class DevelopmentAdminSeedRegressionTest {
     private static final Path DEV_PROPERTIES = Path.of(
             ".devcontainer", "development", "config", "shared", "volumes", "carlos.properties");
     private static final Path DEBIAN_RULES = Path.of("debian", "rules");
-    private static final Path DEB_DBOPS = Path.of(
-            "debian", "assets", "carlos_ctl", "dbops.py");
+    /**
+     * carlos-ctl is its own repository since the package split (#4001); its
+     * demo-data loader is read from the checkout {@code CARLOS_CTL_SRC} names
+     * (CI clones the release {@code debian/carlos-ctl.pin} pins) or from the
+     * installed package, and the assertions on it are skipped when neither
+     * is present rather than failing a build that has no CLI to read.
+     */
+    private static final Path DEB_DBOPS = Path.of("carlos_ctl", "dbops.py");
+    private static final String CARLOS_CTL_SRC_ENV = "CARLOS_CTL_SRC";
+    private static final Path INSTALLED_CARLOS_CTL = Path.of("/usr/lib/carlos-ctl");
 
     /**
      * Surefire and IDEs do not agree on the working directory, so source-tree
@@ -84,7 +93,7 @@ class DevelopmentAdminSeedRegressionTest {
     @DisplayName("should ship the admin fixtures with the deb demo dataset, loaded last")
     void shouldShipAdminFixtures_withDebDemoData() throws IOException {
         String rules = readProjectFile(DEBIAN_RULES);
-        String dbops = readProjectFile(DEB_DBOPS);
+        String dbops = readCarlosCtlFile(DEB_DBOPS);
 
         assertThat(rules)
                 .as("debian/rules must stage the seed next to the other demo pieces")
@@ -111,7 +120,7 @@ class DevelopmentAdminSeedRegressionTest {
         String seed = readProjectFile(ADMIN_SEED);
         String account = readProjectFile(ADMIN_ACCOUNT);
         String rules = readProjectFile(DEBIAN_RULES);
-        String dbops = readProjectFile(DEB_DBOPS);
+        String dbops = readCarlosCtlFile(DEB_DBOPS);
 
         // The deb demo load never introduces security rows (demo-additive-exclude
         // SEC section; the hash is the published dev hash bootstrap-admin removes).
@@ -207,6 +216,17 @@ class DevelopmentAdminSeedRegressionTest {
                 .contains("LOCAL-COVID-2026-B")
                 .contains("LOCAL-DTAP-ARCHIVED")
                 .doesNotContain("INSERT INTO demographic ");
+    }
+
+    private static String readCarlosCtlFile(Path relativePath) throws IOException {
+        String configured = System.getenv(CARLOS_CTL_SRC_ENV);
+        Path root = configured != null && !configured.isBlank()
+                ? Path.of(configured) : INSTALLED_CARLOS_CTL;
+        Path candidate = root.resolve(relativePath);
+        assumeTrue(Files.isRegularFile(candidate),
+                "no carlos-ctl checkout: set " + CARLOS_CTL_SRC_ENV
+                        + " to a checkout of carlos-emr/carlos-ctl (" + candidate + ")");
+        return Files.readString(candidate, StandardCharsets.UTF_8);
     }
 
     private static String readProjectFile(Path relativePath) throws IOException {

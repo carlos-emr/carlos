@@ -458,7 +458,18 @@ public class HRMReportParser {
             return false;
         }
 
-        logger.info("Routing Report to Provider, for file:" + report.getFileLocation());
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        return Boolean.TRUE.equals(transaction.execute(status -> {
+            if (SpringUtils.getBean(HRMDocumentDao.class).findForUpdate(reportId) == null) {
+                throw new IllegalArgumentException("HRM report does not exist");
+            }
+            return routeReportToProviderLocked(report, reportId);
+        }));
+    }
+
+    private static boolean routeReportToProviderLocked(HRMReport report, Integer reportId) {
+        logger.info("Routing HRM report {} to delivered recipients", reportId);
 
         HRMDocumentToProviderDao hrmDocumentToProviderDao = SpringUtils.getBean(HRMDocumentToProviderDao.class);
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -514,6 +525,13 @@ public class HRMReportParser {
                 providerRouting.setSignedOff(0);
 
                 hrmDocumentToProviderDao.merge(providerRouting);
+            } else {
+                for (HRMDocumentToProvider existing : existingHRMDocumentToProviders) {
+                    if (existing.getMrpDemographicNo() != null) {
+                        existing.setMrpDemographicNo(null);
+                        hrmDocumentToProviderDao.merge(existing);
+                    }
+                }
             }
 
             //Gets the list of IncomingLabRules pertaining to the current providers
@@ -536,6 +554,9 @@ public class HRMReportParser {
                             hrmDocumentToProvider.setSignedOff(0);
                             //Stores it in the table
                             hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
+                        } else if (hrmDocumentToProvider.getMrpDemographicNo() != null) {
+                            hrmDocumentToProvider.setMrpDemographicNo(null);
+                            hrmDocumentToProviderDao.merge(hrmDocumentToProvider);
                         }
                     }
                 }

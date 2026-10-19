@@ -169,7 +169,8 @@ class RemovedJspReferenceRegressionTest {
                 .contains("<carlos:encode value='<%= StringUtils.trimToEmpty((String) relHash.get(\"firstName\")) %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= dContact.getRole() %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= dContact.getContactName() %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= demographic.getRosterStatusDisplay() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= demographic.getRosterStatusDisplay("
+                        + "LocaleUtils.resolveBundleLocale(request)) %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= demographic.getPatientStatus() %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getChartNo()) %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= OtherIdManager.getDemoOtherId(demographic_no, \"meditech_id\") %>' context=\"html\"/>")
@@ -228,7 +229,9 @@ class RemovedJspReferenceRegressionTest {
 
         assertThat(jsp.indexOf("/library/jquery/jquery-3.7.1.min.js"))
                 .isPositive()
-                .isLessThan(jsp.indexOf("$(\"#providers-selection\")"));
+                .isLessThan(jsp.indexOf("$(\"#provider-selection\")"));
+        // The select is #provider-selection; a handler on #providers-selection never fires (#4131).
+        assertThat(jsp).doesNotContain("#providers-selection");
     }
 
     @Test

@@ -230,7 +230,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
             // When
             try {
                 preventionManager.getPreventionsByDemographicNo(mockLoggedInInfo, TEST_DEMO_NO);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException _) {
                 // expected
             }
 
@@ -586,8 +586,8 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
         }
 
         @Test
-        @DisplayName("should report disabled when no stop sign properties exist")
-        void shouldReturnDisabled_whenNoPropertiesExist() {
+        @DisplayName("should enable notifications when no stop sign properties exist")
+        void shouldReturnEnabled_whenNoPropertiesExist() {
             // Given - no properties in database
             when(mockPropertyDao.findByName("hide_prevention_stop_signs"))
                 .thenReturn(Collections.emptyList());
@@ -596,7 +596,9 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
             boolean result = preventionManager.isDisabled();
 
             // Then
-            assertThat(result).isTrue();
+            assertThat(result).isFalse();
+            assertThat(preventionManager.checkNames("[Flu=FAKE overdue warning]"))
+                    .isEqualTo("[FAKE overdue warning]");
         }
 
         @Test

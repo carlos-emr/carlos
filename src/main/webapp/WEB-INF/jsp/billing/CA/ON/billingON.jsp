@@ -21,8 +21,12 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingON in the Ontario billing workflow.
-  Expected request model data includes: formModel.
+  Purpose: Enter Ontario billing claims before reviewing calculated fees.
+  Features: provider and payer selection, service codes/units/percent, visit and referral details,
+    input validation, and admission-date retention for hospital/nursing-home visits outside RMA.
+  Parameters: formModel request attribute supplies patient, provider, visit, service, payer and
+    multisite state; named form fields carry the entered claim to the review action.
+  @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -199,10 +203,10 @@
 
         function checkServicePercent() {
             var ret = true;
-            var regInt = /^-?\d+\.\d+$/;
-            jQuery("input[id^='serviceAt'][value!='']").each(function () {
+            var regInt = /^-?\d+(\.\d+)?$/;
+            jQuery("input[name^='serviceAt']").each(function () {
                 var val = this.value.trim();
-                if (val.length > 0 && !regInt.test(val)) {
+                if (val.length > 4 || (val.length > 0 && !regInt.test(val))) {
                     ret = false;
                     return false;
                 }
@@ -248,7 +252,8 @@
         }
 
         function updateDate() {
-            if (!document.forms[0].xml_visittype.options[2].selected || !document.forms[0].xml_visittype.options[4].selected) {
+            var visitType = document.forms[0].xml_visittype.value.split("|")[0].trim();
+            if (${carlos:forJavaScript(formModel.multisite.rmaEnabled)} || (visitType !== "02" && visitType !== "04")) {
                 document.getElementById("xml_vdate").value = "";  //only nursing homes and hospitals have admission dates
             }
         }

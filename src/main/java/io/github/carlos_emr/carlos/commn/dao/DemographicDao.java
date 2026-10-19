@@ -40,6 +40,8 @@ import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
+import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
+import io.github.carlos_emr.carlos.demographic.data.DemographicListSearch;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -51,6 +53,9 @@ import org.springframework.context.ApplicationEventPublisher;
  *
  */
 public interface DemographicDao {
+
+    /** Maximum number of patient search results returned in one request. */
+    int MAX_SEARCH_RESULT_SIZE = 500;
 
     public List<Integer> getMergedDemographics(Integer demographicNo);
 
@@ -118,9 +123,24 @@ public interface DemographicDao {
                                                               int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses,
                                                               boolean ignoreMerged);
 
+    /** Returns merge-page results with domain filtering and stable ordering before pagination. */
+    List<Demographic> searchForMerge(DemographicMergeSearch search, String providerNo, boolean outOfDomain);
+
+    /** Returns current patients in database order, including one possible lookahead row beyond the page limit. */
+    List<Demographic> searchForPatientList(DemographicListSearch search, String providerNo, boolean outOfDomain);
+
     public List<Demographic> searchMergedDemographicByName(String searchStr, int limit, int offset, String providerNo,
                                                            boolean outOfDomain);
 
+    /**
+     * Searches demographics by date of birth.
+     *
+     * <p>All {@code searchDemographicByDOB*} and {@code searchMergedDemographicByDOB} overloads share
+     * one keyword grammar, parsed by {@link io.github.carlos_emr.carlos.demographic.data.DobSearchPattern}:
+     * {@code YYYY}, {@code YYYY-MM} or {@code YYYY-MM-DD}, with {@code %} allowed as a whole-segment
+     * wildcard (for example {@code 1975-%-05}). A keyword outside that grammar returns an empty list,
+     * never {@code null}.</p>
+     */
     public List<Demographic> searchDemographicByDOB(String dobStr, int limit, int offset, String providerNo,
                                                     boolean outOfDomain);
 

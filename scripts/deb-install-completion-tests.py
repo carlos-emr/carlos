@@ -8,8 +8,14 @@ import tempfile
 import types
 import unittest
 from unittest.mock import patch
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'debian/assets'))
-from carlos_ctl import provision as p
+import os
+# The carlos-ctl package is its own repository since the split
+# (carlos-emr/carlos-ctl): import it from a checkout named by CARLOS_CTL_SRC,
+# from whatever is already importable, or from the installed package.
+for _cand in (os.environ.get("CARLOS_CTL_SRC"), "/usr/lib/carlos-ctl"):
+    if _cand and os.path.isdir(os.path.join(_cand, "carlos_ctl")) and _cand not in sys.path:
+        sys.path.insert(0, _cand)
+from carlos_ctl import provision as p  # noqa: E402
 
 class RecoveryFailures(unittest.TestCase):
     def setUp(self):

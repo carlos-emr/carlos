@@ -30,6 +30,15 @@ class EFormUtilUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should allow the newline literals the bundled history AP keys join notes with")
+    void shouldAllow_newlineLiteralsInBundledHistorySql() {
+        assertThatCode(() -> EFormSqlSafety.validateLegacySqlSafety(
+                "SELECT GROUP_CONCAT(CONCAT(IFNULL(note, \"Please contact support\"), \"\\n\") SEPARATOR ' ')"
+                        + " AS familyHistory FROM casemgmt_note WHERE demographic_no = ?"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     @DisplayName("should reject unresolved template markers")
     void shouldReject_unresolvedTemplateMarkers() {
         assertThatThrownBy(() -> EFormSqlSafety.validateLegacySqlSafety(

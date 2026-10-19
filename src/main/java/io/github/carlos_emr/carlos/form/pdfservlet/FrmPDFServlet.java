@@ -23,6 +23,8 @@
  */
 package io.github.carlos_emr.carlos.form.pdfservlet;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import java.awt.*;
@@ -598,7 +600,7 @@ public class FrmPDFServlet extends HttpServlet {
                             encoding = BaseFont.CP1252;
                         }
 
-                        bf = BaseFont.createFont(fontType[0], encoding, BaseFont.NOT_EMBEDDED);
+                        bf = PdfFonts.createFont(fontType[0], encoding, BaseFont.NOT_EMBEDDED);
                         propValue = props.getProperty(tempName.toString());
                         //if not in regular config then check measurements
                         if (propValue == null) {

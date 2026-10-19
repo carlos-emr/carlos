@@ -85,6 +85,9 @@ public class NavBarDisplayDAO {
     private String reloadUrl = null;
     private String divId = null;
 
+    private boolean trackHeadingPopups;
+    /** Render rows filed under their {@link Item#getFolder()} instead of by date bucket. */
+    private boolean filedInFolders;
     private PopupConfig leftPopup;
     private PopupConfig rightPopup;
     private final ArrayList<PopupConfig> popUpMenuConfigs = new ArrayList<>();
@@ -255,6 +258,30 @@ public class NavBarDisplayDAO {
     }
 
     // --- Structured popup configuration methods (defense-in-depth, issue #1386) ---
+
+    public boolean isTrackHeadingPopups() {
+        return trackHeadingPopups;
+    }
+
+    public void setTrackHeadingPopups(boolean trackHeadingPopups) {
+        this.trackHeadingPopups = trackHeadingPopups;
+    }
+
+    /**
+     * Whether {@code LeftNavBarDisplay.jsp} files the rows into collapsible folders, one per distinct
+     * {@link Item#getFolder()}, rather than listing them by date. Used by the Documents panel when the
+     * provider's eChart preferences file documents by type.
+     *
+     * @return {@code true} when rows are rendered as folders
+     * @since 2026-10-16
+     */
+    public boolean isFiledInFolders() {
+        return filedInFolders;
+    }
+
+    public void setFiledInFolders(boolean filedInFolders) {
+        this.filedInFolders = filedInFolders;
+    }
 
     /**
      * Sets structured popup configuration for the left heading link.
@@ -437,8 +464,10 @@ public class NavBarDisplayDAO {
         private String bgColour;
         private Date date;
         private boolean URLJavaScript;
+        private String folder;
 
         public Item() {
+            folder = "";
             title = "";
             linkTitle = "";
             URL = "";
@@ -498,6 +527,19 @@ public class NavBarDisplayDAO {
 
         public boolean isURLJavaScript() {
             return URLJavaScript;
+        }
+
+        /**
+         * @return the folder the row is filed under when the panel is
+         *         {@linkplain NavBarDisplayDAO#isFiledInFolders() filed in folders}; plain text, never null
+         * @since 2026-10-16
+         */
+        public String getFolder() {
+            return folder;
+        }
+
+        public void setFolder(String folder) {
+            this.folder = folder == null ? "" : folder;
         }
 
         public void setURLJavaScript(boolean uRLJavaScript) {

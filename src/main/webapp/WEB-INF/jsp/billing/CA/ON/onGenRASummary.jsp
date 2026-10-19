@@ -106,6 +106,10 @@
     </tr>
     </thead>
     <tbody>
+    <%-- The last summary row is not rendered here (end = length - 2). With fewer than two
+         rows -- an RA with no lines for the chosen provider -- that end is negative and
+         c:forEach threw "'end' < 0", so the Summary opened on an error page (issue #4130). --%>
+    <c:if test="${fn:length(model.summaryRows) > 1}">
     <c:forEach var="row" items="${model.summaryRows}" varStatus="rs" end="${fn:length(model.summaryRows) - 2}">
         <tr class="${rs.index % 2 == 0 ? 'myGreen' : ''}">
             <td align="center"><carlos:encode value='${row["account"]}' context='html'/></td>
@@ -124,6 +128,7 @@
             <td width="0" style="display:none"><carlos:encode value='${row["site"]}' context='html'/></td>
         </tr>
     </c:forEach>
+    </c:if>
     </tbody>
     <tfoot>
     <tr class="myYellow">

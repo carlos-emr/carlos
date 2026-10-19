@@ -41,10 +41,15 @@ import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.LogEvent;
 import org.apache.struts2.ActionSupport;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -60,7 +65,14 @@ import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.ArrayList;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.carlos.demographic.data.DemographicData;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import org.springframework.test.util.ReflectionTestUtils;
+import static org.mockito.Mockito.mockConstruction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -94,6 +106,12 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     private ProviderDao mockProviderDao;
 
     private ImportDemographicDataAction42Action action;
+    private org.mockito.MockedStatic<io.github.carlos_emr.carlos.utility.SpringUtils> lockBeans;
+
+    @org.junit.jupiter.api.AfterEach
+    void restoreLockLookup() {
+        if (lockBeans != null) lockBeans.close();
+    }
 
     @BeforeEach
     void setUp() {
@@ -141,6 +159,24 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {".hidden.xml", "../patient.xml"})
+    void shouldReturnJsonWarning_whenUploadFilenameIsRejected(String name) throws Exception {
+        UploadedFile upload = mock(UploadedFile.class);
+        when(upload.getContent()).thenReturn(Files.createFile(tempDir.resolve("upload.tmp")).toFile());
+        when(upload.getOriginalName()).thenReturn(name);
+        action.withUploadedFiles(List.of(upload));
+        ReflectionTestUtils.setField(action, "importedPatients", 1);
+        ReflectionTestUtils.setField(action, "refusedPatients", 2);
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        var json = new ObjectMapper().readTree(getMockResponse().getContentAsString());
+        assertThat(json.get("warnings").get(0).asText()).isEqualTo(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        assertThat(json.get("importedPatients").asInt()).isZero();
+        assertThat(json.get("refusedPatients").asInt()).isZero();
+        assertThat(json.get("importLog").isNull()).isTrue();
+        assertThat(getMockResponse().getContentType()).startsWith("application/json");
     }
 
     @Test
@@ -210,6 +246,48 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo("logout");
     }
 
+    private void prepareLockResult(int lockResult) throws Exception {
+        javax.sql.DataSource dataSource = mock(javax.sql.DataSource.class);
+        java.sql.Connection connection = mock(java.sql.Connection.class);
+        java.sql.PreparedStatement statement = mock(java.sql.PreparedStatement.class);
+        java.sql.ResultSet resultSet = mock(java.sql.ResultSet.class);
+        // Replacing the shared Spring singleton destroys its dependent EntityManagerFactory.
+        // Scope only this lookup to the action test and preserve the integration context.
+        lockBeans = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class,
+                org.mockito.Mockito.CALLS_REAL_METHODS);
+        lockBeans.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(javax.sql.DataSource.class))
+                .thenReturn(dataSource);
+        when(dataSource.getConnection()).thenReturn(connection);
+        when(connection.prepareStatement(org.mockito.ArgumentMatchers.anyString())).thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getInt(1)).thenReturn(lockResult);
+    }
+
+    @Test
+    void shouldKeepSharedPersistenceOpen_whenPreparingImportLock() throws Exception {
+        var factory = applicationContext.getBean("entityManagerFactory", jakarta.persistence.EntityManagerFactory.class);
+        var source = applicationContext.getBean("dataSource");
+        prepareLockResult(0);
+        assertThat(factory.isOpen()).isTrue();
+        assertThat(applicationContext.getBean("entityManagerFactory")).isSameAs(factory);
+        assertThat(applicationContext.getBean("dataSource")).isSameAs(source);
+    }
+
+    @Test
+    void shouldReturnRetryWarningWithoutProcessingFile_whenAnotherImportOwnsLock() throws Exception {
+        prepareLockResult(0);
+        action.setImportFile(Files.createFile(tempDir.resolve("waiting.xml")).toFile());
+        action.setImportFileFileName("waiting.xml");
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        var json = new ObjectMapper().readTree(getMockResponse().getContentAsString());
+        assertThat(json.get("importedPatients").asInt()).isZero();
+        assertThat(json.get("refusedPatients").asInt()).isZero();
+        assertThat(json.get("importLog").isNull()).isTrue();
+        assertThat(json.get("warnings").get(0).asText()).contains("Another CDS import", "retry");
+        org.mockito.Mockito.verifyNoInteractions(mockNioFileManager);
+    }
+
     @Test
     @DisplayName("should set import response attributes when upload file and filename are present")
     void shouldSetImportResponseAttributes_whenUploadFileAndFilenameArePresent() throws Exception {
@@ -224,9 +302,14 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         action.setImportFile(uploadFile.toFile());
         action.setImportFileFileName("patient.txt");
 
+        prepareLockResult(1);
+
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
+        var json = new ObjectMapper().readTree(getMockResponse().getContentAsString());
+        assertThat(json.get("importedPatients").asInt()).isZero();
+        assertThat(json.get("refusedPatients").asInt()).isZero();
         @SuppressWarnings("unchecked")
         List<String> warnings = (List<String>) getMockRequest().getAttribute("warnings");
         assertThat(warnings).contains(NO_VALID_XML_WARNING);
@@ -235,6 +318,36 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         assertThat(getMockResponse().getContentAsString())
                 .contains(NO_VALID_XML_WARNING)
                 .contains("importLog");
+    }
+
+    @Test
+    void shouldCountRefusedPatient_withoutReusingPriorIdOrSchedulingContacts() throws Exception {
+        Path xml = tempDir.resolve("duplicate.xml");
+        Files.copy(Path.of("src/test/resources/demographic/cds-import-summary.xml"), xml);
+        action.demographicNo = "123";
+        action.demographic = new Demographic();
+        ReflectionTestUtils.setField(action, "importedPatients", 1);
+        ArrayList<String> warnings = new ArrayList<>();
+        ArrayList<String[]> logs = new ArrayList<>();
+        List<Path> contacts = new ArrayList<>();
+        Method process = ImportDemographicDataAction42Action.class.getDeclaredMethod("processXmlFile",
+                LoggedInInfo.class, Path.class, Path.class, ArrayList.class, ArrayList.class,
+                jakarta.servlet.http.HttpServletRequest.class, int.class, List.class, int.class, List.class);
+        process.setAccessible(true);
+        try (var demographics = mockConstruction(DemographicData.class, (mock, context) ->
+                when(mock.getDemographicWithLastFirstDOB(any(), any(), any(), any()))
+                        .thenReturn(new ArrayList<>(List.of(new Demographic()))))) {
+            process.invoke(action, mockLoggedInInfo, xml, tempDir, warnings, logs, getMockRequest(), 0, null, 0, contacts);
+        }
+        assertThat(ReflectionTestUtils.getField(action, "importedPatients")).isEqualTo(1);
+        assertThat(ReflectionTestUtils.getField(action, "refusedPatients")).isEqualTo(1);
+        assertThat(action.demographicNo).isNull();
+        assertThat(action.demographic).isNull();
+        assertThat(contacts).isEmpty();
+        assertThat(logs).hasSize(1);
+        assertThat(logs.getFirst()[0]).isNull();
+        assertThat(warnings).anyMatch(warning -> warning.contains("already exist! Not imported."));
+        assertThat(warnings).noneMatch(warning -> warning.contains("Demographic no=123"));
     }
 
     @ParameterizedTest
@@ -263,6 +376,59 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         assertThat(invokeExtractReportFileName("nested\\result.pdf")).isEqualTo("result.pdf");
         assertThat(invokeExtractReportFileName("nested/result.pdf/")).isEqualTo("result.pdf");
         assertThat(invokeExtractReportFileName("result.pdf")).isEqualTo("result.pdf");
+    }
+
+    @Test
+    @DisplayName("should name a path in the log by a short hash, never the path")
+    void shouldGiveShortHashReference_forPath() {
+        assertThat(ImportDemographicDataAction42Action.pathReference("/srv/FAKE-PATIENT-NAME/report.pdf"))
+                .isEqualTo("ref:41a8779aad5d");
+        assertThat(ImportDemographicDataAction42Action.pathReference(null)).isEqualTo("ref:none");
+    }
+
+    @Test
+    @DisplayName("should log a report path outside the import folder by reference, without the path or exception")
+    void shouldLogReferenceOnly_whenReportPathOutsideImportFolder() throws Exception {
+        Path importFolder = Files.createDirectories(tempDir.resolve("import"));
+        Path outside = Files.createDirectories(tempDir.resolve("FAKE-PATIENT-NAME"));
+        File report = Files.writeString(outside.resolve("report.pdf"), "FAKE").toFile();
+        Method method = ImportDemographicDataAction42Action.class.getDeclaredMethod(
+                "tryValidateExisting", File.class, File.class, String.class);
+        method.setAccessible(true);
+
+        try (LogCapture logs = LogCapture.forLogger(ImportDemographicDataAction42Action.class)) {
+            Object resolved = method.invoke(action, report, importFolder.toFile(), "../FAKE-PATIENT-NAME/report.pdf");
+
+            assertThat(resolved).isNull();
+            List<LogEvent> errors = logs.events().stream().filter(event -> event.getLevel() == Level.ERROR).toList();
+            assertThat(errors).hasSize(1);
+            assertThat(errors.get(0).getMessage().getFormattedMessage())
+                    .contains(ImportDemographicDataAction42Action.pathReference("../FAKE-PATIENT-NAME/report.pdf"))
+                    .contains(ImportDemographicDataAction42Action.pathReference(report.getPath()));
+            assertThat(errors.get(0).getThrown()).isNull();
+            assertThat(logs.messages()).noneMatch(message -> message.contains("FAKE-PATIENT-NAME"));
+        }
+    }
+
+    @Test
+    @DisplayName("should log a missing import folder by reference, without its path")
+    void shouldLogReferenceOnly_whenImportFolderMissing() throws Exception {
+        Path missing = tempDir.resolve("FAKE-PATIENT-NAME-missing");
+        Method method = ImportDemographicDataAction42Action.class.getDeclaredMethod(
+                "searchFileByExtension", Path.class, ArrayList.class);
+        method.setAccessible(true);
+        ArrayList<String> warnings = new ArrayList<>();
+
+        try (LogCapture logs = LogCapture.forLogger(ImportDemographicDataAction42Action.class)) {
+            method.invoke(action, missing, warnings);
+
+            assertThat(warnings).containsExactly("Error while searching for XML files in directory");
+            assertThat(logs.events()).filteredOn(event -> event.getLevel() == Level.ERROR)
+                    .singleElement()
+                    .satisfies(event -> assertThat(event.getThrown()).isNull());
+            assertThat(logs.messages()).noneMatch(message -> message.contains("FAKE-PATIENT-NAME"))
+                    .anyMatch(message -> message.contains(ImportDemographicDataAction42Action.pathReference(missing.toString())));
+        }
     }
 
     private boolean invokeIsAbsoluteReportPath(String path) throws Exception {

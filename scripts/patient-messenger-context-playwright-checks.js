@@ -9,6 +9,7 @@
  * Creates uniquely named messages linked only to these test patients. Removes
  * its own messages/maps on success or failure; sends no messages to recipients.
  */
+const { closeBrowserWithChartCleanup, releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { randomUUID } = require('crypto');
 const {
   SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner,
@@ -81,12 +82,13 @@ async function main() {
       }
       // Close the named Search window too, so the next iteration can observe
       // a fresh popup rather than an existing window gaining focus.
+      await releaseChartLocks(context, config.baseUrl);
       for (const page of context.pages()) if (page !== schedule) await page.close();
     }
     assertStrictPage(recorder);
     return { patients: 2, sorts: 8 };
   } finally {
-    try { if (browser) await browser.close(); }
+    try { if (browser) await closeBrowserWithChartCleanup(browser, config.baseUrl); }
     finally {
       try {
         if (ids.length) sql.execute(`DELETE FROM msgDemoMap WHERE messageID IN (${ids.join(',')});

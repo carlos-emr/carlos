@@ -329,7 +329,7 @@ async function importZip(page, zipPath) {
       formName,
       uploadPreservedScheduleNavigation: true,
       importPreservedScheduleNavigation: true,
-      screenshots,
+      screenshots: screenshots.filter(Boolean),
     }, null, 2));
     console.log('PASS eForm Admin schedule navigation upload/import check');
   } catch (error) {

@@ -69,6 +69,7 @@
  */
 
 const { chromium } = require('playwright');
+const { releaseChartLocks, closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -81,12 +82,15 @@ const {
   createRecorder,
   getLaunchOptions,
   gotoApp,
+  installCleanupSignalHandlers,
   login,
+  NO_PLAYWRIGHT_SIGNAL_HANDLING,
   screenshot,
   validateBaseUrl,
   wirePage,
 } = require('./eform-local-playwright-utils');
 const { clickOpensPopup } = require('./lib/playwright-ui');
+const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
@@ -127,18 +131,49 @@ function sql(query) {
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
 }
 
+// The harness-shaped view of sql() that lib/document-residue.js takes.
+const residueSql = {
+  value: (query) => sql(query),
+  rows: (query) => { const out = sql(query); return out ? out.split('\n').map((line) => line.split('\t')) : []; },
+  execute: (query) => { sql(query); },
+};
+// Taken before the first upload: the rows the application files for the uploaded documents are found by it.
+let residueMark = null;
+
+/** Deletes the stored copies of the probe documents (the uploader prefixes a 14-digit timestamp to the name), inside DOCUMENT_DIR only. */
+function removeProbeFiles(names) {
+  const configured = process.env.DOCUMENT_DIR;
+  if (!configured) {
+    if (names.length) console.warn(`WARN: DOCUMENT_DIR is not set, so the uploaded file(s) ${names.join(', ')} stay in the document store`);
+    return;
+  }
+  const store = fs.realpathSync(configured);
+  for (const name of names) {
+    // Only a name that is a bare file name ending in this run's probe name: no other document is touched.
+    if (name !== path.basename(name) || !name.endsWith(probeName)) continue;
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- name is a bare file name (equal to its own basename, checked in the condition above) taken from the document store listing this check just made
+    const target = path.join(store, name);
+    if (fs.existsSync(target)) fs.unlinkSync(target);
+    assert(!fs.existsSync(target), `The uploaded probe file ${name} was not removed from the document store`);
+  }
+}
+
 // Remove the document rows this run created, by its unique stamp only.
 function cleanupProbeDocuments() {
   try {
-    const ids = sql(
-      `SELECT document_no FROM document WHERE docfilename LIKE '%${stamp}%' OR docdesc LIKE '%${stamp}%'`,
-    ).split(/\s+/).filter(Boolean);
-    if (!ids.length) return;
+    const found = sql(
+      `SELECT document_no, docfilename FROM document WHERE docfilename LIKE '%${stamp}%' OR docdesc LIKE '%${stamp}%'`,
+    ).split('\n').filter(Boolean).map((line) => line.split('\t'));
+    if (!found.length) return;
+    const ids = found.map(([id]) => id);
     const list = ids.join(',');
     console.log(`cleanup: removing probe document row(s) ${list} for stamp ${stamp}`);
     sql(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${list})`);
     sql(`DELETE FROM ctl_document WHERE document_no IN (${list})`);
     sql(`DELETE FROM document WHERE document_no IN (${list})`);
+    // The note the application filed for each upload, the queue links and the routing lock (lib/document-residue.js).
+    if (residueMark) removeDocumentResidue(residueSql, residueMark, ids);
+    removeProbeFiles(found.map(([, name]) => name).filter(Boolean));
   } catch (e) {
     // A leftover routed document can poison later workflow checks.
     process.exitCode = 1;
@@ -181,7 +216,12 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
     const chart = await openChart(context, masterPage, recorder, 30000);
     await waitForNavbars(chart, 30000);
     const link = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: description }).first();
-    const viewer = await clickOpensPopup(chart, link, { context, recorder, label: 'document-forward', timeout: 30000 });
+    // Click the visible left edge of the title, as an operator does. LeftNavBarDisplay.jsp
+    // lays each entry out as an absolutely positioned title span under a right-floated
+    // "...date" span (z-index 100) that truncates long titles; a title this long has its
+    // centre under that suffix, so a centre click is refused as intercepted even though the
+    // suffix link opens the same document.
+    const viewer = await clickOpensPopup(chart, link, { context, recorder, label: 'document-forward', timeout: 30000, position: { x: 8, y: 9 } });
     const routes = () => sql(`SELECT provider_no,status FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} ORDER BY id`);
     const before = routes();
     assert(sql(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} AND provider_no='${recipient}'`) === '0',
@@ -238,6 +278,7 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
     console.log('PASS chart document Forward: visible dialog, empty-recipient refusal, autocomplete, persisted routing');
   } finally {
     context.off('page', trackPage);
+    await releaseChartLocks(context, config.baseUrl, [...ownedPages]);
     for (const page of ownedPages) {
       await page.close().catch(() => {});
     }
@@ -311,12 +352,29 @@ function documentRowCount() {
   return Number(sql(`SELECT COUNT(*) FROM document WHERE docfilename LIKE '%${probeName}'`) || '0');
 }
 
+let workDir = null;
+
+// Everything the run owns outside the browser. Idempotent, and also run from
+// SIGINT/SIGTERM (issue #3600): a finally does not run when the process is killed,
+// which would leave the probe document rows (and the temp PDF) behind.
+function cleanupRunResources() {
+  if (mysqlDefaults) cleanupProbeDocuments();
+  cleanupMysqlDefaults();
+  if (workDir) {
+    fs.rmSync(workDir, { recursive: true, force: true });
+    workDir = null;
+  }
+}
+
+const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
+
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-upload-'));
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
+  workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-upload-'));
   initMysqlDefaults();
   try {
+    residueMark = markDocumentResidue(residueSql);
     const probePdf = writeProbePdf(workDir);
 
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
@@ -561,6 +619,7 @@ function documentRowCount() {
 
     assertNoPageErrors(recorder);
 
+    await releaseChartLocks(context, config.baseUrl);
     await context.close();
 
     console.log(
@@ -581,9 +640,9 @@ function documentRowCount() {
     // report it needs and fails it. A failing run here was silently failing a
     // sibling. The rows are listed as they are removed, so a failure is still
     // diagnosable from this output without leaving the fixture poisoned.
-    cleanupProbeDocuments();
-    cleanupMysqlDefaults();
-    fs.rmSync(workDir, { recursive: true, force: true });
-    await browser.close();
+    cleanupRunResources();
+    await closeBrowserWithChartCleanup(browser, config.baseUrl);
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })();
