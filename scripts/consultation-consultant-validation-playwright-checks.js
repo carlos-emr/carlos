@@ -156,7 +156,8 @@ async function workflow(s) {
     await form.locator(`#labNoHL7${lab}`).uncheck();
     await closeAttachments();
     h.assert(await form.locator(`#entry_labNoHL7${lab}`).count() === 0, 'Retained lab could not be removed');
-    for (const id of ['', 'abc', '-1', '2147483648', absent, inactive]) await reject(id, 'Submit Consultation Request');
+    // CRS rule 942220 blocks integer-overflow payloads before the action; the Java tests cover that boundary.
+    for (const id of ['', '0', 'abc', '-1', absent, inactive]) await reject(id, 'Submit Consultation Request');
   });
   await s.step('active directory selection saves a consultation', async () => {
     await pick('#specialistInput', `${marker}-0`);
