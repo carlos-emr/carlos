@@ -142,6 +142,7 @@ async function login(context) {
 
 async function openPatientFromSearch(context, schedulePage) {
   const searchPopup = context.waitForEvent('page');
+  searchPopup.catch(() => {});
   await schedulePage.locator('a').filter({ hasText: /^Search$/ }).click();
   const searchPage = await searchPopup;
   wirePage(searchPage, 'search');
@@ -155,6 +156,9 @@ async function openPatientFromSearch(context, schedulePage) {
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
   const patientPopup = context.waitForEvent('page');
+  // Handle an early waiter rejection even if the click itself fails first, so
+  // the main finally block can remove this check's patient fixture.
+  patientPopup.catch(() => {});
   await searchPage.locator(`a[onclick*='DemographicEdit?demographic_no=${demographicNo}']`).first().click();
   const patientPage = await patientPopup;
   wirePage(patientPage, 'patient');
@@ -217,6 +221,7 @@ async function checkDemographicCrud(context) {
 
 async function clickPopupLink(context, page, selector, label) {
   const popupPromise = context.waitForEvent('page');
+  popupPromise.catch(() => {});
   await page.locator(selector).first().click();
   const popup = await popupPromise;
   wirePage(popup, label);
@@ -240,7 +245,7 @@ async function checkPatientPopups(context, patientPage) {
   const tickler = await clickPopupLink(
     context,
     patientPage,
-    "a[onclick*='/tickler/ViewTicklerMain']",
+    "a[href*='/tickler/ViewTicklerMain']",
     'tickler'
   );
   await tickler.locator('body').waitFor({ state: 'visible', timeout: 15000 });
@@ -252,7 +257,7 @@ async function checkPatientPopups(context, patientPage) {
   const consultation = await clickPopupLink(
     context,
     patientPage,
-    "a[onclick*='ViewDisplayDemographicConsultationRequests']",
+    "a[href*='ViewDisplayDemographicConsultationRequests']",
     'consultation'
   );
   await consultation.locator('body').waitFor({ state: 'visible', timeout: 15000 });
