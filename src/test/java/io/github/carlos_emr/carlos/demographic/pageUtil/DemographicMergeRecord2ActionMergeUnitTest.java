@@ -28,16 +28,23 @@ import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -58,6 +65,7 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
     private final DemographicMergedDao dao = mock(DemographicMergedDao.class);
     private final LoggedInInfo info = mock(LoggedInInfo.class);
+    private final Map<Integer, DemographicMerged> mergeRows = new HashMap<>();
 
     @BeforeEach
     void setUp() {
@@ -69,13 +77,22 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(info, "_demographic", "w", null)).thenReturn(true);
         request.setMethod("POST");
         request.setParameter("mergeAction", "merge");
+        when(dao.findCurrentByDemographicNo(anyInt())).thenAnswer(invocation -> {
+            DemographicMerged row = mergeRows.get(invocation.<Integer>getArgument(0));
+            return row == null ? List.of() : List.of(row);
+        });
+        doAnswer(invocation -> {
+            DemographicMerged row = invocation.getArgument(0);
+            mergeRows.put(row.getDemographicNo(), row);
+            return null;
+        }).when(dao).persist(any());
     }
 
     private void alreadyMerged(int source, int head) {
         DemographicMerged row = new DemographicMerged();
         row.setDemographicNo(source);
         row.setMergedTo(head);
-        when(dao.findCurrentByDemographicNo(source)).thenReturn(List.of(row));
+        mergeRows.put(source, row);
     }
 
     private String merge(String head, String... records) {
@@ -147,5 +164,50 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
         assertThat(merge("10", "10", "11", "11")).isEqualTo("success");
 
         verify(dao, times(1)).persist(any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"10, 10, 010", "10, 10, +10", "010, 10, +10", "+10, 010, 10"})
+    void shouldMergeOnce_whenTheTargetHasEquivalentIdSpellings(String head, String selectedHead, String alias) {
+        assertThat(merge(head, selectedHead, "11", alias)).isEqualTo("success");
+        assertThat(request.getAttribute("mergeoutcome")).isEqualTo("success");
+
+        ArgumentCaptor<DemographicMerged> row = ArgumentCaptor.forClass(DemographicMerged.class);
+        verify(dao).persist(row.capture());
+        assertThat(row.getValue().getDemographicNo()).isEqualTo(11);
+        assertThat(row.getValue().getMergedTo()).isEqualTo(10);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"11, 011", "11, +11", "011, +11"})
+    void shouldMergeOnce_whenASourceHasEquivalentIdSpellings(String source, String alias) {
+        request.setParameter("caisiSearch", "yes");
+
+        assertThat(merge("10", "10", source, alias)).isEqualTo("caisiSearch");
+        assertThat(request.getAttribute("mergeoutcome")).isEqualTo("success");
+
+        ArgumentCaptor<DemographicMerged> row = ArgumentCaptor.forClass(DemographicMerged.class);
+        verify(dao).persist(row.capture());
+        assertThat(row.getValue().getDemographicNo()).isEqualTo(11);
+        assertThat(row.getValue().getMergedTo()).isEqualTo(10);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"10, not-a-number", "10, 2147483648", "not-a-number, 12", "2147483648, 12"})
+    void shouldRejectWithoutWrites_whenAnyIdCannotBeParsed(String head, String lastRecord) {
+        request.setParameter("caisiSearch", "yes");
+
+        assertThat(merge(head, head, "11", lastRecord)).isEqualTo("caisiSearch");
+        assertThat(request.getAttribute("mergeoutcome")).isEqualTo("failure");
+
+        verify(dao, never()).persist(any());
+    }
+
+    @Test
+    void shouldRejectWithoutWrites_whenOnlyAliasesOfTheTargetAreSelected() {
+        assertThat(merge("10", "10", "010")).isEqualTo("failure");
+        assertThat(request.getAttribute("mergeoutcome")).isEqualTo("failure");
+
+        verify(dao, never()).persist(any());
     }
 }
