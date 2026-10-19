@@ -34,6 +34,7 @@
                     if (!token) throw new Error(dialog.dataset.errorMessage);
                     const data = new URLSearchParams({labNo: dialog.dataset.labFiling, labType: 'HL7'});
                     selected.forEach(function (input) { data.append('providerNo', input.value); });
+                    if (acknowledge) data.set('comment', form.elements.comment.value);
                     const response = await fetch(dialog.dataset.endpoint, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded',

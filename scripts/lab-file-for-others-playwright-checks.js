@@ -113,12 +113,29 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE action='lab.fileOnBehalf' AND content=${q(labNo)}
       AND data=${q(`filedFor=${allowed.providerNo}`)} AND provider_no=${q(provider)}`) === '1', 'Strict filing audit is missing');
   });
-  await s.step('Acknowledge opens the combined dialog after on-behalf filing', async () => {
+  await s.step('the combined dialog acknowledges the reviewer and files the selected colleague with its comment', async () => {
+    sql.execute(`INSERT INTO property (provider_no,name,value) VALUES (${q(denied.providerNo)},'hl7_allow_others_file_for_you','true')`);
+    await popup.reload();
     await popup.locator('input[onclick*="openLabFilingDialog"][onclick*="true"]').first().click();
     await dialog.waitFor({state: 'visible'});
     h.assert(await dialog.locator('[data-filing-comment]').isVisible(), 'Combined dialog hides the acknowledgement comment');
     h.assert(await dialog.locator('details').getAttribute('open') !== null, 'Combined dialog filing section is collapsed');
-    await dialog.locator('[data-filing-cancel]').click();
+    const comment = `${marker} combined review comment`;
+    await dialog.locator('textarea[name="comment"]').fill(comment);
+    await dialog.locator(`input[value="${denied.providerNo}"]`).check();
+    const filing = popup.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/oscarMDS/FileLabsOnBehalf'));
+    const acknowledgement = popup.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/oscarMDS/UpdateStatus'));
+    await h.withExpectedDialogs(popup, async () => {
+      await dialog.locator('[type="submit"]').click();
+      const response = await filing;
+      h.assert(response.ok(), 'Combined filing was refused');
+      h.assert(new URLSearchParams(response.request().postData()).get('comment') === comment, 'Filing omitted the dialog comment');
+      h.assert((await acknowledgement).ok(), 'Combined acknowledgement failed');
+    });
+    h.assert(sql.value(`SELECT status FROM providerLabRouting WHERE lab_no=${labNo} AND provider_no=${q(provider)} AND lab_type='HL7'`) === 'A', 'Reviewer was not acknowledged');
+    const target = sql.rows(`SELECT status,comment FROM providerLabRouting WHERE lab_no=${labNo}
+      AND provider_no=${q(denied.providerNo)} AND lab_type='HL7'`);
+    h.assert(target.length === 1 && target[0][0] === 'F' && target[0][1].includes(comment), 'Colleague filing did not preserve the combined review comment');
   });
 }
 if (require.main === module) runWorkflow('lab-file-for-others', workflow, {openMaster: false});
