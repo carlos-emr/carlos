@@ -64,7 +64,9 @@ async function workflow(s) {
   const open = async (context) => {
     const page = await context.newPage();
     await h.gotoApp(page, config.baseUrl, `/rx/choosePatient?demographicNo=${patient}`);
-    await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
+    // Read-only users can view the drug profile but are not shown the prescribing search box.
+    await h.assertNotErrorPage(page, 'Rx drug profile');
+    await page.locator('#patientDrugListRow').waitFor({ state: 'visible', timeout: 30000 });
     return page;
   };
 
@@ -139,7 +141,15 @@ async function workflow(s) {
     const beforeAudit = auditCount();
     const token = await csrfToken(s.context, config);
     const response = await send(s.context, 'reprint', 'POST', token);
-    h.assert(response.status() === 200 && (await response.text()).includes(marker), 'Legacy reprint did not render the owned script');
+    h.assert(response.status() === 200, `Legacy reprint answered HTTP ${response.status()}`);
+    // ViewScript2 renders the prescription in a child frame, so inspect that response too.
+    const frame = /src="([^"]*\/rx\/ViewPreview2\?[^"]*)"/.exec(await response.text());
+    h.assert(frame, 'Legacy reprint did not provide a prescription preview');
+    const previewUrl = new URL(frame[1].replace(/&amp;/g, '&'), config.baseUrl);
+    h.assert(previewUrl.origin === config.baseUrl.origin && previewUrl.searchParams.get('scriptId') === script
+      && previewUrl.searchParams.get('demographicNo') === patient, 'Legacy preview names a different script or patient');
+    const preview = await s.context.request.get(previewUrl.href);
+    h.assert(preview.status() === 200 && (await preview.text()).includes(marker), 'Legacy preview did not render the owned script');
     h.assert(stamps().length === before + 1 && stamps().at(-1).endsWith(`;${provider}`),
       'Legacy reprint did not record exactly one stamp for the provider');
     await expectValue(sql, auditQuery, String(beforeAudit + 1), 'Legacy reprint did not record exactly one REPRINT log');
