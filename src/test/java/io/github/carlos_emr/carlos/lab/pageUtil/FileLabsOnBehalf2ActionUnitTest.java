@@ -53,11 +53,24 @@ class FileLabsOnBehalf2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("labNo", new String[]{"30", "90"}); new FileLabsOnBehalf2Action().execute();
         assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(service);
     }
+    @Test void shouldPassPlainTextComment_whenCombinedDialogFilesProviders() throws Exception {
+        request.setParameter("comment", "Clinical <plain> text");
+        new FileLabsOnBehalf2Action().execute();
+        verify(service).fileForProviders(info, 30, "HL7", List.of("100002", "100003"), "Clinical <plain> text", true);
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
     @Test void shouldHidePrivateFailureDetails_whenTargetIsRefused() throws Exception {
         when(service.fileForProviders(any(), anyInt(), anyString(), anyList(), isNull(), eq(true)))
                 .thenThrow(new SecurityException("PRIVATE clinical text"));
         new FileLabsOnBehalf2Action().execute();
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.getContentAsString()).doesNotContain("PRIVATE");
+    }
+    @Test void shouldReportUnconfirmedFailure_whenTransactionCannotCommit() throws Exception {
+        when(service.fileForProviders(any(), anyInt(), anyString(), anyList(), isNull(), eq(true)))
+                .thenThrow(new IllegalStateException("PRIVATE database detail"));
+        new FileLabsOnBehalf2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getContentAsString()).contains("refresh before trying again").doesNotContain("PRIVATE");
     }
 }

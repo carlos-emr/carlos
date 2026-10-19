@@ -53,10 +53,12 @@ async function workflow(s) {
     const personal = await s.popup(s.schedule, s.schedule.getByTitle(/Edit your personal setting/i).first(), 'personal-preferences');
     await personal.locator('[data-bs-target="#secLab"]').click();
     prefs = await s.popup(personal, personal.locator('a[href*="method=viewHl7LabResultPrefs"]'), 'hl7-preferences');
+    await prefs.waitForFunction(() => document.querySelector('input[name="CSRF-TOKEN"]')?.value);
     const toggle = prefs.locator('#offerFileForOthers');
     if (!await toggle.isChecked()) {
       const response = prefs.waitForResponse(r => r.request().method() === 'POST'
         && r.url().includes('method=setOfferFileForOthersPref'));
+      response.catch(() => {});
       await toggle.check(); h.assert((await response).ok(), 'Offer preference was refused');
     }
     h.assert(await toggle.isChecked(), 'Offer preference did not remain checked');
@@ -79,6 +81,7 @@ async function workflow(s) {
   const row = inbox.locator(`tr[data-lab-type="HL7"][data-segment-id="${labNo}"]`).first();
   const popup = await s.popup(inbox, row.locator('a[onclick*="reportWindow"]').first(), 'file-for-others-lab');
   const dialog = popup.locator(`#labFiling_${labNo}`);
+  await popup.waitForFunction(() => Array.from(document.querySelectorAll('input[name="CSRF-TOKEN"]')).some(i => i.value));
   await s.step('crafted opt-out and unrouted requests are refused without partial filing', async () => {
     await popup.locator(`[data-file-for="${labNo}"]`).first().click();
     h.assert(await dialog.locator(`input[value="${allowed.providerNo}"]`).isEnabled(), 'Opted-in provider is disabled');
@@ -103,8 +106,11 @@ async function workflow(s) {
     await popup.locator(`[data-file-for="${labNo}"]`).first().click();
     await dialog.locator(`input[value="${allowed.providerNo}"]`).check();
     const response = popup.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/oscarMDS/FileLabsOnBehalf'));
+    const reloaded = popup.waitForEvent('framenavigated', {predicate: frame => frame === popup.mainFrame()});
+    response.catch(() => {}); reloaded.catch(() => {});
     await dialog.locator('[type="submit"]').click();
     h.assert((await response).ok(), 'On-behalf filing failed');
+    await reloaded;
     await popup.waitForLoadState('networkidle');
     h.assert(sql.value(`SELECT status FROM providerLabRouting WHERE lab_no=${labNo} AND provider_no=${q(allowed.providerNo)} AND lab_type='HL7'`) === 'F', 'Target route was not filed');
     h.assert(sql.value(`SELECT status FROM providerLabRouting WHERE lab_no=${labNo} AND provider_no=${q(denied.providerNo)} AND lab_type='HL7'`) === 'N', 'Opted-out route changed');
@@ -120,11 +126,12 @@ async function workflow(s) {
     await dialog.waitFor({state: 'visible'});
     h.assert(await dialog.locator('[data-filing-comment]').isVisible(), 'Combined dialog hides the acknowledgement comment');
     h.assert(await dialog.locator('details').getAttribute('open') !== null, 'Combined dialog filing section is collapsed');
-    const comment = `${marker} combined review comment`;
+    const comment = `${marker} combined review: O'Brien; K < 3.5 & Hb > 100; repeat in 2-4 weeks.`;
     await dialog.locator('textarea[name="comment"]').fill(comment);
     await dialog.locator(`input[value="${denied.providerNo}"]`).check();
     const filing = popup.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/oscarMDS/FileLabsOnBehalf'));
     const acknowledgement = popup.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/oscarMDS/UpdateStatus'));
+    filing.catch(() => {}); acknowledgement.catch(() => {});
     await h.withExpectedDialogs(popup, async () => {
       await dialog.locator('[type="submit"]').click();
       const response = await filing;

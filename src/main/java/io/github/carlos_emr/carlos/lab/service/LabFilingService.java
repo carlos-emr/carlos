@@ -106,7 +106,7 @@ public class LabFilingService {
                     for (ProviderLabRoutingModel row : newRows) {
                         String previous = row.getComment();
                         row.setStatus("F");
-                        row.setComment(previous == null || previous.isBlank() ? attribution : previous + "\n" + attribution);
+                        row.setComment(previous == null || previous.isEmpty() ? attribution : previous + "\n" + attribution);
                         row.setTimestamp(new Date());
                         routingDao.merge(row);
                         // Strict audit joins this transaction: audit failure rolls back the filing.

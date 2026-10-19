@@ -112,6 +112,13 @@ class LabFilingServiceUnitTest extends CarlosUnitTestBase {
         verify(routes, never()).persist(any());
     }
     @Test
+    void shouldRetainLiteralWhitespace_whenExistingCommentContainsOnlyWhitespace() {
+        var existing = row("N", " \t ");
+        when(routes.findRoutingForUpdate(30, "HL7", "100002")).thenReturn(List.of(existing));
+        assertThat(file(List.of("100002"))).isEqualTo(1);
+        assertThat(existing.getComment()).startsWith(" \t \nFiled by ");
+    }
+    @Test
     void shouldRefuseNonHl7Selection_whenDocumentIsPosted() {
         assertThatThrownBy(() -> service.fileForProviders(info, 30, "DOC", List.of("100002"), null, true))
                 .isInstanceOf(IllegalArgumentException.class); noWrites();

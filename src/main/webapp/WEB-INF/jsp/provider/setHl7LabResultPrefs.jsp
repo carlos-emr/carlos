@@ -1,9 +1,12 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="provider.setHl7LabResultPrefs.error" var="preferenceSaveError"/>
+<fmt:message key="provider.setHl7LabResultPrefs.wait" var="preferenceWait"/>
 
 <c:set var="roleName" value="${sessionScope.userrole},${sessionScope.user}" />
 
@@ -62,39 +65,37 @@
 </div>
 
 <script>
-    function updatePreference(methodName, key, value) {
+    async function updatePreference(methodName, key, value) {
         const token = document.querySelector('input[name="CSRF-TOKEN"]');
         if (!token || !token.value) {
             jQuery('#' + key).prop('checked', !value);
-            alert('Please wait for the page to finish loading and try again.');
+            alert('${carlos:forJavaScript(preferenceWait)}');
             return;
         }
         jQuery('#' + key).prop('disabled', true);
         ShowSpin(true);
-        jQuery.ajax({
-            url: '${pageContext.request.contextPath}/setProviderStaleDate?method=' + methodName,
-            method: 'POST',
-            headers: {'CSRF-TOKEN': token.value},
-            data: {
-                key: key,
-                value: value
-            },
-            success: function (response) {
-                const status = response.status;
-                jQuery('#' + key).prop('checked', status);
-                const msg = jQuery('#successMessage');
-                msg.removeClass('d-none');
-                setTimeout(() => msg.addClass('d-none'), 3000);
-            },
-            error: function (xhr, status, error) {
-                alert("Error updating preference: " + error);
-                jQuery('#' + key).prop('checked', !value);
-            },
-            complete: function () {
-                HideSpin();
-                jQuery('#' + key).prop('disabled', false);
-            }
-        });
+        try {
+            // fetch is not hijacked by CSRFGuard's XHR hook: send the token exactly once.
+            const response = await fetch('${pageContext.request.contextPath}/setProviderStaleDate?method=' + methodName, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token.value},
+                body: new URLSearchParams({value: String(value)}).toString()
+            });
+            if (!response.ok) throw new Error('Preference save was refused');
+            const result = await response.json();
+            if (typeof result.status !== 'boolean') throw new Error('Invalid preference response');
+            jQuery('#' + key).prop('checked', result.status);
+            const msg = jQuery('#successMessage');
+            msg.removeClass('d-none');
+            setTimeout(() => msg.addClass('d-none'), 3000);
+        } catch (error) {
+            alert('${carlos:forJavaScript(preferenceSaveError)}');
+            jQuery('#' + key).prop('checked', !value);
+        } finally {
+            HideSpin();
+            jQuery('#' + key).prop('disabled', false);
+        }
     }
 
     jQuery(function () {
