@@ -859,7 +859,8 @@
     "test:rx-favourite-multiline-directions-playwright": "RX_FAVOURITE_ACTION=multiline node scripts/rx-favourite-actions-playwright-checks.js",
     "test:patient-letter-manager-labels-playwright": "PATIENT_LETTER_ACTION=labels node scripts/patient-letter-actions-playwright-checks.js",
     "test:rx-quantity-delete-race-playwright": "RX_DISCARD_CALLBACK=quantity node scripts/rx-discarded-card-callback-playwright-checks.js",
-    "test:rx-instructions-delete-race-playwright": "RX_DISCARD_CALLBACK=instructions node scripts/rx-discarded-card-callback-playwright-checks.js"
+    "test:rx-instructions-delete-race-playwright": "RX_DISCARD_CALLBACK=instructions node scripts/rx-discarded-card-callback-playwright-checks.js",
+    "test:consultation-specialty-selection-playwright": "node scripts/consultation-specialty-selection-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

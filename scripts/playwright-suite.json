@@ -15483,6 +15483,25 @@
         "finding": 312,
         "step": "a discarded draft calculation is handled without a server exception"
       }
+    },
+    {
+      "name": "consultation-specialty-selection",
+      "script": "scripts/consultation-specialty-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned marker-named consultation service and seven specialists with text, numeric, zero, empty and NULL specialty types. Cleanup deletes exactly the marker-owned rows and verifies they are gone. Run sequentially: specialists are visible on the shared Consultation Settings list.",
+      "notes": "Issue #4188: Administration > Consultation Settings opens every specialist editor with HTTP 200; matching service IDs stay selected and all unmatched specialties select the blank option. Opening the form must not change the stored specialty."
     }
   ]
 }
