@@ -54,7 +54,7 @@ public class RxUtil {
     private static final Logger logger = MiscUtils.getLogger();
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
             "(?:mg|mcg|[µμ]g|g|iu|meq)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
-    private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|g)\\b", Pattern.CASE_INSENSITIVE);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
 
     public static void setDefaultQuantity(String quantity) {
@@ -1080,13 +1080,26 @@ public class RxUtil {
     }
 
     private static boolean hasStrengthUnitAfter(String instructions, int amountEnd) {
-        return STRENGTH_UNIT.matcher(instructions)
-                .region(skipWhitespaceForward(instructions, amountEnd), instructions.length()).lookingAt();
+        return hasStrengthUnitAfter(instructions, amountEnd, null);
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
+    private static boolean hasStrengthUnitAfter(String instructions, int amountEnd, String method) {
+        Matcher unit = STRENGTH_UNIT.matcher(instructions)
+                .region(skipWhitespaceForward(instructions, amountEnd), instructions.length());
+        if (!unit.lookingAt()) {
+            return false;
+        }
+        // Topical application instructions specify grams to administer, rather
+        // than a product strength. Other strength units retain their meaning.
+        return !("g".equalsIgnoreCase(unit.group())
+                && ("Apply".equalsIgnoreCase(method) || "Rub well in".equalsIgnoreCase(method)));
     }
 
     private static boolean hasDoseUnitAfter(String instructions, int amountEnd) {
-        // Volumes and explicit unit counts are administered amounts, including
-        // attached forms such as 5mL; retain them rather than assuming one tablet.
+        // Volumes, topical grams and explicit unit counts are administered amounts,
+        // including attached forms such as 5mL. Strength detection takes precedence.
         return DOSE_UNIT.matcher(instructions)
                 .region(skipWhitespaceForward(instructions, amountEnd), instructions.length()).lookingAt();
     }
@@ -1139,7 +1152,7 @@ public class RxUtil {
         if (methodRange == null) {
             return false;
         }
-        if (hasStrengthUnitAfter(instructions, methodRange.end)) {
+        if (hasStrengthUnitAfter(instructions, methodRange.end, segment.method)) {
             segment.strength = true;
             return true;
         }
@@ -1158,7 +1171,7 @@ public class RxUtil {
         if (methodAmount == null) {
             return false;
         }
-        if (hasStrengthUnitAfter(instructions, methodAmount.end)) {
+        if (hasStrengthUnitAfter(instructions, methodAmount.end, segment.method)) {
             segment.strength = true;
             return true;
         }
@@ -1180,7 +1193,7 @@ public class RxUtil {
             return false;
         }
 
-        if (hasStrengthUnitAfter(instructions, amountStart + fraction.length())) {
+        if (hasStrengthUnitAfter(instructions, amountStart + fraction.length(), segment.method)) {
             segment.strength = true;
             return true;
         }

@@ -23,12 +23,15 @@ async function workflow(s) {
     ['Take 5mL po tid x 7 days', 5, 5, '105'],
     ['Take 5-10mL po tid x 7 days', 5, 10, '210'],
     ['20 units po tid x 7 days', 20, 20, '420'],
+    ['Apply 2g BID x 7 days', 2, 2, '28', 'BID'],
+    ['Rub well in 2 g BID x 7 days', 2, 2, '28', 'BID'],
+    ['Apply 1/2g BID x 7 days', 0.5, 0.5, '7', 'BID'],
     ['500-1000 mg po tid x 7 days', 1, 1, '21'],
     ['Take 2 tablets (1000 mg) po tid x 7 days', 2, 2, '42'],
     ['1000 mg po 1-2 tid x 7 days', 1, 2, '42'],
     ['1000 mg po tid x 7 days', 1, 1, '21'],
   ];
-  for (const [instruction, minimum, maximum, quantity] of cases) {
+  for (const [instruction, minimum, maximum, quantity, frequency = 'TID'] of cases) {
     await s.step(`parsing ${instruction} calculates ${quantity} units`, async () => {
       await rx.locator(`#instructions_${key}`).fill(instruction);
       const [response] = await Promise.all([
@@ -40,7 +43,7 @@ async function workflow(s) {
       h.assert(response.status() === 200, `Instruction parse answered HTTP ${response.status()}`);
       const parsed = await response.json();
       h.assert(Number(parsed.takeMin) === minimum && Number(parsed.takeMax) === maximum
-        && String(parsed.frequency).toUpperCase() === 'TID' && String(parsed.duration) === '7' && parsed.durationUnit === 'D'
+        && String(parsed.frequency).toUpperCase() === frequency && String(parsed.duration) === '7' && parsed.durationUnit === 'D'
         && String(parsed.calQuantity) === quantity, `Incorrect parsed dose/quantity: ${JSON.stringify(parsed)}`);
       await rx.waitForFunction(({ key, quantity }) => document.getElementById(`quantity_${key}`).value === quantity,
         { key, quantity });

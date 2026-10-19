@@ -72,7 +72,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1000mg po tid x 7 days", "Take 1000MG po tid x 7 days",
             "5 mg po tid x 7 days", "0.5 mg po tid x 7 days", ".5mg po tid x 7 days",
             "250 mcg po tid x 7 days", "250 µg po tid x 7 days", "250 μg po tid x 7 days",
-            "1 g po tid x 7 days", "1000 IU po tid x 7 days", "20 mEq po tid x 7 days",
+            "1 g po tid x 7 days", "2g po tid x 7 days", "Take 2g po tid x 7 days",
+            "1000 IU po tid x 7 days", "20 mEq po tid x 7 days",
             "500-1000 mg po tid x 7 days", "500-1000mg po tid x 7 days",
             "1/2 g po tid x 7 days", "1/2g po tid x 7 days"
         })
@@ -109,9 +110,18 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "10-5mL po tid x 7 days | 5 | 10 | 210",
             "20 units po tid x 7 days | 20 | 20 | 420",
             "20units po tid x 7 days | 20 | 20 | 420",
+            "Apply 2 g BID x 7 days | 2 | 2 | 28",
+            "Apply 2g BID x 7 days | 2 | 2 | 28",
+            "Rub well in 2 g BID x 7 days | 2 | 2 | 28",
+            "rub WELL IN 2G BID x 7 days | 2 | 2 | 28",
+            "Apply 0.5g BID x 7 days | 0.5 | 0.5 | 7",
+            "Apply 1/2g BID x 7 days | 0.5 | 0.5 | 7",
+            "Apply 2-5g BID x 7 days | 2 | 5 | 70",
+            "Apply 5-2g BID x 7 days | 2 | 5 | 70",
+            "Apply 5mg BID x 7 days | 1 | 1 | 14",
             "2 mgtablets po tid x 7 days | 2 | 2 | 42"
         })
-        void shouldPreserveExplicitCounts_whenStrengthAppearsElsewhere(String instructions,
+        void shouldPreserveDoseCounts_whenInstructionsSpecifyAdministeredAmounts(String instructions,
                 float minimum, float maximum, String quantity) {
             RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
             RxUtil.instrucParser(rx);
