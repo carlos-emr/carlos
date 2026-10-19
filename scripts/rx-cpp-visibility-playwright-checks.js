@@ -16,13 +16,16 @@ async function workflow(s){
   if(refused){
     await s.step('a refused Hide CPP save reports failure and restores the actual unchecked state',async()=>{
       const before=JSON.stringify(state()),mark=failureMark(s.recorder);
+      h.assert(!await box.isChecked(),'The refusal fixture must start with the medication visible in CPP');
       await rx.route('**/rx/hideCpp',route=>route.fulfill({status:403,contentType:'text/plain',body:'Synthetic refusal'}));
       try{
         let response;
         const dialogs=await h.withExpectedDialogs(rx,async()=>{
           // Response headers precede the asynchronous failure handler. Keep
           // the expected-dialog scope alive until its alert and rollback finish.
-          [response]=await Promise.all([rx.waitForResponse(isSave),rx.waitForEvent('dialog'),box.check()]);
+          // check() insists on a checked final state, which contradicts a fast
+          // successful rollback. Click the unchecked control like the user does.
+          [response]=await Promise.all([rx.waitForResponse(isSave),rx.waitForEvent('dialog'),box.click()]);
           await rx.waitForFunction(id=>{
             const checkbox=document.getElementById(`hidecpp_${id}`);
             return checkbox&&!checkbox.disabled&&!checkbox.checked;
