@@ -127,6 +127,10 @@ function splitSelectorList(prelude) {
   return parts;
 }
 
+/**
+ * Prefixes one selector with the scope. A leading :root, html or body compound is rewritten onto
+ * the scope element itself; a selector that starts with a combinator is refused.
+ */
 function scopeSelector(selector, scope) {
   if (!selector) throw new Error('empty selector in a selector list');
   if (/^[>+~]/.test(selector)) {

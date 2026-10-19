@@ -69,6 +69,13 @@ function build(sourceCss) {
   return `${CHARSET}${NOTICE}\n${scoped.trimEnd()}\n`;
 }
 
+/**
+ * Writes the scoped stylesheet, or with `--check` only compares it with what the generator would
+ * write (the drift check CI and the node test run).
+ *
+ * @param {string[]} argv command-line arguments
+ * @returns {number} the process exit code: 1 when `--check` finds the committed file stale
+ */
 function main(argv) {
   const expected = build(fs.readFileSync(path.join(ROOT, SOURCE), 'utf8'));
   const target = path.join(ROOT, OUTPUT);

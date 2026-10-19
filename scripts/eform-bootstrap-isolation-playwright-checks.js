@@ -98,6 +98,7 @@ function rendererAssets(renderer) {
   return assets;
 }
 
+/** The `<link>` or `<script>` element EForm writes for one addCSS / add*Javascript call. */
 function tag(asset) {
   if (asset.kind === 'addCSS') {
     return `<link href="${asset.href}" rel="stylesheet" media="${asset.media || 'all'}" type="text/css">`;
@@ -158,6 +159,7 @@ const server = http.createServer((req, res) => {
   return res.end();
 });
 
+/** Computed values of the named CSS properties on the first element matching `selector`. */
 async function style(page, selector, properties) {
   // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- properties is always a literal CSS property-name list from this script
   return page.locator(selector).first().evaluate((element, names) => {
@@ -166,6 +168,7 @@ async function style(page, selector, properties) {
   }, properties);
 }
 
+/** Saves a full-page screenshot when EFORM_SCREENSHOT_DIR is set (review evidence); otherwise does nothing. */
 async function screenshot(page, name) {
   const directory = process.env.EFORM_SCREENSHOT_DIR;
   if (!directory) return;
@@ -174,6 +177,10 @@ async function screenshot(page, name) {
   await page.screenshot({ path: path.join(directory, `eform-bootstrap-isolation-${name}.png`), fullPage: true });
 }
 
+/**
+ * Geometry of the bare eForm (no renderer assets) on screen and in print: what every renderer
+ * page must reproduce exactly.
+ */
 async function baseline(page, origin) {
   const measured = {};
   for (const media of ['screen', 'print']) {
@@ -185,6 +192,10 @@ async function baseline(page, origin) {
   return measured;
 }
 
+/**
+ * Asserts one renderer's page against the bare-form `expected` geometry, then checks that the
+ * toolbar, alert and attachment picker still get their Bootstrap styling inside the scope.
+ */
 async function checkRenderer(page, origin, renderer, expected) {
   const label = `${renderer}.jsp`;
   await page.goto(`${origin}/eform/${renderer}`, { waitUntil: 'load' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- this script's own loopback server and a RENDERERS constant

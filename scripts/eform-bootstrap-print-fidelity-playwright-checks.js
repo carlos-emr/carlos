@@ -86,6 +86,7 @@ async function bareLayout(context, media, { zeroBodyMargin = false } = {}) {
   }
 }
 
+/** Computed values of the named CSS properties on the first element matching `selector`. */
 async function computed(page, selector, properties) {
   // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- properties is always a literal CSS property-name list from this script
   return page.locator(selector).first().evaluate((element, names) => {
@@ -104,6 +105,10 @@ function pdfWords(pdfPath) {
   return words;
 }
 
+/**
+ * Opens the seeded legacy eForm for the owned patient through the installed renderer and
+ * compares it with the bare form on screen, in print and in the server-rendered PDF.
+ */
 async function workflow({ config, context, recorder, fid, patient }) {
   const page = await context.newPage();
   h.wirePage(page, 'eform', recorder);
@@ -176,6 +181,10 @@ async function workflow({ config, context, recorder, fid, patient }) {
   await page.close();
 }
 
+/**
+ * Seeds an owned FAKE patient and eForm template, runs the workflow, and removes exactly the
+ * rows this run created (asserting each is gone), including after a failure.
+ */
 async function main() {
   const recorder = h.createRecorder();
   const config = h.readConfig();
