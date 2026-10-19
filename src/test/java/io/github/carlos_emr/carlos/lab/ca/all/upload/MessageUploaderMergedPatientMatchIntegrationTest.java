@@ -75,7 +75,7 @@ class MessageUploaderMergedPatientMatchIntegrationTest extends CarlosTestBase {
     private final Map<Field, Object> originalBeans = new LinkedHashMap<>();
 
     @BeforeEach
-    void useSpringBeans() throws Exception {
+    void setUpUploaderBeans() throws Exception {
         // Provider routing takes a MySQL-only advisory-lock row that the H2 schema does not create.
         em.createNativeQuery("CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)").executeUpdate();
         // A unit test may have initialized this legacy class first with mocked Spring beans.
@@ -87,14 +87,8 @@ class MessageUploaderMergedPatientMatchIntegrationTest extends CarlosTestBase {
                 field.set(null, applicationContext.getBean(field.getType()));
             }
         }
-    }
-
-    /**
-     * The test context supplies a mock {@link DemographicManager}; make it load real rows so the head record
-     * resolved from a merged source can be read back, as in production.
-     */
-    @BeforeEach
-    void loadDemographicsThroughTheDao() {
+        // The test context supplies a mock DemographicManager; make it load real rows so the head record
+        // resolved from a merged source can be read back, as in production.
         DemographicManager manager = applicationContext.getBean(DemographicManager.class);
         Mockito.reset(manager);
         Mockito.when(manager.getDemographic(ArgumentMatchers.any(LoggedInInfo.class), ArgumentMatchers.any(Integer.class)))
