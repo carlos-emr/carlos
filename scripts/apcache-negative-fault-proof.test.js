@@ -183,3 +183,24 @@ test('actual saved-field assertion binds exact owned form and persists only genu
  for(const failIndex of [1,2,3]){let index=0;assert.throws(()=>sandbox.invoke({value:()=>++index===failIndex?(failIndex===3?'1':'0'):(index===3?'0':'1')},'7','5',{patient:'55'},'Owned Provider','2026-10-19'));}
  assert.throws(()=>sandbox.invoke({value:()=>{throw Error('must not query')}},'invalid','5',{patient:'55'},'Owned Provider','2026-10-19'));
 });
+
+const julWarning='19-Oct-2026 20:08:33.500 WARNING [eform-render-driver-start] org.openqa.selenium.devtools.CdpVersionFinder.findNearestMatch Unable to find CDP implementation matching 154\n';
+test('JUL warning is a separate record after an owned ERROR and preserves the complete fault proof',()=>{
+ const raw=errors().replace(' fid=5\n',' fid=5\n'+julWarning);const before=sha(raw);
+ assert.deepEqual(verifyApNegativeFaultWindow(raw,valid(),sources,audit()),{intentionalLookupFaultEvents:2,actualTokenlessPostFaultEvents:1,allOtherErrorsRefused:true,rawStrictAuditUnmodified:true});assert.equal(sha(raw),before);
+});
+test('structured non-error JUL records before between and after Log4j errors are not stack continuations',()=>{
+ const raw=julWarning+errors().replace(' fid=5\n',' fid=5\n'+julWarning.replace('WARNING','INFO'))+julWarning;
+ assert.equal(verifyApNegativeFaultWindow(raw,valid(),sources,audit()).intentionalLookupFaultEvents,2);
+});
+for(const [name,extra]of Object.entries({
+ 'JUL severe':julWarning.replace('WARNING','SEVERE'),
+ 'unknown JUL level':julWarning.replace('WARNING','ERROR'),
+ 'unrecognized JUL month':julWarning.replace('-Oct-','-Unknown-'),
+ 'malformed JUL header':julWarning.replace('[eform-render-driver-start]','eform-render-driver-start'),
+ 'trace after JUL warning':julWarning+'java.lang.NullPointerException: unexpected\n',
+ 'unknown continuation after ERROR':'java.lang.IllegalStateException: unexpected\n',
+ 'unstructured ERROR before first record':'ERROR unexpected journal failure\n',
+ 'HHH diagnostic inside JUL warning':julWarning.replace('Unable to find CDP implementation matching 154','HHH000099 unexpected assertion'),
+ 'extra Log4j ERROR after JUL warning':julWarning+'2026-10-19 20:08:44,900 ERROR Other.Action (Action.java:1) - unexpected\n',
+}))test('JUL boundary refuses '+name,()=>assert.throws(()=>verifyApNegativeFaultWindow(extra+errors(),valid(),sources,audit())));

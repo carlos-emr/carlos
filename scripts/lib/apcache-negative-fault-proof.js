@@ -61,6 +61,23 @@ function createApNegativeProof(directory,intent){
     close(){if(!closed){fs.closeSync(fd);closed=true;}},
   };
 }
+// Journal records may use Log4j or java.util.logging timestamps. A JUL warning is
+// a new record, never a continuation of the preceding measured ERROR. Unknown
+// headers, severe JUL records and all nonblank continuations remain fatal.
+function errorRecords(text){
+  const log4j=/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) +(TRACE|DEBUG|INFO|WARN|ERROR) ([^\r\n]+)$/;
+  const jul=/^(\d{2}-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{4} \d{2}:\d{2}:\d{2}\.\d{3}) (SEVERE|WARNING|INFO|CONFIG|FINE|FINER|FINEST) \[[^\]\r\n]+\] (?:[A-Za-z_$][\w$]*\.)+[A-Za-z_$][\w$]* [^\r\n]+$/;
+  const errors=[];let current=null;
+  for(const line of String(text).split(/\r?\n/)){
+    if(!line.trim())continue;
+    const match=log4j.exec(line);
+    if(match){current={type:'log4j',level:match[2]};if(match[2]==='ERROR')errors.push([line,match[1],match[3],'']);continue;}
+    const javaRecord=jul.exec(line);
+    if(javaRecord){assert.notEqual(javaRecord[2],'SEVERE','Unexpected severe JUL record');current={type:'jul',level:javaRecord[2]};continue;}
+    assert.fail(current?'Unexpected journal record continuation':'Unrecognized journal record');
+  }
+  return errors;
+}
 function verifyApNegativeFaultWindow(text,receipt,expectedSources,auditText){
   assert.deepEqual(Object.keys(expectedSources||{}).sort(),SOURCE_KEYS);assert.deepEqual(receipt.sourceHashes,expectedSources);
   for(const h of Object.values(expectedSources))assert.match(h,/^[a-f0-9]{64}$/);
@@ -83,7 +100,7 @@ function verifyApNegativeFaultWindow(text,receipt,expectedSources,auditText){
   assert.equal(post.method,'POST');assert.equal(post.path,SERVLET);assert([403,405].includes(post.status));
   assert(Date.parse(post.startedAt)>=previous&&Date.parse(post.finishedAt)>=Date.parse(post.startedAt));
   assert(!/HHH000099|hibernate\.AssertionFailure/.test(text));
-  const events=[...String(text).matchAll(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) +ERROR ([^\n]+)(?:\n([\s\S]*?))?(?=^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} +(?:TRACE|DEBUG|INFO|WARN|ERROR) |$(?![\s\S]))/gm)];
+  const events=errorRecords(text);
   const csrf=post.status===403;assert.equal(events.length,csrf?3:2,'Every ERROR must be this case exact measured negative event');
   const jspEvents=events.filter(e=>e[2].startsWith('eform.efmformapconfig_005flookup_jsp '));assert.equal(jspEvents.length,2);
   for(let i=0;i<2;i++){
