@@ -9,6 +9,9 @@
 // Strength, ImmunAllergies, Intake Information, both Late Life FDI forms, Position Hazard, Risk
 // Assessment, Self Efficacy, Self Management, Treatment Preference, Health Passport) plus the Patient
 // Encounter Worksheet, which only prints. Rourke 2020 and the growth charts are form-rourke2020-*.
+// British Columbia: the same flow over seven BC forms (BC-AR, BC-AR 2007, the Labour and Birth Summary and the
+// Birth Summary 2008, BC-INR, Chart Checklist, BC-NewBorn), claimed only by the form-catalog-smoke-bc* entries,
+// which run on a BC install. BC-AR 2012/2020 are form-bc-antenatal-record, BC-NewBorn 2008 form-bc-newborn.
 //
 // Each form has up to eight CONCERNS, asserted one labelled step each:
 //   bare       (Position Hazard and Health Passport only) the form opens for a patient whose address, phone and
@@ -151,6 +154,26 @@ const FORMS = [
   // Prints a worksheet and saves nothing: no table, so no save, redisplay or reopen.
   { key: 'worksheet', code: 'PEW', title: 'Patient Encounter Worksheet', view: 'patientEncounterWorksheet', table: '',
     prose: { name: 'encounter_notes' }, fields: [], ready: 'Print', print: { kind: 'pdf', button: 'Print', where: 'same' } },
+  // British Columbia forms, asserted only by the form-catalog-smoke-bc* entries, which run on a BC install. BC-AR and
+  // BC-AR 2007 open on page 1 of three, BC-NewBorn on page 1 of three; the BC seed shows five of these in the Forms menu
+  // already, but each still gets its own marker-named registration like every other row.
+  { key: 'bcar', code: 'BCAR', title: 'BC-AR', view: 'formbcar', table: 'formBCAR',
+    prose: { name: 'pg1_curMedic' }, fields: [check('pg1_bleeding'), typed('c_hospital', 'FAKE General Hospital')],
+    print: { kind: 'pdf', button: 'Print', where: 'popup' } },
+  { key: 'bcar2007', code: 'BA07', title: 'BC-AR 2007', view: 'formbcar2007', table: 'formBCAR2007',
+    prose: { name: 'pg1_curMedic' }, fields: [check('pg1_IVFpregnancy'), typed('c_hospital', 'FAKE General Hospital')],
+    print: { kind: 'pdf', button: 'Print', where: 'popup' }, bare: true },
+  { key: 'bclabourbirth', code: 'BCLB', title: 'BC Labour and Birth Summary', view: 'formbcbirthsummo', table: 'formBCBirthSumMo',
+    prose: { name: 'birMDPres' }, fields: [check('twinA'), typed('gestWks', '39')], print: { kind: 'pdf', button: 'Print', where: 'popup' } },
+  { key: 'bcbirthsum2008', code: 'BB08', title: 'BC Birth Summary 2008', view: 'formbcbirthsummo2008', table: 'formBCBirthSumMo2008',
+    prose: { name: 'birMDPres' }, fields: [check('twinA'), typed('gestWks', '39')], print: { kind: 'pdf', button: 'Print', where: 'popup' } },
+  { key: 'bcinr', code: 'BINR', title: 'BC-INR', view: 'formbcinr', table: 'formBCINR',
+    prose: null, fields: [check('targetINR2'), typed('c_phone3', '250-555-0199')], print: { kind: 'window', button: 'Print' } },
+  { key: 'bcchecklist', code: 'BCCL', title: 'Chart Checklist', view: 'formbcclientchartchecklist', table: 'formBCClientChartChecklist',
+    prose: null, fields: [typed('c3rd2a0', 'FAKE checklist note')], print: { kind: 'window', button: 'Print' } },
+  { key: 'bcnewborn', code: 'BCNB', title: 'BC-NewBorn', view: 'formbcnewborn', table: 'formBCNewBorn',
+    prose: { name: 'pg1_ResComment' }, fields: [check('pg1_delRomPassY'), typed('c_hospitalNo', 'FAKE-12345')],
+    print: { kind: 'pdf', button: 'Print', where: 'popup' } },
 ].map(form => ({ ...form,
   concerns: [...(form.bare ? ['bare'] : []), ...(form.table ? CONCERNS : ['open', 'keys', 'print'])] }));
 
@@ -332,7 +355,7 @@ async function workflow(s, { select = validatePin() } = {}) {
   async function openFromMenu(entry) {
     const { form } = entry;
     const link = await claims.asPrecondition(async () => {
-      await chart.locator('#menuTitle1 a').hover();
+      await ui.openFormsMenu(chart);
       const found = chart.getByRole('link', { name: entry.name, exact: true });
       const listed = await found.count();
       claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);

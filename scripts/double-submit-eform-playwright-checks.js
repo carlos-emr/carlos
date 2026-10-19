@@ -24,6 +24,22 @@ const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-suppo
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { signIn } = require('./lib/authz-read-probe');
 const { bundleMessage } = require('./lib/throwaway-login-fixture');
+const { csrfToken } = require('./lib/front-door-checks');
+
+/**
+ * Whether this install renders eForm PDFs: Download (eform/downloadEFormPdf) of the run's first saved instance, as the
+ * test login, comes back with the PDF in the page's eFormPDF field.
+ */
+async function eformPdfRenders(s, formName) {
+  const fdid = s.sql.value(`SELECT MIN(fdid) FROM eform_data WHERE demographic_no=${s.patient}
+    AND form_name=${h.sqlString(formName)} AND status=1`);
+  h.assert(/^\d+$/.test(fdid), 'No saved eForm of this run to render');
+  const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/eform/downloadEFormPdf'), {
+    form: { fdid, demographicNo: String(s.patient), 'CSRF-TOKEN': await csrfToken(s.schedule, s.config.baseUrl) },
+  });
+  const input = /<input[^>]*\bid="eFormPDF"[^>]*>/.exec(await response.text());
+  return Boolean(input && /\bvalue="[A-Za-z0-9+/=]{100,}"/.test(input[0]));
+}
 
 // What the 409 for a replayed submission tells the clinician to do (eform.submitUnavailable, as getText formats it).
 const RECOVERY_GUIDANCE = "Check the patient's eForms";
@@ -315,11 +331,19 @@ async function workflow(s) {
 
   // Pinned: holds only the assertion finding 168 breaks.
   await s.step('a failed Add to Documents is not answered with the replay refusal', async () => {
+    // Finding 168 is about the document step failing AFTER the eForm PDF exists. Where the install cannot render an
+    // eForm PDF at all (no eForm render browser service), Add to Documents stops before that step, and this assertion
+    // would pass without testing anything, so the pin would read as fixed. So before passing it, prove the PDF renders.
+    if (!noEdoc.text.includes(replayText) && !(await eformPdfRenders(s, formName))) {
+      throw new h.SkipCheck('This install cannot render an eForm PDF (a Download of one of the run\'s saved eForms '
+        + 'came back without one), so Add to Documents never reaches the document step finding 168 is about; '
+        + 'run it where the eForm renderer is up');
+    }
     h.assert(!noEdoc.text.includes(replayText),
       `The answer to a failed Add to Documents (HTTP ${noEdoc.status}) is the replay refusal "${replayText}.", which is what a `
       + 'replayed submission gets and hides that the eForm was saved and only the document step failed');
   });
 }
 
-module.exports = { workflow };
+module.exports = { workflow, eformPdfRenders };
 if (require.main === module) runWorkflow('double-submit-eform', workflow, { openPatient: true });
