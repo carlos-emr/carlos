@@ -248,6 +248,231 @@ class BillingDiskCreationServiceUnitTest {
     }
 
     @Test
+    void shouldSkipSequenceNumbersHeldByEarlierYears_whenAllocatingFirstSoloDiskOfMonth() {
+        // MOH claim file names recur every year (H + month letter + number + .NNN,
+        // restarting at .001 each month) but billing_on_diskname.ohipfilename is
+        // unique. With last year's .001 and .002 for this month letter on record and
+        // last month's disk the latest, the first disk of this month proposed .001,
+        // collided on every retry and stopped generation; the simulation, which
+        // allocates no disk, kept working.
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321"))
+                .thenReturn(new String[]{previousMonthCode(), "4"});
+        java.util.Set<String> onRecord = java.util.Set.of(
+                "H" + monthCode + "054321.001", "H" + monthCode + "054321.002");
+        stubUniqueOhipFilenames(onRecord, 51);
+
+        int diskId = service.createNewSoloDiskName("999998", "creator");
+
+        assertThat(diskId).isEqualTo(51);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        BillingDiskNameDto disk = captor.getValue();
+        assertThat(disk.getBatchcount()).isEqualTo("3");
+        assertThat(disk.getOhipfilename()).isEqualTo("H" + monthCode + "054321.003");
+        assertThat(disk.getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + "054321_003.html");
+    }
+
+    @Test
+    void shouldSkipSequenceNumbersHeldByEarlierYears_whenAllocatingFirstGroupDiskOfMonth() {
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestGrpMonthCodeBatchNum("1234"))
+                .thenReturn(new String[]{previousMonthCode(), "2"});
+        stubUniqueOhipFilenames(java.util.Set.of("H" + monthCode + "1234.001"), 52);
+
+        int diskId = service.createNewGrpDiskName(
+                List.of("999998"), List.of("054321"), "1234", "creator");
+
+        assertThat(diskId).isEqualTo(52);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        BillingDiskNameDto disk = captor.getValue();
+        assertThat(disk.getBatchcount()).isEqualTo("2");
+        assertThat(disk.getOhipfilename()).isEqualTo("H" + monthCode + "1234.002");
+        assertThat(disk.getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + "1234_054321_002.html");
+    }
+
+    @Test
+    void shouldSkipSequenceNumber_whenOnlyItsHtmlCompanionNameIsTaken() {
+        // billing_on_filename.htmlfilename is unique as well. A number whose claim
+        // file name is free but whose HTML name is taken was proposed again on every
+        // retry and stopped generation; the companion name now counts as in use.
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321"))
+                .thenReturn(new String[]{previousMonthCode(), "4"});
+        stubUniqueFilenames(java.util.Set.of(), java.util.Set.of("H" + monthCode + "054321_001.html"), 54);
+
+        int diskId = service.createNewSoloDiskName("999998", "creator");
+
+        assertThat(diskId).isEqualTo(54);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        assertThat(captor.getValue().getOhipfilename()).isEqualTo("H" + monthCode + "054321.002");
+        assertThat(captor.getValue().getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + "054321_002.html");
+    }
+
+    @Test
+    void shouldSkipSequenceNumber_whenAnyGroupMembersHtmlNameIsTaken() {
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestGrpMonthCodeBatchNum("1234"))
+                .thenReturn(new String[]{previousMonthCode(), "2"});
+        stubUniqueFilenames(java.util.Set.of(), java.util.Set.of("H" + monthCode + "1234_054322_001.html"), 55);
+
+        int diskId = service.createNewGrpDiskName(
+                List.of("999998", "999997"), List.of("054321", "054322"), "1234", "creator");
+
+        assertThat(diskId).isEqualTo(55);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        assertThat(captor.getValue().getOhipfilename()).isEqualTo("H" + monthCode + "1234.002");
+        assertThat(captor.getValue().getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + "1234_054321_002.html", "H" + monthCode + "1234_054322_002.html");
+    }
+
+    @Test
+    void shouldKeepMonthlySequence_whenNoEarlierDiskHoldsTheName() {
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321")).thenReturn(null);
+        stubUniqueOhipFilenames(java.util.Set.of(), 53);
+
+        service.createNewSoloDiskName("999998", "creator");
+
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        assertThat(captor.getValue().getOhipfilename()).isEqualTo("H" + monthCode + "054321.001");
+        verify(diskLoader).isOhipFilenameInUse("H" + monthCode + "054321.001");
+    }
+
+    @Test
+    void shouldNameTheExhaustedFileName_whenEveryMonthlySequenceNumberIsTaken() {
+        // A skipped number never comes back, so a month letter's 999 numbers are shared by
+        // every year of its history. Running out stopped generation with the internal
+        // "fixed-width value [1000] does not fit width=3".
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321"))
+                .thenReturn(new String[]{previousMonthCode(), "4"});
+        when(diskLoader.isOhipFilenameInUse(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.createNewSoloDiskName("999998", "creator"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessage("All 999 OHIP claim file names H" + monthCode + "054321.001 to .999 are already on"
+                        + " record, so no new claim file can be named in this month.");
+        verify(claimPersister, org.mockito.Mockito.never())
+                .addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class));
+    }
+
+    /** Emulates billing_on_diskname_ohipfilename_uq for the given names already on record. */
+    private void stubUniqueOhipFilenames(java.util.Set<String> onRecord, int newDiskId) {
+        stubUniqueFilenames(onRecord, java.util.Set.of(), newDiskId);
+    }
+
+    /**
+     * Emulates both unique indexes a new disk must pass: the claim file name
+     * (billing_on_diskname_ohipfilename_uq) and every HTML companion name
+     * (billing_on_filename_htmlfilename_uq).
+     */
+    private void stubUniqueFilenames(java.util.Set<String> ohipOnRecord, java.util.Set<String> htmlOnRecord,
+                                     int newDiskId) {
+        when(diskLoader.isOhipFilenameInUse(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> ohipOnRecord.contains(invocation.<String>getArgument(0)));
+        when(diskLoader.isHtmlFilenameInUse(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> htmlOnRecord.contains(invocation.<String>getArgument(0)));
+        when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
+                .thenAnswer(invocation -> {
+                    BillingDiskNameDto disk = invocation.getArgument(0);
+                    if (ohipOnRecord.contains(disk.getOhipfilename())) {
+                        throw new org.springframework.dao.DataIntegrityViolationException(
+                                "billing_on_diskname_ohipfilename_uq");
+                    }
+                    if (disk.getFilenames().stream().anyMatch(row -> htmlOnRecord.contains(row.htmlFilename()))) {
+                        throw new org.springframework.dao.DataIntegrityViolationException(
+                                "billing_on_filename_htmlfilename_uq");
+                    }
+                    return newDiskId;
+                });
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"123, 0123", "12a4, 12A4", "' 1234 ', 1234"})
+    void shouldNormalizeGroupNumber_forFilenameBatchCounterAndStoredGroup(String groupNo, String normalized) {
+        // Issue #4277: the legacy fallback stored "" and named the file H<month>.001
+        // while looking the batch counter up by the raw value, so every disk of a
+        // malformed group was batch 1 and the second one collided on the unique
+        // filename. One normalized key must drive all three.
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestGrpMonthCodeBatchNum(normalized))
+                .thenReturn(new String[]{monthCode, "1"});
+        when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
+                .thenReturn(46);
+
+        int diskId = service.createNewGrpDiskName(
+                List.of("999998"), List.of("054321"), groupNo, "creator");
+
+        assertThat(diskId).isEqualTo(46);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        BillingDiskNameDto disk = captor.getValue();
+        assertThat(disk.getGroupno()).isEqualTo(normalized);
+        assertThat(disk.getBatchcount()).isEqualTo("2");
+        assertThat(disk.getOhipfilename()).isEqualTo("H" + monthCode + normalized + ".002");
+        assertThat(disk.getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + normalized + "_054321_002.html");
+        verify(diskLoader, org.mockito.Mockito.never()).getLatestGrpMonthCodeBatchNum(groupNo.equals(normalized) ? "-" : groupNo);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0000", "000", "12345", "12A", "１２３４", "12-34"})
+    void shouldRejectGroup_whenItCannotBeNormalizedToAnOhipGroupNumber(String groupNo) {
+        assertThatThrownBy(() -> service.createNewGrpDiskName(
+                List.of("999998"), List.of("054321"), groupNo, "creator"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException.class)
+                .hasMessageContaining("group")
+                .extracting(e -> ((io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException) e)
+                        .getProviderNumbers())
+                .isEqualTo(List.of("999998"));
+
+        org.mockito.Mockito.verifyNoInteractions(claimPersister, diskLoader);
+    }
+
+    @Test
+    void shouldWriteNormalizedGroup_intoBatchHeader() {
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setProviderNo("999998");
+        provider.setOhipNo("054321");
+        provider.setSpecialtyCode("00");
+        provider.setBillingGroupNo("123");
+        when(claimPersister.addOneBatchHeaderRecord(org.mockito.ArgumentMatchers.any(BillingBatchHeaderDto.class)))
+                .thenReturn(7);
+
+        service.createBatchHeader(provider, "12", "4", "1", "creator");
+
+        ArgumentCaptor<BillingBatchHeaderDto> captor = ArgumentCaptor.forClass(BillingBatchHeaderDto.class);
+        verify(claimPersister).addOneBatchHeaderRecord(captor.capture());
+        assertThat(captor.getValue().getGroupNum()).isEqualTo("0123");
+    }
+
+    @Test
     void shouldPropagateRuntimeException_whenMessageOnlyLooksUnique() {
         Properties refreshed = new Properties();
         refreshed.setProperty("999998", "054321");
@@ -403,5 +628,10 @@ class BillingDiskCreationServiceUnitTest {
     private static String currentMonthCode() {
         int month = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1;
         return BillingOnConstants.propMonthCode.getProperty(String.valueOf(month));
+    }
+
+    private static String previousMonthCode() {
+        int month = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1;
+        return BillingOnConstants.propMonthCode.getProperty(String.valueOf(month == 1 ? 12 : month - 1));
     }
 }

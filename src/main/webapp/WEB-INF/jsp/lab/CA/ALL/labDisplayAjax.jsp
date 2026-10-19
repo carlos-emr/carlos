@@ -579,7 +579,7 @@
                                                                         <a href="javascript:window.close()"><% } else { // we were called from lab module
                                                                         %></a>
                                                                         <c:set var="__enc_19"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
-                                                                        <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                                                        <a href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&amp;segmentID=<carlos:encode value='${__enc_19}' context="htmlAttribute"/>&amp;name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
                                                                             <% } %>
                                                                             <carlos:encode value='<%= handler.getPatientName() %>' context="html"/>
                                                                         </a>

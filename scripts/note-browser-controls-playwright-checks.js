@@ -11,17 +11,20 @@
  *
  * User path: Schedule > Search > Master Record > E-Chart > type a note > Save; Browse Notes
  *   (casemgmt/ViewNoteBrowser popup) > Sort by Update / Observation / Content > View "others" >
- *   View "All" > encounter list > Print.
+ *   View "All" > View "others" > View status Deleted / All / Published > encounter list > Print.
  * Asserts: the page's script parses and defines its handlers; the Print control is a
  *   type="button" control, not a submit control; every sort choice re-opens the note browser with
  *   a GET answering 200 that carries the chosen sortorder and no CSRF token, keeps the select on
  *   that choice, and lists the three owned documents in that order (each order is distinct);
- *   the doc-type view re-opens it with a GET that keeps the sort and lists only that type; Print
+ *   the doc-type view re-opens it with a GET that keeps the sort and lists only that type; each
+ *   view status (Deleted, All, Published) re-opens it with a GET that keeps the sort and the
+ *   doc-type view and lists only that type's documents in that status, in that order; Print
  *   opens the print popup, which downloads a PDF, and leaves the note browser on the same URL;
  *   no request other than GET ever reaches ViewNoteBrowser and none of its responses is a 405.
  * Fixtures: the run's FAKE- patient, three owned PDFs (document + ctl_document rows, files under
  *   DOCUMENT_DIR) with distinct content, update and observation dates, two of type "others" and
- *   one of type "lab", and the owned note; all removed and verified gone.
+ *   one of type "lab" (one is marked deleted for the status step and restored), and the owned
+ *   note; all removed and verified gone.
  * Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR), plus the harness contract.
  */
 const fs = require('node:fs');
@@ -139,11 +142,19 @@ async function workflow(s) {
     const reloaded = url => url.pathname.endsWith(GATE)
       && Object.entries(expect).every(([name, value]) => url.searchParams.get(name) === value);
     h.assert(!reloaded(new URL(notes.url())), 'reloadVia needs an action that changes the note browser URL');
-    const [response] = await Promise.all([
-      notes.waitForResponse(r => reloaded(new URL(r.url())) && r.request().isNavigationRequest(), { timeout: TIMEOUT }),
-      notes.waitForURL(reloaded, { waitUntil: 'load', timeout: TIMEOUT }),
-      action(),
-    ]);
+    let response;
+    try {
+      [response] = await Promise.all([
+        notes.waitForResponse(r => reloaded(new URL(r.url())) && r.request().isNavigationRequest(), { timeout: TIMEOUT }),
+        notes.waitForURL(reloaded, { waitUntil: 'load', timeout: TIMEOUT }),
+        action(),
+      ]);
+    } catch (error) {
+      // A control that submits the form (the #4368 regression) never produces the expected GET,
+      // so the waits only time out: report the POST or the 405 it caused instead.
+      assertGateOnlyGot();
+      throw error;
+    }
     h.assert(response.request().method() === 'GET', `The note browser reloaded with ${response.request().method()}`);
     h.assert(response.status() === 200, `The note browser reload answered HTTP ${response.status()}`);
     await notes.locator('#doclist').waitFor({ state: 'attached', timeout: TIMEOUT });
@@ -176,6 +187,35 @@ async function workflow(s) {
     await reloadVia(() => notes.locator('a[onclick*="LoadView(\'all\')"]').click(), { view: 'all', sortorder: 'Observation' });
     const all = await listedOrder();
     h.assert(JSON.stringify(all) === JSON.stringify(ORDERS.Observation), `The "All" view lists ${all} instead of ${ORDERS.Observation}`);
+    assertGateOnlyGot();
+  });
+
+  // The status select is ReLoadDoc's other caller. It re-reads both selects and the reload keeps
+  // the doc-type view, so run it inside the "others" view: every status must keep the sort and the
+  // view (the "lab" document stays out) as well as filter by status.
+  await s.step('View status re-opens with GET, keeps the sort and view and filters by status', async () => {
+    await reloadVia(() => notes.locator('a[onclick*="LoadView(\'others\')"]').click(), { view: 'others', sortorder: 'Observation', viewstatus: 'active' });
+    const others = ORDERS.Observation.filter(key => DATES[key].doctype === 'others');
+    const deleted = byKey.B;
+    h.assert(DATES[deleted.key].doctype === 'others', 'The deleted fixture must be in the "others" view');
+    sql.execute(`UPDATE document SET status='D' WHERE document_no=${deleted.id} AND docdesc=${h.sqlString(deleted.label)}`);
+    try {
+      const expected = {
+        deleted: [deleted.key],
+        all: others,
+        active: others.filter(key => key !== deleted.key),
+      };
+      for (const [viewstatus, keys] of Object.entries(expected)) {
+        await reloadVia(() => notes.locator('#selviewstatus').selectOption(viewstatus), { viewstatus, sortorder: 'Observation', view: 'others' });
+        h.assert(await notes.locator('#selviewstatus').inputValue() === viewstatus, `The status select did not stay on ${viewstatus}`);
+        h.assert(await notes.locator('#selsortorder').inputValue() === 'Observation', `Changing the status to ${viewstatus} lost the sort`);
+        h.assert(await notes.locator('input[name="view"]').inputValue() === 'others', `Changing the status to ${viewstatus} lost the document-type view`);
+        const order = await listedOrder();
+        h.assert(JSON.stringify(order) === JSON.stringify(keys), `The ${viewstatus} status lists ${order} instead of ${keys}`);
+      }
+    } finally {
+      sql.execute(`UPDATE document SET status='A' WHERE document_no=${deleted.id} AND docdesc=${h.sqlString(deleted.label)}`);
+    }
     assertGateOnlyGot();
   });
 

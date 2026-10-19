@@ -779,3 +779,400 @@ test('installCleanupSignalHandlers.dispose removes both listeners and a non-func
   assert.throws(() => harness.installCleanupSignalHandlers(null), /needs a cleanup function/);
   assert.deepEqual(harness.NO_PLAYWRIGHT_SIGNAL_HANDLING, { handleSIGINT: false, handleSIGTERM: false });
 });
+
+test('screenshot captures nothing when SCREENSHOT_DIR is unset and validates a directory that is set', async () => {
+  const shots = [];
+  const page = { screenshot: async (options) => { shots.push(options.path); } };
+  for (const unset of ['', '   ', undefined, null]) {
+    assert.equal(await harness.screenshot(page, unset, 'optional-shot'), null);
+  }
+  assert.deepEqual(shots, [], 'an unset SCREENSHOT_DIR must not write or fail');
+  // resolveArtifactDir allows /tmp or the cwd, not $TMPDIR (macOS, /var/tmp).
+  const dir = fs.mkdtempSync('/tmp/carlos-shot-');
+  try {
+    const written = await harness.screenshot(page, dir, 'set-shot');
+    assert.equal(written, path.join(dir, 'set-shot.png'));
+    assert.deepEqual(shots, [written]);
+    await assert.rejects(harness.screenshot(page, '/etc', 'outside'), /Artifact directory must be under/);
+    await assert.rejects(harness.screenshot(page, dir, '../escape'), /Invalid artifact name/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+/*
+ * assertRefused() -- the shared "the application refused this request and wrote nothing"
+ * assertion every GET-reject, CSRF and authorization check ends with.
+ *
+ * A refusal needs TWO pieces of evidence: the application's own answer (405, a 403 that
+ * CARLOS wrote, or its securityError page) and an unchanged row count. A bare non-200 is not
+ * enough: the ModSecurity front door answers 403 to the test's own fixture text, and a
+ * mistyped route answers 404; neither says anything about the route under test.
+ */
+const APP_HEADERS = { 'x-permitted-cross-domain-policies': 'none' };
+const WAF_BODY = '<html><head><title>403 Forbidden</title></head><body><center><h1>403 Forbidden</h1></center>'
+  + '<hr><center>nginx</center></body></html>';
+const SECURITY_ERROR_BODY = '<html><body><h5>Security Exception</h5>\n\n'
+  + 'You tried to access a resource with insufficient privileges.<h5>Object:_tickler</h5></body></html>';
+
+function apiResponse({ status, body = '', headers = {}, url = 'https://localhost/carlos/tickler/ViewAddTickler?demographic_no=77' }) {
+  return { status: () => status, text: async () => body, headers: () => headers, url: () => url };
+}
+
+/** A workflow-session stand-in whose COUNT(*) reads return the given values in order. */
+function sessionCounting(...counts) {
+  const queries = [];
+  return {
+    queries,
+    s: { sql: { value(query) { queries.push(query); return String(counts.shift()); } } },
+  };
+}
+
+test('shouldPassAssertRefused_when405AndRowCountUnchanged', async () => {
+  const { s, queries } = sessionCounting(3);
+  const verdict = await harness.assertRefused(s, {
+    response: apiResponse({ status: 405, headers: APP_HEADERS }), table: 'tickler', where: 'demographic_no=77', before: '3',
+  });
+  assert.equal(verdict.status, 405);
+  assert.deepEqual(queries, ['SELECT COUNT(*) FROM tickler WHERE demographic_no=77']);
+});
+
+test('shouldPassAssertRefused_when405CarriesTheApplicationErrorPage', async () => {
+  // The app's own error page (errorpage.jsp, <title>Error Page</title>) answers a refused method
+  // even where a proxy has stripped the header.
+  const { s } = sessionCounting(3);
+  await harness.assertRefused(s, {
+    response: apiResponse({ status: 405, body: '<!DOCTYPE html><html><head><meta charset="UTF-8">\n<title>\n  Error Page\n</title></head></html>' }),
+    table: 'tickler', where: 'id=1', before: 3,
+  });
+});
+
+test('shouldFailAssertRefused_when405CannotBeAttributedToTheApplication', async () => {
+  // A front-door (nginx) or default-servlet 405, for example a POST to a static resource, says
+  // nothing about the route under test: it carries neither the application header nor its page.
+  for (const body of ['', '<html><head><title>405 Not Allowed</title></head><body><center>nginx</center></body></html>']) {
+    const { s } = sessionCounting(3);
+    await assert.rejects(harness.assertRefused(s, {
+      response: apiResponse({ status: 405, body }), table: 'tickler', where: 'id=1', before: '3',
+    }), /HTTP 405 whose origin cannot be shown to be the application/, `body: ${body || '(empty)'}`);
+  }
+});
+
+test('shouldPassAssertRefused_whenApplication403CarriesItsHeader', async () => {
+  const { s } = sessionCounting(0);
+  await harness.assertRefused(s, {
+    response: apiResponse({ status: 403, headers: APP_HEADERS }), table: 'tickler', where: '1=1', before: 0,
+  });
+});
+
+test('shouldPassAssertRefused_whenHeadAnswers403WithApplicationHeaderAndNoBody', async () => {
+  // A HEAD has no body to recognise the application's page by; the header is the evidence.
+  const { s } = sessionCounting(5);
+  await harness.assertRefused(s, {
+    response: apiResponse({ status: 403, body: '', headers: APP_HEADERS }), table: 'tickler', where: 'id=5', before: '5',
+  });
+});
+
+test('shouldPassAssertRefused_whenBodyIsTheSecurityErrorPage', async () => {
+  const { s } = sessionCounting(2);
+  await harness.assertRefused(s, {
+    response: apiResponse({ status: 403, body: SECURITY_ERROR_BODY }), table: 'tickler', where: 'id=5', before: '2',
+  });
+  // An include()d gate cannot set a status, so the same page can arrive under a 200.
+  const included = sessionCounting(2);
+  await harness.assertRefused(included.s, {
+    response: apiResponse({ status: 200, body: SECURITY_ERROR_BODY }), table: 'tickler', where: 'id=5', before: '2',
+  });
+});
+
+test('shouldPassAssertRefused_whenRedirectedToSecurityError', async () => {
+  const { s } = sessionCounting(2);
+  await harness.assertRefused(s, {
+    response: apiResponse({ status: 302, headers: { location: '/carlos/securityError?type=_tickler' } }),
+    table: 'tickler', where: 'id=5', before: '2',
+  });
+});
+
+test('shouldFailAssertRefused_whenResponseIsWafPage', async () => {
+  const { s } = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 403, body: WAF_BODY }), table: 'tickler', where: 'demographic_no=77', before: '3',
+  }), /WAF refusal, not an application refusal/);
+  const modsecurity = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(modsecurity.s, {
+    response: apiResponse({ status: 403, body: '<h1>ModSecurity: Access denied (CRS 949110)</h1>' }),
+    table: 'tickler', where: 'demographic_no=77', before: '3',
+  }), /WAF refusal, not an application refusal/);
+});
+
+test('shouldFailAssertRefused_whenResponseIs404', async () => {
+  const { s } = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 404, body: '<h1>HTTP Status 404</h1>' }), table: 'tickler', where: 'demographic_no=77', before: '3',
+  }), /HTTP 404.*not the application's 403\/405\/securityError refusal/);
+});
+
+test('shouldFailAssertRefused_whenRowCountChanged', async () => {
+  // The route answered with a refusal AND wrote: the row count is the stronger evidence.
+  const { s } = sessionCounting(4);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 405, headers: APP_HEADERS }), table: 'tickler', where: 'demographic_no=77', before: '3',
+  }), /changed tickler: COUNT\(\*\) was 3 before the request and 4 after/);
+});
+
+test('shouldFailAssertRefused_whenUnmarked403CannotBeAttributedToTheApplication', async () => {
+  const { s } = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 403, body: '<h1>Forbidden</h1>' }), table: 'tickler', where: 'id=1', before: '3',
+  }), /403 whose origin cannot be shown to be the application/);
+});
+
+test('shouldFailAssertRefused_whenRouteServedOrErrored', async () => {
+  for (const status of [200, 204, 302, 401, 500, 502]) {
+    const { s } = sessionCounting(3);
+    await assert.rejects(harness.assertRefused(s, {
+      response: apiResponse({ status }), table: 'tickler', where: 'id=1', before: '3',
+    }), new RegExp(`HTTP ${status}`), `HTTP ${status} is not a refusal`);
+  }
+});
+
+test('shouldPassAssertRefused_whenANamedStatusCarriesTheApplicationHeader', async () => {
+  // A JAX-RS resource that @Consumes JSON refuses a form-encoded body with 415 before it runs.
+  const { s } = sessionCounting(2);
+  const verdict = await harness.assertRefused(s, {
+    response: apiResponse({ status: 415, headers: APP_HEADERS }), table: 'tickler', where: 'id=1', before: '2', alsoRefusedBy: [415],
+  });
+  assert.match(verdict.evidence, /HTTP 415 carrying x-permitted-cross-domain-policies/);
+});
+
+test('shouldFailAssertRefused_whenANamedStatusLacksTheHeaderOrWasNotNamed', async () => {
+  const unmarked = sessionCounting(2);
+  await assert.rejects(harness.assertRefused(unmarked.s, {
+    response: apiResponse({ status: 415 }), table: 'tickler', where: 'id=1', before: '2', alsoRefusedBy: [415],
+  }), /HTTP 415 whose origin cannot be shown to be the application/);
+  // Without the opt-in a 415 is what it always was: not a refusal.
+  const unnamed = sessionCounting(2);
+  await assert.rejects(harness.assertRefused(unnamed.s, {
+    response: apiResponse({ status: 415, headers: APP_HEADERS }), table: 'tickler', where: 'id=1', before: '2',
+  }), /HTTP 415 is not the application's 403\/405\/securityError refusal/);
+  // The WAF page and a changed row count still fail with a named status.
+  const waf = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(waf.s, {
+    response: apiResponse({ status: 403, body: WAF_BODY }), table: 'tickler', where: 'id=1', before: '2', alsoRefusedBy: [415],
+  }), (error) => /WAF refusal/.test(error.message) && /COUNT\(\*\) was 2 before the request and 3 after/.test(error.message));
+});
+
+test('shouldRefuseAssertRefused_whenANamedStatusIsOutsideTheAllowList', async () => {
+  // A 404 is a mistyped route and a 400 a malformed probe: neither may ever be declared a refusal.
+  const { s } = sessionCounting(2);
+  for (const alsoRefusedBy of [[404], [400], [401], [200], [302], [500], [415, 404], ['415'], 415]) {
+    await assert.rejects(harness.assertRefused(s, {
+      response: apiResponse({ status: 404, headers: APP_HEADERS }), table: 'tickler', where: 'id=1', before: '2', alsoRefusedBy,
+    }), /alsoRefusedBy names only 409, 415, 422/, JSON.stringify(alsoRefusedBy));
+  }
+  assert.deepEqual([...harness.ALSO_REFUSED_STATUSES], [409, 415, 422]);
+});
+
+test('shouldNameEveryProblem_whenWafPageAndRowCountChanged', async () => {
+  const { s } = sessionCounting(4);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 403, body: WAF_BODY }), table: 'tickler', where: 'id=1', before: '3',
+  }), (error) => /WAF refusal, not an application refusal/.test(error.message)
+    && /COUNT\(\*\) was 3 before the request and 4 after/.test(error.message));
+});
+
+test('shouldAcceptPreReadResponse_whenGivenPlainStatusBodyAndHeaders', async () => {
+  const { s } = sessionCounting(1);
+  await harness.assertRefused(s, {
+    response: { status: 403, body: SECURITY_ERROR_BODY, headers: {} }, table: 'tickler', where: 'id=1', before: 1,
+  });
+});
+
+test('shouldRefuseAssertRefused_whenCallerGivesNoBeforeCountOrAnUnsafeTable', async () => {
+  const { s } = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 405 }), table: 'tickler', where: 'id=1',
+  }), /needs the COUNT\(\*\) taken before the request/);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 405 }), table: 'tickler; DROP TABLE x', where: 'id=1', before: 3,
+  }), /table must be a plain table name/);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 405 }), table: 'tickler', where: '  ', before: 3,
+  }), /needs a where clause that selects only the rows the check owns/);
+});
+
+test('shouldNotEchoTheResponseBody_inTheAssertionMessage', async () => {
+  // A refusal page can reflect request text, and the message lands in stdout and RESULT_JSON.
+  const { s } = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 200, body: '<p>FAKE-PATIENT-NAME 1234567890</p>' }), table: 'tickler', where: 'id=1', before: '3',
+  }), (error) => !/FAKE-PATIENT-NAME|1234567890|demographic_no=77/.test(error.message));
+});
+
+test('shouldTagTheStepLabel_whenAStepThrows', () => {
+  const error = new Error('boom');
+  assert.equal(harness.markFailedStep(error, 'inner step'), error);
+  assert.equal(error.failedStep, 'inner step');
+  // The innermost label wins: an outer wrapper must not relabel a failure a nested step already named.
+  harness.markFailedStep(error, 'outer step');
+  assert.equal(error.failedStep, 'inner step');
+  // Thrown primitives cannot carry a property; they pass through untouched.
+  assert.equal(harness.markFailedStep('plain string', 'step'), 'plain string');
+  assert.equal(harness.markFailedStep(null, 'step'), null);
+});
+
+test('shouldRecordFailedStep_whenRunCheckBodyThrowsATaggedError', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-runcheck-step-'));
+  try {
+    const resultPath = path.join(directory, 'result.json');
+    const processRef = { exitCode: null, env: { RESULT_JSON: resultPath }, on() {}, removeListener() {} };
+    const result = await runCheck({
+      name: 'stepped',
+      run: async () => { throw harness.markFailedStep(new Error('assertion failed'), 'second step'); },
+      stdout: { log() {} },
+      processRef,
+    });
+    assert.equal(result.outcome, 'FAIL');
+    assert.equal(result.failedStep, 'second step');
+    const written = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+    assert.equal(written.failedStep, 'second step');
+    assert.equal('cleanupFailed' in written, false, 'a clean cleanup records nothing');
+    assert.equal(processRef.exitCode, 1);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('shouldOmitFailedStep_whenTheFailureHadNoLabelledStep', async () => {
+  const processRef = { exitCode: null, env: {}, on() {}, removeListener() {} };
+  const result = await runCheck({
+    name: 'unlabelled', run: async () => { throw new Error('plain failure'); }, stdout: { log() {} }, processRef,
+  });
+  assert.equal(result.outcome, 'FAIL');
+  assert.equal('failedStep' in result, false);
+  const passed = await runCheck({ name: 'ok', run: async () => null, stdout: { log() {} }, processRef: { ...processRef, env: {} } });
+  assert.equal('failedStep' in passed, false);
+});
+
+test('shouldNotRecordFailedStep_whenTheCheckWasInterrupted', async () => {
+  // An interrupted run exits 130/143 and is not a failure at a step; it must never read as a known failure.
+  const interruption = new Error('Interrupted by SIGINT');
+  const result = await runCheck({
+    name: 'interrupted',
+    run: async () => { throw harness.markFailedStep(interruption, 'a step'); },
+    stdout: { log() {} },
+    processRef: { exitCode: null, env: {}, on() {}, removeListener() {} },
+    createCancellation: () => ({
+      isCancellation: (error) => error === interruption, exitCode: 130, dispose() {}, throwIfCancelled() {},
+    }),
+  });
+  assert.equal(result.detail, 'interrupted');
+  assert.equal('failedStep' in result, false);
+});
+
+test('shouldFlagCleanupFailure_whenCleanupFailsAfterALabelledFailure', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-runcheck-cleanup-'));
+  try {
+    const resultPath = path.join(directory, 'result.json');
+    const result = await runCheck({
+      name: 'leaky',
+      run: async () => { throw harness.markFailedStep(new Error('assertion failed'), 'the known step'); },
+      cleanup: async () => { throw new Error('DELETE failed'); },
+      stdout: { log() {} },
+      processRef: { exitCode: null, env: { RESULT_JSON: resultPath }, on() {}, removeListener() {} },
+    });
+    assert.equal(result.failedStep, 'the known step');
+    assert.equal(result.cleanupFailed, true, 'a known failure that also leaked its fixtures is not a clean known failure');
+    assert.equal(JSON.parse(fs.readFileSync(resultPath, 'utf8')).cleanupFailed, true);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('shouldShareOneWafDefinition_betweenTheHarnessAndTheGetRejectProbe', () => {
+  const probe = require('./lib/get-reject-probe');
+  assert.equal(probe.isWafPage, harness.isWafPage);
+  assert.equal(harness.isWafPage(403, WAF_BODY), true);
+  assert.equal(harness.isWafPage(403, SECURITY_ERROR_BODY), false);
+  assert.equal(harness.isWafPage(404, WAF_BODY), false);
+});
+
+/*
+ * The browser version a run used. A browser rule can fail a check (Chromium 154 refuses a beforeunload
+ * prompt from a handler that removes itself, and names a non-ASCII download "download" under the POSIX
+ * locale), and the failure reads exactly like an application defect, so the record names the browser.
+ */
+const fakeBrowser = (version = '154.0.8025.0', name = 'chromium') => ({
+  version: () => version, browserType: () => ({ name: () => name }),
+});
+
+test('shouldDescribeBrowserVersion_asNameAndVersion', () => {
+  assert.equal(harness.describeBrowserVersion(fakeBrowser()), 'chromium 154.0.8025.0');
+  assert.equal(harness.describeBrowserVersion({ version: () => '154.0.8025.0' }), '154.0.8025.0',
+    'a browser object that does not name its type still reports the version');
+});
+
+test('shouldDescribeNothing_whenTheBrowserDoesNotSayItsVersion', () => {
+  for (const browser of [null, undefined, {}, { version: () => '' }, { version: () => '   ' }, { version: () => 154 },
+    { version: () => { throw new Error('browser closed'); } }]) {
+    assert.equal(harness.describeBrowserVersion(browser), undefined);
+  }
+});
+
+test('shouldKeepOnlyPlainVersionText_whenTheBrowserReportsMore', () => {
+  const described = harness.describeBrowserVersion(fakeBrowser('154.0\n<b>x</b>"', 'chromium'));
+  assert.doesNotMatch(described, /[<>"\n]/, 'the text is copied into JUnit and the console');
+  assert.equal(harness.describeBrowserVersion(fakeBrowser('1'.repeat(200))).length <= 80, true);
+});
+
+test('shouldRecordBrowserVersion_whenLaunchBrowserStartedOne', async (t) => {
+  // launchBrowser requires playwright lazily; stand a fake in for it, as the CI job has no browser binary.
+  const Module = require('node:module');
+  const load = Module._load;
+  const launched = [];
+  Module._load = function stubbed(request, ...rest) {
+    if (request === 'playwright') {
+      return { chromium: { launch: async (options) => { launched.push(options); return fakeBrowser('154.0.8025.0'); } } };
+    }
+    return load.call(this, request, ...rest);
+  };
+  t.after(() => { Module._load = load; harness.recordBrowserVersion(null); });
+  harness.recordBrowserVersion(null);
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-runcheck-browser-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const resultPath = path.join(directory, 'result.json');
+  const processRef = { exitCode: null, env: { RESULT_JSON: resultPath }, on() {}, removeListener() {} };
+  const result = await runCheck({
+    name: 'browsing',
+    run: async () => { await harness.launchBrowser({ chromePath: '', headless: true }); },
+    stdout: { log() {} },
+    processRef,
+  });
+  assert.equal(launched.length, 1, 'launchBrowser reached the (fake) playwright');
+  assert.equal(result.browserVersion, 'chromium 154.0.8025.0');
+  assert.equal(JSON.parse(fs.readFileSync(resultPath, 'utf8')).browserVersion, 'chromium 154.0.8025.0');
+});
+
+test('shouldRecordBrowserVersion_evenWhenTheCheckFails', async (t) => {
+  // A browser-caused failure is exactly when the version is wanted.
+  t.after(() => harness.recordBrowserVersion(null));
+  harness.recordBrowserVersion(fakeBrowser());
+  const result = await runCheck({
+    name: 'failing',
+    run: async () => { throw harness.markFailedStep(new Error('assertion failed'), 'a step'); },
+    stdout: { log() {} },
+    processRef: { exitCode: null, env: {}, on() {}, removeListener() {} },
+  });
+  assert.equal(result.outcome, 'FAIL');
+  assert.equal(result.failedStep, 'a step');
+  assert.equal(result.browserVersion, 'chromium 154.0.8025.0');
+});
+
+test('shouldOmitBrowserVersion_whenNoBrowserWasLaunched', async () => {
+  harness.recordBrowserVersion(null);
+  const result = await runCheck({
+    name: 'no-browser', run: async () => null, stdout: { log() {} },
+    processRef: { exitCode: null, env: {}, on() {}, removeListener() {} },
+  });
+  assert.equal('browserVersion' in result, false, 'a skipped or non-browser check records none rather than a guess');
+});

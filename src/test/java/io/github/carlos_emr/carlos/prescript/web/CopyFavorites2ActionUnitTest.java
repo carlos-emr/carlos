@@ -171,6 +171,19 @@ class CopyFavorites2ActionUnitTest extends CarlosUnitTestBase {
         verify(privilegeDao, never()).setFavoritesPrivilege(any(), org.mockito.ArgumentMatchers.anyBoolean(),
                 org.mockito.ArgumentMatchers.anyBoolean());
     }
+    @Test
+    @DisplayName("should carry the dispensing flag onto the copy instead of resetting it")
+    void shouldCarryDispensingFlag_whenFavoriteIsCopied() throws Exception {
+        copyRequest();
+        Favorites source = favorite(7, "999997");
+        source.setDispenseInternal(true);
+        publicSource();
+
+        assertThat(new CopyFavorites2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(favoritesDao).persist(argThat(model -> model instanceof Favorites copy && copy != source
+                && copy.isDispenseInternal()));
+    }
+
     private void publicSource() {
         var privilege = new io.github.carlos_emr.carlos.commn.model.FavoritesPrivilege();
         privilege.setProviderNo("999997");

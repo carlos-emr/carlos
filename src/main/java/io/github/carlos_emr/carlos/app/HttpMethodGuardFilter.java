@@ -111,9 +111,11 @@ public class HttpMethodGuardFilter implements Filter {
             "documenterrorreportupload", // MOH report upload/import/apply endpoint; action also gates mutating prefixes
             "newmeasurementmap",      // EctAddMeasurementMap2Action
             "remapmeasurementmap",    // EctRemoveMeasurementMap2Action
-            "setupaddmeasurementgroup",      // EctSetupAddMeasurementGroup2Action
-            "setupaddmeasurementtype",       // EctSetupAddMeasurementType2Action
-            "setupaddmeasuringinstruction",  // EctSetupAddMeasuringInstruction2Action
+            // The SetupAddMeasurement{Type,Group} and SetupAddMeasuringInstruction routes are NOT
+            // listed: they only load lists and render the Add form, and the Customize Measurements
+            // links (and the group-definition continuation) open them by GET. Listing them made
+            // every one of those forms answer 405 (#3335). Their writes go to AddMeasurementType,
+            // AddMeasuringInstruction and AddMeasurementGroup, which the "add" prefix still blocks.
             "rbtaddtogroup",          // RBTAddToGroup2Action (starts with "rbt", not "add")
             "reportreassign",         // ReportReassign2Action (reassigns lab reports to other providers)
             "forward"                 // ReportReassign2Action (lab/MDS forwarding — same mutator class, 4 URLs)
@@ -136,6 +138,8 @@ public class HttpMethodGuardFilter implements Filter {
             "cancel", "close",
             // MfaActions2Action dispatches its privileged MFA-secret reset via ?method=resetMfa;
             // classify it as a mutation so GET/HEAD are rejected before the action runs.
+            "makeissue", "issueadd", "issuedelete", "issuechange",
+            "submitchangediagnosis", "ajaxchangediagnosis",
             "resetmfa"
     );
 
@@ -162,6 +166,16 @@ public class HttpMethodGuardFilter implements Filter {
                                           // matches MUTATOR_ACTION_PREFIXES, but the action itself
                                           // only renders a JSP — the actual write goes through
                                           // appointment/AddRecord (which IS a POST-only mutator).
+            "addmeasurementmap",         // EctAddMeasurementMap2Action (Customize Measurements ▸ Add
+                                          // Measurement Mapping, #3335): GET with no code to map
+                                          // renders the mapping form and its Search; the action
+                                          // answers 405 to any non-POST that names both an
+                                          // identifier and a loinc_code (a write). NewMeasurementMap,
+                                          // the same class's POST-only route, stays listed above.
+            "removemeasurementmap",      // EctRemoveMeasurementMap2Action (Remove/Remap Measurement
+                                          // Mapping, #3335): GET with no row id renders the table
+                                          // and its Search; the action answers 405 to any non-POST
+                                          // that names an id (a removal or remap).
             "addrelation"                // AddDemographicRelationship2Action (demographic "Add
                                           // Relation" popup, edit-view.jsp): GET with only `demo`
                                           // renders the contact-search form (AddAlternateContact.jsp).
@@ -380,7 +394,7 @@ public class HttpMethodGuardFilter implements Filter {
         String uri = httpRequest.getRequestURI();
         if (uri.indexOf('\0') >= 0) {
             LOGGER.warn("Blocked request with null byte in URI: {} (remote: {})",
-                    uri.replace('\0', '?'), httpRequest.getRemoteAddr());
+                    LogSafe.sanitize(uri.replace('\0', '?')), LogSafe.sanitize(httpRequest.getRemoteAddr()));
             ((HttpServletResponse) response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid request URI");
             return;
         }

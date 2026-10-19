@@ -402,12 +402,14 @@ public final class RxDeleteRx2Action extends ActionSupport {
 
         Date date = new Date();
         String logStatement = drug + " Changing end date to :" + date;
-        drug.setArchivedDate(date);
-        //drug.setEndDate(drug.getArchivedDate());
-        drug.setArchived(true);
-        drug.setArchivedReason(reason);
-
-        drugDao.merge(drug);
+        // The database transition, rather than the earlier read, arbitrates simultaneous
+        // discontinuations. Only its winner may file a note or change the original reason.
+        if (drugDao.archiveIfActive(id, bean.getDemographicNo(), reason, date) != 1) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"STALE_RX_DISCONTINUE\"}");
+            return NONE;
+        }
       /*  Enumeration em=request.getParameterNames();
         while (em.hasMoreElements()){
             String s=em.nextElement().toString();

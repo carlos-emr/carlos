@@ -1737,7 +1737,8 @@
         function popupConsultation(segmentId) {
             var page = contextpath + '/encounter/ViewRequest?segmentId=' + segmentId;
             var windowprops = "height=960,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-            var popup = window.open(page, msgConsReq, windowprops);
+            // msgConsReq was never defined here, so this threw before the window opened.
+            var popup = window.open(page, 'consultationRequest', windowprops);
             if (popup != null) {
                 if (popup.opener == null) {
                     popup.opener = self;
@@ -1747,29 +1748,6 @@
 
         function checkType(docNo) {
             return docType[docNo];
-        }
-
-        function checkSelected() {
-
-            //oscarLog('in checkSelected()');
-            aBoxIsChecked = false;
-            if (document.reassignForm.flaggedLabs.length == undefined) {
-                if (document.reassignForm.flaggedLabs.checked == true) {
-                    aBoxIsChecked = true;
-                }
-            } else {
-                for (i = 0; i < document.reassignForm.flaggedLabs.length; i++) {
-                    if (document.reassignForm.flaggedLabs[i].checked == true) {
-                        //oscarLog(document.reassignForm.flaggedLabs[i].value);
-                        aBoxIsChecked = true;
-                    }
-                }
-            }
-            if (aBoxIsChecked) {
-                popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/ViewSelectProvider', 'providerselect');
-            } else {
-                alert(msgSelectOneLab);
-            }
         }
 
         function updateDocLabData(doclabid, inQueue) {//remove doclabid from global variables

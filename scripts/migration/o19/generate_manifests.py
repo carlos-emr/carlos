@@ -2140,10 +2140,14 @@ def divergent_carlos_defaults(o19_defaults, carlos_defaults, ov):
     of returning before anything is recorded. Only `carry` keys qualify:
     a translate/deploy-owned/dropped-flag key is never copied verbatim
     anyway, and CARLOS owning its value there is the documented intent.
+    Keys in the overlay's DIVERGENCE_REPORT_EXEMPT are left out on purpose
+    (the overlay says why).
     """
+    exempt = getattr(ov, "DIVERGENCE_REPORT_EXEMPT", {})
     return {key: carlos_defaults[key]
             for key, o19_value in o19_defaults.items()
             if key in carlos_defaults
+            and key not in exempt
             and carlos_defaults[key] != o19_value
             and overlay_disposition(key, ov) == "carry"}
 

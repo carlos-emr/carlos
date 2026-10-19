@@ -16,6 +16,9 @@
  * the MsgWriteToEncounter2Action row for that patient; Sign & Save stores a signed casemgmt_note for
  * the patient whose text is the pasted message; the message itself is untouched (still delivered,
  * still linked, not duplicated).
+ * Invalid msgId values (non-numeric, out of range, zero) get CARLOS's controlled 400 and write nothing; through
+ * the front door the WAF may answer the out-of-range id with its own 403 page, which is accepted as a refusal
+ * for that id only (isWafPage) and reported as such.
  * Regressions include a missing CSRF token, a lost message ID across chart redirects and sidebar
  * requests rebuilding the shared encounter bean before the note fragment renders.
  * Fixtures: an owned FAKE- patient (runWorkflow) and one FAKE-PW message delivered to the test
@@ -131,11 +134,28 @@ async function workflow(s) {
   });
 
   await s.step('invalid message IDs receive a controlled bad-request response', async () => {
-    for (const messageId of ['not-a-number', '2147483648', '0']) {
+    // Rows a request for this chart could write: the patient's notes, the write-to-encounter audit rows, and the
+    // message and its link. A refused probe must leave all of them as they were.
+    const written = () => JSON.stringify([
+      sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`), logRows(), ownedState()]);
+    // 2147483648 is out of range on purpose (Integer.parseInt must reject it), and it is also what the front
+    // door's ModSecurity rules refuse before CARLOS sees the request. Through the front door that WAF 403 is
+    // a valid outcome for THIS probe, reported as its own outcome. It is accepted for this id only: the
+    // other two must be CARLOS's own 400, or a WAF that blocked everything would let the check pass
+    // without ever reaching the code under test.
+    const probes = [{ id: 'not-a-number' }, { id: '2147483648', wafMayRefuse: true }, { id: '0' }];
+    for (const { id, wafMayRefuse } of probes) {
+      const rowsBefore = written();
       const response = await s.context.request.get(`${s.config.baseUrl}/CaseManagementEntry`, {
-        params: { method: 'setUpMainEncounter', demographicNo: patient, msgId: messageId }, maxRedirects: 0,
+        params: { method: 'setUpMainEncounter', demographicNo: patient, msgId: id }, maxRedirects: 0,
       });
-      h.assert(response.status() === 400, `Invalid msgId ${messageId} answered HTTP ${response.status()}`);
+      const status = response.status();
+      if (wafMayRefuse && h.isWafPage(status, await response.text().catch(() => ''))) {
+        console.log(`    (msgId ${id}: refused by the WAF front door with HTTP ${status}, so CARLOS was not reached)`);
+      } else {
+        h.assert(status === 400, `Invalid msgId ${id} answered HTTP ${status}`);
+      }
+      h.assert(written() === rowsBefore, `Invalid msgId ${id} wrote or changed rows for the owned patient or message`);
     }
   });
 

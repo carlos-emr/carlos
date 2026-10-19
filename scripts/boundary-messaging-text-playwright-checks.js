@@ -17,6 +17,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
 const { runWorkflow } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 
 function fillCodePoints(length, parts, pad = 'x') {
@@ -81,7 +82,7 @@ async function workflow(s) {
   // allowRefusal: a long text may be refused (the page alerts "could not be saved"); report that instead of waiting for a
   // success marker that will never come. Returns {list, refusal} with refusal the alert text or null.
   async function addTickler(text, { allowRefusal = false } = {}) {
-    const list = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'patient-tickler-list');
+    const list = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(), 'patient-tickler-list');
     const add = await s.popup(list, list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
     await add.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
     await add.locator('textarea[name="ticklerMessage"]').fill(text);
@@ -218,8 +219,9 @@ async function workflow(s) {
     const stored = sql.rows(`SELECT LENGTH(message) FROM tickler WHERE ${ownedTicklers} AND message LIKE ${h.sqlString(`${marker} long tickler%`)}`);
     if (stored.length && Number(stored[0][0]) !== Buffer.byteLength(longTickler)) {
       problems.push(`tickler text: ${Buffer.byteLength(longTickler)} bytes were typed into a box with no maxlength and the tickler was saved, but ${stored[0][0]} bytes were stored (tickler.message is TEXT, 65,535 bytes); silent truncation`);
-    } else if (!stored.length && !refusal) {
-      problems.push('tickler text: a very long tickler was not saved and nothing told the user');
+    } else if (!stored.length && !b.lengthRefusal(refusal)) {
+      // As for the subject: the generic "could not be saved" alert does not tell the user the length was the problem.
+      problems.push(`tickler text: a very long tickler was not saved and the user was not told its length was the problem${refusal ? ` (alert: ${refusal})` : ''}`);
     }
     h.assert(problems.length === 0, problems.join(' || '));
   });

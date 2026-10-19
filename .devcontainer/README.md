@@ -291,6 +291,15 @@ Several important fixes have been applied to ensure stable database initializati
 - Fixes foreign key constraint errors that occurred with charset mismatches
 - Configuration in `.devcontainer/development/config/shared/my.cnf`
 
+**Strict SQL mode:**
+- The development database keeps MariaDB's default strict `sql_mode`; `my.cnf` no longer sets `sql_mode = ""`.
+  A demo-data row whose value does not fit its column now stops `populate_db.sh` with an error naming the
+  table and column, instead of being silently coerced (issue #3151).
+- If the database container exits during first start, read `docker logs` for `ERROR 1366`, `1292`, `1406` or
+  `1136`: the demo snapshot (`.devcontainer/db/scripts/development.sql`) has a misaligned row.
+- `scripts/check-demo-data-strict-load.sh --self-test` reproduces the whole load in a throwaway container
+  and proves the check can fail. See `docs/database-schema-management.md`, "Demo data and strict `sql_mode`".
+
 **Hibernate Schema Management:**
 - Changed from `update` to `validate` mode to prevent automatic schema modifications
 - Database schema is now managed through the Flyway migration set loaded by the DB initializer

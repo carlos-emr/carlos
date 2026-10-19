@@ -21,37 +21,25 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.util;
 
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 
-import org.apache.logging.log4j.Logger;
-
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
-import io.github.carlos_emr.carlos.utility.LogSafe;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-
 /**
- * Answers an {@link AccessDeniedException} that escapes a REST resource with HTTP 403.
+ * Returns an explicit refusal without exposing a permission, patient id, or clinical exception message.
  *
- * <p>Several REST services (pharmacy, program, prescription) refuse a caller by throwing
- * {@code AccessDeniedException(object, action[, subject])}. Unmapped, CXF lets it escape to the
- * servlet container and the client receives the generic HTTP 500 error page; this mapper makes
- * the refusal an explicit 403 with an empty body, matching {@link SecurityExceptionMapper} (#2798).
- * The log records the security object and action, never the subject, which is usually a
- * {@code demographic_no}.</p>
- *
- * @since 2026-10-08
+ * <p>This provider lives in {@code webserv.rest.util}, not beside the REST services: the
+ * {@link WebServiceLoggingAdvice} pointcut covers every public method of a class directly in
+ * {@code webserv.rest}, and {@code <aop:aspectj-autoproxy proxy-target-class="true"/>} would then
+ * proxy this final class with CGLIB, which fails the web application context at startup.</p>
  */
 @Provider
-public class AccessDeniedExceptionMapper implements ExceptionMapper<AccessDeniedException> {
-
-    private static final Logger logger = MiscUtils.getLogger();
-
+public final class AccessDeniedExceptionMapper implements ExceptionMapper<AccessDeniedException> {
     @Override
     public Response toResponse(AccessDeniedException exception) {
-        logger.warn("REST request refused: missing {} privilege on {}",
-                LogSafe.sanitize(exception.getAction()), LogSafe.sanitize(exception.getPermission()));
-        return Response.status(Response.Status.FORBIDDEN).build();
+        return Response.status(Response.Status.FORBIDDEN).type(MediaType.TEXT_PLAIN)
+                .entity("Access denied").build();
     }
 }

@@ -488,6 +488,25 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             logActionMock.verifyNoInteractions();
         }
 
+        @Test
+        void shouldRefuseStaleDiscontinue_withoutWritingANoteOrReplacingTheReason() throws Exception {
+            namePatient();
+            request.setParameter("drugId", "77");
+            request.setParameter("reason", "allergy");
+            var drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+            drug.setId(77);
+            drug.setDemographicId(DEMOGRAPHIC_NO);
+            drug.setArchivedReason("doseChange");
+            when(mockDrugDao.find(77)).thenReturn(drug);
+            when(mockDrugDao.archiveIfActive(eq(77), eq(DEMOGRAPHIC_NO), anyString(), any())).thenReturn(0);
+            assertThat(new RxDeleteRx2Action().Discontinue()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(drug.getArchivedReason()).isEqualTo("doseChange");
+            assertThat(response.getContentAsString()).contains("STALE_RX_DISCONTINUE");
+            verify(mockDrugDao, never()).merge(any());
+            logActionMock.verifyNoInteractions();
+        }
+
         @ParameterizedTest
         @ValueSource(strings = {"note", "link", "missing-id"})
         @DisplayName("should disclose an incomplete discontinuation after the drug was archived")
@@ -500,6 +519,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             drug.setId(77);
             drug.setDemographicId(DEMOGRAPHIC_NO);
             when(mockDrugDao.find(77)).thenReturn(drug);
+            when(mockDrugDao.archiveIfActive(eq(77), eq(DEMOGRAPHIC_NO), anyString(), any())).thenReturn(1);
             var roleDao = mock(io.github.carlos_emr.carlos.commn.dao.SecRoleDao.class);
             var role = mock(io.github.carlos_emr.carlos.commn.model.SecRole.class);
             when(role.getId()).thenReturn(1);
@@ -530,8 +550,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
 
                 verify(manager).saveNoteSimpleReturnID(any());
             }
-            verify(mockDrugDao).merge(drug);
-            assertThat(drug.isArchived()).isTrue();
+            verify(mockDrugDao).archiveIfActive(eq(77), eq(DEMOGRAPHIC_NO), anyString(), any());
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_DISCONTINUE").doesNotContain("\"id\"");
         }
@@ -552,6 +571,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             drug.setId(77);
             drug.setDemographicId(DEMOGRAPHIC_NO);
             when(mockDrugDao.find(77)).thenReturn(drug);
+            when(mockDrugDao.archiveIfActive(eq(77), eq(DEMOGRAPHIC_NO), anyString(), any())).thenReturn(1);
             var roleDao = mock(io.github.carlos_emr.carlos.commn.dao.SecRoleDao.class);
             var role = mock(io.github.carlos_emr.carlos.commn.model.SecRole.class);
             when(role.getId()).thenReturn(1);
@@ -578,8 +598,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
                 documents.verify(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.addCaseMgmtNoteLink(link.capture()));
             }
             assertThat(response.getStatus()).isEqualTo(200);
-            assertThat(drug.isArchived()).isTrue();
-            verify(mockDrugDao).merge(drug);
+            verify(mockDrugDao).archiveIfActive(eq(77), eq(DEMOGRAPHIC_NO), anyString(), any());
             assertThat(note.getValue().getDemographic_no()).isEqualTo(String.valueOf(DEMOGRAPHIC_NO));
             assertThat(link.getValue().getTableId()).isEqualTo(77L);
             assertThat(link.getValue().getNoteId()).isEqualTo(123L);

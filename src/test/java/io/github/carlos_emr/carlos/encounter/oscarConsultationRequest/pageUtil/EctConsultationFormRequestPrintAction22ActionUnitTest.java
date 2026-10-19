@@ -239,7 +239,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         // A cleanup-only close failure after the PDF bytes were streamed must not flip the
         // result to "error": Struts would forward an error JSP into the committed binary
         // response — exactly the direct-response corruption CLAUDE.md forbids.
-        Path attachedForm = Files.createTempFile("consult-print-close-fail-", ".pdf");
+        Path attachedForm = createRenderedPdf();
         try {
             EFormData eForm = mock(EFormData.class);
             when(eForm.getId()).thenReturn(7);
@@ -288,6 +288,45 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                                 .contains("Attached form \"unknown\"")
                                 .contains("form metadata is missing");
                     });
+        }
+    }
+
+    private Path createRenderedPdf() throws IOException {
+        Path root = Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"), "carlos-temp"));
+        return Files.createTempFile(root, "consult-print-", ".pdf");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should refuse a rendered attachment outside the application temp, directly or through a symlink")
+    void shouldRefuseRenderedAttachmentOutsideApplicationTemp_withDirectPathOrSymlink(boolean symlink) throws Exception {
+        Path foreign = Files.createTempFile("not-carlos-owned-", ".pdf");
+        Path rendered = symlink ? createRenderedPdf() : foreign;
+        try {
+            if (symlink) {
+                Files.delete(rendered);
+                try {
+                    Files.createSymbolicLink(rendered, foreign);
+                } catch (UnsupportedOperationException | java.io.IOException unavailable) {
+                    // Windows without the privilege, or a filesystem without symlinks: the direct case still runs.
+                    org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links are not available here");
+                }
+            }
+            EFormData eForm = mock(EFormData.class);
+            when(eForm.getId()).thenReturn(7);
+            when(eForm.getDemographicId()).thenReturn(1);
+            when(consultationManager.getAttachedEForms("42")).thenReturn(List.of(eForm));
+            when(faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, 7, 1))
+                    .thenReturn(rendered);
+            try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class)) {
+                org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                        .isInstanceOf(SecurityException.class);
+                assertThat(response.getContentAsByteArray()).isEmpty();
+                concat.verifyNoInteractions();
+            }
+        } finally {
+            Files.deleteIfExists(rendered);
+            Files.deleteIfExists(foreign);
         }
     }
 
@@ -356,7 +395,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     @Test
     @DisplayName("should print only the consultation patient's own eForms and documents when consult docs reference another patient's")
     void shouldPrintOnlyOwnedAttachments_whenConsultDocsReferenceAnotherPatient() throws Exception {
-        Path ownForm = Files.createTempFile("consult-print-own-", ".pdf");
+        Path ownForm = createRenderedPdf();
         try {
             EFormData ownEForm = mock(EFormData.class);
             when(ownEForm.getId()).thenReturn(7);
@@ -431,6 +470,46 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(labPdfConstruction.constructed()).isEmpty();
+        }
+    }
+
+    /**
+     * Issue #4693: the lab the PDF cannot draw is still attached. The legacy print names it on a
+     * page right after the consultation letter instead of leaving it out without a word.
+     */
+    @Test
+    @DisplayName("should print the HL7 lab and name the MDS lab on a page after the consultation letter")
+    @SuppressWarnings("unchecked")
+    void shouldNameMdsLabAfterConsultationLetter_whenConsultHasHl7AndMdsLabs() throws Exception {
+        commonLabResultDataConstruction.close();
+        LabResultData hl7Lab = new LabResultData(LabResultData.HL7TEXT);
+        hl7Lab.setSegmentID("30");
+        LabResultData mdsLab = new LabResultData(LabResultData.MDS);
+        mdsLab.setSegmentID("20");
+        mdsLab.discipline = "Hem/Chem/Other";
+        mdsLab.dateTime = "2024-03-05 10:22:00";
+        commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (labData, context) ->
+                when(labData.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                        .thenReturn(new ArrayList<>(List.of(hl7Lab, mdsLab))));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
+
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class);
+             MockedConstruction<LabPDFCreator> labPdfConstruction = mockConstruction(LabPDFCreator.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            ArgumentCaptor<List<Object>> packet = ArgumentCaptor.forClass(List.class);
+            concatPdfMock.verify(() -> ConcatPDF.concat(packet.capture(), any(java.io.OutputStream.class)));
+            // The consultation letter, the page naming the MDS lab, then the HL7 lab.
+            assertThat(packet.getValue()).hasSize(3);
+            byte[] notice = ((InputStream) packet.getValue().get(1)).readAllBytes();
+            try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.Loader.loadPDF(notice)) {
+                assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(document))
+                        .contains("MDS lab result: Hem/Chem/Other, 2024-03-05 10:22:00");
+            }
+            assertThat(labPdfConstruction.constructed()).hasSize(1);
+            assertThat(request.getAttribute("segmentID")).isEqualTo("30");
         }
     }
 

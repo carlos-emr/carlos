@@ -32,8 +32,12 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
@@ -46,6 +50,9 @@ import org.apache.struts2.ServletActionContext;
 
 /** Displays configured DrugRef information without redirecting medication names to another site. */
 public final class RxDrugInfo2Action extends ActionSupport {
+    /** Where a saved description's strength starts: the first word that begins with a digit. */
+    private static final Pattern STRENGTH = Pattern.compile("\\s\\d");
+
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     @Override
@@ -84,14 +91,12 @@ public final class RxDrugInfo2Action extends ActionSupport {
                                 StringUtils.defaultIfBlank(monograph.getName(), monograph.getProduct()));
                     }
                 }
-            } else {
-                RxDrugData.DrugSearch search = data.listDrug2(genericName);
-                if (search == null || search.failed) {
-                    request.setAttribute("drugInfoUnavailable", true);
-                } else {
-                    addMatches(matches, search.getGen());
-                    addMatches(matches, search.getBrand());
-                }
+            }
+            // An old/imported DIN may no longer exist in this DrugRef extract. Keep the
+            // exact lookup first, then offer explicit search results rather than a blank page
+            // or silently substituting another product's monograph (#4554).
+            if (request.getAttribute("drugInfoMonograph") == null && genericName != null) {
+                searchByName(request, data, genericName, matches);
             }
         } catch (Exception exception) {
             MiscUtils.getLogger().warn("DrugRef information lookup failed; failureType={}",
@@ -101,6 +106,43 @@ public final class RxDrugInfo2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Lists the catalogue products for a drug description. A saved generic name carries its strength
+     * and form ("ATORVASTATIN (ATORVASTATIN CALCIUM) 20.0mg tablet"), which the catalogue search does
+     * not match, so when the whole description finds nothing its name part, the words before the
+     * strength, is searched before the page reports no matches (#4554). The search box then shows the
+     * term that found them. A search that cannot answer marks the page unavailable, never empty.
+     */
+    private static void searchByName(HttpServletRequest request, RxDrugData data, String description,
+                                     List<RxDrugData.MinDrug> matches) {
+        String namePart = namePart(description);
+        List<String> terms = namePart == null ? List.of(description) : List.of(description, namePart);
+        for (String term : terms) {
+            RxDrugData.DrugSearch search = data.listDrug2(term);
+            if (search == null || search.failed) {
+                request.setAttribute("drugInfoUnavailable", true);
+                return;
+            }
+            addMatches(matches, search.getGen());
+            addMatches(matches, search.getBrand());
+            if (!matches.isEmpty()) {
+                request.setAttribute("drugInfoSearchTerm", term);
+                return;
+            }
+        }
+    }
+
+    /** The words before the first one that starts with a digit, or null when no strength follows a name. */
+    private static String namePart(String description) {
+        Matcher strength = STRENGTH.matcher(description);
+        if (!strength.find()) {
+            return null;
+        }
+        return StringUtils.trimToNull(description.substring(0, strength.start()));
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of the literal "null" a legacy selector may post; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of the literal \"null\" a legacy selector may post; not a security or authorization decision")
     private static String selector(String value) {
         String normalized = StringUtils.trimToNull(value);
         return "null".equalsIgnoreCase(normalized) ? null : normalized;

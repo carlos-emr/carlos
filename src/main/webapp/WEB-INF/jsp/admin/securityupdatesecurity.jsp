@@ -170,9 +170,11 @@
 	function updatePinComponentsAccess(checked) {
 		let pinCheckbox = document.getElementsByName('b_RemoteLockSet')
 		let pinConfCheckbox = document.getElementsByName('b_LocalLockSet')
+		let lockMarker = document.getElementsByName('lockFlagsEditable')
 		let pinInput = document.getElementsByName('pin')
 		let pinConfInput = document.getElementsByName('conPin')
 
+		lockMarker[0].disabled = checked;
 		pinCheckbox[0].disabled = checked;
 		pinConfCheckbox[0].disabled = checked;
 		pinInput[0].disabled = checked;
@@ -298,6 +300,10 @@
 
                 <tr>
                     <td align="right" nowrap>
+                        <%-- Posted only while the lock checkboxes are editable (see updatePinComponentsAccess):
+                             an unticked or disabled checkbox is not submitted, so the server needs this to
+                             tell "cleared" from "not editable". --%>
+                        <input type="hidden" name="lockFlagsEditable" value="1" <%=security.isUsingMfa() ? "disabled" : ""%>>
                         <label for="b_RemoteLockSet">
                             <fmt:message key="admin.securityrecord.formRemotePIN"/>:
                         </label>

@@ -64,12 +64,6 @@ public class EctDisplayForm2Action extends EctDisplayAction {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String appointmentNo = bean.appointmentNo;
-        if (appointmentNo == null && request.getSession().getAttribute("cur_appointment_no") != null) {
-            appointmentNo = (String) request.getSession().getAttribute("cur_appointment_no");
-
-        }
-
-
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", "r", null)) {
             return true; // The link of form won't show up on new CME screen.
         } else {

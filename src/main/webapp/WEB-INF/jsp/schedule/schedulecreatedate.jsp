@@ -259,6 +259,20 @@
                 //document.schedule.keyword.select();
             }
 
+            /*
+             * Shows this calendar month again without posting. After Next this page is the POST
+             * result of schedule/CreateDate, so reloading it would submit the week setting again and
+             * regenerate every rule-made day in the range (issue #4880). The month links use the
+             * same display-only request (bFirstDisp=0). The date popup calls this after a save; the
+             * save has already updated the calendar's session data, so the saved day shows.
+             */
+            function showCalendarMonth() {
+                location.href = '${pageContext.request.contextPath}/schedule/CreateDate?provider_no='
+                    + encodeURIComponent('<carlos:encode value='<%= provider_no %>' context="javaScript"/>')
+                    + '&provider_name=' + encodeURIComponent('<carlos:encode value='<%= provider_name %>' context="javaScript"/>')
+                    + '&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=0&bFirstDisp=0';
+            }
+
             function refresh() {
                 history.go(0);//
                 //window.location.reload(); //

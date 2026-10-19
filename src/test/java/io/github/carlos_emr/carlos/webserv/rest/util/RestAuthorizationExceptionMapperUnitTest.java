@@ -46,8 +46,7 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 /**
  * The REST surfaces answer a privilege refusal with HTTP 403 (#2798): the mappers turn the
- * {@code SecurityException} / {@code AccessDeniedException} a guard throws into an empty 403, log
- * only the security object, and are registered on both CXF servers.
+ * {@code SecurityException} / {@code AccessDeniedException} a guard throws into a 403 without sensitive details and are registered on both CXF servers.
  *
  * @since 2026-10-08
  */
@@ -84,16 +83,12 @@ class RestAuthorizationExceptionMapperUnitTest {
     }
 
     @Test
-    @DisplayName("should answer AccessDeniedException with an empty 403 and log object and action, not the subject")
+    @DisplayName("should answer AccessDeniedException with a generic 403 without exposing subject or permission")
     void shouldAnswer403_forAccessDeniedException() {
-        try (LogCapture log = LogCapture.forLogger(AccessDeniedExceptionMapper.class)) {
-            Response response = new AccessDeniedExceptionMapper()
-                    .toResponse(new AccessDeniedException("_rx", "w", 4321));
-
+        try (Response response = new AccessDeniedExceptionMapper()
+                .toResponse(new AccessDeniedException("_rx", "w", 4321))) {
             assertThat(response.getStatus()).isEqualTo(403);
-            assertThat(response.hasEntity()).isFalse();
-            assertThat(log.messages()).containsExactly("REST request refused: missing w privilege on _rx");
-            assertThat(String.join("\n", log.messages())).doesNotContain("4321");
+            assertThat(response.getEntity()).isEqualTo("Access denied");
         }
     }
 
@@ -101,7 +96,7 @@ class RestAuthorizationExceptionMapperUnitTest {
     @CsvSource({"spring_ws.xml, /rs", "applicationContextREST.xml, /services"})
     @DisplayName("should register both mappers on each REST surface")
     void shouldRegisterBothMappers_onEachRestSurface(String config, String address) throws Exception {
-        assertThat(providerClasses(config, address)).contains(
+        assertThat(providerClasses(config, address)).doesNotHaveDuplicates().contains(
                 SecurityExceptionMapper.class.getName(), AccessDeniedExceptionMapper.class.getName());
     }
 

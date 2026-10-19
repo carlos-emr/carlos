@@ -19,9 +19,11 @@ const FIELDS = [
     ['formDemographicNo', '7'],
     ['demographicNo', '7'],
     ['reactionDescription', 'hives after first dose'],
-    ['ID', '44452'],
+    // The Penicillin shortcut's form (#4576): an ATC class allergen, no DrugRef id.
+    ['ID', ''],
     ['name', 'PENICILLINS'],
-    ['type', '10'],
+    ['type', '8'],
+    ['atc', 'J01C'],
     ['startDate', '2024-01-15'],
 ];
 
@@ -108,6 +110,11 @@ test('a confirmed save posts the form body unchanged and only then opens the all
     assert.equal(body.get('formDemographicNo'), '7');
     assert.equal(body.get('demographicNo'), '7');
     assert.equal(body.get('reactionDescription'), 'hives after first dose');
+    // The allergen's identity too: a class allergen saved without its ATC class could not be checked (#4576).
+    assert.equal(body.get('ID'), '');
+    assert.equal(body.get('type'), '8');
+    assert.equal(body.get('name'), 'PENICILLINS');
+    assert.equal(body.get('atc'), 'J01C');
     assert.equal(body.get('submit'), 'Add Allergy');
     assert.equal(page.submitButton.disabled, true, 'the button stays disabled while the list loads');
     assert.equal(page.statusRegion.textContent, '');
@@ -182,6 +189,37 @@ test('a 4xx after the success redirect is unconfirmed, not NOT saved: the allerg
     assert.match(page.statusRegion.textContent, /^The allergy save could not be confirmed: the server refused the request \(HTTP 403\)/);
     assert.match(dialogModule.saveFailureMessage(403, null, true), /^The allergy save could not be confirmed/);
     assert.match(dialogModule.saveFailureMessage(403), /^Allergy NOT saved/, 'a direct refusal still says NOT saved');
+    assert.match(dialogModule.saveFailureMessage(409, null, false, true), /^The allergy save could not be confirmed/,
+        'a save-token conflict may mean an earlier attempt saved, so it is not reported as NOT saved');
+});
+
+test('a 409 marked as a save-token conflict is unconfirmed, not the stale-amendment refusal (#3488)', async () => {
+    const page = fakePage({
+        fetchImpl: (url) => Promise.resolve(Object.assign(response(409, url), {
+            headers: { get: (name) => (name === 'X-Allergy-Save-Token' ? 'conflict' : null) },
+        })),
+    });
+    const dialog = dialogModule.create(page.win);
+
+    assert.equal(await dialog.save(page.form, page.submitButton), 'failed');
+    assert.deepEqual(page.assigned, []);
+    assert.match(page.statusRegion.textContent, /^The allergy save could not be confirmed/);
+    assert.match(page.statusRegion.textContent, /Your entries are still in this form\./);
+    assert.equal(page.submitButton.disabled, false);
+});
+
+test('a 409 stale-amendment refusal keeps the entries and sends the clinician to the current list (#4410)', async () => {
+    const page = fakePage({ fetchImpl: (url) => Promise.resolve(response(409, url)) });
+    const dialog = dialogModule.create(page.win);
+
+    assert.equal(await dialog.save(page.form, page.submitButton), 'failed');
+    assert.deepEqual(page.assigned, [], 'a stale amendment must not leave the patient\'s page');
+    assert.match(page.statusRegion.textContent, /^Allergy NOT saved: this allergy was changed or inactivated in another window/);
+    assert.match(page.statusRegion.textContent, /Your entries are still in this form\./);
+    assert.match(page.statusRegion.textContent, /review the patient\u2019s current allergies/);
+    assert.equal(page.submitButton.disabled, false);
+    // Only /rx/addAllergy2's own 409 is the stale refusal; one after the redirect stays unconfirmed.
+    assert.match(dialogModule.saveFailureMessage(409, null, true), /^The allergy save could not be confirmed/);
 });
 
 test('a form rendered without a status region gets one, announced as an alert', async () => {
@@ -296,11 +334,12 @@ function loadAllergyPageScript() {
         .replace(/\$\{ pageContext\.servletContext\.contextPath \}/g, '/carlos');
 }
 
-function allergyPageContext() {
-    const calls = { ajax: [], replaced: [], removedLoader: 0, reports: [], cleared: 0, reloads: 0, alerts: [] };
+function allergyPageContext({ iNKDA = '0' } = {}) {
+    const calls = { ajax: [], replaced: [], removedLoader: 0, reports: [], cleared: 0, reloads: 0, alerts: [], highlighted: [] };
     const selection = (selector) => ({
         selector,
         removeClass() { calls.removedLoader++; return this; },
+        addClass(name) { calls.highlighted.push({ selector, name }); return this; },
         replaceWith(found) { calls.replaced.push({ selector, found }); return this; },
         bindActionEvents() {},
     });
@@ -310,7 +349,7 @@ function allergyPageContext() {
     const context = {
         $,
         jQuery: (selector, html) => ({ length: String(html).includes(`data-target="${selector}"`) ? 1 : 0, selector }),
-        document: { forms: { searchAllergy2: { iNKDA: { value: '0' }, hasDrugAllergy: { value: 'false' } } } },
+        document: { forms: { searchAllergy2: { iNKDA: { value: iNKDA }, hasDrugAllergy: { value: 'false' } } } },
         location: { reload() { calls.reloads++; } },
         alert: (message) => calls.alerts.push(message),
         paramNKDA: 'name=No Known Drug Allergies',
@@ -327,7 +366,7 @@ function allergyPageContext() {
 test('the allergy page reports a refused dialogue request instead of spinning silently (#3355)', () => {
     const { context, calls } = allergyPageContext();
 
-    context.sendSearchRequest('/carlos/rx/addReaction2', 'ID=44452&name=PENICILLINS&type=10', '#addAllergyDialogue');
+    context.sendSearchRequest('/carlos/rx/addReaction2', 'ID=&type=8&name=PENICILLINS&atc=J01C', '#addAllergyDialogue');
     assert.equal(calls.ajax.length, 1);
     assert.equal(typeof calls.ajax[0].error, 'function', 'the dialogue request has no error handler');
     calls.ajax[0].error({ status: 403 });
@@ -335,6 +374,53 @@ test('the allergy page reports a refused dialogue request instead of spinning si
     assert.deepEqual(calls.reports, [{ url: '/carlos/rx/addReaction2', status: 403 }]);
     assert.ok(calls.removedLoader > 0, 'the spinner was left turning');
     assert.deepEqual(calls.replaced, []);
+});
+
+// The Penicillin and Sulfa shortcuts (#4576) open the dialogue for an ATC class allergen.
+test('a class shortcut asks for the dialogue of an ATC class allergen, with no DrugRef id', () => {
+    const { context, calls } = allergyPageContext();
+
+    context.addAtcClassAllergy('PENICILLINS', 'J01C', 'Penicillin');
+
+    assert.equal(calls.ajax.length, 1);
+    assert.equal(calls.ajax[0].url, '/carlos/rx/addReaction2');
+    assert.equal(calls.ajax[0].type, 'POST');
+    assert.equal(calls.ajax[0].data, 'ID=&type=8&name=PENICILLINS&atc=J01C');
+    assert.deepEqual(calls.highlighted, [{ selector: "input[value='Penicillin']", name: 'highLightButton' }]);
+});
+
+test('a class shortcut archives an active NKDA entry, as any drug allergy does', () => {
+    // ID=0 would read as a free-text allergen and leave "No Known Drug Allergies" active beside it.
+    const { context, calls } = allergyPageContext({ iNKDA: '77' });
+
+    context.addAtcClassAllergy('SULFONAMIDES', 'J01E', 'Sulfa');
+
+    assert.equal(calls.ajax[0].data, 'ID=&type=8&name=SULFONAMIDES&atc=J01E&nkdaId=77');
+});
+
+test('the class shortcuts take their class codes from AllergyAtcClass and post no fixed DrugRef id', () => {
+    const rx = path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/rx');
+    for (const page of ['ShowAllergies2.jsp', 'ChooseAllergy2.jsp']) {
+        const source = fs.readFileSync(path.join(rx, page), 'utf8');
+        // The ids the shortcuts used to post name other products in current DrugRef data (finding 215).
+        assert.doesNotMatch(source, /44452|44159/, `${page} still posts a fixed DrugRef id`);
+        for (const shortcut of ['PENICILLINS', 'SULFONAMIDES']) {
+            for (const part of ['allergen', 'atcClass']) {
+                assert.ok(source.includes(`AllergyAtcClass.Shortcut.${shortcut}.${part}()`),
+                    `${page} does not render the ${shortcut} shortcut's ${part} from AllergyAtcClass`);
+            }
+        }
+    }
+    // The dialogue form carries the class code, inside the form that rx-allergy-dialog.js posts whole.
+    const form = fs.readFileSync(path.join(rx, 'AddReaction2.jsp'), 'utf8');
+    const formStart = form.indexOf('id="RxAddAllergyForm"');
+    const atcInput = form.indexOf('<input type="hidden" name="atc"');
+    assert.ok(formStart > 0 && atcInput > formStart && atcInput < form.indexOf('</form>', formStart),
+        'AddReaction2.jsp does not post the ATC class with the reaction form');
+    const java = fs.readFileSync(path.join(__dirname,
+        '../src/main/java/io/github/carlos_emr/carlos/prescript/data/AllergyAtcClass.java'), 'utf8');
+    assert.match(java, /PENICILLINS\("PENICILLINS", "J01C"/);
+    assert.match(java, /SULFONAMIDES\("SULFONAMIDES", "J01E"/);
 });
 
 test('an answer without the dialogue fragment is reported and never replaces the container with nothing', () => {

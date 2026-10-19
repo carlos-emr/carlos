@@ -26,6 +26,8 @@
         <h1 class="h4"><fmt:message key="consultation.fax.uncertain.title"/></h1>
         <p><fmt:message key="consultation.fax.uncertain.message"/></p>
     </div>
+    <%-- Issue #4693: if the fax was queued, it went without these attached labs. --%>
+    <%@ include file="/WEB-INF/jsp/encounter/oscarConsultationRequest/labsNotIncludedNotice.jspf" %>
     <%-- No automatic close, history-back navigation, fax form or retry control. --%>
     <a class="btn btn-outline-secondary" href="<carlos:encode value='${consultationListUrl}' context="htmlAttribute"/>"><fmt:message key="consultation.fax.uncertain.return"/></a>
 </main>

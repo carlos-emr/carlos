@@ -39,6 +39,7 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { fixturePdf } = require('./incoming-pdf-extraction-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const TIMEOUT = 20000;
 const PREFERENCE = 'edoc_browser_in_document_report';
@@ -185,7 +186,7 @@ async function workflow(s) {
   // ---- Document Browser ------------------------------------------------------------------
   let browser;
   await s.step('Documents > Browse opens the document browser with a scope token, not the patient\'s name', async () => {
-    const report = await s.popup(s.master, s.master.locator('a[onclick*="/documentManager/ViewDocumentReport"]').first(), 'edoc-report');
+    const report = await s.popup(s.master, masterRecordLink(s.master, '/documentManager/ViewDocumentReport').first(), 'edoc-report');
     const link = report.locator('a[href*="/documentManager/ViewDocumentBrowser"]').first();
     await link.waitFor({ state: 'attached', timeout: TIMEOUT });
     const href = new URL(await link.getAttribute('href'), report.url());
@@ -296,8 +297,14 @@ async function workflow(s) {
   });
 
   async function chooseStatus(value) {
+    // waitForResponse resolves on the headers, before the reloaded document commits; wait for
+    // its URL to load as well, or the checks below can read the page that was showing. That wait
+    // would match the page already showing if it had the same status, so refuse a no-op choice.
+    h.assert(new URL(notes.url()).searchParams.get('viewstatus') !== value, `chooseStatus('${value}') would not change the note browser URL`);
     const [response] = await Promise.all([
       notes.waitForResponse(r => new URL(r.url()).pathname.endsWith('/casemgmt/ViewNoteBrowser') && r.request().isNavigationRequest(), { timeout: TIMEOUT }),
+      notes.waitForURL(url => url.pathname.endsWith('/casemgmt/ViewNoteBrowser') && url.searchParams.get('viewstatus') === value,
+        { waitUntil: 'load', timeout: TIMEOUT }),
       notes.locator('#selviewstatus').selectOption(value),
     ]);
     h.assert(response.request().method() === 'GET', `Changing the view status sent ${response.request().method()}`);

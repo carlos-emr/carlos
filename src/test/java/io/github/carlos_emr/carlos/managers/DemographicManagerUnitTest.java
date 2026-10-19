@@ -1329,6 +1329,23 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getLastName()).isEqualTo("ADAMS");
         }
+
+        @Test
+        void shouldMatchInclusiveLetterBounds_withLowercaseRangesAndUnicodeNames() {
+            Provider provider = createTestProvider();
+            List<Demographic> patients = new java.util.ArrayList<>();
+            for (String name : java.util.Arrays.asList("adams", "Murray", "Smith", "", null, "éclair", "ßmith", "ıpek")) {
+                Demographic patient = createTestDemographic();
+                patient.setLastName(name);
+                patients.add(patient);
+            }
+            when(mockDemographicDao.getDemographicByProvider(TEST_PROVIDER)).thenReturn(patients);
+
+            assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^[a-m]"))
+                    .extracting(Demographic::getLastName).containsExactly("adams", "Murray", "ıpek");
+            assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^[s-s]"))
+                    .extracting(Demographic::getLastName).containsExactly("Smith", "ßmith");
+        }
     }
 
     // ==================== MERGE OPERATIONS ====================

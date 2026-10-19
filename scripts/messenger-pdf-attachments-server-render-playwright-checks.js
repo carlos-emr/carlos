@@ -160,7 +160,9 @@ async function workflow(s) {
     const post = new URLSearchParams(captured.post);
     h.assert(post.get('isPreview') === 'true' && post.get('previewItem') === 'demographic'
       && post.get('demographic_no') === s.patient, 'Preview did not post the patient and the demographic item key');
-    const allowed = new Set(['CSRF-TOKEN', 'demographic_no', 'isPreview', 'previewItem', 'item']);
+    // attachmentKey is the compose window's random staging key (issue #4673), posted with the
+    // chooser's one form; Preview ignores it. Never page HTML.
+    const allowed = new Set(['CSRF-TOKEN', 'demographic_no', 'isPreview', 'previewItem', 'item', 'attachmentKey']);
     h.assert([...post.keys()].every(name => allowed.has(name)),
       `Preview posted fields beyond the item key: ${[...post.keys()].join(', ')}`);
     assertPdf('Demographic preview', captured.status, captured.type, captured.body);

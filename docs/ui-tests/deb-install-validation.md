@@ -6,6 +6,10 @@ disposable Ubuntu 26.04 VM with the demo dataset, and drives the full
 the real front door (nginx + ModSecurity/CRS on `:443`), not the devcontainer's
 bare Tomcat.
 
+The 2026-10-15 focused validation for issue #4699, including blocking-WAF
+positive/negative controls and pending encounter-issue preservation, is recorded
+in [PR #4701 validation](pr4701-validation.md).
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
@@ -77,6 +81,108 @@ and `double-submit-chart-adds` recorded the allergy twice on a slow-response re-
 The save is now an in-page `fetch()`, and the page is already at `/rx/showAllergy` when it
 saves. So a check that saves an allergy has to wait for the list to reload, not for that
 URL; `allergy-add-penicillin` shows how.
+
+`eform-admin-crud-playwright-checks.js` fixture cleanup (issue #4408) was run on
+2026-10-08 against 2026.09.0~snapshot26 packages built from the `release/2026.08`
+fix branch (carlos-ctl 1.1.2 built from the pinned commit, because its release
+asset was not downloadable) and installed into an Ubuntu 26.04 container with the demo
+dataset (`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`, `:443`). With
+`MYSQL_PASSWORD` set: a passing run **PASS**es and leaves no `Playwright Admin CRUD`
+row; a real SIGTERM sent after the form was created exits 143 and removes it; a run
+forced to fail after creation keeps the form for diagnosis. A configured cleanup that cannot complete (DB user denied) now makes the run **FAIL**
+with exit 1 rather than print PASS over leaked rows, and a Chromium launch failure leaves no
+SQL option file in `/tmp`. Without `MYSQL_PASSWORD`
+the check still **PASS**es, prints a note, and leaves the restored form. The three
+other library forms were untouched in every case.
+`form-catalog-smoke-letterhead-restore` (issue #4592, finding 233) lost its expected-failure pin on
+2026-10-14. It was run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
+(DrugRef from its pinned ref, carlos-ctl 1.1.2 from its tag, Maven artifact downloads limited with
+`-Dmaven.artifact.threads=2` because Maven Central answered 429 to the default parallelism) and installed
+fresh into an Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` clean, `:443`). Result:
+**PASS**, 7 of 7 Letterhead steps, and the full `form-catalog-smoke` entry still passes. With the pre-fix
+`formConsultant.jsp` swapped into the installed webapp the check **FAILS** at "Letterhead: the redisplayed and
+the reopened form show every saved value again". A Comments value that itself begins with a line break is
+pinned statically by `scripts/letterhead-comments-textarea.test.js`, not by this browser check.
+`form-catalog-smoke-adfv2-window` (issue #4598, finding 240) lost its expected-failure pin on
+2026-10-15. The same change added `form-adfv2-save-exit-playwright-checks.js`. Both were run against
+2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch in an Ubuntu 26.04 container
+(DrugRef from its pinned ref, carlos-ctl 1.1.2 from its tag). Two DrugRef test-scope jars that Maven's
+transport kept failing to fetch through the egress proxy were seeded into the build's local repository.
+The packages were installed fresh with `scripts/deb-docker-validation.sh up` and the demo dataset
+(`carlos-ctl check` clean, `:443`). Results:
+
+- Both checks **PASS**. Save redisplays the saved record in the window it was pressed in. Save and
+  Exit is confirmed once, answered by `close.jsp` in the form's own window, and that window closes
+  with no other window opened.
+- With the pre-fix `formadfv2.jsp` installed (its compiled class deleted, then `carlos-ctl restart`),
+  both checks **FAIL** at those steps: the record was redisplayed, or the closing page answered, in
+  another window.
+- The rest of the form catalogue family matched its manifest: `form-catalog-smoke` and
+  `-letterhead-restore` pass, the seven pinned entries are known failures, and `--residue-audit`
+  reported no residue.
+
+`close.jsp` closes its window while the CSRFGuard script injected into it is still loading. The new
+check therefore excuses that one aborted `/csrfguard` script load, proven by `navigatedAway()`, as
+`legacy-lab-display` does.
+`clinical-forms-save-reopen` failed on this install at "Mental Health Form 14: Print Pdf answers a PDF
+carrying the saved prose", on two runs. Its other failing pairs are pinned by its own variants. That
+form is not touched here and no finding records the print failure yet.
+`rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
+run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
+(DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
+`1.1.2` tag was not yet published) and installed fresh into an Ubuntu 26.04 systemd container
+with the demo dataset (`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`,
+`CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` per section 4). It **PASS**es 4/4 steps through
+`:443`, and `export-content-chart-print-sections` passes 9/9, alongside
+`echart-navbar-modules`, `echart-print`, `drug-search`, `rx-med-history`,
+`double-submit-consultation` and nine other `rx-*` checks. With the pre-fix
+`RxPrescriptionData` and `PrescriptionManagerImpl` swapped into the installed webapp, the new
+check **FAILS** on the E-Chart panel (a renewal and two overlapping copies each listed twice)
+and the chart-print check **FAILS** on the date-only renewal. With only the pre-fix
+`PrescriptionManagerImpl` swapped in, the panel and consultation steps pass and the REST
+summary step **FAILS**, so each half of the fix is guarded.
+
+`billing-on-ra-payment-date-playwright-checks.js` (issue #4430) was added on 2026-10-08. It
+was run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch and
+installed fresh into an Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` clean,
+`EXPECT_FRONT_DOOR=true`). The WARs were compiled on the host with the `debian/rules` Maven flags
+and packaged in an Ubuntu 26.04 container through `CARLOS_WAR`/`DRUGREF_WAR` (DrugRef from its
+pinned revision). carlos-ctl 1.1.2 was not yet published, so it was built from the pin's
+fallback commit, with a `1.1.2` changelog stanza stamped in the throwaway worktree.
+Result: **PASS**, all three steps through `:443`. `billing-on-premium-payment-date`,
+`billing-on-ra-import`, `billing-on-payment-status` and `billing-on-ohip-simulation-report`
+also passed. With the pre-fix `RaDetailDaoImpl.class` (exclusive `paymentDate < ?2`) swapped
+into the installed webapp, the new check **FAILS**: the RA paid on June 30 is missing from the
+report. `gap-billing-ra-premium-settle35` failed at its third step, as its manifest entry says it
+does on 2026.08. Note for later checks: `billing-on-premium-payment-date` leaves one `raheader`
+row behind. Its `<marker>-inactive` filename is 31 characters, `raheader.filename` is
+`varchar(30)`, and its cleanup matches the untruncated name.
+
+`allergy-stale-amend-refused-playwright-checks.js` and
+`prevention-submit-once-playwright-checks.js` (issue #4410) were added on 2026-10-08. They were
+run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch (DrugRef
+from its pinned ref; carlos-ctl built from the `debian/carlos-ctl.pin` fallback commit and
+stamped 1.1.2 locally, because the 1.1.2 tag the `Depends` floor names was not yet published).
+The packages were installed fresh into an Ubuntu 26.04 container with the demo dataset
+(`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`). Both new checks **PASS** through `:443`,
+and so do `concurrency-allergy-amend` and `double-submit-chart-adds`, the two #4410
+reproductions:
+
+- A stale amendment is answered 409, keeps the typed entries and shows the alert. Two
+  amendments raced at the same moment answered 302 and 409.
+- Every prevention mode stores one row. The slow-response re-click sends two POSTs and the
+  submission token stores one.
+- Every measurement mode now sends one POST. Before the fix, a dblclick sent two, and on the
+  first run that stored two readings.
+
+`allergy-injected-form-csrf`, `allergy-add-penicillin`, `allergy-custom-lifecycle`,
+`allergy-rx-alert`, `prevention-add-data`, `prevention-lifecycle`, `prevention-brand-picker`,
+`echart-prevention-row-links`, `measurement-group-entry` and `csrf-runtime-forms` also pass.
+`audit-log-chart-modules` and `audit-log-vitals` still fail, and only on their #4172 items:
+prevention and vitals writes leave no audit row, and allergy/prescription rows carry clinical
+text or a `Drug` dump. Issue #4410 leaves those to #4172. Precompiled JSPs are not shipped, so
+a JSP hot-swapped into an installed webapp keeps serving the class Tomcat already compiled.
+Validate JSP changes from a rebuilt package, or delete that class and restart.
 
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
@@ -297,6 +403,32 @@ self-signed TLS, services running as their unprivileged accounts?
 Testing `http://127.0.0.1:18080/carlos` (Tomcat directly) **bypasses the WAF
 and answers a different question**. Every check below goes through `:443`.
 
+## Focused WAF regressions
+
+For issues #4571–#4575, run `python3 scripts/waf/check-clinical-policy.py
+--evidence-dir /tmp/waf-evidence` from the checkout (the evidence directory must
+be absent or empty). This requires Python 3.10+, Node, nginx, its ModSecurity
+module, and CRS; Ubuntu 26.04 supplies them as `python3 nodejs nginx
+libnginx-mod-http-modsecurity modsecurity-crs`. The `WAF Policy` workflow runs
+the same command and retains the report, policy snapshots, request receipts and
+correlated audit logs. It uses ephemeral loopback listeners and a fixture
+upstream, preserving the shipped policy's blocking, scores and response MIME
+inspection. It checks clinical prose and negative boundaries, including encoded
+path traversal, malformed numeric field names, XSS/SQLi and outbound leaks.
+
+Application validation remains the `front-door` tier's
+`waf-clinical-text-corpus` check. It now runs all 24 rows without expected-failure
+pins for findings 209–213. With the normal suite environment loaded, use
+`npm run test:waf-clinical-text-corpus-playwright`; dedicated aliases also exist
+for individual rows, including `rx-comment-save` and
+`incoming-encounter-reason`. The latter follows both chart redirects and checks
+the patient and exact reason at each hop. Rx comment, name and sig rows use the
+real page's Save Only and verify stored values. Both JSON response rows require
+a complete answer. Keep `EXPECT_FRONT_DOOR=true` and a readable `WAF_AUDIT_LOG`;
+these browser checks also need the documented application, DrugRef and fixture
+prerequisites. A policy-harness pass does not substitute for these application
+checks.
+
 ## Host prerequisites
 
 - LXD with a VM-capable storage pool and a NAT bridge (the VM needs outbound
@@ -380,6 +512,29 @@ overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 > `dpkg-reconfigure carlos-emr-drugref`). On a host without IPv6, nginx's stock
 > `default` site (`listen [::]:80`) fails `nginx -t` until the package replaces
 > it; the CARLOS site itself emits `[::]` listeners only when IPv6 exists.
+>
+> **`scripts/deb-docker-validation.sh` does all of the Docker variant.** It
+> builds the systemd image, boots it (binding the host's unified cgroup2
+> hierarchy on a hybrid cgroup host), installs the three `.deb` files with the
+> section 3 preseed, refuses to continue unless `carlos-ctl check` reports
+> "All checks passed" and no `.install-incomplete` marker remains, stages the
+> section 4 fixtures, performs the section 6 first-login reset and writes
+> `/root/suite-env.sh`. Then it runs the suite and the server-log audit inside
+> the container, where the MariaDB socket is:
+>
+> ```bash
+> export CARLOS_DISPOSABLE_HOST=true DEBS_DIR=/path/to/debs CARLOS_PROVINCE=on
+> # Optional, behind an egress proxy that only tunnels HTTPS:
+> #   BUILD_PROXY=http://127.0.0.1:3128 BUILD_CA_BUNDLE=/path/ca.pem APT_FORCE_HTTPS=true
+> scripts/deb-docker-validation.sh up
+> scripts/deb-docker-validation.sh suite --tier smoke      # any run-playwright-suite.js arguments
+> scripts/deb-docker-validation.sh audit                   # scripts/deb-server-log-audit.sh
+> scripts/deb-docker-validation.sh down
+> ```
+>
+> It uses host networking (the front door must be on `:443`), so validate one
+> province at a time. Logs, the install transcript and JUnit reports land in
+> `LOG_DIR` (default `target/deb-docker-validation`, which git ignores).
 
 ```bash
 lxc launch ubuntu:26.04 carlos-test --vm \
@@ -509,18 +664,27 @@ lxc exec carlos-test -- bash -c \
   'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png
    chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png'
 
-# c) A clinic Rich Text Letter template, so eform-rtl-print-pdf-playwright-checks.js
-#    (RTL_TEMPLATE_NAME=MissedAppointment.rtl) can prove clinic .rtl templates load
-#    into the editor unsandboxed. The repo ships one.
+# c) OPTIONAL. eform-rtl-print-pdf-playwright-checks.js proves a clinic .rtl
+#    template loads into the editor unsandboxed using clinic_letter.rtl, which the
+#    application seeds into the eForm image directory on every install, so it needs
+#    no fixture. Stage a clinic-UPLOADED template only to cover that case too, and
+#    then export RTL_TEMPLATE_NAME=MissedAppointment.rtl (section 6). With the
+#    variable set and the file absent the check tests the seeded template instead
+#    and ends SKIP (exit 2) naming this fixture.
+#    The repo ships one.
 lxc file push release/Document/carlos/eform/images/MissedAppointment.rtl \
   carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/eform/images/
 lxc exec carlos-test -- bash -c \
   'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl
    chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl'
 
-# d) The three LOCAL_SEED_OBEC_REPORT appointments that
-#    patient-list-by-appointment-export-playwright-checks.js documents as its
-#    operator-provisioned fixture contract (see that script's header):
+# d) OPTIONAL. The three LOCAL_SEED_OBEC_REPORT appointments that
+#    patient-list-by-appointment-export-playwright-checks.js asserts on. With the
+#    section 6 MYSQL_* variables the check inserts and removes them itself; insert
+#    them by hand only for a run without database access, and then export
+#    PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 so the check uses
+#    these rows read-only (see that script's header). Do not do both: the
+#    self-seeding run SKIPs when it finds rows already in its date window.
 lxc exec carlos-test -- mariadb -u root carlos -e "
 INSERT INTO appointment (provider_no, appointment_date, start_time, end_time,
     name, demographic_no, notes, reason, location, resources, type, style,
@@ -565,11 +729,54 @@ The keyring sits under `/var/lib/carlos-emr`, the only tree the hardened
 there). Export `CDS_EXPORT_GNUPGHOME=/var/lib/carlos-emr/export-gnupg` for the
 suite; the check runs as root and decrypts the `.pgp` download with it.
 
+`rx-unique-medication-list-playwright-checks.js` (#4420) reads a new
+consultation's Current Medications, which the form fills from the chart only
+when `CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true`. The package ships `false`,
+and the form's "Import active medications" button takes a different path
+(`getActiveMedications`), so turn the property on for the suite:
+
+```bash
+lxc exec carlos-test -- sed -i \
+    's/^CONSULTATION_AUTO_INCLUDE_MEDICATIONS=false/CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true/' \
+    /etc/carlos-emr/carlos.properties
+```
+
 Restart once after loading so nothing serves from a pre-load cache:
 
 ```bash
 lxc exec carlos-test -- carlos-ctl restart
 ```
+
+### Checks that need their own fixture
+
+A check that cannot run for want of a fixture reports **SKIP** (exit 2, #3313)
+with the reason on its own output, and the suite runner repeats the check's
+`fixtures` note from `scripts/playwright-suite.json` in its summary table, so a
+missing fixture never reads as a broken application. Issue #4412 found four
+checks that failed on a fresh install instead; they now behave as follows.
+
+| Check | What it needs | On a fresh install with the section 6 environment |
+|---|---|---|
+| `eform-rtl-print-pdf` | Nothing: its template step uses `clinic_letter.rtl`, which the application seeds on every install. `RTL_TEMPLATE_NAME` names a clinic-uploaded template instead (fixture c). | Runs. With `RTL_TEMPLATE_NAME` set and that file not staged, the template step falls back to `clinic_letter.rtl` and an otherwise passing run ends SKIP naming fixture c. |
+| `patient-list-by-appointment-export` | The demo dataset, and either `MYSQL_*` (it inserts and removes its own three appointments, marked per run) or fixture d plus `PATIENT_LIST_FIXTURE_PROFILE`. | Runs, self-seeding. SKIPs when it has neither route, when the database is not the demo dataset, or when its date windows (2026-08-07..10, 2026-09-01..02) already hold appointments. |
+| `rx-fax-record-binding` | `rx_fax_enabled=true`, the provider stamp (fixture b), `RX_FAX_DOCUMENT_DIR` readable by the run (root), Poppler. | Runs. The `[login] pageerror: Error` #4412 reported was the check's own stub, fixed in #4407; a finding now carries the throwing frame (`... at fn (/carlos/path.jsp:line:col)`: no message, query string or session id, record-id path segments shown as `:id`), so a bare `Error` is no longer the whole diagnosis. SKIPs only without Poppler. |
+| `o19-migrated-smoke` (tier `extended`) | A database produced by `carlos-ctl import-o19`, and its break-glass credentials at `O19_STATE_DIR/admin-credentials.txt`. | SKIP naming the credentials file. To run it, import an OSCAR 19 dump into a rehearsal copy and drive `scripts/migration/o19/rehearsal/ui-smoke.sh`; never point it at a post-go-live database (it resets passwords and restores them). |
+
+Validated on 2026-10-08 against `release/2026.08` at `9784de27`: 2026.09.0~snapshot26
+debs (`dpkg-buildpackage` in `ubuntu:26.04`, carlos-ctl 1.1.2 built from the pin's
+fallback commit) installed with the section 3 preseed into a privileged `ubuntu:26.04`
+systemd container, `carlos-ctl check` all OK, section 6 environment, fixtures c and d
+**not** staged. On the unmodified tree `eform-rtl-print-pdf` (with
+`RTL_TEMPLATE_NAME=MissedAppointment.rtl`), `o19-migrated-smoke` and
+`patient-list-by-appointment-export` failed exactly as #4412 reported. With this change:
+`eform-rtl-print-pdf` 26/26 PASS on the seeded template, SKIP (26/26) with the unstaged
+name, 26/26 PASS once fixture c was staged, and FAIL (23/24, no timeout) with
+`clinic_letter.rtl` removed; `patient-list-by-appointment-export` PASS self-seeding and
+left no rows, PASS read-only on hand-inserted fixture d with the profile, SKIP in seed
+mode with fixture d present and without `MYSQL_*`, and on SIGTERM after seeding removed
+its rows and exited 143; `o19-migrated-smoke` SKIP. `rx-fax-record-binding` passed 3 of 3
+runs on the unmodified tree and 3 of 3 on this change: the `[login] pageerror` was fixed
+by #4407.
 
 ## 5. Install the Playwright harness in the VM
 
@@ -614,6 +821,27 @@ it does not approve omitted content to obtain a PDF.
 > ```
 >
 > See [playwright-coverage-plan-2026.08.md §0](playwright-coverage-plan-2026.08.md).
+>
+> Add `--residue-audit` to any run to check that it left the install as it found it
+> (needs the `MYSQL_*` variables of the environment contract below). The runner takes a
+> baseline of `fax_config`, the `encounterForm` registrations and the `property` rows that
+> the selected checks' manifest `mutates` names before the first check, and after the last
+> it counts marker-named (`FAKE-PW...`) fixture rows left in `demographic`, `provider`,
+> `security`, `tickler`, `casemgmt_note`, `billing_on_cheader1`, `billingmaster`,
+> `eform_data` and `document`, and the roles a check makes for itself (`secRole` and
+> `secObjPrivilege` rows named `FAKEPW...`). It also takes an exact row count of every base table
+> before the first check and reports each table that has more rows after the last (`rows added`,
+> which is how a table with no marker column such as `form_boolean_value`, `formRourke2020`,
+> `providerLabRoutingLock`, `patientLabRouting` or `measurementsExt` is covered) and each that has
+> fewer (`rows removed`: a check deleted rows it did not own). Only tables that grow on every run by
+> design (`log`, `hash_audit`, listed with their reasons in `scripts/lib/residue-audit.js`) are exempt
+> from `rows added`, and the audit says how many rows they gained; nothing is exempt from `rows
+> removed`. The count is net, so a delete and an insert in one table cancel out. It prints
+> `residue: <table> <count>` (never a row; `<count> (rows added)` or `<count> (rows removed)` for the
+> row-count diff) and exits non-zero, or `residue audit: no residue`. A run that cannot take its
+> baseline stops before any check starts. **The install must be used by the audited run alone**: another
+> session driving the application meanwhile adds and removes rows that the audit reads as the run's
+> residue.
 
 Environment contract (one block, exported before every script):
 
@@ -653,6 +881,10 @@ export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/documen
 # The extended lab-upload-rollback and lab-upload-signed-feed checks also need CREATE/DROP TRIGGER
 # privileges in the test DB; lab-upload-signed-feed finds its decrypted copies here by content.
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
+# With the journal unit named, those two checks also read the server log for their injected failure and
+# assert it shows the database's own error at ERROR and no Hibernate HHH000099 (#4436). Unset, that half
+# is skipped with a notice. Needs a user who can read the journal (root in the VM).
+export LAB_UPLOAD_JOURNAL_UNIT=carlos-emr
 # Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
 # default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
 # login-playwright-checks mutates and restores this account; give it the hash of
@@ -668,7 +900,8 @@ export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
 export CONSULT_STAMP_PROVIDER_NO=999998
 export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp
-export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+# patient-list-by-appointment-export seeds its own appointments through MYSQL_*; set
+# PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 only if fixture d was inserted by hand.
 # Ontario 3rd-Party / Bonus-Codes bill entry (billing-on-third-party-playwright-checks.js).
 # Read-only: it opens the Ontario bill form for this appointment and switches the bill
 # type, but never submits a bill, so it seeds nothing and cleans nothing up. It asserts
@@ -677,8 +910,9 @@ export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
 # missing, so a status-only assertion would pass on a re-broken page.
 export BILLING_APPOINTMENT_NO=11 BILLING_DEMOGRAPHIC_NO=1 BILLING_PROVIDER_NO=999998
 export BILLING_APPOINTMENT_DATE=2024-04-16 BILLING_START_TIME=12:00:00
-# Rich Text Letter print/PDF check (fixture c above); omit to skip only its template step.
-export RTL_TEMPLATE_NAME=MissedAppointment.rtl
+# Rich Text Letter print/PDF check. Its template step uses the seeded clinic_letter.rtl;
+# name a clinic-uploaded template only after staging it (optional fixture c above):
+# export RTL_TEMPLATE_NAME=MissedAppointment.rtl
 # Rx signature-stamp fax check (rx-fax-signature-stamp-playwright-checks.js). It writes and then
 # deletes its own prescription (and every other row it creates: drugs, DigitalSignature, faxes,
 # FaxClientLog, fax_config), so it needs no fixture script id. It cannot remove FILES: each run
@@ -800,7 +1034,7 @@ service_restarts_before="$(systemctl show carlos-emr -p NRestarts --value)"
 suite_failed=0
 # Alpha-11 tester coverage scripts (docs/ui-tests/alpha-11-tester-coverage.md). They default to
 # demographic 1 / provider 999998 and clean up after themselves; the few knobs they take:
-#   NOTE_DEMOGRAPHIC_NO=2        (echart-note-sign-bill; demographic 1's chart 500s on the demo HRM rows)
+#   (echart-note-sign-bill creates its own FAKE patient; NOTE_DEMOGRAPHIC_NO is no longer read)
 #   BILLING_SUBMIT_DATE=2024-05-06 BILLING_OHIP_CODE=A007A BILLING_BONUS_CODE=Q040A (billing-on-submit)
 #   GROUP_DISK_SERVICE_DATE=2003-02-03 GROUP_DISK_PAID_CODE=A007A
 #                                (billing-on-group-disk-zero-total, issue #3942: selects only owned
@@ -824,11 +1058,13 @@ suite_failed=0
 #   MESSENGER_PROVIDER_NO=999998 (messenger-inbox-actions; enrols the provider as a local contact
 #                                through the Administration page when it is not already one, because a
 #                                hand-inserted groupMembers_tbl row does not make a recipient appear)
-#   LAB_PROVIDER_NO=999998 LAB_SEGMENT_ID=<hl7 lab_no>  (lab-acknowledge; LAB_SEGMENT_ID must be the
-#                                NEWEST lab of its accession -- this fixture reviews the latest
-#                                report and separately verifies that an older Inbox row opens its own
-#                                version, while an explicit showLatest request opens the latest. Left
-#                                unset the check picks a qualifying lab itself.)
+#   LAB_PROVIDER_NO=999998 LAB_SEGMENT_ID=<hl7 lab_no>  (lab-acknowledge; LAB_SEGMENT_ID is only the
+#                                TEMPLATE: the check copies that demo lab into a lab of its own and
+#                                acknowledges the copy, never the demo lab. It must be linked to a
+#                                patient and be the NEWEST lab of its accession -- the copy reviews
+#                                the latest report, and the check separately verifies that an older
+#                                Inbox row opens its own version while an explicit showLatest request
+#                                opens the latest. Left unset the check picks a qualifying lab itself.)
 #                                (prevention-recall-report takes no knob: the screening type is fixed
 #                                to Flu because the check seeds a saved demographic query naming one
 #                                65+ patient with no flu shot and asserts the report classifies them
@@ -1084,11 +1320,14 @@ Notes on the contract:
   chart's own 5-second draft autosave still posts what it typed as the
   patient's draft, so before it opens the chart it applies the same
   synthetic-patient gate as the free-text check (`FAKE-`/`PLAYWRIGHT-` name
-  prefix on `ECHART_DEMOGRAPHIC_NO`, override with
-  `ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true`), and it reads the note before its first print and, when
+  prefix on the patient), and it reads the note before its first print and, when
   the prints are done, puts that text back and either writes it back over the
   draft (a clinician's restored draft) or deletes the draft through the page's
-  cancel path (a fresh note). Because of that write, its `BASE_URL` guard is
+  cancel path (a fresh note). The patient is a FAKE one the check creates and
+  removes by key (`lib/owned-patient.js`); it used to be demo patient 1, whose own
+  stored draft was taken for "a fresh note" and deleted on every run, and
+  `ECHART_DEMOGRAPHIC_NO` and `ECHART_ALLOW_NON_SYNTHETIC_PATIENT` no longer exist.
+  Because of that write, its `BASE_URL` guard is
   the same as the free-text check's: loopback only unless
   `ALLOW_NON_LOCAL_BASE_URL=true`, a non-loopback target must be HTTPS, and
   like `billing-on-third-party` it relaxes certificate verification only for
@@ -1137,18 +1376,20 @@ Notes on the contract:
   login would send credentials in cleartext; but loopback bounds the host, not
   the data, and a local
   install can hold real patient records. So before its first write it opens the
-  master record of `CLINICAL_DEMOGRAPHIC_NO` (default 1) and refuses to run
-  unless the first or last name carries the synthetic-data prefix the demo
-  dataset writes on every person name (`FAKE-`, see
-  `.devcontainer/db/scripts/demo-name-sanitization.sql`) or the `PLAYWRIGHT-`
-  prefix the fixture-owning checks use; `CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true`
-  overrides that only for a record you know to be test data. It then writes the
-  corpus, each phrase stamped `(Playwright clinical-freetext run <epoch>)`,
-  into the patient's Alert/Notes and puts the original text back at the end,
-  on the failure path as well as the success path (the restore is a save
-  through the same route and a failed restore fails the run). **The two
-  workflows write different things, measured on a packaged install:** the
-  demographic save runs in place (a seven-phrase run leaves eight
+  master record of the patient and refuses to run unless the first or last name
+  carries the synthetic-data prefix the demo dataset writes on every person name
+  (`FAKE-`, see `.devcontainer/db/scripts/demo-name-sanitization.sql`) or the
+  `PLAYWRIGHT-` prefix the fixture-owning checks use; the patient is a FAKE one
+  the check creates (`lib/owned-patient.js`, last name a `FAKE-PW` run marker), so
+  it always carries one. `CLINICAL_DEMOGRAPHIC_NO` and
+  `CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT` no longer exist: the check used to run on
+  demo patient 1, and a Master Record save is not a round trip (it also rewrites
+  the record's province and newsletter codes and files a `demographicArchive`
+  row), so putting the Alert and Notes back could never put that record back. It
+  writes the corpus, each phrase stamped `(Playwright clinical-freetext run
+  <epoch>)`, into the patient's Alert/Notes and replays the original body at the
+  end. **The two workflows write different things, measured on a packaged
+  install:** the demographic save runs in place (a seven-phrase run leaves eight
   `demographicArchive` rows for the patient, the replays plus the restore),
   while the consultation replay **files a new request per phrase** -- seven
   `consultationRequests` rows for the patient per run, each with the phrase
@@ -1158,17 +1399,15 @@ Notes on the contract:
   defect fixed in #3623 presented (the front door accepted the prose; the
   application then threw and stored nothing), so the check reports it as a
   failure and points at the application log. There is no delete route for a
-  consultation request, so the rows stay until you remove them; the stamp is
-  the key:
-
-  ```sql
-  -- <n> is CLINICAL_DEMOGRAPHIC_NO (default 1). Ext rows first: no FK cascades.
-  DELETE e FROM consultationRequestExt e
-    JOIN consultationRequests r ON r.requestId = e.requestId
-   WHERE r.demographicNo = <n> AND r.reason LIKE '%(Playwright clinical-freetext run %';
-  DELETE FROM consultationRequests
-   WHERE demographicNo = <n> AND reason LIKE '%(Playwright clinical-freetext run %';
-  ```
+  consultation request, so the check deletes them with the rest of the patient's
+  rows (their extension, document and signature rows included) by the owned
+  patient's key and asserts them gone; the stamp-keyed cleanup SQL this paragraph
+  used to carry is no longer needed. A patient that was never saved through the
+  Master Record form has no `demographicExt` rows, so the form carries empty
+  extension ids and every replay of the same stale body would INSERT them again
+  (HTTP 500, the `uk_demo_ext_single_value` defect `concurrency-demographic-ext-insert`
+  pins); the check therefore saves the owned patient once, unchanged, and
+  re-opens the form before it captures the body.
   After each workflow's replays it re-opens that page and requires
   its free-text control to render again, because a session that lapsed mid-run
   would answer every replay with an opaque redirect indistinguishable from a
@@ -1221,7 +1460,12 @@ Notes on the contract:
   need more than 30 seconds. `ECHART_NOTES_POLL_TIMEOUT_MS` accepts 5000–240000
   milliseconds for an intentionally larger fixture; the check still requires
   four quiet seconds and a cleared loading indicator, and fails continuous
-  pagination at the configured deadline.
+  pagination at the configured deadline. The fixture is the check's own: a FAKE
+  patient seeded with 45 signed notes (two older batches page in above the reader's
+  note) and removed by key, with a zero-count assertion on every chart table. The
+  check no longer opens a demo patient, and `ECHART_DEMOGRAPHIC_NO` and
+  `ECHART_SEARCH_TERM` are gone; its env is `ECHART_NOTES_POLL_TIMEOUT_MS`,
+  `ECHART_SCREENSHOT_DIR` and `EXPECT_FRONT_DOOR`.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the
@@ -1256,6 +1500,112 @@ Notes on the contract:
   filter — set `response.sanitization.enabled=false` in
   `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
   must FAIL. Restore the property and restart afterwards.
+
+### TLS verification for the browser checks (issue #3598)
+
+Every browser context in `scripts/` takes its certificate policy from
+`shouldIgnoreHttpsErrors()` in `scripts/lib/playwright-harness.js`. Certificate
+errors are ignored only when `BASE_URL` is loopback or RFC1918 (the installer's
+self-signed certificate). `ALLOW_NON_LOCAL_BASE_URL=true` lets a check *reach* a
+remote host but does **not** relax certificate verification. To run against a
+remote host that presents a self-signed certificate, also set
+`ALLOW_UNVERIFIED_TLS=true`; `TEST_USER`, `TEST_PASSWORD` and `TEST_PIN` are then
+sent to a host whose identity the browser did not verify. Without it, a
+certificate failure stops with a message naming that variable.
+`scripts/tls-verification-policy.test.js` fails the build if a check hardcodes
+`ignoreHTTPSErrors: true`.
+
+### Server-log audit
+
+A check can pass while the server threw behind it: an AJAX fragment that failed
+inside a catch, a 500 on a request no assertion read, an include of a JSP that
+no longer exists. Note the time before the suite starts, then run the audit
+after it, as root on the VM:
+
+```bash
+SUITE_START="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"   # before the first check
+# ... run the suite ...
+scripts/deb-server-log-audit.sh --since "$SUITE_START"
+```
+
+`deb-docker-validation.sh` writes the same value as `CARLOS_LOG_AUDIT_SINCE`, which
+the audit uses when `--since` is not given.
+
+It reduces every ERROR, FATAL and SEVERE event in the `carlos-emr` journal and
+Tomcat's catalina log to a signature (logger, source location, first CARLOS
+stack frame, exception classes, and the request path where one is logged) and
+fails on any signature `scripts/lib/server-log-baseline.tsv` does not explain.
+A request path keeps no query string, and every all-digit segment reads `{n}`.
+Message text is never printed unless `--show-messages` is given, because log
+messages can carry patient data. The baseline explains three kinds of event,
+each entry citing the check, the issue or the findings-log row behind it:
+
+- errors the suite provokes on purpose (the 500s of `error-sanitization`, the
+  malformed lab uploads, the refusal and rollback probes, the tokenless CSRF
+  replays);
+- the validation environment (no internet, a page closed mid-download, a fixture
+  patient deleted while the chart is still loading, a service restart);
+- recorded defects (findings 137, 138, 139, 141, 142 and 144), so that a new
+  error stands out from the ones already recorded.
+
+`FaxImporter.java:406` ("Fax provider error for account ...") is deliberately NOT in the
+baseline. `fax-configure` saves a fake SRFax account that the fax scheduler would poll
+every minute, so the check restores the `fax_config` row about a second after the save
+(`scripts/lib/fax-config-state.js`). One such line within seconds of that check is the
+narrow race with the scheduler's first cycle (3 s after the save that starts it); a line
+every minute means the restore did not take, and `--residue-audit` names the table. The
+underlying missing backoff is app-findings-log.md finding 180.
+
+An entry that names neither a stack frame nor an exception is pinned to its exact
+source line, because one class can log many different failures by name alone.
+Catalina's own SEVERE lines are never explained wholesale: a JSP include failure the
+page swallows is recorded only there.
+
+CSRFGuard logs no request path and sees every CARLOS user as anonymous, so the
+audit cannot tell a deliberate CSRF probe from a page that lost its token; that
+shows up as the check that drives the page failing. Every baseline entry must
+match a signature in `scripts/fixtures/server-log-signatures-2026.08.txt` (the
+signatures the 2026.08.0~alpha19 run printed, plus any added later and marked "Added with"
+in the file: one, for the path-in-name Delete Selected refusal that `mcedt-mailbox-outbox`
+provokes on the same alpha19 install), and the test also pins that the defects still
+unexplained on that run stay unexplained. Never add a baseline entry to make an
+audit pass: an unexplained ERROR is a finding first.
+
+### Server-log PHI scan
+
+The audit reads only ERROR, FATAL and SEVERE events and never prints message text, so
+patient data written at INFO, WARN or DEBUG is invisible to it (findings 141 and 144
+were caught by luck). `scripts/deb-server-log-phi-scan.sh` looks for the data the suite
+plants, at every level, over the same window:
+
+```bash
+scripts/deb-server-log-phi-scan.sh --since "$SUITE_START" \
+    --hin "$PHI_FIXTURE_HIN" --marker 'a-short-unique-token'
+```
+
+It searches the `carlos-emr` journal (all priorities) and Tomcat's `catalina.*.log` for
+the harness markers (`FAKE-PW<hex>` and the throwaway logins `FAKEPW<hex>`, built in),
+for each `--hin` (also as `NNNN NNN NNN` and `NNNN-NNN-NNN`; or
+`$CARLOS_LOG_PHI_SCAN_HINS`) and for each `--marker` (or `$CARLOS_LOG_PHI_SCAN_MARKERS`).
+`--only-given` drops the built-in prefixes, for a check that scans just its own fixture
+(`phi-in-error-pages` does this over its own window).
+
+It prints the source, level, logger or class, the needle class (`marker` or `hin`) and
+two counts per hit, never the needle or the line, and exits 1 on any match, 2 on a usage
+error, a `journalctl` failure, or when the journal gave no line in the window (a wrong unit
+reads nothing, and Tomcat's logs alone do not make a scan). Only a known log level and a
+dotted Java name count as an event header; a message line that merely looks like one is
+treated as a continuation, so no word of a log line is ever printed. A matching stack-trace line is attributed to the event above it, so
+the logger named is the one that logged the exception. Not scanned: the nginx and
+ModSecurity logs (the WAF audit log keeps blocked bodies by design) and Tomcat's access
+log (path only, no query string).
+
+It finds only what a check planted, and the HIN is chosen by the check: pass the same
+value to the check (`PHI_FIXTURE_HIN`, 10 digits) and to `--hin`. A defect that logs only
+short text, such as finding 144 (an instruction shorter than six characters), needs a
+check that types a unique short token and a `--marker` for it (4 characters or more); the
+Rx favourite flow logs `null` there, not the instruction, so the scan reports nothing for
+144 today. Findings 141 (`log.LogAction`) and 204 (`dispatcher.Dispatcher`) are reported.
 
 ## 7. Exercise the upgrade path
 
@@ -1345,7 +1695,9 @@ restart after seeding.
 **Known demo-data sharp edges** (handled by the steps above, listed for when a
 check fails anyway): the filtered demo snapshot carries `casemgmt_note_link`
 rows whose TICKLER target no longer exists (new ticklers reuse those ids and
-"inherit" orphaned notes — `tickler-note-dialog` purges them in setup); the HRM
+"inherit" orphaned notes — `tickler-note-dialog` skips any fixture tickler whose
+id already has a note link older than the run, and the tickler cleanup never
+deletes those inherited links, #4409); the HRM
 parser logs `FileNotFoundException` for lab files the dump references but does
 not ship (cosmetic); the Rich Text Letter page logs a 404 + MIME-refusal
 console error for `displayImage.do?imagefile=stamps.js` on every stock install
@@ -2225,6 +2577,18 @@ image classes, all `UnsatisfiedLinkError: libharfbuzz.so.0` from the headless JD
 those nine classes pass (92 tests) once `libharfbuzz0b`, `libfreetype6`, `fontconfig`
 and `fonts-dejavu-core` are installed in the build container.
 
+### Dashboard Assign Tickler date and time (2026-10-08, issue #4423)
+
+`dashboard-display-playwright-checks.js` now asserts, in the Assign Tickler modal, that the Service Date and
+Time pickers start (`.flatpickr-input`), that a date the server refuses (`31/12/2030`, set directly so the picker
+cannot normalize it) raises an alert saying "Nothing was saved" and naming the service date, and that the picker's
+`2030-12-31` is stored as entered. Run against a `2026.08.0~alpha19` package built from the fix branch (WAR
+without DrugRef or the eForm renderer) and installed fresh into an Ubuntu 26.04 container with the demo dataset
+(`carlos-ctl finish-install` was needed, as in the Docker note above; `carlos-ctl check` clean): **PASS** through
+`:443`. With the pre-fix `drilldownDisplayController.js` swapped into the installed webapp the check **FAILS**
+("pickers did not start"). Tomcat caches static files for longer than a few seconds, so wait before re-running
+after replacing one.
+
 ### Rx fax pharmacy fixture validation (2026-10-08, issue #3607)
 
 `release/2026.08` at `17c363e3` was packaged in an `ubuntu:26.04` container
@@ -2262,3 +2626,539 @@ checks whose paired waits were settled 21/22. The exception,
 `rx-interactions-renal-luc` ("No major interaction marker is shown ... for
 ciprofloxacin + theophylline"), fails identically with the unmodified
 `release/2026.08` script and is unrelated to this change.
+
+### Promotion validation 2026.08.0-alpha19 (2026-10-08)
+
+Validation of `release/2026.08` before its promotion to `main`: a local merge of
+`release/2026.08` (9784de2710) into `main` (bef663c9a4), built and packaged as
+`carlos-emr` and `carlos-emr-drugref` 2026.08.0~alpha19 with `carlos-ctl` 1.1.2, then
+installed into an Ubuntu 26.04 systemd container for Ontario and for British Columbia,
+both with the demo dataset. The defects it found are findings 136 to 147 in
+[app-findings-log.md](app-findings-log.md).
+
+**Environment.** The Ontario container was assembled by hand as in the OAuth record above
+(privileged, host networking, cgroup2 bind on a hybrid host, `policy-rc.d` removed). The
+British Columbia container was brought up by `scripts/deb-docker-validation.sh up`, which
+now does those steps, stages the section 4 fixtures, performs the first-login reset and
+writes `/root/suite-env.sh`. Three environment gaps cost reruns on Ontario and are now
+written by the script:
+
+- `login_lock=true`. With the default address-keyed lockout every check shares
+  127.0.0.1, so `account-lockout-unlock` locked out every later check.
+- The store exports (`DOCUMENT_DIR`, `INCOMINGDOCUMENT_DIR`, `OHIP_DISK_DIR`,
+  `LETTER_DOCUMENT_DIR` and the rest), without which about 30 checks stop on a
+  precondition.
+- `STORED_DOCUMENT_EXPECT_CONTENT_UPDATES=true` (the package ships
+  `ALLOW_UPDATE_DOCUMENT_CONTENT=true`) and `CARLOS_DISPOSABLE_VM=true`.
+
+`SCREENSHOT_DIR` unset failed about 37 checks inside their failure handlers; the harness
+now takes no screenshot when it is unset.
+
+**Ontario, full suite** (489 checks, `EXPECT_FRONT_DOOR=true`): 370 PASS, 94 FAIL, 25 SKIP.
+
+| Failures | Cause |
+|---|---|
+| 65 | Documented in their manifest notes as failing on 2026.08 (`get-reject-*`, `double-submit-*`, `boundary-*`, `authz-read-*`, `audit-log-*`, `concurrency-*`, `xss-poison-*` and others) |
+| 10 | The environment gaps above. Eight passed when rerun with the variable set (`account-lockout-unlock`, `billing-on-group-disk-zero-total`, `consultation-list-filters`, `demographic-edit-update`, `document-pagination`, `incoming-pdf-extraction`, `patient-letters-envelopes`, `session-heartbeat-timeout`); `admin-role-management` needs `EXCLUSIVE=1`; `stored-document-mutations` passed its steps on rerun but its cleanup refused a fixture with an acquired note reference |
+| 6 | Existing findings or failures known before this run: 54 (`report-daysheet-labs`), 103 (`clinical-forms-save-reopen`), `gap-provider-schedule-reason-privacy`, `contact-lifecycle`, `admin-jobs`, and `eform-groups`, which now fails on the 302 that #4130's POST/redirect/GET returns rather than on the 405/403 its note describes |
+| 5 | Seed and demo-data differences from the devcontainer database: `episode-lifecycle` and `record-access` (`_newCasemgmt.episode` is `o` for doctor in the Flyway seed, `x` in `development.sql`), `form-print-pdf` (Lab Req 2007 is not in the Forms menu), `popup-opener-master-record` (the fixture patient has no postal code, so Update Record is refused), `tickler-note-dialog` (finding 143) |
+| 3 | Fixtures this environment lacks: `eform-corpus-soak`, `o19-migrated-smoke`, `encounter-legacy-note-soft-wrap` (CAISI) |
+| 3 | Browser and front door: `double-submit-eform` (the check armed its unsaved-changes prompt with a `beforeunload` handler that removes itself while it runs, `{ once: true }`, and Chromium 154 shows no prompt for such a handler and logs a missing user gesture although the page had one; fixed in the check, which now disarms the handler from a timer), `export-content-eform-export-zip` (under the POSIX locale of the container, `LANG` unset, Chromium cannot map a UTF-8 name to the locale charset and names any download whose `filename*=` holds a non-ASCII letter "download" although `Content-Disposition` is valid; the old assertion depended on the runner's locale, and the check now asserts the header), `gap-provider-messenger-write-to-encounter` (the WAF answers 403 for `msgId=2147483648`) |
+| 1 | Stale against the delta, fixed here: `gap-clinical-calculators-coronary` (#4398 refuses ages outside 30 to 75 instead of clamping); it passes |
+| 1 | Not analysed: `boundary-demographic-search` (the sort form's keyword field timed out) |
+
+The new `eform-email-two-windows` check fails at its third step (finding 140), as it
+should until the defect is fixed.
+
+**British Columbia** (`up`, then `suite`): `carlos-ctl check` clean. Smoke 9 of 12: `browser-surface`,
+`document-upload` and `echart` time out because the eligibility menu covers the master
+record's navigation links at their centre (finding 146). `billing-bc-associations` and
+`billing-bc-simulation-encoding` PASS. `billing-bc-reprocess-bill` (new) passes Invoice List,
+then fails on the adjust page's TypeError (finding 147); run past it, the GET refusal and
+Settle steps pass and the note step fails on finding 145.
+
+**Server-log audit.** Over the Ontario suite window, 596 ERROR or SEVERE events reduced to 66
+signatures. After triage the baseline explains 53 of them (deliberate probes, the
+environment, and findings 137 to 144); 13 stay unexplained, among them the stale-form
+`uk_demo_ext` violation, the flowsheet `getMessages` state error, the `addEForm` NPE and
+catalina's copies of JSP include failures.
+The British Columbia window passed with 6 known signatures.
+
+**Code review.** The 80 production commits in `main..release/2026.08` were read in seven
+domain groups against the code as released, each finding traced in the source and, where
+cheap, reproduced on the BC install. It found findings 148 to 170, eight of medium
+severity: 148 and 149 (stored data rendered as HTML in the note revision popup and the lab
+Row Display tooltips), 150 (OAuth scopes unenforced on the newly published API), 151
+(prescription lists showing every dated copy), 152 (measurements saved with tomorrow's date
+in the evening), 153 (a BC bill's provider blanked on save), 154 (Dashboard tickler dates
+refused) and 168 (a failure after an eForm is stored reported as a duplicate submission).
+The other fifteen are low. `xss-poison-note-history` covers 148 and fails as it should.
+
+### Harness damage found by the shrink-aware residue audit (2026-10-09)
+
+`--residue-audit` now reports a table that has FEWER rows after a run as well as one that has more (`rows removed`), and a
+comparison of the demo artifact (`demo-additive-on.sql.gz`, loaded into a scratch schema) with the live database found the
+damage below on the Ontario validation install. It is damage the Playwright harness did to a disposable install, not an
+application finding; each item was repaired from the artifact or by owned key, and the check that caused it was fixed.
+
+| What was wrong | Cause | Repair |
+|---|---|---|
+| The demo's `providerLabRouting` row for HL7 lab 22 (id 24, provider `0`, status `N`, comment "Lab unlinked from incorrect demographic number: 1", timestamp 2023-09-01 21:19:22) was gone: 171 HL7 routing rows against the artifact's 172. A `table_modification` row (type `delete`) recorded it, and the demo has none. | `lab-acknowledge` acknowledged demo lab 22 (48 acknowledge rows in 16 runs, 2026-10-08 20:03 to 23:14); the application deletes the provider-0 routing rows of a lab on acknowledge (`CommonLabResultData:619-629`) and the check restored only the row it had added. | The row re-inserted exactly as the artifact has it (all 176 routing rows now equal the artifact's, compared column by column); the `table_modification` row removed and its counter reset. `lab-acknowledge` now copies the demo lab into a lab of its own and acknowledges the copy, removing it and everything the review wrote for it. |
+| 9 `providerLabRoutingLock` rows on lab numbers 22, 24, 29, 31, 33, 35, 54, 63 and 82 (and 3 more, 94, 97 and 125, made by this round's audit runs before the checks were fixed). The demo artifact has no lock rows, and every timestamp is after the install's first `log` row (2026-10-08 12:12:25). | The lock is keyed by the number alone. Checks that route an owned document write it for the document's number, which the demo's HL7 labs also use (document numbers 22 and up, labs 1 to 172); lab 22's is the acknowledge above. | Removed by key. `detached-delete-forward-favourites`, `document-upload`, `inbox-file-forward`, `audit-log-document-read` and the stored-document mutation fixture (`stored-document-mutations`) now remove the lock rows written after a mark taken before the check wrote anything (`scripts/lib/document-residue.js`). |
+| 4 chart notes "Document ... created at ... by doctor ..." (provider -1) with their `casemgmt_note_link` rows, 6 `queue_document_link` rows for documents that no longer exist (the artifact has 2) and 9 `carlos-upload-probe-*.pdf` files in `DOCUMENT_DIR`. | Uploading a document through the UI files the note, its link and the Inbox queue link; `document-upload` and `audit-log-document-read` deleted the document rows and nothing else. | Removed by key and by file name. The two checks now remove them (and `document-upload` its uploaded files). |
+| 15 `patientLabRouting` rows (`DOC`, document numbers 65 to 80, patients that no longer exist, created 2026-10-08 20:04 to 23:14) and 3 `ctl_document` rows for documents 4953 to 4955 (module `providers` 999998 and `demographic` 2147483647, the harness's missing-patient number). None is in the artifact and no document with those numbers exists. | Left by earlier runs of document checks whose cleanup missed them; each of the 36 document-related checks audited this round now leaves nothing of the kind, so the source is a version of a check that has since changed. | Removed by key (id above the artifact's highest, document numbers that do not exist). |
+| 1 `DigitalSignature` row (the provider's signature image, 235 KB) and 2 more "Document ... created" notes with their links. | `consult-attachment-ownership` (saving a consultation stores the signature; deleting the request keeps it) and `boundary-document-text` (UI uploads). | Removed by key; both checks now remove them. |
+
+The claim that stood here until the next round, that every other differing table "differs because the demo's name sanitization and date shifts
+are applied after the artifact loads", had not been checked table by table, and it was wrong. The record below replaces it.
+
+### Demo records the harness changed, found by comparing the artifact table by table (2026-10-09)
+
+The shrink-aware audit only sees a table whose row count moved during one run. A check that rewrites a demo row in place (a Master
+Record save, an allergy added, a note signed) moves no count, and a later run does not see that the earlier one did it. The only
+witness is the demo dataset itself, so this round compared the whole installed database with the artifact the install was loaded from.
+
+**Method.** The artifact (`demo-additive-on.sql.gz`) and the companion pieces `carlos-ctl demo-data` applies after it were loaded into a
+scratch schema (each table cloned from the live one with `CREATE TABLE LIKE`; Flyway-seeded rows win on a key collision, as in the real
+load, because the artifact is `INSERT IGNORE`). For every table, the full rows were compared both ways with `SELECT <columns> EXCEPT
+SELECT <columns>`, leaving out the `ON UPDATE CURRENT_TIMESTAMP` columns, which both sides stamp at load time. A table the artifact
+does not carry is Flyway data and was not compared. The difference was then attributed to a check by running the 91 checks that touch the
+chart, the schedule, documents, prescriptions, forms or consultations one at a time under `--residue-audit` with a `CHECKSUM TABLE` of
+every table before and after each run. The scratch schema was dropped at the end.
+
+| What was wrong (live against the artifact) | Check | Repair |
+|---|---|---|
+| Demo patient 1's chart: 2 archived Social History notes (594, 655) with their `casemgmt_issue_notes` rows (593 notes against the artifact's 591; 147 links against 145), `casemgmt_cpp` row 1's `socialHistory` and `update_date`, the `update_date` of notes 27 and 28, the encounter-note draft `casemgmt_tmpsave` 280278 missing (a chart open consumes it), and 2 `eChart` rows (the artifact ships none) | `echart` (archived instead of removed; `cancel` posted over the demo draft), `echart-print` (deleted the draft) | Notes, links, extension and lock rows removed; the columns restored from the artifact; 280278 re-inserted from it; the eChart rows removed. Patient 1's `casemgmt_note`, `casemgmt_issue_notes` and `casemgmt_tmpsave` were then compared with the artifact and are equal, row for row |
+| Allergy 1, the demo's "No Known Drug Allergies" (`archived` and `lastUpdateDate`), and 2 allergy rows on demo patient 2 | `allergy-add-penicillin` (the application archives the "No Known Drug Allergies" row when an allergy is added), `allergy-rx-alert` | Row 1 restored; rows above the artifact's highest id removed |
+| Demo patient 1's `demographic` row (`province`, `newsletter`, `residentialProvince`, `lastUpdateDate`), 20 `demographicExt` rows (`date_time`), 100 `demographicExtArchive` rows and the `demographicArchive` rows | `clinical-freetext` (saved the Master Record twice a run), `browser-surface` | Restored from the artifact; the archive rows above the artifact's highest id removed |
+| 2,767 `EFormDocs` rows of the demo with `deleted` flipped, 2 `eform_data` instances, their `eform_values` and 3 `eform` templates left soft-deleted (the application only marks a template or an instance removed) | `eform-render`, `eform-saved-render`, `eform-test-pattern`, `eform-apcache-renderer`, `eform-consultation-acceptance`, the `eform-rtl-*` checks. The demo ships attachment rows for instance numbers 247 to 1063 that no `eform_data` row owns; an instance saved at one of those numbers inherits them, and removing the instance marks them deleted | `deleted` restored from the artifact; instances, values and templates removed by key |
+| 24 `demographiccust` and 82 `eChart` rows for owned patients that no longer exist | `runWorkflow`'s default cleanup omits both tables | Removed (a follow-up: add them to the default cleanup) |
+| `DigitalSignature` rows (the provider's signature image, a foreign key to `demographic`) and `consultationRequestExt`, `consultationRequestExtArchive` and `consultationRequestsArchive` rows whose request was deleted | `consultation-print-preview`, `consultation-request-create` and `consultation-signature-submit` (the request was deleted and nothing else) | Removed |
+| `appointmentArchive` (4), `casemgmt_issue` (1), `form_boolean_value` (434), the `dates_reprinted` and `lastUpdateDate` of two demo prescriptions, the `addDate` of the demo's pharmacy links | `echart-note-sign-bill`, `schedule-quick-search-appointment`, `cpp-note-extension-archive`, `form-rourke2017`, `prescription-signature`, `rx-preview-pharmacy` | Removed or restored from the artifact |
+| The `pronoun` of 109 demo patients (124 by the end of the round) and the `gender` of 2, NULL in the artifact and `''` live, `lastUpdateDate` unchanged | not a check's write: the application (finding 266). Opening a patient's Master Record or finding one in the schedule's Search flushes `NULL` to `''` | Restored from the artifact. Pinned by `demographic-open-writes-nothing` |
+
+The first comparison, made before any check was run again, found the patient 1 chart, allergy 1, the patient 1 demographic row, the
+eForm, `demographiccust` and `eChart` differences and the `pronoun` rewrites. The allergy rows of demo patient 2, the consultation
+rows, the `appointmentArchive`, `casemgmt_issue`, `form_boolean_value`, prescription and pharmacy differences and 40 more archive rows appeared
+only when the sweep ran the check that writes them once more, which is the evidence for naming it; they were repaired the same way.
+
+**What is left, and why it is not damage.** After the repair the tables that still differ from the artifact are `hash_audit` and
+`log` (they grow on every run), and rows whose differences were read one by one: the Flyway seed wins over the artifact on a key
+collision (`INSERT IGNORE`), so `provider` (the seeded test provider has an empty `team` where the artifact has "Doctors"),
+`program`, `program_provider`, `serviceSpecialists`, `issue`, `PreventionsLotNrs`, `mygroup` (the seeded "IT Support" group),
+`ProviderPreference` and 3 `appointment` rows are the seed's; and the test provider's quick list (`quickListUser.lastUsed`)
+is stamped by the Echart navbar checks. The earlier sentence, that these differences are explained by name sanitization and date
+shifts, was wrong: they have the causes just listed.
+
+**What changed in the harness.** Checks that wrote a demo record now create a FAKE patient of their own (`lib/owned-patient.js`: last
+name = a `FAKE-PW` run marker; deleted by the patient's key, then asserted gone): `echart` (seeds 45 notes for pagination),
+`echart-print`, `echart-note-sign-bill`, `cpp-note-extension-archive`, `allergy-add-penicillin`, `allergy-rx-alert`,
+`clinical-freetext`, `browser-surface`, `demographic-edit-update`, `consultation-print-preview`, `consultation-request-create`,
+`consultation-signature-submit`, `eform-render`, `eform-saved-render`,
+`eform-test-pattern`, `eform-apcache-renderer`, `eform-consultation-acceptance`, `eform-rtl-attachment-routes`,
+`eform-rtl-print-pdf`, `form-rourke2017` and `schedule-quick-search-appointment`. Two checks keep demo patient 1 on purpose, because they assert
+that patient's attachments, and remove what they saved by number (`lib/eform-instance-residue.js`): `eform-rtl-attachment-pdf` and
+`eform-rtl-attachment-types`. Two keep the demo prescription and pharmacy links the install is documented to use and write the audit
+columns the application stamped back exactly (`lib/demo-timestamp-restore.js`): `prescription-signature` and `rx-preview-pharmacy`.
+`lab-acknowledge`'s copy of the demo lab moved into `lib/owned-lab.js`, which has a unit test of its SQL shapes. `document-residue.js`
+deletes the `casemgmt_note_ext` rows of a "Document ... created" note only for provider `-1` and that note text, and
+`audit-log-document-read` and `boundary-document-text` register the stored file for removal before they remove the document rows.
+
+**Checks that still write to demo patients 1 and 2 (not converted).** Twenty checks were left on a demo patient. They add rows
+keyed to demo patient 1 or 2 (a tickler, an appointment, a measurement, a prescription, a message), and remove or restore them by the
+keys below. They were not moved to an owned patient, and what holds them to "no residue" is the residue audit plus a `CHECKSUM TABLE`
+of every table, equal before and after one run of each on 2026-10-09. That is evidence from one run, not an enforced property: the
+audit counts rows, so a leftover or a removed row shows, and an in-place rewrite of a demo row does not (that is what the artifact
+comparison above is for). A regression in one of them would show only in the next artifact comparison.
+
+| Check | Demo patient it writes against | What it removes or restores, and the key |
+|---|---|---|
+| `appointment-lifecycle` | 1 | `appointment` and `appointmentArchive` rows, by the run marker in `reason` or `notes` |
+| `next-appointment-lookup` | 1 | `appointment` rows, by the run stamp in `notes` |
+| `consultation-lab-attachment-rows` | 1 | `consultdocs` by `requestId`, then the request by `requestId` and its stamped `reason` |
+| `document-upload` | 1 | the uploaded `document`, `ctl_document` and `providerLabRouting` rows by document number, and the note, link, queue and lock rows the upload filed above a mark (`lib/document-residue.js`), plus the stored files |
+| `echart-note-editor` | 2 | its stamped encounter-note draft (`casemgmt_tmpsave`, by provider, patient and the run stamp in the note text), and its note lock by session id |
+| `echart-vitals-bmi` | 1 | `measurements` rows, by `id` |
+| `measurement-validation` | 1 | `measurements` rows, by `id` |
+| `eform-rtl-attachment-behavior` | 1 | the instances it saves: `EFormDocs`, `eform_values`, `eform_data`, by `fdid` |
+| `eform-subject-preservation` | 1 | its template and instances: `EFormDocs`, `eform_values` by `fdid`, `eform_data` by `fid`, `eform` by `fid` and form name |
+| `form-labreq-practitioner-no` | 1 | the `formLabReq07` row, by `ID` |
+| `lab-requisition-links` | 1 | `labRequestReportLink` rows, by the link it created |
+| `messenger` | 1 | `msgDemoMap` and `messagelisttbl` rows by the ids it created, the message by `messageid`, and the `groupMembers_tbl` row it staged |
+| `patient-messenger-context` | 1 and 2 | `msgDemoMap` and `messagetbl` rows, by message id |
+| `prevention-brand-picker` | 1 | `preventions` and `preventionsExt` by id; the `CVCMedication`, `CVCMapping` and `CVCImmunization` rows it staged, by SNOMED code |
+| `rx-fax-record-binding` | 1 | `drugs`, `prescription` by `script_no`, its `DigitalSignature` by id, `FaxClientLog` and `faxes` by fax id and fax line, and the sender `fax_config` row it added, by id |
+| `rx-fax-reprint-represcribe` | 1 | `drugs` and `prescription` by `script_no`, `DigitalSignature` by id |
+| `rx-fax-signature-stamp` | 1 | `drugs`, `prescription` by `script_no`, `DigitalSignature` by id, `FaxClientLog`, `faxes` and the sender `fax_config` row, as `rx-fax-record-binding` |
+| `tickler-attachments` | 1 | the ticklers it makes: `ticklerdocs`, `tickler_comments`, `tickler_update`, `tickler`, by tickler number; it also stages a `secObjPrivilege` value and moves a lab routing row to the patient, and puts both back |
+| `tickler-crud` | 1 | the stamped tickler, its notes and links, by patient and stamp (`lib/tickler-fixture-cleanup.js`) |
+| `tickler-note-dialog` | 1 | the stamped ticklers, notes and links, by patient and stamp (`lib/tickler-fixture-cleanup.js`) |
+
+Three details cost a rerun each when the checks moved to an owned patient. The schedule's quick search lists only patients admitted to
+one of the login's programs (`PROGRAM_DOMAIN_RESTRICTION`), so `schedule-quick-search-appointment` admits its patient; the Master Record
+refuses a blank Canadian postal code, so `browser-surface` stores one; and `lib/owned-patient.js` finds a consultation request's
+extension and archive rows through the request, so the removal has to run before a check deletes the request itself.
+
+
+### Re-validation on the 2026.09.0~snapshot26 package (2026-10-09, after merging `release/2026.08`)
+
+`release/2026.08` had moved from the alpha19 candidate to `0c43d2f862` (11 commits, among them fixes for findings 140, 150, 152, 173,
+176 and 214). The head was packaged unstamped (`dpkg-buildpackage -us -uc -b -nc` in the `carlos-builder` image, the DrugRef WAR built for the alpha19
+package, since `debian/drugref.pin` did not change, `carlos-ctl` 1.1.2 from `debian/carlos-ctl.pin`) as `2026.09.0~snapshot26`, and
+installed over the running alpha19 with `dpkg -i` so the container, its database and the demo dataset were kept. Flyway applied no
+migration; `carlos-ctl check` reported "All checks passed". The checks ran from the merged PR tree copied into the container.
+
+| Entry | Before (alpha19) | On snapshot26 | Finding |
+|---|---|---|---|
+| `eform-email-two-windows` | known-fail | **passes** | 140, fixed by #4444 |
+| `billing-on-premium-payment-date` | known-fail | **passes** | 173, fixed by #4442 |
+| `flowsheet-patient-customization` | known-fail | **passes** | 176, fixed by #4459 |
+| `form-rourke2020-growth-measure-date` | known-fail | **passes** | 152, fixed by #4443 |
+| `oauth-rest-surfaces` (the pinned scope step, from the pre-merge script) | known-fail | **passes** | 150, fixed by #4461 |
+| `oauth-rest-surfaces-scope-list` (the pinned `%20` step, from the pre-merge script) | known-fail | **passes** | 214, fixed by #4461 |
+| `allergy-add-penicillin`, `allergy-add-penicillin-shortcut-id` | known-fail | still known-fail | 178, 215 (#4446 and #4455 did not fix them) |
+| `admin-api-keygen`, `patient-photo-upload`, `lab-manual-entry-cumulative`, `double-submit-eform`, `audit-log-chart-read` | known-fail | still known-fail | 163, 156, 149, 168, 141 |
+| `pathnet-status` | known-fail on BC | skipped: this is the Ontario install | 165, not re-run |
+| `rx-unique-medication-list` (new in the release, for #4420 / finding 151) | not present | fails at its precondition | needs `CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` in carlos.properties, which the install does not set |
+
+The five fixed findings' pins and the OAuth `scope-list` entry were removed from the manifest, and their log rows are now `fixed`. The
+release's own `oauth-rest-surfaces` replaced the pre-merge script (it covers the access modes and scope enforcement of #4461), so the
+`OAUTH_PIN` mechanism and its `package.json` script are gone. The `%20` scope list is exercised by that script in its `scoped` mode only.
+
+**Harness defects the residue audit found in this round** (not application defects; repaired and re-run to "no residue"):
+
+- `billing-on-premium-payment-date` left two `raheader` and two `radetail` rows per run. Its finding-173 section keyed its cleanup on
+  the premium fixtures' filename list, which the base's merged change had narrowed; the two RA fixtures are no longer in it. They now
+  have their own ownership key and a filename-length assertion. The four rows two earlier runs left were removed by key.
+- `lab-upload`, `lab-upload-rollback` (which reuses the upload workflow) and `lab-upload-signed-feed` left one `providerLabRoutingLock`
+  row per filed lab: the upload path writes it and no cleanup removed it. The cleanups now delete it by lab number; the four orphan rows
+  were removed.
+
+Re-run after the fixes, each alone under `--residue-audit`: "no residue" for all four checks.
+
+Two more harness notes from the review round that followed, both on the same snapshot26 install:
+
+- `get-reject-rourke-form` left 434 `form_boolean_value` rows per save (the Rourke form writes its ticked boxes there, keyed by the
+  record's id, and the check deleted only the `formRourke2017` row). The cleanup now removes them first; the 868 orphans two runs had
+  left were removed, and a re-run reports "no residue".
+- `clinical-forms-save-reopen-vascular-tracker-script` reports `failed-elsewhere` on about one run in four instead of `known-fail`:
+  a console error "Failed to load resource ... 400" from the Save that finding 254 refuses sometimes lands inside the window in
+  which the check reads the page's problems. It does so with the old wait and with the wait for the Save navigation that
+  CodeRabbit asked for (4 runs each, 1 of 4 failed elsewhere in each), so it predates that change. It is not fixed here.
+
+### Legacy MDS lab display validation (2026-10-14, issue #4567)
+
+`release/2026.08` at `e9ce38de` plus the #4654 fix branch was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR was
+compiled on the host with the `debian/rules` Maven flags, and `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder
+with `CARLOS_WAR`. DrugRef was built on the host from the commit `debian/drugref.pin` names (`1941e14`) and passed as
+`DRUGREF_WAR`, because Maven Central answered 429 to the builder container. carlos-ctl was 1.1.2 from its release. The packages
+were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl check` reported "All checks
+passed"). Behind an egress proxy that dropped some parallel apt downloads, `BASE_IMAGE` named an `ubuntu:26.04` derivative whose
+only change is `Acquire::Retries "8"` with `Acquire::Queue-Mode "access"` and pipelining off.
+
+| Run | `legacy-lab-display-mds` |
+|---|---|
+| fixed packages | display (two results with their own values, the note, no `#mdsLoadFailed` banner), acknowledge and the picker pass; stops at Forward: `known-fail` on finding 184 |
+| pre-fix MDS classes and `SegmentDisplay.jsp` swapped into the installed webapp | fails at the display step with the error page (finding 194, as reported) |
+| only `MdsOBXDaoImpl` put back to an entity query | fails at the display step: "shows 2 result rows for the seeded test … Glucose, expected 1" |
+
+`legacy-lab-display` (CML) was unchanged: `known-fail` on finding 184. `legacy-lab-display-pathnet` SKIPs on Ontario. The smoke tier
+passed 12/12. After the fixed classes were restored, the journal held no MDS error; the server-log audit's remaining unexplained
+signature was `getMatchingCMLLabs (ClassCastException)`, raised by the CML check's page (finding 197).
+
+The swaps used `cp` and `touch` on the installed JSP and a `carlos-ctl restart`. After a restart, Jasper recompiles a JSP whose
+source is newer than its compiled class, so Tomcat's work directory does not need clearing.
+
+A follow-up covered a report with versions whose older version cannot be read. Two FAKE versions of one accession were seeded
+(`1988000001`, `1988000002`, removed after); the older one had two `mdsPV1` rows, so its load failed with "Duplicate row was found".
+Opening the newer one showed only its own routing status, and the older version's status lines were silently missing. With the
+per-version warning in `SegmentDisplay.jsp`, the page shows "Version: v1 — Part of this lab report could not be loaded…" in their place.
+
+### Patient photo bound to the posted patient (2026-10-14, issue #4546)
+
+`ClientImage2Action` now acts on the `demographicNo` that each form of the Client Image Manager posts, never on the
+session-wide `clientId`, and checks `_demographic` w for that patient plus `isAllowedAccessToPatientRecord` first
+(finding 156). Run against a `2026.09.0~snapshot26` package built from the fix branch and installed fresh into an
+Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` clean; the installer's transient "NOT ready to use"
+came from an nginx reload in a sandbox without IPv6 and left no marker): `patient-photo-upload` **PASS**, all 15
+steps, including the finding-156 step, Upload in the first of two open managers, a CSRF-valid Clear Photo POST that
+names no patient, and a doctor login locked out of the second patient (refused 403, photo kept; the unlocked control
+clears). Through the suite runner it is a plain PASS with no expected-failure pin, and the smoke tier passed 12 of
+12. With the pre-fix `ClientImage2Action.class` and `uploadimage.jsp` swapped into the installed webapp (Tomcat's
+compiled JSP removed, service restarted) the check **FAILS** at "Clear Photo does not post the patient the manager
+was opened for"; a scratch copy that read the patient from the popup's URL and kept going showed the old behaviour
+itself: Clear Photo in the first manager deleted the second patient's photo, Upload went to the second patient, the
+patient-less POST was answered as a success and the locked login was served (HTTP 200).
+
+### Schedule group Delete and View groups Save/Delete (2026-10-15, issue #4515)
+
+Finding 80. Administration ▸ Schedule Management ▸ Search/Edit/Delete Groups ▸ Delete answered HTTP 500 because
+`adminnewgroup.jsp` read the CSRFGuard token as a group member. Preferences ▸ View groups ▸ Save and Delete left a blank
+`/provider/providercontrol` page because they ran inside that page's server-side include, which ignores a redirect.
+`release/2026.08` at 244556ad plus the fix branch was packaged as `2026.09.0~snapshot26`, the same way as the MDS run above.
+The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags. DrugRef was built on the host from
+`1941e14`. `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`, and
+`lintian --fail-on error` passed. carlos-ctl was 1.1.2 from its release. The packages were installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo dataset, the retrying `BASE_IMAGE`). `carlos-ctl check` reported "All
+checks passed"; the installer's transient "NOT ready to use" left no marker.
+
+| Run | `my-groups` | `get-reject-provider-groups` |
+|---|---|---|
+| fixed packages | PASS, all 8 steps. The admin Delete posts its CSRF token, answers 200 with the notice and removes the ticked row. View groups Save and Delete land on the group list. | PASS. `DeleteMyGroupMembers` and `SaveMyGroup` answer 405 to GET and HEAD; the retired include routes write nothing. |
+| pre-fix `adminnewgroup.jsp` swapped in | FAILS: "Search/Edit/Delete Groups ▸ Delete answered HTTP 500" | not run |
+| pre-fix `providernewgroup.jsp`, `providersavemygroup.jsp` and `providercontrol.jsp` swapped in | FAILS: "Save did not return to the group list (left on /carlos/provider/providercontrol)" | not run |
+
+The first fixed run also surfaced a latent error on the deletion notice, which the 500 had kept anyone from reaching:
+`setfocus()` focused a group-name field the notice does not render. It is guarded in the same change.
+
+The other checks that touch group routes also ran on the fixed packages:
+- `browser-surface`, `schedule-setting`, `appointment-group-copy-cut`, `report-age-sex-visit` and
+  `csrf-runtime-form-month-view-group` pass.
+- `xss-poison-admin-detail` is `known-fail` on finding 122.
+- `report-daysheet-labs` fails on finding 54, as its suite notes expect; its group day-sheet step passes.
+- `admin-role-management` refuses to run without an exclusive-deployment opt-in.
+- `appointment-group-paste-restriction` SKIPs on a missing fixture.
+
+The smoke tier passed 11 of 12. `echart` fails at "a Social History item and an encounter-note draft carrying WAF-scored text
+save and refresh", timing out on `encounter/displayIssues`. Unmodified `release/2026.08` (244556ad) was packaged and installed
+the same way, and the same `echart` script fails there at the same step, so this change did not cause it.
+
+### Allergy class shortcuts validation (2026-10-15, issue #4576)
+
+`release/2026.08` at `378db4ed` plus the #4576 fix branch was packaged unstamped as `2026.09.0~snapshot26`.
+`dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder. DrugRef was built from a checkout of the commit
+`debian/drugref.pin` names (`1941e14`, passed as `DRUGREF_SRC`). carlos-ctl was built from its `1.1.2` tag, with a `1.1.2`
+changelog stanza stamped in the throwaway worktree the way its release workflow stamps it, because the tag's own stanza
+reads `1.1.2~dev1`. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported "All checks passed"). The same proxy workaround as the MDS validation above applied, and the
+validation image was built with `DOCKER_BUILDKIT=0`, because BuildKit's metadata lookup of `ubuntu:26.04` hit Docker Hub's
+rate limit.
+
+The packaged DrugRef holds 44452 and 44159, the ids the shortcuts used to post, as a multivitamin brand (category 12) and a
+fluoxetine product (category 11). It still carries AHFS (PENICILLINS `08:12.16`, SULFONAMIDES `08:12.20` and `52:04.08`).
+It has no ATC class named PENICILLINS, and its ATC class named SULFONAMIDES is `G01AE`.
+
+| Run | Result |
+|---|---|
+| fixed packages | `allergy-class-shortcut-alert` (new) passes all 7 steps: Amoxil (J01CA04) and Septra (J01EE01) as the issue asks, HP-PAC (A02BD07) and BLEPHAMIDE (S01CA02) through DrugRef's AHFS class, and Biaxin (J01FA09) clear. `allergy-add-penicillin` and `allergy-add-penicillin-shortcut-id` pass with their expectedFailure entries removed. |
+| pre-fix `RxDrugData` classes swapped into the installed webapp | `allergy-class-shortcut-alert` fails at the Amoxil step: only the old shortcut's row warns, matched by DrugRef's AHFS name |
+| pre-fix `RxDrugData`, `RxAddAllergy2Action`, `RxAddReaction2Action` and the three allergy pages swapped in | `allergy-class-shortcut-alert` fails at its first step; `allergy-add-penicillin-shortcut-id` fails on the type code |
+| the fix's first version of `RxDrugData` (ATC prefix only for a new shortcut allergy) swapped in | `allergy-class-shortcut-alert` fails at the HP-PAC step: only the old shortcut's row warns |
+
+The first three rows ran on packages of the fix's first commit. Review then found that a new shortcut allergy was decided by
+its ATC prefix alone, and the fix now also asks DrugRef about it under both class names. The last row and the first row's 7
+steps ran on packages rebuilt from that commit and reinstalled over the first ones (`apt-get install --reinstall`;
+`carlos-ctl check` clean). On this extract the products the AHFS classes reach outside J01C and J01E are A02BD07, A07EC01,
+D10AB52, G01AE10, J01RA02 and S01CA02.
+
+With the fixed files restored, the following also passed: `allergy-save-retry`, `allergy-rx-alert`, `allergy-custom-lifecycle`,
+`allergy-injected-form-csrf` (its Sulfa step now expects the ATC class row, and the NKDA entry is still archived),
+`allergy-stale-amend-refused`, `concurrency-allergy-amend`, `double-submit-chart-adds`, `drug-search`, `csrf-runtime-forms`,
+`demographic-cds-import`, `cds-export-lab-documents` and `export-content-chart-print-sections`.
+The smoke tier passed 12/12, and `scripts/deb-server-log-audit.sh` found no unexplained signature (8 known, all provoked on
+purpose by the checks that ran; no `RxAddAllergy2Action` or allergy-check error).
+
+On the rebuilt packages the same allergy, CSRF, CDS and export checks passed again, with the smoke tier at 12/12 and the
+server-log audit clean. One run of `csrf-runtime-forms` failed at its eForm Groups step. The modal's Delete link was replaced
+while it was being clicked ("element was detached from the DOM"), and the check passed when run again. That step does not
+reach the allergy code.
+
+### Write-integrity guards and stale Master Record edits (2026-10-15, issue #4225)
+
+The six #4225 workflows still failing on `release/2026.08` were `double-submit-appointment`, `double-submit-billing-on`,
+`double-submit-demographic-add`, `double-submit-admin-adds`, `concurrency-demographic-edit` and
+`concurrency-demographic-ext-insert`. `release/2026.08` at `c793fb04` plus the fix branch was packaged unstamped as
+`2026.09.0~snapshot26+issue4225.N`. The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags.
+DrugRef was built on the host from the commit `debian/drugref.pin` names (`1941e14`). `dpkg-buildpackage -us -uc -b` ran in an
+`ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`. carlos-ctl was 1.1.2 from its release. Each build was installed
+fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo dataset, `BUILD_CA_BUNDLE` for the egress proxy's CA);
+`carlos-ctl check` reported "all checks passed", and the installer's transient "NOT ready to use" left no marker.
+
+Build `.1` packaged the fix's first commits. Build `.2` added the review fixes (per-patient `_demographic` check before
+the conflict page, transactions the claim observes on Add Demographic and Add Service). The two later commits, the
+Name Used version and `LogSafe` on the update warnings, change `DemographicEditVersion` and `DemographicUpdate2Action`
+only. Their compiled classes were copied into the build `.2` webapp and the service restarted, so the second run tested
+the branch head.
+
+| Check | build `.1` | build `.2` + head classes | `release/2026.08` classes and JSPs swapped in |
+|---|---|---|---|
+| `double-submit-appointment` | PASS | PASS | FAILS: the slow-response re-click booked 2 appointments |
+| `double-submit-billing-on` | PASS | PASS | FAILS: double Enter and the slow re-click each wrote 2 headers and 2 item sets |
+| `double-submit-demographic-add` | PASS | PASS | FAILS: reloading the result page registered a second patient |
+| `double-submit-admin-adds` | PASS | PASS | FAILS: back-to-back clicks, the slow re-click and the reload each added the service twice |
+| `double-submit-intentional-adds` (new) | PASS | PASS | FAILS: "Reloading the confirmation added the service again" |
+| `concurrency-demographic-edit` | PASS | PASS | FAILS: the stale save reverted the other session's phone number to blank |
+| `concurrency-demographic-ext-insert` | PASS | PASS | FAILS: HTTP 500 (`uk_demo_ext`), the whole save rolled back |
+| `demographic-stale-edit-recovery` (new) | PASS | PASS | FAILS: "A stale Update Record answered HTTP 500, expected the 409 conflict page" |
+
+The swap used the classes compiled from `c793fb04` against the packaged WAR's libraries and that commit's five form JSPs,
+then `carlos-ctl restart`. After the fixed files were restored, the target checks passed again.
+
+On build `.2` with the head classes, these demographic, Add Service and replay regressions passed: `demographic-add`,
+`demographic-edit-update`, `demographic-master-crud-smoke`, `master-record-tabs`, `demographic-gates`,
+`gap-records-demographic-add-fields`, `gap-records-demographic-edit-clinical`, `consultation-services-admin`,
+`get-reject-consult-config`, `clinical-freetext`, `echart-print` and `echart-new-patient-notes`.
+`xss-poison-master-record` is `known-fail` on finding 117. Four failed in ways their manifest notes or the diff
+account for:
+- `waiting-list` fails at its first step, as its notes expect, because `edit.jsp` renders the list read-only.
+- `boundary-demographic-text` fails at its last step on the silently truncated `pref_name`, pronoun and gender, as
+  its notes expect.
+- `phi-in-error-pages` misses two cells in code this change does not touch: `demographic/printDemoLabelAction`
+  answers 500 instead of 400, and `admin/DemographicMergeRecord` answers 200. The guarded routes answered as provoked.
+- `waf-clinical-text-corpus` fails at its prevention row with the harness error "Invalid URL". Its appointment add
+  and update rows, through the guarded `AddRecord`, pass.
+
+On build `.1` the billing and appointment regressions passed: `billing-on-submit`, `billing-on-group-disk-zero-total`,
+`billing-review-failed-calculation`, the five `gap-billing-*` form checks, `appointment-patient-typeahead`,
+`schedule-quick-search-appointment`, the three `gap-provider-appointment-*` booking checks, `popup-opener-day-sheet`
+and `echart-note-verify-appointment-status-billing`. `csrf-negative-matrix` passed its appointment, demographic and
+Ontario bill families with the new tokens dropped from the replay. Four others did not pass:
+- `audit-log-billing-on` fails at its last step on the missing audit row, as its notes describe.
+- `authz-write-role-matrix-billing` is the pinned `known-fail` on finding 199.
+- `authz-write-role-matrix` stops at its allergy family, and `csrf-negative-matrix` at its prevention family. Both
+  replay a token an earlier guard already spent: the allergy `saveToken` (#4390) and `carlosPreventionSubmission`
+  (#4455). Those families need a freshly rendered token, as the eForm family has; neither action is in this change.
+
+After the swap was undone, `double-submit-appointment`, `double-submit-demographic-add`,
+`concurrency-demographic-ext-insert` and `demographic-stale-edit-recovery` passed again, and the smoke tier passed 11 of 12.
+`echart` failed at "a Social History item and an encounter-note draft carrying WAF-scored text save and refresh", the step
+the #4515 validation above saw fail the same way on unmodified `release/2026.08`. The server-log audit over that window
+found no unexplained signature (6 known). Over the whole session the audit's unexplained signatures were
+`DemographicLabelPdf` (the `phi-in-error-pages` probe of `printDemoLabelAction`), a `ClientAbortException` from a provider
+signature image, and two `uk_demo_ext_single_value` violations logged during the deliberate pre-fix run.
+
+After the CodeRabbit review (0f9d1f9f: the Add Service id check and unconfirmed repeat, the Add Demographic post-commit
+error log, and the neutral refusal-page title and conflict wording in all five bundles), the build `.2` install was set
+up fresh again. The head's `DemographicEditVersion`, `DemographicUpdate2Action`, `DemographicAddRecord2Action` and
+`EctConAddService2Action` classes and the five `oscarResources_*.properties` bundles were copied in. All eight #4225
+checks above passed, together with `demographic-add`, `demographic-edit-update`, `gap-records-demographic-add-fields`,
+`consultation-services-admin` and `get-reject-consult-config`. The session's container restarted once during this run;
+the stopped validation container was started again with its copied files intact, and the remaining checks were run then.
+
+### Billing History Unbill decides from the stored status (2026-10-15, issue #4538)
+
+The #4538 fix branch, cut from `release/2026.08` at `378db4ed`, was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR
+was compiled on the host with the `debian/rules` Maven flags (JDK 25), and `dpkg-buildpackage -us -uc -b` ran in an
+`ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`. DrugRef was built from the commit `debian/drugref.pin` names
+(`1941e14`). carlos-ctl was built from the pin's fallback commit (`9ad4938`) and stamped 1.1.2, because the release asset was not
+available on the host. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported all checks passed), behind an egress proxy that only tunnels HTTPS (`BUILD_PROXY`,
+`BUILD_CA_BUNDLE`, `APT_FORCE_HTTPS=true`).
+
+| Run | `billing-on-correction-delete` |
+|---|---|
+| fixed packages | PASS, 7 of 7 steps, including the forged-`billCode` step |
+| pre-fix `BillingDeleteNoAppt2Action` and `billingONHistory.jsp` swapped into the installed webapp | FAIL at that step: "Unbilling the billed bill with billCode=O was not refused with the cannot-delete page" |
+
+The step posts `billCode` O, W, D, empty and absent for an owned bill in status B and one in status S, and asserts the
+cannot-delete page, an unchanged header and items, and no `billing_on_proc` row. The last step also asserts that the real Unbill
+click posts `billing_no` and no `billCode`.
+
+On the fixed packages these also passed: `billing-on-invoice-third-party`, `billing-on-submit`, `billing-on-third-party`,
+`billing-on-payment-status`, `csrf-runtime-forms`, `csrf-runtime-form-day-sheet-unbill`, `gap-billing-correction-admin-actions` and
+`xss-poison-billing`. `authz-write-role-matrix-billing` was `known-fail` (finding 199). `double-submit-billing-on` ("second click
+500 ms later while the response is slow" saved two bills) and `audit-log-billing-on` (no audit row for the OHIP save or for opening
+Billing History) failed, and they fail identically with the four changed classes and the JSP swapped back to their
+`release/2026.08` versions, so neither depends on this change. The log PHI scan found no match. The server-log audit's
+unexplained signatures (a `CaseManagementView` `ConfigurationException`, two `ApplicationDispatcher.invoke` SEVERE events and a
+`BillingONSave` `SecurityException`) match the time and actions of the `authz-write-role-matrix-billing` run.
+
+The swaps used `docker cp` on the installed classes and JSP and a `systemctl restart carlos-emr`.
+
+### Lab Forward from the lab pages and the patient lab list (2026-10-16, issue #4558)
+
+The #4558 fix branch, cut from `release/2026.08` at `3c52e90e`, was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS
+WAR was compiled on the host with the `debian/rules` Maven flags (JDK 25), and `dpkg-buildpackage -us -uc -b` ran in an
+`ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`. DrugRef was built on the host from the commit `debian/drugref.pin`
+names (`1941e14`); carlos-ctl was 1.1.2 from its release (checksum verified by `debian/fetch-carlos-ctl.sh`). The packages were
+installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl check` reported all checks
+passed), behind an egress proxy that only tunnels HTTPS (`BUILD_PROXY`, `BUILD_CA_BUNDLE`, `APT_FORCE_HTTPS=true`). The proxy
+broke apt's pipelined downloads at the same file on every attempt, so `BASE_IMAGE` named an `ubuntu:26.04` derivative whose only
+change is `Acquire::Retries "20"`, `Acquire::Queue-Mode "access"` and pipelining off, as in the #4567 run above. Later edits to
+the branch (the action's test constructor, the picker's message wording, its form lookup) were copied into the installed webapp
+with `carlos-ctl restart`, and every file was compared by checksum with the branch.
+
+| Run | `legacy-lab-display` (CML) | `legacy-lab-display-mds` | `lab-forward-picker` (new) |
+|---|---|---|---|
+| packages as built | PASS, 5 of 5 | PASS, 5 of 5 | (not yet written) |
+| branch head copied in | PASS, 5 of 5 | PASS, 5 of 5 | PASS, 6 of 6 |
+| pre-fix `ReportReassign2Action` and JSPs copied in | FAIL at "CML forward routes the lab to the chosen provider": the picker has no control that sends the chosen provider back | not run | FAIL at its first browser step: no Forward button |
+| new JSPs, pre-fix action | FAIL at the same step: "sent to `/carlos/lab/CA/ON/Forward&providerNo=999998&searchProviderNo=&status=&segmentID=<id>%3ACML`" | not run | FAIL at the bare-id step: answered 302 to that path, not 400 |
+| head, pre-fix `DemographicLab.jsp` only | not run | not run | FAIL at the patient lab list step: the checkbox carries no lab type |
+
+Both legacy checks run with their finding-184 `expectedFailure` removed. Their Forward step now also asserts the posted
+contract (`flaggedLabs` `{"files":["<id>:<TYPE>"]}`, exactly the recipient, a favourites list), that the lab page's redirect
+lands on its own display for the same lab (keyed on the redirected navigation, not the URL, which is already the display's
+before the post), and that the sender's forwarding favourites are unchanged. `legacy-lab-display-pathnet` SKIPs on Ontario.
+
+`lab-forward-picker` holds what a successful Forward cannot show: the picker as a popup has Forward and the same page as the
+Inbox dialog requests it does not; Forward with no lab page behind the picker, or with an empty Forward List, raises its alert,
+stays open and sends nothing; the lab page's own `reassignForm` posted as it was before the fix is answered 400 and writes
+nothing; and Forward from the patient lab list without a `demographicNo` routes a ticked HL7 lab and returns to the list. That
+list shows labs filed under demographic 0 (an uploaded lab unlinked from its patient; an unmatched upload gets no
+`patientLabRouting` row and is not listed), so the check uploads a synthetic lab matched to the owned patient and files it there.
+
+On the head these passed as well: `inbox-file-forward` (10 of 10, including the GET/HEAD replay refusal and unchanged
+favourites), `detached-delete-forward-favourites`, `document-upload`, `lab-forwarding-rules`, `inbox-document-forwarding-scope`
+and `gap-records-autocomplete-labels`, and the smoke tier, 12 of 12.
+
+The packages were then rebuilt from the pushed branch head (`ee56cc84`) and installed fresh again (`carlos-ctl check`: all checks
+passed), with no files copied in; the installed picker, list and bundle files matched the branch by checksum. On that install
+`legacy-lab-display`, `legacy-lab-display-mds`, `lab-forward-picker`, `inbox-file-forward`, `detached-delete-forward-favourites`,
+`document-upload`, `lab-forwarding-rules`, `inbox-document-forwarding-scope` and `gap-records-autocomplete-labels` passed,
+`legacy-lab-display-pathnet` SKIPped, and the smoke tier passed 12 of 12. The server-log audit's one unexplained signature was
+`MDSResultsData.java:610`, the CML version-chain `ClassCastException` (finding 197, #4568) the CML pages raise on every open; no
+`ReportReassign2Action` entry appeared. After review, the action saves the favourites only once routing has succeeded, outside the
+routing error path, and both legacy checks and `lab-forward-picker` seed a forwarding favourite before taking their baseline.
+With that class copied in, the three checks, `inbox-file-forward` and `detached-delete-forward-favourites` passed again.
+
+### Slot lock for bookers without the admin right (2026-10-18, issue #4917)
+
+`/PageMonitoringService` demanded `_admin` r, so every lock refresh and release from a receptionist, doctor or nurse answered 403:
+the Add Appointment notice stayed at "Viewers: N/A", a second booker was not stopped, and patient Search stayed disabled after any
+date, time or duration change. The endpoint now requires `_appointment` w (the Add Appointment page's own right), replies with
+only `locked`, `self` and `providerName` (the old reply carried every overlapping viewer's session id, address and provider
+number), and accepts only `POST`.
+
+`appointment-slot-lock-booker-playwright-checks.js` was added for it. It needs `appointment_locking_timeout>0` (the package
+default is 0; set it in `/etc/carlos-emr/carlos.properties` and restart `carlos-emr`) and SKIPs under
+`allowMultipleSameDayGroupAppt=no`, which renders no Add, Repeat or Group button. Two throwaway logins: an admin+doctor owner
+holds a slot, a doctor-only booker (no `_admin` row for any of its roles, asserted in the database) opens an overlapping slot.
+
+Run against `carlos-emr` and `carlos-emr-drugref` built from the `release/2026.08` fix branch (`5be04445`) in an Ubuntu 26.04
+container with `carlos-ctl` 1.1.2 and the demo dataset (`scripts/deb-docker-validation.sh up`, `carlos-ctl check` clean, `:443`).
+The classes of the later commits were compiled and copied into the installed webapp rather than rebuilding the packages:
+
+| Installed `PageMonitoring2Action` | Result |
+|---|---|
+| original (`_admin` gate) | FAIL at the booker step: "lock refresh returned HTTP 403" |
+| fix branch head | PASS, 7 of 7: booker gets 200 and `Viewers:1 (locked)`, Add/Repeat/Group hidden, Search back after a duration change, the lock and the buttons on a non-overlapping time, a GET answers 405 and changes nothing, `cancelPageLock()` removes the monitor, nothing booked, page locks removed and verified |
+
+`appointment-group-paste-restriction` (with `allowMultipleSameDayGroupAppt=no` and locking on, so it exercises the changed reply)
+and `gap-provider-appointment-do-not-book` passed with the head class. `do-not-book` times out clicking its Do Not Book control under
+`allowMultipleSameDayGroupAppt=no`; that was not investigated. It also leaves its throwaway providers' `PageMonitor` rows behind when
+locking is on (two rows, deleted by hand). The server-log audit had no unexplained signature.
+
+A `systemctl restart carlos-emr` repeated within a few minutes trips the unit's start-rate limit and the next one fails with "start of
+the service was attempted too often"; run `systemctl reset-failed carlos-emr` first and wait for `:443` to answer before the suite.
+
+### Contacts: a professional contact added from the External search (2026-10-18, issue #4987)
+
+Master Record ▸ Contacts ▸ Add (professional contact) ▸ External ▸ Search ▸ "Add/Edit Professional Contact" opened the form as a
+professional specialist whichever type the row asked for, so the contact was saved as a `professionalSpecialists` row, the row was not
+filled and the External search never listed it. `release/2026.08` at `cae31c74` plus the fix branch was packaged unstamped as
+`2026.09.0~snapshot26`. The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags, DrugRef was built on the
+host from `1941e14`, `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`, and carlos-ctl was
+1.1.2 from its release. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl
+check`: all checks passed; `BUILD_CA_BUNDLE` named the egress proxy's CA for the image's npm install).
+
+| Run | `contact-external-professional` |
+|---|---|
+| fixed packages | **PASS**, 6 steps through `:443`: the External row's Add link asks for `contactType=2` (and the Health Care Team's for 3, also for a missing, `0`, `2x` or `99` type); the Add saves one `Contact` row of type `ProfessionalContact`, no `professionalSpecialists` row and no association, fills the row and closes; Contacts Save links `2\|professional\|<id>`; the External search lists the contact and selects it; a row whose type was changed while the form was open is left unfilled; the Health Care Team panel still adds a new external contact as a professional specialist on the team |
+| pre-fix `procontactSearch.jsp`, `ManageContacts.jsp` and `addEditProfessionalContact.jsp` swapped into the installed webapp | **FAILS** at step 1: "External row's Add link asks for contactType=3" |
+
+`contact-lifecycle`, `health-care-team`, `health-care-team-heading` and `gap-records-health-care-team-panel` passed, and the check left no
+`FAKE-PW` rows behind. The smoke tier passed 11 of 12: `browser-surface` timed out waiting for the Tickler popup from the patient page,
+identically with the pre-fix JSPs restored, so it is not from this change. The server-log audit reported no unexplained signature.
+
+The WAF answers 403 to a `contactType` value carrying `"` and `=` before the page sees it, so the check's tampered values are plain text.

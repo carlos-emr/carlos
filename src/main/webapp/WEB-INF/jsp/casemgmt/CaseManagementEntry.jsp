@@ -444,7 +444,7 @@
 
             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <c:if test="${param.from=='casemgmt' || requestScope.from=='casemgmt'}">
-                    <c:url value="${sessionScope.billing_url}" var="url"/>
+                    <c:url value="${requestScope.billing_url}" var="url"/>
                     <caisirole:SecurityAccess accessName="billing" accessType="access"
                                               providerNo="${carlos:forHtmlAttribute(param.providerNo)}"
                                               demoNo="${carlos:forHtmlAttribute(param.demographicNo)}" programId="<%=pId%>">
@@ -454,7 +454,7 @@
                             <td class="fieldValue">
                                 ${carlos:forHtml(caseManagementEntryForm.caseNote.billing_code)}
                                 <input type="button" value="add billing"
-                                       onclick="self.open('<carlos:encode value='<%= StringUtils.noNull((String)session.getAttribute("billing_url")) %>' context="javaScriptAttribute"/>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
+                                       onclick="self.open('<carlos:encode value='<%= StringUtils.noNull((String)request.getAttribute("billing_url")) %>' context="javaScriptAttribute"/>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
                             </td>
                         </tr>
                     </caisirole:SecurityAccess>

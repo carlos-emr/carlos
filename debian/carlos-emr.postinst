@@ -916,6 +916,169 @@ OSCAR_DEFAULTS
             : > "${OSCAR_DEFAULTS_SENTINEL}"
         fi
 
+        # One-time migration: the OAuth access mode (README.Debian section 8).
+        # The default is the restricted legacy access: oauth.scope.enforcement
+        # .enabled=false and oauth.scope.legacy.access=restricted, the stock
+        # lines. Development builds between #4419 and this release shipped
+        # enforcement.enabled=true in the stock file, and an operator may have
+        # set legacy.access=full by hand; the first configure that finds either
+        # key set to anything but its default resets it, once, and says so.
+        # Same discipline as the OSCAR block above: under the provisioning
+        # lock, a key defined more than once is the operator's override and is
+        # left alone, an absent key needs nothing (the WAR default is the same),
+        # and once the sentinel lands a value set later is never flipped back.
+        # Keep the pairs in step with OAUTH_ACCESS_DEFAULTS in
+        # scripts/deb-upgrade-verify.sh and OAUTH_ACCESS_MIGRATIONS in
+        # scripts/deb-upgrade-baseline.sh.
+        OAUTH_ACCESS_SENTINEL="${STATE}/.oauth-access-defaults-migrated"
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OAUTH_ACCESS_SENTINEL}" ]; then
+            if [ -f "${PROPERTIES}" ]; then
+                while IFS='|' read -r key default_line; do
+                    [ -n "${key}" ] || continue
+                    key_re="$(printf '%s' "${key}" | sed 's/\./\\./g')"
+                    defs="$(grep -c "^${key_re}[[:space:]]*[=:]" "${PROPERTIES}" || true)"
+                    [ "${defs}" = 1 ] || continue
+                    current="$(grep "^${key_re}[[:space:]]*[=:]" "${PROPERTIES}")"
+                    if [ "${current}" != "${default_line}" ]; then
+                        sed -i "s/^${key_re}[[:space:]]*[=:].*\$/${default_line}/" "${PROPERTIES}"
+                        echo "carlos-emr: ${current} -> ${default_line} (reset to the default OAuth access mode, once; edit ${PROPERTIES} to change it)"
+                    fi
+                done <<'OAUTH_ACCESS_DEFAULTS'
+oauth.scope.enforcement.enabled|oauth.scope.enforcement.enabled=false
+oauth.scope.legacy.access|oauth.scope.legacy.access=restricted
+OAUTH_ACCESS_DEFAULTS
+            fi
+            mkdir -p "${STATE}"
+            : > "${OAUTH_ACCESS_SENTINEL}"
+        fi
+
+        # One-time migration (2026.08, #4613): the stock HL7_LAB_MEASUREMENT_FILTER
+        # had the alternative ^([+-\\?]{1,4}). In a character class +-\? is the
+        # RANGE '+' to '?' (the digits and + , - . / : ; < = > ?), and {1,4} took
+        # at most four of them, so Hl7textResultsData filed a result such as
+        # 112.5 in measurements as "112." and 0.095 as "0.09": the flowsheets,
+        # the Measurements module and the Health Tracker showed a different
+        # number from the lab report. install_once copied that line into this
+        # /etc override, which wins over the corrected WAR default, so an
+        # upgraded install keeps cutting values until the line is rewritten.
+        # Same discipline as the OSCAR block above: under the provisioning lock,
+        # ONLY the exact old stock line, ONLY when the key is defined once (a
+        # second definition is the operator's override), ONLY once (the sentinel
+        # is written on fresh installs too, so a value set later is never
+        # rewritten). Not gated on $2, for the purge-then-reinstall reason given
+        # there. The new line is the skeleton's, so the /etc copy and the WAR
+        # default cannot disagree. The line is full of regex and sed
+        # metacharacters, so it is matched and replaced as a FIXED string (grep
+        # -F, awk ENVIRON, which unlike awk -v unfolds no backslash), never as
+        # a pattern, and the rewrite goes through a temporary file renamed over
+        # the original with its owner and mode, as sed -i does.
+        # scripts/deb-upgrade-verify.sh holds the old line's digest
+        # (LAB_FILTER_OLD_SHA); scripts/deb-upgrade-snapshot.test.js and
+        # debian/assets/tests/test_lab_filter_migration.py hold them together.
+        LAB_FILTER_SENTINEL="${STATE}/.lab-measurement-filter-migrated"
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${LAB_FILTER_SENTINEL}" ]; then
+            LAB_FILTER_OLD='HL7_LAB_MEASUREMENT_FILTER=[0-9]{4}([- /.])(((0[13578]|(10|12))\\1(0[1-9]|[1-2][0-9]|3[0-1]))|(02\\1(0[1-9]|[1-2][0-9]))|((0[469]|11)\\1(0[1-9]|[1-2][0-9]|30)))|[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))|^([+-\\?]{1,4})|^\\b(t)\\b|^\\b(tr)\\b|^\\b(cpr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(dnr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(iud)\\b|^\\b(sent\\s{1}to\\s{1}bccdc)\\b|^\\b(large)\\b|^\\b(small)\\b|^\\b(no\\s{1}lmp)\\b|^\\b(mod)\\b|^\\b(no\\s{1}growth)\\b|^\\b(marked)\\b|^\\b(immune)\\b|^\\b(indeterminate)\\b|^\\b(indeterminant)\\b|^\\b(moderate)\\b|^\\b(trace)\\b|^\\b(undefined)\\b|^\\b(defined)\\b|^\\b(reactive)\\b|^\\b(non[\\s-]?reactive)\\b|^\\b(negative)\\b|^\\b(positive)\\b|^\\b(neg)\\b|^\\b(pos)\\b|^\\b(normal)\\b|^\\b(abnormal)\\b|^\\b(ab)\\b|^\\b(a)\\b|^\\b(yes)\\b|^\\b(no)\\b|^\\b(nill)\\b|^\\b(y)\\b|^\\b(regular)\\b|^\\b(irregular)\\b|^\\b(screen\\s{1}negative)\\b|^\\b(unsatisfactory\\s{1}sample)\\b|^\\b(n)\\b|^\\b(equivocal)\\b|^\\b(unequivocal)\\b|^\\b(post[\\s-]{1}meno)\\b|^\\b(not[\\s]{1}reported)\\b|^\\b(lrg)([+]{1,3})|^\\b(test[\\s]{1}not[\\s]{1}performed)\\b|^[-+<>=]{0,2}\\s?(\\d*[\\./:]?\\d+)[-+=]?'
+            LAB_FILTER_NEW=""
+            if [ "$(grep -c '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
+                LAB_FILTER_NEW="$(grep '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties")"
+            fi
+            # A definition in java.util.Properties syntax: the key, indented or
+            # not, then '=', ':' or whitespace (or nothing, an empty value).
+            LAB_FILTER_KEY_RE='^[[:space:]]*HL7_LAB_MEASUREMENT_FILTER([[:space:]=:]|$)'
+            if [ -z "${LAB_FILTER_NEW}" ] || [ "${LAB_FILTER_NEW}" = "HL7_LAB_MEASUREMENT_FILTER=" ]; then
+                # A skeleton without exactly one definition, or with an empty one
+                # (which would file every result as an empty value), is a broken
+                # build: rewrite nothing and write no sentinel, so a fixed package
+                # retries.
+                echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define one non-empty HL7_LAB_MEASUREMENT_FILTER; ${PROPERTIES} left as it is" >&2
+            else
+                if [ -f "${PROPERTIES}" ] && [ "${LAB_FILTER_NEW}" != "${LAB_FILTER_OLD}" ] \
+                    && [ "$(grep -cE "${LAB_FILTER_KEY_RE}" "${PROPERTIES}" || true)" = 1 ] \
+                    && grep -qxF -e "${LAB_FILTER_OLD}" "${PROPERTIES}"; then
+                    lab_filter_tmp="$(mktemp "${PROPERTIES}.XXXXXX")"
+                    if LAB_FILTER_OLD="${LAB_FILTER_OLD}" LAB_FILTER_NEW="${LAB_FILTER_NEW}" \
+                            awk '$0 == ENVIRON["LAB_FILTER_OLD"] { print ENVIRON["LAB_FILTER_NEW"]; next } { print }' \
+                            "${PROPERTIES}" > "${lab_filter_tmp}" \
+                        && chown --reference="${PROPERTIES}" "${lab_filter_tmp}" \
+                        && chmod --reference="${PROPERTIES}" "${lab_filter_tmp}" \
+                        && mv -f "${lab_filter_tmp}" "${PROPERTIES}"; then
+                        echo "carlos-emr: corrected the stock HL7_LAB_MEASUREMENT_FILTER, which filed lab results of five or more digits and signs as their first four characters (#4613)"
+                    else
+                        rm -f "${lab_filter_tmp}"
+                        echo "carlos-emr: ERROR: could not rewrite HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES}" >&2
+                        exit 1
+                    fi
+                elif [ -f "${PROPERTIES}" ] \
+                    && grep -E "${LAB_FILTER_KEY_RE}" "${PROPERTIES}" | tail -n 1 | grep -qF -e '[+-\\?]{1,4}'; then
+                    # Not the exact stock line (CRLF endings, trailing blanks, an
+                    # edited copy, a second definition), so it is the operator's to
+                    # change, but the definition in effect (java.util.Properties
+                    # keeps the last) still carries the alternative that cuts
+                    # values: say so once, when the sentinel is written.
+                    echo "carlos-emr: WARNING: HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES} still has the alternative ^([+-\\?]{1,4}), which files lab results of five or more digits and signs as their first four characters (#4613); it was left as it is because it is not the exact stock line. Compare it with ${SHARE}/skel/carlos.properties." >&2
+                fi
+                mkdir -p "${STATE}"
+                : > "${LAB_FILTER_SENTINEL}"
+            fi
+        fi
+
+        # One-time migration (2026.08): the stock Help link, resource_base_url,
+        # pointed at http://oscarmanual.org/14/, a path that now returns 404, so
+        # the Help link on the schedule page and the provider menu opened a "not
+        # found" page. The stock default is now the CARLOS wiki. install_once
+        # copied the old line into this /etc override, which wins over the
+        # corrected WAR default, so an upgraded install keeps the dead link until
+        # the line is rewritten. Same discipline as the lab-filter block above:
+        # under the provisioning lock, ONLY the exact old stock line, ONLY when
+        # the key is defined once (a second definition is the operator's
+        # override, and a URL the operator chose is never touched), ONLY once
+        # (the sentinel is written on fresh installs too, so a value set later is
+        # never rewritten). Not gated on $2, for the purge-then-reinstall reason
+        # given in the OSCAR block. The new line is the skeleton's, so the /etc
+        # copy and the WAR default cannot disagree. The line is matched and
+        # replaced as a FIXED string (grep -F, awk ENVIRON), and the rewrite goes
+        # through a temporary file renamed over the original with its owner and
+        # mode, as sed -i does. scripts/deb-upgrade-verify.sh holds the
+        # old/new pair (HELP_URL_OLD / HELP_URL_NEW);
+        # debian/assets/tests/test_help_url_migration.py holds it to this block
+        # and to the shipped carlos.properties.
+        HELP_URL_SENTINEL="${STATE}/.help-url-default-migrated"
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${HELP_URL_SENTINEL}" ]; then
+            HELP_URL_OLD='resource_base_url=http://oscarmanual.org/14/'
+            HELP_URL_NEW=""
+            if [ "$(grep -c '^resource_base_url=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
+                HELP_URL_NEW="$(grep '^resource_base_url=' "${SHARE}/skel/carlos.properties")"
+            fi
+            HELP_URL_KEY_RE='^[[:space:]]*resource_base_url([[:space:]=:]|$)'
+            if [ -z "${HELP_URL_NEW}" ] || [ "${HELP_URL_NEW}" = "resource_base_url=" ] \
+                || [ "${HELP_URL_NEW}" = "${HELP_URL_OLD}" ]; then
+                # A skeleton without exactly one definition, with an empty one, or
+                # still carrying the dead URL is a broken build: rewrite nothing
+                # and write no sentinel, so a fixed package retries.
+                echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define one live resource_base_url; ${PROPERTIES} left as it is" >&2
+            else
+                if [ -f "${PROPERTIES}" ] \
+                    && [ "$(grep -cE "${HELP_URL_KEY_RE}" "${PROPERTIES}" || true)" = 1 ] \
+                    && grep -qxF -e "${HELP_URL_OLD}" "${PROPERTIES}"; then
+                    help_url_tmp="$(mktemp "${PROPERTIES}.XXXXXX")"
+                    if HELP_URL_OLD="${HELP_URL_OLD}" HELP_URL_NEW="${HELP_URL_NEW}" \
+                            awk '$0 == ENVIRON["HELP_URL_OLD"] { print ENVIRON["HELP_URL_NEW"]; next } { print }' \
+                            "${PROPERTIES}" > "${help_url_tmp}" \
+                        && chown --reference="${PROPERTIES}" "${help_url_tmp}" \
+                        && chmod --reference="${PROPERTIES}" "${help_url_tmp}" \
+                        && mv -f "${help_url_tmp}" "${PROPERTIES}"; then
+                        echo "carlos-emr: ${HELP_URL_OLD} -> ${HELP_URL_NEW} (the old stock Help link returns 404; edit ${PROPERTIES} to change it back)"
+                    else
+                        rm -f "${help_url_tmp}"
+                        echo "carlos-emr: ERROR: could not rewrite resource_base_url in ${PROPERTIES}" >&2
+                        exit 1
+                    fi
+                fi
+                mkdir -p "${STATE}"
+                : > "${HELP_URL_SENTINEL}"
+            fi
+        fi
+
         DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"
         if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${DB_NAME_SENTINEL}" ]; then
             CUR_DB_NAME="$(sed -n 's/^CARLOS_DB_NAME=//p' "${ENV_FILE}" 2>/dev/null | head -1)"
