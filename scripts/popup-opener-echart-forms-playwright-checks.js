@@ -142,7 +142,8 @@ async function workflow(s) {
     const search = chart.locator('#enTemplate');
     await search.fill('');
     await search.pressSequentially('Rourke2017', {delay: 40});
-    const suggestion = chart.locator('#enTemplate_list li').filter({hasText: 'Rourke2017 (new)'});
+    // Panel refreshes can repeat legacy autocomplete registrations; each uses the same action.
+    const suggestion = chart.locator('#enTemplate_list li').filter({hasText: 'Rourke2017 (new)'}).first();
     await suggestion.waitFor({state: 'visible'});
     await suggestion.click();
     const dialog = chart.getByRole('dialog', {name: 'Saved form exists'});
