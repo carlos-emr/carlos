@@ -1982,6 +1982,14 @@ function updateCPPNote() {
 
     }
 
+    // The Maximize image of a note folded onto one line, and the click handler that expands the note through
+    // xpandView, which removes the image again. minView and minStaleNoteView both fold a note this way; the
+    // markup is here once so the two cannot drift apart or give a note the same image id twice.
+    function addExpandImage(txt, nId) {
+        $(txt).insertAdjacentHTML('afterbegin', "<img title='Maximize Display' alt='Maximize Display' id='xpImg" + nId + "' name='expandViewTrigger' onclick='xpandView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_down.gif'>");
+        Element.observe(txt, 'click', xpandView);
+    }
+
     function minView(e) {
         var divHeight = "1.1em";
         var txt = Event.element(e).parentNode.id;
@@ -2035,9 +2043,7 @@ function updateCPPNote() {
         $(print).insertAdjacentHTML('afterend', anchor);
 
 
-        img = "<img title='Maximize Display' alt='Maximize Display' id='xpImg" + nId + "' name='expandViewTrigger' onclick='xpandView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_down.gif'>";
-        $(txt).insertAdjacentHTML('afterbegin', img);
-        Element.observe(txt, 'click', xpandView);
+        addExpandImage(txt, nId);
     }
 
     // Folds a shortened (stale) note onto one line with its date, as minView folds a note shown in full,
@@ -2069,8 +2075,7 @@ function updateCPPNote() {
         $("txt" + nId).hide();
         if ($("sig" + nId) != null) $("sig" + nId).hide();
         $(txt).insertAdjacentHTML('afterbegin', "<div id='d" + nId + "' style='width:10%;'><b>" + dateValue + "<\/b><\/div><div id='c" + nId + "' style='float:left; width:70%;'>" + line + "<\/div>");
-        $(txt).insertAdjacentHTML('afterbegin', "<img title='Maximize Display' alt='Maximize Display' id='xpImg" + nId + "' name='expandViewTrigger' onclick='xpandView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_down.gif'>");
-        Element.observe(txt, 'click', xpandView);
+        addExpandImage(txt, nId);
     }
 
     var idHeight;

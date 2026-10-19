@@ -17,7 +17,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * The eChart's single-line stale-note format ({@code cme_note_format}). ChartNotesAjax.jsp used to fold each
  * shortened note by clicking its Maximize image twice; since fullViewById adds a Minimize image of its own
  * beside that one, the second click hit the Maximize image again and the note stayed expanded. The page now
- * folds each shortened note directly with {@code minStaleNoteView}.
+ * folds each shortened note directly with {@code minStaleNoteView}. Both ways of folding a note,
+ * {@code minView} and {@code minStaleNoteView}, draw the Maximize image through one helper,
+ * {@code addExpandImage}.
  *
  * @since 2026-10-17
  */
@@ -53,6 +55,14 @@ class EChartStaleNoteSingleLineScriptRegressionTest {
         return caseManagementJs.substring(start, next < 0 ? caseManagementJs.length() : next);
     }
 
+    private static int occurrences(String text, String needle) {
+        int count = 0;
+        for (int at = text.indexOf(needle); at >= 0; at = text.indexOf(needle, at + needle.length())) {
+            count++;
+        }
+        return count;
+    }
+
     @Test
     @DisplayName("should fold each shortened note directly instead of clicking its Maximize image twice")
     void shouldFoldShortenedNotesDirectly_forSingleLineFormat() {
@@ -78,7 +88,24 @@ class EChartStaleNoteSingleLineScriptRegressionTest {
                 // The one-line form minView draws: the date line, the start of the text, the Maximize image.
                 .contains("<div id='d\" + nId + \"'")
                 .contains("<div id='c\" + nId + \"'")
+                .contains("addExpandImage(txt, nId);");
+    }
+
+    @Test
+    @DisplayName("should draw a folded note's Maximize image in one place, for the manual and the single-line fold")
+    void shouldDrawExpandImageOnce_forManualAndSingleLineFold() {
+        assertThat(function("addExpandImage"))
                 .contains("id='xpImg\" + nId + \"'")
+                .contains("name='expandViewTrigger'")
                 .contains("Element.observe(txt, 'click', xpandView);");
+        assertThat(function("minView")).contains("addExpandImage(txt, nId);");
+        assertThat(function("minStaleNoteView")).contains("addExpandImage(txt, nId);");
+
+        // At most one image per note exists at a time (xpandViewById removes it), so a second copy of the markup
+        // is only a copy: SonarCloud's web analyzer reads it as a duplicate id (Web:S7930), rates it a critical
+        // bug and fails the quality gate.
+        assertThat(occurrences(caseManagementJs, "id='xpImg\" + nId + \"'"))
+                .as("places in newCaseManagementView.js.jsp that build the Maximize image's id")
+                .isEqualTo(1);
     }
 }
