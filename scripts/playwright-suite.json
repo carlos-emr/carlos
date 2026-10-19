@@ -4825,7 +4825,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails on 2026.08, and since #4130 it stops at the first panel mutation (Add Group): the Administration panel's POST is now redirected (POST/redirect/GET) and the check's submitInPanel requires HTTP 200 from the POST itself, so it fails on the 302 before it reaches the 405 / 403 the group mutators used to answer (findings 69 and 74: missing CSRF token in the Administration panel; a success result that forwards the POST to a GET-only gate). The Add eForm list also throws a TypeError on unload (unguarded window.opener, finding 77). Not an expectedFailure: the 302 is the check's own assumption about the response, not a logged application defect, and the failing step is not yet confirmed by a live run.",
+      "notes": "The group mutators answer POST/redirect/GET since #4130 (findings 69 and 74: the panel lost its CSRF token, and a success result forwarded the POST to a GET-only gate that answered 405). submitInPanel follows the chain the panel's POST starts: the POST answers 200 or a redirect, every hop stays on the origin and is a GET, and the page it ends on answers 200. Passes all eight steps on an installed release/2026.08 package. The Add eForm list also throws a TypeError on unload (unguarded window.opener, finding 77), which does not fail the check.",
       "fixtures": "Two marker eForm templates, one saved instance of each for the owned patient, a seeded PW<hex> group and a PV<hex> group created by the panel (eform_groups.group_name is varchar(20)); only these rows are removed."
     },
     {
