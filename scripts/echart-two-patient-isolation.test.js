@@ -40,7 +40,8 @@ test('patient snapshots preserve all columns, SQL nulls, empty values and child 
   const state = readPatientState({rows(query) { queries.push(query); return structuredClone(rows); }}, '123');
   for (const name of ['measurements', 'deletedMeasurements', 'measurementExtensions', 'diagnoses', 'notes',
     'noteExtensions', 'noteLinks', 'noteIssues', 'issues', 'signatures', 'cpp', 'echart', 'preventions',
-    'preventionExtensions', 'forms', 'drafts', 'demographicExtensions', 'demographic']) {
+    'preventionExtensions', 'forms', 'drafts', 'demographicExtensions', 'demographic', 'appointments',
+    'archivedAppointments', 'immunizationSchedules']) {
     assert.deepEqual(state[name], rows, `Missing complete rows for ${name}`);
   }
   assert(queries.every(query => /^SELECT \*/.test(query)), 'Counting rows cannot detect overwritten values');

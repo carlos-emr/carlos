@@ -70,6 +70,7 @@ const billing = require('./billing-on-invoice-third-party-playwright-checks');
 const rep = require('./lib/mutation-replay');
 const waf = require('./lib/waf-corpus');
 const { FACTS, controlStepLabel, corpusStepLabel, outcomeOf, selectedKeys } = require('./lib/waf-corpus-rows');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 /** The request and response exclusions relevant to a row's diagnostic. */
 const exclusionOf = (row) => {
@@ -102,6 +103,15 @@ function ident(name) {
 
 const hex = (text) => boundary.hex(text);
 const decode = (value) => Buffer.from(value || '', 'hex').toString('utf8');
+
+/** Decode each RTL transport layer once, only for literal-text comparison, never for HTML output. */
+function rtlPlainText(postedLetter) {
+  const entities = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' };
+  const decodeOnce = value => value.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, name) => entities[name]);
+  // saveRTL wraps escaped editor markup; only the first decoded layer contains layout tags.
+  const editorMarkup = decodeOnce(postedLetter);
+  return decodeOnce(editorMarkup.replace(/<\/?(?:div|p|br)\s*\/?>/gi, '\n'));
+}
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -517,7 +527,7 @@ function rows(s, ctx) {
       }
     },
     async open() {
-      this.page = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+      this.page = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
       await this.page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
       await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     },
@@ -1079,10 +1089,9 @@ function rows(s, ctx) {
         const postedLetter = sent.body.get('Letter');
         if (!postedLetter) return 'the page posted no Letter field';
         // What the page posted is the editor's HTML with & " < > ' escaped to entities by saveRTL(); undo that,
-        // drop the editor's line tags, then undo the editor's own text escaping (the second pair of passes), to
+        // drop the editor's line tags, then decode the editor's text once more, to
         // compare with what was typed, so the proof is "the typed corpus survived", not "something was stored".
-        const plain = postedLetter.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
-          .replace(/<\/?(?:div|p|br)\s*\/?>/gi, '\n').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+        const plain = rtlPlainText(postedLetter);
         const lost = values.Letter.split('\n').filter((line) => !plain.includes(line));
         if (lost.length) return `the editor did not keep ${lost.length} typed line(s), so the posted Letter is not the corpus`;
         const deadline = Date.now() + POLL_MS;
@@ -1340,4 +1349,4 @@ async function preflight({ sql }) {
 }
 
 if (require.main === module) runWorkflow('waf-clinical-text-corpus', workflow, { openPatient: true, preflight });
-module.exports = { PREREQUISITES, workflow };
+module.exports = { PREREQUISITES, workflow, rtlPlainText };

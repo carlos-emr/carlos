@@ -757,7 +757,7 @@
                             </td>
                             <td width="33%"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup'); return false;">PRIMARY
+                                    onClick="popupFixedPage(600, 300, 'form/formbcarpg1namepopup'); return false;">PRIMARY
                                 CARE GIVER</a><br>
                                 <input type="text" name="pg1_priCare" style="width: 100%" size="30"
                                        maxlength="60" value="<%= props.getProperty("pg1_priCare", "") %>"
@@ -876,7 +876,7 @@
                                        @oscar.formDB/></td>
                             <td><span class="small9"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup?fieldname=c_phyMid'); return false;">PHYSICIAN
+                                    onClick="popupFixedPage(600, 300, 'form/formbcarpg1namepopup?fieldname=c_phyMid'); return false;">PHYSICIAN
 					/ MIDWIFE NAME</a></span><br>
                                 <input type="text" name="c_phyMid" style="width: 100%" size="30"
                                        maxlength="60" value="<%= props.getProperty("c_phyMid", "") %>"
@@ -1302,7 +1302,7 @@
                             <td><b>CURRENT MEDICATIONS</b> <textarea name="pg1_curMedic"
                                                                      style="width: 100%" cols="30" rows="2"
                                                                      @oscar.formDB
-                                                                     dbType="varchar(255)"> <%= props.getProperty("pg1_curMedic", "") %> </textarea>
+                                                                     dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_curMedic", "") %>'/></textarea>
                             </td>
                         </tr>
                     </table>
@@ -1534,8 +1534,7 @@
                             <td width="30%" valign="top"><span class="small8">OPERATIONS</span></td>
                             <td><textarea name="pg1_operationSpec" style="width: 100%"
                                           cols="60" rows="3" @oscar.formDB
-                                          dbType="varchar(255)"><%= props.getProperty("pg1_operationSpec", "") %>
-    </textarea></td>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_operationSpec", "") %>'/></textarea></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="pg1_cvOrResp"
@@ -1545,8 +1544,7 @@
 					RESPIRATORY</span></td>
                             <td><textarea name="pg1_cvOrRespSpec" style="width: 100%"
                                           cols="60" rows="2" @oscar.formDB
-                                          dbType="varchar(255)"><%= props.getProperty("pg1_cvOrRespSpec", "") %>
-    </textarea></td>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_cvOrRespSpec", "") %>'/></textarea></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="pg1_anesthetic"
@@ -2070,8 +2068,7 @@
                                        dbType="tinyint(1)"/></td>
                             <td rowspan="2"><span class="small8"> <textarea
                                     name="pg1_disOtherSpec" style="width: 100%" cols="10" rows="2"
-                                    @oscar.formDB dbType="varchar(30)"><%= props.getProperty("pg1_disOtherSpec", "") %>
-    </textarea> </font></td>
+                                    @oscar.formDB dbType="varchar(30)"><carlos:encode value='<%= props.getProperty("pg1_disOtherSpec", "") %>'/></textarea> </font></td>
                         </tr>
                         <tr>
                             <td><input type="checkbox" name="pg1_disHIV"
@@ -2113,7 +2110,7 @@
             <tr>
                 <td><textarea name="pg1_summary" style="width: 100%" cols="100"
                               rows="3" @oscar.formDB
-                              dbType="text"> <%= props.getProperty("pg1_summary", "") %> </textarea>
+                              dbType="text"><carlos:encode value='<%= props.getProperty("pg1_summary", "") %>'/></textarea>
                 </td>
             </tr>
         </table>

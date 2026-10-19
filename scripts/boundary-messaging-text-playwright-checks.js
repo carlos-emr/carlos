@@ -17,6 +17,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
 const { runWorkflow } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 
 function fillCodePoints(length, parts, pad = 'x') {
@@ -81,7 +82,7 @@ async function workflow(s) {
   // allowRefusal: a long text may be refused (the page alerts "could not be saved"); report that instead of waiting for a
   // success marker that will never come. Returns {list, refusal} with refusal the alert text or null.
   async function addTickler(text, { allowRefusal = false } = {}) {
-    const list = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'patient-tickler-list');
+    const list = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(), 'patient-tickler-list');
     const add = await s.popup(list, list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
     await add.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
     await add.locator('textarea[name="ticklerMessage"]').fill(text);

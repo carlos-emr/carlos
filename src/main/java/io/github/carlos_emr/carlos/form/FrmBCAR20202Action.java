@@ -102,14 +102,33 @@ public class FrmBCAR20202Action extends ActionSupport {
         return "pg1";
     }
 
+    /**
+     * Stores the form and closes its window ({@code exit}, encounter/close.jsp). It does not redirect: a redirect
+     * already sent by {@link #save()} would have committed the response before the close page (issue #4919).
+     */
     public String saveAndExit() throws Exception {
-        save();
+        persistForm();
         return "exit";
     }
 
+    /** Stores the form and shows the page it was asked to go to next ({@code forwardTo}). */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String save() throws Exception {
+        response.sendRedirect(request.getContextPath() + persistForm());
+        return NONE;
+    }
+
+    /**
+     * The extensionless route of a BC-AR 2020 page: 1 to 5, or 6 for Attachments. The pages live under WEB-INF and
+     * are served only at these routes; the public {@code formBCAR2020pg<N>.jsp} addresses no longer exist.
+     */
+    static String pageRoute(int pageNo) {
+        return pageNo == 6 ? "/form/formBCAR2020Attachments" : "/form/formBCAR2020pg" + pageNo;
+    }
+
+    /** Stores a new version of the form from the request and returns the application path of the next page. */
+    private String persistForm() throws Exception {
         FrmBCAR2020Record bcar2020Record = (FrmBCAR2020Record) (new FrmRecordFactory()).factory(RECORD_NAME);
 
         int formId = StringUtils.isNotEmpty(request.getParameter("formId")) ? Integer.parseInt(request.getParameter("formId")) : 0;
@@ -210,15 +229,7 @@ public class FrmBCAR20202Action extends ActionSupport {
 
         bcar2020TextDao.batchPersistAtomically(persistTextRecords, 50);
 
-        String url = "/form/formBCAR2020pg";
-        if (forwardTo == 6) {
-            url = url + "Attachments.jsp";
-        } else {
-            url = url + forwardTo + ".jsp";
-        }
-        url = url + "?demographic_no=" + demographicNo + "&formId=" + formId + "&provNo=" + providerNo;
-        response.sendRedirect(request.getContextPath() + url);
-        return NONE;
+        return pageRoute(forwardTo) + "?demographic_no=" + demographicNo + "&formId=" + formId + "&provNo=" + providerNo;
     }
 
     public String print() {

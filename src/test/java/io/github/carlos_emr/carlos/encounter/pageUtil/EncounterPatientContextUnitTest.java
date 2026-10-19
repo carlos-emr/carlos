@@ -183,6 +183,81 @@ class EncounterPatientContextUnitTest {
         assertThat(request.getSession(false)).isNull();
     }
 
+    @Test
+    void shouldReturnOwnEntryCopy_whenThisPatientsChartWasEntered() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean aEntry = metadata("123", "A", "700");
+        EncounterPatientContext.rememberEncounter(request, aEntry);
+        request.getSession().setAttribute("EctSessionBean", metadata("456", "B", "800"));
+
+        EctSessionBean entry = EncounterPatientContext.entryOrLoggedIn(request, loggedIn("999998"), "00123");
+
+        assertMetadata(entry, "123", "A", "700");
+        assertThat(entry).isNotSameAs(aEntry);
+        overwriteMetadata(entry);
+        assertMetadata(EncounterPatientContext.findEncounter(request, "123"), "123", "A", "700");
+    }
+
+    @Test
+    void shouldUseLoggedInIdentity_whenOnlyAnotherChartWasEntered() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EncounterPatientContext.rememberEncounter(request, metadata("456", "B", "800"));
+        request.getSession().setAttribute("userfirstname", "Casey");
+        request.getSession().setAttribute("userlastname", "Clinician");
+
+        EctSessionBean entry = EncounterPatientContext.entryOrLoggedIn(request, loggedIn("999998"), "123");
+
+        assertThat(entry.demographicNo).isEqualTo("123");
+        assertThat(entry.providerNo).isEqualTo("999998");
+        assertThat(entry.curProviderNo).isEqualTo("999998");
+        assertThat(entry.userName).isEqualTo("Casey Clinician");
+        assertThat(entry.appointmentNo).isNull();
+        assertThat(entry.reason).isNull();
+        assertThat(entry.appointmentDate).matches("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+        assertThat(entry.currentDate).isNotNull();
+    }
+
+    @Test
+    void shouldGiveEachChartItsOwnEntryProvider_whenAnotherChartWasEnteredLast() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EncounterPatientContext.rememberEncounter(request, metadata("123", "A", "700"));
+        // Chart B entered last in another window: the login-wide bean is B's.
+        EctSessionBean b = metadata("456", "B", "800");
+        EncounterPatientContext.rememberEncounter(request, b);
+        request.getSession().setAttribute("EctSessionBean", b);
+
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), "123")).isEqualTo("A provider");
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), "456")).isEqualTo("B provider");
+        // A chart this login has not entered, or no chart at all: the logged-in provider.
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), "789")).isEqualTo("999998");
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), null)).isEqualTo("999998");
+    }
+
+    @Test
+    void shouldUseTheLoggedInProvider_whenTheChartsEntryNamesNone() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean entry = metadata("123", "A", "700");
+        entry.providerNo = "";
+        EncounterPatientContext.rememberEncounter(request, entry);
+
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), "123")).isEqualTo("999998");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "abc"})
+    void shouldRejectInvalidPatient_forEntryLookup(String invalid) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> EncounterPatientContext.entryOrLoggedIn(request, loggedIn("999998"), invalid));
+    }
+
+    private static io.github.carlos_emr.carlos.utility.LoggedInInfo loggedIn(String providerNo) {
+        io.github.carlos_emr.carlos.utility.LoggedInInfo login = org.mockito.Mockito.mock(
+                io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
+        org.mockito.Mockito.when(login.getLoggedInProviderNo()).thenReturn(providerNo);
+        return login;
+    }
+
     private static EctSessionBean metadata(String patient, String name, String appointment) {
         EctSessionBean bean = new EctSessionBean();
         bean.demographicNo = patient;
@@ -196,6 +271,7 @@ class EncounterPatientContextUnitTest {
         bean.reason = name + " reason";
         bean.patientFirstName = name + " first";
         bean.patientLastName = name + " last";
+        bean.status = name + " status";
         return bean;
     }
 
@@ -212,6 +288,7 @@ class EncounterPatientContextUnitTest {
         assertThat(bean.reason).isEqualTo(name + " reason");
         assertThat(bean.patientFirstName).isEqualTo(name + " first");
         assertThat(bean.patientLastName).isEqualTo(name + " last");
+        assertThat(bean.status).isEqualTo(name + " status");
     }
 
     private static void overwriteMetadata(EctSessionBean bean) {
@@ -226,5 +303,6 @@ class EncounterPatientContextUnitTest {
         bean.reason = "changed";
         bean.patientFirstName = "changed";
         bean.patientLastName = "changed";
+        bean.status = "changed";
     }
 }

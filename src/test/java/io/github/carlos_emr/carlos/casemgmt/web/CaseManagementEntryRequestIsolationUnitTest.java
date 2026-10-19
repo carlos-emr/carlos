@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
@@ -61,6 +62,11 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("999998");
         when(security.hasPrivilege(login, "_demographic", "r", null)).thenReturn(true);
+        for (String patient : List.of("101", "202")) {
+            when(security.hasPrivilege(login, "_demographic", "r", patient)).thenReturn(true);
+            when(security.hasPrivilege(login, "_casemgmt.issues", "w", patient)).thenReturn(true);
+            when(security.isAllowedAccessToPatientRecord(login, Integer.valueOf(patient))).thenReturn(true);
+        }
         session = new MockHttpSession();
         session.setAttribute("user", "999998");
         session.setAttribute("userrole", "doctor");
@@ -258,20 +264,108 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldCleanupOnlyTheClosingPatientsFormAndCachedMetadata() {
+    void shouldReleaseNothing_whenTheCleanupNamesNoPatient() {
+        session.setAttribute(ChartSessionKeys.lastSavedNoteText("101"), "101's last eChart text");
+        session.setAttribute(ChartSessionKeys.draftRestoring("101"), "true");
+
+        // Missing, blank, zero, not a number, too long: no chart to release, and no 500.
+        for (String patient : new String[]{null, "", "0", "abc", "99999999999"}) {
+            assertThat(action(request(patient)).cleanup()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        }
+
+        assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("101's last eChart text");
+        assertThat(session.getAttribute(ChartSessionKeys.draftRestoring("101"))).isEqualTo("true");
+    }
+
+    @Test
+    void shouldCleanupOnlyTheClosingPatientsFormAndCachedMetadata_whenOnePatientIsNamed() {
         Object formA = new Object();
         Object formB = new Object();
         session.setAttribute("caseManagementEntryForm101", formA);
         session.setAttribute("caseManagementEntryForm202", formB);
+        for (String patient : new String[]{"101", "202"}) {
+            session.setAttribute(ChartSessionKeys.lastSavedNoteText(patient), patient + "'s last eChart text");
+            session.setAttribute(ChartSessionKeys.draftRestoring(patient), "true");
+        }
         MockHttpServletRequest request = request("101");
-        assertThat(action(request).cleanup()).isNull();
+        assertThat(action(request).cleanup()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
         assertThat(session.getAttribute("caseManagementEntryForm101")).isNull();
         assertThat(session.getAttribute("caseManagementEntryForm202")).isSameAs(formB);
+        // The closing chart's saved-note text and restore signal leave the session with it; the
+        // other open chart keeps its own.
+        assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isNull();
+        assertThat(session.getAttribute(ChartSessionKeys.draftRestoring("101"))).isNull();
+        assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("202"))).isEqualTo("202's last eChart text");
+        assertThat(session.getAttribute(ChartSessionKeys.draftRestoring("202"))).isEqualTo("true");
         assertThat(EncounterPatientContext.findEncounter(request, "101")).isNull();
         EctSessionBean remaining = EncounterPatientContext.findEncounter(request, "202");
         assertThat(remaining.patientFirstName).isEqualTo("Bob");
         assertThat(remaining.encType).isEqualTo("office");
         assertThat(remaining.appointmentNo).isEqualTo("9002");
+    }
+
+    @Test
+    void shouldReleaseNeitherPatientsSession_whenCleanupNamesConflictingPatients() {
+        Object formA = new Object();
+        Object formB = new Object();
+        session.setAttribute("caseManagementEntryForm101", formA);
+        session.setAttribute("caseManagementEntryForm202", formB);
+        MockHttpServletRequest request = request("101");
+        request.setParameter("demographic_no", "202");
+
+        assertThat(action(request).cleanup()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(session.getAttribute("caseManagementEntryForm101")).isSameAs(formA);
+        assertThat(session.getAttribute("caseManagementEntryForm202")).isSameAs(formB);
+        assertThat(EncounterPatientContext.findEncounter(request, "101")).isNotNull();
+        assertThat(EncounterPatientContext.findEncounter(request, "202")).isNotNull();
+    }
+
+    @Test
+    void shouldForgetOnlyItsOwnPatientsEChartText_whenItsChartIsEdited() throws Exception {
+        session.setAttribute(ChartSessionKeys.lastSavedNoteText("101"), "A's last eChart text");
+        session.setAttribute(ChartSessionKeys.lastSavedNoteText("202"), "B's last eChart text");
+
+        edit("202", true, null);
+
+        assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("202"))).isNull();
+        // A's next save still removes A's own previous text from A's eChart record (issue #4673).
+        assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("A's last eChart text");
+    }
+
+    @Test
+    void shouldHandFiltersOnlyToItsOwnPatientsNoteList_whenItsEditorForwards() throws Exception {
+        MockHttpServletRequest request = request("202");
+        request.setParameter("note_edit", "new");
+        request.setParameter("note_sort", "observation_date_desc");
+        request.setParameter("filter_roles", "7");
+        request.setParameter("filter_providers", "200");
+        request.setParameter("issues", "73");
+        try (var props = mockStatic(CarlosProperties.class);
+             var views = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+
+        assertThat(session.getAttribute(ChartSessionKeys.noteFilterHandoff("note_sort", "202"))).isEqualTo("observation_date_desc");
+        assertThat((String[]) session.getAttribute(ChartSessionKeys.noteFilterHandoff("filter_roles", "202"))).containsExactly("7");
+        assertThat((String[]) session.getAttribute(ChartSessionKeys.noteFilterHandoff("filter_provider", "202"))).containsExactly("200");
+        assertThat((String[]) session.getAttribute(ChartSessionKeys.noteFilterHandoff("issues", "202"))).containsExactly("73");
+        for (String name : new String[]{"note_sort", "filter_roles", "filter_provider", "issues"}) {
+            assertThat(session.getAttribute(name)).as("login-wide %s", name).isNull();
+            assertThat(session.getAttribute(ChartSessionKeys.noteFilterHandoff(name, "101"))).as("A's %s", name).isNull();
+        }
+    }
+
+    @Test
+    void shouldSignalTheRestoreOnlyForItsOwnPatient_whenADraftIsRestored() throws Exception {
+        CaseManagementEntry2Action action = action(request("101"));
+        doReturn("view").when(action).edit();
+
+        assertThat(action.restore()).isEqualTo("view");
+
+        assertThat(session.getAttribute(ChartSessionKeys.draftRestoring("101"))).isEqualTo("true");
+        assertThat(session.getAttribute(ChartSessionKeys.draftRestoring("202"))).isNull();
+        assertThat(session.getAttribute("restoring")).isNull();
     }
 
     private record EditedNote(CaseManagementNote note, MockHttpServletRequest request) { }

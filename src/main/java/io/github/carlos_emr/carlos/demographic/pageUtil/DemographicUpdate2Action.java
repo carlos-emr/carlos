@@ -90,7 +90,15 @@ public class DemographicUpdate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    /** A container service is not action state; reacquire it if the action was deserialized. */
+    private SecurityInfoManager securityInfoManager() {
+        if (securityInfoManager == null) {
+            securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        }
+        return securityInfoManager;
+    }
 
     /**
      * Validates session and privileges, then applies all update logic extracted
@@ -116,7 +124,7 @@ public class DemographicUpdate2Action extends ActionSupport {
             logger.warn("DemographicUpdate2Action: missing session");
             throw new SecurityException("missing required session");
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             logger.warn("DemographicUpdate2Action: provider {} lacks _demographic write privilege",
                     loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
@@ -161,20 +169,20 @@ public class DemographicUpdate2Action extends ActionSupport {
         try {
             demographicNo = Integer.parseInt(demoNo);
         } catch (NumberFormatException e) {
-            logger.warn("DemographicUpdate2Action: invalid demographic_no={}", demoNo);
+            logger.warn("DemographicUpdate2Action: invalid demographic_no={}", LogSafe.sanitize(demoNo));
             addActionError("Invalid patient record identifier");
             return ERROR;
         }
 
         // The record-level check the Master Record itself enforces (DemographicEdit2Action): a user
         // kept from this patient may neither change the record nor read it back from the conflict page.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", String.valueOf(demographicNo))) {
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "w", String.valueOf(demographicNo))) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
         Demographic demographic = demographicDao.getDemographic(demoNo);
         if (demographic == null) {
-            logger.warn("DemographicUpdate2Action: demographic_no={} not found", demoNo);
+            logger.warn("DemographicUpdate2Action: demographic_no={} not found", LogSafe.sanitize(demoNo));
             addActionError("Patient record not found");
             return ERROR;
         }

@@ -129,7 +129,7 @@
     thisEForm.setContextPath(request.getContextPath());
     thisEForm.setImagePath(request.getContextPath());
     thisEForm.setDatabaseAPs();
-    thisEForm.setOscarOPEN(request.getRequestURI());
+    thisEForm.setOscarOPEN(request.getContextPath() + "/eform/efmformadd_data", session, provider_no);
     thisEForm.setAction();
     thisEForm.setSource(source);
     // A NEW (unsaved) form has no saved-instance id, so substitute the ${fdid} marker with an empty

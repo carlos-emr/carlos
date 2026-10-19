@@ -340,10 +340,14 @@ public class EctSessionBean implements java.io.Serializable {
     }
 
     /**
-     * over loaded method sets up the encounter page for print
+     * Sets up this bean to print one revision of one patient's legacy chart. Callers print a
+     * request-owned bean for the patient their request names, never the login-wide session bean
+     * (issue #4673).
      *
-     * @param echartid
-     * @param demographicNo
+     * @param loggedInInfo the user printing; reading the patient record checks {@code _demographic} read
+     * @param echartid the revision to print; a missing, unknown or other patient's revision prints only
+     *                 the patient's header
+     * @param demographicNo the printed patient
      */
     public void setUpEncounterPage(LoggedInInfo loggedInInfo, String echartid, String demographicNo) {
         resetAll();
@@ -352,7 +356,7 @@ public class EctSessionBean implements java.io.Serializable {
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             EChartDao ecDao = SpringUtils.getBean(EChartDao.class);
             EChart ec = ecDao.find(ConversionUtils.fromIntString(echartid));
-            if (ec.getDemographicNo() != ConversionUtils.fromIntString(demographicNo)) {
+            if (ec != null && ec.getDemographicNo() != ConversionUtils.fromIntString(demographicNo)) {
                 ec = null;
             }
 
@@ -384,13 +388,13 @@ public class EctSessionBean implements java.io.Serializable {
             dateOfBirth = demo.getDateOfBirth();
             roster = demo.getRosterStatus();
             patientSex = demo.getSex();
-            if (yearOfBirth.equals("null")) {
+            if ("null".equals(yearOfBirth)) {
                 yearOfBirth = "0";
             }
-            if (monthOfBirth.equals("null")) {
+            if ("null".equals(monthOfBirth)) {
                 monthOfBirth = "0";
             }
-            if (dateOfBirth.equals("null")) {
+            if ("null".equals(dateOfBirth)) {
                 dateOfBirth = "0";
             }
         }
