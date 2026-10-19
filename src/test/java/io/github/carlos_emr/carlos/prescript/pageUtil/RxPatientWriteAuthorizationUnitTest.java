@@ -156,7 +156,7 @@ class RxPatientWriteAuthorizationUnitTest {
                 "writeScript.updateDrug", "writeScript.updateSpecialInstruction", "writeScript.updateProperty",
                 "rePrescribe.represcribe", "rePrescribe.represcribe2", "rePrescribe.represcribeMultiple",
                 "rePrescribe.saveReRxDrugIdToStash", "rePrescribe.repcbAllLongTerm",
-                "rePrescribe.saveDigitalSignature",
+                "rePrescribe.saveDigitalSignature", "rePrescribe.reprint", "rePrescribe.reprint2",
                 "viewScript.save",
                 "addAllergy", "deleteAllergy", "showAllergy.reorder",
                 "reason.addDrugReason", "reason.archiveReason");
@@ -491,7 +491,7 @@ class RxPatientWriteAuthorizationUnitTest {
     }
 
     static Stream<Arguments> readPaths() {
-        List<String> reads = List.of("rePrescribe.reprint", "rePrescribe.reprint2", "viewScript.preview",
+        List<String> reads = List.of("viewScript.preview",
                 "writeScript.listPreviousInstructions", "writeScript.getInstructionsAutocomplete",
                 "writeScript.checkNoStashItem", "writeScript.iterateStash", "writeScript.edit",
                 "stash.setStashIndex", "stash.edit");
@@ -514,12 +514,6 @@ class RxPatientWriteAuthorizationUnitTest {
         when(dependency(io.github.carlos_emr.carlos.commn.dao.DrugDao.class).find(5)).thenReturn(drug);
 
         ThrowingCallable read = switch (path) {
-            case "rePrescribe.reprint" -> () -> {
-                RxRePrescribe2Action action = new RxRePrescribe2Action();
-                action.setDrugList("5");
-                action.reprint();
-            };
-            case "rePrescribe.reprint2" -> () -> new RxRePrescribe2Action().reprint2();
             case "viewScript.preview" -> () -> {
                 request.setMethod("GET");
                 new RxViewScript2Action(mock(io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService.class)).execute();
@@ -652,6 +646,15 @@ class RxPatientWriteAuthorizationUnitTest {
                 request.setParameter("scriptId", "1234");
                 request.setParameter("digitalSignatureId", "77");
                 return () -> new RxRePrescribe2Action().saveDigitalSignature();
+            case "rePrescribe.reprint":
+                return () -> {
+                    RxRePrescribe2Action action = new RxRePrescribe2Action();
+                    action.setDrugList("5");
+                    action.reprint();
+                };
+            case "rePrescribe.reprint2":
+                request.setParameter("scriptNo", "5");
+                return () -> new RxRePrescribe2Action().reprint2();
             case "viewScript.save":
                 return () -> new RxViewScript2Action(mock(io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService.class))
                         .execute();

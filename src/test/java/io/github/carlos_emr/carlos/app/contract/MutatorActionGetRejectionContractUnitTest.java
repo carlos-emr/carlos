@@ -478,10 +478,11 @@ class MutatorActionGetRejectionContractUnitTest {
         // Waitinglist: reject GET on Save/Delete submit values.
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
-        // Prescription: reprint, staging (represcribe, represcribe2, saveReRxDrugIdToStash,
+        // Prescription: reprint/reprint2 (audit writes), staging (represcribe, represcribe2, saveReRxDrugIdToStash,
         // repcbAllLongTerm, represcribeMultiple) and saveDigitalSignature are POST-only;
         // viewPrescribing only renders the workspace and permits GET (#3908). Covered by
-        // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost.
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost
+        // and shouldRejectUnsafeMethod_forPrescriptionReprintDispatch below.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
         // Pharmacies: search/getPharmacyInfo/... permit GET; delete, unlink, setPreferred, add,
         // save and the legacy pharmacyAction form are POST-only (#3908). Covered by
@@ -766,6 +767,18 @@ class MutatorActionGetRejectionContractUnitTest {
             assertRejectsUnsafeMethod(
                     "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
                     "_rx", "w", httpMethod, Map.of("dispatch", dispatch));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"reprint", "reprint2"})
+    @DisplayName("Prescription reprint audit writes should reject GET and HEAD")
+    void shouldRejectUnsafeMethod_forPrescriptionReprintDispatch(String method) throws Exception {
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            assertRejectsUnsafeMethod(
+                    "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+                    "_rx", "w", httpMethod,
+                    Map.of("method", method, "scriptNo", "12", "drugList", "12", "demographicNo", "1"));
         }
     }
 
