@@ -235,6 +235,7 @@
     "test:record-access-playwright": "node scripts/record-access-playwright-checks.js",
     "test:diagnosis-flowsheet-playwright": "node scripts/diagnosis-flowsheet-playwright-checks.js",
     "test:flowsheet-measurement-delete-playwright": "node scripts/flowsheet-measurement-delete-playwright-checks.js",
+    "test:flowsheet-scope-lock-playwright": "node scripts/flowsheet-scope-lock-playwright-checks.js",
     "test:flowsheet-dx-drug-links-playwright": "node scripts/flowsheet-dx-drug-links-playwright-checks.js",
     "test:prevention-lifecycle-playwright": "node scripts/prevention-lifecycle-playwright-checks.js",
     "test:prevention-screening-result-playwright": "node scripts/prevention-screening-result-playwright-checks.js",

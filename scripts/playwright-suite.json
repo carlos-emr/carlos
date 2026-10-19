@@ -3095,6 +3095,21 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient with a diabetes diagnosis and saved NRTF readings; local disposable database only."
     },
     {
+      "name": "flowsheet-scope-lock",
+      "script": "scripts/flowsheet-scope-lock-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [],
+      "fixtures": "The owned FAKE-PW patient and three flowsheet_customization rows on the tracker flowsheet (clinic, provider and patient scope, each carrying the run marker in its payload); cleanup deletes them by marker and asserts they are gone.",
+      "notes": "#3962: EditFlowsheet.jsp asks FlowSheetCustomizationService for each Custom List row's scope. The patient editor locks the clinic and provider items, Your Patients locks the clinic item only, All Patients locks nothing, and a locked row names the level that created it and has no delete link."
+    },
+    {
       "name": "flowsheet-dx-drug-links",
       "script": "scripts/flowsheet-dx-drug-links-playwright-checks.js",
       "tiers": [
