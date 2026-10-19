@@ -828,6 +828,30 @@
       "fixtures": "Three synthetic PDFs named with the run marker, written into INCOMINGDOCUMENT_DIR/1/File (which must exist, owned like the application); the owned FAKE patient, whose MRP is the test login, and its program admission (incoming-filing-program-fixture), which filing needs. The queue is shared by every login, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the filed document with its routing, links and stored file (DOCUMENT_DIR), the queued PDFs left and the recycled copy, and asserts each is gone."
     },
     {
+      "name": "incoming-docs-quick-pick-filing",
+      "script": "scripts/incoming-docs-quick-pick-filing-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "INCOMINGDOCUMENT_DIR",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "file:incoming-document-queue",
+        "providerLabRouting",
+        "property:incoming_document_entry_mode"
+      ],
+      "notes": "Incoming Docs' Fast entry mode quick picks, which incoming-pdf-extraction and incoming-docs-delete-pdf-mrp (Normal mode, patient search) leave out: Schedule ▸ Inbox ▸ Incoming Docs, queue 1, File. Data Entry Mode Fast stores the login's choice and offers the document type buttons; filing a PDF for each of two owned patients through the patient search lists both under Last Patients, newest first, and offers the test login as a flag provider button; last, on a third PDF a document type button, the first patient's Last Patients button and the test login's provider button fill exactly the type, the patient and the flag list, and Save files the document for that patient only, with that type, routed to the test login only, while the second patient's document and routing stay unchanged. PASS expected.",
+      "fixtures": "Three synthetic PDFs named with the run marker, written into INCOMINGDOCUMENT_DIR/1/File (which must exist, owned like the application); the owned FAKE patient and a second owned FAKE patient, both with the test login as MRP; each one's program admission (incoming-filing-program-fixture), which filing needs. The login's incoming_document_entry_mode preference is recorded and restored exactly. The queue and the login's recent routing are shared, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the three filed documents with their routing, links and stored files (DOCUMENT_DIR), the queued PDFs left and the second patient, and asserts each is gone."
+    },
+    {
       "name": "lab-upload",
       "script": "scripts/lab-upload-playwright-checks.js",
       "tiers": [
