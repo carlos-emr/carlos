@@ -281,6 +281,11 @@
         ${carlos:forHtml(requestScope.saved)} Invoice(s) Saved
     </div>
 
+    <c:if test="${requestScope.patientNotFound}">
+        <fmt:message key="billing.bc.quickBilling.msgPatientNotFound" var="patientNotFoundMessage"/>
+        <div id="patientNotFound" role="alert">${carlos:forHtml(patientNotFoundMessage)}</div>
+    </c:if>
+
     <div id="header" class="bgLilac">
         <ul>
             <li>
@@ -473,7 +478,8 @@
         </div>
     </div>
     <div id="toolBar" class="bgLilac">
-        <input type="button" id="submitList" name="submitList" value="Submit" onclick="javascript:form.submit();"/>
+        <%-- Disabled on the first click so a double click sends one save; the server also saves each bill once. --%>
+        <input type="button" id="submitList" name="submitList" value="Submit" onclick="this.disabled = true; this.form.submit();"/>
         <input type="button" id="cancelTrans" name="cancelTrans" value="Cancel" onclick="javascript:window.close();"/>
     </div>
 </form>

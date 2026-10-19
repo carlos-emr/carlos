@@ -34,7 +34,7 @@
  *                versions to the patient and not the recycled report. This is the strict form of the chain
  *                (MrpRoutingService), which threw for every CML report before the fix: the match answered HTTP 500.
  *                The popup also writes two ERROR entries to the server log for a CML report (it asks the HL7 factory
- *                for the lab, finding 276); scripts/lib/server-log-baseline.tsv explains them for the log audit.
+ *                for the lab, finding 313); scripts/lib/server-log-baseline.tsv explains them for the log audit.
  *
  * NOT ASSERTED, on purpose: Forward. legacy-lab-display and lab-forward-picker drive it (finding 184, fixed:
  * #4558), but each seeds a single report, so no browser check yet shows Forward routing a whole version

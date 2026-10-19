@@ -336,6 +336,11 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         String acknowledgedSinceSql = acknowledgedSince == null ? "" : " AND plr.timestamp >= :acknowledgedSince ";
         String routingStatusSql = ("".equals(status) ? " IS NOT NULL " : " = :status ") + acknowledgedSinceSql;
         String andRoutingStatusSql = " AND plr.status " + routingStatusSql;
+        // A lab has one routing row per provider it is routed to (a forwarding rule adds one), and
+        // only the provider filter narrows that to one row per lab. So every shape groups by lab:
+        // otherwise an Any provider search lists the lab once per routing row (#5016). With Any
+        // provider and All statuses, the routing status shown is then one of the lab's rows.
+        String oneRowPerLabSql = " GROUP BY info.lab_no ";
 
         if (mixLabsAndDocs) {
             if ("0".equals(demographicNo)) {
@@ -353,6 +358,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         (isAbnormal != null && !isAbnormal) ? "AND (info.result_status IS NULL OR info.result_status != 'A')" : "")
                         + dateSql
                         + " AND (plr2.demographic_no IS NULL OR plr2.demographic_no = '0')"
+                        + oneRowPerLabSql
                         + " ORDER BY plr.id DESC "
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
             } else if (demographicNo != null && !"".equals(demographicNo)) {
@@ -382,7 +388,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " ) AS X "
                         + " WHERE X.lab_type = 'HL7' and X.lab_no = info.lab_no " + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id = info.lab_no " : "")
                         + dateSql
-                        + (dateSearchType.equals("receivedCreated") ? " GROUP BY info.lab_no " : "")
+                        + oneRowPerLabSql
                         + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "message.created" : "info.obr_date") + " DESC "
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
             } else if (patientSearch) { // N
@@ -422,7 +428,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " 	) AS Z "
                         + " WHERE Z.lab_type = 'HL7' and Z.lab_no = info.lab_no " + (dateSearchType.equals("receivedCreated") ? " and message.lab_id = info.lab_no " : "")
                         + dateSql
-                        + (dateSearchType.equals("receivedCreated") ? " GROUP BY info.lab_no " : "")
+                        + oneRowPerLabSql
                         + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "message.created" : "info.obr_date") + " DESC "
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
             } else { // N
@@ -436,7 +442,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "") + " AND plr.lab_no = info.lab_no "
                         + (isAbnormal != null ? " AND (" + (!isAbnormal ? "info.result_status IS NULL OR" : "") + " info.result_status " + (isAbnormal ? "" : "!") + "= 'A') " : " ")
                         + dateSql
-                        + " GROUP BY info.lab_no "
+                        + oneRowPerLabSql
                         + " ORDER BY plr.id DESC, " + (dateSearchType.equals("receivedCreated") ? "message.created" : "info.obr_date") + " DESC"
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
             }
@@ -455,6 +461,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         isAbnormal != null && !isAbnormal ? "AND (info.result_status IS NULL OR info.result_status != 'A')" : "")
                         + dateSql
                         + " AND (plr2.demographic_no IS NULL OR plr2.demographic_no = '0')"
+                        + oneRowPerLabSql
                         + " ORDER BY plr.id DESC "
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
             } else if (demographicNo != null && !"".equals(demographicNo)) {
@@ -472,7 +479,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " ) AS X "
                         + " WHERE X.lab_type = 'HL7' and X.lab_no = info.lab_no " + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id = info.lab_no " : "")
                         + dateSql
-                        + (dateSearchType.equals("receivedCreated") ? " GROUP BY info.lab_no" : "")
+                        + oneRowPerLabSql
                         + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "message.created" : "info.obr_date") + " DESC "
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
             } else if (patientSearch) { // A
@@ -503,7 +510,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " WHERE Z.lab_type = 'HL7' and Z.lab_no = info.lab_no " + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id = info.lab_no " : "")
                         + dateSql
                         + (isAbnormal != null ? " AND (" + (!isAbnormal ? "info.result_status IS NULL OR" : "") + " info.result_status " + (isAbnormal ? "" : "!") + "= 'A') " : " ")
-                        + (dateSearchType.equals("receivedCreated") ? " GROUP BY info.lab_no " : "")
+                        + oneRowPerLabSql
                         + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "message.created" : "info.obr_date") + " DESC "
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
             } else { // A
@@ -514,7 +521,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + "   AND lab_type = 'HL7' and info.lab_no = plr.lab_no " + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id = info.lab_no " : "")
                         + dateSql
                         + (isAbnormal != null ? " AND (" + (!isAbnormal ? "info.result_status IS NULL OR" : "") + " info.result_status " + (isAbnormal ? "" : "!") + "= 'A') " : " ")
-                        + (dateSearchType.equals("receivedCreated") ? " GROUP BY info.lab_no " : "")
+                        + oneRowPerLabSql
                         + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "message.created" : "info.obr_date") + " DESC "
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
             }

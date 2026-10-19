@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.sql.Timestamp;
 import java.text.ParseException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
@@ -149,5 +150,41 @@ class NoteObservationDateUnitTest {
     void shouldParseEnglishOnly_whenInterfaceLocaleIsNull() throws ParseException {
         assertThat(NoteObservationDate.parse("15-Oct-2026 19:14", null)).isEqualTo(at(2026, 10, 15, 19, 14));
         assertThatThrownBy(() -> NoteObservationDate.parse("15-févr.-2026 19:14", null)).isInstanceOf(ParseException.class);
+    }
+
+    // Clock changes (issue #4777). The rules are pinned with an explicit zone, not by changing the
+    // JVM default, which other tests running in parallel would see. In Ontario, 2026's clocks jump
+    // from 02:00 to 03:00 on 8 March and fall back from 02:00 to 01:00 on 1 November.
+
+    private static final ZoneId TORONTO = ZoneId.of("America/Toronto");
+
+    @Test
+    void shouldUseServerTimeZone_forTwoArgumentParse() throws ParseException {
+        assertThat(NoteObservationDate.parse("15-Oct-2026 19:14", Locale.ENGLISH))
+                .isEqualTo(NoteObservationDate.parse("15-Oct-2026 19:14", Locale.ENGLISH, ZoneId.systemDefault()));
+    }
+
+    @Test
+    void shouldMoveTimeForwardByGap_whenTimeFallsInSpringForwardHour() throws ParseException {
+        // 02:30 never happens that night; it is saved as 03:30 EDT, as the legacy parse did, not refused.
+        Date parsed = NoteObservationDate.parse("08-Mar-2026 02:30", Locale.ENGLISH, TORONTO);
+        assertThat(parsed.toInstant()).isEqualTo(Instant.parse("2026-03-08T07:30:00Z"));
+        assertThat(LocalDateTime.ofInstant(parsed.toInstant(), TORONTO)).isEqualTo(LocalDateTime.of(2026, 3, 8, 3, 30));
+    }
+
+    @Test
+    void shouldTakeEarlierOffset_whenTimeFallsInRepeatedFallBackHour() throws ParseException {
+        // 01:30 happens twice; the first (EDT) is taken. Its wall-clock time, the value the DATETIME
+        // column stores, is still the 01:30 the clinician entered.
+        Date parsed = NoteObservationDate.parse("01-Nov-2026 01:30", Locale.ENGLISH, TORONTO);
+        assertThat(parsed.toInstant()).isEqualTo(Instant.parse("2026-11-01T05:30:00Z"));
+        assertThat(LocalDateTime.ofInstant(parsed.toInstant(), TORONTO)).isEqualTo(LocalDateTime.of(2026, 11, 1, 1, 30));
+    }
+
+    @Test
+    void shouldKeepWallClockTime_whenZoneObservesNoDaylightSaving() throws ParseException {
+        ZoneId regina = ZoneId.of("America/Regina");
+        Date parsed = NoteObservationDate.parse("08-Mar-2026 02:30", Locale.ENGLISH, regina);
+        assertThat(LocalDateTime.ofInstant(parsed.toInstant(), regina)).isEqualTo(LocalDateTime.of(2026, 3, 8, 2, 30));
     }
 }

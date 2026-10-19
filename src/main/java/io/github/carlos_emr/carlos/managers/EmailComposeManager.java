@@ -72,8 +72,12 @@ public class EmailComposeManager {
     private FormsManager formsManager;
     @Autowired
     private PatientConsentManager patientConsentManager;
+    private final SecurityInfoManager securityInfoManager;
+
     @Autowired
-    private SecurityInfoManager securityInfoManager;
+    public EmailComposeManager(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = java.util.Objects.requireNonNull(securityInfoManager);
+    }
 
     /**
      * Prepares an existing email for resending by retrieving its log entry.

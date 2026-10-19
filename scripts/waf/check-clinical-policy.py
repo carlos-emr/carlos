@@ -73,6 +73,38 @@ VITALS = "/carlos/encounter/Measurements"
 FORWARD = "/carlos/casemgmt/ViewForward"
 ENTRY = "/carlos/CaseManagementEntry"
 PREVENTION = "/carlos/prevention/AddPrevention"
+ERROR_LOG = "/carlos/eform/logEformError"
+# What a browser hands window.onerror for a broken eForm script, plus the two fixed reports CARLOS
+# itself sends. The first was answered 403 on a packaged install (932130 reads jQuery's "$(...)"
+# callee abbreviation as shell command substitution); the rest are the message shapes Chromium,
+# Firefox and Safari produce for the errors legacy eForms commonly throw.
+ERROR_MESSAGES = (
+    "Uncaught TypeError: $(...).error is not a function",
+    "Uncaught TypeError: $(...).datepicker is not a function",
+    "Uncaught TypeError: jQuery(...).dialog is not a function",
+    "TypeError: $(...).tooltip is not a function",
+    "TypeError: $(\"#Letter\").error is not a function. (In '$(\"#Letter\").error(function(){})', "
+    "'$(\"#Letter\").error' is undefined)",
+    "Uncaught TypeError: Cannot read properties of null (reading 'value')",
+    "Uncaught TypeError: Cannot set properties of null (setting 'innerHTML')",
+    "TypeError: can't access property \"value\", document.getElementById(...) is null",
+    "TypeError: document.getElementById(...).parentNode is null",
+    "Uncaught ReferenceError: $ is not defined",
+    "Uncaught SyntaxError: Unexpected token '<'",
+    "Uncaught SyntaxError: Unexpected token 'o', \"[object Object]\" is not valid JSON",
+    "Uncaught SyntaxError: Failed to execute 'querySelector' on 'Document': 'input[name=1]' is not a valid selector.",
+    "Uncaught Error: Syntax error, unrecognized expression: input[name=subject]:checked,select[name=x]",
+    "Uncaught SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame "
+    "with origin \"https://127.0.0.1\" from accessing a cross-origin frame.",
+    "Uncaught Error: Failed to execute 'write' on 'Document': It isn't possible to write into a document "
+    "from an asynchronously-loaded external script unless it is explicitly opened.",
+    "Uncaught Error: cannot call methods on dialog prior to initialization; attempted to call method 'open'",
+    "Uncaught TypeError: e.target.value.replace(...).toUpperCase is not a function",
+    "Uncaught SyntaxError: missing ) after argument list",
+    "Script error.",
+    "RTL editor never left loading state; save blocked",
+    "lab decision-support stub invoked (not deployed): autoLabReqPop",
+)
 RFI = "http://10.0.0.5/pacs/study"
 TRAVERSAL = "../../private/record"
 XSS = "<script>alert(1)</script>"
@@ -279,6 +311,34 @@ def build_cases(phrases, corpus):
     cases.append(request_case("prevention-wrong-GET", 4742, PREVENTION, "neverReason", RFI, "GET", **inbound))
     cases.append(request_case("prevention-nonprose-lot", 4742, PREVENTION, "lot", RFI, **inbound))
     cases.append(request_case("prevention-xss-still-inspected", 4742, PREVENTION, "providerName", XSS,
+                              expect="inbound", signatures=("941100", "941110")))
+
+    # Exclusion 1075: the eForm script-error report (toolbar window.onerror, lab-stub and RTL
+    # reports) posts formId plus the browser's error message. Only ARGS:error on POST to this one
+    # route is exempt, and only from the attack-rce/xss/sqli tags that fire on real messages;
+    # formId, other routes and methods, and the remaining families on the message stay inspected.
+    shell = "Uncaught TypeError: $(...).error is not a function"
+    rce = {"expect": "inbound", "signatures": ("932130",)}
+    form_id = (("formId", "37"),)
+    for i, message in enumerate(ERROR_MESSAGES):
+        cases.append(request_case(f"eform-error-message-{i + 1}", 0, ERROR_LOG, "error", message, extra=form_id))
+    cases.append(request_case("eform-error-route-Evil", 0, ERROR_LOG + "Evil", "error", shell, extra=form_id, **rce))
+    cases.append(request_case("eform-error-route-child", 0, ERROR_LOG + "/child", "error", shell, extra=form_id, **rce))
+    cases.append(request_case("eform-error-wrong-GET", 0, ERROR_LOG, "error", shell, "GET", form_id, **rce))
+    cases.append(request_case("eform-error-wrong-PUT", 0, ERROR_LOG, "error", shell, "PUT", form_id, **rce))
+    # formId is a number the page renders; every exempted family still scores it.
+    for family, value, signatures in (("rce", "$(id)", ("932130",)),
+                                      ("xss", XSS, ("941100", "941110")),
+                                      ("sqli", "1' OR 1=1--", ("942100",))):
+        cases.append(request_case(f"eform-error-formid-{family}", 0, ERROR_LOG, "formId", value,
+                                  extra=(("error", "x"),), expect="inbound", signatures=signatures))
+    # The families that never fired on a browser message stay on ARGS:error itself.
+    for family, value, signatures in (("lfi", TRAVERSAL, ("930100", "930110")),
+                                      ("rfi", RFI, ("931100",)),
+                                      ("php", "<?php echo 1;", ("933100",))):
+        cases.append(request_case(f"eform-error-{family}-still-inspected", 0, ERROR_LOG, "error", value,
+                                  extra=form_id, expect="inbound", signatures=signatures))
+    cases.append(request_case("eform-error-xss-other-route", 0, ERROR_LOG + "Evil", "error", XSS, extra=form_id,
                               expect="inbound", signatures=("941100", "941110")))
 
     if len({case.name for case in cases}) != len(cases):

@@ -144,13 +144,36 @@ async function workflow(s) {
     await list.close();
   });
 
-  // The mutators come last: on 2026.08 every one of them fails in the panel (see the report).
+  // The mutators come last. Since #4130 they answer POST/redirect/GET: a forward kept the POST, and
+  // the GET-only groups page refused it with 405 (findings 69, 74). So a redirect is the success
+  // path, and what is checked is where it leads: every hop stays on this origin, the hops after
+  // the POST are GETs, and the page the chain ends on answers 200.
+  const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
   async function submitInPanel(control, path) {
-    const [response] = await Promise.all([
-      admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(path)),
+    const isPanelPost = req => req.method() === 'POST' && new URL(req.url()).pathname.endsWith(path);
+    const chainOf = req => {
+      const chain = [];
+      for (let hop = req; hop; hop = hop.redirectedFrom()) chain.unshift(hop);
+      return chain;
+    };
+    // Wait for the end of the chain the panel's POST starts, not the POST's own response: the
+    // redirected GET can answer before a waiter registered after the 302 would be listening.
+    const [landed] = await Promise.all([
+      admin.waitForResponse(r => isPanelPost(chainOf(r.request())[0]) && !REDIRECT_STATUSES.has(r.status())),
       control.click(),
     ]);
-    h.assert(response.status() === 200, `${path} answered HTTP ${response.status()} to the panel's own submit`);
+    const chain = chainOf(landed.request());
+    const origin = new URL(chain[0].url()).origin;
+    const posted = await chain[0].response();
+    h.assert(posted && (posted.status() === 200 || REDIRECT_STATUSES.has(posted.status())),
+      `${path} answered HTTP ${posted ? posted.status() : 'nothing'} to the panel's own submit`);
+    h.assert(chain.length <= 4, `${path} redirected ${chain.length - 1} times`);
+    for (const hop of chain.slice(1)) {
+      h.assert(new URL(hop.url()).origin === origin, `${path} redirected off-origin to ${new URL(hop.url()).origin}`);
+      h.assert(hop.method() === 'GET', `${path} redirected to a ${hop.method()} instead of a GET`);
+    }
+    h.assert(landed.status() === 200,
+      `${path} ended on HTTP ${landed.status()} at ${new URL(landed.url()).pathname} after ${chain.length - 1} redirect(s)`);
     await admin.waitForLoadState('networkidle').catch(() => {});
     await h.assertNotErrorPage(admin, path);
     await admin.locator('#groupListTbl').waitFor();

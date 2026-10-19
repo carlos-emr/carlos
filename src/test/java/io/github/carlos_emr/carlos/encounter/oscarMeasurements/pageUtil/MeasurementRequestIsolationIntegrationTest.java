@@ -204,6 +204,40 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
         }
     }
 
+    @Test
+    void shouldDeleteTombstoneAndCloseWindow_whenPostedLikeReadOnlyMeasurementPage() throws Exception {
+        // Issue #4715: AddMeasurementData.jsp opens a saved reading read-only and posts Delete with
+        // its hidden inputs -- the chart's patient and the reading, no history type.
+        try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
+            spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            assertThat(deleteFromReadOnlyPage(a, response, aReading.getId())).isEqualTo("success");
+            assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(measurements.find(aReading.getId())).isNull();
+            assertThat(measurements.find(bReading.getId()).getDataField()).isEqualTo("92.75");
+            assertThat(tombstones()).singleElement().satisfies(row -> {
+                assertThat(row.getOriginalId()).isEqualTo(aReading.getId());
+                assertThat(row.getDemographicNo()).isEqualTo(a.getDemographicNo());
+                assertThat(row.getDataField()).isEqualTo("61.25");
+            });
+            assertGlobalUnchanged();
+        }
+    }
+
+    @Test
+    void shouldRefuseOtherPatientsReading_whenPostedLikeReadOnlyMeasurementPage() throws Exception {
+        try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
+            spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            assertThat(deleteFromReadOnlyPage(a, response, bReading.getId())).isEqualTo("none");
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(measurements.find(aReading.getId()).getDataField()).isEqualTo("61.25");
+            assertThat(measurements.find(bReading.getId()).getDataField()).isEqualTo("92.75");
+            assertThat(tombstones()).isEmpty();
+            assertGlobalUnchanged();
+        }
+    }
+
     private Demographic patient(String name) {
         Demographic patient = new Demographic();
         patient.setFirstName(name);
@@ -273,6 +307,21 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
             EctDeleteData2Action action = new EctDeleteData2Action();
             action.setType(common.getType());
             action.setDeleteCheckbox(java.util.Arrays.stream(ids).map(String::valueOf).toArray(String[]::new));
+            return action.execute();
+        }
+    }
+
+    /** The Delete AddMeasurementData.jsp sends for a saved reading: the patient and the reading, nothing else. */
+    private String deleteFromReadOnlyPage(Demographic patient, MockHttpServletResponse response, Integer id) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/encounter/oscarMeasurements/DeleteData2");
+        request.setSession(session);
+        request.setContextPath("/carlos");
+        request.setParameter("demographicNo", patient.getDemographicNo().toString());
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            EctDeleteData2Action action = new EctDeleteData2Action();
+            action.setDeleteCheckbox(new String[] {String.valueOf(id)});
             return action.execute();
         }
     }

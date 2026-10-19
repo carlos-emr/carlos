@@ -205,16 +205,17 @@ public class QuickBillingBCHandler {
 
     /**
      * Set the header data for this group of billings.
-     * Header consists of a providers, service location, and service date and
+     * Header consists of a provider, service location, and service date and
      * is the header for a group of individual patients with the header data
-     * in commons.
+     * in common.
      *
      */
     public void setHeader(ObjectNode billingEntry) {
 
         String visitLocation = billingEntry.get("visitLocation").asText();
         String visitDate = billingEntry.get("visitDate").asText();
-        String providerNo = billingEntry.get("providers").asText();
+        // The page's select is named "provider" (quickBillingBC.jsp); a 2025 bulk rename changed only this key.
+        String providerNo = billingEntry.get("provider").asText();
         String creator = billingEntry.get("creator").asText();
 
         // if any of the variables are empty
@@ -244,6 +245,9 @@ public class QuickBillingBCHandler {
      * Create a new billing object to be stored into an array 
      * for later processing.
      * Lots of data here is hard coded.
+     *
+     * @return {@code true} when the bill was added; {@code false}, with nothing added, when the patient
+     *         number is empty or matches no patient
      */
     public boolean addBill(LoggedInInfo loggedInInfo, ObjectNode billingEntry) {
 
@@ -270,6 +274,11 @@ public class QuickBillingBCHandler {
 
         if (!demographicNo.isEmpty()) {
             demographic = this.demographicManager.getDemographic(loggedInInfo, demographicNo);
+        }
+        if (demographic == null) {
+            // An empty patient number, or one that matches no patient (removed since the name search,
+            // or typed by hand): add nothing, and let the page say so instead of failing on the bill.
+            return false;
         }
 
         if (!providerNo.isEmpty()) {
@@ -371,7 +380,7 @@ public class QuickBillingBCHandler {
         // notes which are internal - NOT seen by recipient.
         bean.setMessageNotes(INTERNAL_COMMENT);
 
-        return (this.quickBillingBCFormBean.getBillingData()).add(bean);
+        return this.quickBillingBCFormBean.addBill(bean);
     }
 
     private String convertDDMMYYYY(String dt) {
@@ -415,7 +424,9 @@ public class QuickBillingBCHandler {
     public boolean saveBills() {
 
         String dataCenterId = oscarProperties.getProperty("dataCenterId");
-        ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.getBillingData();
+        // Take the bills out of the session form first: a second Submit of the same page (a double
+        // click) then finds none and saves nothing, and the list being saved cannot change mid-save.
+        ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.takeBillingData();
         ListIterator<BillingSessionBean> it = billingSessionBeans.listIterator();
         int invoiceCount = billingSessionBeans.size();
 
@@ -467,13 +478,19 @@ public class QuickBillingBCHandler {
 
     /**
      * remove selected bill from the bill arraylist stored in the quickBillingBCFormBean
-     * @param bill
+     * @param bill the row index the page sent
+     * @return {@code true} when the row was removed; {@code false}, with nothing removed, when
+     *         {@code bill} is not the index of a current row
      */
     public boolean removeBill(String bill) {
 
-        ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.getBillingData();
-        billingSessionBeans.remove(Integer.parseInt(bill));
-        return true;
+        int index;
+        try {
+            index = Integer.parseInt(bill);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        return quickBillingBCFormBean.removeBill(index);
     }
 
     /**

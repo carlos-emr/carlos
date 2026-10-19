@@ -291,7 +291,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                                     <a href="javascript:window.close()"> <% } else { // we were called from lab module %>
 
                                                                         <a
-                                                                                href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>', 'searchPatientWindow')">
+                                                                                href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&amp;segmentID=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/>&amp;name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
                                                                             <% } %> <carlos:encode value='<%= pd.getPatientName() %>' context="html"/>
                                                                         </a></div>
                                                             </td>

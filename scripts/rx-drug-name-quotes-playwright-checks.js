@@ -25,6 +25,7 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
 const { assertStored, hex } = require('./lib/boundary-values');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const q = h.sqlString;
 const CATALOGUE_TERM = process.env.RX_QUOTE_DRUG_TERM || 'BENADRYL ALLERGY';
@@ -132,7 +133,7 @@ async function workflow(s) {
   const customName = `${s.marker} O'Neil "Forte" Crème`;
   h.assert(customName.length <= 60, 'The custom drug name does not fit drugs.customName (varchar 60)');
 
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+  const rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
   h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
   await rx.locator('#searchString').waitFor({ state: 'visible' });
   await rx.waitForLoadState('networkidle');
@@ -245,4 +246,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('rx-drug-name-quotes', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, viewScriptFrame };

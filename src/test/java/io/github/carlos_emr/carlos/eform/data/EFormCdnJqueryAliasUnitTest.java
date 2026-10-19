@@ -145,6 +145,77 @@ class EFormCdnJqueryAliasUnitTest {
     }
 
     @Test
+    @DisplayName("should alias the CDN jQuery builds current OSCAR Galaxy forms load")
+    void shouldAliasGalaxyCdnBuilds_toLocalBundle() {
+        // Each URL is the exact spelling of a published 2020-2026 Galaxy package, whose only jQuery
+        // it is (or whose fallback is another CDN): Toronto Cardiac Care Referral and NeuPath
+        // Referral (code.jquery.com 2.2.4 with SRI), NeuPath Referral (3.6.4 with SRI), Rich Text
+        // Letter 2020 V2 (1.12.4) and the Simple Rich Text Letter (cdnjs 3.3.1). Without the alias
+        // the CSP blocks them and the form runs with jQuery undefined.
+        for (String url : java.util.List.of(
+                "https://code.jquery.com/jquery-2.2.4.min.js",
+                "https://code.jquery.com/jquery-3.6.4.min.js",
+                "https://code.jquery.com/jquery-1.12.4.min.js",
+                "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js")) {
+            assertThat(normalized("<script src=\"" + url + "\"></script>"))
+                    .as(url)
+                    .contains(LOCAL_BUNDLE)
+                    .doesNotContain(url);
+        }
+    }
+
+    @Test
+    @DisplayName("should alias a CDN fallback written by document.write, with its integrity pin removed")
+    void shouldAliasDocumentWriteFallback_withoutIntegrityPin() {
+        // NeuPath Referral 2026, verbatim shape: an SRI-pinned CDN load, then a document.write
+        // fallback to another SRI-pinned CDN build inside a single-quoted JavaScript string.
+        String html = normalized(
+                "<script src=\"https://code.jquery.com/jquery-3.6.4.min.js\""
+                + " integrity=\"sha384-UG8ao2jwOWB7/oDdObZc6ItJmwUkR/PfMyt9Qs5AwX7PsnYn1CRKCTWyncPTWvaS\""
+                + " crossorigin=\"anonymous\"></script>"
+                + "<script> window.jQuery || document.write('<script src=\"https://code.jquery.com/jquery-2.2.4.min.js\""
+                + "   integrity=\"sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=\"   crossorigin=\"anonymous\">"
+                + "< \\/script>') </script>");
+
+        assertThat(html)
+                .doesNotContain("code.jquery.com")
+                .doesNotContain("integrity")
+                .doesNotContain("crossorigin")
+                .contains("document.write('<script src=\"" + LOCAL_BUNDLE + "\"");
+    }
+
+    @Test
+    @DisplayName("should alias a pre-3.x webapp jQuery build to the bundle that carries the compat shim")
+    void shouldAliasLegacyLibraryJquery_toCompatBundle() {
+        // FIB-4 loads ${oscar_javascript_path}jquery/jquery-2.2.4.min.js as its only jQuery; the
+        // Simple Rich Text Letter loads ${oscar_javascript_path}jquery/jquery-1.4.2.js. Neither build
+        // ships, so both 404 and the form's scripts fail. A pre-3.x build gets the bundle with the
+        // compat shim (the APIs 3.x removed), like every other pre-3.x alias, not bare 3.7.1.
+        for (String legacy : java.util.List.of("jquery-2.2.4.min.js", "jquery-1.4.2.js")) {
+            String html = normalized(
+                    "<script src='${oscar_javascript_path}jquery/" + legacy + "'> </script>"
+                    + "<script src=\"../library/jquery/" + legacy + "\"></script>");
+
+            assertThat(html).as(legacy).doesNotContain(legacy.replace("jquery-", "/jquery-"))
+                    .contains("src='" + LOCAL_BUNDLE + "'")
+                    .contains("src=\"" + LOCAL_BUNDLE + "\"");
+        }
+    }
+
+    @Test
+    @DisplayName("should alias a pre-3.x webapp jQuery build on a root-context deployment")
+    void shouldAliasLegacyLibraryJquery_onRootContext() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body><script src=\"${oscar_javascript_path}jquery/jquery-2.2.4.min.js\">"
+                + "</script></body></html>");
+        eform.setContextPath("");
+
+        assertThat(eform.getFormHtml())
+                .contains("src=\"/eform/displayImage?imagefile=jquery-1.12.0.min.js\"")
+                .doesNotContain("2.2.4");
+    }
+
+    @Test
     @DisplayName("should leave an unrecognised jQuery build to fail visibly")
     void shouldLeaveUnrecognisedLibraryJquery_untouched() {
         // Exact-version matching: silently upgrading an unknown build would hide a real breakage.

@@ -34,6 +34,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.ResourceBundle;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
@@ -65,7 +67,9 @@ public class RxDsMessageTo1 implements Serializable {
     private String effect;
     private String name;
     private String drug2;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date updated_at;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date created_at;
     private String interactStr = "";
     private Boolean trustedResource;

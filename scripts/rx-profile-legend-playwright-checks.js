@@ -4,6 +4,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { failureMark, consumeExpectedFailure, waitUntil } = require('./lib/concurrency-support');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
@@ -23,7 +24,7 @@ async function workflow(s) {
       ${suffix === 'EXTERNAL' ? "'FAKE external','000000'" : "NULL,NULL"})`);
   }
   const rx = await s.popup(s.master,
-    s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-profile');
+    masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-profile');
   h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient,
     'Prescription window opened another patient');
   await rx.locator('#searchString').waitFor({state:'visible'});

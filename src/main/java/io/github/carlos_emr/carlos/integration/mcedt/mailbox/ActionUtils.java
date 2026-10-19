@@ -77,6 +77,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class ActionUtils {
     private static Logger logger = MiscUtils.getLogger();
+    private static final Object OUTBOX_STAGING_LOCK = new Object();
 
     static Detail getDetails(HttpServletRequest request) {
         Detail result = (Detail) request.getSession().getAttribute(McedtConstants.SESSION_KEY_RESOURCE_LIST);
@@ -312,17 +313,19 @@ public class ActionUtils {
      *         outbox; {@code false} when one may be missing, so the Upload tab can say so.
      *         The reason is in the server log.
      */
-    public static synchronized boolean stageGeneratedClaimFiles() {
-        LastOpen lastOpen = readLastOpen();
-        if (!canRecordLastOpen()) {
-            logger.error("The MCEDT outbox timestamp file cannot be written; generated OHIP claim files"
-                    + " are not copied to the outbox until it can be.");
-            return false;
+    public static boolean stageGeneratedClaimFiles() {
+        synchronized (OUTBOX_STAGING_LOCK) {
+            LastOpen lastOpen = readLastOpen();
+            if (!canRecordLastOpen()) {
+                logger.error("The MCEDT outbox timestamp file cannot be written; generated OHIP claim files"
+                        + " are not copied to the outbox until it can be.");
+                return false;
+            }
+            Date endDate = new Date();
+            Date stagedTo = moveOhipToOutBox(lastOpen.at(), endDate);
+            boolean recorded = recordLastOpen(stagedTo);
+            return lastOpen.known() && recorded && stagedTo.equals(endDate);
         }
-        Date endDate = new Date();
-        Date stagedTo = moveOhipToOutBox(lastOpen.at(), endDate);
-        boolean recorded = recordLastOpen(stagedTo);
-        return lastOpen.known() && recorded && stagedTo.equals(endDate);
     }
 
     /**

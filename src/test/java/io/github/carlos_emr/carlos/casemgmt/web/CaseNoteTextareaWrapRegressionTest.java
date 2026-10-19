@@ -154,11 +154,14 @@ class CaseNoteTextareaWrapRegressionTest {
     }
 
     @Test
-    @DisplayName("should encode recovery text and handle absent encounter sessions")
+    @DisplayName("should encode the refused save's own text and handle a page opened without one")
     void shouldEncodeRecoveredNote_whenRenderingConcurrencyError() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/encounter/concurrencyError.jsp"));
-        assertThat(jsp).contains("bean == null ? \"\" : bean.encounter", "context=\"htmlContent\"")
-                .doesNotContain("<%=bean.encounter%>");
+        // Issue #4673: the text is the refused request's own, never the login-wide session bean's.
+        assertThat(jsp).contains("unsaved instanceof String ? (String) unsaved : \"\"",
+                        "<carlos:encode value='<%= unsavedEncounter %>' context=\"htmlContent\"/>")
+                .doesNotContain("<%=bean.encounter%>")
+                .doesNotContain("getAttribute(\"EctSessionBean\")");
     }
 
     private static List<String> caseNoteTextareaTags(String source) {

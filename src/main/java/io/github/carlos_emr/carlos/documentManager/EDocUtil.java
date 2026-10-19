@@ -433,6 +433,9 @@ public final class EDocUtil {
                 doc.setDocfilename(newDocument.getFileName());
                 doc.setContenttype(newDocument.getContentType());
                 doc.setContentdatetime(newDocument.getContentDateTime());
+                // The replacement's page count, as adding a document stores it (0 when it is not a PDF);
+                // the inbox view, the document display and Split read it.
+                doc.setNumberofpages(newDocument.getNumberOfPages());
             }
 
             doc.setAbnormal(Boolean.parseBoolean(newDocument.getAbnormal()));
@@ -1384,7 +1387,7 @@ public final class EDocUtil {
                 throw new SecurityException("Access denied: File is outside the allowed directories");
             }
         } catch (IOException e) {
-            logger.error("Error resolving file path: " + fileName, e);
+            logger.error("Error resolving file path: {}", fileName, e);
             throw new SecurityException("Unable to resolve file path securely", e);
         }
     }
@@ -1467,7 +1470,7 @@ public final class EDocUtil {
             // This handles stale data from different environments gracefully
             Path inputPath = Paths.get(fileName);
             if (inputPath.isAbsolute() && !Files.exists(inputPath)) {
-                logger.debug("File not found (may be from different environment): " + fileName);
+                logger.debug("File not found (may be from different environment): {}", fileName);
                 return 0;
             }
             // resolvePath validates the path is within allowed directories, including temp directories.
@@ -1478,16 +1481,16 @@ public final class EDocUtil {
                 try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
                     pagecount = pdf.getNumberOfPages();
                 } catch (IOException e) {
-                    logger.error("Could not read PDF file: " + fileName, e);
+                    logger.error("Could not read PDF file: {}", fileName, e);
                 }
             } else {
-                logger.warn("File " + fileName + " not found for page count.");
+                logger.warn("File {} not found for page count.", fileName);
             }
         } catch (SecurityException e) {
-            logger.error("Security violation: Attempted to access file outside allowed directory: " + fileName, e);
+            logger.error("Security violation: Attempted to access file outside allowed directory: {}", fileName, e);
             // Return 0 to indicate error without exposing security details
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name provided: " + fileName, e);
+            logger.error("Invalid file name provided: {}", fileName, e);
             // Return 0 to indicate error
         }
 

@@ -57,13 +57,21 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.util.GregorianCalendar" %>
 <%@page import="java.text.DateFormatSymbols" %>
+<%@page import="io.github.carlos_emr.carlos.utility.RequestNegotiation" %>
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 <link rel="stylesheet" href="${ctx}/library/flatpickr/flatpickr.min.css" type="text/css"/>
+<%-- Two ways in. The administration page loads this form as a panel (an AJAX request): that page already
+     provides jQuery, jquery-compat, flatpickr and the jQuery Validation plugin, and loading jQuery again here
+     replaced its copy and dropped the plugin, so validate() below threw (#4885). The legacy Administration
+     page links the form as a page of its own, where nothing else provides them, so they are loaded only then. --%>
+<% if (!RequestNegotiation.isAjax(request)) { %>
 <script src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
 <script src="${ctx}/library/jquery/jquery-compat.js"></script>
 <script src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
+<script src="${ctx}/library/jquery/jquery.validate-1.21.0.min.js"></script>
+<% } %>
 
 <%
     FunctionalCentreDao functionalCentreDao = (FunctionalCentreDao) SpringUtils.getBean(FunctionalCentreDao.class);
@@ -219,6 +227,9 @@
 <script type="text/javascript">
     $(document).ready(function () {
         $('#cdsForm').validate({
+            // The filter chooser only switches which list is shown; it has no name, is not sent, and the
+            // plugin logs an error for every unnamed field it is asked to check.
+            ignore: ':hidden, #filterCriteriaSelection',
             rules: {
                 functionalCentreId: {
                     required: true
@@ -227,5 +238,8 @@
         });
     });
 
-    registerFormSubmit('cdsForm', 'cds-results');
+    // registerFormSubmit belongs to the administration page; opened as a page of its own, the form submits normally.
+    if (typeof registerFormSubmit === 'function') {
+        registerFormSubmit('cdsForm', 'cds-results');
+    }
 </script>
