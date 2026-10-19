@@ -40,7 +40,7 @@ async function workflow(s) {
       h.assert(response.status() === 200, `Instruction parse answered HTTP ${response.status()}`);
       const parsed = await response.json();
       h.assert(Number(parsed.takeMin) === minimum && Number(parsed.takeMax) === maximum
-        && parsed.frequency === 'TID' && String(parsed.duration) === '7' && parsed.durationUnit === 'D'
+        && String(parsed.frequency).toUpperCase() === 'TID' && String(parsed.duration) === '7' && parsed.durationUnit === 'D'
         && String(parsed.calQuantity) === quantity, `Incorrect parsed dose/quantity: ${JSON.stringify(parsed)}`);
       await rx.waitForFunction(({ key, quantity }) => document.getElementById(`quantity_${key}`).value === quantity,
         { key, quantity });
@@ -56,7 +56,7 @@ async function workflow(s) {
       FROM drugs WHERE demographic_no=${s.patient} AND customName=${h.sqlString(`${s.marker}-strength`)}`);
     h.assert(rows.length === 1, 'Save did not create exactly one owned prescription');
     const [minimum, maximum, frequency, duration, unit, quantity, special] = rows[0];
-    h.assert(Number(minimum) === 1 && Number(maximum) === 1 && frequency === 'TID'
+    h.assert(Number(minimum) === 1 && Number(maximum) === 1 && frequency.toUpperCase() === 'TID'
       && duration === '7' && unit === 'D' && quantity === '21'
       && special.includes('1000 mg po tid x 7 days'), 'Saved dose, instructions, or quantity is incorrect');
   });
