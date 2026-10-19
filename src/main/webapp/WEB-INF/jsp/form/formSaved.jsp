@@ -6,7 +6,7 @@
 --%>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!doctype html>
-<html lang="en">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8"/>
     <title>CARLOS - Saved form</title>
