@@ -14,10 +14,10 @@
  *   - Delete PDF accepted removes exactly that PDF from the queue, with the same bytes in the recycle folder, and
  *     every other file in the queue is unchanged;
  *   - MRP before a patient is chosen alerts and flags nobody;
- *   - LAST: choosing the owned patient flags nobody by itself, MRP flags exactly the patient's MRP (the test login),
+ *   - LAST: choosing the owned patient flags nobody by itself, MRP flags exactly the patient's isolated MRP,
  *     and Save files the document for the patient, routed to that provider only, leaving the other queued files.
  * Fixtures: three synthetic PDFs written into queue 1's File folder (INCOMINGDOCUMENT_DIR/1/File, which must exist);
- * the owned FAKE patient, whose MRP is the test login; its program admission (incoming-filing-program-fixture), which
+ * the owned FAKE patient and an owned active MRP with no forwarding rules; its program admission (incoming-filing-program-fixture), which
  * filing needs. The queue is shared by every login, so the check must not run concurrently with other checks (live
  * wrapper: EXCLUSIVE=1). Cleanup removes the filed document with its routing, links and stored file (DOCUMENT_DIR),
  * the queued PDFs left and the recycled copy, and asserts each is gone.
@@ -31,6 +31,7 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { prepareIncomingFilingProgram } = require('./lib/incoming-filing-program-fixture');
 const { cleanupFiling } = require('./lib/incoming-filing-capacity-check');
 const { fixturePdf } = require('./incoming-pdf-extraction-playwright-checks');
+const { prepareIsolatedMrp } = require('./lib/incoming-isolated-mrp-fixture');
 
 const TIMEOUT = 60000;
 
@@ -57,6 +58,8 @@ function listing(directory) {
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
+  const isolatedMrp = prepareIsolatedMrp(s);
+  const mrpProvider = isolatedMrp.number;
   const q = h.sqlString;
   h.assert(process.env.INCOMINGDOCUMENT_DIR, 'Set INCOMINGDOCUMENT_DIR to the disposable deployment incoming-document directory');
   const root = fs.realpathSync(process.env.INCOMINGDOCUMENT_DIR);
@@ -68,8 +71,8 @@ async function workflow(s) {
   const documents = process.env.RX_FAX_DOCUMENT_DIR || process.env.DOCUMENT_DIR;
   h.assert(documents, 'Set RX_FAX_DOCUMENT_DIR or DOCUMENT_DIR to the installed document store');
   const store = fs.realpathSync(documents);
-  h.assert(sql.value(`SELECT provider_no FROM demographic WHERE demographic_no=${patient} AND last_name=${q(marker)}`) === provider,
-    'The owned patient\'s MRP is not the test login');
+  h.assert(sql.value(`SELECT provider_no FROM demographic WHERE demographic_no=${patient} AND last_name=${q(marker)}`) === mrpProvider,
+    'The owned patient\'s MRP is not its isolated provider');
 
   const name = { remove: `${marker}-delete.pdf`, keep: `${marker}-keep.pdf`, file: `${marker}-file.pdf` };
   const description = `${marker} incoming MRP filing`;
@@ -187,12 +190,13 @@ async function workflow(s) {
     h.assert(matches.length === 1, 'The patient search does not offer the owned patient exactly once');
     await candidates.nth(matches[0]).click();
     h.assert(await page.locator('#demofind').inputValue() === patient, 'Choosing the patient did not select the owned patient');
-    h.assert(await page.locator('#MRPNo').inputValue() === provider, 'The patient search did not offer the patient\'s MRP');
+    h.assert(await page.locator('#MRPNo').inputValue() === mrpProvider, 'The patient search did not offer the patient\'s MRP');
     h.assert((await flagged()).length === 0, 'Choosing the patient in the File folder flagged a provider by itself');
     await page.locator('input[type="button"][value="MRP"]').click();
-    h.assert(JSON.stringify(await flagged()) === JSON.stringify([provider]),
+    h.assert(JSON.stringify(await flagged()) === JSON.stringify([mrpProvider]),
       `MRP did not flag exactly the patient's MRP (${JSON.stringify(await flagged())})`);
     h.assert((await page.locator('#providerList').innerText()).includes('(MRP)'), 'The flag list does not mark the provider as MRP');
+    isolatedMrp.verify();
     await Promise.all([
       page.waitForURL(url => url.pathname.endsWith('/documentManager/ViewIncomingDocs') && url.searchParams.get('queueId') === '1',
         { timeout: TIMEOUT }),
@@ -203,7 +207,7 @@ async function workflow(s) {
     h.assert(filed.length === 1, `Save filed ${filed.length} documents, not one`);
     const [[documentNo]] = filed;
     h.assert(sql.value(`SELECT GROUP_CONCAT(provider_no ORDER BY provider_no) FROM providerLabRouting
-      WHERE lab_type='DOC' AND lab_no=${documentNo}`) === provider, 'The filed document is not routed to the MRP only');
+      WHERE lab_type='DOC' AND lab_no=${documentNo}`) === mrpProvider, 'The filed document is not routed to the MRP only');
     h.assert(sql.value(`SELECT GROUP_CONCAT(demographic_no) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo}`) === patient
       && sql.value(`SELECT module_id FROM ctl_document WHERE document_no=${documentNo} AND module='demographic'`) === patient,
     'The filed document is not the owned patient\'s');
