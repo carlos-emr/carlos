@@ -55,6 +55,21 @@ async function workflow(s) {
       'The Forms menu did not register the popup for module refresh');
   });
 
+  await s.step('Save refreshes Forms while the form stays open and leaves the encounter draft untouched', async () => {
+    await form.locator('a[href="#tab-cp4"]').click();
+    const draft = chart.locator('textarea[name="caseNote_note"]');
+    await draft.fill(s.marker + ' unsaved encounter draft');
+    await h.withExpectedDialogs(form, async () => {
+      await form.locator('#tab-cp4 input[type="button"][onclick*="onSave();"]').first().click();
+      await form.waitForURL(url => url.pathname.endsWith('/form/forwardname') && !url.searchParams.has('saved'));
+      await form.locator('#frmP1').waitFor();
+    }, {accept: true});
+    await module.locator(STARTED).first().waitFor({state: 'attached', timeout: 15000});
+    h.assert(rows() === '1', 'Save did not write exactly one initial version');
+    h.assert(!form.isClosed(), 'Ordinary Save closed the form');
+    h.assert(await draft.inputValue() === s.marker + ' unsaved encounter draft', 'Save changed the encounter draft');
+  });
+
   // Saving must refresh the chart through its tracked popup handle.
   await s.step('Save and Exit stores the form, closes it, and the chart Forms module lists it without a reload', async () => {
     const closed = form.waitForEvent('close', { timeout: 30000 }).then(() => true, () => false);
@@ -63,8 +78,8 @@ async function workflow(s) {
       // The Save / Save and Exit bar sits on the last page tab (Page IV).
       await form.locator('a[href="#tab-cp4"]').click();
       await form.locator('#tab-cp4 input[type="button"][onclick*="onSaveExit"]').first().click({ noWaitAfter: true });
-      await expectValue(sql, `SELECT COUNT(*) FROM formRourke2017 WHERE demographic_no=${patient}`, '1',
-        'Save and Exit did not store exactly one Rourke 2017 form');
+      await expectValue(sql, `SELECT COUNT(*) FROM formRourke2017 WHERE demographic_no=${patient}`, '2',
+        'Save and Exit did not append exactly one Rourke 2017 version');
     }, { accept: true });
     h.assert(await closed, `The form saved but did not close (documents: ${chain.describe(form)})`);
     consumeClosingAbort(s.recorder, failuresBefore, 'rourke2017');
@@ -81,7 +96,7 @@ async function workflow(s) {
     const dialog = chart.getByRole('dialog', {name: 'Saved form exists'});
     await dialog.waitFor();
     await dialog.getByRole('button', {name: 'Cancel', exact: true}).click();
-    h.assert(rows() === '1', 'Cancelling the new form changed saved versions');
+    h.assert(rows() === '2', 'Cancelling the new form changed saved versions');
   });
 
   await s.step('Open the existing version reuses the latest saved form instead of a blank instance', async () => {
@@ -91,12 +106,12 @@ async function workflow(s) {
     const dialog = chart.getByRole('dialog', {name: 'Saved form exists'});
     await dialog.waitFor();
     const existing = await s.popup(chart, dialog.getByRole('button', {name: 'Open the existing version', exact: true}), 'rourke-existing');
-    const id = sql.value(`SELECT ID FROM formRourke2017 WHERE demographic_no=${patient}`);
+    const id = sql.value(`SELECT ID FROM formRourke2017 WHERE demographic_no=${patient} ORDER BY ID DESC LIMIT 1`);
     h.assert(await existing.locator('input[name="formId"]').first().inputValue() === id,
       'The existing-version choice opened a blank or different form');
     h.assert(await existing.evaluate(() => window.name.endsWith('started')), 'The existing-version choice did not reuse the started-form window name');
     await existing.close();
-    h.assert(rows() === '1', 'Opening the saved form changed its versions');
+    h.assert(rows() === '2', 'Opening the saved form changed its versions');
   });
 
   await s.step('Create a new blank version remains available only after an explicit choice', async () => {
@@ -109,7 +124,7 @@ async function workflow(s) {
     h.assert(await blank.locator('input[name="formId"]').first().inputValue() === '0',
       'The explicit blank choice did not start a new form');
     await blank.close();
-    h.assert(rows() === '1', 'Opening a blank form unexpectedly saved a version');
+    h.assert(rows() === '2', 'Opening a blank form unexpectedly saved a version');
   });
 
 }

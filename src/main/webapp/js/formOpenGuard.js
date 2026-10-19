@@ -9,7 +9,8 @@
         var target = new URL(url, root.location.href);
         if (target.origin !== root.location.origin) return;
         var patient = target.searchParams.get('demographic_no');
-        var check = new URL(root.ctx + '/encounter/formExists', root.location.href);
+        var context = typeof root.ctx === 'string' ? root.ctx : root.encounterConfig.ctx;
+        var check = new URL(context + '/encounter/formExists', root.location.href);
         check.searchParams.set('demographicNo', patient || '');
         check.searchParams.set('formname', name);
         if (target.searchParams.has('appointmentNo')) {

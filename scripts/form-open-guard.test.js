@@ -69,3 +69,12 @@ test('rapid repeated clicks issue one check while a decision is pending', async 
   await first;
   assert.equal(f.requests.length, 1);
 });
+
+test('the legacy encounter uses its own configured context for the check', async () => {
+  const f = fixture();
+  delete f.root.ctx;
+  f.root.encounterConfig = {ctx: '/clinic', demographicNo: '456'};
+  await f.start();
+  assert.equal(f.requests[0].pathname, '/clinic/encounter/formExists');
+  assert.equal(f.requests[0].searchParams.get('demographicNo'), '123');
+});

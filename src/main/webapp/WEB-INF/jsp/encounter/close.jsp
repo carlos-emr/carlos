@@ -42,7 +42,7 @@
 
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/form-completion.js"></script>
         <script>
-            completeEncounterForm(window, "${carlos:forJavaScript(param.demographic_no)}", "");
+            completeEncounterForm(window, "${carlos:forJavaScript(not empty param.demographic_no ? param.demographic_no : param.demographicNo)}", "");
         </script>
     </head>
     <body>

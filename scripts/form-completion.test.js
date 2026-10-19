@@ -169,3 +169,25 @@ test('Save and Exit refreshes only the owning patient Forms list and never reloa
     assert.deepEqual(f.actions, [['close']]);
   }
 });
+
+test('ordinary Save refreshes the owning chart without closing the form or changing its draft', () => {
+  const {refreshEncounterForms} = require('../src/main/webapp/form/form-completion');
+  for (const patient of ['123', '456']) {
+    const f = fixture();
+    refreshEncounterForms(f.popup, patient);
+    assert.equal(f.editor.value, 'Existing draft');
+    assert.deepEqual(f.actions.map(action => action[0]), patient === '123' ? ['refresh', 'refresh'] : []);
+  }
+});
+
+test('the legacy chart refresh uses encounterConfig and rejects conflicting configured patients', () => {
+  const {refreshEncounterForms} = require('../src/main/webapp/form/form-completion');
+  for (const patient of ['123', '456']) {
+    const f = fixture({globalId: undefined, query: '', hidden: []});
+    delete f.opener.ctx;
+    f.opener.encounterConfig = {ctx: '/clinic', demographicNo: patient};
+    refreshEncounterForms(f.popup, '123');
+    assert.deepEqual(f.actions.map(action => action[0]), patient === '123' ? ['refresh', 'refresh'] : []);
+    if (patient === '123') assert.match(f.actions[0][2], /\/clinic\/encounter\/displayForms/);
+  }
+});

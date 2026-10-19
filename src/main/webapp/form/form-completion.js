@@ -13,6 +13,7 @@
         ['demographicNo', 'demographic_no'].forEach(function (name) {
             if (typeof opener[name] !== 'undefined') identities.push(opener[name]);
         });
+        if (opener.encounterConfig) identities.push(opener.encounterConfig.demographicNo);
         var address = new URL(opener.location.href);
         ['demographicNo', 'demographic_no'].forEach(function (name) {
             address.searchParams.getAll(name).forEach(function (value) { identities.push(value); });
@@ -29,12 +30,13 @@
             opener.location.reload();
             return;
         }
-        if (typeof opener.loadDiv !== 'function' || typeof opener.ctx !== 'string') return;
+        var context = typeof opener.ctx === 'string' ? opener.ctx : opener.encounterConfig && opener.encounterConfig.ctx;
+        if (typeof opener.loadDiv !== 'function' || typeof context !== 'string') return;
         ['forms', 'measurements'].forEach(function (panel) {
             try {
                 if (!opener.document.getElementById(panel)) return;
                 var route = panel === 'forms' ? 'displayForms' : 'displayMeasurements';
-                var url = new URL(opener.ctx + '/encounter/' + route, opener.location.href);
+                var url = new URL(context + '/encounter/' + route, opener.location.href);
                 if (url.origin !== opener.location.origin) return;
                 url.searchParams.set('demographicNo', patient);
                 url.searchParams.set('cmd', panel);
@@ -47,6 +49,14 @@
                 // Refresh is optional on legacy charts; one unavailable panel must not prevent closing.
             }
         });
+    }
+
+    function refreshEncounterForms(formWindow, demographicNo) {
+        try {
+            var patient = patientId(demographicNo);
+            var opener = formWindow.opener;
+            if (patient && opener && !opener.closed && isOwnChart(opener, patient)) refreshChart(opener, patient);
+        } catch (ignored) { /* Closed, cross-origin or navigated opener. */ }
     }
 
     function completeEncounterForm(completionWindow, demographicNo, text) {
@@ -70,6 +80,9 @@
         }
     }
 
-    if (typeof module === 'object' && module.exports) module.exports = {completeEncounterForm: completeEncounterForm};
-    else root.completeEncounterForm = completeEncounterForm;
+    if (typeof module === 'object' && module.exports) module.exports = {completeEncounterForm: completeEncounterForm, refreshEncounterForms: refreshEncounterForms};
+    else {
+        root.completeEncounterForm = completeEncounterForm;
+        root.refreshEncounterForms = refreshEncounterForms;
+    }
 }(typeof window === 'undefined' ? globalThis : window));
