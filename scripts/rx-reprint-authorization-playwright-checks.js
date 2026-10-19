@@ -27,13 +27,20 @@ async function csrfToken(context, config) {
 async function workflow(s) {
   const { sql, patient, provider, marker, config } = s;
   const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
+  let script;
   s.cleanup(() => fixture.cleanup());
   s.cleanup(() => {
+    if (script) {
+      const ownedReprints = `demographic_no=${patient} AND action='reprint'
+        AND content='prescription' AND contentId=${q(script)}`;
+      sql.execute(`DELETE FROM log WHERE ${ownedReprints}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE ${ownedReprints}`) === '0', 'Owned reprint audit rows remain');
+    }
     sql.execute(`DELETE FROM drugs WHERE demographic_no=${patient}; DELETE FROM prescription WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient})`) === '0', 'Owned prescription rows remain');
   });
-  const script = sql.value(`INSERT INTO prescription(provider_no,demographic_no,date_prescribed,date_printed,textView,lastUpdateDate)
+  script = sql.value(`INSERT INTO prescription(provider_no,demographic_no,date_prescribed,date_printed,textView,lastUpdateDate)
     VALUES(${q(provider)},${patient},CURDATE(),CURDATE(),${q(marker)},NOW()); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(script), 'Synthetic prescription was not created');
   sql.execute(`INSERT INTO drugs(provider_no,demographic_no,rx_date,end_date,written_date,BN,GCN_SEQNO,customName,
