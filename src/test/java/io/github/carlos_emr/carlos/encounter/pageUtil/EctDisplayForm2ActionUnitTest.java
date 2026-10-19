@@ -197,6 +197,21 @@ class EctDisplayForm2ActionUnitTest {
         return panel;
     }
 
+    @Test
+    void shouldSerializeGuardArgumentsAsJson_whenFormNameContainsPunctuation() throws Exception {
+        String name = "Caregiver's, \\\"record\\\" \\\\ suivi";
+        register(name, "formCaregiver", "../form/formcaregiver.jsp?demographic_no=");
+        String expression = render().getAutoCompleteItems().getFirst().jsExpression();
+        String prefix = "openEncounterForm.apply(null,";
+        assertThat(expression).startsWith(prefix).endsWith(");");
+        var arguments = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                expression.substring(prefix.length(), expression.length() - 2));
+        assertThat(arguments.size()).isEqualTo(3);
+        assertThat(arguments.get(0).asText()).contains("demographic_no=1&formId=0");
+        assertThat(arguments.get(1).asText()).endsWith("new");
+        assertThat(arguments.get(2).asText()).isEqualTo(name);
+    }
+
     private void register(String name, String table, String value) {
         EncounterForm form = new EncounterForm();
         form.setFormName(name);

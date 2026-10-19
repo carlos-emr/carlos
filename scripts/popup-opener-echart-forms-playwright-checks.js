@@ -138,6 +138,19 @@ async function workflow(s) {
     h.assert(rows() === '2', 'Opening the saved form changed its versions');
   });
 
+  await s.step('Form autocomplete dispatches the same saved-form guard and Cancel preserves history', async () => {
+    const search = chart.locator('#enTemplate');
+    await search.fill('');
+    await search.pressSequentially('Rourke2017', {delay: 40});
+    const suggestion = chart.locator('#enTemplate_list li').filter({hasText: 'Rourke2017 (new)'});
+    await suggestion.waitFor({state: 'visible'});
+    await suggestion.click();
+    const dialog = chart.getByRole('dialog', {name: 'Saved form exists'});
+    await dialog.waitFor();
+    await dialog.getByRole('button', {name: 'Cancel', exact: true}).click();
+    h.assert(rows() === '2', 'Cancelling autocomplete changed saved versions');
+  });
+
   await s.step('Create a new blank version remains available only after an explicit choice', async () => {
     const link = chart.locator('#forms .menu a[data-encounter-form-name="Rourke2017"]');
     await revealAuditLink(chart, link, 20000);
