@@ -614,6 +614,21 @@
       ]
     },
     {
+      "name": "consultation-consultant-validation",
+      "script": "scripts/consultation-consultant-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient, service, active/inactive specialists, referral, archives and signatures; all removed by owned keys.",
+      "notes": "Issue #3336: browser and server consultant validation, preserved clinical data, legacy unassigned reads and valid saves."
+    },
+    {
       "name": "consultation-request-create",
       "script": "scripts/consultation-request-create-playwright-checks.js",
       "tiers": [

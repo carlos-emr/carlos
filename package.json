@@ -18,6 +18,7 @@
     "test:appointment-slot-lock-booker-playwright": "node scripts/appointment-slot-lock-booker-playwright-checks.js",
     "test:appointment-group-paste-restriction-playwright": "node scripts/appointment-group-paste-restriction-playwright-checks.js",
     "test:appointment-slot-lock-non-admin-playwright": "node scripts/appointment-slot-lock-non-admin-playwright-checks.js",
+    "test:consultation-consultant-validation-playwright": "node scripts/consultation-consultant-validation-playwright-checks.js",
     "test:playwright": "node scripts/run-playwright-suite.js",
     "test:inbox-document-dates-playwright": "node scripts/inbox-document-dates-playwright-checks.js",
     "test:inbox-document-forwarding-scope-playwright": "node scripts/inbox-document-forwarding-scope-playwright-checks.js",

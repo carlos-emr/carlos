@@ -1102,6 +1102,10 @@
                 };
             }
 
+            // Editing the visible name invalidates the previous hidden directory id.
+            jQuery('#specialistInput').on('input', function() {
+                jQuery('#specialist').val('');
+            });
             jQuery('#specialistInput').on('click', function() {
                 jQuery(this).autocomplete('search', '');
             });
@@ -1757,6 +1761,13 @@
     <script type="text/javascript">
 
         function checkForm(submissionVal, formName) {
+            // A typed name is not a directory selection. Validate the posted id on both pickers.
+            var consultant = document.getElementById('specialist');
+            if (/^(Submit|Update)/.test(submissionVal) && consultant && !/^[1-9][0-9]*$/.test(consultant.value)) {
+                alert('Please select an active consultant from the consultant directory before saving.');
+                (document.getElementById('specialistInput') || consultant).focus();
+                return false;
+            }
             ShowSpin(true);
             var success = true;
             var isEReferral = document.getElementById('isOceanEReferral') !== null;
@@ -2342,7 +2353,7 @@ if (userAgent != null) {
                     thisForm.setSiteName(consultUtil.siteName);
                     defaultSiteName = consultUtil.siteName;
 
-                } else if (request.getAttribute("validateError") == null) {
+                } else {
                     //  new request
                     if (demo != null) {
                         RxInformation RxInfo = new RxInformation();
@@ -2373,6 +2384,12 @@ if (userAgent != null) {
                         thisForm.setSiteName(defaultSiteName);
                     }
                 }
+            }
+
+            if (request.getAttribute("consultationSubmittedValues") != null) {
+                // Overlay posted fields after loading patient/legacy metadata and defaults.
+                new org.springframework.beans.BeanWrapperImpl(thisForm).setPropertyValues((Map) request.getAttribute("consultationSubmittedValues"));
+                thisForm.setSpecialist(""); // force a fresh active directory selection
             }
 
             if (thisForm.iseReferral()) {
@@ -3413,9 +3430,9 @@ if (userAgent != null) {
                                         // Existing consultations are restored from their saved IDs immediately below.
                                         jQuery('#serviceInput').trigger('input');
                                         initializeConsultation(
-                                            '<carlos:encode value='<%= String.valueOf(consultUtil.service) %>' context="javaScriptBlock"/>',
-                                            '<%=((consultUtil.service==null)?"":SafeEncode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
-                                            '<carlos:encode value='<%= String.valueOf(consultUtil.specialist) %>' context="javaScriptBlock"/>',
+                                            '<carlos:encode value='<%= thisForm.getService() %>' context="javaScriptBlock"/>',
+                                            (allServicesData.find(function(s) { return String(s.serviceId) === '<carlos:encode value='<%= thisForm.getService() %>' context="javaScriptBlock"/>'; }) || {}).serviceDesc || '',
+                                            '<carlos:encode value='<%= thisForm.getSpecialist() %>' context="javaScriptBlock"/>',
                                             '<%=((consultUtil.specialist==null)?"":SafeEncode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
                                             '<carlos:encode value='<%= consultUtil.specPhone %>' context="javaScriptBlock"/>',
                                             '<carlos:encode value='<%= consultUtil.specFax %>' context="javaScriptBlock"/>',
@@ -3431,13 +3448,13 @@ if (userAgent != null) {
                                                     property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                     defaultVal="false">
                             <script type="text/javascript">
-                                const specialist = "${carlos:forJavaScript(consultUtil.specialist)}";
-                                const servicevalue = "${carlos:forJavaScript(consultUtil.service)}";
+                                const specialist = "${carlos:forJavaScript(EctConsultationFormRequest2Form.specialist)}";
+                                const servicevalue = "${carlos:forJavaScript(EctConsultationFormRequest2Form.service)}";
 
                                 document.EctConsultationFormRequest2Form.specialist.value = specialist;
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;
 
-                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null) {
+                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null && healthCareTeam[specialist]) {
                                     document.EctConsultationFormRequest2Form.annotation.value = healthCareTeam[specialist].note;
                                     document.EctConsultationFormRequest2Form.phone.value = healthCareTeam[specialist].phoneNum;
                                     document.EctConsultationFormRequest2Form.fax.value = healthCareTeam[specialist].specFax;
@@ -3451,6 +3468,48 @@ if (userAgent != null) {
         </div><%-- end row --%>
         </div><%-- end container-fluid --%>
         <div id="attachDocumentDisplay" style="display:none;"></div>
+    <% if (request.getAttribute("consultationSubmittedValues") != null) { %>
+    <script>
+        // Keep attachment additions/removals on the retry form without writing them to the database.
+        (function() {
+            var form = document.getElementById('EctConsultationFormRequest2Form');
+            function retainAttachments(field, values, tableId, label) {
+                form.querySelectorAll('input[name="' + field + '"]').forEach(function(input) {
+                    if (values.indexOf(input.value) < 0) input.closest('tr').remove();
+                });
+                values.forEach(function(value) {
+                    if (Array.from(form.querySelectorAll('input[name="' + field + '"]')).some(function(input) {
+                        return input.value === value;
+                    })) return;
+                    var row = document.getElementById(tableId).insertRow();
+                    row.id = 'entry_' + field + value;
+                    var cell = row.insertCell();
+                    cell.textContent = label + ' ' + value;
+                    var input = document.createElement('input');
+                    input.type = 'hidden'; input.name = field; input.value = value;
+                    input.id = 'delegate_' + field + value;
+                    input.className = 'delegateAttachment';
+                    cell.appendChild(input);
+                });
+            }
+            <% for (String[] attachment : new String[][] {
+                    {"docNo", "attachedDocumentsTable", "Document"}, {"labNo", "attachedLabsTable", "Lab"},
+                    {"formNo", "attachedFormsTable", "Form"}, {"eFormNo", "attachedEFormsTable", "eForm"},
+                    {"hrmNo", "attachedHRMDocumentsTable", "HRM report"}}) {
+                String[] selected = request.getParameterValues(attachment[0]); %>
+                retainAttachments('<carlos:encode value='<%= attachment[0] %>' context="javaScriptBlock"/>', [
+                    <% if (selected != null) { for (String value : selected) { %>
+                    '<carlos:encode value='<%= value %>' context="javaScriptBlock"/>',
+                    <% } } %>
+                ], '<carlos:encode value='<%= attachment[1] %>' context="javaScriptBlock"/>',
+                   '<carlos:encode value='<%= attachment[2] %>' context="javaScriptBlock"/>');
+            <% } %>
+            // The extension checkbox is separate from the typed form bean.
+            var title = document.getElementById('ext_letterheadTitle');
+            if (title) title.checked = <%= request.getParameter("ext_letterheadTitle") != null %>;
+        })();
+    </script>
+    <% } %>
     </form>
     </body>
 
