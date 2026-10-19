@@ -92,6 +92,17 @@ class DemographicMergedUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldFindNoHead_whenTheChainIsACycle() {
+        link(1, 2);
+        link(2, 1);
+        link(3, 4);
+
+        assertThat(merged.findHead(1)).isNull();
+        assertThat(merged.findHead(2)).isNull();
+        assertThat(merged.findHead(3)).isEqualTo(4);
+    }
+
+    @Test
     void shouldReturnTheStartingRecord_whenARecordIsMergedIntoItself() {
         link(7, 7);
 

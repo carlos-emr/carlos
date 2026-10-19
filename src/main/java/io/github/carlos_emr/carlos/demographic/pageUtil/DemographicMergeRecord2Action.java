@@ -100,13 +100,13 @@ public class DemographicMergeRecord2Action extends ActionSupport {
             // Validate every id before the first write so a rejected request leaves no partial merge behind.
             if (!isMergeable(dmDAO, records, head)) {
                 logger.warn("Rejected demographic merge: a selected record is not a mergeable head record");
-                request.setAttribute("mergeoutcome", "failure");
-                return "failure";
-            }
-            for (String record : records) {
-                if (!record.equals(head))
-                    dmDAO.Merge(loggedInInfo, record, head);
+                outcome = "failure";
+            } else {
+                for (String record : records) {
+                    if (!record.equals(head))
+                        dmDAO.Merge(loggedInInfo, record, head);
 
+                }
             }
 
         } else if (action.equals("unmerge") && records.size() > 0) {

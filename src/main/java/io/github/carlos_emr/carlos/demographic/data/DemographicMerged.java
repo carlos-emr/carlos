@@ -180,9 +180,20 @@ public class DemographicMerged {
      *
      * <p>Iterative with a visited set: a corrupt chain that loops back on itself (for example from a crafted
      * merge request before the cycle checks existed) would otherwise recurse until the stack overflows. When a
-     * cycle is found there is no real head, so the starting record is returned unchanged.
+     * cycle is found there is no real head, so the starting record is returned unchanged. Callers that must
+     * not treat such a record as a head (lab routing) use {@link #findHead(Integer)} instead.
      */
     public Integer getHead(Integer demographic_no) {
+        Integer head = findHead(demographic_no);
+        return head != null ? head : demographic_no;
+    }
+
+    /**
+     * Like {@link #getHead(Integer)}, but returns {@code null} when the chain is a cycle and therefore has no
+     * head. A cyclic record is neither a head nor a record whose head is known, so a caller deciding where to
+     * deliver data (an incoming lab) must leave it unresolved rather than attach it to an arbitrary member.
+     */
+    public Integer findHead(Integer demographic_no) {
         Set<Integer> visited = new HashSet<>();
         Integer current = demographic_no;
         while (visited.add(current)) {
@@ -196,8 +207,8 @@ public class DemographicMerged {
             current = next;
         }
         logger.warn("Merge cycle detected in demographic_merged chain starting at demographic "
-                + LogSafe.sanitizeObject(demographic_no) + "; treating it as its own head");
-        return demographic_no;
+                + LogSafe.sanitizeObject(demographic_no));
+        return null;
     }
 
     public ArrayList<String> getTail(String demographic_no) {

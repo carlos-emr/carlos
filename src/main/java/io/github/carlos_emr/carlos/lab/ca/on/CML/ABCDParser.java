@@ -205,14 +205,22 @@ public class ABCDParser {
             }
             try (ResultSet rs = pstmt.executeQuery()) {
                 // A merged source record and its head share the patient's HIN: count distinct heads, not rows.
+                // A row inside a merge cycle has no head to deliver to, so it makes the whole match unresolved.
                 DemographicMerged mergeChain = new DemographicMerged();
                 Set<Integer> matchedHeads = new HashSet<>();
+                boolean unresolvedChain = false;
                 while (rs.next()) {
-                    Integer head = mergeChain.getHead(Integer.valueOf(Misc.getString(rs, "demographic_no")));
-                    if (matchedHeads.add(head)) {
+                    Integer head = mergeChain.findHead(Integer.valueOf(Misc.getString(rs, "demographic_no")));
+                    if (head == null) {
+                        unresolvedChain = true;
+                    } else if (matchedHeads.add(head)) {
                         countHolder[0]++;
+                        demo = head.toString();
                     }
-                    demo = head.toString();
+                }
+                if (unresolvedChain) {
+                    countHolder[0] = 0;
+                    demo = "0";
                 }
             }
         }

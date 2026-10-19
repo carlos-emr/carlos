@@ -587,6 +587,7 @@ public final class MessageUploader {
 					// heads are a genuinely ambiguous match and must stay unmatched.
 					DemographicMerged mergeChain = new DemographicMerged();
 					Set<Integer> matchedHeads = new HashSet<>();
+					boolean unresolvedChain = false;
 
 					while (rs.next()) {
 						result = new PatientLabRoutingResult();
@@ -594,11 +595,17 @@ public final class MessageUploader {
 						provider_no = Misc.getString(rs, "provider_no");
 						result.setDemographicNo(Integer.parseInt(demo));
 						result.setProviderNo(provider_no);
-						matchedHeads.add(mergeChain.getHead(result.getDemographicNo()));
+						Integer matchedHead = mergeChain.findHead(result.getDemographicNo());
+						if (matchedHead == null) {
+							unresolvedChain = true;
+						} else {
+							matchedHeads.add(matchedHead);
+						}
 					}
 					rs.close();
 					pstmt.close();
-					if (matchedHeads.size() > 1) {
+					// A match inside a merge cycle has no head to deliver to: leave the lab unmatched.
+					if (unresolvedChain || matchedHeads.size() > 1) {
 						result = null;
 					}
 				}

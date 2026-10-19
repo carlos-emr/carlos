@@ -196,4 +196,16 @@ class MessageUploaderMergedPatientMatchIntegrationTest extends CarlosTestBase {
 
         assertThat(routedDemographics(HIN, FIRST_LAB + 3)).isEmpty();
     }
+
+    @Test
+    void shouldStayUnrouted_whenOnlyOneMemberOfAMergeCycleMatchesTheHin() throws Exception {
+        Demographic matching = patient(HIN);
+        Demographic other = patient(OTHER_HIN);
+        merge(matching, other);
+        merge(other, matching);
+        flushAll();
+
+        // The cycle has no head, so the matching member must not be mistaken for one.
+        assertThat(routedDemographics(HIN, FIRST_LAB + 4)).isEmpty();
+    }
 }

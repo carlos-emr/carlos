@@ -125,6 +125,17 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepTheCaisiResultPath_whenAMergeIsRejected() {
+        alreadyMerged(11, 20);
+        request.setParameter("caisiSearch", "yes");
+
+        assertThat(merge("10", "10", "11")).isEqualTo("caisiSearch");
+        assertThat(request.getAttribute("mergeoutcome")).isEqualTo("failure");
+
+        verify(dao, never()).persist(any());
+    }
+
+    @Test
     void shouldRejectMerge_whenAnIdIsNotNumeric() {
         assertThat(merge("10", "10", "not-a-number")).isEqualTo("failure");
 
