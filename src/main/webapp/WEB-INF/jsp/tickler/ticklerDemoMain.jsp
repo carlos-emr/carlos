@@ -1100,13 +1100,9 @@
                                                      value="<fmt:message key="tickler.ticklerDemoMain.btnAddTickler"/>"
                                                      onClick="popupPage('400','600', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&bFirstDisp=false&messageID=null&demographic_no=<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScriptAttribute"/>&chart_no=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&name=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>')"
                                                      class="sbttn"><% } %> <input type="hidden" name="submit_form"
-                                                                           value=""> <% if (ticklerview.compareTo("D") == 0) {%>
-                                <input
-                                        type="button"
-                                        value="<fmt:message key="tickler.ticklerDemoMain.btnErase"/>"
-                                        class="sbttn"
-                                        onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
-                                <%} else {%> <input type="button"
+                                                                           value="">
+                                <%-- Deleted tasks remain part of the clinical record; no erase action. --%>
+                                <% if (ticklerview.compareTo("D") != 0) {%> <input type="button"
                                                     value="<fmt:message key="tickler.ticklerDemoMain.btnComplete"/>"
                                                     class="sbttn"
                                                     onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
