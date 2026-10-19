@@ -121,17 +121,16 @@ async function workflow(s) {
     await page.locator('a[onclick*="getElementById(\'reprint\')"]').click();
     const printed = page.waitForResponse(response => response.request().method() === 'POST'
       && new URL(response.url()).pathname.endsWith('/rx/rePrescribe2'));
-    const popup = s.context.waitForEvent('page');
     await page.locator(`a[onclick="reprint2('${script}')"]`).first().click();
     const response = await printed;
     h.assert(response.status() === 200, `Browser reprint answered ${response.status()}`);
-    const view = await popup;
-    await view.waitForLoadState('domcontentloaded');
-    h.assert((await view.locator('body').innerText()).includes(marker), 'Reprint did not display the owned script');
+    const view = page.frameLocator('#carlosModalBody iframe');
+    const printedScript = view.frameLocator('#preview').locator('#preview2Form');
+    await printedScript.waitFor({ state: 'attached', timeout: 30000 });
+    h.assert((await printedScript.innerText()).includes(marker), 'Reprint did not display the owned script');
     h.assert(stamps().length === before + 1 && stamps().at(-1).endsWith(`;${provider}`),
       'Browser reprint did not record exactly one stamp for the provider');
     await expectValue(sql, auditQuery, String(beforeAudit + 1), 'Browser reprint did not record exactly one REPRINT log');
-    await view.close();
     await page.close();
   });
 
