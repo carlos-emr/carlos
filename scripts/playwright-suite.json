@@ -12662,6 +12662,24 @@
       "fixtures": "The owned FAKE- patient made a BC patient with a street address and city and no postal code; one owned billing physician (bc.createBillingPhysician); one incomplete WCB form for the patient. Cleanup deletes the patient's wcb rows and BC billing rows, then the physician, and asserts each is gone. No bill is saved: the check stops at the review."
     },
     {
+      "name": "billing-bc-wcb-code-pickers",
+      "script": "scripts/billing-bc-wcb-code-pickers-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "mutates": [
+        "wcb_bp_code",
+        "wcb_noi_code"
+      ],
+      "notes": "The BC WCB form's code lookups, which billing-bc-wcb-form fills by typing (billing-bc-adjust-bill-code-search's diagnosis search is Adjust Bill's ViewBillingDigNewSearch, another page): Create Invoice ▸ WCB ▸ New WCB Form ▸ Search beside ICD9, Body Part and Nature of Injury (support/Icd9, support/BodyPart, support/NatureInjury). The ICD9 lookup lists the codes for the typed text and a pick fills exactly the ICD9 box; the Body Part and Nature of Injury lookups list the owned code and a pick fills exactly that box. The last step, the install lists WorkSafeBC side, body part and nature-of-injury codes of its own, fails on a Flyway-built BC install until #5062 (findings log 444) restores the reference rows: wcb_side, wcb_bp_code and wcb_noi_code are empty, so the Side list has no options and both lookups list nothing but the owned codes. Notes only, no pin.",
+      "fixtures": "One billing physician (bc.createBillingPhysician), the owned FAKE patient made a BC patient, and one wcb_bp_code and one wcb_noi_code row carrying the run marker with a non-numeric code no WorkSafeBC code uses. The two code tables are clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup deletes the owned code rows by marker, the patient's BC billing rows and the physician, and asserts each is gone."
+    },
+    {
       "name": "billing-bc-wcb-links",
       "script": "scripts/billing-bc-wcb-links-playwright-checks.js",
       "tiers": [

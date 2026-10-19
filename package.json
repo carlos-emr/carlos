@@ -307,6 +307,7 @@
     "test:billing-bc-preferences-playwright": "node scripts/billing-bc-preferences-playwright-checks.js",
     "test:billing-bc-codes-admin-playwright": "node scripts/billing-bc-codes-admin-playwright-checks.js",
     "test:billing-bc-wcb-form-playwright": "node scripts/billing-bc-wcb-form-playwright-checks.js",
+    "test:billing-bc-wcb-code-pickers-playwright": "node scripts/billing-bc-wcb-code-pickers-playwright-checks.js",
     "test:billing-bc-wcb-links-playwright": "node scripts/billing-bc-wcb-links-playwright-checks.js",
     "test:billing-bc-simulation-encoding-playwright": "node scripts/billing-bc-simulation-encoding-playwright-checks.js",
     "test:billing-bc-report-center-playwright": "node scripts/billing-bc-report-center-playwright-checks.js",
