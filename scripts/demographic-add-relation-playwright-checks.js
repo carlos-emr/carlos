@@ -66,11 +66,12 @@ async function workflow(s) {
   await s.step('the form saves the chosen relationship through a real POST', async () => {
     await popup.locator('select[name="relation"]').selectOption('Partner');
     await popup.locator('textarea[name="notes"]').fill(s.marker);
-    const posted = popup.waitForRequest(request => request.method() === 'POST'
-      && new URL(request.url()).pathname.endsWith('/demographic/AddRelation'));
-    await clickAndAwaitReload(popup, popup.locator('form[action$="/demographic/AddRelation"] input[type="submit"]'),
-      { timeout: 30000, label: 'relation save' });
-    await posted;
+    await Promise.all([
+      popup.waitForRequest(request => request.method() === 'POST'
+        && new URL(request.url()).pathname.endsWith('/demographic/AddRelation')),
+      clickAndAwaitReload(popup, popup.locator('form[action$="/demographic/AddRelation"] input[type="submit"]'),
+        { timeout: 30000, label: 'relation save' }),
+    ]);
     await h.assertNotErrorPage(popup, 'relation save');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM relationships WHERE demographic_no=${s.patient}
       AND relation_demographic_no=${contact} AND relation='Partner' AND notes=${h.sqlString(s.marker)}`) === '1',

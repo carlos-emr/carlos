@@ -48,10 +48,12 @@ async function workflow(s) {
     h.assert(placeholders.length === 2, 'Refreshing image placeholders duplicated or lost an image');
     h.assert(placeholders.every(item => sources[item.id] === item.value), 'Image placeholders have the wrong sources');
     h.assert(await page.locator('input[name="openosp-image-link"]').count() === 0, 'The toolbar still submits the old field');
-    const posted = page.waitForRequest(request => request.method() === 'POST'
-      && new URL(request.url()).pathname.endsWith('/eform/addEForm'));
-    await clickAndAwaitReload(page, page.locator('#remoteSubmitButton'), { timeout: 30000, label: 'image save' });
-    const body = new URLSearchParams((await posted).postData());
+    const [posted] = await Promise.all([
+      page.waitForRequest(request => request.method() === 'POST'
+        && new URL(request.url()).pathname.endsWith('/eform/addEForm')),
+      clickAndAwaitReload(page, page.locator('#remoteSubmitButton'), { timeout: 30000, label: 'image save' }),
+    ]);
+    const body = new URLSearchParams(posted.postData());
     h.assert(body.getAll('carlos-image-link').length === 2 && !body.has('openosp-image-link'),
       'The actual save did not carry exactly two CARLOS image links');
     await h.assertNotErrorPage(page, 'image save');
