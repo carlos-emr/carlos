@@ -20,11 +20,17 @@ async function workflow(s){
       try{
         let response;
         const dialogs=await h.withExpectedDialogs(rx,async()=>{
-          [response]=await Promise.all([rx.waitForResponse(isSave),box.check()]);
-          await rx.waitForLoadState('networkidle');
+          // Response headers precede the asynchronous failure handler. Keep
+          // the expected-dialog scope alive until its alert and rollback finish.
+          [response]=await Promise.all([rx.waitForResponse(isSave),rx.waitForEvent('dialog'),box.check()]);
+          await rx.waitForFunction(id=>{
+            const checkbox=document.getElementById(`hidecpp_${id}`);
+            return checkbox&&!checkbox.disabled&&!checkbox.checked;
+          },drug);
         });
         h.assert(response.status()===403,'Refusal fixture did not answer the UI request');
-        await rx.waitForLoadState('networkidle');
+        await rx.locator('#drugProfile[aria-busy="false"]').waitFor({state:'attached'});
+        await box.waitFor({state:'visible'});
         consumeExpectedFailure(s.recorder,mark,{status:403,path:/\/rx\/hideCpp$/});
         h.assert(JSON.stringify(state())===before,'Refused Hide CPP changed clinical state');
         h.assert(!await box.isChecked(),'The checkbox claims Hidden after its save was refused');
