@@ -336,7 +336,7 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       // The entry being in the menu is what the step needs; the form opening for the owned patient is the test.
       const link = await claims.asPrecondition(async () => {
         setSex(form.sex || 'F');
-        await chart.locator('#menuTitle1 a').hover();
+        await ui.openFormsMenu(chart);
         const found = chart.getByRole('link', { name, exact: true });
         const listed = await found.count();
         claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);

@@ -972,19 +972,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     jQuery(document).ready(function () {
         if ('<%=singleLineFormat%>' == 'true') {
-            var staleIds = new Array();
-
-            jQuery("img[id^='quitImg']").each(function () {
-                if (jQuery(this).attr('src').indexOf('/encounter/graphics/triangle_down.gif') != -1) {
-                    var iid = jQuery(this).attr('id');
-                    jQuery(this).trigger('click');
-                    staleIds.push(iid);
-                }
+            // The provider's single-line format: fold each shortened (stale) note onto one line with its
+            // date. These notes carry the Maximize image (name fullViewTrigger). Clicking it twice, to expand
+            // the note and fold it again, stopped working when fullViewById began adding a Minimize image of
+            // its own beside it: the second click hit the Maximize image and expanded the note again.
+            jQuery("img[name='fullViewTrigger'][id^='quitImg']").each(function () {
+                minStaleNoteView(this.id.substring('quitImg'.length));
             });
-
-            for (var i = 0; i < staleIds.length; i++) {
-                jQuery("#" + staleIds[i]).trigger('click');
-            }
         }
     });
 

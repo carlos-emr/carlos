@@ -619,11 +619,12 @@ public class Flowsheet2Action extends ActionSupport {
         fsuc.setName(UUID.randomUUID().toString().substring(0, 4));
         fsuc.setDisplayName(name);
         fsuc.setTemplate(template);
-        fsuc.setScope(scope);
+        // Either spelling of the provider scope is stored as SCOPE_PROVIDER.
+        fsuc.setScope(FlowSheetUserCreated.isProviderScope(scope) ? FlowSheetUserCreated.SCOPE_PROVIDER : scope);
         if ("patient".equals(scope)) {
             fsuc.setScopeDemographicNo(Integer.parseInt(demographicNo));
         }
-        if ("providers".equals(scope)) {
+        if (FlowSheetUserCreated.isProviderScope(scope)) {
             fsuc.setScopeProviderNo(providerNo);
         }
         fsuc.setDxcodeTriggers(triggers);
@@ -1528,7 +1529,7 @@ public class Flowsheet2Action extends ActionSupport {
             if (FlowSheetUserCreated.SCOPE_PATIENT.equals(fs.getScope())) {
                 i.put("demographicNo", fs.getScopeDemographicNo());
                 i.put("details", demographicDao.getDemographicById(fs.getScopeDemographicNo()).getFormattedName());
-            } else if (FlowSheetUserCreated.SCOPE_PROVIDER.equals(fs.getScope())) {
+            } else if (FlowSheetUserCreated.isProviderScope(fs.getScope())) {
                 i.put("providerNo", fs.getScopeProviderNo());
                 i.put("details", providerDao.getProvider(fs.getScopeProviderNo()).getFormattedName());
             } else {

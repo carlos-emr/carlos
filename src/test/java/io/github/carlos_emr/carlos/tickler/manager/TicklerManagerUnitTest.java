@@ -338,26 +338,29 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         @EnumSource(value = Tickler.STATUS.class, names = {"A", "C"})
         @DisplayName("should retain the task and comments and append history when marking deleted")
         void shouldRetainClinicalRecord_whenMarkingDeleted(Tickler.STATUS initialStatus) {
-            Tickler tickler = createTestTicklerWithId(77);
+            Integer ticklerId = 77;
+            Tickler tickler = createTestTicklerWithId(ticklerId);
             tickler.setStatus(initialStatus);
             var comment = new io.github.carlos_emr.carlos.commn.model.TicklerComment();
+            comment.setId(101);
             tickler.getComments().add(comment);
             TicklerUpdate history = new TicklerUpdate();
+            history.setId(102);
             tickler.getUpdates().add(history);
-            when(mockTicklerDao.find(77)).thenReturn(tickler);
+            when(mockTicklerDao.find(ticklerId)).thenReturn(tickler);
 
-            ticklerManager.deleteTickler(mockLoggedInInfo, 77, TEST_PROVIDER);
+            ticklerManager.deleteTickler(mockLoggedInInfo, ticklerId, TEST_PROVIDER);
 
             assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
             assertThat(tickler.getMessage()).isEqualTo(TEST_MESSAGE);
-            assertThat(tickler.getComments()).containsExactly(comment);
-            assertThat(tickler.getUpdates()).containsExactly(history);
+            assertThat(tickler.getComments()).singleElement().isSameAs(comment);
+            assertThat(tickler.getUpdates()).singleElement().isSameAs(history);
             var update = org.mockito.ArgumentCaptor.forClass(TicklerUpdate.class);
             verify(mockTicklerUpdateDao).persist(update.capture());
             assertThat(update.getValue().getTicklerNo()).isEqualTo(77);
             assertThat(update.getValue().getStatus()).isEqualTo(Tickler.STATUS.D);
             assertThat(update.getValue().getProviderNo()).isEqualTo(TEST_PROVIDER);
-            verify(mockTicklerDao).find(77);
+            verify(mockTicklerDao).find(ticklerId);
             verify(mockTicklerDao).merge(tickler);
             verifyNoMoreInteractions(mockTicklerDao, mockTicklerUpdateDao);
             verifyNoInteractions(mockTicklerCommentDao, mockTicklerDocsDao);
@@ -366,14 +369,15 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         @Test
         @DisplayName("should retain an already deleted task without rewriting history")
         void shouldRetainDeletedTask_whenDeletedAgain() {
-            Tickler tickler = createTestTicklerWithId(78);
+            Integer ticklerId = 78;
+            Tickler tickler = createTestTicklerWithId(ticklerId);
             tickler.setStatus(Tickler.STATUS.D);
-            when(mockTicklerDao.find(78)).thenReturn(tickler);
+            when(mockTicklerDao.find(ticklerId)).thenReturn(tickler);
 
-            ticklerManager.deleteTickler(mockLoggedInInfo, 78, TEST_PROVIDER);
+            ticklerManager.deleteTickler(mockLoggedInInfo, ticklerId, TEST_PROVIDER);
 
             assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
-            verify(mockTicklerDao).find(78);
+            verify(mockTicklerDao).find(ticklerId);
             verifyNoMoreInteractions(mockTicklerDao);
             verifyNoInteractions(mockTicklerUpdateDao, mockTicklerCommentDao, mockTicklerDocsDao);
         }

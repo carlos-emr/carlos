@@ -129,6 +129,55 @@ test('the sql runner keeps the password out of argv and removes its option file'
   assert.equal(fs.existsSync(optionFile), false, 'dispose must remove the credential file');
 });
 
+test('bound SQL keeps query placeholders separate from hostile and Unicode parameter text', () => {
+  const calls = [];
+  const runner = createSqlRunner({ host: '127.0.0.1', password: 'secret' }, {
+    exec: (file, args) => { calls.push(args.at(-1)); return '7\n'; }, env: {},
+  });
+  const query = 'SELECT ? AS text_value, ? AS absent, ? AS enabled, ? AS amount';
+  const hostile = "O'Brien\\path; DROP TABLE drugs; -- 雪\nnext";
+  try {
+    assert.equal(runner.value(query, [hostile, null, false, 1.5]), '7');
+    assert.match(calls[0], /PREPARE carlos_pw_statement FROM @carlos_pw_query/);
+    assert.match(calls[0], /EXECUTE carlos_pw_statement USING @carlos_pw_arg_0,@carlos_pw_arg_1,@carlos_pw_arg_2,@carlos_pw_arg_3/);
+    assert.doesNotMatch(calls[0], /DROP TABLE|O'Brien|雪/);
+    const encoded = [...calls[0].matchAll(/CONVERT\(X'([a-f0-9]*)' USING utf8mb4\)/g)]
+      .map(match => Buffer.from(match[1], 'hex').toString('utf8'));
+    assert.deepEqual(encoded, [query, hostile]);
+    assert.match(calls[0], /SET @carlos_pw_arg_1=NULL; SET @carlos_pw_arg_2=0; SET @carlos_pw_arg_3=1.5/);
+    assert.deepEqual(runner.rows('SELECT ?', ['']), [['7']]);
+    runner.execute('DELETE FROM synthetic_only WHERE id=?', ['123']);
+    assert.equal(calls.length, 3, 'each API must execute its bound statement in one connection');
+  } finally { runner.dispose(); }
+});
+
+test('bound SQL rejects unsupported values before invoking mysql', () => {
+  let calls = 0;
+  const runner = createSqlRunner({ host: '127.0.0.1', password: 'secret' }, {
+    exec: () => { calls++; return ''; }, env: {},
+  });
+  try {
+    for (const value of [undefined, {}, [], NaN, Infinity, -Infinity]) {
+      assert.throws(() => runner.value('SELECT ?', [value]), /Bound SQL values must be/);
+    }
+    assert.throws(() => runner.value('SELECT ?', 'not an array'), /parameter array/);
+    assert.equal(calls, 0);
+  } finally { runner.dispose(); }
+});
+
+test('bound SQL errors withhold the query and its values', () => {
+  const runner = createSqlRunner({ host: '127.0.0.1', password: 'secret' }, {
+    exec: () => { const error = new Error('PRIVATE_VALUE SELECT patient'); error.status = 1; throw error; }, env: {},
+  });
+  try {
+    assert.throws(() => runner.value('SELECT ?', ['PRIVATE_VALUE']), error => {
+      assert.match(error.message, /database query failed \(mysql exit 1\)/);
+      assert.doesNotMatch(error.message, /PRIVATE_VALUE|SELECT|patient/);
+      return true;
+    });
+  } finally { runner.dispose(); }
+});
+
 test('the sql runner refuses a non-loopback host without the explicit opt-in', () => {
   assert.throws(
     () => createSqlRunner({ host: 'db.example.com', password: 'x' }, { exec: () => '', env: {} }),

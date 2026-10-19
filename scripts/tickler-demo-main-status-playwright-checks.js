@@ -13,6 +13,7 @@
  * refused without writing. Complete from the Active view is also covered by
  * workflow-tickler-suggested-text. A legacy Erase Completely submission retains the tickler,
  * comments, links, attachments and status history, and leaves the unticked deleted tickler alone.
+ * The independent tickler-patient-erase check also verifies legacy submissions and selection isolation.
  * Fixtures: the synthetic patient from lib/workflow-session.js, three active ticklers due today,
  * and one PDF document (row, ctl_document link and file) so the document viewer offers the list;
  * all removed and verified gone.

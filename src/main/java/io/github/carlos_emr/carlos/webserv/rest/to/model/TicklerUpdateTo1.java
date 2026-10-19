@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 import io.github.carlos_emr.carlos.commn.model.Tickler;
@@ -44,12 +46,14 @@ public class TicklerUpdateTo1 implements Serializable {
 
     private String assignedTo;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date serviceDate;
 
     private String priority;
 
     private String providerNo;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date updateDate;
 
     private String providerName;

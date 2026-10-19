@@ -3111,3 +3111,118 @@ passed), with no files copied in; the installed picker, list and bundle files ma
 `ReportReassign2Action` entry appeared. After review, the action saves the favourites only once routing has succeeded, outside the
 routing error path, and both legacy checks and `lab-forward-picker` seed a forwarding favourite before taking their baseline.
 With that class copied in, the three checks, `inbox-file-forward` and `detached-delete-forward-favourites` passed again.
+
+### Slot lock for bookers without the admin right (2026-10-18, issue #4917)
+
+`/PageMonitoringService` demanded `_admin` r, so every lock refresh and release from a receptionist, doctor or nurse answered 403:
+the Add Appointment notice stayed at "Viewers: N/A", a second booker was not stopped, and patient Search stayed disabled after any
+date, time or duration change. The endpoint now requires `_appointment` w (the Add Appointment page's own right), replies with
+only `locked`, `self` and `providerName` (the old reply carried every overlapping viewer's session id, address and provider
+number), and accepts only `POST`.
+
+`appointment-slot-lock-booker-playwright-checks.js` was added for it. It needs `appointment_locking_timeout>0` (the package
+default is 0; set it in `/etc/carlos-emr/carlos.properties` and restart `carlos-emr`) and SKIPs under
+`allowMultipleSameDayGroupAppt=no`, which renders no Add, Repeat or Group button. Two throwaway logins: an admin+doctor owner
+holds a slot, a doctor-only booker (no `_admin` row for any of its roles, asserted in the database) opens an overlapping slot.
+
+Run against `carlos-emr` and `carlos-emr-drugref` built from the `release/2026.08` fix branch (`5be04445`) in an Ubuntu 26.04
+container with `carlos-ctl` 1.1.2 and the demo dataset (`scripts/deb-docker-validation.sh up`, `carlos-ctl check` clean, `:443`).
+The classes of the later commits were compiled and copied into the installed webapp rather than rebuilding the packages:
+
+| Installed `PageMonitoring2Action` | Result |
+|---|---|
+| original (`_admin` gate) | FAIL at the booker step: "lock refresh returned HTTP 403" |
+| fix branch head | PASS, 7 of 7: booker gets 200 and `Viewers:1 (locked)`, Add/Repeat/Group hidden, Search back after a duration change, the lock and the buttons on a non-overlapping time, a GET answers 405 and changes nothing, `cancelPageLock()` removes the monitor, nothing booked, page locks removed and verified |
+
+`appointment-group-paste-restriction` (with `allowMultipleSameDayGroupAppt=no` and locking on, so it exercises the changed reply)
+and `gap-provider-appointment-do-not-book` passed with the head class. `do-not-book` times out clicking its Do Not Book control under
+`allowMultipleSameDayGroupAppt=no`; that was not investigated. It also leaves its throwaway providers' `PageMonitor` rows behind when
+locking is on (two rows, deleted by hand). The server-log audit had no unexplained signature.
+
+A `systemctl restart carlos-emr` repeated within a few minutes trips the unit's start-rate limit and the next one fails with "start of
+the service was attempted too often"; run `systemctl reset-failed carlos-emr` first and wait for `:443` to answer before the suite.
+
+### Contacts: a professional contact added from the External search (2026-10-18, issue #4987)
+
+Master Record ▸ Contacts ▸ Add (professional contact) ▸ External ▸ Search ▸ "Add/Edit Professional Contact" opened the form as a
+professional specialist whichever type the row asked for, so the contact was saved as a `professionalSpecialists` row, the row was not
+filled and the External search never listed it. `release/2026.08` at `cae31c74` plus the fix branch was packaged unstamped as
+`2026.09.0~snapshot26`. The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags, DrugRef was built on the
+host from `1941e14`, `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`, and carlos-ctl was
+1.1.2 from its release. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl
+check`: all checks passed; `BUILD_CA_BUNDLE` named the egress proxy's CA for the image's npm install).
+
+| Run | `contact-external-professional` |
+|---|---|
+| fixed packages | **PASS**, 6 steps through `:443`: the External row's Add link asks for `contactType=2` (and the Health Care Team's for 3, also for a missing, `0`, `2x` or `99` type); the Add saves one `Contact` row of type `ProfessionalContact`, no `professionalSpecialists` row and no association, fills the row and closes; Contacts Save links `2\|professional\|<id>`; the External search lists the contact and selects it; a row whose type was changed while the form was open is left unfilled; the Health Care Team panel still adds a new external contact as a professional specialist on the team |
+| pre-fix `procontactSearch.jsp`, `ManageContacts.jsp` and `addEditProfessionalContact.jsp` swapped into the installed webapp | **FAILS** at step 1: "External row's Add link asks for contactType=3" |
+
+`contact-lifecycle`, `health-care-team`, `health-care-team-heading` and `gap-records-health-care-team-panel` passed, and the check left no
+`FAKE-PW` rows behind. The smoke tier passed 11 of 12: `browser-surface` timed out waiting for the Tickler popup from the patient page,
+identically with the pre-fix JSPs restored, so it is not from this change. The server-log audit reported no unexplained signature.
+
+The WAF answers 403 to a `contactType` value carrying `"` and `=` before the page sees it, so the check's tampered values are plain text.
+
+### Manage Flowsheets opens read-only for `_admin.flowsheet` read (2026-10-19, issue #4623)
+
+Finding 267. The seeded doctor holds `_admin.flowsheet` read only; the Administration nav and `manageFlowsheets.jsp` admitted it
+while `ManageFlowsheets2Action` required write for every request, so the link answered 403. `release/2026.08` at `fefceecc62` plus
+the fix branch was packaged unstamped as `2026.09.0~snapshot26`: the CARLOS WAR was compiled in an `ubuntu:26.04` container with
+JDK 25 and the `debian/rules` Maven flags (`-Dmaven.artifact.threads=2` and short `aether.connector.http` timeouts, because the
+egress proxy stalled a parallel Maven run), DrugRef was built from the commit `debian/drugref.pin` names (`1941e14`), and
+`dpkg-buildpackage -us -uc -b` ran with `CARLOS_WAR`, `DRUGREF_WAR` and `CHROMIUM_DIST`. carlos-ctl was 1.1.2 from its release.
+The packages were installed fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean) and the
+suite ran with `EXCLUSIVE=1` appended to `/root/suite-env.sh`.
+
+| Run | `manage-flowsheets-access` |
+|---|---|
+| fixed packages (fresh install of the final head) | PASS, 5 of 5 steps |
+| original `ManageFlowsheets2Action.class` and `manageFlowsheets.jsp` swapped into the installed webapp | FAILS at "a read-only doctor opens Manage Flowsheets from the Administration nav…": the page answers 403 |
+| fixed action with the first commit's page (its combined `oscarSec` tag over `_admin`, `_admin.misc`, `_admin.flowsheet`) | FAILS at "an explicit no-rights row on _admin.misc beside the doctor's read…": the reader is redirected to `/securityError` |
+
+`admin-role-management` passes on the fixed packages (16 of 16), `flowsheet-admin` and `gap-provider-flowsheet-upload` pass (an
+administrator still lists, uploads, disables and enables), and `authz-read-role-matrix` pins 16 refused routes for the doctor
+instead of 17 (`admin/ManageFlowsheets` is served now); it still ends at its known last step, 2 `oscarResearch` routes answering
+500 instead of 403. Those two ran on the first install (first-commit packages with the second commit's page swapped in; the second
+commit changed only comments in the action). The smoke tier passed 11 of 12 on the final install; `browser-surface` timed out
+waiting for a patient popup, the same failure recorded for earlier unrelated validations. `authz-read-admin-objects` stopped at
+its control step for a field-note eForm route that the full-privilege login was not served, which this change does not touch.
+The server-log audit's unexplained signatures were BC billing and dxresearch errors; the check's refusals are logged as
+`Authorization refused` WARN lines.
+
+**The seeded doctor has no Administration link on the day sheet on this install.** The link's tag names 13 objects, and
+`OscarRoleObjectPrivilege.getPrivilegeProp()` keeps one privilege per role across them: the doctor's `_admin.reporting` `o` row
+(`on/V1.0.6`) is returned after `_admin.flowsheet` `r`, overwrites it, and the link is not rendered. So `admin-role-management`'s
+doctor-panel step is skipped by its own `#admin-panel` guard and says nothing about this fix on such an install, and
+`manage-flowsheets-access` opens the shell by its address (`/administration`, which the link opens) instead. The same limit is
+why the page no longer repeats the access check in its own combined tag.
+
+### Saved checkbox ticks on the legacy questionnaires (2026-10-19, issue #4466, finding 231)
+
+Nineteen `Frm*Record` classes decided whether a column was a checkbox with `getColumnTypeName(i).equalsIgnoreCase("TINY")`. MySQL
+Connector/J reports `BIT` for `tinyint(1)` and `TINYINT` for other widths, never `TINY`, so a saved tick came back as the raw value `1`,
+the page wrote `1=""` into the tag, the box showed unticked, and the next Save filed a version with every box unticked. They now call
+the public `FrmRecordHelp.isBooleanColumnType`. `form-catalog-smoke-checkbox-restore` lost its expected-failure pin, and the new
+`form-checkbox-reopen-playwright-checks.js` covers the four classes the catalogue does not reach (2 Minute Walk, Internet Access, Rh
+Immune Globulin, Satisfaction Scale): it seeds one saved record each for the owned patient and asserts that the boxes stored as 1 are
+ticked, the ones stored as 0 or NULL are not, and no checkbox carries an attribute named by a digit. It adds nothing to the Forms menu, so
+it needs no `EXCLUSIVE=1`.
+
+`release/2026.08` at `fefceecc` plus the fix was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR was compiled on the host
+with JDK 25 and the `debian/rules` Maven flags, `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder with `CARLOS_WAR`,
+DrugRef and the Chromium payload were built from their pins (`1941e14`, revision 1685886), and `carlos-ctl` was 1.1.2 from its release. The
+packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl check`: all checks passed;
+`:443`). The egress proxy reset a connection during the image's 469-package `apt` install on two attempts, each time on a different
+package; building the image `FROM` a base with `Acquire::Retries "10"` (`BASE_IMAGE=`) got through. On a host without IPv6 the first nginx
+start inside the install failed on `listen [::]:80`; the install finished with no `.install-incomplete` marker and nginx active.
+
+| Installed `Frm*Record` classes | `form-catalog-smoke-checkbox-restore` | `form-checkbox-reopen` |
+|---|---|---|
+| fix | **PASS**: the restore pair of all 13 forms asserted | **PASS**, 4 of 4 |
+| the 19 pre-fix classes, compiled from the base branch, swapped into the installed webapp, then `carlos-ctl restart` | **FAILS** at "CESD: the redisplayed and the reopened form show every saved value again"; all 13 forms show their ticks unticked, on the redisplayed and the reopened form | **FAILS** at "2 Minute Walk: Q1tried was saved ticked and is shown unticked" |
+
+The whole form-catalogue family (`form-catalog-smoke` and its nine variants) plus `form-checkbox-reopen` gave 7 passes, 0 failures and
+4 known failures at their own pinned steps (findings 230, 232, 235, 236), with no unexpected pass. The server-log audit reported five
+signatures, all from the ALPHA (`/form/formalpha`, HTTP 500, finding 230) and Rourke 2006 (`/form/formrourke2006`, HTTP 500, finding
+236) pins; none involved a form this change touches. The seven `scripts/dependency-security.test.js` cases that need the Docusaurus
+dependencies fail with `MODULE_NOT_FOUND` where those packages are not installed; they do not read this change.

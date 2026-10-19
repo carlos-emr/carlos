@@ -326,7 +326,6 @@ const DENIED = {
     'web/inboxhub/Inboxhub',
   ],
   doctor: [
-    'admin/ManageFlowsheets',
     'admin/ViewJobTypes',
     'admin/ViewJobs',
     'admin/ViewLotNrDeleteRecordHtm',

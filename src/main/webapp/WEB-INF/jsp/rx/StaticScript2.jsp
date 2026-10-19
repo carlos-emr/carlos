@@ -378,7 +378,7 @@
                                             <%
 							if (drug.customName==null)
 									{
-						%> <a href="javascript:ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= drug.regionalIdentifier %>' context="javaScriptAttribute"/>');">Info</a> <%
+						%> <a href="${pageContext.request.contextPath}/rx/drugInfo?GN=<carlos:encode value='<%= drug.genericName %>' context="uriComponent"/><% if (drug.regionalIdentifier != null && !drug.regionalIdentifier.isEmpty() && !"null".equals(drug.regionalIdentifier) && !"0".equals(drug.regionalIdentifier)) { %>&amp;DIN=<carlos:encode value='<%= drug.regionalIdentifier %>' context="uriComponent"/><% } %>" onclick="ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= drug.regionalIdentifier %>' context="javaScriptAttribute"/>'); return false;">Info</a> <%
 							}
 						%>
                         </td>

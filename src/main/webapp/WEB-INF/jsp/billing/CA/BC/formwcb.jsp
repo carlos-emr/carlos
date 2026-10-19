@@ -470,7 +470,7 @@
                value="<%= SafeEncode.forHtmlAttribute(form.getProviderNo()) %>"/>
         <input type="hidden" name="bNewForm" value="1"/>
         <input type="hidden" name="fromBilling" value="<carlos:encode value='<%= fromBilling %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="wcbFormId" id="wcbFormId"/>
+        <input type="hidden" name="wcbFormId" id="wcbFormId" value="<%= SafeEncode.forHtmlAttribute(bound.getWcbFormId()) %>"/>
 
         <%
             java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
@@ -824,10 +824,13 @@
                 <%if (hideToBill) { %>
                 <hidden name="hideToBill" value="true"/>
                 <%}%>
+                <%-- A saved form opens for viewing only (#4947): every save stores a new row. --%>
+                <%if (!readonly) {%>
                 <input type="submit" name="save" value="Save"/>|
                 <input type="submit" name="saveAndClose" value="Save and Close"/>|
                 <%if (!hideToBill) {%>
                 <input type="submit" name="saveandbill" value="Save and Bill"/>|
+                <%}%>
                 <%}%>
                 <input type="button" value="Cancel" onClick="window.close();"/> |
                 <input type="button" value="Print" onClick="window.print()"/>

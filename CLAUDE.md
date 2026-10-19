@@ -56,6 +56,16 @@
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
 
+## eForm Chrome Styling
+
+- eForm pages must not receive a global stylesheet: the renderers (`efmshowform_data.jsp`,
+  `efmformadd_data.jsp`) and the PDF render surface (`EFormRenderPdfHtmlComposer`) never add the
+  plain `bootstrap.min.css`, whose reboot moves legacy eForm fields on screen and in print (#3944).
+- The toolbar, save alert and attachment picker use
+  `eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css`, generated (never hand-edited) by
+  `scripts/build-eform-scoped-bootstrap.js`; new chrome goes inside an element with
+  `class="carlos-eform-ui"`. See `docs/eform-chrome-bootstrap-scope.md`.
+
 ## Debian Packaging and carlos-ctl
 
 The single-host deployment is three Debian packages (plus a transitional one):

@@ -104,19 +104,27 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                     String table = encounterForm.getFormTable();
                     if (!table.equalsIgnoreCase("")) {
 
-                        EctFormData.PatientForm[] pforms = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, bean.demographicNo, table);
+                        // The item links to formId=latest, so it must be dated and titled from the
+                        // row that shortcut opens (last edited, then highest ID), not from the most
+                        // recently created row: for a form updated in place those differ (#4678).
+                        EctFormData.PatientForm pfrm = EctFormData.getShortcutLatestPatientForm(bean.demographicNo, table);
                         // if a form has been started for the patient, create a module item for it
-                        if (pforms.length > 0) {
+                        if (pfrm != null) {
 
                             NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-                            EctFormData.PatientForm pfrm = pforms[0];
 
                             // convert date to that specified in base class
                             DateFormat formatter = new SimpleDateFormat(EctFormData.DATETIME_FORMAT);
-                            serviceDateStr = pfrm.getEdited();
+                            // A row without an edit time is only chosen when every row lacks one;
+                            // label it blank rather than failing the whole module.
+                            serviceDateStr = pfrm.edited != null ? pfrm.getEdited() : "";
 
+                            // Reset per item so an unparseable date never inherits the previous form's.
+                            date = null;
                             try {
-                                date = formatter.parse(serviceDateStr);
+                                if (!serviceDateStr.isEmpty()) {
+                                    date = formatter.parse(serviceDateStr);
+                                }
                             } catch (ParseException ex) {
                                 logger.debug("EctDisplayForm2Action: Error creating date " + ex.getMessage());
                             }
@@ -191,7 +199,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                 }
                 Dao.setRightURL("return !showMenu('" + menuId + "', event);");
 
-                // sort module items, i.e. forms, from most recently started to more distant
+                // sort module items, i.e. forms, from most recently edited to more distant
                 Dao.sortItems(NavBarDisplayDAO.DATESORT_ASC);
             } catch (Exception e) {
                 logger.error("EctDisplayForm2Action SQL ERROR:", e);

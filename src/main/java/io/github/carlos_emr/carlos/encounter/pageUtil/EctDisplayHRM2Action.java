@@ -60,6 +60,8 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
             Date date;
 
             ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, bean.demographicNo, true);
+            String chartPatientParameter = bean.demographicNo != null && bean.demographicNo.matches("\\d+")
+                    ? "&demographicNo=" + bean.demographicNo : "";
             for (HashMap<String, ? extends Object> hrmDocument : allHRMDocuments) {
                 String hrmDocumentId = String.valueOf(hrmDocument.get("id"));
                 String displayHRMName = (String) hrmDocument.get("name");
@@ -82,7 +84,9 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
                 item.setDate(date);
                 hash = Math.abs(winName.hashCode());
 
-                url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/hospitalReportManager/Display?id=" + hrmDocumentId + "&segmentID=" + hrmDocumentId + "');";
+                // The chart's patient, so a report linked to more than one patient acts for this one (#5060).
+                url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/hospitalReportManager/Display?id=" + hrmDocumentId
+                        + "&segmentID=" + hrmDocumentId + chartPatientParameter + "');";
 
                 String labRead = "";
                 if (!oscarLogDao.hasRead(user, "hrm", hrmDocumentId)) {

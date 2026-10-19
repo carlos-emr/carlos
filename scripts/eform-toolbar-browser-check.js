@@ -32,7 +32,7 @@ const fixture = (owned = false, withList = false, newFormVariant = '', subjectVa
 <script src="/library/eforms/faxControl.js"></script>
 <script src="/library/eforms/faxControl.js"></script>
 <script src="/js/faxRecipientAutocomplete.js"></script>
-<link rel="stylesheet" href="/library/bootstrap/5.3.8/css/bootstrap.min.css">
+<link rel="stylesheet" href="/eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css">
 <link rel="stylesheet" href="/eform/eformFloatingToolbar/eform_floating_toolbar_custom.css">
 </head><body><form name="saveEForm" action="/eform/addEForm" method="post"${newFormVariant === 'named' ? ' data-carlos-newform-default="true"' : ''}>
 <input id="context" value="" type="hidden"><input id="fid" value="1" type="hidden">

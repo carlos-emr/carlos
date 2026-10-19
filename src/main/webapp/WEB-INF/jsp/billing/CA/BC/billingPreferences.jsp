@@ -299,7 +299,7 @@
             })
 
             function disableFields(selected) {
-                // disable other settings whenever a default providers is selected to override.
+                // disable other settings whenever a default provider is selected to override.
                 if (selected && selected !== defaultValue) {
 
                     document.getElementById("default-provider-alert").style.display = '';
