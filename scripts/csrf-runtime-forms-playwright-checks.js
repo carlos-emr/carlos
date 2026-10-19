@@ -205,6 +205,10 @@ async function workflow(s) {
       `remove from group did not return to the group's sorted view (${h.pathOnly(admin.url())})`);
     await h.gotoApp(admin, s.config.baseUrl, '/administration?show=FormsGroups');
     await admin.waitForLoadState('networkidle').catch(() => {});
+    // Reopening Administration loads the default date-sorted panel. Select the
+    // owned group's name-sorted view again before testing that its POST keeps it.
+    await clickInjectsPanel(admin, admin.locator('#groupListTbl a.contentLink', { hasText: group }),
+      { marker: `#dynamic-content #groupListTbl tr.table-success td[title="${group}"]` });
     await admin.locator('#groupListTbl tr', { hasText: group }).locator('a[title="delete this group"]').click();
     await submitGroupConfirmation(admin, admin.locator('#confirmModal #dataConfirmed'),
       { baseUrl: s.config.baseUrl, action: '/eforms/delGroup', group, removed: true });

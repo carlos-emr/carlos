@@ -216,7 +216,10 @@ function writeFixture(tempDir, name, missingKey) {
   assert(html.includes("apCache.lookup('today');"), 'Synthetic fixture no longer exposes its reviewed lookup insertion point');
   html = html.replace("apCache.lookup('today');", "apCache.lookup('today');\n" + LITERAL_LOOKUPS.map(value => `  apCache.lookup('${value.key}');`).join('\n'));
   assert(html.includes('</form>'), 'Synthetic fixture has no owned form insertion point');
-  html = html.replace('</form>', LITERAL_LOOKUPS.map(value => `<div class="field"><input type="text" class="value" id="${value.id}" name="${value.id}" data-apcache-key="${value.key}"><div id="${value.id}_echo">APCACHE-PENDING[${value.key}]</div></div>`).join('\n') + '\n</form>');
+  // These two projections exercise literal AP output; they are recomputed from the owned
+  // patient on each view/render, not additional clinical fields to persist through Save.
+  // readonly alone still submits a named input: omit name while retaining the live value/echo.
+  html = html.replace('</form>', LITERAL_LOOKUPS.map(value => `<div class="field"><input type="text" class="value" id="${value.id}" readonly data-apcache-key="${value.key}"><div id="${value.id}_echo">APCACHE-PENDING[${value.key}]</div></div>`).join('\n') + '\n</form>');
   const htmlPath = path.join(tempDir, `${name}.html`); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- name is a fixed literal chosen by this script under a private temp directory
   fs.writeFileSync(htmlPath, html);
   return htmlPath;
@@ -293,13 +296,24 @@ async function assertLiteralLookups(page) {
     const actual = await page.evaluate(({key,id,html}) => {
       const parsed = new DOMParser().parseFromString(html, 'text/html');
       const fields = [...parsed.querySelectorAll('input')].filter(input => input.name === key);
+      const target = document.getElementById(id);
+      const form = target?.form, data = form ? new FormData(form) : null;
+      const provider = form?.querySelector('[name="apcache_provider"]');
+      const today = form?.querySelector('[name="apcache_today"]');
       return {responseCount:fields.length,responseValue:fields[0]?.value,
+        projectionReadOnly:target?.readOnly === true && target?.disabled === false,
+        projectionUnnamed:target && !target.hasAttribute('name'),
+        projectionSubmitted:!data || data.has(id) || data.has(key),
+        ordinaryFieldsSubmitted:Boolean(provider?.value && today?.value
+          && data?.get('apcache_provider') === provider.value && data?.get('apcache_today') === today.value),
         cacheValue:apCache.get(key),fieldValue:document.getElementById(id)?.value,
         injectedNodes:document.querySelectorAll('#apInjected').length + parsed.querySelectorAll('script,img').length};
     }, {key:literal.key,id:literal.id,html:response.html});
     assert(actual.responseCount === 1 && actual.responseValue === literal.expected
       && actual.cacheValue === literal.expected && actual.fieldValue === literal.expected
       && actual.injectedNodes === 0, `Owned ${literal.key} value changed or created markup at the HTTP/cache/DOM boundary`);
+    assert(actual.projectionReadOnly && actual.projectionUnnamed && !actual.projectionSubmitted
+      && actual.ordinaryFieldsSubmitted, 'Literal AP projections must remain visible read-only unnamed probes while genuine provider/today fields submit');
   }
   return LITERAL_LOOKUPS.length;
 }
@@ -439,6 +453,19 @@ function prepareLiteralSave(sql, owner) {
   LITERAL_LOOKUPS[1].expectedPdf = LITERAL_LOOKUPS[1].expected;
 }
 
+function assertSavedClinicalFields(sql, fdid, fid, owner, providerValue, todayValue) {
+  assert(/^\d+$/.test(String(fdid)) && /^\d+$/.test(String(fid)) && /^\d+$/.test(String(owner.patient)),
+    'Saved positive form identity must be numeric');
+  const scope = `fdid=${Number(fdid)} AND fid=${Number(fid)} AND demographic_no=${Number(owner.patient)}`;
+  for (const [name, value] of [['apcache_provider', providerValue], ['apcache_today', todayValue]]) {
+    const hex = Buffer.from(value, 'utf8').toString('hex').toUpperCase();
+    assert(sql.value(`SELECT COUNT(*) FROM eform_values WHERE ${scope} AND BINARY var_name='${name}' AND HEX(var_value)='${hex}'`) === '1',
+      `Genuine saved ${name} field must retain the exact submitted value`);
+  }
+  assert(sql.value(`SELECT COUNT(*) FROM eform_values WHERE ${scope} AND var_name IN ('apcache_literal_name','apcache_literal_address','first_last_name','addressline')`) === '0',
+    'Recomputed literal AP projections must not become persisted clinical controls');
+}
+
 async function checkPositiveRender(context, fid, runId, artifactPaths, sql, owner) {
   let page = await openAddEform(context, fid, 'apcache-positive');
   const providerValue = await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo');
@@ -477,6 +504,7 @@ async function checkPositiveRender(context, fid, runId, artifactPaths, sql, owne
   const postSaveProvider = await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo');
   assert(postSaveProvider === providerValue, 'post-save view resolved a different provider value than the add view');
   const fdid = await savedFdidOnPage(page);
+  assertSavedClinicalFields(sql, fdid, fid, owner, providerValue, todayValue);
   await page.close().catch(() => {});
   return { fdid, providerValue, todayValue, literalLookupControlsVerified };
 }

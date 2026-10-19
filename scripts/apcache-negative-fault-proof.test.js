@@ -131,7 +131,10 @@ test('actual generated positive and negative forms include two shipped literal l
  vm.createContext(sandbox);vm.runInContext(constants+'\n'+source.slice(start,end)+';globalThis.write=writeFixture;',sandbox);
  for(const missing of [null,intent.missingKey]){const file=sandbox.write(d,missing?'negative':'positive',missing);const html=fs.readFileSync(file,'utf8');
   assert(html.includes("apCache.lookup('first_last_name');"));assert(html.includes("apCache.lookup('addressline');"));
-  assert(html.includes('id="apcache_literal_name"'));assert(html.includes('id="apcache_literal_address"'));
+  assert(html.includes('id="apcache_literal_name" readonly'));assert(html.includes('id="apcache_literal_address" readonly'));
+  assert(!html.includes('name="apcache_literal_name"'));assert(!html.includes('name="apcache_literal_address"'));
+  for(const name of ['apcache_provider','apcache_today','subject']) assert(html.includes('name="'+name+'"'));
+  assert(html.includes('name="apcache_missing"')===Boolean(missing));
   assert.equal(html.includes("apCache.lookup('"+intent.missingKey+"');"),Boolean(missing));}
  assert.equal(sha(fs.readFileSync(actualFixture)),original);
 });
@@ -140,10 +143,10 @@ test('actual native literal assertion rejects old cross-alias substitutions and 
  const start=source.indexOf('async function assertLiteralLookups(');const end=source.indexOf('\nasync function downloadPdf',start);
  const literal={key:'first_last_name',id:'apcache_literal_name',expected:'${last_name} Fake-pw0123456789abcdef'};
  const sandbox={assert,LITERAL_LOOKUPS:[literal],readViewerValue:async()=>literal.expected};vm.createContext(sandbox);vm.runInContext(source.slice(start,end)+';globalThis.invoke=assertLiteralLookups;',sandbox);
- const valid={responseCount:1,responseValue:literal.expected,cacheValue:literal.expected,fieldValue:literal.expected,injectedNodes:0};
+ const valid={responseCount:1,responseValue:literal.expected,cacheValue:literal.expected,fieldValue:literal.expected,injectedNodes:0,projectionReadOnly:true,projectionUnnamed:true,projectionSubmitted:false,ordinaryFieldsSubmitted:true};
  const page={__ownedLiteralLookups:new Map([['first_last_name',Promise.resolve({html:'private response'})]]),evaluate:async()=>valid};
  assert.equal(await sandbox.invoke(page),1);
- for(const [field,value]of [['responseValue','Z9 Z9'],['cacheValue','Z9 Z9'],['fieldValue','Z9 Z9'],['injectedNodes',1],['responseCount',0]]){
+ for(const [field,value]of [['responseValue','Z9 Z9'],['cacheValue','Z9 Z9'],['fieldValue','Z9 Z9'],['injectedNodes',1],['responseCount',0],['projectionReadOnly',false],['projectionUnnamed',false],['projectionSubmitted',true],['ordinaryFieldsSubmitted',false]]){
   page.evaluate=async()=>({...valid,[field]:value});await assert.rejects(()=>sandbox.invoke(page));}
 });
 
@@ -159,7 +162,7 @@ test('actual markup-to-benign transition is constrained by exact patient marker 
 test('actual positive native flow proves markup before transition and saves only the fresh benign viewer',async()=>{
  const vm=require('node:vm');const source=fs.readFileSync(path.join(__dirname,'eform-apcache-renderer-playwright-checks.js'),'utf8');const start=source.indexOf('async function checkPositiveRender('),end=source.indexOf('\n/** The value of the hidden input',start);
  const calls=[];const lookups=[{key:'first_last_name',expectedPdf:'${last_name} Fake-pw0123456789abcdef'},{key:'addressline',expectedPdf:'render-only'}];
- const sandbox={assert,LITERAL_LOOKUPS:lookups,PROVIDER_KEY:'current_user_fname_lname',TODAY_KEY:'today',
+ const sandbox={assert,assertSavedClinicalFields(){calls.push('persistedClinicalFields')},LITERAL_LOOKUPS:lookups,PROVIDER_KEY:'current_user_fname_lname',TODAY_KEY:'today',
   async openAddEform(_,__,label){calls.push(label);return {async close(){calls.push('close')}}},
   async readViewerValue(_,key){return key==='today'?'2026-10-19':'SYNTHETIC'},async assertLiteralLookups(){calls.push('literalDOM');return 2},
   prepareLiteralSave(){calls.push('transition');lookups[1].expectedPdf='Literal ${city}, OWNED-CITY, ON, A1A1A1'},
@@ -168,4 +171,15 @@ test('actual positive native flow proves markup before transition and saves only
  assert.equal(result.literalLookupControlsVerified,2);assert(calls.indexOf('literalDOM')<calls.indexOf('transition'));
  assert(calls.indexOf('transition')<calls.indexOf('apcache-positive-save'));assert(calls.indexOf('apcache-positive-save')<calls.indexOf('nativeSavePDF'));
  assert.equal(calls.filter(c=>c==='literalDOM').length,3);
+});
+
+test('actual saved-field assertion binds exact owned form and persists only genuine clinical controls',()=>{
+ const vm=require('node:vm');const source=fs.readFileSync(path.join(__dirname,'eform-apcache-renderer-playwright-checks.js'),'utf8');
+ const start=source.indexOf('function assertSavedClinicalFields('),end=source.indexOf('\nasync function checkPositiveRender',start);
+ const sandbox={assert,Buffer};vm.createContext(sandbox);vm.runInContext(source.slice(start,end)+';globalThis.invoke=assertSavedClinicalFields;',sandbox);
+ const queries=[];let calls=0;const sql={value:q=>{queries.push(q);return ++calls===3?'0':'1'}};
+ sandbox.invoke(sql,'7','5',{patient:'55'},'Owned Provider','2026-10-19');assert.equal(queries.length,3);
+ for(const q of queries){assert(q.includes('fdid=7 AND fid=5 AND demographic_no=55'));assert(!/DELETE|UPDATE|INSERT/.test(q));}
+ for(const failIndex of [1,2,3]){let index=0;assert.throws(()=>sandbox.invoke({value:()=>++index===failIndex?(failIndex===3?'1':'0'):(index===3?'0':'1')},'7','5',{patient:'55'},'Owned Provider','2026-10-19'));}
+ assert.throws(()=>sandbox.invoke({value:()=>{throw Error('must not query')}},'invalid','5',{patient:'55'},'Owned Provider','2026-10-19'));
 });
