@@ -200,7 +200,8 @@ async function workflow(s) {
   const history = (name, amount, paymentType) => sql.execute(`INSERT INTO billing_history
       (billingmaster_no, amount_received, payment_type_id, creation_date)
     VALUES (${seededClaims[name].billingmasterNo},${q(amount)},${paymentType},NOW())`);
-  const owes = (text, amount) => h.assert(new RegExp(`(^|[^0-9.])${amount.replace('.', '\\.')}([^0-9]|$)`).test(text),
+  const owes = (text, amount) => h.assert(text.split(/[^0-9.,-]+/)
+    .some(token => token.replaceAll(',', '') === amount),
     `The report does not show the expected balance ${amount}`);
   await s.step(STEP.payments, async () => {
     history('private', '7.11', 1);
