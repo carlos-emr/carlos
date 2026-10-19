@@ -159,14 +159,16 @@ async function workflow(s) {
     // The id is followed by the closing quote of the popup URL, so claim 12 cannot match claim 123's link.
     const link = center.locator(`a[onclick*='/billing/CA/ON/ViewBillingONDisplay?billing_no=${claim.id}"']`);
     h.assert(await link.count() === 1, `The Billed report offers no read-only link to its claim ${claim.id}`);
-    const { page: shown } = await ui.clickOpensPopupOrNavigates(center, link, { context, recorder, label: 'claim-display', timeout: TIMEOUT });
+    // The row link is href="#" with a popup onClick: the "#" navigates the report page in place too, so wait for
+    // the popup itself rather than the first navigation.
+    const shown = await ui.clickOpensPopup(center, link, { context, recorder, label: 'claim-display', timeout: TIMEOUT });
     await h.assertNotErrorPage(shown, 'the claim a Billed row opens');
     const number = shown.locator('input[name="xml_billing_no"]');
     await number.waitFor({ state: 'attached', timeout: TIMEOUT });
     h.assert(await number.inputValue() === claim.id, `The Billed row opened another claim than ${claim.id}`);
     const codes = await shown.locator('input[name^="xml_service_code"]').evaluateAll(inputs => inputs.map(input => input.value));
     h.assert(codes.includes('A007A'), `The opened claim does not show its service code: ${codes.join(', ')}`);
-    if (shown !== center && !shown.isClosed()) await shown.close();
+    if (!shown.isClosed()) await shown.close();
   });
 
   await s.step('the Billed, Unsettled, OB and Flu reports list the provider\'s Ontario claims in the range', async () => {
