@@ -814,7 +814,7 @@ public class RxUtil {
         }
 
         //make sure min is smaller than max
-        if (takeMax.compareTo(takeMin) < 0) {
+        if (Double.parseDouble(takeMax) < Double.parseDouble(takeMin)) {
             //      p("max<min");
             String swap = takeMin;
             takeMin = takeMax;

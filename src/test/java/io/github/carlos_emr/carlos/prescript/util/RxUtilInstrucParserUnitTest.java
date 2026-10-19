@@ -95,6 +95,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1000 mg po 2 tid x 7 days | 2 | 2 | 42",
             "1000mg po 2 tid x 7 days | 2 | 2 | 42",
             "1000 mg po 1-2 tid x 7 days | 1 | 2 | 42",
+            "1000 mg po 2-10 tid x 7 days | 2 | 10 | 210",
+            "1000 mg po 0 tid x 7 days | 0 | 0 | 0",
             "Take 20 tabs (20 mg) po tid x 7 days | 20 | 20 | 420",
             "1/2 tab po tid x 8 days | 0.5 | 0.5 | 12",
             "0.5 tab po tid x 8 days | 0.5 | 0.5 | 12",
@@ -104,6 +106,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 5mL po tid x 7 days | 5 | 5 | 105",
             "1/2mL po tid x 8 days | 0.5 | 0.5 | 12",
             "5-10mL po tid x 7 days | 5 | 10 | 210",
+            "10-5mL po tid x 7 days | 5 | 10 | 210",
             "20 units po tid x 7 days | 20 | 20 | 420",
             "20units po tid x 7 days | 20 | 20 | 420",
             "2 mgtablets po tid x 7 days | 2 | 2 | 42"

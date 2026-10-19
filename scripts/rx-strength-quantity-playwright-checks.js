@@ -21,6 +21,7 @@ async function workflow(s) {
     ['Take 5mg po tid x 7 days', 1, 1, '21'],
     ['Take 5 mL po tid x 7 days', 5, 5, '105'],
     ['Take 5mL po tid x 7 days', 5, 5, '105'],
+    ['Take 5-10mL po tid x 7 days', 5, 10, '210'],
     ['20 units po tid x 7 days', 20, 20, '420'],
     ['500-1000 mg po tid x 7 days', 1, 1, '21'],
     ['Take 2 tablets (1000 mg) po tid x 7 days', 2, 2, '42'],
