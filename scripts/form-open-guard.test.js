@@ -86,3 +86,43 @@ test('both encounter layouts load the guard and its dialog dependency', () => {
     assert.match(page, /\/js\/formOpenGuard\.js/);
   }
 });
+
+function completionFixture(keys = ['Calculator', 'Other panel']) {
+  const f = fixture();
+  f.root.autoCompList = keys;
+  f.root.autoCompleted = {Calculator: 'calculate()', 'Other panel': 'other()'};
+  f.root.itemColours = {Calculator: 'blue', 'Other panel': 'green'};
+  return f.root;
+}
+
+test('Forms refresh replaces dated completions in place and preserves other panels', () => {
+  const root = completionFixture();
+  const retainedReference = root.autoCompList;
+  root.replaceEncounterFormCompletions([['Rourke 12:00:00', 'old()', 'red'], ['Rourke (new)', 'blank()', 'red']]);
+  root.replaceEncounterFormCompletions([['Rourke 12:00:01', 'latest()', 'orange'], ['Rourke (new)', 'blank()', 'orange']]);
+  assert.strictEqual(root.autoCompList, retainedReference, 'The modern autocomplete keeps this array reference');
+  assert.deepEqual(root.autoCompList, ['Calculator', 'Other panel', 'Rourke 12:00:01', 'Rourke (new)']);
+  assert.equal(root.autoCompleted['Rourke 12:00:00'], undefined);
+  assert.equal(root.itemColours['Rourke 12:00:00'], undefined);
+  assert.equal(root.autoCompleted['Rourke 12:00:01'], 'latest()');
+  assert.equal(root.autoCompleted.Calculator, 'calculate()');
+  assert.equal(root.itemColours['Other panel'], 'green');
+});
+
+test('an empty Forms refresh removes its prior actions and leaves other completions intact', () => {
+  const root = completionFixture();
+  root.replaceEncounterFormCompletions([['Caregiver (new)', 'open()', 'red']]);
+  root.replaceEncounterFormCompletions([]);
+  assert.deepEqual(root.autoCompList, ['Calculator', 'Other panel']);
+  assert.equal(root.autoCompleted['Caregiver (new)'], undefined);
+  assert.equal(root.itemColours['Caregiver (new)'], undefined);
+});
+
+test('Forms refresh collapses duplicate current registrations into one updated choice', () => {
+  const root = completionFixture(['Calculator', 'Caregiver (new)', 'Caregiver (new)']);
+  root.replaceEncounterFormCompletions([['Caregiver (new)', 'open()', 'red'], ['Caregiver (new)', 'updated()', 'orange']]);
+  root.replaceEncounterFormCompletions([['Caregiver (new)', 'updated()', 'orange']]);
+  assert.deepEqual(root.autoCompList, ['Calculator', 'Caregiver (new)']);
+  assert.equal(root.autoCompleted['Caregiver (new)'], 'updated()');
+  assert.equal(root.itemColours['Caregiver (new)'], 'orange');
+});

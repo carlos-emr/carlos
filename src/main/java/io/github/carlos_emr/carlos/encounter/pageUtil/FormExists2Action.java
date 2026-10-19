@@ -20,7 +20,7 @@ import java.util.Set;
 public class FormExists2Action extends ActionSupport {
     // Snapshot forms deliberately start blank. Caregiver is longitudinal too (#3354).
     private static final Set<String> LONGITUDINAL = Set.of(
-            "formCaregiver", "formRourke", "formRourke2006", "formRourke2017", "formRourke2020",
+            "formCaregiver", "formRourke", "formRourke2006", "formRourke2009", "formRourke2017", "formRourke2020",
             "formGrowth0_36", "formGrowthChart", "formBCAR", "formBCAR2007", "formBCAR2012",
             "formBCAR2020", "formBCHP", "formBCClientChartChecklist", "formchf",
             "formPalliativeCare", "formPeriMenopausal", "formMentalHealth", "formImmunAllergy");

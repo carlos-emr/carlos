@@ -43,6 +43,7 @@ async function workflow(s) {
   const module = chart.locator('#forms');
   let form;
   let state;
+  let firstSavedCompletion;
 
   await s.step('Forms ▸ Rourke2017 opens the form for the owned patient while the Forms module lists none', async () => {
     h.assert(await module.locator(STARTED).count() === 0,
@@ -72,10 +73,17 @@ async function workflow(s) {
     h.assert(rows() === '1', 'Save did not write exactly one initial version');
     h.assert(!form.isClosed(), 'Ordinary Save closed the form');
     h.assert(await draft.inputValue() === s.marker + ' unsaved encounter draft', 'Save changed the encounter draft');
+    await chart.waitForFunction(() => autoCompList.some(key =>
+      (autoCompleted[key] || '').includes('forwardshortcutname?formname=Rourke2017')));
+    firstSavedCompletion = await chart.evaluate(() => autoCompList.find(key =>
+      (autoCompleted[key] || '').includes('forwardshortcutname?formname=Rourke2017')));
   });
 
   // Saving must refresh the chart through its tracked popup handle.
   await s.step('Save and Exit stores the form, closes it, and the chart Forms module lists it without a reload', async () => {
+    // A later edit second produces a different dated completion key.
+    await expectValue(sql, `SELECT NOW()>MAX(formEdited) FROM formRourke2017 WHERE demographic_no=${patient}`, '1',
+      'The second save must have a later edit time to exercise replacement of dated suggestions');
     const closed = form.waitForEvent('close', { timeout: 30000 }).then(() => true, () => false);
     const failuresBefore = s.recorder.requestFailures.length;
     await h.withExpectedDialogs(form, async () => {
@@ -92,6 +100,14 @@ async function workflow(s) {
     h.assert(await saved.count() > 0,
       `The chart's Forms module never listed the saved form (the form popup's window.opener was ${state}; `
       + `form documents: ${chain.describe(form)})`);
+    await chart.waitForFunction(oldKey => autoCompList.some(key => key !== oldKey &&
+      (autoCompleted[key] || '').includes('forwardshortcutname?formname=Rourke2017')), firstSavedCompletion);
+    const completionState = await chart.evaluate(oldKey => ({
+      current: autoCompList.filter(key => (autoCompleted[key] || '').includes('forwardshortcutname?formname=Rourke2017')),
+      stale: autoCompList.includes(oldKey) || Object.hasOwn(autoCompleted, oldKey) || Object.hasOwn(itemColours, oldKey),
+    }), firstSavedCompletion);
+    h.assert(completionState.current.length === 1 && !completionState.stale,
+      'Forms refresh left an obsolete dated autocomplete choice, action or colour');
   });
   await s.step('A second open chart with no saved form opens blank without borrowing the first chart record', async () => {
     const marker = newOwnedMarker();

@@ -92,6 +92,22 @@ class FormExists2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldWarnForRourke2009_whenEnabledAndAlreadySaved() throws Exception {
+        request.setParameter("formname", "Rourke2009");
+        form.setFormName("Rourke2009");
+        form.setFormTable("formRourke2009");
+        var dao = mock(EncounterFormDao.class);
+        when(dao.findByFormName("Rourke2009")).thenReturn(List.of(form));
+        registerMock(EncounterFormDao.class, dao);
+        data.when(() -> EctFormData.getShortcutLatestPatientForm("123", "formRourke2009"))
+                .thenReturn(new EctFormData.PatientForm("Rourke2009", 9, 123, null, null));
+        new FormExists2Action().execute();
+        var result = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(result.path("exists").asBoolean()).isTrue();
+        assertThat(result.path("url").asText()).contains("formname=Rourke2009&demographic_no=123&formId=latest");
+    }
+
+    @Test
     void shouldSkipLookup_forSnapshotOrHiddenForms() throws Exception {
         for (String table : List.of("formAnnual", "formCaregiver")) {
             form.setFormTable(table);

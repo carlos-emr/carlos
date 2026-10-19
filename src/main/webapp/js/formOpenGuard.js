@@ -2,6 +2,28 @@
 (function (root) {
     'use strict';
     var pending = false;
+    var formCompletionKeys = new Set();
+
+    // Replace this panel's entries, including dated keys that change on Save.
+    // Mutate the existing array: the modern autocomplete retains its reference.
+    root.replaceEncounterFormCompletions = function (items) {
+        var nextKeys = new Set(items.map(function (item) { return item[0]; }));
+        for (var index = root.autoCompList.length - 1; index >= 0; index--) {
+            if (formCompletionKeys.has(root.autoCompList[index]) || nextKeys.has(root.autoCompList[index])) {
+                root.autoCompList.splice(index, 1);
+            }
+        }
+        formCompletionKeys.forEach(function (key) {
+            delete root.autoCompleted[key];
+            delete root.itemColours[key];
+        });
+        items.forEach(function (item) {
+            if (root.autoCompList.indexOf(item[0]) === -1) root.autoCompList.push(item[0]);
+            root.autoCompleted[item[0]] = item[1];
+            root.itemColours[item[0]] = item[2];
+        });
+        formCompletionKeys = nextKeys;
+    };
 
     // Keep the original chart's patient/appointment, never the login-wide encounter bean.
     function openEncounterForm(url, windowName, name) {
