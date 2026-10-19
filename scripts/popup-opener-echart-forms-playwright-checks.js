@@ -168,6 +168,37 @@ async function workflow(s) {
     h.assert(rows() === '2', 'Cancelling autocomplete changed saved versions');
   });
 
+  await s.step('The packaged form check accepts the signed-int maximum while WAF attack controls remain blocked', async () => {
+    const endpoint = new URL(s.config.baseUrl + '/encounter/formExists');
+    endpoint.searchParams.set('demographicNo', patient);
+    endpoint.searchParams.set('appointmentNo', '2147483647');
+    endpoint.searchParams.set('formname', 'Rourke2017');
+    const valid = await s.context.request.get(endpoint.href);
+    h.assert(valid.status() === 200, 'The front door blocked a valid maximum appointment ID');
+    const result = await valid.json();
+    h.assert(result.exists && new URL(result.url, chart.url()).searchParams.get('appointmentNo') === '2147483647',
+      'The form check truncated the maximum appointment ID');
+
+    // Missing formname rejects before a patient lookup: test the WAF's patient-ID
+    // handling without reading an unowned chart or advancing demographic AUTO_INCREMENT.
+    const maxPatient = new URL(endpoint);
+    maxPatient.searchParams.set('demographicNo', '2147483647');
+    maxPatient.searchParams.delete('formname');
+    h.assert((await s.context.request.get(maxPatient.href)).status() === 400,
+      'The front door blocked the maximum patient ID before application validation');
+
+    for (const [key, value] of [['appointmentNo', '2147483648'], ['probe', '2147483647'], ['appointmentNo', "1' OR '1'='1"]]) {
+      const attack = new URL(endpoint);
+      attack.searchParams.set(key, value);
+      h.assert((await s.context.request.get(attack.href)).status() === 403,
+        `The WAF failed to block its ${key} attack control`);
+    }
+    const otherRoute = new URL(endpoint);
+    otherRoute.pathname += 'Unregistered';
+    h.assert((await s.context.request.get(otherRoute.href)).status() === 403,
+      'The maximum-ID exception leaked to another route');
+  });
+
   await s.step('Create a new blank version remains available only after an explicit choice', async () => {
     const link = chart.locator('#forms .menu a[data-encounter-form-name="Rourke2017"]');
     await revealAuditLink(chart, link, 20000);
