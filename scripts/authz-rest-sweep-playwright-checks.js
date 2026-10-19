@@ -40,6 +40,9 @@
  * client calls them (explicit paging, an existing template name): without paging or with an
  * unknown name they fail with HTTP 500 for every caller, which says nothing about authorization.
  * Environment: the common contract (BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*).
+ * Enable oauth.scope.enforcement.enabled=true on the disposable install. Both OAuth logins receive
+ * app.read, recordux.read, pharmacy.read and form.read scopes; positive controls must reach each
+ * service before a service-level refusal counts. Legacy-restricted mode intentionally fails this check.
  */
 const crypto = require('crypto');
 const h = require('./lib/playwright-harness');
@@ -88,6 +91,19 @@ async function readResult(response) {
 }
 
 const describe = (who, method, route, result) => `${who} ${method} ${route} -> HTTP ${result.status}`;
+
+/** Prove the OAuth gate reached a resource, rather than accepting its own scope-layer 403. */
+function assertOAuthResourceResult(who, route, result, allowed) {
+  const label = describe(`${who} (OAuth)`, 'GET', route, result);
+  if (allowed) {
+    h.assert(result.status === 200 && result.fromApp && result.json !== null,
+      `${label}; control must reach the service (enable oauth.scope.enforcement.enabled=true)`);
+  } else {
+    const expectedBody = route === 'pharmacies/' ? 'Access denied' : '';
+    h.assert(result.status === 403 && result.fromApp && result.text === expectedBody,
+      `${label}; expected a service privilege refusal, not an OAuth scope rejection`);
+  }
+}
 
 async function workflow(s) {
   const { sql, marker, provider, config, patient } = s;
@@ -229,7 +245,7 @@ async function workflow(s) {
     h.assert(!wrong.length, `Expected an application 403: ${wrong.join('; ')}`);
   });
 
-  await s.step('on /ws/services the receptionist\'s signed OAuth token is refused (403) the same endpoints', async () => {
+  await s.step('on /ws/services scoped controls reach each service and receptionist privileges are refused', async () => {
     // uri='oob': the verifier is shown on the consent page instead of redirected.
     h.insertId(sql, `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
         VALUES(${h.sqlString(`${marker}-oauth`)},${h.sqlString(consumerKey)},
@@ -238,58 +254,60 @@ async function workflow(s) {
     try {
       const api = anonymous.request;
       const form = async response => Object.fromEntries(new URLSearchParams((await response.text()).trim()));
-      const initiateUrl = h.appUrl(config.baseUrl, `/ws/oauth/initiate?scope=${pct('provider.read')}`);
-      let response = await api.post(initiateUrl, {
-        failOnStatusCode: false,
-        headers: { Authorization: oauthHeader({ method: 'POST', url: initiateUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' } }) },
-      });
-      h.assert(response.status() === 200, `Signed POST /ws/oauth/initiate answered HTTP ${response.status()}`);
-      const requestToken = await form(response);
-      h.assert(requestToken.oauth_token && requestToken.oauth_token_secret, '/ws/oauth/initiate returned no request token');
-
-      // The receptionist approves the request token in its own browser session.
-      const consent = await contexts.receptionist.newPage();
-      let verifier;
-      try {
-        const page = await consent.goto(
-          h.appUrl(config.baseUrl, `/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' });
-        h.assert(page && page.status() === 200, `The receptionist's consent page answered HTTP ${page && page.status()}`);
-        const [approval] = await Promise.all([
-          consent.waitForResponse(resp => resp.request().method() === 'POST'
-            && new URL(resp.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
-          consent.locator('#scopeForm button[type="submit"]').click(),
-        ]);
-        h.assert(approval.status() === 200, `Approving the request token answered HTTP ${approval.status()}`);
-        verifier = (await form(approval)).oauth_verifier;
-        h.assert(verifier, 'Approving the request token showed no oauth_verifier');
-      } finally {
-        await consent.close();
-      }
-
-      const tokenUrl = h.appUrl(config.baseUrl, '/ws/oauth/token');
-      response = await api.post(tokenUrl, {
-        failOnStatusCode: false,
-        headers: {
-          Authorization: oauthHeader({
-            method: 'POST', url: tokenUrl, consumerKey, consumerSecret, token: requestToken.oauth_token,
-            tokenSecret: requestToken.oauth_token_secret, extra: { oauth_verifier: verifier },
-          }),
-        },
-      });
-      h.assert(response.status() === 200, `Signed POST /ws/oauth/token answered HTTP ${response.status()}`);
-      const accessToken = await form(response);
-      const signing = { consumerKey, consumerSecret, token: accessToken.oauth_token, tokenSecret: accessToken.oauth_token_secret };
-
-      // Control: the token authenticates, as the receptionist.
-      const info = await signedRest(api, config, signing, 'oauth/info');
-      h.assert(info.status === 200 && String(info.json?.login) === String(logins.receptionist.providerNo),
-        `${describe('receptionist (OAuth)', 'GET', 'oauth/info', info)}; expected its own provider number`);
-      const wrong = [];
+      const authorize = async who => {
+        const scopes = 'app.read recordux.read pharmacy.read form.read';
+        const initiateUrl = h.appUrl(config.baseUrl, `/ws/oauth/initiate?scope=${pct(scopes)}`);
+        let response = await api.post(initiateUrl, {
+          failOnStatusCode: false,
+          headers: { Authorization: oauthHeader({ method: 'POST', url: initiateUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' } }) },
+        });
+        h.assert(response.status() === 200, `Signed POST /ws/oauth/initiate answered HTTP ${response.status()}`);
+        const requestToken = await form(response);
+        h.assert(requestToken.oauth_token && requestToken.oauth_token_secret, '/ws/oauth/initiate returned no request token');
+        const consent = await contexts[who].newPage();
+        let verifier;
+        try {
+          const page = await consent.goto(
+            h.appUrl(config.baseUrl, `/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' });
+          h.assert(page && page.status() === 200, `${who}'s consent page answered HTTP ${page && page.status()}`);
+          const [approval] = await Promise.all([
+            consent.waitForResponse(resp => resp.request().method() === 'POST'
+              && new URL(resp.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
+            consent.locator('#scopeForm button[type="submit"]').click(),
+          ]);
+          h.assert(approval.status() === 200, `Approving the request token answered HTTP ${approval.status()}`);
+          verifier = (await form(approval)).oauth_verifier;
+          h.assert(verifier, 'Approving the request token showed no oauth_verifier');
+        } finally {
+          await consent.close();
+        }
+        const tokenUrl = h.appUrl(config.baseUrl, '/ws/oauth/token');
+        response = await api.post(tokenUrl, {
+          failOnStatusCode: false,
+          headers: {
+            Authorization: oauthHeader({
+              method: 'POST', url: tokenUrl, consumerKey, consumerSecret, token: requestToken.oauth_token,
+              tokenSecret: requestToken.oauth_token_secret, extra: { oauth_verifier: verifier },
+            }),
+          },
+        });
+        h.assert(response.status() === 200, `Signed POST /ws/oauth/token answered HTTP ${response.status()}`);
+        const accessToken = await form(response);
+        h.assert(accessToken.oauth_token && accessToken.oauth_token_secret, '/ws/oauth/token returned no access token');
+        const signing = { consumerKey, consumerSecret, token: accessToken.oauth_token, tokenSecret: accessToken.oauth_token_secret };
+        const expectedProvider = who === 'full' ? provider : logins[who].providerNo;
+        const info = await signedRest(api, config, signing, 'oauth/info');
+        h.assert(info.status === 200 && String(info.json?.login) === String(expectedProvider),
+          `${describe(who, 'GET', 'oauth/info', info)}; expected its own provider number`);
+        return signing;
+      };
+      // Identical scopes and routes for both users: an outer scope-policy denial cannot pass.
+      const fullToken = await authorize('full');
+      const receptionistToken = await authorize('receptionist');
       for (const route of ['app/getApps/', `recordUX/${patient}/getAllergies`, ...THROWING_GUARDS]) {
-        const result = await signedRest(api, config, signing, route);
-        if (!(result.status === 403 && result.fromApp)) wrong.push(describe('receptionist (OAuth)', 'GET', route, result));
+        assertOAuthResourceResult('full', route, await signedRest(api, config, fullToken, route), true);
+        assertOAuthResourceResult('receptionist', route, await signedRest(api, config, receptionistToken, route), false);
       }
-      h.assert(!wrong.length, `Expected an application 403 on /ws/services: ${wrong.join('; ')}`);
     } finally {
       await anonymous.close();
     }
@@ -329,4 +347,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('authz-rest-sweep', workflow, { openMaster: false });
-module.exports = { workflow, rest, signedRest };
+module.exports = { workflow, rest, signedRest, assertOAuthResourceResult };

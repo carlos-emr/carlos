@@ -27,11 +27,20 @@ import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
+import java.util.Collections;
+
+import org.openpdf.text.Document;
+import org.openpdf.text.Font;
+import org.openpdf.text.pdf.BaseFont;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.casemgmt.util.ExtPrint;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -100,6 +109,49 @@ class CaseManagementPrintSelectedNotesUnitTest extends CarlosUnitTestBase {
             ArgumentCaptor<List<CaseManagementNote>> printed = ArgumentCaptor.forClass(List.class);
             verify(pdfs.constructed().getFirst()).printNotes(printed.capture());
             assertThat(printed.getValue()).containsExactly(own);
+        }
+    }
+
+    @Test
+    @DisplayName("should bind measurement extensions to the printed patient despite conflicting query parameters")
+    void shouldBindExtensions_toAuthorizedPatient() throws Exception {
+        createAndRegisterMock(CaseManagementManager.class);
+        createAndRegisterMock(AllergyDao.class);
+        createAndRegisterMock(PreventionManager.class);
+        MeasurementDao measurements = createAndRegisterMock(MeasurementDao.class);
+        when(measurements.findByDemographicId(PATIENT)).thenReturn(List.of());
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty("CMESort", "")).thenReturn("");
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
+        LoggedInInfo login = mock(LoggedInInfo.class);
+        when(login.getLoggedInProviderNo()).thenReturn("999998");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("demographicNo", String.valueOf(OTHER_PATIENT), "900003");
+        request.addParameter("extPrintMeasurements", "true");
+        request.addParameter("pStartDate", "");
+        request.addParameter("pEndDate", "");
+        ExtPrint extension = (printer, scoped) -> {
+            assertThat(scoped.getParameter("demographicNo")).isEqualTo(String.valueOf(PATIENT));
+            assertThat(scoped.getParameterValues("demographicNo")).containsExactly(String.valueOf(PATIENT));
+            assertThat(scoped.getParameterMap().get("demographicNo")).containsExactly(String.valueOf(PATIENT));
+            assertThat(Collections.list(scoped.getParameterNames())).contains("demographicNo");
+            new MeasurementPrint().printExt(printer, scoped);
+        };
+        // Register the actual extension boundary; the real MeasurementPrint must query only PATIENT.
+        springUtilsMock.when(() -> SpringUtils.getBean("extPrintMeasurements")).thenReturn(extension);
+        try (var configuration = mockStatic(CarlosProperties.class);
+             var pdfs = mockConstruction(CaseManagementPrintPdf.class, (printer, _) -> {
+                 when(printer.getDocument()).thenReturn(mock(Document.class));
+                 when(printer.getBaseFont()).thenReturn(BaseFont.createFont());
+                 when(printer.getFont()).thenReturn(new Font());
+             });
+             var _ = mockStatic(ConcatPDF.class)) {
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            new CaseManagementPrint().doPrint(login, PATIENT, false, new String[0],
+                    false, false, false, false, false, false, null, null, request, new ByteArrayOutputStream());
+            verify(measurements).findByDemographicId(PATIENT);
+            verify(measurements, never()).findByDemographicId(OTHER_PATIENT);
+            assertThat(request.getParameter("demographicNo")).isEqualTo(String.valueOf(OTHER_PATIENT));
         }
     }
 
