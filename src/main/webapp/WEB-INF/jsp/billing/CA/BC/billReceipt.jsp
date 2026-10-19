@@ -670,14 +670,17 @@
 
                                                             <tr>
                                                                 <td colspan="2" align="left" valign="bottom">
+                                                                    <%-- Only Update Invoice submits this form. The other buttons are type="button":
+                                                                         a button with no type submits its form, so Print posted the update and
+                                                                         reloaded the receipt before it could print (issue #5068). --%>
                                                                     <input type="submit" name="submit" class="header" value="Update Invoice" />
-                                                                    <button class="header" value="Edit Invoice"
+                                                                    <button type="button" class="header" value="Edit Invoice"
                                                                             onclick="editInvoice('<carlos:encode value='<%= StringUtils.noNull(bean.getBillingMasterNo()) %>' context="javaScriptAttribute"/>')">
                                                                         Edit Invoice
                                                                     </button>
-                                                                    <button class="header" onclick="printInvoiceWithoutNotes()">Print</button>
-                                                                    <button class="header" onclick="printInvoiceWithNotes()">Print With Notes</button>
-                                                                    <button class="header" onclick="window.close()">Cancel</button>
+                                                                    <button type="button" class="header" onclick="printInvoiceWithoutNotes()">Print</button>
+                                                                    <button type="button" class="header" onclick="printInvoiceWithNotes()">Print With Notes</button>
+                                                                    <button type="button" class="header" onclick="window.close()">Cancel</button>
                                                                 </td>
                                                             </tr>
                                                         </table>
