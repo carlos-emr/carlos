@@ -400,7 +400,9 @@ async function workflow(s) {
       (SELECT COUNT(*) FROM billing_on_item_payment WHERE ch1_id=${headerId}),
       (SELECT COUNT(*) FROM billing_on_transaction WHERE ch1_id=${headerId}))`);
     const before = rowsNow();
-    const link = payments.locator(`a[href*="onViewPayment('${paymentId}')"]`);
+    // Today's link calls onViewPayment(id); develop PR #4479 makes it a real href to the same route, so match both.
+    const link = payments.locator(`a[href*="onViewPayment('${paymentId}')"], `
+      + `a[href*="method=viewPayment_ext"][href$="billPaymentId=${paymentId}"]`);
     h.assert(await link.count() === 1, 'The payments list offers no view link for the first payment');
     const view = await s.popup(payments, link, 'third-party-view-payment');
     await view.locator('text=View payment details').waitFor({ state: 'visible' });
