@@ -1425,6 +1425,7 @@ input[id^='acklabel_']{
     <% if (offerFiling) { %>
     <dialog id="labFiling_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
             data-lab-filing="<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
+            data-reviewer-provider="<carlos:encode value='<%= loggedInInfo.getLoggedInProviderNo() %>' context="htmlAttribute"/>"
             data-endpoint="${pageContext.request.contextPath}/oscarMDS/FileLabsOnBehalf"
             data-error-message="<fmt:message key="lab.filing.error"/>"
             data-select-message="<fmt:message key="lab.filing.select"/>">

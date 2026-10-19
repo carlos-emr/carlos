@@ -5,9 +5,7 @@
         const dialog = document.getElementById('labFiling_' + labNo);
         if (!dialog) return false;
         if (acknowledge) {
-            const ackForm = document.forms['acknowledgeForm_' + labNo];
-            const provider = ackForm && ackForm.elements.providerNo;
-            const existing = provider && document.getElementById(provider.value + '_' + labNo + 'commentText');
+            const existing = document.getElementById(dialog.dataset.reviewerProvider + '_' + labNo + 'commentText');
             dialog.querySelector('textarea[name="comment"]').value = existing ? existing.textContent : '';
         }
         dialog.dataset.acknowledge = String(acknowledge);

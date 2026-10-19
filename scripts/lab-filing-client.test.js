@@ -21,7 +21,7 @@ function dialogFixture() {
   const ackForm = {id: 'acknowledgeForm_30', elements: {providerNo: {value: '100001'}, comment: {value: ''}}};
   const existing = {textContent: "Existing O'Brien < 3.5 & Hb > 100"};
   const dialog = {
-    dataset: {labFiling: '30', endpoint: '/FileLabsOnBehalf', errorMessage: 'Refresh before retrying', selectMessage: 'Select a provider'},
+    dataset: {labFiling: '30', reviewerProvider: '100001', endpoint: '/FileLabsOnBehalf', errorMessage: 'Refresh before retrying', selectMessage: 'Select a provider'},
     showModal() {}, close() { closed++; },
     querySelector(selector) {
       return {'form': form, '[data-filing-comment]': commentBox, 'details': details,
@@ -48,6 +48,13 @@ function dialogFixture() {
 
 test('combined acknowledgement shows the current decoded clinical comment', () => {
   const fixture = dialogFixture();
+  fixture.open();
+  assert.equal(fixture.comment.value, fixture.existing.textContent);
+});
+
+test('comment prefill uses the session reviewer when the form names another provider context', () => {
+  const fixture = dialogFixture();
+  fixture.ackForm.elements.providerNo.value = '100003';
   fixture.open();
   assert.equal(fixture.comment.value, fixture.existing.textContent);
 });

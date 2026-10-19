@@ -126,6 +126,10 @@ async function workflow(s) {
     sql.execute(`UPDATE providerLabRouting SET comment=${q(existing)} WHERE lab_no=${labNo}
       AND provider_no=${q(provider)} AND lab_type='HL7' AND status='N'`);
     await popup.reload();
+    // An encounter URL can name a different provider. Both comment selection and the
+    // actual acknowledgement must still belong to the authenticated reviewer.
+    await popup.locator(`#acknowledgeForm_${labNo} input[name="providerNo"]`)
+      .evaluate((input, otherProvider) => { input.value = otherProvider; }, allowed.providerNo);
     await popup.locator('input[onclick*="openLabFilingDialog"][onclick*="true"]').first().click();
     await dialog.waitFor({state: 'visible'});
     h.assert(await dialog.locator('[data-filing-comment]').isVisible(), 'Combined dialog hides the acknowledgement comment');
