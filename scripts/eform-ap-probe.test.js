@@ -27,7 +27,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
-const { correlatedDenial, validateSubmission, logCheckpoint, readCheckpoint, ownedState,
+const { correlatedDenial, validateSubmission, logCheckpoint, readCheckpoint,
   proveWafNegative, transitionToClinicalValues, assertPersistedLabValues } = require('./lib/eform-ap-probe');
 
 const marker = 'FAKE-PW0123456789abcdef';

@@ -1693,14 +1693,23 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
       "timeoutSec": 600,
       "env": [
-        "INBOX_TIMEOUT_MS"
-      ]
+        "INBOX_TIMEOUT_MS",
+        "INBOX_OWNED_FIXTURE",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM",
+        "DOCUMENT_DIR",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "envSet": {
+        "INBOX_OWNED_FIXTURE": "true"
+      },
+      "notes": "The catalogue owns a fresh FAKE patient and native Create Lab results, then removes their exact rows/files. Filters also own a PDF. Requires an exclusive disposable worker; direct invocation without INBOX_OWNED_FIXTURE=true retains the existing dataset mode."
     },
     {
       "name": "inboxhub-health-number-ack-today",
@@ -1761,8 +1770,17 @@
       ],
       "timeoutSec": 420,
       "env": [
-        "INBOX_TIMEOUT_MS"
-      ]
+        "INBOX_TIMEOUT_MS",
+        "INBOX_OWNED_FIXTURE",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM",
+        "DOCUMENT_DIR",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "envSet": {
+        "INBOX_OWNED_FIXTURE": "true"
+      },
+      "notes": "The catalogue owns a fresh FAKE patient and native Create Lab results, then removes their exact rows/files. Filters also own a PDF. Requires an exclusive disposable worker; direct invocation without INBOX_OWNED_FIXTURE=true retains the existing dataset mode."
     },
     {
       "name": "inbox-rapid-review-advance",
@@ -1776,8 +1794,17 @@
       ],
       "timeoutSec": 420,
       "env": [
-        "INBOX_TIMEOUT_MS"
-      ]
+        "INBOX_TIMEOUT_MS",
+        "INBOX_OWNED_FIXTURE",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM",
+        "DOCUMENT_DIR",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "envSet": {
+        "INBOX_OWNED_FIXTURE": "true"
+      },
+      "notes": "The catalogue owns a fresh FAKE patient and native Create Lab results, then removes their exact rows/files. Filters also own a PDF. Requires an exclusive disposable worker; direct invocation without INBOX_OWNED_FIXTURE=true retains the existing dataset mode."
     },
     {
       "name": "inbox-preview-boundary-resync",

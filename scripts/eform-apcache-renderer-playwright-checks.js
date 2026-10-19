@@ -82,6 +82,7 @@ const path = require('path');
 const { execFileSync } = require('node:child_process');
 const { chromium, request: playwrightRequest } = require('playwright');
 const h = require('./lib/playwright-harness');
+const {createApNegativeProof, sha} = require('./lib/apcache-negative-fault-proof');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { bundleMessage } = require('./lib/throwaway-login-fixture');
@@ -104,6 +105,12 @@ const SERVLET_PATH = '/EFormApCacheForPdfGenerationServlet';
 const PROVIDER_KEY = 'current_user_fname_lname';
 const TODAY_KEY = 'today';
 const WARN_LINE = 'Renderer APCache key cannot be executed for this render';
+// Shipped APs read only this check's owned FAKE patient; no AP configuration is changed.
+const LITERAL_LOOKUPS = [
+  {key:'first_last_name',id:'apcache_literal_name',expected:null,expectedPdf:null},
+  {key:'addressline',id:'apcache_literal_address',expected:'&lt;img id=apInjected&gt;${city}, OWNED-CITY, ON, A1A1A1',expectedPdf:'<img id=apInjected>${city}, OWNED-CITY, ON, A1A1A1'},
+];
+
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
@@ -206,6 +213,10 @@ function writeFixture(tempDir, name, missingKey) {
   } else {
     html = html.replace('APCACHE_EXTRA_LOOKUP', '').replace('APCACHE_EXTRA_FIELD', '');
   }
+  assert(html.includes("apCache.lookup('today');"), 'Synthetic fixture no longer exposes its reviewed lookup insertion point');
+  html = html.replace("apCache.lookup('today');", "apCache.lookup('today');\n" + LITERAL_LOOKUPS.map(value => `  apCache.lookup('${value.key}');`).join('\n'));
+  assert(html.includes('</form>'), 'Synthetic fixture has no owned form insertion point');
+  html = html.replace('</form>', LITERAL_LOOKUPS.map(value => `<div class="field"><input type="text" class="value" id="${value.id}" name="${value.id}" data-apcache-key="${value.key}"><div id="${value.id}_echo">APCACHE-PENDING[${value.key}]</div></div>`).join('\n') + '\n</form>');
   const htmlPath = path.join(tempDir, `${name}.html`); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- name is a fixed literal chosen by this script under a private temp directory
   fs.writeFileSync(htmlPath, html);
   return htmlPath;
@@ -240,6 +251,19 @@ async function openAddEform(context, fid, label) {
     };
   });
   wirePage(page, label, recorder);
+  page.__ownedLiteralLookups = new Map();
+  page.on('response', response => {
+    const request = response.request();
+    const url = new URL(response.url());
+    if (url.origin !== config.baseUrl.origin || url.pathname !== config.baseUrl.pathname.replace(/\/$/, '') + LOOKUP_PATH) return;
+    const keys = url.searchParams.getAll('key');
+    if (keys.length !== 1 || !LITERAL_LOOKUPS.some(value => value.key === keys[0])) return;
+    const operation = (async () => {
+      assert(request.method() === 'GET' && response.status() === 200, 'Owned literal lookup transport failed');
+      return {html:await response.text()};
+    })().catch(error => ({error}));
+    page.__ownedLiteralLookups.set(keys[0], operation);
+  });
   await gotoApp(page, config.baseUrl, `/eform/efmformadd_data?fid=${encodeURIComponent(fid)}&demographic_no=${encodeURIComponent(config.demographicNo)}`);
   await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -255,6 +279,29 @@ async function readViewerValue(page, key, echoId) {
   const value = text.slice(`APCACHE-VALUE[${key}]=`.length).trim();
   assert(value.length > 0, `viewer lookup for ${key} produced an empty value`);
   return value;
+}
+
+/** Check the actual hidden response, native APCache value and DOM field before and after save. */
+async function assertLiteralLookups(page) {
+  for (const literal of LITERAL_LOOKUPS) {
+    const displayed = await readViewerValue(page, literal.key, literal.id + '_echo');
+    assert(displayed === literal.expected, `Owned clinical literal changed in native ${literal.key} lookup`);
+    const operation = page.__ownedLiteralLookups.get(literal.key);
+    assert(operation, 'Owned literal lookup carried no actual HTTP response');
+    const response = await operation;
+    assert(!response.error, 'Owned literal lookup response could not be read');
+    const actual = await page.evaluate(({key,id,html}) => {
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+      const fields = [...parsed.querySelectorAll('input')].filter(input => input.name === key);
+      return {responseCount:fields.length,responseValue:fields[0]?.value,
+        cacheValue:apCache.get(key),fieldValue:document.getElementById(id)?.value,
+        injectedNodes:document.querySelectorAll('#apInjected').length + parsed.querySelectorAll('script,img').length};
+    }, {key:literal.key,id:literal.id,html:response.html});
+    assert(actual.responseCount === 1 && actual.responseValue === literal.expected
+      && actual.cacheValue === literal.expected && actual.fieldValue === literal.expected
+      && actual.injectedNodes === 0, `Owned ${literal.key} value changed or created markup at the HTTP/cache/DOM boundary`);
+  }
+  return LITERAL_LOOKUPS.length;
 }
 
 async function downloadPdf(page, artifactBaseName) {
@@ -381,12 +428,29 @@ async function cleanupImportedEform(context, fid) {
 }
 
 /** Part 1: configured keys are served by the bridge and land in the PDF text. */
-async function checkPositiveRender(context, fid, runId, artifactPaths) {
-  const page = await openAddEform(context, fid, 'apcache-positive');
+/** Markup is a mandatory render-only probe; positive saves contain benign clinical literals. */
+function prepareLiteralSave(sql, owner) {
+  assert(/^[1-9]\d*$/.test(String(owner.patient)) && /^FAKE-PW[0-9a-f]{16}$/.test(owner.marker), 'Literal fixture owner is invalid');
+  assert(sql.value(`UPDATE demographic SET address='Literal \${city}'
+    WHERE demographic_no=${Number(owner.patient)} AND last_name=${h.sqlString(owner.marker)} AND provider_no=${h.sqlString(owner.provider)}
+      AND first_name='\${last_name}' AND address='<img id=apInjected>\${city}' AND city='OWNED-CITY'; SELECT ROW_COUNT()`) === '1',
+  'Only the exact owned render-only markup row may transition to the benign save value');
+  LITERAL_LOOKUPS[1].expected = 'Literal ${city}, OWNED-CITY, ON, A1A1A1';
+  LITERAL_LOOKUPS[1].expectedPdf = LITERAL_LOOKUPS[1].expected;
+}
+
+async function checkPositiveRender(context, fid, runId, artifactPaths, sql, owner) {
+  let page = await openAddEform(context, fid, 'apcache-positive');
   const providerValue = await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo');
   const todayValue = await readViewerValue(page, TODAY_KEY, 'apcache_today_echo');
   assert(/^\d{4}-\d{2}-\d{2}$/.test(todayValue), `viewer 'today' lookup is not a date: ${todayValue}`);
 
+  await assertLiteralLookups(page);
+  await page.close();
+  prepareLiteralSave(sql, owner);
+  page = await openAddEform(context, fid, 'apcache-positive-save');
+  await assertLiteralLookups(page);
+  assert(await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo') === providerValue, 'Fresh positive viewer provider changed');
   const pdfPath = await downloadPdf(page, `eform-apcache-positive-${runId}`);
   artifactPaths.add(pdfPath);
   const text = pdfText(pdfPath);
@@ -398,6 +462,10 @@ async function checkPositiveRender(context, fid, runId, artifactPaths) {
   // wrong renderer value must not pass on shape alone (a run that straddles midnight would fail
   // here; rerun it).
   assert(todayMatch[1] === todayValue, `rendered PDF 'today' value ${todayMatch[1]} does not match the viewer's ${todayValue}`);
+  for (const literal of LITERAL_LOOKUPS) {
+    assert(text.replace(/\s+/g, ' ').includes(`APCACHE-VALUE[${literal.key}]=${literal.expectedPdf}`),
+      `Rendered PDF changed owned ${literal.key} clinical literal`);
+  }
   assert(!text.includes('APCACHE-PENDING'), 'rendered PDF still carries a pending marker: a lookup never completed in the renderer');
   assert(!text.includes('APCACHE-ERROR'), 'rendered PDF carries an APCache error marker: the bridge refused a configured key');
   assert(!text.includes('TemplateProvider') && !text.includes('TemplateToday'), 'rendered PDF carries template placeholders instead of bridge values');
@@ -405,11 +473,12 @@ async function checkPositiveRender(context, fid, runId, artifactPaths) {
   // efmfid/efmdemographic_no rather than fid/demographic_no. The fixture's lookups re-run there
   // against the INTERACTIVE route and must still resolve: a 400 here left every APCache field
   // blank behind the library's "an error has occurred" alert after any save-and-download.
+  const literalLookupControlsVerified = await assertLiteralLookups(page);
   const postSaveProvider = await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo');
   assert(postSaveProvider === providerValue, 'post-save view resolved a different provider value than the add view');
   const fdid = await savedFdidOnPage(page);
   await page.close().catch(() => {});
-  return { fdid, providerValue, todayValue };
+  return { fdid, providerValue, todayValue, literalLookupControlsVerified };
 }
 
 /** The value of the hidden input efmshowform_data.jsp writes with this id (EForm.addHiddenInputElement), or ''. */
@@ -514,7 +583,7 @@ function checkJournal(sinceIso, missingKey, runFdids, positiveProviderValue) {
 }
 
 /** Part 4 (optional): without a render grant the servlet refuses, on loopback and through the front door. */
-async function checkDirectProbes() {
+async function checkDirectProbes(proof) {
   const results = {};
   if (config.probeUrl) {
     const base = config.probeUrl.replace(/\/$/, '');
@@ -526,7 +595,9 @@ async function checkDirectProbes() {
     assert(bogus.status === 401, `loopback request with a bogus grant answered ${bogus.status}, expected 401`);
     // The servlet itself only implements GET (405), but on a full deployment the CSRF guard
     // refuses a token-less POST first (403). Either is the refusal that matters.
+    if (proof) proof.directPost({method:'POST',path:SERVLET_PATH,startedAt:new Date().toISOString()});
     const post = await fetch(`${base}${SERVLET_PATH}?key=${TODAY_KEY}`, { method: 'POST', redirect: 'manual' });
+    if (proof) proof.directPost({status:post.status,finishedAt:new Date().toISOString()});
     results.loopbackPost = post.status;
     assert([403, 405].includes(post.status), `POST to the read-only bridge answered ${post.status}, expected 403/405`);
   }
@@ -558,16 +629,41 @@ async function main() {
   let negativeFid = null;
   const sql = h.createSqlRunner(h.readConfig().mysql);
   const ownedMarker = newOwnedMarker();
+  LITERAL_LOOKUPS[0].expected = '${last_name} ' + ownedMarker[0].toUpperCase() + ownedMarker.slice(1).toLowerCase();
+  LITERAL_LOOKUPS[0].expectedPdf = LITERAL_LOOKUPS[0].expected;
   // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
   const ownedRows = eformRows(sql);
   let ownedPatient = null;
+  let proof = null;
+  let browserClosed = false;
+  let templatesAbsentBeforeImport = false;
+
 
   try {
+  if (process.env.APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR) {
+    assert(['carlos-emr', 'carlos-emr.service'].includes(config.journalUnit) && config.probeUrl,
+      'Expected-negative APCache proof requires actual installed journal and loopback servlet probes');
+    assert(new Date().getTimezoneOffset() === 0, 'Expected-negative proof requires UTC log time');
+    proof = createApNegativeProof(process.env.APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR, {
+      runId, missingKey, negativeName, ownedMarker,
+      sourceHashes: {
+        testSourceSha256: sha(fs.readFileSync(__filename)),
+        helperSourceSha256: sha(fs.readFileSync(require.resolve('./lib/apcache-negative-fault-proof'))),
+        jspSourceSha256: sha(fs.readFileSync(path.resolve(__dirname, '../src/main/webapp/WEB-INF/jsp/eform/efmformapconfig_lookup.jsp'))),
+        apcacheSourceSha256: sha(fs.readFileSync(path.resolve(__dirname, '../src/main/webapp/library/eforms/APCache.js'))),
+        fixtureSourceSha256: sha(fs.readFileSync(config.fixtureHtmlPath)),
+      },
+    });
+  }
     validateConfig();
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
     assert(provider, 'The configured test login has no provider');
     ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
     config.demographicNo = ownedPatient;
+    assert(sql.value(`UPDATE demographic SET first_name='\${last_name}',address='<img id=apInjected>\${city}',city='OWNED-CITY',postal='A1A1A1'
+      WHERE demographic_no=${Number(ownedPatient)} AND last_name=${h.sqlString(ownedMarker)} AND provider_no=${h.sqlString(provider)};
+      SELECT ROW_COUNT()`) === '1', 'Owned clinical literal fixture update did not match exactly one new patient');
+
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-eform-apcache-'));
     const positiveHtml = writeFixture(tempDir, 'apcache-positive', null);
     const negativeHtml = writeFixture(tempDir, 'apcache-negative', missingKey);
@@ -577,21 +673,35 @@ async function main() {
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1280, height: 1200 },
     });
+    if (proof) proof.attach(context, config.baseUrl.href);
     const landing = await login(context, config, recorder);
     await landing.close();
 
+    if (proof) {
+      assert(sql.value(`SELECT COUNT(*) FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`) === '0', 'Owned template names must be absent before import');
+      templatesAbsentBeforeImport = true;
+    }
     positiveFid = await uploadEform(context, positiveName, positiveSubject, positiveHtml);
     negativeFid = await uploadEform(context, negativeName, negativeSubject, negativeHtml);
+    if (proof) {
+      const htmlHex = sql.value(`SELECT HEX(form_html) FROM eform WHERE fid=${Number(negativeFid)} AND form_name=${h.sqlString(negativeName)}`);
+      assert(/^(?:[A-Fa-f0-9]{2})+$/.test(htmlHex), 'Owned negative template must have actual stored HTML');
+      const templateHtmlSha256 = sha(Buffer.from(htmlHex, 'hex'));
+      assert(templateHtmlSha256 === sha(fs.readFileSync(negativeHtml)), 'Imported negative template bytes differ from exact authored fixture');
+      proof.bindFixture({negativeFid:String(negativeFid),patient:String(ownedPatient),templateHtmlSha256});
+    }
 
-    const positive = await checkPositiveRender(context, positiveFid, runId, artifactPaths);
+    const positive = await checkPositiveRender(context, positiveFid, runId, artifactPaths, sql, {patient:ownedPatient,marker:ownedMarker,provider});
     if (positive.fdid) {
       savedFdids.add(positive.fdid);
     }
+    if (proof) proof.update({positiveWorkflowCompleted:true});
     const negative = await checkNegativeRender(context, sql, negativeFid, missingKey, runId, artifactPaths);
     savedFdids.add(negative.fdid);
+    if (proof) {proof.update({negativeWorkflowCompleted:true});await proof.drain();}
 
     const journal = checkJournal(sinceIso, missingKey, [positive.fdid, negative.fdid].filter(Boolean), positive.providerValue);
-    const probes = await checkDirectProbes();
+    const probes = await checkDirectProbes(proof);
 
     // A 422 from the bridge is expected during the negative render (it is what withholds the
     // PDF); it happens inside the headless renderer, not in this browser, so this browser must
@@ -612,6 +722,7 @@ async function main() {
       negativeTemplateFid: negativeFid,
       savedEformsCreated: [positive.fdid, negative.fdid].filter(Boolean).length,
       providerValueLength: positive.providerValue.length,
+      literalLookupControlsVerified: positive.literalLookupControlsVerified,
       todayValue: positive.todayValue,
       journal,
       probes,
@@ -644,7 +755,12 @@ async function main() {
       await cleanupImportedEform(context, negativeFid).catch((error) => cleanupErrors.push(error));
     }
     if (browser) {
-      await browser.close().catch(() => {});
+      try { await browser.close();browserClosed = true; }
+      catch (error) { cleanupErrors.push(error); }
+    }
+    if (proof && browserClosed) {
+      try {proof.update({browserClosed:true});}
+      catch (error) {cleanupErrors.push(error);}
     }
     if (tempDir) {
       fs.rmSync(tempDir, { recursive: true, force: true });
@@ -653,9 +769,11 @@ async function main() {
       // The soft-deleted templates by their unique names, then the instances and the patient by the patient's key.
       // Each step on its own, so a template that cannot be removed does not leave the owned patient behind.
       try {
+        if (!process.env.APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR || templatesAbsentBeforeImport) {
         sql.execute(`DELETE FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`);
         if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`) !== '0') {
           throw new Error('The imported eForm templates were not removed');
+        }
         }
       } catch (error) {
         cleanupErrors.push(error);
@@ -668,6 +786,10 @@ async function main() {
     } finally {
       sql.dispose();
     }
+    if (proof) {
+      try {if (!cleanupErrors.length && browserClosed) proof.update({cleanupAcknowledged:true});}
+      finally {proof.close();}
+    }
     if (cleanupErrors.length) {
       console.error(`cleanup problems: ${cleanupErrors.map((error) => redactSensitiveFailureText(error.message)).join('; ')}`);
       process.exitCode = 1;
@@ -675,4 +797,8 @@ async function main() {
   }
 }
 
-main();
+if (process.env.APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR) {
+  h.runCheck({name:'eform-apcache-renderer',run:async()=>{
+    await main();assert(!process.exitCode, 'APCache workflow or cleanup failed');
+  }});
+} else main();
