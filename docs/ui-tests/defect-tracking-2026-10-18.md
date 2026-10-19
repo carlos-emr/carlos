@@ -2,7 +2,7 @@
 
 > Publication context: these results and finding numbers describe the original
 > pinned package validation. See the [release integration and finding-ID crosswalk](coverage-publication-2026-10-18.md)
-> for the current 786-entry manifest, retained check variants and merged fixes.
+> for the publication manifest and follow-up additions, retained check variants and merged fixes.
 
 All **28 findings** in this coverage campaign now have a specific GitHub issue:
 **21 previously untracked findings are covered by 13 new tickets**, and seven

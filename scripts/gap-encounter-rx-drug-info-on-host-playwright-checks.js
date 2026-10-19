@@ -26,6 +26,10 @@ const DRUG_TERM = process.env.RX_INFO_DRUG_TERM || 'LIPITOR 20';
 const DRUG_NAME = process.env.RX_INFO_DRUG_NAME || 'LIPITOR 20MG';
 
 async function workflow(s) {
+  const log = serverLogFromEnvironment();
+  if (!log.configured) {
+    throw new h.SkipCheck('LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG is required to verify the Info fallback server log');
+  }
   const { patient, config, sql } = s;
   const appHost = new URL(config.baseUrl).host;
   s.cleanup(() => {
@@ -147,12 +151,7 @@ async function workflow(s) {
     // #5006: DrugRef resolved the DIN with getSingleResult, so an absent DIN was logged as an ERROR
     // (NoResultException from TablesDao.getDrugIdFromDIN) on every such Info open, although the
     // page went on to a correct name search. The log read is bracketed by a mark taken right before
-    // the request, so only what this lookup caused is judged. No log source: the half is skipped.
-    const log = serverLogFromEnvironment();
-    if (!log.configured) {
-      console.log('    SKIP server-log half: neither LAB_UPLOAD_JOURNAL_UNIT nor LAB_UPLOAD_SERVER_LOG is set');
-      return;
-    }
+    // the request, so only what this lookup caused is judged. The log source is required up front.
     const mark = log.mark();
     const target = new URL(`${config.baseUrl}/rx/drugInfo`);
     target.searchParams.set('GN', generic);

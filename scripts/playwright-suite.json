@@ -8531,7 +8531,11 @@
         "LAB_UPLOAD_SERVER_LOG"
       ],
       "fixtures": "The owned synthetic patient and one session-only custom drug. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host. Server log prerequisite: LAB_UPLOAD_JOURNAL_UNIT (carlos-emr on the package) or LAB_UPLOAD_SERVER_LOG, readable by the runner; missing historical DIN must fall back without a DrugRef exception. Run against an otherwise idle installation so its journal window contains only this lookup.",
-      "notes": "Exercises the real saved-product Info popup and local reference search. The unknown-DIN fallback must return results without DrugRef errors (#5006, fixed in #5023); a readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG source is required to execute the log assertion."
+      "notes": "Exercises the real saved-product Info popup and local reference search. The missing-DIN fallback still logs DrugRef NoResultException (#5006, finding 311); #5023/#5027 did not change the pinned DrugRef absence path. Requires a readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG; the whole check explicitly skips without it.",
+      "expectedFailure": {
+        "finding": 311,
+        "step": "missing DIN fallback does not log a DrugRef server exception"
+      }
     },
     {
       "name": "gap-encounter-rx-quantity-price",
@@ -14232,6 +14236,56 @@
       },
       "fixtures": "Owned synthetic patient and clinical rows; pharmacy variants own both directory entries and links; cleanup verified.",
       "notes": "Dismiss Save And Print using Escape, correct the acknowledged card and retain exactly one active medication."
+    },
+    {
+      "name": "rx-quantity-delete-race",
+      "script": "scripts/rx-discarded-card-callback-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG"
+      ],
+      "envSet": {
+        "RX_DISCARD_CALLBACK": "quantity"
+      },
+      "fixtures": "Owned patient, one persisted untouched control medication and one unsaved custom card. Holds only the target field blur request, removes the card through its X, then releases the request. Uses an exclusive journal window; all owned clinical rows are removed and verified.",
+      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Reproduces finding 312 (#5036) only at the final server-error assertion; earlier UI and clinical-row controls must pass.",
+      "expectedFailure": {
+        "finding": 312,
+        "step": "a discarded draft calculation is handled without a server exception"
+      }
+    },
+    {
+      "name": "rx-instructions-delete-race",
+      "script": "scripts/rx-discarded-card-callback-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG"
+      ],
+      "envSet": {
+        "RX_DISCARD_CALLBACK": "instructions"
+      },
+      "fixtures": "Owned patient, one persisted untouched control medication and one unsaved custom card. Holds only the target field blur request, removes the card through its X, then releases the request. Uses an exclusive journal window; all owned clinical rows are removed and verified.",
+      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Reproduces finding 312 (#5036) only at the final server-error assertion; earlier UI and clinical-row controls must pass.",
+      "expectedFailure": {
+        "finding": 312,
+        "step": "a discarded draft calculation is handled without a server exception"
+      }
     }
   ]
 }
