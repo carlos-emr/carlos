@@ -100,6 +100,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         "20IU IM BID x 7 days | 20 | 280",
         "100IU/mL SC tid x 7 days | 1 | 21",
         "100IU/5mL IM tid x 7 days | 1 | 21",
+        "100units/mL SC tid x 7 days | 1 | 21",
         "Take 0.5mL po OD x 7 days | 0.5 | 4",
         "0.5IU SC OD x 7 days | 0.5 | 4",
         "1000 mg po 2 tid x 7 days | 2 | 42"

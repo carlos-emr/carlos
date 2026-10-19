@@ -79,6 +79,9 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "100 IU/5mL IM tid x 7 days", "100 IU / 5 mL SC tid x 7 days",
             "Apply 2g/g tid x 7 days", "2g/g TOP. tid x 7 days",
             "100IU per mL SC tid x 7 days", "Apply 2g per g tid x 7 days",
+            "100units/mL SC tid x 7 days", "100 units/mL SC tid x 7 days",
+            "100unit/mL SC tid x 7 days", "100UNITS per 5mL IM tid x 7 days",
+            "50-100units/mL SC tid x 7 days", "1/2units/mL SC tid x 7 days",
             "500-1000 mg po tid x 7 days", "500-1000mg po tid x 7 days",
             "1/2 g po tid x 7 days", "1/2g po tid x 7 days"
         })
@@ -133,6 +136,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "20IU sc BID x 7 days | 20 | 20 | 280",
             "20IU IM BID x 7 days | 20 | 20 | 280",
             "20 units SC BID x 7 days | 20 | 20 | 280",
+            "20units SC BID x 7 days | 20 | 20 | 280",
+            "1/2units SC OD x 7 days | 0.5 | 0.5 | 4",
             "0.5IU SC BID x 8 days | 0.5 | 0.5 | 8",
             "1/2IU SC BID x 8 days | 0.5 | 0.5 | 8",
             "10-20IU SC BID x 7 days | 10 | 20 | 280",

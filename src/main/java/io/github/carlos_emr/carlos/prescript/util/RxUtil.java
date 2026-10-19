@@ -1062,8 +1062,7 @@ public class RxUtil {
         if (index == denominatorStart) {
             return null;
         }
-        if (!hasTokenBoundaryAt(text, index) && !hasStrengthUnitAfter(text, index)
-                && !hasDoseUnitAfter(text, index)) {
+        if (!hasTokenBoundaryAt(text, index) && !hasAmountUnitAfter(text, index)) {
             return null;
         }
 
@@ -1098,8 +1097,10 @@ public class RxUtil {
         return c >= '0' && c <= '9';
     }
 
-    private static boolean hasStrengthUnitAfter(String instructions, int amountEnd) {
-        return hasStrengthUnitAfter(instructions, amountEnd, null);
+    private static boolean hasAmountUnitAfter(String instructions, int amountEnd) {
+        return STRENGTH_UNIT.matcher(instructions)
+                .region(skipWhitespaceForward(instructions, amountEnd), instructions.length()).lookingAt()
+                || hasDoseUnitAfter(instructions, amountEnd);
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
@@ -1108,9 +1109,11 @@ public class RxUtil {
         Matcher unit = STRENGTH_UNIT.matcher(instructions)
                 .region(skipWhitespaceForward(instructions, amountEnd), instructions.length());
         if (!unit.lookingAt()) {
-            return false;
+            unit = DOSE_UNIT.matcher(instructions)
+                    .region(skipWhitespaceForward(instructions, amountEnd), instructions.length());
+            return unit.lookingAt() && hasConcentrationAfterUnit(instructions, unit.end());
         }
-        if (segment == null || hasConcentrationAfterUnit(instructions, unit.end())) {
+        if (hasConcentrationAfterUnit(instructions, unit.end())) {
             return true;
         }
         // Grams applied topically and IU injected through supported parenteral
@@ -1138,7 +1141,7 @@ public class RxUtil {
         }
         // A recognized denominator unit distinguishes product concentrations
         // such as IU/mL and g/g from administered amounts such as IU per dose.
-        return hasStrengthUnitAfter(instructions, denominatorStart) || hasDoseUnitAfter(instructions, denominatorStart);
+        return hasAmountUnitAfter(instructions, denominatorStart);
     }
 
     private static boolean hasDoseUnitAfter(String instructions, int amountEnd) {

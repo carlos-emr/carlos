@@ -32,6 +32,8 @@ async function workflow(s) {
     ['100IU/mL SC BID x 7 days', 1, 1, '14', 'BID'],
     ['100IU/5mL IM BID x 7 days', 1, 1, '14', 'BID'],
     ['100IU per mL SC BID x 7 days', 1, 1, '14', 'BID'],
+    ['100units/mL SC BID x 7 days', 1, 1, '14', 'BID'],
+    ['20units SC BID x 7 days', 20, 20, '280', 'BID'],
     ['Take 0.5mL po OD x 7 days', 0.5, 0.5, '4', 'OD'],
     ['0.5IU SC OD x 7 days', 0.5, 0.5, '4', 'OD'],
     ['500-1000 mg po tid x 7 days', 1, 1, '21'],
