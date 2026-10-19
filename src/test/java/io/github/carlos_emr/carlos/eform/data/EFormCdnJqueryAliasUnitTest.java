@@ -13,11 +13,14 @@
 
 package io.github.carlos_emr.carlos.eform.data;
 
+import java.time.Duration;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 
 /**
  * Pins the CDN-jQuery local alias.
@@ -180,6 +183,28 @@ class EFormCdnJqueryAliasUnitTest {
                     + pins + " data-note='keep'></script>"))
                     .contains("<script defer src='" + LOCAL_BUNDLE + "' data-note='keep'></script>");
         }
+    }
+
+    @Test
+    @DisplayName("should preserve Unicode lookalikes of ASCII integrity attribute names")
+    void shouldKeepUnicodeAttributeNames_whenRemovingAsciiIntegrityAttributes() {
+        String attributes = "\u0131ntegrity='keep-dotless' \u0130ntegrity='keep-dotted'"
+                + " cro\u017f\u017forigin='keep-long-s'";
+
+        assertThat(normalized("<script " + attributes + " src='../library/jquery/jquery-2.2.4.min.js'"
+                + " INTEGRITY='sha256-old' CROSSORIGIN='anonymous'></script>"))
+                .contains("<script " + attributes + " src='" + LOCAL_BUNDLE + "'></script>");
+    }
+
+    @Test
+    @DisplayName("should preserve large quoted attribute values without backtracking through their contents")
+    void shouldPreserveLargeAttributeValues_whenRemovingSubresourceIntegrity() {
+        String attributes = "data-config=\"" + " integrity='keep' > ".repeat(5000) + "\"";
+
+        assertTimeout(Duration.ofSeconds(5), () ->
+                assertThat(normalized("<script " + attributes + " src='../library/jquery/jquery-2.2.4.min.js'"
+                        + " integrity='sha256-old' crossorigin='anonymous'></script>"))
+                        .contains("<script " + attributes + " src='" + LOCAL_BUNDLE + "'></script>"));
     }
 
     @Test

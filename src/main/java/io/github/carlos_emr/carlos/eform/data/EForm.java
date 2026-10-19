@@ -37,6 +37,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.base.Ascii;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
@@ -92,10 +93,6 @@ public class EForm extends EFormBase {
     private static final Pattern ALIASED_SCRIPT_TAG =
             Pattern.compile("<script(?=[\\t\\n\\f\\r />])(?:[^\"'>]++|\"[^\"]*\"|'[^']*')*+>",
                     Pattern.CASE_INSENSITIVE);
-    /** Consume complete attributes in order; never restart a match inside a quoted value. */
-    private static final Pattern SCRIPT_ATTRIBUTE = Pattern.compile(
-            "\\G[\\t\\n\\f\\r ]*([^\\t\\n\\f\\r /=>\"'<]+)"
-            + "(?:[\\t\\n\\f\\r ]*=[\\t\\n\\f\\r ]*(?:\"[^\"]*\"|'[^']*'|[^\\t\\n\\f\\r >]*))?");
 
     /** jQuery build actually deployed under the webapp's library path. */
     private static final String DEPLOYED_LIBRARY_JQUERY_PATH = "/library/jquery/jquery-3.7.1.min.js";
@@ -640,19 +637,65 @@ public class EForm extends EFormBase {
                 scriptTag.appendReplacement(out, Matcher.quoteReplacement(tag));
                 continue;
             }
-            Matcher attributes = SCRIPT_ATTRIBUTE.matcher(tag).region("<script".length(), tag.length() - 1);
-            StringBuilder cleaned = new StringBuilder();
-            while (attributes.find()) {
-                String name = attributes.group(1);
-                if ("integrity".equalsIgnoreCase(name) || "crossorigin".equalsIgnoreCase(name)) {
-                    attributes.appendReplacement(cleaned, "");
-                }
-            }
-            attributes.appendTail(cleaned);
-            scriptTag.appendReplacement(out, Matcher.quoteReplacement(cleaned.toString()));
+            scriptTag.appendReplacement(out, Matcher.quoteReplacement(stripIntegrityAttributes(tag)));
         }
         scriptTag.appendTail(out);
         return out.toString();
+    }
+
+    /**
+     * Walks complete attributes once, retaining the original slices between removals. Every cursor
+     * advances monotonically, so large attribute values cannot trigger regex backtracking. HTML
+     * names use ASCII case folding: Unicode lookalikes are different attributes and must survive.
+     */
+    private static String stripIntegrityAttributes(String tag) {
+        StringBuilder cleaned = new StringBuilder(tag.length());
+        int copyFrom = 0;
+        int cursor = "<script".length();
+        while (cursor < tag.length() - 1) {
+            int attributeStart = cursor;
+            int nameStart = skipHtmlWhitespace(tag, cursor);
+            int nameEnd = nameStart;
+            while (nameEnd < tag.length() && !isHtmlWhitespace(tag.charAt(nameEnd))
+                    && "/=>\"'<".indexOf(tag.charAt(nameEnd)) < 0) {
+                nameEnd++;
+            }
+            if (nameEnd == nameStart) break;
+            String name = tag.substring(nameStart, nameEnd);
+            cursor = attributeEnd(tag, nameEnd);
+            if (Ascii.equalsIgnoreCase("integrity", name) || Ascii.equalsIgnoreCase("crossorigin", name)) {
+                cleaned.append(tag, copyFrom, attributeStart);
+                copyFrom = cursor;
+            }
+        }
+        return cleaned.append(tag, copyFrom, tag.length()).toString();
+    }
+
+    private static int attributeEnd(String tag, int nameEnd) {
+        int equals = skipHtmlWhitespace(tag, nameEnd);
+        if (equals >= tag.length() || tag.charAt(equals) != '=') return nameEnd;
+        int valueStart = skipHtmlWhitespace(tag, equals + 1);
+        if (valueStart >= tag.length()) return valueStart;
+        char quote = tag.charAt(valueStart);
+        if (quote == '\'' || quote == '"') {
+            int quoteEnd = tag.indexOf(quote, valueStart + 1);
+            return quoteEnd < 0 ? tag.length() : quoteEnd + 1;
+        }
+        int end = valueStart;
+        while (end < tag.length() && !isHtmlWhitespace(tag.charAt(end)) && tag.charAt(end) != '>') {
+            end++;
+        }
+        return end;
+    }
+
+    private static int skipHtmlWhitespace(String tag, int start) {
+        int end = start;
+        while (end < tag.length() && isHtmlWhitespace(tag.charAt(end))) end++;
+        return end;
+    }
+
+    private static boolean isHtmlWhitespace(char character) {
+        return " \t\n\f\r".indexOf(character) >= 0;
     }
 
     /**
