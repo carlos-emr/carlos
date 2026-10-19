@@ -150,7 +150,6 @@
      * For Javascript: First is last.
      */
 
-    eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/js/jquery.are-you-sure.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-3.7.1.min.js");
@@ -160,7 +159,14 @@
     // "First is last": this must be added AFTER jQuery so it lands BEFORE it in the document.
     eForm.addHeadJavascript(request.getContextPath()+"/library/dompurify/purify.min.js");
 
-    eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
+    // Bootstrap for the CARLOS chrome only (toolbar, save alert, attachment picker): every rule in
+    // this copy is confined to .carlos-eform-ui. The plain bootstrap.min.css must not be added here;
+    // its reboot (body margin and font, box-sizing on every element, table and heading margins)
+    // moves the fields of legacy, absolutely positioned eForms on screen and in print (#3944).
+    // Regenerate the copy with scripts/build-eform-scoped-bootstrap.js.
+    eForm.addCSS(request.getContextPath()+"/eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css", "all");
+    // Once only: a second copy registers Bootstrap's data-api handlers twice, so a data-bs-toggle
+    // collapse or dropdown in the form opens and immediately closes again.
     eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
 

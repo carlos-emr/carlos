@@ -1417,6 +1417,37 @@
       "timeoutSec": 300
     },
     {
+      "name": "eform-bootstrap-isolation",
+      "script": "scripts/eform-bootstrap-isolation-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-bootstrap-print-fidelity",
+      "script": "scripts/eform-bootstrap-print-fidelity-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
+      ],
+      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js) the legacy-layout eForm is opened and downloaded for, and a template inserted under a FAKE-PW run-marker name. The instance the download stores (eform_data, eform_values, EFormDocs above the run's mark), the template and the patient are removed by key and asserted gone. Needs pdftotext (poppler-utils)."
+    },
+    {
       "name": "eform-apcache-renderer",
       "script": "scripts/eform-apcache-renderer-playwright-checks.js",
       "tiers": [
