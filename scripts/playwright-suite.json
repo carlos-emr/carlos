@@ -12764,6 +12764,20 @@
       "fixtures": "Three MSP bills (billing + billingmaster) for its own FAKE patient, made a BC patient: two paid with explanation (E) and one rejected (R), all dated today, holding the creation date, name check and provider billing numbers a bill-form save stores (a reprocess writes those again). Cleanup deletes every BC billing row of that patient, with the history and notes the saves wrote, and asserts none is left."
     },
     {
+      "name": "billing-bc-claim-remittance-lines",
+      "script": "scripts/billing-bc-claim-remittance-lines-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "notes": "A claim's sequence-number link on the BC Invoice List, which opens that claim's MSP remittance lines (teleplanS00) by its office number; billing-bc-remittance-upload opens the remittance only by RA number: Master record ▸ Billing ▸ Invoice List ▸ the claim's sequence number ▸ ViewGenTAS00ByOfficeNo. The list shows each owned claim's latest MSP sequence number as its link; the first claim's link opens exactly its two lines (office number linked to the claim, fee code, billed and paid amounts in dollars, explanatory code, record type, what the line code means) and counts 2 records; last, the second claim's link opens only its own line.",
+      "fixtures": "The workflow's own FAKE patient made a BC patient, two MSP claims for it (billing + billingmaster, status E) and three teleplanS00 lines whose filename is the run marker and whose office number is an owned claim's. Cleanup deletes the lines by marker and every BC billing row of the patient, and asserts none is left."
+    },
+    {
       "name": "billing-bc-private-bill-receipt",
       "script": "scripts/billing-bc-private-bill-receipt-playwright-checks.js",
       "tiers": [
