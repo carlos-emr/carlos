@@ -119,6 +119,11 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Apply 2-5g BID x 7 days | 2 | 5 | 70",
             "Apply 5-2g BID x 7 days | 2 | 5 | 70",
             "Apply 5mg BID x 7 days | 1 | 1 | 14",
+            "2 g TOP. BID x 7 days | 2 | 2 | 28",
+            "2g top. BID x 7 days | 2 | 2 | 28",
+            "1/2g TOP. BID x 7 days | 0.5 | 0.5 | 7",
+            "2-5g TOP. BID x 7 days | 2 | 5 | 70",
+            "5mg TOP. BID x 7 days | 1 | 1 | 14",
             "2 mgtablets po tid x 7 days | 2 | 2 | 42"
         })
         void shouldPreserveDoseCounts_whenInstructionsSpecifyAdministeredAmounts(String instructions,

@@ -26,6 +26,7 @@ async function workflow(s) {
     ['Apply 2g BID x 7 days', 2, 2, '28', 'BID'],
     ['Rub well in 2 g BID x 7 days', 2, 2, '28', 'BID'],
     ['Apply 1/2g BID x 7 days', 0.5, 0.5, '7', 'BID'],
+    ['2g TOP. BID x 7 days', 2, 2, '28', 'BID'],
     ['500-1000 mg po tid x 7 days', 1, 1, '21'],
     ['Take 2 tablets (1000 mg) po tid x 7 days', 2, 2, '42'],
     ['1000 mg po 1-2 tid x 7 days', 1, 2, '42'],

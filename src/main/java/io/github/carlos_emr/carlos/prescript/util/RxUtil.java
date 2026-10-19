@@ -650,7 +650,7 @@ public class RxUtil {
         //check if method is specified, if yes, check the number after method, which maybe the number to take for a frequency.
 		//if no, check if a number is specified at beginning.
 		if (!instructions.isEmpty()) {
-			InstructionSegment instructionSegment = scanInstruction(instructions, methods);
+			InstructionSegment instructionSegment = scanInstruction(instructions, methods, route.equalsIgnoreCase("TOP."));
             // A strength describes the dose, not a count of dispensable units. Explicit
             // counts before the frequency still take precedence in the selection below.
             if (instructionSegment.strength) {
@@ -1085,7 +1085,7 @@ public class RxUtil {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
-    private static boolean hasStrengthUnitAfter(String instructions, int amountEnd, String method) {
+    private static boolean hasStrengthUnitAfter(String instructions, int amountEnd, InstructionSegment segment) {
         Matcher unit = STRENGTH_UNIT.matcher(instructions)
                 .region(skipWhitespaceForward(instructions, amountEnd), instructions.length());
         if (!unit.lookingAt()) {
@@ -1093,8 +1093,9 @@ public class RxUtil {
         }
         // Topical application instructions specify grams to administer, rather
         // than a product strength. Other strength units retain their meaning.
-        return !("g".equalsIgnoreCase(unit.group())
-                && ("Apply".equalsIgnoreCase(method) || "Rub well in".equalsIgnoreCase(method)));
+        return !("g".equalsIgnoreCase(unit.group()) && segment != null
+                && (segment.topicalRoute || "Apply".equalsIgnoreCase(segment.method)
+                        || "Rub well in".equalsIgnoreCase(segment.method)));
     }
 
     private static boolean hasDoseUnitAfter(String instructions, int amountEnd) {
@@ -1105,8 +1106,9 @@ public class RxUtil {
     }
 
 
-    private static InstructionSegment scanInstruction(String instructions, String[] methods) {
+    private static InstructionSegment scanInstruction(String instructions, String[] methods, boolean topicalRoute) {
         InstructionSegment segment = new InstructionSegment();
+        segment.topicalRoute = topicalRoute;
 
         for (String s : methods) {
             Pattern p = Pattern.compile(s);
@@ -1152,7 +1154,7 @@ public class RxUtil {
         if (methodRange == null) {
             return false;
         }
-        if (hasStrengthUnitAfter(instructions, methodRange.end, segment.method)) {
+        if (hasStrengthUnitAfter(instructions, methodRange.end, segment)) {
             segment.strength = true;
             return true;
         }
@@ -1171,7 +1173,7 @@ public class RxUtil {
         if (methodAmount == null) {
             return false;
         }
-        if (hasStrengthUnitAfter(instructions, methodAmount.end, segment.method)) {
+        if (hasStrengthUnitAfter(instructions, methodAmount.end, segment)) {
             segment.strength = true;
             return true;
         }
@@ -1193,7 +1195,7 @@ public class RxUtil {
             return false;
         }
 
-        if (hasStrengthUnitAfter(instructions, amountStart + fraction.length(), segment.method)) {
+        if (hasStrengthUnitAfter(instructions, amountStart + fraction.length(), segment)) {
             segment.strength = true;
             return true;
         }
@@ -1257,6 +1259,7 @@ public class RxUtil {
 
     private static class InstructionSegment {
         boolean strength;
+        boolean topicalRoute;
         String method;
         String takeMin;
         String takeMax;
