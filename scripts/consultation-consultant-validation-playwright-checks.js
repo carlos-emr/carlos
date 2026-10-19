@@ -140,6 +140,8 @@ async function workflow(s) {
       if (willBook) h.assert(await form.locator('#patientWillBook').isChecked(), 'Patient will book choice was lost');
     }
     h.assert(await form.locator('#specialist').inputValue() === '', 'Retry did not require a fresh active selection');
+    h.assert(await form.locator(requestId ? '[name="update"]' : '[name="submitSaveOnly"]').count() === 1,
+      'Retry form changed the save operation from create to update or vice versa');
     h.assert(sql.value(`SELECT COUNT(*) FROM consultationRequestsArchive WHERE demographicNo=${patient}`) === '0',
       'Rejected update wrote an archive');
     h.assert(sql.value(`SELECT COUNT(*) FROM consultationRequests WHERE demographicNo=${patient}`) === (requestId ? '1' : '0'),
@@ -161,10 +163,12 @@ async function workflow(s) {
   });
   await s.step('active directory selection saves a consultation', async () => {
     await pick('#specialistInput', `${marker}-0`);
-    await Promise.all([
-      form.waitForNavigation({ waitUntil: 'load' }),
-      form.locator('[name="submitSaveOnly"]').click(),
-    ]);
+    h.assert(await form.locator('#specialist').inputValue() === active, 'Retry picker did not select the active consultant');
+    const saved = form.waitForResponse(response => response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/encounter/RequestConsultation'), {timeout: 30000});
+    await form.locator('[name="submitSaveOnly"]').click({timeout: 10000});
+    await saved;
+    await form.waitForLoadState('domcontentloaded');
     h.assert(/has been\s+Created/i.test(await form.locator('body').innerText()), 'Valid consultation was not confirmed');
     h.assert(sql.value(`SELECT specId FROM consultationRequests WHERE demographicNo=${patient}`) === active,
       'Active consultant was not persisted');

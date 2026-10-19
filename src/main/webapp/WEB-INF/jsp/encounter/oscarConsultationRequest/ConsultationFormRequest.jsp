@@ -2655,7 +2655,7 @@ if (userAgent != null) {
                              When creating a new request (id == null): show Submit/Print/Fax buttons. --%>
                         <% if (canWriteConsult && thisForm.geteReferralId() == null) { %>
                                 <div class="consult-control-panel consult-control-panel-sticky mb-2">
-                                <% if (request.getAttribute("id") != null) { %>
+                                <% if (requestId != null && !requestId.isEmpty()) { %>
                                 <input name="update" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdate"/>"
                                        onclick="return checkForm('Update Consultation Request','EctConsultationFormRequest2Form');"/>
