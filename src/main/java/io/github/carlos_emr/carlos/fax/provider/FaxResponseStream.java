@@ -8,7 +8,11 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.io.entity.HttpEntityWrapper;
+import org.apache.hc.core5.io.CloseMode;
+import org.apache.hc.core5.io.Closer;
 
 /** Bounds transport bytes and ordinary metadata separately from streamed document bytes. */
 final class FaxResponseStream extends FilterInputStream {
@@ -20,6 +24,46 @@ final class FaxResponseStream extends FilterInputStream {
     private FaxResponseStream(InputStream input, long limit) {
         super(input);
         this.limit = limit;
+    }
+
+    /**
+     * Discards the request's connection before closing its body, including decoder wrappers.
+     * Each provider call owns its HTTP client, so there is no connection to reuse. Graceful
+     * stream/response closure would otherwise drain rejected bodies outside the byte limits.
+     */
+    static void abortOnClose(CloseableHttpResponse response) {
+        HttpEntity entity = response.getEntity();
+        if (entity != null) {
+            response.setEntity(new HttpEntityWrapper(entity) {
+                private boolean connectionDiscarded;
+
+                private void discardConnection() {
+                    // Adapted/test responses can delegate close back to this entity.
+                    if (!connectionDiscarded) {
+                        connectionDiscarded = true;
+                        response.close(CloseMode.IMMEDIATE);
+                    }
+                }
+
+                @Override
+                public InputStream getContent() throws IOException {
+                    return new FilterInputStream(super.getContent()) {
+                        @Override
+                        public void close() {
+                            discardConnection();
+                            // Release decoder resources after cancellation; socket close failures are expected.
+                            Closer.closeQuietly(in);
+                        }
+                    };
+                }
+
+                @Override
+                public void close() {
+                    discardConnection();
+                    Closer.closeQuietly(entity);
+                }
+            });
+        }
     }
 
     static FaxResponseStream open(HttpEntity entity) throws IOException {

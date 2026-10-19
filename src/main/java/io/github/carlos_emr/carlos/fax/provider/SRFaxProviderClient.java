@@ -679,6 +679,8 @@ public class SRFaxProviderClient implements FaxProviderClient {
         httpPost.setConfig(requestConfig);
 
         try (CloseableHttpClient client = HttpClients.custom()
+                // Fax jobs own retries; internal 503 retries drain uncapped bodies before returning.
+                .disableAutomaticRetries()
                 .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
                         .setDefaultConnectionConfig(connectionConfig)
                         .build())
@@ -687,6 +689,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
             httpPost.setEntity(request);
 
             try (CloseableHttpResponse response = client.execute(httpPost)) {
+                FaxResponseStream.abortOnClose(response);
                 int statusCode = response.getCode();
                 if (statusCode != HttpStatus.SC_OK) {
                     throw new FaxProviderException("SRFax API returned HTTP " + statusCode +

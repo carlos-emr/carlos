@@ -174,6 +174,13 @@ echoed document while reading the returned job metadata. Metadata is limited to
 response bytes (default 512 MiB), including chunked responses, as a disk/network
 safety limit; increasing it no longer requires a proportional document buffer.
 
+Provider calls discard their HTTP connection before closing response streams,
+including gzip decoder wrappers, so rejected or over-limit bodies are not drained
+outside those limits. Implicit HTTP-client retries are disabled; the fax workflow
+owns retry decisions. `FaxResponseAbortIntegrationTest` checks both providers with
+declared, chunked, compressed, malformed, and HTTP 503 replies whose final bytes
+remain withheld until the caller returns.
+
 `FaxStreamingMemoryIntegrationTest` runs both transports against a local synthetic
 provider in a separate JVM with `-Xmx48m -XX:+ExitOnOutOfMemoryError`. It transfers
 8 MiB and 256 MiB PDFs in both directions, validates/quarantines inbound files,

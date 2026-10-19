@@ -114,6 +114,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                     filePath, faxJob.getDocument(), false));
 
             try (var response = client.execute(post)) {
+                FaxResponseStream.abortOnClose(response);
                 if (response.getCode() != HttpStatus.SC_OK) {
                     throw new FaxProviderException("WEB SERVICE RESPONDED WITH " + response.getCode());
                 }
@@ -150,6 +151,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
             try (var response = client.execute(get)) {
+                FaxResponseStream.abortOnClose(response);
                 int statusCode = response.getCode();
 
                 if (statusCode != HttpStatus.SC_OK) {
@@ -198,6 +200,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
             try (var response = client.execute(get)) {
+                FaxResponseStream.abortOnClose(response);
                 int statusCode = response.getCode();
 
                 if (statusCode != HttpStatus.SC_OK) {
@@ -243,6 +246,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             delete.setHeader("passwd", faxConfig.getFaxPasswd());
 
             try (var response = client.execute(delete)) {
+                FaxResponseStream.abortOnClose(response);
                 if (response.getCode() != HttpStatus.SC_NO_CONTENT) {
                     throw new FaxProviderException("CANNOT DELETE " + fax.getFile_name());
                 }
@@ -267,6 +271,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
             try (var response = client.execute(get)) {
+                FaxResponseStream.abortOnClose(response);
                 int statusCode = response.getCode();
 
                 if (statusCode != HttpStatus.SC_OK) {
@@ -312,6 +317,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             put.setHeader("passwd", faxConfig.getFaxPasswd());
 
             try (var response = client.execute(put)) {
+                FaxResponseStream.abortOnClose(response);
                 int statusCode = response.getCode();
                 if (statusCode != HttpStatus.SC_OK) {
                     throw new FaxProviderException(
@@ -384,6 +390,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 .build();
 
         return HttpClientBuilder.create()
+                // Fax jobs own retries; internal 503 retries drain uncapped bodies before returning.
+                .disableAutomaticRetries()
                 .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
                         .setDnsResolver(endpoint.pinnedDnsResolver())
                         .setDefaultConnectionConfig(ConnectionConfig.custom()
