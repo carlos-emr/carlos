@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture;
 import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
@@ -133,6 +134,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         when(providerManager.getProvider(loggedInInfo, PROVIDER_NO)).thenReturn(new Provider());
         injectDependency(emailManager, "providerManager", providerManager);
         injectDependency(emailManager, "securityInfoManager", securityInfoManager);
+        injectDependency(emailManager, "clinicFooterService", ConfiguredClinicFooterFixture.service());
         when(emailLogDao.transitionEmailStatus(any(), any(), any(), any(), any())).thenReturn(1);
     }
 
