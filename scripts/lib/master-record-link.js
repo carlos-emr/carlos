@@ -8,6 +8,8 @@
  * `.patient-nav`, which share/javascript/demographic/patient-nav.js opens as a popup. The rest of the record
  * (edit-view.jsp) and older builds (release/2026.08) still open the same URLs from an onclick. A check that
  * matches only `a[onclick*="..."]` finds nothing in the navigation, so this matches either form.
+ * Since the alpha20 back-merge (#5007) the record's other links (edit.jsp) carry the URL in their href and open it
+ * with popupPage(..., this.href), so the URL is in neither the navigation nor the onclick: that form matches too.
  */
 
 /**
@@ -22,7 +24,7 @@ function masterRecordLink(master, ...urlFragments) {
   }
   const href = urlFragments.map(fragment => `[href*="${fragment}"]`).join('');
   const onclick = urlFragments.map(fragment => `[onclick*="${fragment}"]`).join('');
-  return master.locator(`.patient-nav a${href}, a${onclick}`);
+  return master.locator(`.patient-nav a${href}, a${onclick}, a${href}[onclick*="this.href"]`);
 }
 
 module.exports = { masterRecordLink };

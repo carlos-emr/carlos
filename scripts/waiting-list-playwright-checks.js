@@ -14,8 +14,9 @@
  * MariaDB (one current row per edit, the previous one marked history, the removal
  * marking all of them history), the Master Record offering the list with an editable
  * note and date while DEMOGRAPHIC_WAITING_LIST=true (issue #4229), list names
- * printed as text, a list archived after the form was drawn refused (HTTP 409) by
- * both write actions before anything is written, the manager and the patient
+ * printed as text, a list archived or moved to another group after the form was
+ * drawn refused (HTTP 409) by both write actions before anything is written, a
+ * "--Select Waiting List--" save still saving the patient, the manager and the patient
  * waiting-list page rendering the current row, a cancelled confirm() changing
  * nothing, and the mutators refusing GET and a tokenless POST without writing.
  * Fixtures: the synthetic patient from lib/workflow-session.js, the list the check
@@ -188,33 +189,49 @@ async function workflow(s) {
     h.assert((await s.master.locator(DATE_INPUT).first().inputValue()).startsWith('2026-03-04'), 'The reopened edit form lost the date');
   });
 
-  await s.step('a list archived after the form was drawn is refused by both write actions before any write', async () => {
+  await s.step('a list archived or moved to another group after the form was drawn is refused by both write actions before any write', async () => {
     const fields = await s.master.locator('form[name="updatedelete"]')
       .evaluate(element => Object.fromEntries(new FormData(element)));
     h.assert(fields['CSRF-TOKEN'], 'The stale-submit probe needs the real form CSRF token');
+    // The patient is already on this list, so the probes also cover an existing entry:
+    // resubmitting the same list_id with an edited note must be refused too.
     h.assert(fields.list_id === listId, 'The drawn form does not carry the selected list');
     const patientName = () => sql.value(`SELECT first_name FROM demographic WHERE demographic_no=${patient}`);
     const beforePatient = patientName();
     const beforeRows = allRows();
     const post = (route, form) => s.context.request.post(h.appUrl(s.config.baseUrl, route), { form, maxRedirects: 0 });
+    // A group the login is not in (group_no is varchar(10)).
+    const otherGroup = `PW${marker.slice(-6)}`;
+    h.assert(otherGroup !== group, 'The moved-list probe needs a group other than the login group');
+    const restoreList = () => sql.execute(`UPDATE waitingListName SET is_history='N', group_no=${h.sqlString(group)} WHERE ID=${listId}`);
+    const staleChanges = [
+      { name: 'an archived list', change: `UPDATE waitingListName SET is_history='Y' WHERE ID=${listId}` },
+      { name: 'a list moved to another group', change: `UPDATE waitingListName SET group_no=${h.sqlString(otherGroup)} WHERE ID=${listId}` },
+    ];
     try {
-      sql.execute(`UPDATE waitingListName SET is_history='Y' WHERE ID=${listId}`);
-      const update = await post('/demographic/DemographicUpdate',
-        { ...fields, first_name: 'Stale submission', waiting_list_note: `${marker} stale note` });
-      h.assert(update.status() === 409, `DemographicUpdate answered ${update.status()} instead of 409 for an archived list`);
-      h.assert(patientName() === beforePatient, 'The refused update still changed the patient record');
-      const confirmation = await post('/waitinglist/Add2WaitingList', {
-        'CSRF-TOKEN': fields['CSRF-TOKEN'], listId, demographicNo: patient,
-        waitingListNote: `${marker} stale confirmation`, onListSince: '2026-03-04',
-      });
-      h.assert(confirmation.status() === 409, `Add2WaitingList answered ${confirmation.status()} instead of 409 for an archived list`);
-      h.assert(allRows() === beforeRows, 'A refused submission changed the waiting-list rows');
-      // "--Select Waiting List--" (list_id=0) still saves the demographics alone.
-      const demographicsOnly = await post('/demographic/DemographicUpdate', { ...fields, list_id: '0' });
+      for (const stale of staleChanges) {
+        restoreList(); // each probe starts from the current list
+        sql.execute(stale.change);
+        const update = await post('/demographic/DemographicUpdate',
+          { ...fields, first_name: 'Stale submission', waiting_list_note: `${marker} stale note` });
+        h.assert(update.status() === 409, `DemographicUpdate answered ${update.status()} instead of 409 for ${stale.name}`);
+        h.assert(patientName() === beforePatient, `The refused update for ${stale.name} still changed the patient record`);
+        const confirmation = await post('/waitinglist/Add2WaitingList', {
+          'CSRF-TOKEN': fields['CSRF-TOKEN'], listId, demographicNo: patient,
+          waitingListNote: `${marker} stale confirmation`, onListSince: '2026-03-04',
+        });
+        h.assert(confirmation.status() === 409, `Add2WaitingList answered ${confirmation.status()} instead of 409 for ${stale.name}`);
+        h.assert(allRows() === beforeRows, `A refused submission for ${stale.name} changed the waiting-list rows`);
+      }
+      // "--Select Waiting List--" (list_id=0) still saves the demographics alone while
+      // the list is unavailable, and the patient change really reaches the database.
+      const demographicsOnly = await post('/demographic/DemographicUpdate',
+        { ...fields, list_id: '0', first_name: 'Demographics only' });
       h.assert(demographicsOnly.status() === 302, `A demographics-only save answered ${demographicsOnly.status()}`);
+      h.assert(patientName() === 'Demographics only', 'A demographics-only save did not save the patient change');
       h.assert(allRows() === beforeRows, 'A demographics-only save changed the waiting-list rows');
     } finally {
-      sql.execute(`UPDATE waitingListName SET is_history='N' WHERE ID=${listId}`);
+      restoreList();
     }
     await s.master.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
     await s.master.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});

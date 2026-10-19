@@ -7,7 +7,7 @@ const {runWorkflow,expectValue}=require('./lib/workflow-session');
 const {prepareRx}=require('./lib/rx-ui-workflow');
 const {failureMark,consumeExpectedFailure,consumeAbortedFetch}=require('./lib/concurrency-support');
 const refused=process.env.RX_CPP_ACTION==='refused';
-const name=refused?'rx-cpp-visibility-save-refusal':'rx-cpp-visibility-roundtrip';
+const name=refused?'rx-cpp-visibility-refused-state':'rx-cpp-visibility-roundtrip';
 async function workflow(s){
   const {sql,patient}=s,f=await prepareRx(s),drug=f.seed('visibility'),control=f.seed('control');
   const rx=await f.open(),box=rx.locator(`#hidecpp_${drug}`);

@@ -1,5 +1,9 @@
 # UI workflow coverage on release/2026.08 — 18 October 2026
 
+> Publication context: these results and finding numbers describe the original
+> pinned package validation. See the [release integration and finding-ID crosswalk](coverage-publication-2026-10-18.md)
+> for the current 786-entry manifest, retained check variants and merged fixes.
+
 Target: `release/2026.08`, source commit `a7611d07b4ae9b237b4a5d252fa938e09208eb85`.
 Tests use fictitious patients and a disposable Ubuntu 26.04 systemd container.
 

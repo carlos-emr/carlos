@@ -6,7 +6,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const {runWorkflow} = require('./lib/workflow-session');
 const tickler = process.env.CONSULT_FOLLOWUP_ACTION === 'tickler';
-const name = tickler ? 'consultation-overdue-tickler' : 'consultation-date-completion-filters';
+const name = tickler ? 'consultation-overdue-tickler-handoff' : 'consultation-date-completion-filters';
 async function workflow(s) {
   const {sql, patient, marker, provider} = s;
   const q = h.sqlString;

@@ -6,7 +6,7 @@ const ui=require('./lib/playwright-ui');
 const {runWorkflow}=require('./lib/workflow-session');
 const {prepareRx}=require('./lib/rx-ui-workflow');
 const clear=process.env.RX_TIMELINE_ACTION==='clear';
-const name=clear?'rx-timeline-clear-selection':'rx-timeline-multiple-selection';
+const name=clear?'rx-timeline-empty-selection':'rx-timeline-multiple-selection';
 async function workflow(s){
   const {sql,patient}=s,f=await prepareRx(s);
   const products=sql.rows("SELECT regional_identifier,MIN(BN) FROM drugs WHERE demographic_no<>"+patient+" AND customName IS NULL AND regional_identifier IS NOT NULL AND regional_identifier<>'' GROUP BY regional_identifier ORDER BY regional_identifier LIMIT 2");

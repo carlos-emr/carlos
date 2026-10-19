@@ -83,7 +83,6 @@ public class MSPReconcile {
     public static final String REP_MSPREMSUM = "REP_MSPREMSUM";
     public static final String REP_MSPREMSUM_PRACTSUM = "REP_MSPREMSUM_PRACTSUM";
     public static final String REP_MSPREMSUM_S23 = "REP_MSPREMSUM_S23";
-    public static final String REP_MSPREMSUM_S23_ORPHAN = "REP_MSPREMSUM_S23_ORPHAN";
 
     //MSP Bill Status Types
     public static final String REJECTED = "R";
@@ -1045,6 +1044,10 @@ public class MSPReconcile {
                 newStat = DATACENTERCHANGED;
             } else if (stat.equals(PAIDWITHEXP)) {
                 newStat = PAIDWITHEXP;
+            } else if (stat.equals(REFUSED)) {
+                // An S03 refusal in an uploaded remittance (genTA.jsp, GenTa2Action). Without this branch
+                // newStat stayed empty and the refused claim was saved with a blank status (#4933).
+                newStat = REFUSED;
             } else if (stat.equals(BADDEBT)) {
                 newStat = BADDEBT;
             } else if (stat.equals(WCB)) {

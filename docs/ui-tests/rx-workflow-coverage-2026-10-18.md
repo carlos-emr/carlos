@@ -1,5 +1,9 @@
 # Rx workflow coverage — release/2026.08
 
+> Publication context: these results and finding numbers describe the original
+> pinned package validation. See the [release integration and finding-ID crosswalk](coverage-publication-2026-10-18.md)
+> for the current 786-entry manifest, retained check variants and merged fixes.
+
 Target source: `a7611d07b4ae9b237b4a5d252fa938e09208eb85`. Tests exercise
 the Debian packages installed on Ubuntu 26.04.1 through nginx/HTTPS. The
 application source is unchanged. All new clinical fixtures are synthetic and

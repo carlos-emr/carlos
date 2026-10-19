@@ -21,7 +21,6 @@
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
-const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {bundleMessage, throwawayLoginFixture} = require('./lib/throwaway-login-fixture');
 const {runWorkflow} = require('./lib/workflow-session');
 
@@ -29,32 +28,33 @@ const TIMEOUT = 20000;
 const DELETE_CONFIRM = bundleMessage('schedule.scheduletemplateapplying.msgDeleteConfirmation',
   'Are you sure you want to delete this template setting?');
 
-/** Open a left-nav admin section through its .xlink into the shell's iframe. */
-async function openAdminSection(admin, relSuffix, readySelector) {
-  const link = admin.locator(`a.xlink[rel$="${relSuffix}"]`).first();
-  await revealAuditLink(admin, link, TIMEOUT);
-  const path = relSuffix.split('?')[0];
-  // Armed before the click: re-opening the same section must yield the NEW document.
-  const loaded = admin.waitForEvent('framenavigated', {
-    predicate: frame => frame !== admin.mainFrame() && new URL(frame.url()).pathname.endsWith(path), timeout: TIMEOUT,
-  });
-  loaded.catch(() => {});
-  await link.click({timeout: TIMEOUT});
-  const frame = await loaded;
-  await frame.waitForLoadState('domcontentloaded', {timeout: TIMEOUT}).catch(() => {});
-  await frame.locator(readySelector).first().waitFor({timeout: TIMEOUT});
-  await h.assertNotErrorPage(frame, relSuffix);
-  return frame;
+const {openAdminSection, frameNavigation: navigateFrame} = require('./schedule-admin-settings-playwright-checks');
+
+/** Do something inside an admin iframe that navigates that iframe, wait for it, and refuse an error page. */
+async function frameNavigation(admin, frame, action) {
+  await navigateFrame(admin, frame, action);
+  await h.assertNotErrorPage(frame, 'the schedule setting frame');
 }
 
-/** Do something inside an admin iframe that navigates that iframe, and wait for it. */
-async function frameNavigation(admin, frame, action) {
-  const navigated = admin.waitForEvent('framenavigated', {predicate: candidate => candidate === frame, timeout: TIMEOUT});
-  navigated.catch(() => {});
-  await action();
-  await navigated;
-  await frame.waitForLoadState('domcontentloaded', {timeout: TIMEOUT}).catch(() => {});
-  await h.assertNotErrorPage(frame, 'the schedule setting frame');
+/**
+ * Send a refusal probe from the page itself rather than the context's request client: the session cookie is
+ * Secure, which the browser sends to a loopback origin over plain HTTP but the request client does not
+ * (issue #4718, as in admin-lot-number-delete). A POST carries the fields form-encoded and no CSRF token.
+ * Returns what h.assertRefused reads: status, headers and body. A redirect is not followed (it is not a refusal).
+ */
+async function probeFromPage(page, url, method, fields) {
+  return page.evaluate(async ({target, verb, form}) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the URL and fields are the check's own fixed probe of a same-origin route
+    const query = new URLSearchParams(form).toString();
+    const response = await fetch(verb === 'GET' ? `${target}?${query}` : target, {
+      method: verb,
+      credentials: 'same-origin',
+      redirect: 'manual',
+      ...(verb === 'GET' ? {} : {headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: query}),
+    });
+    const headers = {};
+    response.headers.forEach((value, name) => { headers[name] = value; });
+    return {status: response.type === 'opaqueredirect' ? 302 : response.status, headers, body: await response.text()};
+  }, {target: url, verb: method, form: fields});
 }
 
 async function workflow(s) {
@@ -208,9 +208,9 @@ async function workflow(s) {
     const fields = {provider_no: owner, provider_name: marker, sdate: bStart, delete: '1', deldate: 'all'};
     const route = h.appUrl(s.config.baseUrl, '/schedule/TemplateApplying');
     await h.assertRefused(s, {label: 'GET schedule/TemplateApplying delete=1', table: 'rschedule', where, before: '1',
-      response: await context.request.get(route, {params: fields, maxRedirects: 0})});
+      response: await probeFromPage(admin, route, 'GET', fields)});
     await h.assertRefused(s, {label: 'POST schedule/TemplateApplying delete=1 without a CSRF token', table: 'rschedule', where, before: '1',
-      response: await context.request.post(route, {form: fields, maxRedirects: 0})});
+      response: await probeFromPage(admin, route, 'POST', fields)});
     h.assert(dates(bStart, bEnd, 'A') === '4', 'A refused delete changed a date of the second period');
   });
 }

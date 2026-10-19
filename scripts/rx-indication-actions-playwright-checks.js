@@ -6,7 +6,7 @@ const h=require('./lib/playwright-harness');
 const {runWorkflow,expectValue}=require('./lib/workflow-session');
 const {prepareRx}=require('./lib/rx-ui-workflow');
 const archive=process.env.RX_INDICATION_ACTION!=='registry';
-const name=archive?'rx-indication-archive':'rx-indication-patient-registry';
+const name=archive?'rx-indication-archive':'rx-indication-registry-roundtrip';
 async function workflow(s){
   const {sql,patient,provider,marker}=s,q=h.sqlString;
   const f=await prepareRx(s),drug=f.seed('indication'),control=f.seed('control');

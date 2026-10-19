@@ -26,9 +26,6 @@ const DRUG_TERM = process.env.RX_INFO_DRUG_TERM || 'LIPITOR 20';
 const DRUG_NAME = process.env.RX_INFO_DRUG_NAME || 'LIPITOR 20MG';
 
 async function workflow(s) {
-  const serverLog = serverLogFromEnvironment();
-  if (!serverLog.configured) throw new h.SkipCheck('Rx Info log verification needs LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG');
-  let missingDinMark;
   const { patient, config, sql } = s;
   const appHost = new URL(config.baseUrl).host;
   s.cleanup(() => {
@@ -74,7 +71,7 @@ async function workflow(s) {
     // Location's host is looked at (the address carries the drug text).
     await clickAndAwaitReload(rx, rx.locator(`#prescrip_${drug}`), { label: 'drug row' });
     h.assert(h.pathOnly(rx.url()).endsWith('/rx/ViewStaticScript2'), 'The drug row did not open the static script page');
-    const info = rx.locator('a[href^="javascript:ShowDrugInfo("]').first();
+    const info = rx.locator('a[href*="/rx/drugInfo?"][onclick^="ShowDrugInfo("]').first();
     await info.waitFor({ state: 'visible', timeout: 20000 });
     await rx.evaluate(() => {
       window.__originalOpen = window.open;
@@ -82,7 +79,7 @@ async function workflow(s) {
       window.open = address => { window.__opened.push(String(address)); return null; };
     });
     await info.click();
-    // A javascript: link runs after the click returns, so wait for the recorder rather than reading it at once.
+    // Wait for the recorder rather than reading it at once.
     await rx.waitForFunction(() => window.__opened && window.__opened.length > 0, null, { timeout: 10000 }).catch(() => {});
     const opened = await rx.evaluate(() => window.__opened);
     h.assert(opened.length === 1, `Clicking Info opened ${opened.length} window(s), not exactly one`);
@@ -138,7 +135,6 @@ async function workflow(s) {
     const target = new URL(`${config.baseUrl}/rx/drugInfo`);
     target.searchParams.set('GN', generic);
     target.searchParams.set('DIN', '00000000');
-    missingDinMark = serverLog.mark();
     const response = await s.context.request.get(target.toString(), { maxRedirects: 0 });
     const html = await response.text();
     await response.dispose();
@@ -146,15 +142,30 @@ async function workflow(s) {
     h.assert(!html.includes('id="drug-reference-details"'), 'An unknown DIN showed a product monograph');
     h.assert(/id="drug-info-matches"[\s\S]*?<a /.test(html), 'An unknown DIN did not offer name-search results');
   });
+
   await s.step('missing DIN fallback does not log a DrugRef server exception', async () => {
-    // Bracket only the expected missing historical/imported DIN lookup. The
-    // page can return a useful 200 while its downstream service throws.
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const errors = splitLogEvents(serverLog.since(missingDinMark)).filter(event =>
-      ['ERROR', 'FATAL', 'SEVERE'].includes(event.level)
-      && /TablesDao\.getDrugIdFromDIN/.test(event.text)
-      && /NoResultException/.test(event.text));
-    h.assert(errors.length === 0, `Missing DIN fallback logged ${errors.length} DrugRef NoResultException event(s)`);
+    // #5006: DrugRef resolved the DIN with getSingleResult, so an absent DIN was logged as an ERROR
+    // (NoResultException from TablesDao.getDrugIdFromDIN) on every such Info open, although the
+    // page went on to a correct name search. The log read is bracketed by a mark taken right before
+    // the request, so only what this lookup caused is judged. No log source: the half is skipped.
+    const log = serverLogFromEnvironment();
+    if (!log.configured) {
+      console.log('    SKIP server-log half: neither LAB_UPLOAD_JOURNAL_UNIT nor LAB_UPLOAD_SERVER_LOG is set');
+      return;
+    }
+    const mark = log.mark();
+    const target = new URL(`${config.baseUrl}/rx/drugInfo`);
+    target.searchParams.set('GN', generic);
+    target.searchParams.set('DIN', '00000000');
+    const response = await s.context.request.get(target.toString(), { maxRedirects: 0 });
+    await response.dispose();
+    h.assert(response.status() === 200, `rx/drugInfo answered HTTP ${response.status()} for an unknown DIN`);
+    // The log is written asynchronously; give the lookup's events time to arrive before judging.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const logged = splitLogEvents(log.since(mark))
+      .filter(event => /NoResultException|getDrugIdFromDIN|getDrugpKeyFromDIN/.test(event.text));
+    h.assert(logged.length === 0, `An unknown DIN logged ${logged.length} DrugRef exception event(s) in ${log.source}: `
+      + logged.map(event => `${event.level} ${event.logger}`).join('; '));
   });
 }
 

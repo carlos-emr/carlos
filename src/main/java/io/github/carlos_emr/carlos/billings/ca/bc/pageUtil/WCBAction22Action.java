@@ -38,8 +38,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
@@ -79,6 +77,12 @@ public class WCBAction22Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String save() throws Exception {
+        // A save writes a wcb row, so only the form's own POST may do it (issue #4864 item 8).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
@@ -90,9 +94,10 @@ public class WCBAction22Action extends ActionSupport {
 
         MiscUtils.getLogger().debug("In WCBAction22Action Jackson");
 
-        //Get rid of this
-        WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-        BillingmasterDAO billingmasterDAO = (BillingmasterDAO) ctx.getBean(BillingmasterDAO.class);
+        // The web context holds two beans of this type (the scanned billingmasterDAO and
+        // applicationContext.xml's), so a lookup by type there fails; SpringUtils resolves the one the
+        // rest of BC billing uses (#4864).
+        BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
 
         //save new wcb form
         WCB wcb = this.getWCB();
@@ -247,6 +252,15 @@ public class WCBAction22Action extends ActionSupport {
     @StrutsParameter
     public void setW_reportype(String w_reportype) {
         this.w_reportype = w_reportype;
+    }
+
+    /**
+     * The WCB form posts its report type as {@code w_reporttype}, the column's name; with only the
+     * misspelt setter above, every saved form kept the default, a first report (issue #4864).
+     */
+    @StrutsParameter
+    public void setW_reporttype(String w_reporttype) {
+        this.w_reportype = w_reporttype;
     }
 
     public String getW_fname() {
@@ -784,8 +798,8 @@ public class WCBAction22Action extends ActionSupport {
         wcb.setW_feeitem(w_feeitem); //--
         wcb.setW_extrafeeitem(w_extrafeeitem); //--
         wcb.setW_servicelocation(w_servicelocation); //--
-        //wcb.setW_formNeeded(formNeeded);
-        //private List injuryLocations;
+        // The Form Needed box posts 1 when ticked and nothing when clear; it was never saved (#4864).
+        wcb.setFormNeeded("1".equals(formNeeded) ? 1 : 0);
 
 
         return wcb;

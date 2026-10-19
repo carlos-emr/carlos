@@ -163,16 +163,7 @@ class EctIncomingEncounterDefaultIssuesUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldAssignTheDefaultsTheRoleMayWrite_whenTheLoginHasARoleInTheProgram() {
-        Secrole doctor = role(2L, "doctor");
-        Secrole nurse = role(5L, "nurse");
-        ProgramProvider membership = new ProgramProvider();
-        membership.setRole(doctor);
-        when(programProviders.getProgramProviderByProviderProgramId(PROVIDER, 10034L)).thenReturn(List.of(membership));
-        when(programAccess.getAccessListByProgramId(10034L)).thenReturn(Collections.emptyList());
-        when(roles.getRoles()).thenReturn(List.of(doctor, nurse));
-        when(roleAccess.hasAccess(anyString(), anyLong())).thenReturn(false);
-        when(roleAccess.hasAccess("write nurse issues", 2L)).thenReturn(true);
-        when(issues.getIssueCodeListByRoles(any())).thenReturn(List.of(65L));
+        givenADoctorWhoMayWriteNurseIssue65();
         // 65 is a nurse issue the doctor may write; 51 is not in the role's list.
         when(defaults.findAllDefaultIssueIds()).thenReturn(new String[]{"65", "51"});
         when(issues.getIssue(anyLong())).thenAnswer(call -> issue(call.getArgument(0), "nurse"));
@@ -189,6 +180,41 @@ class EctIncomingEncounterDefaultIssuesUnitTest extends CarlosUnitTestBase {
         assertThat(saved.getValue().getProgram_id()).isEqualTo(10034);
         assertThat(saved.getValue().getDemographic_no()).isEqualTo(4242);
         verify(patientIssues, never()).getIssuebyId(PATIENT, "51");
+    }
+
+    @Test
+    void shouldSkipAMalformedIdAndAssignTheRest_whenTheStoredListIsNotClean() {
+        givenADoctorWhoMayWriteNurseIssue65();
+        // A hand-edited or imported list: a padded valid id and an entry that is not a number.
+        when(defaults.findAllDefaultIssueIds()).thenReturn(new String[]{" 65 ", "abc"});
+        when(issues.getIssue(anyLong())).thenAnswer(call -> issue(call.getArgument(0), "nurse"));
+        when(patientIssues.getIssuebyId(eq(PATIENT), anyString())).thenReturn(null);
+
+        try (LogCapture log = LogCapture.forLogger(EctIncomingEncounter2Action.class)) {
+            assertThatCode(() -> new EctIncomingEncounter2Action().assignDefaultIssues(bean, "10034"))
+                    .doesNotThrowAnyException();
+            assertThat(log.messages()).containsExactly(
+                    "A default encounter issue was skipped: the stored default issue list holds a non-numeric id");
+        }
+
+        ArgumentCaptor<CaseManagementIssue> saved = ArgumentCaptor.forClass(CaseManagementIssue.class);
+        verify(patientIssues, times(1)).saveIssue(saved.capture());
+        assertThat(saved.getValue().getIssue_id()).isEqualTo(65L);
+        verify(patientIssues).getIssuebyId(PATIENT, "65");
+    }
+
+    @Test
+    void shouldAssignNothingAndWarnOnce_whenThePatientNumberIsNotNumeric() {
+        givenADoctorWhoMayWriteNurseIssue65();
+        bean.demographicNo = "not-a-number";
+
+        try (LogCapture log = LogCapture.forLogger(EctIncomingEncounter2Action.class)) {
+            assertThatCode(() -> new EctIncomingEncounter2Action().assignDefaultIssues(bean, "10034"))
+                    .doesNotThrowAnyException();
+            assertThat(log.messages()).containsExactly(
+                    "Default encounter issues were not assigned: the encounter has no numeric patient number");
+        }
+        verifyNoInteractions(defaults, patientIssues);
     }
 
     @Test
@@ -241,6 +267,20 @@ class EctIncomingEncounterDefaultIssuesUnitTest extends CarlosUnitTestBase {
         }
         verify(notes).getNotesCountByDemographicId(PATIENT);
         verifyNoInteractions(programProviders, defaults, patientIssues);
+    }
+
+    /** The login is a doctor in program 10034 whose role may write nurse issues; issue 65 is one. */
+    private void givenADoctorWhoMayWriteNurseIssue65() {
+        Secrole doctor = role(2L, "doctor");
+        Secrole nurse = role(5L, "nurse");
+        ProgramProvider membership = new ProgramProvider();
+        membership.setRole(doctor);
+        when(programProviders.getProgramProviderByProviderProgramId(PROVIDER, 10034L)).thenReturn(List.of(membership));
+        when(programAccess.getAccessListByProgramId(10034L)).thenReturn(Collections.emptyList());
+        when(roles.getRoles()).thenReturn(List.of(doctor, nurse));
+        when(roleAccess.hasAccess(anyString(), anyLong())).thenReturn(false);
+        when(roleAccess.hasAccess("write nurse issues", 2L)).thenReturn(true);
+        when(issues.getIssueCodeListByRoles(any())).thenReturn(List.of(65L));
     }
 
     private static Secrole role(Long id, String name) {

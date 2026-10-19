@@ -1,5 +1,9 @@
 # Defect tracking audit — 18 October 2026
 
+> Publication context: these results and finding numbers describe the original
+> pinned package validation. See the [release integration and finding-ID crosswalk](coverage-publication-2026-10-18.md)
+> for the current 786-entry manifest, retained check variants and merged fixes.
+
 All **28 findings** in this coverage campaign now have a specific GitHub issue:
 **21 previously untracked findings are covered by 13 new tickets**, and seven
 findings reuse existing open tickets. Four of the existing tickets have open,
@@ -14,7 +18,7 @@ coverage register, not to GitHub's issue-number sequence.
 
 The tests, including passing checks, remain saved on local branch
 `codex/ui-workflow-coverage-2026-08`, based on `release/2026.08` at
-`a7611d07b4ae9b237b4a5d252fa938e09208eb85`. This branch has not been pushed.
+`a7611d07b4ae9b237b4a5d252fa938e09208eb85`. Publication status is recorded in the release integration notes.
 New tickets state this explicitly and include test names and run commands;
 they do not link to unpublished commits as though those commits were online.
 

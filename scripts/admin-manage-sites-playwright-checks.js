@@ -12,9 +12,9 @@
  * nothing.
  * The menu entry exists only with multisites=on (admin.jsp and administration/leftNav.jspf);
  * without it the check SKIPs, as on the Ontario and BC demo installs (multisites=off).
- * Known failure: Save fails on develop (finding 276, #4700): the detail form posts site.* fields that
- * SitesManage2Action does not bind, the list's name link is a GET with method=update that the
- * GET guard refuses, and the edit form shows no stored values.
+ * Finding 276 (#4700, fixed by #4875): Save used to fail because the detail form posted site.* fields
+ * that SitesManage2Action did not bind, the list's name link was a GET with method=update that the
+ * GET guard refuses, and the edit form showed no stored values.
  * Known noise: sitesAdmin.jsp and sitesAdminDetail.jsp link `${request.contextPath}/css/displaytag.css`,
  * which renders as the root-relative /css/displaytag.css and 404s (finding 100). Those entries are
  * set aside as each step ends and reported in the last step, so they cannot hide another error.

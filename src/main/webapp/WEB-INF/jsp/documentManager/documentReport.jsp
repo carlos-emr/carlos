@@ -775,7 +775,10 @@
 
                                         <% } %>
 
-                                        <% if (!("demographic".equals(module) && moduleid != null && moduleid.equals(session.getAttribute("user")))) {
+                                        <%-- A tickler is for a patient: only a patient's own document list offers one.
+                                             On a provider's list the module id is the provider number, which the
+                                             link would send as the patient's (#4839). --%>
+                                        <% if ("demographic".equals(module)) {
 
                                             String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler?docType=DOC&docId=" + SafeEncode.forUriComponent(curdoc.getDocId()) + "&demographic_no=" + SafeEncode.forUriComponent(moduleid);
                                         %>

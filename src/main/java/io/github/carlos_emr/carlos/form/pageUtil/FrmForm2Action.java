@@ -36,6 +36,8 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -50,6 +52,7 @@ import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -264,7 +267,7 @@ public class FrmForm2Action extends ActionSupport {
             props.setProperty("provider_no", providerNo);
             props.setProperty("visitCod", (String) this.getValue("visitCod"));
             props.setProperty("dob", DemographicData.getDob(demo, "-"));
-            props.setProperty("gender", demo.getSex());
+            props.setProperty("gender", StringUtils.defaultString(demo.getSex()));
             props.setProperty("surname", demo.getLastName());
             props.setProperty("givenName", demo.getFirstName());
 
@@ -371,7 +374,7 @@ public class FrmForm2Action extends ActionSupport {
         // return SUCCESS;
         // forward to the for with updated formId
 
-        logger.debug("submit value: " + submit);
+        logger.debug("submit value: {}", LogSafe.sanitize(submit));
         if (submit.equalsIgnoreCase("exit")) {
             request.setAttribute("demographicNo", demographicNo);
             request.setAttribute("diagnosisVT", "See Vascular Tracker Template");

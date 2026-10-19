@@ -62,6 +62,11 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("999998");
         when(security.hasPrivilege(login, "_demographic", "r", null)).thenReturn(true);
+        for (String patient : List.of("101", "202")) {
+            when(security.hasPrivilege(login, "_demographic", "r", patient)).thenReturn(true);
+            when(security.hasPrivilege(login, "_casemgmt.issues", "w", patient)).thenReturn(true);
+            when(security.isAllowedAccessToPatientRecord(login, Integer.valueOf(patient))).thenReturn(true);
+        }
         session = new MockHttpSession();
         session.setAttribute("user", "999998");
         session.setAttribute("userrole", "doctor");
@@ -265,7 +270,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
 
         // Missing, blank, zero, not a number, too long: no chart to release, and no 500.
         for (String patient : new String[]{null, "", "0", "abc", "99999999999"}) {
-            assertThat(action(request(patient)).cleanup()).isNull();
+            assertThat(action(request(patient)).cleanup()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
         }
 
         assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("101's last eChart text");
@@ -273,7 +278,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldCleanupOnlyTheClosingPatientsFormAndCachedMetadata() {
+    void shouldCleanupOnlyTheClosingPatientsFormAndCachedMetadata_whenOnePatientIsNamed() {
         Object formA = new Object();
         Object formB = new Object();
         session.setAttribute("caseManagementEntryForm101", formA);
@@ -283,7 +288,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
             session.setAttribute(ChartSessionKeys.draftRestoring(patient), "true");
         }
         MockHttpServletRequest request = request("101");
-        assertThat(action(request).cleanup()).isNull();
+        assertThat(action(request).cleanup()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
         assertThat(session.getAttribute("caseManagementEntryForm101")).isNull();
         assertThat(session.getAttribute("caseManagementEntryForm202")).isSameAs(formB);
         // The closing chart's saved-note text and restore signal leave the session with it; the
@@ -297,6 +302,22 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(remaining.patientFirstName).isEqualTo("Bob");
         assertThat(remaining.encType).isEqualTo("office");
         assertThat(remaining.appointmentNo).isEqualTo("9002");
+    }
+
+    @Test
+    void shouldReleaseNeitherPatientsSession_whenCleanupNamesConflictingPatients() {
+        Object formA = new Object();
+        Object formB = new Object();
+        session.setAttribute("caseManagementEntryForm101", formA);
+        session.setAttribute("caseManagementEntryForm202", formB);
+        MockHttpServletRequest request = request("101");
+        request.setParameter("demographic_no", "202");
+
+        assertThat(action(request).cleanup()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(session.getAttribute("caseManagementEntryForm101")).isSameAs(formA);
+        assertThat(session.getAttribute("caseManagementEntryForm202")).isSameAs(formB);
+        assertThat(EncounterPatientContext.findEncounter(request, "101")).isNotNull();
+        assertThat(EncounterPatientContext.findEncounter(request, "202")).isNotNull();
     }
 
     @Test

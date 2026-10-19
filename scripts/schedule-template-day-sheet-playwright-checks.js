@@ -18,7 +18,8 @@
  * row with template A for each of the two days; today's and tomorrow's day sheets then show A's code
  * letter, colour and description on exactly the 09:00 to 10:45 slots, and on no other slot. After the
  * date popup puts template B on today, today's day sheet shows B's code on exactly 12:00 to 12:45, with
- * A gone, while tomorrow keeps one active template A row and its day sheet still shows A unchanged.
+ * A gone, while tomorrow keeps its one template A row, not rewritten (#4880), and its day sheet still
+ * shows A unchanged.
  *
  * Fixtures: the throwaway login with an owned schedule-administrator role and ProviderPreference
  * (08:00-18:00 in 15-minute slots, its own group), and two owned day templates, seeded by SQL; the two
@@ -236,11 +237,10 @@ async function workflow(s) {
   });
 
   await s.step('tomorrow\'s day sheet still shows template A, untouched by today\'s change', async () => {
-    // DateSave reloads the calendar, the POST result of Next, so the browser posts the week setting again and
-    // CreateDate rewrites every rule-made day in the range (old rows marked D, equal rows added). Only the
-    // active rows say what tomorrow's schedule is.
-    h.assert(JSON.stringify(dateRows(tomorrow).filter(([, , status]) => status === 'A')) === JSON.stringify([['1', A.name, 'A']]),
-      'Tomorrow no longer has exactly one active template A row after today\'s date popup save');
+    // DateSave redisplays the calendar with a display-only request (#4880), so CreateDate must not run again:
+    // tomorrow keeps exactly the one row Next wrote, with no D row from a rewrite.
+    h.assert(JSON.stringify(dateRows(tomorrow)) === JSON.stringify([['1', A.name, 'A']]),
+      `Today's date popup save rewrote tomorrow's rule-made row (rows: ${JSON.stringify(dateRows(tomorrow))})`);
     const found = await codedSlots(tomorrow, [A, B]);
     h.assert(times(found[A.code]) === JSON.stringify(A.slots) && found[A.code].every(cell => cell.right) && found[B.code].length === 0,
       `Tomorrow's day sheet changed: ${A.code} at ${times(found[A.code])}, ${B.code} on ${found[B.code].length} slot(s)`);

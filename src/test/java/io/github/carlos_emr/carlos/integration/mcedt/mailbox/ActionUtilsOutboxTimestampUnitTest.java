@@ -37,7 +37,6 @@ import org.mockito.MockedStatic;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,6 +45,11 @@ import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
@@ -304,11 +308,52 @@ class ActionUtilsOutboxTimestampUnitTest {
 
     @Test
     void shouldStageOneOpenAtATime_whenTwoUsersOpenTheUploadTabTogether() throws Exception {
-        // Two opens reading the same last open each copy the same files, deleting the
-        // other's copy first, and the later record wins; one open's failed copy is lost.
-        // Static mocks are per thread, so the guard is pinned rather than raced.
-        assertThat(Modifier.isSynchronized(
-                ActionUtils.class.getMethod("stageGeneratedClaimFiles").getModifiers())).isTrue();
+        Instant written = Instant.now().minus(1, ChronoUnit.HOURS);
+        ActionUtils.setOutboxTimestamp(Date.from(written.minusSeconds(60)));
+        Path claim = claimFile("HJ123456.001", written);
+        var firstCopy = new CountDownLatch(1);
+        var releaseCopy = new CountDownLatch(1);
+        var secondStarted = new CountDownLatch(1);
+        var copies = new AtomicInteger();
+        var secondThread = new AtomicReference<Thread>();
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            var first = workers.submit(() -> {
+                try (var files = mockStatic(FileUtils.class, CALLS_REAL_METHODS)) {
+                    files.when(() -> FileUtils.copyFileToDirectory(any(File.class), any(File.class), anyBoolean()))
+                            .thenAnswer(call -> {
+                                copies.incrementAndGet();
+                                firstCopy.countDown();
+                                assertThat(releaseCopy.await(10, TimeUnit.SECONDS)).isTrue();
+                                return call.callRealMethod();
+                            });
+                    return ActionUtils.stageGeneratedClaimFiles();
+                }
+            });
+            try {
+                assertThat(firstCopy.await(5, TimeUnit.SECONDS)).isTrue();
+                var second = workers.submit(() -> {
+                    try (var files = mockStatic(FileUtils.class, CALLS_REAL_METHODS)) {
+                        files.when(() -> FileUtils.copyFileToDirectory(any(File.class), any(File.class), anyBoolean()))
+                                .thenAnswer(call -> { copies.incrementAndGet(); return call.callRealMethod(); });
+                        secondThread.set(Thread.currentThread());
+                        secondStarted.countDown();
+                        return ActionUtils.stageGeneratedClaimFiles();
+                    }
+                });
+                assertThat(secondStarted.await(5, TimeUnit.SECONDS)).isTrue();
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                while (secondThread.get().getState() != Thread.State.BLOCKED && !second.isDone()
+                        && System.nanoTime() < deadline) Thread.sleep(10);
+                assertThat(secondThread.get().getState()).isEqualTo(Thread.State.BLOCKED);
+                releaseCopy.countDown();
+                assertThat(first.get(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(second.get(5, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                releaseCopy.countDown();
+            }
+        }
+        assertThat(copies).hasValue(1);
+        assertThat(outbox.resolve(claim.getFileName())).hasBinaryContent(Files.readAllBytes(claim));
     }
 
     private Path claimFile(String name, Instant modified) throws IOException {

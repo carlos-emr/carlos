@@ -49,6 +49,7 @@ class BillingBcFormJspRegressionTest {
     private static final Path BILL_RECEIPT_JSP = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billReceipt.jsp");
     private static final Path BILLING_VIEW_JSP = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingView.jsp");
     private static final Path STRUTS_BILLING_XML = Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml");
+    private static final Path WCB_CLOSE_JSP = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/wcbClose.jsp");
 
     private static String read(Path path) throws IOException {
         return Files.readString(path, StandardCharsets.UTF_8);
@@ -182,5 +183,29 @@ class BillingBcFormJspRegressionTest {
                     .contains("(BillingViewBean) request.getAttribute(\"billingViewBean\")")
                     .doesNotContain("findAttribute(\"billingViewBean\")");
         }
+    }
+
+    /**
+     * Issue #4864 item 10 and finding 432: a refused Continue returns to the bill form, which lists
+     * the reasons the bill holds. Each is shown as text.
+     */
+    @Test
+    @DisplayName("should list a refused Continue's reasons as text")
+    void shouldListRefusalReasons_asText() throws IOException {
+        assertThat(read(BILLING_BC_JSP))
+                .contains("java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute(\"actionErrors\");")
+                .contains("<li><%= SafeEncode.forHtmlContent(error) %></li>")
+                .doesNotContain("<li><%= error %></li>");
+    }
+
+    /** Issue #4864 item 7: Save and Close's page wrote a stray "v" ahead of its own markup. */
+    @Test
+    @DisplayName("should write nothing ahead of Save and Close's page")
+    void shouldWriteNothing_beforeSaveAndClosesPage() throws IOException {
+        String jsp = read(WCB_CLOSE_JSP);
+        int header = jsp.indexOf("--%>");
+        assertThat(header).isPositive();
+        String afterHeader = jsp.substring(header + "--%>".length());
+        assertThat(afterHeader.substring(0, afterHeader.indexOf("<%")).trim()).isEmpty();
     }
 }
