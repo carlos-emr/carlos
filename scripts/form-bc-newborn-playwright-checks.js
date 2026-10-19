@@ -98,12 +98,12 @@ async function workflow(s) {
   await s.step('the encounter form list offers BC-NewBorn 2008', async () => {
     h.assert(Number(row[3]) > 0, `${FORM} is off the encounter form list on this install (hidden=${row[3]}); the BC seed shows it`);
     chart = await s.chart();
-    await chart.locator('#menuTitle1 a').hover();
+    await ui.openFormsMenu(chart);
     await chart.getByRole('link', { name: FORM, exact: true }).waitFor({ state: 'visible', timeout: 20000 });
   });
 
   await s.step('BC-NewBorn 2008 opens from the form list with the mother filled in', async () => {
-    await chart.locator('#menuTitle1 a').hover();
+    await ui.openFormsMenu(chart);
     form = await s.popup(chart, chart.getByRole('link', { name: FORM, exact: true }), 'bcnewborn2008-new');
     h.assert(new URL(form.url()).pathname.endsWith('/form/formBCNewBorn2008'), `${FORM} opened ${form.url()}`);
     h.assert(await form.locator('[name="formId"]').inputValue() === '0', 'A new form should not have a form id yet');

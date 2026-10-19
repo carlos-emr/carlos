@@ -262,7 +262,7 @@ async function workflow(s) {
     // output escapes the record separators.
     const bytes = fs.readFileSync(file);
     const body = bytes.length && bytes[bytes.length - 1] === 0x0a ? bytes.subarray(0, bytes.length - 1) : bytes;
-    h.assert(createHash('md5').update(body).digest('hex') === sql.value(`SELECT MD5(ohipcontext) FROM billactivity WHERE id=${id}`),
+    h.assert(createHash('sha256').update(body).digest('hex') === sql.value(`SELECT SHA2(ohipcontext, 256) FROM billactivity WHERE id=${id}`),
       'The MSP file on disk is not the batch\'s stored file');
     const onDisk = bytes.toString('latin1');
     const lines = onDisk.split(/\r?\n|\r/).map(line => line.trim()).filter(Boolean);

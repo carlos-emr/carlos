@@ -414,6 +414,7 @@ async function checkPositiveRender(context, fid, runId, artifactPaths) {
 
 /** The value of the hidden input efmshowform_data.jsp writes with this id (EForm.addHiddenInputElement), or ''. */
 function hiddenInputValue(html, id) {
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- id is one of this check's literal field ids (eFormPDF, errorMessage)
   const input = new RegExp(`<input[^>]*\\bid="${id}"[^>]*>`).exec(html);
   const value = input && /\bvalue="([^"]*)"/.exec(input[0]);
   if (!value) return '';

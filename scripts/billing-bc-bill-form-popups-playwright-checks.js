@@ -213,10 +213,12 @@ async function workflow(s) {
     // The search form opens inside a table, so the browser lifts its controls out of the <form> element; they still
     // belong to it, but a form-scoped selector finds none of them.
     await popup.locator('input[name="keyword"]').fill(keyword);
-    await Promise.all([popup.waitForLoadState('domcontentloaded'),
-      popup.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/billing/CA/BC/ViewOnSearch3rdBillAddr'),
-        { timeout: TIMEOUT }),
-      popup.locator('input[type="submit"][value="Search"]').first().click()]);
+    await Promise.all([
+      popup.waitForResponse(r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/billing/CA/BC/ViewOnSearch3rdBillAddr'), { timeout: TIMEOUT }),
+      ui.clickAndAwaitReload(popup, popup.locator('input[type="submit"][value="Search"]').first(),
+        { timeout: TIMEOUT, label: 'the bill-to Search' }),
+    ]);
     await settle(popup, 'the bill-to search results');
     return popup;
   };
@@ -251,12 +253,12 @@ async function workflow(s) {
       province: 'BC', postcode: 'V1V1V1', telephone: '555-010-0002' };
     const search = await billToSearch(added.company);
     h.assert(await resultRow(search, added.company).count() === 0, `${added.company} is already in the address book`);
-    await Promise.all([search.waitForLoadState('domcontentloaded'),
-      search.locator('form[action$="/billing/CA/BC/OnAddEdit3rdAddr"] button[type="submit"]').click()]);
+    await ui.clickAndAwaitReload(search, search.locator('form[action$="/billing/CA/BC/OnAddEdit3rdAddr"] button[type="submit"]'),
+      { timeout: TIMEOUT, label: 'Add/Edit Address' });
     await settle(search, 'Add/Edit Address');
     await search.locator('input[type="text"][name="company_name"]').fill(added.company);
-    await Promise.all([search.waitForLoadState('domcontentloaded'),
-      search.locator('input[type="submit"][name="submit"][value="Search"]').first().click()]);
+    await ui.clickAndAwaitReload(search, search.locator('input[type="submit"][name="submit"][value="Search"]').first(),
+      { timeout: TIMEOUT, label: 'the Add/Edit Address name search' });
     await settle(search, 'Add/Edit Address after the name search');
     h.assert(/It is a NEW name\. You can add it\./.test(await search.locator('body').innerText()),
       `Add/Edit Address did not offer to add ${added.company}`);

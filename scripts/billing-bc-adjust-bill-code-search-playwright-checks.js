@@ -144,6 +144,7 @@ async function workflow(s) {
     const list = await s.popup(adjust, search, 'bc-fee-items');
     await list.waitForLoadState('domcontentloaded');
     await h.assertNotErrorPage(list, 'BC fee item list');
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- feeTarget selects only a five-digit service code (REGEXP '^[0-9]{5}$')
     const pick = list.locator('a[onclick^="updateFeeCodeValues("]').filter({ hasText: new RegExp(`^\\s*${fee.code}\\s*$`) });
     h.assert(await pick.count() === 1, `The fee item list does not list ${fee.code} once`);
     await Promise.all([list.waitForEvent('close', { timeout: TIMEOUT }), pick.click()]);
