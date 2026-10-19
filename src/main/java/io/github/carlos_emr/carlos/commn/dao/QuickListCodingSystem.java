@@ -48,8 +48,9 @@ public final class QuickListCodingSystem {
     /**
      * The names a quick-list row of the given coding system may be stored under, the given name first.
      *
-     * @param codingSystem a coding system name, as configured in {@code dxResearch_coding_sys}
-     * @return {@code ichppccode} and {@code ichppc} for the ICHPPC coding system; otherwise just the given name
+     * @param codingSystem String a coding system name, as configured in {@code dxResearch_coding_sys}
+     * @return List&lt;String&gt; {@code ichppccode} and {@code ichppc} for the ICHPPC coding system; otherwise just the
+     *         given name
      */
     public static List<String> storedNames(String codingSystem) {
         if (ICHPPC.equals(codingSystem)) {
@@ -61,8 +62,8 @@ public final class QuickListCodingSystem {
     /**
      * The coding system a stored name stands for.
      *
-     * @param storedName a quick-list row's stored coding system
-     * @return {@code ichppccode} for the older {@code ichppc}; any other name unchanged
+     * @param storedName String a quick-list row's stored coding system
+     * @return String {@code ichppccode} for the older {@code ichppc}; any other name unchanged
      */
     public static String canonical(String storedName) {
         return LEGACY_ICHPPC.equals(storedName) ? ICHPPC : storedName;
