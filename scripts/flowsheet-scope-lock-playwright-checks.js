@@ -70,9 +70,7 @@ async function workflow(s) {
   // A CSS match, not a role query: the card lives in a tab pane that is not the one showing.
   const customList = page.locator('div.card', {has: page.locator('h4', {hasText: 'Custom List:'})});
   // The list names a row by its measurement type, not its display name; the three types are distinct.
-  const row = level => customList.locator('tbody tr').filter({
-    has: page.locator('td', {hasText: new RegExp(`^\\s*${items[level].type}\\s*$`)}),
-  });
+  const row = level => customList.locator('tbody tr').filter({has: page.getByText(items[level].type, {exact: true})});
   const expectLocked = async (level, createdAt, where) => {
     const r = row(level);
     h.assert(await r.count() === 1, `${where}: the Custom List does not show the ${level} item exactly once`);
