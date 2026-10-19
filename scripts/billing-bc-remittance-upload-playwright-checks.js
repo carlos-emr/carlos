@@ -13,15 +13,19 @@
  * The FAKE remittance: an S21 header for the owned physician's payee number, an S01 paid line for the
  * first owned claim, an S03 refusal (explanation AA) for the second, and an S22 practitioner summary,
  * each fixed width as genTA.jsp reads it; the file name carries the run marker.
- * Asserted: Submit opens the reconciliation list, which lists the remittance; the header, both claim
+ * Asserted: Submit opens the reconciliation list, which lists the remittance; the list shows its payee and its
+ * billed, paid, balance-forward, cheque and new-balance amounts in dollars; the header, both claim
  * lines and the summary are stored once; the paid claim is settled (S); Detail lists the refused claim's
  * line with its explanation and nothing paid; Summary lists the practitioner's billed and paid totals;
- * the refused claim is marked refused (F); MSP Reconciliation Reports opens from the menu.
+ * the refused claim is marked refused (F); MSP Reconciliation Reports opens from the menu; LAST, that list's
+ * Billed PDF names the owned claims (patient number and both fee codes) and its Summary PDF the payee and
+ * practitioner numbers.
  * Known failures, recorded in the manifest notes: on 2026.08 Submit stores the remittance and then
  * answers HTTP 500 (#4806; #4808 is its release fix), so the upload step fails; MSP Reconciliation
- * Reports from the menu fails on every BC install (#4439, D6), the last step.
+ * Reports from the menu fails on every BC install (#4439, D6); the list's PDF links answer HTTP 404 until
+ * #5063 is fixed (they resolve under the page's base to /<context>/createBillingReportAction), the last step.
  * Needs DOCUMENT_DIR, the server's document directory reachable from this runner (the uploaded copy
- * is removed from it), and a NEW_BC_TELEPLAN=no install (SKIP otherwise).
+ * is removed from it), a NEW_BC_TELEPLAN=no install, and Poppler's pdftotext for the PDF text (SKIP otherwise).
  * Fixtures: one billing physician (bc.createBillingPhysician), the workflow's own FAKE patient made a
  * BC patient, and two submitted MSP claims (status B) for it. Cleanup deletes the remittance's
  * teleplanS21, teleplanS00 and teleplanS22 rows (by the file name, which carries the marker), the
@@ -36,6 +40,7 @@ const ui = require('./lib/playwright-ui');
 const bc = require('./lib/bc-billing-fixture');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
+const { requirePoppler, pdfTextBuffer, squash } = require('./lib/export-content-helpers');
 
 const TIMEOUT = 60000;
 const UPLOAD_ROUTE = '/billing/CA/BC/ViewBillingTA';
@@ -46,11 +51,13 @@ const REFUSED = { code: '00110', amount: '31.50' };
 const STEP = {
   open: 'Administration ▸ Billing ▸ Upload Remittance Files opens the upload form',
   upload: 'Submit stores the FAKE remittance and opens the reconciliation list, which lists it',
+  money: "the reconciliation list shows the remittance's payee and its billed, paid, forward, cheque and new balance amounts in dollars",
   stored: 'the remittance is stored once and settles the paid claim (S)',
   detail: "the remittance's Detail lists the refused claim's line with its explanation and nothing paid",
   summary: "the remittance's Summary lists the practitioner's billed and paid totals",
   refused: 'the claim MSP refused is marked refused (F)',
   menu: 'Administration ▸ Billing ▸ MSP Reconciliation Reports opens the reconciliation list',
+  pdfs: "the list's Billed PDF and Summary PDF are PDFs that name the remittance's claims, payee and practitioner",
 };
 
 const text = (value, width) => String(value).padEnd(width, ' ').slice(0, width);
@@ -106,6 +113,7 @@ function ownRemittance(s, local) {
 
 async function preflight({ sql }) {
   bc.requireBcBillingSchema(sql);
+  requirePoppler('pdftotext');
   const dir = documentDir();
   if (!dir || !fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
     throw new h.SkipCheck('DOCUMENT_DIR (the server\'s document directory, reachable from this runner) is required');
@@ -158,6 +166,7 @@ async function workflow(s) {
     return frame;
   };
   let raNo;
+  let list;
 
   await s.step(STEP.open, async () => {
     const frame = await openMenu(UPLOAD_ROUTE, 'Upload Remittance Files');
@@ -183,6 +192,20 @@ async function workflow(s) {
     h.assert(/^[1-9]\d*$/.test(raNo), 'The FAKE remittance header was not stored');
     h.assert(await frame.locator(`a[href*="ViewGenTAS00?rano=${raNo}&"]`).count() === 1,
       'The reconciliation list after the upload does not list the FAKE remittance');
+    list = frame;
+  });
+
+  // The remittance's row of the reconciliation list: its Detail link's nearest row (the list sits in layout tables).
+  const listRow = () => list.locator(`a[href*="ViewGenTAS00?rano=${raNo}&"]`).locator('xpath=ancestor::tr[1]');
+
+  await s.step(STEP.money, async () => {
+    const cells = (await listRow().locator('xpath=./td').allInnerTexts()).map(cell => cell.replace(/\u00a0/g, ' ').trim());
+    const billed = (Number(PAID.amount) + Number(REFUSED.amount)).toFixed(2);
+    // The S21 header's fields, as remittanceLines() writes them: payee name, then billed, paid, balance forward, cheque
+    // and new balance, each in cents; the list prints them in dollars.
+    const expected = [marker, billed, PAID.amount, '0.00', PAID.amount, '0.00'];
+    h.assert(JSON.stringify(cells.slice(1, 7)) === JSON.stringify(expected),
+      `The reconciliation list shows ${JSON.stringify(cells.slice(1, 7))} for the remittance, not ${JSON.stringify(expected)}`);
   });
 
   await s.step(STEP.stored, async () => {
@@ -245,6 +268,23 @@ async function workflow(s) {
     await h.assertNotErrorPage(frame, 'MSP Reconciliation Reports');
     h.assert(await frame.locator(`a[href*="ViewGenTAS00?rano=${raNo}&"]`).count() === 1,
       'MSP Reconciliation Reports does not list the FAKE remittance');
+    list = frame;
+  });
+
+  await s.step(STEP.pdfs, async () => {
+    // Numbers, not names: the reports' columns can cut a long name.
+    for (const [type, label, wanted] of [['REP_MSPREM', 'Billed PDF', [String(patient), PAID.code, REFUSED.code]],
+      ['REP_MSPREMSUM', 'Summary PDF', [physician.payeeNo, physician.ohipNo]]]) {
+      // Each report has a PDF and a CSV link; these are the PDF ones.
+      const link = listRow().locator(`a[href*="docFormat=pdf&repType=${type}&"]`);
+      h.assert(await link.count() === 1, `The remittance's row has no ${label} link`);
+      const href = await link.evaluate(a => a.href);
+      const response = await s.context.request.get(href, { timeout: TIMEOUT });
+      h.assert(response.ok(), `The ${label} answered HTTP ${response.status()}`);
+      const text = squash(pdfTextBuffer(await response.body()));
+      const missing = wanted.filter(value => !text.includes(squash(value)));
+      h.assert(missing.length === 0, `The ${label} does not name ${JSON.stringify(missing)}: ${text.slice(0, 300)}`);
+    }
   });
   await admin.close();
 }
