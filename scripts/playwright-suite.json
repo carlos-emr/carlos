@@ -3919,11 +3919,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "BC Bill Status and adjust bill page (#4373, #4346): Invoice List, Edit, Settle, billing history and note. Expected to FAIL at the note step while app-findings-log.md finding 145 stands (each save adds a backslash before an apostrophe). Finding 147 (TypeError on the adjust page's load) was fixed with #4551.",
-      "expectedFailure": {
-        "finding": 145,
-        "step": "the save keeps the billing note exactly, apostrophe included"
-      },
+      "notes": "BC Bill Status and adjust bill page (#4373, #4346): Invoice List, Edit, Settle, billing history and exact note text. Finding 145 is fixed: the beta1 Ubuntu 26.04 promotion revalidation preserved the apostrophe after Settle and passed all five steps. Finding 147 (TypeError on the adjust page's load) was fixed with #4551.",
       "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
     },
     {
@@ -15380,11 +15376,7 @@
         "RX_DISCARD_CALLBACK": "quantity"
       },
       "fixtures": "Owned patient, one persisted untouched control medication and one unsaved custom card. Holds only the target field blur request, removes the card through its X, then releases the request. Uses an exclusive journal window; all owned clinical rows are removed and verified.",
-      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Reproduces finding 312 (#5036) only at the final server-error assertion; earlier UI and clinical-row controls must pass.",
-      "expectedFailure": {
-        "finding": 312,
-        "step": "a discarded draft calculation is handled without a server exception"
-      }
+      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Regression coverage for fixed finding 312 (#5036); the beta1 Ubuntu 26.04 promotion revalidation passed the actual delayed callback and all clinical-row and server-log assertions."
     },
     {
       "name": "rx-instructions-delete-race",
@@ -15405,11 +15397,7 @@
         "RX_DISCARD_CALLBACK": "instructions"
       },
       "fixtures": "Owned patient, one persisted untouched control medication and one unsaved custom card. Holds only the target field blur request, removes the card through its X, then releases the request. Uses an exclusive journal window; all owned clinical rows are removed and verified.",
-      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Reproduces finding 312 (#5036) only at the final server-error assertion; earlier UI and clinical-row controls must pass.",
-      "expectedFailure": {
-        "finding": 312,
-        "step": "a discarded draft calculation is handled without a server exception"
-      }
+      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Regression coverage for fixed finding 312 (#5036); the beta1 Ubuntu 26.04 promotion revalidation passed the actual delayed callback and all clinical-row and server-log assertions."
     }
   ]
 }
