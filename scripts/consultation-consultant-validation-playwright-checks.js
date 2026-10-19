@@ -63,12 +63,14 @@ async function workflow(s) {
   const waitForm = async () => {
     await form.locator('#specialistInput').waitFor();
     await form.waitForFunction(() => typeof allSpecialistsData !== 'undefined' && allSpecialistsData.length > 0);
+    await form.waitForLoadState('networkidle');
   };
   await waitForm();
   async function pick(selector, text) {
     await form.locator(selector).click();
     await form.locator(selector).fill(text);
     await form.locator('.ui-autocomplete:visible .ui-menu-item').filter({ hasText: text }).first().click();
+    await form.waitForLoadState('networkidle');
   }
   const reason = `${marker} entered referral reason`;
   const clinical = `${marker} clinical information`;
@@ -140,6 +142,8 @@ async function workflow(s) {
       if (willBook) h.assert(await form.locator('#patientWillBook').isChecked(), 'Patient will book choice was lost');
     }
     h.assert(await form.locator('#specialist').inputValue() === '', 'Retry did not require a fresh active selection');
+    h.assert(await form.locator('ul.ui-autocomplete:visible').count() === 0,
+      'Restoring the service opened a suggestion menu over the consultant picker');
     h.assert(await form.locator(requestId ? '[name="update"]' : '[name="submitSaveOnly"]').count() === 1,
       'Retry form changed the save operation from create to update or vice versa');
     h.assert(sql.value(`SELECT COUNT(*) FROM consultationRequestsArchive WHERE demographicNo=${patient}`) === '0',
@@ -177,7 +181,7 @@ async function workflow(s) {
   await s.step('legacy unassigned consultation remains readable and invalid updates preserve it', async () => {
     const requestId = sql.value(`SELECT requestId FROM consultationRequests WHERE demographicNo=${patient}`);
     // Model an explicitly unassigned historical referral; normal saves must assign it.
-    sql.execute(`UPDATE consultationRequests SET specId=NULL, signatureImg=NULL WHERE requestId=${requestId};
+    sql.execute(`UPDATE consultationRequests SET specId=NULL, signature_img=NULL WHERE requestId=${requestId};
       DELETE FROM DigitalSignature WHERE demographicId=${patient}`);
     form = await s.context.newPage();
     h.wireStrictPage(form, 'legacy-unassigned', s.recorder);

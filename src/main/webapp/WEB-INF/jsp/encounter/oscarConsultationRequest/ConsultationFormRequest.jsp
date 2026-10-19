@@ -3431,9 +3431,12 @@ if (userAgent != null) {
                                         initSpecialistAutocomplete();
                                         // Resolve text entered while either asynchronous lookup was loading.
                                         // Existing consultations are restored from their saved IDs immediately below.
-                                        jQuery('#serviceInput').trigger('input');
+                                        var restoredService = '<carlos:encode value='<%= thisForm.getService() %>' context="javaScriptBlock"/>';
+                                        if (!restoredService || restoredService === 'null' || restoredService === '-1') {
+                                            jQuery('#serviceInput').trigger('input');
+                                        }
                                         initializeConsultation(
-                                            '<carlos:encode value='<%= thisForm.getService() %>' context="javaScriptBlock"/>',
+                                            restoredService,
                                             (allServicesData.find(function(s) { return String(s.serviceId) === '<carlos:encode value='<%= thisForm.getService() %>' context="javaScriptBlock"/>'; }) || {}).serviceDesc || '',
                                             '<carlos:encode value='<%= request.getAttribute("consultationSubmittedValues") == null ? consultUtil.specialist : thisForm.getSpecialist() %>' context="javaScriptBlock"/>',
                                             '<%=((consultUtil.specialist==null)?"":SafeEncode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
