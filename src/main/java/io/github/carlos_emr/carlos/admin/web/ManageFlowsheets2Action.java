@@ -37,14 +37,25 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Admin action for managing flowsheet enable/disable state.
  *
- * <p>Requires any of {@code _admin w}, {@code _admin.misc w}, or {@code _admin.flowsheet w}
- * privilege. On POST, routes to {@code enable} or {@code disable} via the {@code method}
- * request parameter and applies the change via {@link MeasurementTemplateFlowSheetConfig},
- * then redirects (PRG pattern). GET requests return SUCCESS to render the list view.</p>
+ * <p>Viewing the list needs <em>read</em> on any of {@code _admin}, {@code _admin.misc} or
+ * {@code _admin.flowsheet}; changing a flowsheet needs <em>write</em> on one of them. The read
+ * gate matches the Administration left nav and {@code manageFlowsheets.jsp}, so every login
+ * offered the link can open it (issue #4623: the seeded doctor role holds only
+ * {@code _admin.flowsheet r} and used to be answered 403). A POST carrying a {@code method}
+ * parameter is the mutation: it routes to {@code enable} or {@code disable}, applies the change via
+ * {@link MeasurementTemplateFlowSheetConfig}, then redirects (PRG pattern). Anything else returns
+ * SUCCESS to render the list view, and publishes {@value #WRITE_ACCESS_ATTRIBUTE} so the view
+ * offers the enable/disable and upload controls only to a login that may use them.</p>
  *
  * @since 2026-04-05
  */
 public class ManageFlowsheets2Action extends ActionSupport {
+
+    /**
+     * Request attribute read by {@code manageFlowsheets.jsp}: {@link Boolean#TRUE} when the login
+     * holds write on a gate object. A view that does not receive it renders read-only.
+     */
+    static final String WRITE_ACCESS_ATTRIBUTE = "flowsheetWriteAccess";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -57,14 +68,16 @@ public class ManageFlowsheets2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.flowsheet", "w", null)) {
+        String method = request.getParameter("method");
+        boolean mutation = "POST".equalsIgnoreCase(request.getMethod()) && method != null;
+
+        // Write satisfies read, so a writer needs no second lookup; a mutation never settles for read.
+        boolean canWrite = hasFlowsheetAdminPrivilege(loggedInInfo, "w");
+        if (!canWrite && (mutation || !hasFlowsheetAdminPrivilege(loggedInInfo, "r"))) {
             throw new SecurityException("missing required sec object (_admin, _admin.misc, or _admin.flowsheet)");
         }
 
-        String method = request.getParameter("method");
-        if ("POST".equalsIgnoreCase(request.getMethod()) && method != null) {
+        if (mutation) {
             String name = request.getParameter("name");
             if (name == null || name.isEmpty()) {
                 response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets");
@@ -89,6 +102,14 @@ public class ManageFlowsheets2Action extends ActionSupport {
             return NONE;
         }
 
+        request.setAttribute(WRITE_ACCESS_ATTRIBUTE, canWrite);
         return SUCCESS;
+    }
+
+    /** True when the login holds {@code right} on any object that may administer flowsheets. */
+    private boolean hasFlowsheetAdminPrivilege(LoggedInInfo loggedInInfo, String right) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", right, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", right, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.flowsheet", right, null);
     }
 }

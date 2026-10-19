@@ -1559,6 +1559,26 @@
       "timeoutSec": 300
     },
     {
+      "name": "manage-flowsheets-access",
+      "script": "scripts/manage-flowsheets-access-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "Flowsheet"
+      ],
+      "notes": "Requires EXCLUSIVE=1 on a disposable deployment. Pins issue #4623 (finding 267): a doctor holding only _admin.flowsheet read opens Manage Flowsheets read-only from the Administration nav, a direct enable/disable from that login answers 403 and changes nothing, and a doctor granted _admin.flowsheet write is offered the controls and can disable and re-enable one flowsheet.",
+      "fixtures": "One throwaway doctor login and one per-provider _admin.flowsheet write grant, both removed. The toggled flowsheet's Flowsheet row is restored (or deleted when the toggle had to create it) and the whole table is compared before and after. The flowsheet list is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "billing-unbilled-report",
       "script": "scripts/billing-unbilled-report-playwright-checks.js",
       "tiers": [
@@ -4959,11 +4979,7 @@
       "env": [
         "EXCLUSIVE"
       ],
-      "notes": "Requires EXCLUSIVE=1 on a disposable deployment. The protected repair changes only the string zero sentinel; empty and nonnumeric roles stay unchanged. Refuses pre-existing zero-role notes before seeding. Expected to FAIL at the step 'before the role is assigned the throwaway doctor has no Add A Role and is refused it' until finding 267 (#4623) is fixed: the seeded doctor holds _admin.flowsheet read, so Schedule > Administration offers Manage Flowsheets and admin/ManageFlowsheets answers 403. Since #4566 the devcontainer seeds that doctor row too; it used to skip this branch.",
-      "expectedFailure": {
-        "finding": 267,
-        "step": "before the role is assigned the throwaway doctor has no Add A Role and is refused it"
-      },
+      "notes": "Requires EXCLUSIVE=1 on a disposable deployment. The protected repair changes only the string zero sentinel; empty and nonnumeric roles stay unchanged. Refuses pre-existing zero-role notes before seeding. The seeded doctor holds _admin.flowsheet read, so the step 'before the role is assigned the throwaway doctor has no Add A Role and is refused it' opens Manage Flowsheets read-only from the Administration nav (finding 267, #4623, fixed; manage-flowsheets-access pins both sides of that page).",
       "fixtures": "Marker role, throwaway login (doctor only) and marker group; the access-control restriction applies only to the owned group. Role rows are removed by SQL because the UI has no role delete."
     },
     {
