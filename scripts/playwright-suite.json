@@ -12932,6 +12932,27 @@
       "fixtures": "Owns a patient and one PDF document (row and file); the replacement is uploaded through the popup with the run marker in its name. All removed."
     },
     {
+      "name": "document-add-new-type",
+      "script": "scripts/document-add-new-type-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "ctl_doctype"
+      ],
+      "notes": "Add Document's New Type button, which edoc-schedule-navigation reaches only on an install with no document type: Schedule ▸ Search ▸ Master Record ▸ Documents ▸ Add Document. New Type dismissed adds no type; left blank, it adds none and says Invalid entry; neither stores anything. A marker-named type is added last in the Type list, chosen, and stored only by Add, which saves exactly one document for the owned patient with that type and the uploaded bytes, and exactly one new ctl_doctype row (module demographic, status A). Last, the reloaded report offers the type in the Type list and its type filter, and the filter lists the new document and not the owned document of another type. PASS expected.",
+      "fixtures": "The owned FAKE patient, one owned 1-page PDF document of type others (row and file under DOCUMENT_DIR, or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset; name carries the run marker) and the uploaded PDF named with the marker. The new type is named with the marker and every login's Type lists offer it while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes both documents with their patient links and stored files, the chart note and link the upload filed, and the ctl_doctype row this run added, and asserts each is gone."
+    },
+    {
       "name": "document-viewer-macro",
       "script": "scripts/document-viewer-macro-playwright-checks.js",
       "tiers": [
