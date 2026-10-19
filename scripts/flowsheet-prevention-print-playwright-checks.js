@@ -71,6 +71,9 @@ async function workflow(s) {
   }
 
   await s.step('selected prevention without a print style retains its complete history in preview and print', async () => {
+    h.assert(await flu().count() === 1 && await pneumonia().count() === 1
+      && await flu().isVisible() && await pneumonia().isVisible(),
+    'The selection page must list both prevention sections before testing their visibility');
     h.assert(await page.locator('[name="printStyleFlu"]').count() === 0,
       'Precondition: Flu unexpectedly has a print-style control');
     await select('Flu');
