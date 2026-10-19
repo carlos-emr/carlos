@@ -82,9 +82,10 @@ class ManageFlowsheets2ActionUnitTest extends CarlosUnitTestBase {
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(mock(LoggedInInfo.class));
+                .thenReturn(loggedInInfo);
         mockConfig = mock(MeasurementTemplateFlowSheetConfig.class);
         configStaticMock = mockStatic(MeasurementTemplateFlowSheetConfig.class);
         configStaticMock.when(MeasurementTemplateFlowSheetConfig::getInstance).thenReturn(mockConfig);
