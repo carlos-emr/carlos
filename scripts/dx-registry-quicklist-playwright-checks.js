@@ -19,6 +19,7 @@ const { assert, assertNotErrorPage, sqlString, withExpectedDialogs } = require('
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { selectBillingSiteAndProvider, validateBillingContext } = require('./lib/billing-site-context');
 
 const CODES = ['250', '401', '428'];
 
@@ -129,10 +130,14 @@ async function workflow(s) {
     await bill.locator('a[onclick*="showHideLayers(\'Layer1\',\'\',\'show\')"]').first().click();
     await bill.locator('#Layer1').getByRole('link', { name: 'General Practice' }).first().click();
     await bill.locator('input[name="xml_A007A"]:visible').first().check();
+    // Populate physicians by selecting only an actually offered native clinic first.
+    const billingContext = await selectBillingSiteAndProvider(bill, provider);
+    validateBillingContext(sql, provider, billingContext);
     // Physician values are "<provider_no>|<ohip_no>"; prefer the login's own entry.
     const physicians = await bill.locator('select[name="xml_provider"] option').evaluateAll(o => o.map(x => x.value));
     const physician = physicians.find(v => v.split('|')[0] === provider) || physicians.find(v => /^-?\d+\|\d+$/.test(v));
     assert(physician, 'The bill form offers no billable physician');
+    assert(physician === `${billingContext.providerNo}|${billingContext.ohipNo}`, 'The offered billing physician changed after clinic selection');
     await bill.locator('select[name="xml_provider"]').selectOption(physician);
     await bill.locator('input[name="dxCode"]').fill('250');
     await bill.locator('input[name="dxCode"]').dispatchEvent('change');

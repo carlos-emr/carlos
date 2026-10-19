@@ -34,6 +34,7 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { masterRecordLink } = require('./lib/master-record-link');
+const { validateBillingContext } = require('./lib/billing-site-context');
 
 const CORRECTION_FORM = 'form[action$="/billing/CA/ON/UpdateBillingONCorrection"]';
 const PAYMENTS = '/billing/CA/ON/billingON3rdPayments';
@@ -73,7 +74,7 @@ function awaitResponse(context, route, method = 'POST', timeout = 20000) {
  * Shape mirrors BillingOnHeaderCreationService (see billing-on-correction-delete).
  * Returns { headerId, itemId, provider, ohip }.
  */
-function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250' }) {
+function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250', billingContext = null }) {
   const { sql, patient, marker, provider } = s;
   const owned = { headerIds: new Set() };
   s.cleanup(() => {
@@ -109,13 +110,15 @@ function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250' }) {
   });
 
   // The correction page lists only active providers with an OHIP number.
-  const billingProvider = sql.value(`SELECT provider_no FROM provider WHERE status='1' AND ohip_no<>''
+  const boundContext = billingContext ? validateBillingContext(sql, provider, billingContext) : null;
+  const billingProvider = boundContext ? boundContext.providerNo : sql.value(`SELECT provider_no FROM provider WHERE status='1' AND ohip_no<>''
     ORDER BY (provider_no=${h.sqlString(provider)}) DESC, provider_no LIMIT 1`);
   if (!/^-?\d+$/.test(billingProvider)) throw new h.SkipCheck('no active provider with an OHIP number to bill under');
-  const ohip = sql.value(`SELECT ohip_no FROM provider WHERE provider_no=${h.sqlString(billingProvider)}`);
+  const ohip = boundContext ? boundContext.ohipNo : sql.value(`SELECT ohip_no FROM provider WHERE provider_no=${h.sqlString(billingProvider)}`);
   // With _site_access_privacy the correction page edits bills only of providers
   // sharing a site with the operator: add exactly the missing memberships.
-  const addedSites = sql.rows(`SELECT s.site_id FROM providersite s WHERE s.provider_no=${h.sqlString(provider)}
+  // An explicitly offered/validated context uses existing memberships only.
+  const addedSites = boundContext ? [] : sql.rows(`SELECT s.site_id FROM providersite s WHERE s.provider_no=${h.sqlString(provider)}
     AND NOT EXISTS (SELECT 1 FROM providersite p WHERE p.provider_no=${h.sqlString(billingProvider)}
     AND p.site_id=s.site_id)`).map(row => row[0]);
   if (addedSites.length && billingProvider !== provider) {
@@ -138,7 +141,7 @@ function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250' }) {
     VALUES (0, 'HE', 'H', '', '', '19800102', ${h.sqlString(payProgram)}, 'P', '', '', '', '', '', '', ${patient},
       ${h.sqlString(billingProvider)}, 0, ${h.sqlString(`${marker},Workflow`)}, '2', 'ON', ${h.sqlString(date)},
       '09:00:00', ${money(fee)}, 0.00, ${h.sqlString(status)}, ${h.sqlString(marker)}, '00', ${h.sqlString(ohip)}, '',
-      '', '', ${h.sqlString(provider)}, NULL); SELECT LAST_INSERT_ID()`);
+      '', '', ${h.sqlString(provider)}, ${boundContext && boundContext.multisites ? h.sqlString(boundContext.clinic) : 'NULL'}); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(headerId), 'The billing header fixture was not created');
   owned.headerIds.add(headerId);
   const itemId = sql.value(`INSERT INTO billing_on_item (ch1_id, transc_id, rec_id, service_code, fee, ser_num,

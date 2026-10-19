@@ -398,6 +398,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Demographic report favourites and patient sets (#4225) are POST-only;
+        // report display/run/load remain GET-compatible. Focused RptDemographicReport2ActionUnitTest.
+        "io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action",
         // PHCP provider settings: role mutations require POST; focused Alpha20RequestAuthorizationUnitTest.
         "io.github.carlos_emr.carlos.report.gate.ReportProviderRoles2Action",
         // Pregnancy lifecycle (#4557): list/new/edit are read-only; create/complete require POST.
