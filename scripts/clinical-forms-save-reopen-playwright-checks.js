@@ -337,7 +337,9 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       const link = await claims.asPrecondition(async () => {
         setSex(form.sex || 'F');
         await ui.openFormsMenu(chart);
-        const found = chart.getByRole('link', { name, exact: true });
+        // Save refreshes the panel immediately; a started-form item can now have
+        // the same name as its menu entry. Count registrations inside the menu only.
+        const found = chart.locator('#forms .menu').getByRole('link', { name, exact: true });
         const listed = await found.count();
         claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
         return found;

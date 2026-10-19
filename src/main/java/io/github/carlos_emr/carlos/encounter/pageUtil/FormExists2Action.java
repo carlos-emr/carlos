@@ -47,7 +47,8 @@ public class FormExists2Action extends ActionSupport {
         if (!SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(loggedIn, "_form", "r", patient)) {
             throw new SecurityException("missing required sec object (_form)");
         }
-        ObjectNode result = new ObjectMapper().createObjectNode().put("exists", false);
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode result = mapper.createObjectNode().put("exists", false);
         for (EncounterForm form : SpringUtils.getBean(EncounterFormDao.class).findByFormName(name)) {
             if (form.isHidden() || form.getFormTable() == null || !LONGITUDINAL.contains(form.getFormTable())) continue;
             var saved = EctFormData.getShortcutLatestPatientForm(patient, form.getFormTable());
@@ -61,7 +62,7 @@ public class FormExists2Action extends ActionSupport {
             break;
         }
         response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write(result.toString());
+        mapper.writeValue(response.getWriter(), result);
         return NONE;
     }
 }

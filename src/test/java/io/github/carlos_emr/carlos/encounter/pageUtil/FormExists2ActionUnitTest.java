@@ -80,6 +80,8 @@ class FormExists2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(json.path("url").asText()).isEqualTo("/clinic/form/forwardshortcutname?formname=Caregiver&demographic_no=123&formId=latest&appointmentNo=11");
         assertThat(json.path("windowName").asText()).isEqualTo(Math.abs(("Caregiver123" + saved.getEdited()).hashCode()) + "started");
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getCharacterEncoding()).isEqualTo("UTF-8");
         verify(security).hasPrivilege(login, "_form", "r", "123");
     }
 
