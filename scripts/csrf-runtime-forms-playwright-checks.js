@@ -41,6 +41,8 @@
 
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { clickInjectsPanel } = require('./lib/playwright-ui');
+const { submitGroupConfirmation } = require('./lib/eform-group-submit-proof');
 
 const NUMERIC_ID = /^[1-9]\d*$/;
 
@@ -179,11 +181,19 @@ async function workflow(s) {
     s.cleanup(() => sql.execute(`DELETE FROM eform_groups WHERE group_name=${h.sqlString(group)}`));
     await h.gotoApp(admin, s.config.baseUrl, '/administration?show=FormsGroups');
     await admin.waitForLoadState('networkidle').catch(() => {});
-    await admin.locator('#groupListTbl a.contentLink', { hasText: group }).click();
-    const member = admin.locator('#dynamic-content a[title="remove from group"]').first();
+    // The initial panel displays its first group. Wait for our group's replacement before
+    // selecting a remove control: a stale form can become disconnected during the AJAX load.
+    await clickInjectsPanel(admin, admin.locator('#groupListTbl a.contentLink', { hasText: group }),
+      { marker: `#dynamic-content #groupListTbl tr.table-success td[title="${group}"]` });
+    const memberForm = admin.locator(`#dynamic-content form[action$="/eforms/removeFromGroup"]`)
+      .filter({ has: admin.locator(`input[name="groupName"][value="${group}"]`) })
+      .filter({ has: admin.locator(`input[name="fid"][value="${fid}"]`) });
+    h.assert(await memberForm.count() === 1, 'The selected owned group does not have exactly its eForm removal form');
+    const member = memberForm.locator('a[title="remove from group"]');
     await member.waitFor();
     await member.click();
-    await Promise.all([admin.waitForEvent('framenavigated').catch(() => {}), admin.locator('#dataConfirmed').click()]);
+    await submitGroupConfirmation(admin, admin.locator('#confirmModal #dataConfirmed'),
+      { baseUrl: s.config.baseUrl, action: '/eforms/removeFromGroup', group, fid });
     await admin.waitForLoadState('networkidle').catch(() => {});
     await expectValue(sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(group)} AND fid=${fid}`, '0',
       'the eForm was not removed from the group');
@@ -196,7 +206,8 @@ async function workflow(s) {
     await h.gotoApp(admin, s.config.baseUrl, '/administration?show=FormsGroups');
     await admin.waitForLoadState('networkidle').catch(() => {});
     await admin.locator('#groupListTbl tr', { hasText: group }).locator('a[title="delete this group"]').click();
-    await Promise.all([admin.waitForEvent('framenavigated').catch(() => {}), admin.locator('#dataConfirmed').click()]);
+    await submitGroupConfirmation(admin, admin.locator('#confirmModal #dataConfirmed'),
+      { baseUrl: s.config.baseUrl, action: '/eforms/delGroup', group, removed: true });
     await admin.waitForLoadState('networkidle').catch(() => {});
     await expectValue(sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(group)}`, '0',
       'the group was not deleted');
