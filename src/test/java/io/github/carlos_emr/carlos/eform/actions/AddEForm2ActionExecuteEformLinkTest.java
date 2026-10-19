@@ -462,7 +462,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
                 })) {
             assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
             assertThat(forms.constructed()).hasSize(1);
-            verify(forms.constructed().getFirst()).addImagePathPlaceholders(eq(images));
+            verify(forms.constructed().getFirst()).addImagePathPlaceholders(images);
             eFormUtilMock.verify(() -> EFormUtil.addEFormValues(
                     argThat(names -> names.contains("clinicalNote") && !names.contains("carlos-image-link")),
                     argThat(values -> values.contains("Synthetic follow-up") && !values.contains(images[0])

@@ -11,20 +11,22 @@ const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
   const name = `${s.marker}-rel`; // demographic.last_name is varchar(30).
-  const ownedContact = `SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(name)}`;
+  const ownedContact = 'SELECT demographic_no FROM demographic WHERE last_name=?';
   s.cleanup(() => {
-    s.sql.execute(`DELETE FROM relationships WHERE demographic_no=${s.patient} OR relation_demographic_no=${s.patient}
-      OR demographic_no IN (${ownedContact}) OR relation_demographic_no IN (${ownedContact});
-      DELETE FROM demographic WHERE last_name=${h.sqlString(name)}`);
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM relationships WHERE demographic_no=${s.patient}
-      OR relation_demographic_no=${s.patient}`) === '0', 'Owned relationships remain');
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE last_name=${h.sqlString(name)}`) === '0',
+    s.sql.execute(`DELETE FROM relationships WHERE demographic_no=? OR relation_demographic_no=?
+      OR demographic_no IN (SELECT demographic_no FROM demographic WHERE last_name=?)
+      OR relation_demographic_no IN (SELECT demographic_no FROM demographic WHERE last_name=?)`,
+      [s.patient, s.patient, name, name]);
+    s.sql.execute('DELETE FROM demographic WHERE last_name=?', [name]);
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM relationships WHERE demographic_no=?
+      OR relation_demographic_no=?`, [s.patient, s.patient]) === '0', 'Owned relationships remain');
+    h.assert(s.sql.value('SELECT COUNT(*) FROM demographic WHERE last_name=?', [name]) === '0',
       'Owned contact patient remains');
   });
   s.sql.execute(`INSERT INTO demographic
     (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
-    VALUES (${h.sqlString(name)},'Contact','1980','01','02','M','AC',${h.sqlString(s.provider)},'ON','ON','NR',NOW())`);
-  const contact = s.sql.value(ownedContact);
+    VALUES (?,'Contact','1980','01','02','M','AC',?,'ON','ON','NR',NOW())`, [name, s.provider]);
+  const contact = s.sql.value(ownedContact, [name]);
   h.assert(/^[1-9]\d*$/.test(contact), 'The owned contact was not created');
   const count = () => s.sql.value('SELECT COUNT(*) FROM relationships');
   const before = count();
@@ -73,8 +75,8 @@ async function workflow(s) {
         { timeout: 30000, label: 'relation save' }),
     ]);
     await h.assertNotErrorPage(popup, 'relation save');
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM relationships WHERE demographic_no=${s.patient}
-      AND relation_demographic_no=${contact} AND relation='Partner' AND notes=${h.sqlString(s.marker)}`) === '1',
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM relationships WHERE demographic_no=?
+      AND relation_demographic_no=? AND relation=? AND notes=?`, [s.patient, contact, 'Partner', s.marker]) === '1',
       'The selected relationship was not saved exactly once');
     h.assert(await popup.locator('body').innerText().then(text => text.includes(s.marker)), 'The saved relationship is not visible');
   });
