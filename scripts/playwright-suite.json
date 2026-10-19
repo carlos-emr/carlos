@@ -798,6 +798,23 @@
       ]
     },
     {
+      "name": "lab-merged-patient-routing",
+      "script": "scripts/lab-merged-patient-routing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "notes": "HIN matching for an incoming HL7 lab (issue #3880): a HIN shared by a merged source and its head files and routes to the head alone, and a HIN also carried by an unmerged patient stays unmatched.",
+      "fixtures": "A merged duplicate and an unrelated patient (marker surname) are seeded by SQL next to the run's head patient; cleanup removes both labs' rows by accession, the merge row and the seeded patients."
+    },
+    {
       "name": "lab-upload",
       "script": "scripts/lab-upload-playwright-checks.js",
       "tiers": [
