@@ -45,7 +45,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.Base64;
 import java.util.concurrent.*;
@@ -254,10 +253,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             // Then: All filenames must be unique (no collisions)
             assertThat(generatedFilenames)
                     .as("All generated filenames must be unique - no collisions allowed")
-                    .hasSize(numberOfFaxes);
-
-            // Then: All filenames should contain the original filename
-            assertThat(generatedFilenames)
+                    .hasSize(numberOfFaxes)
                     .allSatisfy(filename -> assertThat(filename).contains("referral.pdf"));
 
             // Then: All filenames should follow the pattern: yyyyMMdd-HHmmss-NNNNN-original.pdf
@@ -356,10 +352,8 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
 
             // Then: Should not contain path traversal or dangerous filesystem characters
             assertThat(sanitized)
-                    .doesNotContain("..", "|", "\\", "/", ":", "*", "?", "\"", "<", ">");
-
-            // Then: Should still be a valid PDF filename
-            assertThat(sanitized).endsWith(".pdf");
+                    .doesNotContain("..", "|", "\\", "/", ":", "*", "?", "\"", "<", ">")
+                    .endsWith(".pdf");
         }
     }
 
@@ -670,9 +664,6 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             // When: Call saveToIncoming with corrupted data
             saveToIncomingMethod.invoke(faxImporter, faxConfig, receivedFax, faxFile);
 
-            // Give filesystem time to sync
-            Thread.sleep(100);
-
             // Then: No temp files should be leaked
             long tempFilesAfter = countTempFilesInDir(configDir);
             assertThat(tempFilesAfter)
@@ -906,26 +897,6 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
 
         document.close();
         return tempFile;
-    }
-
-    /**
-     * Counts temporary fax files matching the {@code fax-*.pdf} naming pattern in the
-     * specified directory. Similar to {@link #countTempFilesInDir(Path)} but with a
-     * broader filename prefix match.
-     *
-     * @param directory the directory to scan
-     * @return the number of matching files, or 0 if the directory does not exist
-     * @throws IOException if the directory listing fails
-     */
-    private long countTempFiles(Path directory) throws IOException {
-        if (!Files.exists(directory)) {
-            return 0;
-        }
-
-        return Files.list(directory)
-                .filter(p -> p.getFileName().toString().startsWith("fax-"))
-                .filter(p -> p.getFileName().toString().endsWith(".pdf"))
-                .count();
     }
 
     /**

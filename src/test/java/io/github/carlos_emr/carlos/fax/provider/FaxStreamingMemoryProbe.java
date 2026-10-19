@@ -36,13 +36,12 @@ public final class FaxStreamingMemoryProbe {
         AtomicReference<Throwable> serverFailure = new AtomicReference<>();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", exchange -> {
-            try {
+            try (InputStream request = new java.io.BufferedInputStream(exchange.getRequestBody())) {
                 String route = exchange.getRequestURI().getPath();
                 boolean middleware = route.startsWith("/fax");
                 boolean outbound = middleware && route.contains("/send/");
                 // SRFax's action appears before its binary field. For that endpoint read a
                 // small form prefix once, then decide whether this is send or Retrieve_Fax.
-                InputStream request = new java.io.BufferedInputStream(exchange.getRequestBody());
                 if (!middleware) {
                     seek(request, "action=", 16384);
                     String action = readUntil(request, '&', 16384);
@@ -245,7 +244,7 @@ public final class FaxStreamingMemoryProbe {
             long xref = position;
             write(output, "xref\n0 5\n0000000000 65535 f \n");
             for (int i = 1; i <= 4; i++) {
-                write(output, String.format(java.util.Locale.ROOT, "%010d 00000 n \n", offsets[i]));
+                write(output, String.format(java.util.Locale.ROOT, "%010d", offsets[i]) + " 00000 n \n");
             }
             write(output, "trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
         }
@@ -295,14 +294,10 @@ public final class FaxStreamingMemoryProbe {
         System.gc();
         AtomicLong peak = new AtomicLong();
         Thread sampler = Thread.ofPlatform().daemon().start(() -> {
-            try {
-                while (!Thread.currentThread().isInterrupted()) {
-                    Runtime runtime = Runtime.getRuntime();
-                    peak.accumulateAndGet(runtime.totalMemory() - runtime.freeMemory(), Math::max);
-                    Thread.sleep(2);
-                }
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
+            while (!Thread.currentThread().isInterrupted()) {
+                Runtime runtime = Runtime.getRuntime();
+                peak.accumulateAndGet(runtime.totalMemory() - runtime.freeMemory(), Math::max);
+                java.util.concurrent.locks.LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(2));
             }
         });
         try {

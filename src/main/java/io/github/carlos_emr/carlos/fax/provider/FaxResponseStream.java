@@ -31,13 +31,20 @@ final class FaxResponseStream extends FilterInputStream {
     }
 
     private void counted(int bytes) throws IOException {
-        if (bytes > 0 && (count += bytes) > limit) {
+        if (bytes <= 0) {
+            return;
+        }
+        count += bytes;
+        if (count > limit) {
             throw new IOException("Fax response exceeds fax.max_response_mb");
         }
         // The parser may prefetch a small buffer at field boundaries. It must never
         // materialize an unbounded metadata field disguised as a document.
-        if (!document && bytes > 0 && (metadataBytes += bytes) > 1024 * 1024) {
-            throw new IOException("Fax response metadata exceeds 1 MiB");
+        if (!document) {
+            metadataBytes += bytes;
+            if (metadataBytes > 1024 * 1024) {
+                throw new IOException("Fax response metadata exceeds 1 MiB");
+            }
         }
     }
 

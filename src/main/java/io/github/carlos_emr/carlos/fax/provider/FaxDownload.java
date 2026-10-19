@@ -34,59 +34,86 @@ final class FaxDownload implements AutoCloseable {
     /** Test seam for proving cleanup without observing other downloads' private spools. */
     static FaxDownload read(HttpEntity entity, ObjectMapper mapper, String documentField, Path directory)
             throws IOException {
-        Path path = directory == null ? Files.createTempFile("carlos-fax-", ".pdf")
-                : Files.createTempFile(directory, "carlos-fax-", ".pdf");
-        FaxDownload download = new FaxDownload(path, mapper.createObjectNode());
+        Path path = createSpool(directory);
         try {
-            try (FaxResponseStream input = FaxResponseStream.open(entity);
-                    JsonParser parser = mapper.getFactory().createParser(input);
-                    OutputStream output = new BufferedOutputStream(Files.newOutputStream(path))) {
-                if (parser.nextToken() != JsonToken.START_OBJECT) {
-                    throw new IOException("Expected fax response object");
-                }
-                boolean foundDocument = false;
-                while (parser.nextToken() != JsonToken.END_OBJECT) {
-                    if (parser.currentToken() != JsonToken.FIELD_NAME) {
-                        throw new IOException("Malformed fax response");
-                    }
-                    String field = parser.currentName();
-                    input.document = documentField.equals(field);
-                    JsonToken value = parser.nextToken();
-                    if (documentField.equals(field)) {
-                        if (foundDocument || value != JsonToken.VALUE_STRING) {
-                            throw new IOException("Invalid or duplicate fax document");
-                        }
-                        foundDocument = true;
-                        parser.readBinaryValue(output);
-                    } else {
-                        if (download.metadata.has(field)) {
-                            throw new IOException("Duplicate fax response field");
-                        }
-                        download.metadata.set(field, mapper.readTree(parser));
-                    }
-                    input.document = false;
-                }
-                if (!foundDocument || parser.nextToken() != null) {
-                    throw new IOException("Missing fax document or trailing response content");
-                }
-            }
+            ObjectNode metadata = decode(entity, mapper, documentField, path);
             if (Files.size(path) == 0) {
                 throw new IOException("Empty fax document");
             }
-            return download;
+            // Ownership is transferred to the returned resource only after parsing succeeds.
+            return new FaxDownload(path, metadata);
         } catch (IOException | RuntimeException e) {
             try {
-                download.close();
+                Files.deleteIfExists(path);
             } catch (IOException cleanup) {
                 e.addSuppressed(cleanup);
             }
             if (e instanceof IOException io) {
                 throw io;
             }
-            // Jackson's streaming binary decoder reports some bad alphabet/padding
-            // errors as IllegalArgumentException rather than JsonParseException.
+            // Jackson's binary decoder reports some alphabet/padding failures unchecked.
             throw new IOException("Invalid fax response content", e);
         }
+    }
+
+    /** Exclusive random creation plus owner-only permissions protects spools in shared temp directories. */
+    @SuppressWarnings("java:S5443") // Secure NIO creation; explicit POSIX 0600 is asserted in the spool lifecycle test.
+    private static Path createSpool(Path directory) throws IOException {
+        java.nio.file.attribute.FileAttribute<?>[] attributes =
+                java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix")
+                ? new java.nio.file.attribute.FileAttribute<?>[] {
+                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                            java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"))}
+                : new java.nio.file.attribute.FileAttribute<?>[0];
+        return directory == null ? Files.createTempFile("carlos-fax-", ".pdf", attributes)
+                : Files.createTempFile(directory, "carlos-fax-", ".pdf", attributes);
+    }
+
+    private static ObjectNode decode(HttpEntity entity, ObjectMapper mapper, String documentField, Path path)
+            throws IOException {
+        ObjectNode metadata = mapper.createObjectNode();
+        try (FaxResponseStream input = FaxResponseStream.open(entity);
+                JsonParser parser = mapper.getFactory().createParser(input);
+                OutputStream output = new BufferedOutputStream(Files.newOutputStream(path))) {
+            if (parser.nextToken() != JsonToken.START_OBJECT) {
+                throw new IOException("Expected fax response object");
+            }
+            boolean foundDocument = false;
+            while (parser.nextToken() != JsonToken.END_OBJECT) {
+                if (parser.currentToken() != JsonToken.FIELD_NAME) {
+                    throw new IOException("Malformed fax response");
+                }
+                String field = parser.currentName();
+                input.document = documentField.equals(field);
+                parser.nextToken();
+                if (input.document) {
+                    foundDocument = decodeDocument(parser, output, foundDocument);
+                } else {
+                    readMetadataField(parser, mapper, metadata, field);
+                }
+                input.document = false;
+            }
+            if (!foundDocument || parser.nextToken() != null) {
+                throw new IOException("Missing fax document or trailing response content");
+            }
+        }
+        return metadata;
+    }
+
+    private static boolean decodeDocument(JsonParser parser, OutputStream output, boolean alreadySeen) throws IOException {
+        if (alreadySeen || parser.currentToken() != JsonToken.VALUE_STRING) {
+            throw new IOException("Invalid or duplicate fax document");
+        }
+        parser.readBinaryValue(output);
+        return true;
+    }
+
+    private static void readMetadataField(JsonParser parser, ObjectMapper mapper, ObjectNode metadata, String field)
+            throws IOException {
+        if (metadata.has(field)) {
+            throw new IOException("Duplicate fax response field");
+        }
+        metadata.set(field, mapper.readTree(parser));
     }
 
     ObjectNode metadata() {

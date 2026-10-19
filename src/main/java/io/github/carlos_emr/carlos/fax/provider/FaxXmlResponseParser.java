@@ -29,31 +29,7 @@ final class FaxXmlResponseParser {
         try (FaxResponseStream input = FaxResponseStream.open(entity)) {
             var reader = factory.createXMLStreamReader(input);
             try {
-                var metadata = new StreamReaderDelegate(reader) {
-                    @Override
-                    public int next() throws XMLStreamException {
-                        while (true) {
-                            int event = super.next();
-                            if (event == XMLStreamConstants.DTD || event == XMLStreamConstants.ENTITY_REFERENCE) {
-                                throw new XMLStreamException("DTD/entities are not allowed in fax responses");
-                            }
-                            if (event != XMLStreamConstants.START_ELEMENT || !"document".equals(getLocalName())) {
-                                return event;
-                            }
-                            input.document = true;
-                            int depth = 1;
-                            while (depth > 0) {
-                                int skipped = super.next();
-                                if (skipped == XMLStreamConstants.START_ELEMENT) {
-                                    depth++;
-                                } else if (skipped == XMLStreamConstants.END_ELEMENT) {
-                                    depth--;
-                                }
-                            }
-                            input.document = false;
-                        }
-                    }
-                };
+                var metadata = new MetadataReader(reader, input);
                 Object result = JAXBContext.newInstance(FaxJob.class).createUnmarshaller().unmarshal(metadata);
                 if (!(result instanceof FaxJob job)) {
                     throw new JAXBException("Invalid fax response");
@@ -69,4 +45,46 @@ final class FaxXmlResponseParser {
             throw new IOException("Invalid middleware fax XML", e);
         }
     }
+
+    /** Removes echoed payload elements with an iterative cursor, including repeated siblings. */
+    private static final class MetadataReader extends StreamReaderDelegate {
+        private final FaxResponseStream input;
+
+        private MetadataReader(javax.xml.stream.XMLStreamReader reader, FaxResponseStream input) {
+            super(reader);
+            this.input = input;
+        }
+
+        @Override
+        public int next() throws XMLStreamException {
+            while (true) {
+                int event = super.next();
+                if (event == XMLStreamConstants.DTD || event == XMLStreamConstants.ENTITY_REFERENCE) {
+                    throw new XMLStreamException("DTD/entities are not allowed in fax responses");
+                }
+                if (event != XMLStreamConstants.START_ELEMENT || !"document".equals(getLocalName())) {
+                    return event;
+                }
+                skipDocument();
+            }
+        }
+
+        private void skipDocument() throws XMLStreamException {
+            input.document = true;
+            try {
+                int depth = 1;
+                while (depth > 0) {
+                    int event = super.next();
+                    if (event == XMLStreamConstants.START_ELEMENT) {
+                        depth++;
+                    } else if (event == XMLStreamConstants.END_ELEMENT) {
+                        depth--;
+                    }
+                }
+            } finally {
+                input.document = false;
+            }
+        }
+    }
+
 }

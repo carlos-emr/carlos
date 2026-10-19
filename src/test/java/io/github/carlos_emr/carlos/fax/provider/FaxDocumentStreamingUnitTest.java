@@ -100,6 +100,11 @@ class FaxDocumentStreamingUnitTest {
                 path = files.findFirst().orElseThrow();
             }
             assertThat(path).exists();
+            assertThat(download.metadata()).isEmpty();
+            if (Files.getFileStore(path).supportsFileAttributeView("posix")) {
+                assertThat(Files.getPosixFilePermissions(path))
+                        .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+            }
         }
         assertThat(path).doesNotExist();
     }
@@ -122,6 +127,35 @@ class FaxDocumentStreamingUnitTest {
                 .isInstanceOf(java.io.IOException.class).hasMessageContaining("metadata exceeds");
         try (var files = Files.list(directory)) {
             assertThat(files.toList()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"declared", "chunked", "understated"})
+    void shouldRejectOverCapDocument_withoutLeavingPartialSpool(String lengthMode) throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        String previous = properties.getProperty(BoundedResponseReader.MAX_RESPONSE_MB_PROPERTY);
+        byte[] body = ("{\"Result\":\"" + "A".repeat(2 * 1024 * 1024) + "\"}")
+                .getBytes(StandardCharsets.UTF_8);
+        long length = switch (lengthMode) {
+            case "declared" -> body.length;
+            case "chunked" -> -1;
+            default -> 16;
+        };
+        properties.setProperty(BoundedResponseReader.MAX_RESPONSE_MB_PROPERTY, "1");
+        try (var response = new org.apache.hc.core5.http.io.entity.BasicHttpEntity(
+                new java.io.ByteArrayInputStream(body), length, ContentType.APPLICATION_JSON)) {
+            assertThatThrownBy(() -> FaxDownload.read(response, new ObjectMapper(), "Result", directory))
+                    .isInstanceOf(java.io.IOException.class).hasMessageContaining("fax.max_response_mb");
+            try (var files = Files.list(directory)) {
+                assertThat(files.toList()).isEmpty();
+            }
+        } finally {
+            if (previous == null) {
+                properties.remove(BoundedResponseReader.MAX_RESPONSE_MB_PROPERTY);
+            } else {
+                properties.setProperty(BoundedResponseReader.MAX_RESPONSE_MB_PROPERTY, previous);
+            }
         }
     }
 

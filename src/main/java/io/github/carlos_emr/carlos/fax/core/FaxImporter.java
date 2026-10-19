@@ -445,23 +445,11 @@ public class FaxImporter {
             File validatedPathFile = PathValidationUtils.validatePath(uniqueFilename, configDir.toFile());
             Path targetFile = validatedPathFile.toPath();
 
-            if (faxFile.getDocumentPath() != null) {
-                // Only a provider-created private temp file can enter this branch. The
-                // final name still comes from the independently validated listing metadata.
-                File spoolFile = faxFile.getDocumentPath().toFile();
-                if (!PathValidationUtils.isInAllowedTempDirectory(spoolFile)) {
-                    throw new SecurityException("Fax spool is outside the temporary directory");
-                }
-                PathValidationUtils.validateExistingPath(spoolFile,
-                        new File(System.getProperty("java.io.tmpdir")));
-                // The spool may be on another filesystem. Any copy/delete fallback must
-                // target a retry-invisible temporary name inside the quarantine directory.
-                tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
-                moveFile(spoolFile.toPath(), tempFile.toPath());
+            // The final rename always publishes from this same-filesystem temporary file.
+            tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
+            if (downloadedPath != null) {
+                stageDownloadedSpool(downloadedPath, tempFile.toPath());
             } else {
-                // Older database backups and third-party clients may still supply base64.
-                // Decode incrementally; never allocate a document-sized byte array.
-                tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
                 String document = faxFile.getDocument();
                 if (document == null) {
                     log.warn("Incoming fax Base64 document payload is missing");
@@ -469,25 +457,7 @@ public class FaxImporter {
                     receivedFax.setStatusString("Base64 decode failed: missing fax document payload");
                     return null;
                 }
-                try (var text = org.apache.commons.io.input.ReaderInputStream.builder()
-                            .setReader(new java.io.StringReader(document))
-                            .setCharset(java.nio.charset.StandardCharsets.US_ASCII).get();
-                        var decoded = java.util.Base64.getMimeDecoder().wrap(text);
-                        var output = Files.newOutputStream(tempFile.toPath())) {
-                    byte[] buffer = new byte[8192];
-                    while (true) {
-                        int read;
-                        try {
-                            read = decoded.read(buffer);
-                        } catch (IOException e) {
-                            throw new FaxProviderException("Base64 decode failed", e);
-                        }
-                        if (read < 0) {
-                            break;
-                        }
-                        output.write(buffer, 0, read);
-                    }
-                }
+                decodeLegacyDocument(document, tempFile.toPath());
             }
 
             if (tempFile.length() == 0) {
@@ -522,18 +492,56 @@ public class FaxImporter {
             return null;
         } finally {
             faxFile.setDocumentPath(null);
-            if (downloadedPath != null && PathValidationUtils.isInAllowedTempDirectory(downloadedPath.toFile())) {
+            deleteDownloadedSpool(downloadedPath);
+            deleteStagingFile(tempFile);
+        }
+    }
+
+    private void stageDownloadedSpool(Path source, Path target) throws IOException {
+        File spoolFile = source.toFile();
+        if (!PathValidationUtils.isInAllowedTempDirectory(spoolFile)) {
+            throw new SecurityException("Fax spool is outside the temporary directory");
+        }
+        PathValidationUtils.validateExistingPath(spoolFile, new File(System.getProperty("java.io.tmpdir")));
+        // A cross-filesystem copy/delete fallback targets a name the retry scanner ignores.
+        moveFile(source, target);
+    }
+
+    private void decodeLegacyDocument(String document, Path target) throws IOException, FaxProviderException {
+        try (var text = org.apache.commons.io.input.ReaderInputStream.builder()
+                    .setReader(new java.io.StringReader(document))
+                    .setCharset(java.nio.charset.StandardCharsets.US_ASCII).get();
+                var decoded = java.util.Base64.getMimeDecoder().wrap(text);
+                var output = Files.newOutputStream(target)) {
+            byte[] buffer = new byte[8192];
+            while (true) {
+                int read;
                 try {
-                    Files.deleteIfExists(downloadedPath);
+                    read = decoded.read(buffer);
                 } catch (IOException e) {
-                    log.warn("Failed to delete incoming fax spool file");
+                    throw new FaxProviderException("Base64 decode failed", e);
                 }
-            }
-            if (tempFile != null && tempFile.exists()) {
-                if (!tempFile.delete()) {
-                    log.warn("Failed to delete temporary incoming fax file");
+                if (read < 0) {
+                    break;
                 }
+                output.write(buffer, 0, read);
             }
+        }
+    }
+
+    private void deleteDownloadedSpool(Path path) {
+        if (path != null && PathValidationUtils.isInAllowedTempDirectory(path.toFile())) {
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException _) {
+                log.warn("Failed to delete incoming fax spool file");
+            }
+        }
+    }
+
+    private void deleteStagingFile(File file) {
+        if (file != null && file.exists() && !file.delete()) {
+            log.warn("Failed to delete temporary incoming fax file");
         }
     }
 
