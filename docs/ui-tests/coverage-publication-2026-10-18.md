@@ -22,7 +22,7 @@ The release advanced while the coverage contribution was being prepared:
 - #5023 and #5027 address favourite directions/PRN, patient-registry indication
   selection, Hide CPP failure feedback, optional pickup clearing, invalid written
   dates and inline doses, empty timeline selection, correction after preview and
-  the missing-DIN server exception.
+  handling of empty DrugRef replies.
 - #4800 fixes noon pickup parsing; #4862 fixes date-only pickup display on both
   the static script and medication record; #4959 rejects the selectable no-match
   placeholder; #4932 supplies Manage Letters labels.
@@ -85,3 +85,49 @@ The [dated tracking audit](defect-tracking-2026-10-18.md) records the issue/PR
 states when tickets were filed. The current [application register](app-findings-log.md)
 records the release fixes separately. Original validation commit hashes in the
 reports predate DCO sign-off; sign-off changes commit messages, not their trees.
+
+## Post-merge Rx validation follow-up
+
+Fresh CARLOS and matching DrugRef development debs from merged source
+`4c33e615976d5c4cc63a4079d2a8930fb92c5f62` were installed on Ubuntu 26.04.1.
+The browser selection exposed test synchronization races in favourites navigation
+and Hide CPP refusal completion; follow-up #5029 retains the business assertions
+while waiting for the actual controls, alert, rollback and profile refresh.
+
+The independent journal audit also showed that finding **311 remains open** under
+#5006. Its successful Info fallback and CARLOS empty-reply handling do not fix the
+pinned DrugRef `NoResultException`. The Info workflow now explicitly skips as a
+whole when no readable log source is configured, and keeps its exact known-failure
+pin when the source is configured. A regression test prevents a missing log source
+from reporting a pass.
+
+Two additional real-UI task checks hold quantity/directions calculations while
+another Rx window discards their card. Both expose finding **312**, grouped in
+#5036. They assert unchanged clinical rows and an absent draft separately from the
+server-error assertion. These two passing controls and the exact defect
+reproductions are retained. No server-log baseline is relaxed.
+
+The original issue audit remains a dated record. The post-publication total adds
+one newly tracked finding (312) and one grouped ticket (#5036); the original
+missing-DIN ticket is reused. The primary contribution's 83 registrations remain
+intact, alongside these two additions and the latest release's independent tests.
+
+The follow-up integrates release `fefceecc62aa` (#4927), preserving all 836
+release registrations and adding the two callback checks: **838 entries**. Its
+Rx selection covers 104 distinct checks, including the upstream print/pharmacy
+workflow and revised Rx-notes path. Latest actual results are 101 passes and
+three exact known failures (Info finding 311; both discarded-card callbacks
+finding 312), with zero unexpected failures/skips and clean residue audits.
+The readable journal is mandatory for these server-error assertions. Before
+judging a defect, the checks also require a fresh application warning from a
+read-only, invalid-key Rx history lookup. Empty, unrelated or historical logs
+cannot satisfy that positive control. Unreadable sources, including a read
+failure after preflight, produce a prerequisite skip outside defect classification.
+The SQL harness also supports optional server-side prepared statements; both new
+callback checks bind their patient IDs in the clinical-row assertions. Focused
+regressions and a read-only MariaDB round-trip cover hostile/Unicode strings,
+null, boolean and numeric values, alongside the live browser controls. The fresh
+package evidence remains pinned to application source `4c33e615976`; its affected
+Rx controller and DrugRef pin are unchanged in `fefceecc62aa`. The inherited
+release also changes CSRF replay diagnostics; this is not a claim of a freshly
+built WAR for the follow-up test head.

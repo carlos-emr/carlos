@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement(name = "ticklerNote")
@@ -44,6 +46,7 @@ public class TicklerNoteTo1 implements Serializable {
 
     private String revision;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date observationDate;
 
     private String editor;

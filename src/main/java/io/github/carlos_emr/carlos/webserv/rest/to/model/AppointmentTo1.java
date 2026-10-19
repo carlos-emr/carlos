@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import io.github.carlos_emr.carlos.commn.model.Appointment.BookingSource;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -66,8 +68,10 @@ public class AppointmentTo1 implements Serializable {
 
     private String importedStatus;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date createDateTime = new Date();
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date updateDateTime = new Date();
 
     private String creator;

@@ -32,12 +32,15 @@ import jakarta.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @XmlRootElement
 public class DocumentReviewTo1 implements Serializable {
     private Integer id;
     private Integer documentNo;
     private String providerNo;
     private ProviderTo1 reviewer;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date dateTimeReviewed;
 
     public Integer getId() {

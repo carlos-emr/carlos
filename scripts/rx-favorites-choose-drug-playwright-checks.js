@@ -113,7 +113,7 @@ async function workflow(session) {
     h.assert(new URL(await link.getAttribute('href'), config.baseUrl).searchParams.get('demographicNo') === patient,
       'the Edit favourites link does not carry the open patient');
     await Promise.all([
-      rx.waitForURL(/\/rx\/ViewEditFavorites2\?/, { timeout: 30000 }),
+      rx.waitForURL(/\/rx\/ViewEditFavorites2\?/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
       link.click(),
     ]);
     await rx.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -142,7 +142,7 @@ async function workflow(session) {
     const other = await openRx(session, otherPatient);
     await h.withExpectedDialogs(editor, async () => {
       await Promise.all([
-        editor.waitForURL(/\/rx\/deleteFavorite2/),
+        editor.waitForURL(/\/rx\/deleteFavorite2/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
         editor.locator(`a[href="javascript:deleteRow(${row});"]`).click(),
       ]);
     }, {accept: true});
@@ -150,13 +150,21 @@ async function workflow(session) {
       'the owned favorite was not deleted');
     // Trigger the real provider-selection refresh without copying another provider's data.
     await Promise.all([
-      copy.waitForURL(/\/rx\/copyFavorite2/),
+      copy.waitForURL(/\/rx\/copyFavorite2/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
       copy.locator('select[name="ddl_provider"]').selectOption(''),
     ]);
     for (const page of [editor, copy]) {
       await h.assertNotErrorPage(page, 'favorite postback');
       const back = page.locator('input[value="Back to Search For Drug"]').first();
-      await Promise.all([page.waitForURL(/\/rx\/searchDrug\?/), back.click()]);
+      // The search destination can be committed while secondary page resources
+      // are still loading. Assert the usable Rx controls and patient instead
+      // of waiting for the unrelated window load event.
+      await Promise.all([
+        page.waitForURL(/\/rx\/searchDrug\?/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
+        back.click(),
+      ]);
+      await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
+      await h.assertNotErrorPage(page, 'drug search after favorites');
       h.assert(new URL(page.url()).searchParams.get('demographicNo') === patient,
         'favorite postback switched its Back link to the other tab patient');
       await page.close();

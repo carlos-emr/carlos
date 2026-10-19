@@ -8,7 +8,7 @@
  * clicks, double Enter on the focused toolbar Save button (the fixture's own submit is not the eForm save path), slow-response re-click) the check saves ONE instance with
  * its own marker subject and asserts EXACTLY ONE eform_data row for the owned patient and that subject.
  *
- * Last (pinned to app-findings-log.md finding 168): a login that may save eForms but holds no `_edoc` x
+ * Last (app-findings-log.md finding 168, fixed by #4424): a login that may save eForms but holds no `_edoc` x
  * presses Add to Documents. The eForm is stored, the eDoc step is then refused, and the answer must not be
  * the replay refusal ("This form can no longer be submitted from this page"): that text tells the
  * clinician nothing failed and that the page was submitted twice.
@@ -293,10 +293,11 @@ async function workflow(s) {
     for (const form of [first, second, revision]) if (!form.isClosed()) await form.close();
   });
 
-  // ---- Finding 168: a failure after the eForm is stored is reported as a replay -------------------
-  // AddEForm2Action answers every RuntimeException after the eForm is committed with the replay 409
-  // (rejectSubmission(false): eform.submitUnavailable). Add to Documents moves the PDF into the document
-  // store, which DocumentManagerImpl.moveDocument refuses without `_edoc` x.
+  // ---- Finding 168: a failure after the eForm is stored was reported as a replay -----------------
+  // AddEForm2Action used to answer every RuntimeException after the eForm is committed with the replay 409
+  // (eform.submitUnavailable); since #4424 it answers 409 eform.submitSavedStepIncomplete, naming the step.
+  // Add to Documents moves the PDF into the document store, which DocumentManagerImpl.moveDocument refuses
+  // without `_edoc` x.
   const replayText = bundleMessage('eform.submitUnavailable', "This form can no longer be submitted from this page.")
     .split('. ')[0].replace(/\.$/, '');
   let noEdoc;
@@ -329,7 +330,7 @@ async function workflow(s) {
       'A document was filed for a login that may not add documents');
   });
 
-  // Pinned: holds only the assertion finding 168 breaks.
+  // Holds only the assertion finding 168 broke (fixed by #4424), so a regression fails exactly here.
   await s.step('a failed Add to Documents is not answered with the replay refusal', async () => {
     // Finding 168 is about the document step failing AFTER the eForm PDF exists. Where the install cannot render an
     // eForm PDF at all (no eForm render browser service), Add to Documents stops before that step, and this assertion

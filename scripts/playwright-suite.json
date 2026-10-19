@@ -286,6 +286,30 @@
       "notes": "Issue #3446: /ws/oauth and /ws/services are published and fail closed; full OAuth 1.0a out-of-band handshake through the consent page; /ws/rs keeps epoch-millisecond dates; SOAP unaffected. Seeds and removes its own ServiceClient and tokens."
     },
     {
+      "name": "oauth-rest-epoch-dates",
+      "script": "scripts/oauth-rest-epoch-dates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "OAUTH_DEMOGRAPHIC_NO",
+        "EXPECT_OAUTH_MODE"
+      ],
+      "mutates": [
+        "demographic",
+        "allergies",
+        "measurements",
+        "appointment"
+      ],
+      "notes": "Issue #3877: on /ws/services each seeded timestamp is epoch milliseconds equal to /ws/rs for the same call (GET /demographics/{id} with allergies and measurements in every mode; /allergies/active and appointment history in scoped or legacy-full mode), while a DATE column keeps its yyyy-MM-dd string.",
+      "fixtures": "Sets one demo patient's demographic.lastUpdateDate, one active allergy's lastUpdateDate and (outside legacy-restricted mode) its latest appointment's createdatetime/updatedatetime to local midnight or 1970-01-01, and inserts one measurement of type PWEPOCH; cleanup writes the original values back and deletes the measurement and its own ServiceClient, tokens and nonces. Another check editing that patient meanwhile would see its record timestamps change, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "oauth-ws-rate-limit",
       "script": "scripts/oauth-ws-rate-limit-playwright-checks.js",
       "tiers": [
@@ -3116,6 +3140,24 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient with a diabetes diagnosis and saved NRTF readings; local disposable database only."
     },
     {
+      "name": "flowsheet-scope-lock",
+      "script": "scripts/flowsheet-scope-lock-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [],
+      "mutates": [
+        "flowsheet_customization"
+      ],
+      "fixtures": "The owned FAKE-PW patient and three flowsheet_customization rows on the built-in tracker flowsheet (clinic, provider and patient scope, each carrying the run marker in its payload); cleanup deletes them by marker and asserts they are gone. The clinic-scope row adds an item to the tracker of every patient while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#3962: EditFlowsheet.jsp asks FlowSheetCustomizationService for each Custom List row's scope. The patient editor locks the clinic and provider items, Your Patients locks the clinic item only, All Patients locks nothing, and a locked row names the level that created it and has no delete link."
+    },
+    {
       "name": "flowsheet-dx-drug-links",
       "script": "scripts/flowsheet-dx-drug-links-playwright-checks.js",
       "tiers": [
@@ -4846,7 +4888,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails on 2026.08, and since #4130 it stops at the first panel mutation (Add Group): the Administration panel's POST is now redirected (POST/redirect/GET) and the check's submitInPanel requires HTTP 200 from the POST itself, so it fails on the 302 before it reaches the 405 / 403 the group mutators used to answer (findings 69 and 74: missing CSRF token in the Administration panel; a success result that forwards the POST to a GET-only gate). The Add eForm list also throws a TypeError on unload (unguarded window.opener, finding 77). Not an expectedFailure: the 302 is the check's own assumption about the response, not a logged application defect, and the failing step is not yet confirmed by a live run.",
+      "notes": "The group mutators answer POST/redirect/GET since #4130 (findings 69 and 74: the panel lost its CSRF token, and a success result forwarded the POST to a GET-only gate that answered 405). submitInPanel follows the chain the panel's POST starts: the POST answers 200 or a redirect, every hop stays on the origin and is a GET, and the page it ends on answers 200. Passes all eight steps on an installed release/2026.08 package. The Add eForm list also throws a TypeError on unload (unguarded window.opener, finding 77), which does not fail the check.",
       "fixtures": "Two marker eForm templates, one saved instance of each for the owned patient, a seeded PW<hex> group and a PV<hex> group created by the panel (eform_groups.group_name is varchar(20)); only these rows are removed."
     },
     {
@@ -6050,12 +6092,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The thirteen forms whose record class compares the column type with TINY and that have TINYINT answers (finding 231): after Save stores the ticked boxes, the redisplayed form and the reopened form show them unticked. Asserts the restore pair of CESD, Caregiver, Caregiver - SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Intake Information, FDI Disability, FDI Function, Risk Assessment, Self Management and Treatment Preference; the first (CESD) is the pinned step and the rest share the defect. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
-      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 231,
-        "step": "CESD: the redisplayed and the reopened form show every saved value again"
-      }
+      "notes": "The thirteen forms whose record class once compared the column type with TINY and that have TINYINT answers, finding 231 (fixed, #4466): after Save stores the ticked boxes, the redisplayed form and the reopened form show them ticked. The record classes now ask FrmRecordHelp.isBooleanColumnType, which accepts the BIT and TINYINT names the MySQL driver reports. Asserts the restore pair of CESD, Caregiver, Caregiver - SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Intake Information, FDI Disability, FDI Function, Risk Assessment, Self Management and Treatment Preference. The restore pair stays in its own entry so a regression is attributed to the finding. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-cesd-redisplay",
@@ -6386,6 +6424,22 @@
       ],
       "notes": "ADFv2, finding 240 (fixed, #4598), the Save and Exit half: from the Forms menu, Save and Exit is confirmed once, posted into the form's own window (answered by close.jsp), and that window closes with no other window opened; exactly one formAdfV2 row holds the typed values and the signing provider. Before the fix the post went to a window named apptProviderSearch, which close.jsp closed, and the form window stayed open on the unsaved form. The Save half is form-catalog-smoke-adfv2-window; scripts/adfv2-save-window-target.test.js runs the page's handlers.",
       "fixtures": "Owned synthetic patient and one marker-named encounterForm registration of formadfv2; cleanup deletes the owned patient's formAdfV2 rows and the registration, and asserts both gone. The registration is clinic-wide (the shipped row is hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "form-checkbox-reopen",
+      "script": "scripts/form-checkbox-reopen-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "mutates": [],
+      "notes": "Finding 231 (fixed, #4466), the four forms the form catalogue does not reach: 2 Minute Walk, Internet Access, Rh Immune Globulin and Satisfaction Scale. Their record classes compared the column type with TINY, which the MySQL driver never reports, so a saved tick was shown as the raw value 1 written into the tag (1=\"\") and an unticked box. A saved record is seeded for the owned patient and its form opened (form/<form>?demographic_no=&formId=): the boxes stored as 1 are ticked, the boxes stored as 0 or NULL are not, and no checkbox carries an attribute named by a digit. Save is not driven: it stores the ticks correctly, and the catalogue (form-catalog-smoke-checkbox-restore) proves that for the thirteen forms it reaches.",
+      "fixtures": "Owned synthetic patient and one seeded row in each of form2MinWalk, formInternetAccess, formRhImmuneGlobulin and formSatisfactionScale; cleanup deletes the owned patient's rows from the four tables and asserts each gone. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
     },
     {
       "name": "form-catalog-smoke-bare-contact",
@@ -7924,11 +7978,7 @@
       "timeoutSec": 480,
       "env": [],
       "fixtures": "Owns the synthetic patient and one marker eForm template, and for finding 168 one owned role (_eform w, _demographic r, _eChart r; no _edoc) with a login holding it; cleanup deletes the instances (eform_values + eform_data), the template, the login and the role and asserts them gone. At the start it may insert one owned eform_data row at an explicit id above the demo database's stale EFormDocs ids and delete it again, which moves the table's id counter past them (the counter is not restored; it only ever rises).",
-      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action answers every post-commit RuntimeException with eform.submitUnavailable, HTTP 409). Runs about 65 s. The demo database carries EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids 247-1063 that no eform_data row owns, so a new instance whose id falls there inherits them and a login without read access to those object types is refused 403 before the eForm is stored (\"no permission to use one or more selected attachments\"); the workflow therefore moves the id counter past them first, or the control step would fail depending on the id it happened to get. The POST-replay step failed once in an earlier run of this plan with its message lost and did not fail in 22 later runs (16 through the runner, 6 replay-only under four busy CPU cores): see the Task 15 report. Its failure messages now carry the AddEForm statuses and the owned-row count. The finding-168 step needs the eForm PDF renderer: before passing it, the check downloads one of the run's saved eForms (eform/downloadEFormPdf); when no PDF comes back, Add to Documents never reached the document step, and the check SKIPs there rather than passing the pinned step.",
-      "expectedFailure": {
-        "finding": 168,
-        "step": "a failed Add to Documents is not answered with the replay refusal"
-      }
+      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action used to answer every post-commit RuntimeException with eform.submitUnavailable; since #4424 it answers HTTP 409 eform.submitSavedStepIncomplete, naming the step). Runs about 65 s. The demo database carries EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids 247-1063 that no eform_data row owns, so a new instance whose id falls there inherits them and a login without read access to those object types is refused 403 before the eForm is stored (\"no permission to use one or more selected attachments\"); the workflow therefore moves the id counter past them first, or the control step would fail depending on the id it happened to get. The POST-replay step failed once in an earlier run of this plan with its message lost and did not fail in 22 later runs (16 through the runner, 6 replay-only under four busy CPU cores): see the Task 15 report. Its failure messages now carry the AddEForm statuses and the owned-row count. The finding-168 step needs the eForm PDF renderer: before passing it, the check downloads one of the run's saved eForms (eform/downloadEFormPdf); when no PDF comes back, Add to Documents never reached the document step, and the check SKIPs there rather than passing the pinned step."
     },
     {
       "name": "double-submit-lab-manual",
@@ -9114,8 +9164,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "fixtures": "Two marker-named eForm templates (one throws a marker error after load, consumed from the strict recorder); only their rows are removed.",
-      "notes": "Fails at its last step on 2026.08: a plain GET of eform/logEformError flips eform.stable to 0 (EformLogError2Action accepts GET; the flag is written but never read)."
+      "fixtures": "Three marker-named eForm templates (one calls a missing jQuery plugin after load, its marker error consumed from the strict recorder; one calls the CARLOS lab decision-support stub LabEngine_2023.js; one is clean); only their rows are removed.",
+      "notes": "Through the packaged front door, fails at the throwing form's step without WAF exclusion 1075 (CRS 932130 reads the browser's \"$(...)\" message as shell syntax and 403s the report), and at the stub step while the deployed stub still reports by token-less sendBeacon (CSRFGuard 403). eform.stable is written but never read."
     },
     {
       "name": "gap-encounter-visual-eform-editor",
@@ -9243,7 +9293,11 @@
         "LAB_UPLOAD_SERVER_LOG"
       ],
       "fixtures": "The owned synthetic patient and one session-only custom drug. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host. Server log prerequisite: LAB_UPLOAD_JOURNAL_UNIT (carlos-emr on the package) or LAB_UPLOAD_SERVER_LOG, readable by the runner; missing historical DIN must fall back without a DrugRef exception. Run against an otherwise idle installation so its journal window contains only this lookup.",
-      "notes": "Exercises the real saved-product Info popup and local reference search. The unknown-DIN fallback must return results without DrugRef errors (#5006, fixed in #5023); a readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG source is required to execute the log assertion."
+      "notes": "Exercises the real saved-product Info popup and local reference search. The missing-DIN fallback still logs DrugRef NoResultException (#5006, finding 311); #5023/#5027 did not change the pinned DrugRef absence path. Requires a readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG; the whole check explicitly skips without it.",
+      "expectedFailure": {
+        "finding": 311,
+        "step": "missing DIN fallback does not log a DrugRef server exception"
+      }
     },
     {
       "name": "gap-encounter-rx-quantity-price",
@@ -15282,6 +15336,56 @@
       },
       "fixtures": "Owned synthetic patient and clinical rows; pharmacy variants own both directory entries and links; cleanup verified.",
       "notes": "Dismiss Save And Print using Escape, correct the acknowledged card and retain exactly one active medication."
+    },
+    {
+      "name": "rx-quantity-delete-race",
+      "script": "scripts/rx-discarded-card-callback-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG"
+      ],
+      "envSet": {
+        "RX_DISCARD_CALLBACK": "quantity"
+      },
+      "fixtures": "Owned patient, one persisted untouched control medication and one unsaved custom card. Holds only the target field blur request, removes the card through its X, then releases the request. Uses an exclusive journal window; all owned clinical rows are removed and verified.",
+      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Reproduces finding 312 (#5036) only at the final server-error assertion; earlier UI and clinical-row controls must pass.",
+      "expectedFailure": {
+        "finding": 312,
+        "step": "a discarded draft calculation is handled without a server exception"
+      }
+    },
+    {
+      "name": "rx-instructions-delete-race",
+      "script": "scripts/rx-discarded-card-callback-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG"
+      ],
+      "envSet": {
+        "RX_DISCARD_CALLBACK": "instructions"
+      },
+      "fixtures": "Owned patient, one persisted untouched control medication and one unsaved custom card. Holds only the target field blur request, removes the card through its X, then releases the request. Uses an exclusive journal window; all owned clinical rows are removed and verified.",
+      "notes": "Verifies real card deletion, no revived draft or changed clinical records, and no server NullPointerException from a callback arriving after deletion. Reproduces finding 312 (#5036) only at the final server-error assertion; earlier UI and clinical-row controls must pass.",
+      "expectedFailure": {
+        "finding": 312,
+        "step": "a discarded draft calculation is handled without a server exception"
+      }
     }
   ]
 }

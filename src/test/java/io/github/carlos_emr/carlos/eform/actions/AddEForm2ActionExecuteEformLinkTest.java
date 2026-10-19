@@ -289,6 +289,13 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         doReturn("Check the patient eForms before reopening").when(action).getText("eform.submitUnavailable");
         doReturn("This request was not processed. Copy your changes and check saved eForms.")
                 .when(action).getText("eform.submitStale");
+        // A failure after storage started has its own texts, never the replay refusal (#4424);
+        // AddEForm2ActionPostSaveFailureUnitTest asserts the shipped wording.
+        doReturn("Could not confirm the save. Check the patient eForms.")
+                .when(action).getText("eform.submitOutcomeUnknown");
+        doReturn("a follow-on step").when(action).getText("eform.submitStep.followOn");
+        doReturn("Saved, but a follow-on step did not complete. Check the patient eForms and chart.")
+                .when(action).getText(eq("eform.submitSavedStepIncomplete"), any(String[].class));
         return action;
     }
 

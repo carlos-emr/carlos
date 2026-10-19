@@ -3196,3 +3196,33 @@ The server-log audit's unexplained signatures were BC billing and dxresearch err
 doctor-panel step is skipped by its own `#admin-panel` guard and says nothing about this fix on such an install, and
 `manage-flowsheets-access` opens the shell by its address (`/administration`, which the link opens) instead. The same limit is
 why the page no longer repeats the access check in its own combined tag.
+
+### Saved checkbox ticks on the legacy questionnaires (2026-10-19, issue #4466, finding 231)
+
+Nineteen `Frm*Record` classes decided whether a column was a checkbox with `getColumnTypeName(i).equalsIgnoreCase("TINY")`. MySQL
+Connector/J reports `BIT` for `tinyint(1)` and `TINYINT` for other widths, never `TINY`, so a saved tick came back as the raw value `1`,
+the page wrote `1=""` into the tag, the box showed unticked, and the next Save filed a version with every box unticked. They now call
+the public `FrmRecordHelp.isBooleanColumnType`. `form-catalog-smoke-checkbox-restore` lost its expected-failure pin, and the new
+`form-checkbox-reopen-playwright-checks.js` covers the four classes the catalogue does not reach (2 Minute Walk, Internet Access, Rh
+Immune Globulin, Satisfaction Scale): it seeds one saved record each for the owned patient and asserts that the boxes stored as 1 are
+ticked, the ones stored as 0 or NULL are not, and no checkbox carries an attribute named by a digit. It adds nothing to the Forms menu, so
+it needs no `EXCLUSIVE=1`.
+
+`release/2026.08` at `fefceecc` plus the fix was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR was compiled on the host
+with JDK 25 and the `debian/rules` Maven flags, `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder with `CARLOS_WAR`,
+DrugRef and the Chromium payload were built from their pins (`1941e14`, revision 1685886), and `carlos-ctl` was 1.1.2 from its release. The
+packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl check`: all checks passed;
+`:443`). The egress proxy reset a connection during the image's 469-package `apt` install on two attempts, each time on a different
+package; building the image `FROM` a base with `Acquire::Retries "10"` (`BASE_IMAGE=`) got through. On a host without IPv6 the first nginx
+start inside the install failed on `listen [::]:80`; the install finished with no `.install-incomplete` marker and nginx active.
+
+| Installed `Frm*Record` classes | `form-catalog-smoke-checkbox-restore` | `form-checkbox-reopen` |
+|---|---|---|
+| fix | **PASS**: the restore pair of all 13 forms asserted | **PASS**, 4 of 4 |
+| the 19 pre-fix classes, compiled from the base branch, swapped into the installed webapp, then `carlos-ctl restart` | **FAILS** at "CESD: the redisplayed and the reopened form show every saved value again"; all 13 forms show their ticks unticked, on the redisplayed and the reopened form | **FAILS** at "2 Minute Walk: Q1tried was saved ticked and is shown unticked" |
+
+The whole form-catalogue family (`form-catalog-smoke` and its nine variants) plus `form-checkbox-reopen` gave 7 passes, 0 failures and
+4 known failures at their own pinned steps (findings 230, 232, 235, 236), with no unexpected pass. The server-log audit reported five
+signatures, all from the ALPHA (`/form/formalpha`, HTTP 500, finding 230) and Rourke 2006 (`/form/formrourke2006`, HTTP 500, finding
+236) pins; none involved a form this change touches. The seven `scripts/dependency-security.test.js` cases that need the Docusaurus
+dependencies fail with `MODULE_NOT_FOUND` where those packages are not installed; they do not read this change.

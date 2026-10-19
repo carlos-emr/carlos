@@ -105,6 +105,18 @@ public class EForm extends EFormBase {
             "/library/jquery/jquery-3.6.4.min.js");
 
     /**
+     * Webapp-relative PRE-3.x jQuery builds clinic forms pin that this CARLOS does not ship (OSCAR
+     * Galaxy: FIB-4 loads {@code ${oscar_javascript_path}jquery/jquery-2.2.4.min.js} as its only
+     * jQuery; the Simple Rich Text Letter loads {@code jquery-1.4.2.js}). They are aliased to the
+     * bundle that carries the compat shim, like every other pre-3.x alias, not to bare 3.7.1: code
+     * written for 1.x/2.x calls APIs 3.x removed. Exact versions only, matched with the context
+     * path, {@code ..} or no prefix, so an unknown build still 404s visibly.
+     */
+    private static final java.util.List<String> LEGACY_LIBRARY_JQUERY_PATHS = java.util.List.of(
+            "/library/jquery/jquery-2.2.4.min.js",
+            "/library/jquery/jquery-1.4.2.js");
+
+    /**
      * Public CDN jQuery URLs observed in the shared-eForm corpus, aliased to the local bundle by
      * {@link #rewriteLegacyRelativeJqueryReferences}. See that method for why this is an alias and
      * not an egress allowance.
@@ -127,7 +139,17 @@ public class EForm extends EFormBase {
             "https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js",
             "http://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js",
             "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
-            "http://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js");
+            "http://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
+            // 2020-2026 OSCAR Galaxy packages: Toronto Cardiac Care and NeuPath referrals (2.2.4,
+            // 3.6.4), Rich Text Letter 2020 V2 (1.12.4), Simple Rich Text Letter (cdnjs 3.3.1).
+            "https://code.jquery.com/jquery-1.12.4.min.js",
+            "http://code.jquery.com/jquery-1.12.4.min.js",
+            "https://code.jquery.com/jquery-2.2.4.min.js",
+            "http://code.jquery.com/jquery-2.2.4.min.js",
+            "https://code.jquery.com/jquery-3.6.4.min.js",
+            "http://code.jquery.com/jquery-3.6.4.min.js",
+            "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js",
+            "http://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js");
     private static final String LOAD_SIG_CALL = "loadSig()";
     // The guard preserves an existing loadSig implementation and supplies a no-op when absent.
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
@@ -568,6 +590,17 @@ public class EForm extends EFormBase {
         // fails visibly instead of being silently upgraded.
         for (String supersededPath : SUPERSEDED_LIBRARY_JQUERY_PATHS) {
             rewritten = rewritten.replace(supersededPath, DEPLOYED_LIBRARY_JQUERY_PATH);
+        }
+        // A pre-3.x build gets the compat-shim bundle, so the whole src value is replaced, with the
+        // prefixes a form reaches the library by: ${oscar_javascript_path} (already expanded to the
+        // context path above), a relative "..", or a root-context deployment's bare path.
+        for (String legacyPath : LEGACY_LIBRARY_JQUERY_PATHS) {
+            for (String prefix : new java.util.LinkedHashSet<>(java.util.List.of(contextPath, "..", ""))) {
+                String reference = prefix + legacyPath;
+                rewritten = rewritten
+                        .replace(attributeReference(reference), attributeReference(assetUrl))
+                        .replace(singleQuotedAttributeReference(reference), singleQuotedAttributeReference(assetUrl));
+            }
         }
         boolean aliasedFromCdn = false;
         for (String cdnUrl : CDN_JQUERY_URLS) {

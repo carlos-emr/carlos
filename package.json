@@ -227,6 +227,7 @@
     "test:schedule-date-navigation-playwright": "node scripts/schedule-date-navigation-playwright-checks.js",
     "test:retired-view-aliases-playwright": "node scripts/retired-view-aliases-playwright-checks.js",
     "test:anonymous-access-refused-playwright": "node scripts/anonymous-access-refused-playwright-checks.js",
+    "test:oauth-rest-epoch-dates-playwright": "node scripts/oauth-rest-epoch-dates-playwright-checks.js",
     "test:oauth-rest-surfaces-playwright": "node scripts/oauth-rest-surfaces-playwright-checks.js",
     "test:oauth-ws-rate-limit-playwright": "node scripts/oauth-ws-rate-limit-playwright-checks.js",
     "test:o19-migrated-smoke": "node scripts/o19-migrated-smoke-playwright-checks.js",
@@ -236,6 +237,7 @@
     "test:record-access-playwright": "node scripts/record-access-playwright-checks.js",
     "test:diagnosis-flowsheet-playwright": "node scripts/diagnosis-flowsheet-playwright-checks.js",
     "test:flowsheet-measurement-delete-playwright": "node scripts/flowsheet-measurement-delete-playwright-checks.js",
+    "test:flowsheet-scope-lock-playwright": "node scripts/flowsheet-scope-lock-playwright-checks.js",
     "test:flowsheet-dx-drug-links-playwright": "node scripts/flowsheet-dx-drug-links-playwright-checks.js",
     "test:prevention-lifecycle-playwright": "node scripts/prevention-lifecycle-playwright-checks.js",
     "test:prevention-screening-result-playwright": "node scripts/prevention-screening-result-playwright-checks.js",
@@ -513,6 +515,7 @@
     "test:form-catalog-smoke-rourke2006-reopen-playwright": "FORM_CATALOG_ONLY=rourke2006.reopen,rourke2006.print node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-catalog-smoke-adfv2-window-playwright": "FORM_CATALOG_ONLY=adfv2.redisplay node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-adfv2-save-exit-playwright": "node scripts/form-adfv2-save-exit-playwright-checks.js",
+    "test:form-checkbox-reopen-playwright": "node scripts/form-checkbox-reopen-playwright-checks.js",
     "test:form-catalog-smoke-bare-contact-playwright": "FORM_CATALOG_ONLY=positionhazard.bare,healthpassport.bare node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-catalog-smoke-bc-playwright": "FORM_CATALOG_ONLY=bcar,bcar2007,bclabourbirth,bcbirthsum2008,bcinr,bcchecklist,bcnewborn FORM_CATALOG_EXCEPT=bcar2007.bare,bcbirthsum2008.keys,bcinr.redisplay,bcchecklist.redisplay,bcinr.print,bcar.restore,bclabourbirth.restore,bcbirthsum2008.restore,bcnewborn.restore node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-catalog-smoke-bc-bare-contact-playwright": "FORM_CATALOG_ONLY=bcar2007.bare node scripts/form-catalog-smoke-playwright-checks.js",
@@ -847,7 +850,9 @@
     "test:patient-letter-generation-ui-playwright": "PATIENT_LETTER_ACTION=generate node scripts/patient-letter-actions-playwright-checks.js",
     "test:patient-letter-stale-template-playwright": "PATIENT_LETTER_ACTION=stale node scripts/patient-letter-actions-playwright-checks.js",
     "test:rx-favourite-multiline-directions-playwright": "RX_FAVOURITE_ACTION=multiline node scripts/rx-favourite-actions-playwright-checks.js",
-    "test:patient-letter-manager-labels-playwright": "PATIENT_LETTER_ACTION=labels node scripts/patient-letter-actions-playwright-checks.js"
+    "test:patient-letter-manager-labels-playwright": "PATIENT_LETTER_ACTION=labels node scripts/patient-letter-actions-playwright-checks.js",
+    "test:rx-quantity-delete-race-playwright": "RX_DISCARD_CALLBACK=quantity node scripts/rx-discarded-card-callback-playwright-checks.js",
+    "test:rx-instructions-delete-race-playwright": "RX_DISCARD_CALLBACK=instructions node scripts/rx-discarded-card-callback-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

@@ -315,6 +315,9 @@ function parseMysqlBatchOutput(stdout) {
  * text it carried, first through stderr and then through the thrown message
  * runCheck logs), and dispose() removes the option file even when the check
  * throws. 35 scripts each reimplemented a piece of this.
+ * value/rows/execute accept an optional parameter array: SQL placeholders are
+ * bound by server-side PREPARE/EXECUTE in the same connection. Bound calls must
+ * contain one statement; strings are transferred as UTF-8 independently of SQL mode.
  */
 function createSqlRunner(mysqlConfig, options = {}) {
   // Full schema/reference catalogs exceed Node's 1MiB default. Keep both captured
@@ -331,14 +334,37 @@ function createSqlRunner(mysqlConfig, options = {}) {
   const quoted = String(password).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   (options.writeFile || fs.writeFileSync)(optionFile, `[client]\npassword="${quoted}"\n`, { mode: 0o600 });
 
-  function run(query) {
+  function run(query, parameters) {
+    let statement = query;
+    if (parameters !== undefined) {
+      assert(typeof query === 'string' && Array.isArray(parameters), 'Bound SQL requires a query string and a parameter array');
+      const text = value => `CONVERT(X'${Buffer.from(value, 'utf8').toString('hex')}' USING utf8mb4)`;
+      const values = parameters.map(value => {
+        if (value === null) return 'NULL';
+        if (typeof value === 'string') return text(value);
+        if (typeof value === 'boolean') return value ? '1' : '0';
+        if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+        throw new Error('Bound SQL values must be strings, finite numbers, booleans or null');
+      });
+      // Each CLI call owns a connection. PREPARE keeps placeholders in the SQL;
+      // EXECUTE binds separate session variables, without text substitution.
+      // Hex-encoded UTF-8 makes initialization independent of SQL escaping modes.
+      const variables = values.map((_, index) => `@carlos_pw_arg_${index}`);
+      statement = [
+        `SET @carlos_pw_query=${text(query)}`,
+        'PREPARE carlos_pw_statement FROM @carlos_pw_query',
+        ...values.map((value, index) => `SET ${variables[index]}=${value}`),
+        `EXECUTE carlos_pw_statement${variables.length ? ` USING ${variables.join(',')}` : ''}`,
+        'DEALLOCATE PREPARE carlos_pw_statement',
+      ].join('; ');
+    }
     try {
       return exec('mysql', [
         `--defaults-extra-file=${optionFile}`,
         '-h', host,
         '-u', mysqlConfig.user || 'root',
         mysqlConfig.database || 'carlos',
-        '-N', '-B', '-e', query,
+        '-N', '-B', '-e', statement,
       ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, maxBuffer });
     } catch (error) {
       // CAPTURING stderr IS NOT ENOUGH. execFileSync folds the captured stderr
@@ -363,17 +389,17 @@ function createSqlRunner(mysqlConfig, options = {}) {
 
   return {
     /** One scalar, unescaped. Empty string when the query returned no row. */
-    value(query) {
-      const rows = parseMysqlBatchOutput(run(query));
+    value(query, parameters) {
+      const rows = parseMysqlBatchOutput(run(query, parameters));
       return rows.length ? rows[0][0] : '';
     },
     /** Every row as an array of unescaped column values. */
-    rows(query) {
-      return parseMysqlBatchOutput(run(query));
+    rows(query, parameters) {
+      return parseMysqlBatchOutput(run(query, parameters));
     },
     /** For INSERT/UPDATE/DELETE, where the output is not interesting. */
-    execute(query) {
-      run(query);
+    execute(query, parameters) {
+      run(query, parameters);
     },
     dispose() {
       (options.rm || fs.rmSync)(directory, { recursive: true, force: true, maxRetries: 2, retryDelay: 50 });
