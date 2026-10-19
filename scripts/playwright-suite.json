@@ -12825,6 +12825,21 @@
       "fixtures": "Seeds and removes one private billing/billingmaster row for its own FAKE patient, and the bill_recipients, billingnote and billing_history rows written for it."
     },
     {
+      "name": "billing-bc-receipt-print-notes",
+      "script": "scripts/billing-bc-receipt-print-notes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "The BC private bill receipt's Print and Print With Notes, which billing-bc-private-bill-receipt leaves unpressed: Invoice List ▸ Bill Patient ▸ invoice number ▸ a typed Billing Notes text ▸ Print, then Print With Notes. Asserted on the printed page (the receipt rendered to PDF with its print stylesheet once the page has asked to print; only the print dialog is stubbed): both print the invoice number and amount and no buttons; Print leaves out the Billing Notes heading and the note, Print With Notes prints them. The buttons sit inside the receipt's Update Invoice form, and a press that also posts that form instead of printing is reported by the step. Notes only: both print steps fail that way until #5068 is fixed (the buttons have no type, so each submits the form and the receipt reloads before print()). Needs pdftotext (SKIP without it).",
+      "fixtures": "One private bill (billing + billingmaster, 45.00) for the workflow's own FAKE patient, made a BC patient. Cleanup deletes every BC billing row of that patient, with any bill_recipients and billingnote rows, and asserts none is left."
+    },
+    {
       "name": "admin-default-encounter-issues",
       "script": "scripts/admin-default-encounter-issues-playwright-checks.js",
       "tiers": [

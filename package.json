@@ -323,6 +323,7 @@
     "test:billing-bc-invoice-list-bulk-settle-playwright": "node scripts/billing-bc-invoice-list-bulk-settle-playwright-checks.js",
     "test:billing-bc-claim-remittance-lines-playwright": "node scripts/billing-bc-claim-remittance-lines-playwright-checks.js",
     "test:billing-bc-private-bill-receipt-playwright": "node scripts/billing-bc-private-bill-receipt-playwright-checks.js",
+    "test:billing-bc-receipt-print-notes-playwright": "node scripts/billing-bc-receipt-print-notes-playwright-checks.js",
     "test:billing-bc-receive-payment-playwright": "node scripts/billing-bc-receive-payment-playwright-checks.js",
     "test:eform-email-two-windows-playwright": "node scripts/eform-email-two-windows-playwright-checks.js",
     "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js",
