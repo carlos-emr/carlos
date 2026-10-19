@@ -902,6 +902,8 @@ public class RxUtil {
         return;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: normalization of internal frequency codes, not a security or authorization decision. See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "normalization of internal frequency codes, not a security or authorization decision")
     private static int calculateDispenseQuantity(String maximumDose, String duration, String durationUnit, String frequency) {
         BigDecimal total = new BigDecimal(maximumDose).multiply(new BigDecimal(duration))
                 .multiply(BigDecimal.valueOf(findNDays(durationUnit)));
