@@ -22,11 +22,13 @@
  */
 
 const { chromium } = require('playwright');
-const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
+const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
+const { selectTicklerAssignee } = require('./lib/tickler-clinic');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -52,6 +54,9 @@ const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through e
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
+// Set before the tickler is created; until then the run owns no rows to clean. Note
+// links at or below it predate the run and are never deleted (#4409).
+let linkIdFloor = null;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -133,7 +138,10 @@ function assert(condition, message) {
 }
 
 function cleanupRows() {
-  cleanupTicklerFixture({ sql, patient: demographicNo, stamp });
+  if (linkIdFloor === null) {
+    return;
+  }
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, linkIdFloor });
 }
 
 function getTicklerRows() {
@@ -364,7 +372,7 @@ async function createTickler(context) {
   await page.locator('textarea[name="ticklerMessage"]').fill(createdMessage);
   await page.locator('input[name="xml_appointment_date"]').fill('2026-02-18');
   await page.locator('select[name="priority"]').selectOption('High');
-  await page.locator('select[name="task_assigned_to"]').selectOption(providerNo);
+  await selectTicklerAssignee(page, providerNo);
   await page.locator('input.btn-primary[name="Button"]').first().click();
   await page.waitForFunction(() => {
     const frame = document.getElementById('ticklerSubmitFrame');
@@ -411,10 +419,16 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   assert(comments.includes(editedMessage), 'edited tickler comment was not saved');
 }
 
-async function completeTicklerViaEdit(context, ticklerNo) {
-  const page = await context.newPage();
+async function completeTicklerViaEdit(context, listPage, ticklerNo) {
+  await findRowInList(listPage, createdMessage, 'A');
+  const row = listPage.locator('#ticklerResults tbody tr').filter({ hasText: createdMessage }).first();
+  const popup = context.waitForEvent('page');
+  await row.locator('a[onclick*="openTicklerEdit"]').click();
+  const page = await popup;
   wirePage(page, 'tickler-complete-edit');
-  await gotoApp(page, '/tickler/ViewTicklerEdit', 'domcontentloaded', { tickler_no: ticklerNo });
+  await page.waitForURL(url => url.pathname.endsWith('/tickler/ViewTicklerEdit')
+    && url.searchParams.get('tickler_no') === String(ticklerNo),
+    { timeout: 30000, waitUntil: 'domcontentloaded' });
   await page.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#status').selectOption('C');
   await page.locator('input[name="updateTickler"]').click();
@@ -456,19 +470,31 @@ async function deleteTicklerFromList(page, message) {
   await waitForTicklerStatus('D');
 }
 
+// Issue #3600: a finally does not run when the process is killed, which would leave
+// the synthetic ticklers (and the cleartext MySQL password file) behind. Both steps
+// are idempotent; the handler is removed once the normal finally has run them.
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    cleanupRows();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+});
+
 (async () => {
-  cleanupRows();
+  linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
 
   const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   try {
     const schedulePage = await context.newPage();
     wirePage(schedulePage, 'login-schedule');
@@ -482,9 +508,7 @@ async function deleteTicklerFromList(page, message) {
     const activeRow = await findRowInList(listPage, createdMessage, 'A');
     assert(String(activeRow.id) === String(ticklerNo), `list row id ${activeRow.id} did not match created id ${ticklerNo}`);
     const searchFoundCreated = await probeTicklerSearch(listPage, createdMessage);
-    if (!searchFoundCreated) {
-      console.log(`WARN tickler list search did not return the created message ${createdMessage}`);
-    }
+    assert(searchFoundCreated, 'Tickler list search did not return the created message');
 
     await editTicklerFromList(context, listPage, ticklerNo);
     await listPage.reload({ waitUntil: 'domcontentloaded' });
@@ -492,7 +516,7 @@ async function deleteTicklerFromList(page, message) {
     const editedRow = await findRowInList(listPage, createdMessage, 'A');
     assert(String(editedRow.id) === String(ticklerNo), `edited list row id ${editedRow.id} did not match ${ticklerNo}`);
 
-    await completeTicklerViaEdit(context, ticklerNo);
+    await completeTicklerViaEdit(context, listPage, ticklerNo);
     await listPage.reload({ waitUntil: 'domcontentloaded' });
     await waitForTicklerListReady(listPage);
     await setTicklerListStatus(listPage, 'C');
@@ -511,8 +535,11 @@ async function deleteTicklerFromList(page, message) {
     await browser.close().catch(() => {});
     cleanupRows();
     cleanupMysqlDefaultsFile();
+    // Last, so a signal arriving during cleanup still reaches the handler.
+    signalHandlers.dispose();
   }
 })().catch((error) => {
+  signalHandlers.dispose();
   cleanupMysqlDefaultsFile();
   console.error(`FAIL tickler CRUD interface flow: ${error.stack || error.message}`);
   process.exit(1);

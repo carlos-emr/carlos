@@ -31,6 +31,8 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 
@@ -47,6 +49,8 @@ public class BillingSessionBean implements java.io.Serializable {
     private String apptStart = null;
     private String apptStatus = null;
     private ArrayList<BillingItem> billitem;
+    private ArrayList<String> heldRefusalMessages;
+    private ArrayList<String> heldWcbFormNeeds;
     private String xml_billtype = null;
     private String xml_location = null;
     //  private String xml_starttime = null;
@@ -714,6 +718,33 @@ public class BillingSessionBean implements java.io.Serializable {
 
     public void setWcbId(String wcbId) {
         this.wcbId = wcbId;
+    }
+
+    /**
+     * Holds a refused Continue's reasons with the bill until its form is next shown (issue #4864,
+     * finding 432). Continue answers a refusal with a redirect back to the bill form, and request
+     * attributes do not survive a redirect, so the form came back without saying why.
+     *
+     * @param messages the refusal messages, already formatted
+     * @param wcbFormNeeds the bundle keys of what the chosen WCB form lacks, or null
+     */
+    public void holdRefusal(Collection<String> messages, List<String> wcbFormNeeds) {
+        heldRefusalMessages = messages == null ? new ArrayList<>() : new ArrayList<>(messages);
+        heldWcbFormNeeds = wcbFormNeeds == null ? new ArrayList<>() : new ArrayList<>(wcbFormNeeds);
+    }
+
+    /** @return the held refusal messages, which are then cleared so they show once; never null */
+    public List<String> takeRefusalMessages() {
+        List<String> held = heldRefusalMessages == null ? new ArrayList<>() : heldRefusalMessages;
+        heldRefusalMessages = null;
+        return held;
+    }
+
+    /** @return the held keys of what the WCB form lacks, which are then cleared; never null */
+    public List<String> takeWcbFormNeeds() {
+        List<String> held = heldWcbFormNeeds == null ? new ArrayList<>() : heldWcbFormNeeds;
+        heldWcbFormNeeds = null;
+        return held;
     }
 
 }

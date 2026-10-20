@@ -28,6 +28,17 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays an unsuccessful chart close/save. A stale-revision POST, or one whose
+    encounter date the server could not read (observationDateRejected, issue #4711),
+    keeps its submitted note available to copy before reopening the chart.
+    Request attributes: DateError, noteRevisionConflict, observationDateRejected and unsavedNoteText.
+    @since 2026-10-14 (revision conflict recovery)
+--%>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib prefix="carlos" uri="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String error = "Your note was not saved as you did not have the exclusive note lock";
 
@@ -49,7 +60,18 @@
 <body>
 
 <h3 style="text-align:center;">
-    <%=error %>
+    <c:choose>
+        <c:when test="${noteRevisionConflict}"><fmt:message key="encounter.noteLockLostError.msg"/></c:when>
+        <c:when test="${observationDateRejected and not empty DateError}"><c:out value="${DateError}"/></c:when>
+        <c:when test="${observationDateRejected}"><fmt:message key="encounter.observationDateUnreadable.msg"/></c:when>
+        <c:otherwise><carlos:encode value="<%= error %>"/></c:otherwise>
+    </c:choose>
 </h3>
+<c:if test="${noteRevisionConflict or observationDateRejected}">
+    <label id="unsaved-note-label" for="unsaved-note-text"><fmt:message key="casemanagementEntry.notenotsavedyet"/></label>
+    <textarea id="unsaved-note-text" rows="16" readonly aria-labelledby="unsaved-note-label"
+              style="display:block;width:95%;margin:1em auto;">
+${carlos:forHtml(unsavedNoteText)}</textarea>
+</c:if>
 </body>
 </html>

@@ -78,7 +78,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>CDC US Growth Charts</title>
+    <title><fmt:message key="form.growth0_36.title"/></title>
     <script type="text/javascript" language="JavaScript">
         function go() {
             if (document.all) {
@@ -97,8 +97,8 @@
                 <c:set var="__enc_5"><carlos:encode value='<%= cfgGraphic[1] %>' context="uriComponent"/></c:set>
                 document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_4}' context="javaScript"/>&__cfgGraphicFile=<carlos:encode value='${__enc_5}' context="javaScript"/>";
                 <% }else{%>
-                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_6}' context="javaScript"/>";
                 <c:set var="__enc_6"><carlos:encode value='<%= StringUtils.defaultString(request.getParameter("__cfgGraphicFile")) %>' context="uriComponent"/></c:set>
+                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_6}' context="javaScript"/>";
                 <%                 
 }%>
                 document.getElementById('growth').submit();

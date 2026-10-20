@@ -60,16 +60,19 @@ async function workflow(s) {
       program_id,reason,status,createdatetime,updatedatetime,creator,lastupdateuser)
     VALUES (${h.sqlString(s.provider)},${h.sqlString(VISIT_DATE)},'09:00:00','09:15:00',${h.sqlString(`${marker},Workflow`)},${s.patient},
       0,${h.sqlString(marker)},'t',NOW(),NOW(),'playwright',${h.sqlString(s.provider)}); SELECT LAST_INSERT_ID()`);
+  // billing_on_cheader1.creator is varchar(6), a provider number: 'playwright' only loaded because a permissive
+  // sql_mode silently truncated it, and a strict one refuses it (error 1406).
   owned.header = sql.value(`INSERT INTO billing_on_cheader1 (header_id,demographic_no,demographic_name,provider_no,appointment_no,
       billing_date,billing_time,status,total,paid,apptProvider_no,creator,clinic)
     VALUES (1,${s.patient},${h.sqlString(`${marker},Workflow`)},${h.sqlString(s.provider)},${owned.appointment},
-      ${h.sqlString(VISIT_DATE)},'09:00:00','O',0,0,${h.sqlString(s.provider)},'playwright','NATIVECAST'); SELECT LAST_INSERT_ID()`);
+      ${h.sqlString(VISIT_DATE)},'09:00:00','O',0,0,${h.sqlString(s.provider)},${h.sqlString(s.provider)},'NATIVECAST'); SELECT LAST_INSERT_ID()`);
   owned.item = sql.value(`INSERT INTO billing_on_item (ch1_id,service_code,fee,ser_num,service_date,dx,status)
     VALUES (${owned.header},${h.sqlString(SERVICE_CODE)},'0.00','1',${h.sqlString(DIAGNOSIS_DATE)},${h.sqlString(DX)},'O'); SELECT LAST_INSERT_ID()`);
+  // position and dispenseInternal are NOT NULL with no default: strict sql_mode refuses a row that omits them.
   owned.drug = sql.value(`INSERT INTO drugs(provider_no,demographic_no,rx_date,end_date,written_date,BN,GN,customName,special,
-      archived,script_no,create_date,lastUpdateDate)
+      archived,script_no,position,dispenseInternal,create_date,lastUpdateDate)
     VALUES (${h.sqlString(s.provider)},${s.patient},${h.sqlString(VISIT_DATE)},${h.sqlString(VISIT_DATE)},${h.sqlString(VISIT_DATE)},
-      NULL,NULL,${h.sqlString(medication)},${h.sqlString(marker)},0,0,NOW(),NOW()); SELECT LAST_INSERT_ID()`);
+      NULL,NULL,${h.sqlString(medication)},${h.sqlString(marker)},0,0,0,0,NOW(),NOW()); SELECT LAST_INSERT_ID()`);
   h.assert(sql.value(`SELECT customName FROM drugs WHERE drugid=${owned.drug} AND demographic_no=${s.patient}`) === medication,
     'The custom medication fixture was truncated or changed on storage');
   h.assert([owned.appointment, owned.header, owned.item, owned.drug].every(id => /^[1-9]\d*$/.test(id)), 'Fixture rows were not inserted');

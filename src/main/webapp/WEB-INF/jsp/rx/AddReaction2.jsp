@@ -1,8 +1,10 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.AllergyAtcClass" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
-<%@ page import="jakarta.servlet.http.HttpServletResponse" %><%--
+<%@ page import="jakarta.servlet.http.HttpServletResponse" %>
+<%@ page import="java.util.UUID" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -58,6 +60,10 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%-- Standalone page only: when this form is injected into the allergy page, that page loads
+             the same script, since nothing from this head survives the injection (#3355, #3488). --%>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-allergy-dialog.js"></script>
+        <%@ include file="allergyDialog.jspf" %>
         <title><fmt:message key="AddReaction.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -88,6 +94,9 @@
             String drugrefId = (String) request.getAttribute("drugrefId");
             String allergyToArchive = (String) request.getAttribute("allergyToArchive");
             String nkdaId = (String) request.getAttribute("nkdaId");
+            // The ATC class an ATC class allergen is filed under (#4576): from the class shortcut
+            // that opened this form, or, for an amendment, from the allergy being corrected.
+            String atc = (String) request.getAttribute("atc");
 
             String reaction = "";
             String startDate = "";
@@ -107,6 +116,7 @@
                     severity = a.getSeverityOfReaction() != null ? a.getSeverityOfReaction() : "";
                     onsetOfReaction = a.getOnsetOfReaction() != null ? a.getOnsetOfReaction() : "";
                     nonDrug = a.isNonDrug();
+                    if (atc == null) atc = AllergyAtcClass.classCodeOf(a);
                 }
                 if (a != null && a.getArchived() && nkdaId != null) allergyToArchive = nkdaId;
             } else {
@@ -150,6 +160,12 @@
                         <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/rx/addAllergy2" method="post"
                                                                name="RxAddAllergyForm" id="RxAddAllergyForm" focus="reactionDescription">
                             <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+                            <%-- One token per rendered dialogue, resent unchanged on every retry by
+                                 rx-allergy-dialog.js (it posts the whole form). The server saves at most
+                                 one allergy per token, so retrying after a failed or unconfirmed save
+                                 cannot duplicate the record (#3488). --%>
+                            <input type="hidden" name="saveToken" id="saveToken"
+                                   value="<carlos:encode value='<%= UUID.randomUUID().toString() %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="formDemographicNo"
                                    value="<carlos:encode value='<%= String.valueOf(patient.getDemographicNo()) %>' context="htmlAttribute"/>"/>
                             <%-- The write target: RxAddAllergy2Action resolves the bean from this and
@@ -212,7 +228,7 @@
                             <table>
                                 <tr id="addReactionSubheading">
                                     <td>
-                                        Adding Allergy: <carlos:encode value='<%= name %>' context="html"/>
+                                        Adding Allergy: <carlos:encode value='<%= name %>' context="html"/><% if (atc != null) { %> (ATC class <carlos:encode value='<%= atc %>' context="html"/>)<% } %>
                                     </td>
                                 </tr>
                                 <tr valign="center">
@@ -222,6 +238,7 @@
                                         <input type="hidden" name="ID" value="<carlos:encode value='<%= drugrefId %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" name="name" id="name" value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" name="allergyToArchive" id="allergyToArchive" value="<carlos:encode value='<%= allergyToArchive %>' context="htmlAttribute"/>"/>
+                                        <input type="hidden" name="atc" id="atc" value="<carlos:encode value='<%= atc %>' context="htmlAttribute"/>"/>
                                     </td>
                                 </tr>
 
@@ -302,7 +319,8 @@
                                     </select></td>
                                 </tr>
 
-                                <%if (drugrefId == null || "0".equals(drugrefId) || "null".equals(drugrefId)) { %>
+                                <%-- Free text only: a class allergen (it has an ATC class and no DrugRef id) is a drug. --%>
+                                <%if ((drugrefId == null || "0".equals(drugrefId) || "null".equals(drugrefId)) && atc == null) { %>
                                 <tr valign="center">
                                     <td><span class="label">Non Drug Indicator:</span>
                                         <select name="nonDrug" id="nonDrug">
@@ -323,6 +341,14 @@
 
 
                                 <% } %>
+
+                                <tr>
+                                    <td>
+                                        <%-- A save the server does not confirm is reported here and the
+                                             entered values stay in this form for a retry (#3488). --%>
+                                        <div class="allergySaveStatus" role="alert" aria-live="assertive" style="display:none"></div>
+                                    </td>
+                                </tr>
 
                                 <tr>
                                     <td>

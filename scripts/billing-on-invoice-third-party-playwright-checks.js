@@ -33,6 +33,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const CORRECTION_FORM = 'form[action$="/billing/CA/ON/UpdateBillingONCorrection"]';
 const PAYMENTS = '/billing/CA/ON/billingON3rdPayments';
@@ -150,7 +151,7 @@ function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250' }) {
 
 /** Master Record ▸ Billing History: the patient's bill list popup. */
 async function openHistory(s) {
-  const link = s.master.locator('a[onclick*="/billing/CA/ON/ViewBillingONHistory"]').first();
+  const link = masterRecordLink(s.master, '/billing/CA/ON/ViewBillingONHistory').first();
   h.assert(await link.count() === 1, 'The Master Record does not offer the Ontario Billing History link');
   const history = await s.popup(s.master, link, 'billing-history');
   await history.locator('#billingHistoryTable').waitFor({ state: 'visible', timeout: 20000 });

@@ -17,8 +17,9 @@ async function workflow(s) {
     }
   });
   for (const suffix of ['! Pharmacy', ' Pharmacy']) {
-    const id = s.sql.value(`INSERT INTO pharmacyInfo(name,address,city,province,status)
-      VALUES(${sqlString(s.marker + suffix)},'123 Fixture Street','Fixture City','ON','1'); SELECT LAST_INSERT_ID()`);
+    // uid is NOT NULL with no default: strict sql_mode refuses a row that omits it.
+    const id = s.sql.value(`INSERT INTO pharmacyInfo(uid,name,address,city,province,status)
+      VALUES(0,${sqlString(s.marker + suffix)},'123 Fixture Street','Fixture City','ON','1'); SELECT LAST_INSERT_ID()`);
     assert(/^[1-9]\d*$/.test(id), 'Pharmacy fixture was not created');
     ids.push(id);
   }

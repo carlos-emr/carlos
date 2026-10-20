@@ -92,7 +92,7 @@ class HtmlTeleplanHelperUnitTest {
                 "20260612", "19950", "10.00", "250", "", "");
 
         assertThat(html)
-                .contains("openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=")
+                .contains("openBrWindow('billingTeleplanCorrectionWCB?billing_no=")
                 .contains(SafeEncode.forHtmlContent("<img src=x>"))
                 .doesNotContain("');alert(1)")
                 .doesNotContain("<img")
@@ -116,7 +116,7 @@ class HtmlTeleplanHelperUnitTest {
                 .doesNotContain("\"onmouseover")
                 .doesNotContain("<b>");
         assertThat(wcb)
-                .contains("billingTeleplanCorrectionWCB.jsp?billing_no=0000007")
+                .contains("billingTeleplanCorrectionWCB?billing_no=0000007")
                 .doesNotContain("<b>");
     }
 

@@ -64,11 +64,15 @@ const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { serverLogFromEnvironment, verifyStorageFailureLog } = require('./lib/server-log');
 
 const contextPathOf = (baseUrl) => new URL(baseUrl).pathname.replace(/\/+$/, '');
 
-/** A minimal CML ORU^R01 v2.3 message for the run's synthetic patient. */
-function syntheticCmlLab(accession, patientLast) {
+/**
+ * A minimal CML ORU^R01 v2.3 message for the run's synthetic patient. A non-empty `hin` is sent
+ * as the alternate patient id (PID-4), where the CML handler reads the health number.
+ */
+function syntheticCmlLab(accession, patientLast, hin = '') {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`
@@ -77,7 +81,7 @@ function syntheticCmlLab(accession, patientLast) {
     // The backslash is doubled so the template literal emits MSH-2 as the four HL7 encoding
     // characters ^~\&; HAPI rejects anything shorter before the CML handler sees the message.
     `MSH|^~\\&|Reports|CML|||${ts}-500||ORU^R01||1|2.3`,
-    `PID|1|||^^ON|${patientLast}^Workflow||19800102|F`,
+    `PID|1|||${hin}^^ON|${patientLast}^Workflow||19800102|F`,
     `ORC|NW|${accession}|||F|||||||999998^DR. PROBE|||${ts.slice(0, 8)}`,
     `OBR|1|${accession}||ML70^SYNTHETIC PANEL||${ts.slice(0, 8)}|${ts.slice(0, 8)}|||||||||999998^DR. PROBE|||||||||F`,
     'OBX|1|ST|7010^SYNTHETIC RESULT|^^CHEMISTRY|NORMAL|||N|||F||765^1007010||70',
@@ -252,7 +256,9 @@ async function workflow(session, options = {}) {
         sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
           DELETE FROM measurements WHERE id IN (${ids})`);
       }
-      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+      // The upload path also writes a providerLabRoutingLock row for each lab it files; nothing else removes it.
+      sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list});
+        DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
         DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
@@ -299,6 +305,8 @@ async function workflow(session, options = {}) {
             END IF;
           END//
           DELIMITER ;`);
+        const serverLog = serverLogFromEnvironment();
+        const logMark = serverLog.mark();
         const status = await uploadThroughPopup(session, filePath, fileName);
         h.assert(['Invalid lab', 'Failed to upload HL7 lab'].includes(status),
           `Injected database failure reported "${status}"`);
@@ -308,6 +316,11 @@ async function workflow(session, options = {}) {
           + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
         'A rejected lab left its checksum or partially stored rows behind');
         expectArchivedUploads(stamp, 0, 'after the rolled-back upload');
+        // After the rollback, which matters more, so a log failure cannot mask it. #4436: the handler's
+        // cleanup used to run in the session the rejected insert had poisoned, so Hibernate logged
+        // HHH000099 and the database's own message never reached an ERROR line.
+        await verifyStorageFailureLog({ reader: serverLog, mark: logMark,
+          databaseMessage: 'Synthetic upload rollback probe', assert: h.assert });
       } finally {
         sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
         triggerMayExist = false;
@@ -390,4 +403,4 @@ async function workflow(session, options = {}) {
 }
 
 if (require.main === module) runWorkflow('lab-upload', workflow);
-module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader };
+module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader, uploadThroughPopup, removeArchivedUploads };

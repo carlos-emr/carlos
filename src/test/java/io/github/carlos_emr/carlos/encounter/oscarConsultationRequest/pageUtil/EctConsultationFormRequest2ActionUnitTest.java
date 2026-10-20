@@ -41,6 +41,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -283,6 +287,53 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("The captured signature could not be saved and will not appear on the PDF.");
         assertThat(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    /**
+     * Issue #4693: the packet names the attached labs it cannot include on a page of its own; the
+     * clinician who pressed Print is told in the same reply that brings the PDF.
+     */
+    @Test
+    @DisplayName("should warn in the preview reply about attached labs the PDF could not include")
+    void shouldWarnAboutLabsNotIncluded_forDirectPrintPreview() throws Exception {
+        action.setSignatureImg("123");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(invocation -> {
+            request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE,
+                    List.of("MDS lab result: Hem/Chem/Other, 2024-03-05 10:22:00"));
+            return pdfPath;
+        });
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        JsonNode json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.get("consultPDF").asText()).isEqualTo(PDF_BASE64);
+        assertThat(json.get("warningMessage").asText())
+                .startsWith("The PDF was created, but these attached lab results could not be included in it:")
+                .contains("\n- MDS lab result: Hem/Chem/Other, 2024-03-05 10:22:00\n");
+    }
+
+    @Test
+    @DisplayName("should keep the signature warning when the preview also leaves out labs")
+    void shouldKeepSignatureWarning_whenPreviewAlsoLeavesOutLabs() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED, ""));
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(invocation -> {
+            request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE, List.of("Lab result (source not confirmed)"));
+            return pdfPath;
+        });
+
+        action.execute();
+
+        String warning = new ObjectMapper().readTree(response.getContentAsString()).get("warningMessage").asText();
+        assertThat(warning).contains("The captured signature could not be saved and will not appear on the PDF.");
+        assertThat(warning).contains("- Lab result (source not confirmed)");
     }
 
     @Test
@@ -1232,9 +1283,50 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
             eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("9"), anyBoolean()))
                     .thenReturn(new ArrayList<>(List.of(ownDoc, foreignDoc)));
 
-            List<String> names = action.faxCoverDocumentNames(loggedInInfo, "9", "1");
+            List<String> names = action.faxCoverAttachments(loggedInInfo, "9", "1", Locale.ENGLISH).documents();
 
             assertThat(names).containsExactly("Own referral letter", "Own lab", "Own eForm");
+        }
+    }
+
+    /**
+     * Issue #4693: the faxed packet cannot hold a CML, MDS or PathNet lab. The cover page used to
+     * list only what the packet contains, so the sender never learned that such a lab was left out.
+     * It is now named apart from the attachments the fax does contain.
+     */
+    @Test
+    @DisplayName("should name each attached lab the fax cannot include, apart from what it does include")
+    void shouldNameLabsNotIncluded_onFaxCover() {
+        PatientLabRoutingDao patientLabRoutingDao = mock(PatientLabRoutingDao.class);
+        registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
+        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
+        registerMock(AttachmentOwnershipService.class, new AttachmentOwnershipService(mock(CtlDocumentDao.class),
+                patientLabRoutingDao, mock(EFormDataDao.class), mock(HRMDocumentToDemographicDao.class), consultationRequestDao));
+        // Number 20 is also one of the patient's HL7 labs; only the listed type keeps the MDS lab out
+        // of the "included" names.
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30, 20));
+        LabResultData hl7Lab = new LabResultData(LabResultData.HL7TEXT);
+        hl7Lab.setSegmentID("30");
+        hl7Lab.discipline = "CHEM";
+        LabResultData mdsLab = new LabResultData(LabResultData.MDS);
+        mdsLab.setSegmentID("20");
+        mdsLab.discipline = "Hem/Chem/Other";
+        mdsLab.dateTime = "2024-03-05 10:22:00";
+        when(consultationManager.getAttachedEForms("9")).thenReturn(List.of());
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+             MockedConstruction<CommonLabResultData> labConstruction = mockConstruction(CommonLabResultData.class,
+                     (labData, context) -> when(labData.populateLabResultsData(any(), eq("1"), eq("9"), anyBoolean()))
+                             .thenReturn(new ArrayList<>(List.of(hl7Lab, mdsLab))))) {
+            eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("9"), anyBoolean())).thenReturn(new ArrayList<>());
+
+            EctConsultationFormRequest2Action.FaxCoverAttachments cover =
+                    action.faxCoverAttachments(loggedInInfo, "9", "1", Locale.ENGLISH);
+
+            assertThat(cover.documents()).containsExactly("CHEM");
+            assertThat(cover.labsNotIncluded()).containsExactly("MDS lab result: Hem/Chem/Other, 2024-03-05 10:22:00");
         }
     }
 }

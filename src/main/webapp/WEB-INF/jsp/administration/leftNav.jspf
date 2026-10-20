@@ -116,18 +116,18 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform"><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
 					</security:oscarSec>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode"><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingPrivateCodeAdjust"><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
 					<oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
 						value="yes">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode"><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingCodeAdjust"><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/BC/showServiceCodeAssocs"><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/BC/supServiceCodeAssocAction"><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
 
-					<li><a href="${ctx}/billing/CA/BC/AddReferralDoc" class="contentLink defaultManageReferralDoc"><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
+					<li><a href="${ctx}/billing/CA/BC/ViewBillingManageReferralDoc" class="contentLink defaultManageReferralDoc"><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
 
 					<li>
 						<a href="javascript:void(0);" class="xlink" rel="${ ctx }/quickBillingBC" >
@@ -155,7 +155,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingTA"><fmt:message key="admin.admin.uploadRemittance"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/ProcessRemittance"><fmt:message key="admin.admin.reconciliationReports"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/ViewReconcileReports"><fmt:message key="admin.admin.reconciliationReports"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingAccountReports"><fmt:message key="admin.admin.AccountingRpts"/></a></li>
 					<li><a href='javascript:void(0);'
@@ -374,11 +374,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						class="contentLink"><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
 					<li><a href="${ctx}/oscarReport/obec" class="contentLink"><fmt:message key="admin.admin.overnightBatch"/></a></li>
 								
-					<caisi:isModuleLoad moduleName="caisi">		
-						<li><a href="javascript:void(0);"
-						class="xlink contentLink" rel="${ctx}/PMmodule/Reports/ProgramActivityReport"><fmt:message key="admin.admin.activityRpt"/></a></li>
-					</caisi:isModuleLoad>			
-								
 					<li><a href="${ctx}/oscarReport/ViewPatientlist"
 						class="contentLink"><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
 					<li><a
@@ -386,7 +381,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						class="contentLink"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
 								
 					<caisi:isModuleLoad moduleName="caisi">
-						<li><a page="${pageContext.request.contextPath}/PopulationReport" class="contentLink"> <fmt:message key="admin.admin.popRpt"/></a></li>
+						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/PopulationReport"><fmt:message key="admin.admin.popRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ViewCds4ReportForm"	class="contentLink"><fmt:message key="admin.admin.cdsRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ViewMisReportForm" class="contentLink"><fmt:message key="admin.admin.misRpt"/></a></li>
 					</caisi:isModuleLoad>
@@ -521,10 +516,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						<fmt:message key="admin.admin.issueEditor"/>
 					</a></li>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SurveyManager">
-						<fmt:message key="admin.admin.surveyManager"/>
-					</a></li>
-					<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/DefaultEncounterIssue">
 						<fmt:message key="admin.admin.defaultEncounterIssue"/>
 					</a></li>
@@ -566,13 +557,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/issueAdmin?method=list">
 							<fmt:message key="admin.admin.issueEditor"/>
-						</a></li>
-					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>"
-						objectName="_admin.userCreatedForms" rights="r">
-						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SurveyManager">
-							<fmt:message key="admin.admin.surveyManager"/>
 						</a></li>
 					</security:oscarSec>
 				</ul>
@@ -811,26 +795,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						</ul>
 					</li>
 
-					<%
-						if (oscarVariables.getProperty("hsfo.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo.loginSiteCode", "")))
-									{
-					%>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/RecommitHSFO?method=showSchedule"><fmt:message key="admin.admin.hsfoSubmit"/></a></li>
-					<%
-						}
-					%>
-		
-					  <%
-		                                if (oscarVariables.getProperty("hsfo2.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo2.loginSiteCode", "")))
-		                                {
-		                        %>
-		                        <li><a href='javascript:void(0);'
-		                                class="xlink" rel="${ctx}/admin/RecommitHSFO2?method=showSchedule"><fmt:message key="admin.admin.hsfo2Submit"/></a></li>
-		                        <%
-		                                }
-		                        %>		
-			
 					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/ViewUpdateDrugref" ><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
 <%-- K2A config link removed --%>
 				</ul>

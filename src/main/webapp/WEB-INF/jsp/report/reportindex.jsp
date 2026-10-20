@@ -397,6 +397,26 @@
                 <td></td>
                 <td></td>
             </tr>
+            <%-- Waiting-list management (list names, the patients on each list, notes and
+                 bookings). It is the only place list names are created, so without this
+                 entry the Master Record's waiting list could never be set up (#4229). --%>
+            <oscar:oscarPropertiesCheck property="DEMOGRAPHIC_WAITING_LIST" value="true">
+            <security:oscarSec roleName="<%=roleName2$%>" objectName="_demographic" rights="r">
+            <tr>
+                <td style="width: 30px;"><%=j%>
+                    <%j++;%>
+                </td>
+                <td style="width: 10px;"></td>
+                <td style="width: 300px;"><a id="waitingListReport"
+                        href="<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList"
+                        onclick="popupPageNew(600, 1000, this.href); return false;"><fmt:message key="report.reportindex.btnWaiting"/></a></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            </security:oscarSec>
+            </oscar:oscarPropertiesCheck>
             <security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_billing" rights="r" reverse="<%=false%>">
             <% if (StringUtils.isNotBlank(prov)) { %>
             <tr>

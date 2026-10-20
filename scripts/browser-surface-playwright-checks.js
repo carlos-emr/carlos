@@ -15,22 +15,33 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   SURFACE_SEARCH_TERM=FAKE-J
- *   SURFACE_DEMOGRAPHIC_NO=1
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
  *   SURFACE_SCREENSHOT_DIR=/tmp
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * FIXTURE. The surfaces are opened for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker)
+ * and removes. It used to open DEMO patient 1 and save its phone comment twice; a Master Record save is not a round trip (it also
+ * rewrites the record's province and newsletter codes, and files an archive row for the previous state), so putting the comment
+ * back could never put the demo record back. The patient, its archive rows and its chart rows are deleted by the patient's key.
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { masterRecordLink } = require('./lib/master-record-link');
+const { clickOpensPopup } = require('./lib/playwright-ui');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const searchTerm = process.env.SURFACE_SEARCH_TERM || 'FAKE-J';
-const demographicNo = process.env.SURFACE_DEMOGRAPHIC_NO || '1';
+// The owned patient the surfaces are opened for, created in main (never a demo patient): its marker is the search term.
+const ownedMarker = newOwnedMarker();
+const searchTerm = ownedMarker;
+let demographicNo = null;
 const screenshotDir = process.env.SURFACE_SCREENSHOT_DIR || '/tmp';
 
 const badResponses = [];
@@ -133,6 +144,7 @@ async function login(context) {
 
 async function openPatientFromSearch(context, schedulePage) {
   const searchPopup = context.waitForEvent('page');
+  searchPopup.catch(() => {});
   await schedulePage.locator('a').filter({ hasText: /^Search$/ }).click();
   const searchPage = await searchPopup;
   wirePage(searchPage, 'search');
@@ -146,6 +158,9 @@ async function openPatientFromSearch(context, schedulePage) {
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
   const patientPopup = context.waitForEvent('page');
+  // Handle an early waiter rejection even if the click itself fails first, so
+  // the main finally block can remove this check's patient fixture.
+  patientPopup.catch(() => {});
   await searchPage.locator(`a[onclick*='DemographicEdit?demographic_no=${demographicNo}']`).first().click();
   const patientPage = await patientPopup;
   wirePage(patientPage, 'patient');
@@ -206,13 +221,10 @@ async function checkDemographicCrud(context) {
   }
 }
 
-async function clickPopupLink(context, page, selector, label) {
-  const popupPromise = context.waitForEvent('page');
-  await page.locator(selector).first().click();
-  const popup = await popupPromise;
+async function clickPopupLink(context, page, fragment, label) {
+  const popup = await clickOpensPopup(page, masterRecordLink(page, fragment).first(),
+    { context, label, timeout: 30000 });
   wirePage(popup, label);
-  await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
-  await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return popup;
 }
 
@@ -231,7 +243,7 @@ async function checkPatientPopups(context, patientPage) {
   const tickler = await clickPopupLink(
     context,
     patientPage,
-    "a[onclick*='/tickler/ViewTicklerMain']",
+    '/tickler/ViewTicklerMain',
     'tickler'
   );
   await tickler.locator('body').waitFor({ state: 'visible', timeout: 15000 });
@@ -243,7 +255,7 @@ async function checkPatientPopups(context, patientPage) {
   const consultation = await clickPopupLink(
     context,
     patientPage,
-    "a[onclick*='ViewDisplayDemographicConsultationRequests']",
+    'ViewDisplayDemographicConsultationRequests',
     'consultation'
   );
   await consultation.locator('body').waitFor({ state: 'visible', timeout: 15000 });
@@ -273,9 +285,17 @@ async function checkAdminPage(context, appPath, label, requiredText) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  let browser = null;
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    // The Master Record form refuses to save a blank Canadian postal code ("The entered Postal Code is not valid"), and the surface
+    // step saves it; the demo patient this check used to open had one. A reserved real-format code, on the owned patient only.
+    sql.execute(`UPDATE demographic SET postal='K1A0B1' WHERE demographic_no=${demographicNo} AND last_name=${h.sqlString(ownedMarker)}`);
+    browser = await chromium.launch(launchOptions);
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context);
     const patientPage = await openPatientFromSearch(context, schedulePage);
 
@@ -292,7 +312,14 @@ async function checkAdminPage(context, appPath, label, requiredText) {
 
     console.log('PASS demographic, tickler, consultation, and admin browser surfaces rendered correctly');
   } finally {
-    await browser.close();
+    try {
+      // A browser that will not close must not skip the patient's removal below.
+      if (browser) await browser.close().catch(() => {});
+      // After the browser is gone: the patient's archive and chart rows, then the patient, by its key.
+      if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker);
+    } finally {
+      sql.dispose();
+    }
   }
 })().catch((error) => {
   console.error('FAIL browser surface Playwright check');

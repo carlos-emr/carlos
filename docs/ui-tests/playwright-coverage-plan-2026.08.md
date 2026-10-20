@@ -120,7 +120,7 @@ Items outside that implementation table remain planned.
 | `scripts/lib/playwright-ui.js` | The JavaScript-path helpers (`clickOpensPopup`, `clickInjectsPanel`, `expectOpenerRefresh`, `typeAutocomplete`, `pickDate`, `dataTableRows`, `pressShortcut`, `csrfTokenPresent`, `expectDialog`) and the `NAVIGATION` click map | `scripts/playwright-suite-manifest.test.js` |
 | `scripts/lib/console-baseline.json` | The suite-wide, issue-keyed allow-list that replaces per-check `allow` arrays | a test asserts every entry names where its removal is tracked |
 | `scripts/playwright-suite.json` | The manifest lists every named check and its browser script; `npm run test:playwright-list` shows the current selection (the table-driven families — `surface-audit`, `direct-response-contract` — are one script backing several named checks, selected by `envSet`), each with tier, province, timeout, database use and env knobs | a test fails the build if a check has no entry, or an entry no script |
-| `scripts/run-playwright-suite.js` | The runner: `--tier`, `--only`, `--skip`, `--province`, `--junit`, `--list`, `--dry-run` | `scripts/playwright-suite-manifest.test.js` |
+| `scripts/run-playwright-suite.js` | The runner: `--tier`, `--only`, `--skip`, `--province`, `--junit`, `--list`, `--dry-run`, `--residue-audit` (baseline before the first check, residue report after the last; `scripts/lib/residue-audit.js`) | `scripts/playwright-suite-manifest.test.js` |
 | `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
 
 **Checks implementing this plan, landed so far.** Each script's header names the
@@ -166,6 +166,7 @@ complement the UI workflows.
 | `anonymous-access-refused` | §2.2 | Everything a clinician reaches from the Administration panel and the Master Record, re-requested from a **session-less** context. Routes catalogued from the UI, not listed |
 | `episode-lifecycle` | §2.5 | Description validation; create/edit/complete/reactivate/archive with persisted history and chart refresh |
 | `diagnosis-flowsheet` | §2.5 | Code search/add; diagnosis-triggered diabetes flowsheet and A1C entry; resolve and cancelled/accepted archive |
+| `flowsheet-measurement-delete` | §2.5 | Deleting a saved reading from the Diabetes Flowsheet (issue #4715): the read-only window would submit its CSRF token, the reading and the patient; Delete removes the reading, archives a copy, closes the window and refreshes the flowsheet; the same Delete without a token is still refused |
 | `prevention-lifecycle` | §3.4 | Vaccine picker; refused/completed/ineligible status, comments and dates; reopen and archive |
 | `echart-prevention-row-links` | §3.4 | Each eChart Preventions row opens its own prevention (issue #3975): add route preset to the row, the disambiguation route exactly when CVCMapping has several vaccines, the newest record by id once one exists; saving closes the popup **without reloading the eChart** (unsaved note text survives) and refreshes only the box. Fails against the pre-#3975 `close.jsp` |
 | `allergy-custom-lifecycle` | §3.2 | Non-drug custom allergy; confirmation cancellation; amendment retaining history; cancelled/accepted archive |

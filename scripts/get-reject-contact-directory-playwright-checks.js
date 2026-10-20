@@ -28,6 +28,7 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { captureRequest, replayParams, createLedger } = require('./lib/get-reject-probe');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const NAME = 'get-reject-contact-directory';
 
@@ -63,7 +64,7 @@ async function workflow(s) {
   let pageDefect = null;
 
   await s.step('Contacts ▸ Add ▸ search ▸ Add/Edit contact ▸ Save creates the directory contact (POST method=saveContact)', async () => {
-    editor = await s.popup(s.master, s.master.locator('[onclick*="Contact?method=manage"]').first(), 'contacts');
+    editor = await s.popup(s.master, masterRecordLink(s.master, 'Contact?method=manage').first(), 'contacts');
     await editor.locator('a[onclick="addContact();"]').click();
     await editor.locator('[name="contact_1.type"]').selectOption('2');
     const search = await s.popup(editor, editor.locator('a[onclick*="doPersonalSearch"]').first(), 'contact-search');
@@ -93,7 +94,7 @@ async function workflow(s) {
   await s.step('Contacts ▸ Add professional ▸ search ▸ Add/Edit Professional Contact ▸ Save creates the specialist (POST method=saveProContact)', async () => {
     // Manage Contacts opens in a named window, so the one the first step opened is reused.
     if (!editor || editor.isClosed()) {
-      editor = await s.popup(s.master, s.master.locator('[onclick*="Contact?method=manage"]').first(), 'contacts');
+      editor = await s.popup(s.master, masterRecordLink(s.master, 'Contact?method=manage').first(), 'contacts');
     }
     await editor.locator('a[onclick="addProContact();"]').click();
     await editor.locator('[name="procontact_1.type"]').selectOption('2');

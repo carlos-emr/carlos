@@ -36,10 +36,12 @@
  */
 
 const { chromium, request } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const appPath = baseUrl.pathname.replace(/\/$/, '') || '';
@@ -242,7 +244,7 @@ async function assertResponseNotBlank(response, label, minBytes = 100) {
 }
 
 async function newBrowserContext(browser) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   testContexts.add(context);
   return context;
 }
@@ -288,6 +290,18 @@ async function expectSchedulePage(page, label) {
   assert(/Schedule|appointment|provider/i.test(html), `${label} did not look like a schedule page`);
 }
 
+// This check rewrites the seeded test user's password row, so an interrupted run
+// would leave carlosdoc on a throwaway password (issue #3600). A finally does not
+// run when the process is killed; this does. restoreOriginal() is a no-op until the
+// original row has been captured, and the cleartext MySQL password file goes too.
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    restoreOriginal();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+});
+
 (async () => {
   Object.assign(original, securityRow());
   if (!baselineHash) {
@@ -298,6 +312,7 @@ async function expectSchedulePage(page, label) {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -326,7 +341,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('public login entry route rejects POST and allows GET', async () => {
-      const api = await request.newContext({ ignoreHTTPSErrors: true });
+      const api = await request.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
       const post = await api.post(appUrl('/index'), { form: { anything: 'x' } });
       assert(post.status() === 405, `POST /index expected 405, got ${post.status()}`);
       assert((post.headers().allow || '').includes('GET'), `POST /index missing Allow GET header`);
@@ -354,7 +369,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('unauthenticated structured and download routes return 401', async () => {
-      const api = await request.newContext({ ignoreHTTPSErrors: true });
+      const api = await request.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
       const ajax = await api.get(appUrl('/billing/CA/ON/ViewSearchRefDocAjax'), {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       });
@@ -527,7 +542,7 @@ async function expectSchedulePage(page, label) {
 
     await record('legacy /login forced-reset POST cannot change password without reset cache token', async () => {
       setForcedResetBaseline(1);
-      const api = await request.newContext({ ignoreHTTPSErrors: true });
+      const api = await request.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
       const res = await api.post(appUrl('/login'), {
         form: {
           forcedpasswordchange: 'true',
@@ -549,6 +564,8 @@ async function expectSchedulePage(page, label) {
       console.log(`Restored ${testUser} security row`);
     } finally {
       cleanupMysqlDefaultsFile();
+      // Last, so a signal arriving during the restore still reaches the handler.
+      signalHandlers.dispose();
     }
     console.log(`Completed ${results.length} Playwright checks, ${failures.length} failures`);
     if (failures.length) {
@@ -565,6 +582,7 @@ async function expectSchedulePage(page, label) {
   } catch (restoreError) {
     console.error(`Restore failed: ${restoreError.stack || restoreError}`);
   } finally {
+    signalHandlers.dispose();
     cleanupMysqlDefaultsFile();
   }
   process.exit(1);

@@ -44,8 +44,46 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%--
+    Reached only through provider/SaveMyGroup (SaveMyGroup2Action: POST only, _admin write), which
+    providernewgroup.jsp's form posts to directly. The rows are saved before any markup is written
+    so the redirect back to the group list can still replace this response. When the page was
+    reached through provider/providercontrol's server-side include the container ignored that
+    redirect and the user was left on a blank page (#4515).
+--%>
 <%
     MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
+
+    int rowsAffected = 0;
+    // A missing group name saves nothing and falls through to the failure notice below.
+    String groupNo = request.getParameter("mygroup_no");
+    Enumeration<String> parameterNames = groupNo == null || groupNo.isEmpty()
+            ? Collections.<String>emptyEnumeration() : request.getParameterNames();
+
+    while (parameterNames.hasMoreElements()) {
+        String parameterName = parameterNames.nextElement();
+        // Only the provider checkboxes (data1, data2, ...) select a row. Any other field, the
+        // CSRFGuard token included, is skipped rather than parsed as a row number.
+        if (!parameterName.matches("data[0-9]+")) continue;
+        String rowNumber = request.getParameter(parameterName);
+        String providerNo = rowNumber == null ? null : request.getParameter("provider_no" + rowNumber);
+        if (providerNo == null || providerNo.isEmpty()) continue;
+        MyGroup myGroup = new MyGroup();
+        myGroup.setId(new MyGroupPrimaryKey());
+        myGroup.getId().setMyGroupNo(groupNo);
+        myGroup.getId().setProviderNo(providerNo);
+        myGroup.setFirstName(request.getParameter("first_name" + rowNumber));
+        myGroup.setLastName(request.getParameter("last_name" + rowNumber));
+        if (myGroupDao.find(myGroup.getId()) == null) {
+            myGroupDao.persist(myGroup);
+        }
+        rowsAffected = 1;
+    }
+
+    if (rowsAffected == 1) {
+        response.sendRedirect(request.getContextPath() + "/provider/ViewProviderDisplayMyGroup");
+        return;
+    }
 %>
 <html>
     <head>
@@ -65,30 +103,6 @@
             </h4>
         </div>
 
-        <%
-            int rowsAffected = 0, datano = 0;
-
-            for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-                StringBuffer strbuf = new StringBuffer(e.nextElement().toString());
-                if (strbuf.toString().indexOf("data") == -1) continue;
-                datano = Integer.parseInt(request.getParameter(strbuf.toString()));
-                MyGroup myGroup = new MyGroup();
-                myGroup.setId(new MyGroupPrimaryKey());
-                myGroup.getId().setMyGroupNo(request.getParameter("mygroup_no"));
-                myGroup.getId().setProviderNo(request.getParameter("provider_no" + datano));
-                myGroup.setFirstName(request.getParameter("first_name" + datano));
-                myGroup.setLastName(request.getParameter("last_name" + datano));
-                if (myGroupDao.find(myGroup.getId()) == null) {
-                    myGroupDao.persist(myGroup);
-                }
-                rowsAffected = 1;
-            }
-
-            if (rowsAffected == 1) {
-                response.sendRedirect(request.getContextPath() + "/provider/providercontrol?displaymode=displaymygroup");
-                return;
-            }
-        %>
         <div class="alert alert-danger" role="alert">
             <fmt:message key="provider.providersavemygroup.msgFailed"/>
         </div>

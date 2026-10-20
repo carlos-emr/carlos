@@ -100,6 +100,83 @@ class RxAllergyCsrfJspRegressionTest {
                 + "sendSearchRequest(\"${ pageContext.servletContext.contextPath }/rx/addReaction2\",");
     }
 
+    @Test
+    @DisplayName("an inactive allergy's Reactivate should post action=activate, not an amendment the stale guard refuses")
+    void shouldOfferActivateLinkNotAmendment_forInactiveAllergyRows() throws IOException {
+        String jsp = normalizeWhitespace(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
+
+        // The inactive branch prepares Reactivate as the activate action of rx/deleteAllergy2.
+        indexOfRequired(jsp, "labelStatus = \"Inactive\"; labelAction = \"Reactivate\"; actionPath = \"activate\";");
+        int deleteAccess = indexOfRequired(jsp, "if (securityManager.hasDeleteAccess(\"_allergies\", roleName$)) {");
+        int actionLink = indexOfRequired(jsp, "class=\"deleteAllergyLink\"");
+        int modifyLink = indexOfRequired(jsp, "class=\"modifyAllergyLink\"");
+
+        assertThat(jsp.substring(deleteAccess, actionLink))
+                .as("the Inactivate/Reactivate link must be rendered for inactive rows too")
+                .doesNotContain("intArchived == 0");
+        assertThat(jsp.substring(actionLink, modifyLink))
+                .as("the amendment dialogue (Modify) must be offered for active rows only")
+                .contains("if (intArchived == 0) {");
+        assertThat(jsp)
+                .as("an inactive row must not label the amendment dialogue Reactivate")
+                .doesNotContain("intArchived == 0 ? \"Modify\" : labelAction");
+    }
+
+    @Test
+    @DisplayName("add-allergy form should carry a single-save token for idempotent retries (#3488)")
+    void shouldCarrySaveToken_whenAddReactionFormIsRendered() throws IOException {
+        Element form = addAllergyForm();
+
+        assertThat(form.select("input[name=saveToken]")).as("one-save token").hasSize(1);
+        // rx-allergy-dialog.js is the one submit handler; a second inline one would post twice.
+        assertThat(readAddReactionJsp()).doesNotContain("addEventListener(\"submit\"");
+    }
+
+    @Test
+    @DisplayName("allergy form should carry an alert region for a save the server did not confirm")
+    void shouldRenderSaveStatusAlert_whenAddReactionFormIsRendered() throws IOException {
+        Element form = addAllergyForm();
+        Elements regions = form.select(".allergySaveStatus");
+
+        assertThat(regions).singleElement()
+                .satisfies(region -> assertThat(region.attr("role")).isEqualTo("alert"));
+        String formHtml = form.outerHtml();
+        assertThat(formHtml.indexOf("allergySaveStatus"))
+                .as("the save status must sit above the Add Allergy button it reports on")
+                .isLessThan(formHtml.indexOf("value=\"Add Allergy\""));
+    }
+
+    @Test
+    @DisplayName("both allergy pages should load the dialogue failure handler and its localized messages")
+    void shouldLoadDialogueFailureHandler_whenAllergyPagesAreRendered() throws IOException {
+        String dialogScript = "/share/javascript/rx-allergy-dialog.js";
+        Document showAllergies = Jsoup.parse(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
+        Document addReaction = Jsoup.parse(readAddReactionJsp());
+
+        // The injected dialogue keeps nothing from AddReaction2.jsp's head, so the host page has to
+        // load the handler itself; the standalone AddReaction2.jsp page loads its own copy.
+        assertThat(showAllergies.select("script[src$=\"" + dialogScript + "\"]")).hasSize(1);
+        assertThat(addReaction.select("script[src$=\"" + dialogScript + "\"]")).hasSize(1);
+        assertThat(showAllergies.select("#allergyRequestStatus"))
+                .singleElement()
+                .satisfies(region -> assertThat(region.attr("role")).isEqualTo("alert"));
+        // ...and both publish the handler's messages in the page's locale.
+        String messagesInclude = "<%@ include file=\"allergyDialog.jspf\" %>";
+        assertThat(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8)).contains(messagesInclude);
+        assertThat(readAddReactionJsp()).contains(messagesInclude);
+    }
+
+    @Test
+    @DisplayName("allergy page AJAX requests should report failures instead of spinning silently")
+    void shouldReportFailedDialogueRequests_whenAllergyPageAjaxFails() throws IOException {
+        String jsp = normalizeWhitespace(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
+        int ajax = indexOfRequired(jsp, "$.ajax({ url: path,");
+        int errorHandler = indexOfRequired(jsp, "error: function (xhr) { reportAllergyRequestFailure(path,");
+
+        assertThat(errorHandler).as("the dialogue request needs an error handler").isGreaterThan(ajax);
+        assertThat(jsp).contains("if (found.length === 0) { reportAllergyRequestFailure(path, 200); return false; }");
+    }
+
     private static Element addAllergyForm() throws IOException {
         Document document = Jsoup.parse(readAddReactionJsp());
         Element form = document.selectFirst("form#RxAddAllergyForm");

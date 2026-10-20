@@ -69,6 +69,9 @@ class ProviderLabRoutingCreationUnitTest {
                     jdbc.query("SELECT status FROM routing WHERE lab_no=? AND lab_type=? AND provider_no=? FOR UPDATE",
                             (row, index) -> {
                                 var routing = new ProviderLabRoutingModel();
+                                routing.setLabNo(call.getArgument(0));
+                                routing.setLabType(call.getArgument(1));
+                                routing.setProviderNo(call.getArgument(2));
                                 routing.setStatus(row.getString(1));
                                 return routing;
                             }, call.getArgument(0), call.getArgument(1), call.getArgument(2)));
@@ -77,6 +80,12 @@ class ProviderLabRoutingCreationUnitTest {
                 jdbc.update("INSERT INTO routing VALUES(?,?,?,?)", row.getLabNo(), row.getProviderNo(), row.getLabType(), row.getStatus());
                 return null;
             }).when(dao).persist(any(ProviderLabRoutingModel.class));
+            doAnswer(call -> {
+                ProviderLabRoutingModel row = call.getArgument(0);
+                jdbc.update("UPDATE routing SET status=? WHERE lab_no=? AND provider_no=? AND lab_type=?",
+                        row.getStatus(), row.getLabNo(), row.getProviderNo(), row.getLabType());
+                return null;
+            }).when(dao).merge(any(ProviderLabRoutingModel.class));
         }
         @Override
         public void close() {
@@ -84,9 +93,13 @@ class ProviderLabRoutingCreationUnitTest {
         }
 
         void route(int entrypoint, boolean forwardingCycle) throws Exception {
+            route(entrypoint, forwardingCycle, "N");
+        }
+
+        void route(int entrypoint, boolean forwardingCycle, String status) throws Exception {
             try (var spring = mockStatic(SpringUtils.class);
                  var rules = mockConstruction(ForwardingRules.class, (mock, context) -> {
-                     when(mock.getStatus(anyString(), anyString())).thenReturn("N");
+                     when(mock.getStatus(anyString(), anyString())).thenReturn(status);
                      when(mock.getProviders(anyString(), anyString())).thenAnswer(call -> {
                          var destinations = new ArrayList<ArrayList<String>>();
                          if (forwardingCycle) destinations.add(new ArrayList<>(List.of("999998".equals(call.getArgument(0)) ? "111" : "999998")));
@@ -161,6 +174,66 @@ class ProviderLabRoutingCreationUnitTest {
             assertThat(fixture.jdbc.queryForObject("SELECT status FROM routing WHERE provider_no='999998'", String.class)).isEqualTo(status);
             verify(fixture.dao, never()).persist(any());
             verify(fixture.dao, never()).merge(any());
+        }
+    }
+
+    @Test
+    @DisplayName("should reactivate removed rows through the current source-specific forwarding rule")
+    void shouldReactivateRemovedRouting_whenForwardedAgain() throws Exception {
+        try (var fixture = new Fixture()) {
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7','X')");
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'111','HL7','A')");
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','DOC','X')");
+            fixture.route(0, true, "F");
+            assertThat(fixture.jdbc.queryForList("SELECT status FROM routing WHERE lab_type='HL7' ORDER BY provider_no", String.class))
+                    .containsExactly("A", "F");
+            assertThat(fixture.jdbc.queryForObject("SELECT status FROM routing WHERE lab_type='DOC'", String.class)).isEqualTo("X");
+            verify(fixture.dao, never()).persist(any());
+            verify(fixture.dao).merge(any());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"A", "F", "N"})
+    @DisplayName("should keep removed duplicates inactive when a clinical routing already exists")
+    void shouldPreserveMixedDuplicateRouting_whenForwardedAgain(String status) throws Exception {
+        try (var fixture = new Fixture()) {
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7','X')");
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7',?)", status);
+            fixture.route(0, true);
+            assertThat(fixture.jdbc.queryForList("SELECT status FROM routing", String.class))
+                    .containsExactlyInAnyOrder("X", status);
+            verify(fixture.dao, never()).persist(any());
+            verify(fixture.dao, never()).merge(any());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    @DisplayName("should reuse removed routing and apply forwarding once even with a cycle")
+    void shouldReactivateAndForward_oncePerProvider(int entrypoint) throws Exception {
+        try (var fixture = new Fixture()) {
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7','X')");
+            fixture.route(entrypoint, true);
+            assertThat(fixture.jdbc.queryForList("SELECT status FROM routing ORDER BY provider_no", String.class))
+                    .containsExactly("N", "N");
+            verify(fixture.dao).persist(any());
+            verify(fixture.dao).merge(any());
+            fixture.route(entrypoint, true);
+            // Repeat forwarding preserves the two rows and does not write them again.
+            verify(fixture.dao).persist(any());
+            verify(fixture.dao).merge(any());
+        }
+    }
+
+    @Test
+    @DisplayName("should roll back reactivation when forwarding a removed report fails")
+    void shouldRollbackReactivation_whenForwardingFails() {
+        try (var fixture = new Fixture()) {
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7','X')");
+            doThrow(new IllegalStateException("fixture persistence failure")).when(fixture.dao).persist(any());
+            assertThatThrownBy(() -> fixture.route(0, true)).isInstanceOf(IllegalStateException.class);
+            assertThat(fixture.jdbc.queryForList("SELECT status FROM routing", String.class)).containsExactly("X");
         }
     }
 

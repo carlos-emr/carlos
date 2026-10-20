@@ -212,12 +212,17 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>")
-                .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>");
+                // Compose names the message it is opened from first (issue #4673): the compose page
+                // starts with its own copy of that message's saved items. Then the nav flag.
+                .contains("ViewCreateMessage<%= viewedMessageId > 0 ? \"?forwardMessage=\" + viewedMessageId"
+                        + " + scheduleNavQuerySuffix : scheduleNavFirstQuerySuffix %>");
         assertThat(createMessage)
                 .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\">")
-                .contains("ClearMessage<%=scheduleNavFirstQuerySuffix%>")
+                // Clear names this compose window's key first (issue #4673), then the nav flag.
+                .contains("ClearMessage?attachmentKey=<%= SafeEncode.forHtmlAttribute("
+                        + "SafeEncode.forUriComponent(attachmentKey)) %><%=scheduleNavQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(sentMessage)
                 .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")

@@ -499,7 +499,10 @@ provided; a production corpus is likely worse, since these control scripts are w
 `eformGenerator.jsp` emits for generated forms. An earlier attempt to fix this by mirroring the
 viewer's chrome (injecting jQuery) made renders get *further* and still produce nothing — the editor
 then booted and its XHRs hit `connect-src`. Stripping the editor is the fix; the saved-view
-dependency profile (jQuery, jQuery UI, Bootstrap) remains for clinic form code that expects it.
+dependency profile (jQuery, jQuery UI, the Bootstrap script bundle) remains for clinic form code that
+expects it. It carries no Bootstrap *stylesheet*: Bootstrap's reboot restyles legacy eForm content,
+and the interactive viewer applies only a scoped copy to its own chrome, which this surface removes,
+so the PDF matches the screen (see [eForm chrome styling](eform-chrome-bootstrap-scope.md), #3944).
 
 ## What the render gates cannot see
 

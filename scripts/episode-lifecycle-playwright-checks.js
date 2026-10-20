@@ -2,52 +2,21 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 // Coverage plan §2.5: an episode survives create/edit/complete/reopen/delete.
 // All writes follow the chart's controls; SQL only seeds, asserts and cleans up.
-const { SkipCheck, assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
+// The seeded roles deny the Episode module (doctor holds `o` on its two gate objects, _episode and
+// _newCasemgmt.episode, in the Flyway seeds and, since #4566, in the devcontainer), so the first
+// step grants both to the test login for this run and proves the module follows them.
+const { assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { clickOpensPopup } = require('./lib/playwright-ui');
+const { EPISODE_MODULE_GATES, episodeModuleGranted, grantEpisodeModule } = require('./lib/episode-module-access');
 
-// EctDisplayEpisode2Action renders the chart's Episode module only when one of
-// the login's ACTIVE roles (LoginCheckLoginBean drops activeyn<>1 assignments
-// from the session role string) or its provider number holds a right on it. The
-// seeded `doctor` role holds `o` on it, so on a fresh install the module is
-// hidden and the first click below would time out on a menu that is not there:
-// a fixture gap reported as an application failure (issue #3682).
-const EPISODE_OBJECT = '_newCasemgmt.episode';
-
-/**
- * True when any of these privilege strings satisfies the module's read check.
- *
- * Mirrors OscarRoleObjectPrivilege.checkRights for its default right "r": a
- * stored value is a `|`-separated list; x, r, u and w each grant read
- * (PRIVILEGE_HIERARCHY "ruw", with x as all), and so do the legacy
- * "only" tokens or, ou, ow and ox, whose leading o is stripped before that
- * comparison. A bare o, and anything else, grants nothing.
- */
-function episodeModuleGranted(privileges) {
-  return privileges.some((value) => String(value || '').split('|').some((token) => {
-    let right = token.trim().toLowerCase();
-    if (right.length > 1 && right.startsWith('o')) right = right.slice(1);
-    return ['x', 'r', 'u', 'w'].includes(right);
-  }));
-}
-
-function requireEpisodeModule({ sql, provider }) {
-  const privileges = sql.rows(`SELECT p.privilege FROM secObjPrivilege p
-    WHERE p.objectName=${sqlString(EPISODE_OBJECT)}
-      AND (p.roleUserGroup=${sqlString(provider)}
-        OR p.roleUserGroup IN (SELECT role_name FROM secUserRole
-          WHERE provider_no=${sqlString(provider)} AND activeyn=1))`)
-    .map(([privilege]) => privilege);
-  if (!episodeModuleGranted(privileges)) {
-    throw new SkipCheck(`the test login holds no right on ${EPISODE_OBJECT}, so the chart hides its Episode `
-      + 'module. Grant one of its roles r or x on that object for this run (and restore it afterwards); see '
-      + 'docs/ui-tests/deb-install-validation.md section 4');
-  }
-}
+const EPISODE_HEADING = '#menuTitleepisode';
+const EPISODE_OBJECTS = EPISODE_MODULE_GATES.map(gate => gate.objectName).join(' and ');
 
 async function workflow(s) {
-  const { sql, patient, marker } = s;
+  const { sql, patient, marker, provider } = s;
   s.cleanup(() => sql.execute(`DELETE FROM Episode WHERE demographicNo=${patient}`));
-  const chart = await s.chart();
+  let chart;
   let editor;
   let id;
   const row = () => chart.locator(`a[onclick*="episode.id=${id}"]`).first();
@@ -59,10 +28,30 @@ async function workflow(s) {
     await editor.locator('input[type="submit"]').click();
     await closed;
   }
-  // The chart's Episodes list truncates the title and floats the start date over
-  // the right of the title link, so the link's centre is under the date. Click
-  // the start of the title, which is the part a clinician can see and click.
-  async function edit() { editor = await s.popup(chart, row(), 'episode-editor', { position: { x: 4, y: 4 } }); }
+  // Click the start of the title, as a clinician does: a long title runs under the row's
+  // right-floated date link (LeftNavBarDisplay.jsp), which covers the title's centre.
+  async function edit() {
+    editor = await clickOpensPopup(chart, row(), {
+      context: s.context, recorder: s.recorder, label: 'episode-editor', timeout: 20000, position: { x: 8, y: 9 },
+    });
+  }
+  await s.step(`the chart draws the Episode module only once the login holds ${EPISODE_OBJECTS}`, async () => {
+    if (episodeModuleGranted(sql, provider)) {
+      console.log(`    (the test login's roles already hold ${EPISODE_OBJECTS}; the hidden half is not asserted)`);
+    } else {
+      const denied = await s.chart();
+      // s.chart() waits for every module request to settle; require the Episode one to have
+      // answered, so an absent heading means "not drawn" rather than "never asked for".
+      const status = await denied.evaluate(() => window.carlosNavbarLoadState?.modules?.episode?.status ?? 'not requested');
+      assert(status === 'loaded', `The chart's Episode module request did not complete (status: ${status})`);
+      assert(await denied.locator(EPISODE_HEADING).count() === 0,
+        `The chart drew the Episode module for a login whose roles do not hold ${EPISODE_OBJECTS}`);
+      await denied.close();
+    }
+    grantEpisodeModule(s);
+    chart = await s.chart();
+    await chart.locator(EPISODE_HEADING).first().waitFor({ state: 'visible' });
+  });
   await s.step('empty description is refused without writing', async () => {
     editor = await s.popup(chart, chart.locator('#menuTitleepisode a').first(), 'episode-editor');
     const dialogs = await withExpectedDialogs(editor, () => editor.locator('input[type="submit"]').click());
@@ -102,9 +91,8 @@ async function workflow(s) {
     await row().waitFor({ state: 'detached' });
   });
   await s.step('completed episode can be reopened and deleted with history retained', async () => {
-    // The module heading's handler sits on the link inside its <h3> (it moved off
-    // the <h3> itself in 1c3d1433), so select the link a clinician clicks.
-    const list = await s.popup(chart, chart.locator('#episode .nav-menu-title h3 > a[onclick*="/Episode?method=list"]').first(), 'episode-list');
+    // LeftNavBarDisplay.jsp renders the module heading as <h3><a onclick="popupPage(..., '/Episode?method=list...')">.
+    const list = await s.popup(chart, chart.locator('#episode h3 a[onclick*="/Episode?method=list"]').first(), 'episode-list');
     const link = list.getByRole('link', { name: `${marker}-EDIT`, exact: true });
     await link.click();
     editor = list;
@@ -119,5 +107,5 @@ async function workflow(s) {
     await row().waitFor({ state: 'detached' });
   });
 }
-if (require.main === module) runWorkflow('episode-lifecycle', workflow, { preflight: requireEpisodeModule });
-module.exports = { EPISODE_OBJECT, episodeModuleGranted, requireEpisodeModule, workflow };
+if (require.main === module) runWorkflow('episode-lifecycle', workflow);
+module.exports = { workflow };

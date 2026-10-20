@@ -62,6 +62,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.WCBForm" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
@@ -73,7 +74,9 @@
 <%
 
     String color = "", colorflag = "";
-    BillingSessionBean bean = (BillingSessionBean) pageContext.findAttribute("billingSessionBean");
+    // The bill under review, handed over by the action (BcBillStaging); never the login-wide
+    // session bill another window opened last (issue #4673).
+    BillingSessionBean bean = (BillingSessionBean) request.getAttribute("billingSessionBean");
     DemographicData demoData = new DemographicData();
     Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
 
@@ -313,6 +316,8 @@
 
 <div class="wrapper">
     <form class="d-flex flex-wrap align-items-center gap-2" action="${pageContext.request.contextPath}/billing/CA/BC/SaveBilling" method="post">
+        <%-- The bill under review (BcBillStaging): the save bills exactly this one (issue #4673). --%>
+        <input type="hidden" name="billKey" value="<carlos:encode value='<%= (String) request.getAttribute("billKey") %>' context="htmlAttribute"/>">
 
         <div id="page-header">
             <table id="oscarBillingHeader">
@@ -579,7 +584,7 @@
                            onClick="location.href='<%= request.getContextPath() %>/billing/CA/BC/viewformwcb'"/>
                     <%} else {%>
                     <input class="btn btn-warning" type="button" name="Submit3" value="Go Back"
-                           onClick="location.href='/billing?loadFromSession=yes'"/>
+                           onClick="location.href='<%= SafeEncode.forJavaScriptAttribute(request.getContextPath() + "/billing?loadFromSession=yes&billKey=" + SafeEncode.forUriComponent((String) request.getAttribute("billKey"))) %>'"/>
                     <%}%>
                     <input class="btn btn-success" type="submit" name="submit" value="Another Bill"/>
                     <input class="btn btn-primary" type="submit" name="submit" value="Save Bill"/>

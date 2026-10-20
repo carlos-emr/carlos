@@ -269,11 +269,11 @@ function pdfText(file, { layout = false, raw = false } = {}) {
     { encoding: 'utf8', timeout: TOOL_TIMEOUT, maxBuffer: 8 * 1024 * 1024 });
 }
 
-/** Reads rendered PDF text, including CID/ToUnicode fonts, directly from response bytes. */
-function pdfTextBuffer(bytes) {
+/** Reads rendered PDF text directly from response bytes; layout preserves adjacent columns. */
+function pdfTextBuffer(bytes, { layout = false } = {}) {
   h.assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', 'The response is not a PDF');
   h.assert(/%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')), 'The PDF is truncated (missing %%EOF)');
-  return execFileSync('pdftotext', ['-enc', 'UTF-8', '-', '-'], {
+  return execFileSync('pdftotext', [...(layout ? ['-layout'] : []), '-enc', 'UTF-8', '-', '-'], {
     input: bytes, encoding: 'utf8', timeout: TOOL_TIMEOUT, maxBuffer: 8 * 1024 * 1024,
   });
 }

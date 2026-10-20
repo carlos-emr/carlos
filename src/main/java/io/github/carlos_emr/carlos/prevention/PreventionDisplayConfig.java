@@ -255,11 +255,18 @@ public class PreventionDisplayConfig {
     }
 
 
-    public String getDisplay(LoggedInInfo loggedInInfo, Map<String, Object> setHash, String Demographic_no) {
+    /**
+     * Returns the style attribute for a configuration set on the prevention page.
+     *
+     * @param setHash the configuration set
+     * @param demograph the patient, already looked up by the caller through
+     *        {@code DemographicManager}, which checks the caller's privileges
+     * @return {@code ""} when the set has an age range or a sex and the patient meets every one
+     *         it has; otherwise {@code style="display:none;"}, which also covers a set with
+     *         neither and an error such as a missing patient
+     */
+    public String getDisplay(Map<String, Object> setHash, Demographic demograph) {
         String display = "style=\"display:none;\"";
-        DemographicData dData = new DemographicData();
-        log.debug("demoage " + Demographic_no);
-        Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
         try {
             String minAgeStr = (String) setHash.get("minAge");
             String maxAgeStr = (String) setHash.get("maxAge");
@@ -312,11 +319,27 @@ public class PreventionDisplayConfig {
     }
 
     public boolean display(LoggedInInfo loggedInInfo, Map<String, String> setHash, String Demographic_no, int numberOfPrevs) {
-        boolean display = false;
-        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         DemographicData dData = new DemographicData();
         log.debug("demoage " + Demographic_no);
         Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
+        return display(setHash, demograph, numberOfPrevs);
+    }
+
+    /**
+     * Whether a prevention type shows for the patient, as
+     * {@link #display(LoggedInInfo, Map, String, int)} decides, for a patient the caller has
+     * already looked up through {@code DemographicManager}, which checks the caller's privileges.
+     * In its default view the prevention page calls this once per type, passing the patient from
+     * its {@link PreventionPageData}.
+     *
+     * @param setHash the prevention type
+     * @param demograph the patient
+     * @param numberOfPrevs how many preventions of this type the patient has
+     * @return whether the type shows; {@code false} also on an error such as a missing patient
+     */
+    public boolean display(Map<String, String> setHash, Demographic demograph, int numberOfPrevs) {
+        boolean display = false;
+        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         try {
             if (preventionManager.hideItem(setHash.get("name")) && numberOfPrevs == 0) {
                 //move to hidden list

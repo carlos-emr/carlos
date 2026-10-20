@@ -49,25 +49,38 @@ async function main() {
     await judgePage(session.ledger, session.probe, 'administration (shell)', adminPage, {});
     // PAGE_HEALTH_SHARD=1/2 or 2/2 splits the ~108 items so each half fits a shared live slot.
     const [shard, shards] = (process.env.PAGE_HEALTH_SHARD || '1/1').split('/').map(Number);
-    h.assert(shard >= 1 && shard <= shards, `PAGE_HEALTH_SHARD must look like 1/2, got ${process.env.PAGE_HEALTH_SHARD}`);
+    h.assert(Number.isInteger(shard) && Number.isInteger(shards) && shard >= 1 && shard <= shards,
+      `PAGE_HEALTH_SHARD must look like 1/2, got ${process.env.PAGE_HEALTH_SHARD}`);
     const items = dedupe(await catalogueLinks(adminPage))
       .filter(item => !only || item.text.toLowerCase().includes(only))
       .filter((item, position) => position % shards === shard - 1);
     h.assert(items.length > 0, 'The Administration panel offered no navigable links at all');
+    // Filed: Unlock Account answers 500 whenever any login is tracked (ISSUES.md L1,
+    // app-findings-log 71). Only that 500 signature is counted, not failed a second time: an
+    // uncaught error, another failed request or a text finding on the same link still fails.
+    const UNLOCK_500 = /^admin:Unlock Account: (?:HTTP 500\b|console error: Failed to load resource: the server responded with a status of 500)/;
+    const UNLOCK_ERROR_PAGE = /^admin:Unlock Account: (?:admin:Unlock Account )?rendered an error page$/;
+    const UNLOCK_REASON = 'Unlock Account 500, ISSUES.md L1 / finding 71';
+    let unlock500Seen = false;
     const result = await crawl({
       context: session.context, hostPage: adminPage, items, recorder: session.recorder, probe: session.probe,
       labelPrefix: 'admin', inPlaceTarget: '#dynamic-content', skipRules: SKIP_ITEMS, limit, timeout,
       ledger: session.ledger, entry: { window: entry, label: 'administration (entry)' },
-      // Filed: Unlock Account answers 500 whenever any login is tracked (ISSUES.md L1,
-      // app-findings-log 71). Only that 500 signature is counted, not failed a second time: an
-      // uncaught error, another failed request or a text finding on the same link still fails.
       knownFailures: [{
-        match: /^admin:Unlock Account: (?:HTTP 500\b|console error: Failed to load resource: the server responded with a status of 500|rendered an error page)/,
+        // Records that the filed 500 itself was seen, so the error page it renders is absorbed below only then.
+        match: { test: line => { const hit = UNLOCK_500.test(line); if (hit) unlock500Seen = true; return hit; } },
         // The 500 page's own text (exception names read through the panel iframe) is the same filed defect.
         page: /^admin:Unlock Account$/,
-        reason: 'Unlock Account 500, ISSUES.md L1 / finding 71',
+        reason: UNLOCK_REASON,
       }],
     });
+    // The error page is the filed defect only when the filed 500 answered; an Unlock Account error page with no
+    // 500 is a different rendering failure and stays a failure.
+    if (unlock500Seen) {
+      for (let i = result.failures.length - 1; i >= 0; i -= 1) {
+        if (UNLOCK_ERROR_PAGE.test(result.failures[i])) { result.failures.splice(i, 1); result.ledger.known(UNLOCK_REASON); }
+      }
+    }
     console.log(`  opened ${result.opened.length} Administration item(s), skipped ${result.skipped}`);
     assertHealthy(result, { surface: 'Administration', minimumOpened: only || limit || shards > 1 ? 1 : 20 });
   } finally {

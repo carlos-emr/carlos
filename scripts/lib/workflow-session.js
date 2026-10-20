@@ -65,12 +65,20 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
           }
           return chart;
         },
-        async popup(page, locator, label, clickOptions = {}) {
-          return ui.clickOpensPopup(page, locator, { context, recorder, label, timeout: 20000, ...clickOptions });
+        async popup(page, locator, label) {
+          return ui.clickOpensPopup(page, locator, { context, recorder, label, timeout: 20000 });
         },
         async step(label, body) {
-          await cancellation.run(body);
-          h.assertStrictPage(recorder);
+          // Both inside the try: a script error or console error that the step's own
+          // actions provoked is reported by assertStrictPage, and belongs to this step.
+          // markFailedStep tags the error so the runner can compare the failing step with the
+          // manifest's expectedFailure.step (and tell a known failure from a new one).
+          try {
+            await cancellation.run(body);
+            h.assertStrictPage(recorder);
+          } catch (error) {
+            throw h.markFailedStep(error, label);
+          }
           console.log(`  PASS ${name}: ${label}`);
         },
       };

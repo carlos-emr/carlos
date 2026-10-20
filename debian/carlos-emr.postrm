@@ -69,6 +69,8 @@ case "$1" in
               "${STATE}/.consult-signature-default-migrated" \
               "${STATE}/.health-tracker-default-migrated" \
               "${STATE}/.oscar-feature-defaults-migrated" \
+              "${STATE}/.lab-measurement-filter-migrated" \
+              "${STATE}/.help-url-default-migrated" \
               "${STATE}/.db-name-default-migrated" \
               "${STATE}/.install-incomplete"
         # The OscarDocument -> CarlosDocument compat symlink is package
