@@ -83,7 +83,7 @@ For each hardcoded string:
    - `oscarResources_pl.properties` — English value as placeholder, preceded by `# TODO: translate`
    - `oscarResources_pt_BR.properties` — English value as placeholder, preceded by `# TODO: translate`
 3. Keep the files ASCII only: write accented letters as lowercase `\uXXXX` escapes (`\u00e9`, not `é`).
-   `OscarResourcesBundleParseUnitTest` fails on any raw non-ASCII character; see
+   the bundle-parse test (`shouldKeepPropertiesSourceFiles_asciiOnly`) fails on any raw non-ASCII character; see
    [I18N-STANDARDS.md — Encoding](I18N-STANDARDS.md#utf-8-encoding-requirements-java-25).
 
 ```properties

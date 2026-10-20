@@ -384,9 +384,14 @@ so the files also pass the `i18n-encoding` UTF-8 check.
 
 1. `oscarResources_*.properties` files contain **ASCII only**: no byte above `0x7F`.
 2. Write every accented letter, typographic quote or other non-ASCII character as a
-   lowercase `\uXXXX` escape: `\u00e9`, not `é`.
-3. `OscarResourcesBundleParseUnitTest` (`shouldKeepPropertiesSourceFiles_asciiOnly`)
-   enforces this: a raw non-ASCII character in any locale file fails the build.
+   lowercase `\uXXXX` escape: `\u00e9`, not `é`. A character outside the Basic
+   Multilingual Plane (an emoji, for example) takes two escapes, its UTF-16 surrogate
+   pair: 😀 is `\ud83d\ude00`.
+3. The bundle-parse test's `shouldKeepPropertiesSourceFiles_asciiOnly`
+   (`src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParse*Test.java`)
+   enforces this for the five locale files (`en`, `es`, `fr`, `pl`, `pt_BR`): a raw
+   non-ASCII character in any of them fails the build. A new locale must be added to
+   that test's `LOCALES` list along with its bundle.
 4. Escapes are hard to proofread, so a PR that adds or changes translations includes
    its back-translation table with the text written out normally. That table is where
    reviewers read the translation.
@@ -403,12 +408,16 @@ so the files also pass the `i18n-encoding` UTF-8 check.
 | ł (l with stroke) | `\u0142` |
 | ’ (right single quote) | `\u2019` |
 | non-breaking space (French, before `:` `;` `!` `?`) | `\u00a0` |
+| 😀 (outside the BMP: a surrogate pair) | `\ud83d\ude00` |
 
-To check a file before committing (no output means it is ASCII only):
+To check the files before committing (no output means they are ASCII only; works with
+GNU and BSD/macOS `grep`):
 
 ```bash
-grep -nP '[^\x00-\x7F]' src/main/resources/oscarResources_*.properties
+LC_ALL=C grep -n '[^[:print:][:space:]]' src/main/resources/oscarResources_*.properties
 ```
+
+`./scripts/check-i18n-properties.sh` runs the same check in its encoding section.
 
 ### Validation
 
@@ -419,7 +428,8 @@ Run the encoding check script before committing any properties file changes:
 ```
 
 The `UTF-8 Encoding Compliance` section of the report flags files that are not valid
-UTF-8. The ASCII-only rule above is checked by `OscarResourcesBundleParseUnitTest`.
+UTF-8 or that hold a raw non-ASCII character. In CI, the bundle-parse test enforces the
+ASCII-only rule.
 
 ---
 
