@@ -61,12 +61,19 @@ public class ApplyPractitionerPremium2Action extends ActionSupport {
     }
 
     public String applyPremium() {
-        String raHeaderNoStr = request.getParameter("rano");
-        Integer raHeaderNo = Integer.parseInt(raHeaderNoStr);
-
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+
+        // Reject before reading or changing premiums; the chained report is too late.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        String raHeaderNoStr = request.getParameter("rano");
+        Integer raHeaderNo = Integer.parseInt(raHeaderNoStr);
 
         List<BillingONPremium> bPremiumList = bPremiumDao.getRAPremiumsByRaHeaderNo(raHeaderNo);
 
