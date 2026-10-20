@@ -85,7 +85,7 @@
         </strong> measurement group.</em></p>
 
 
-    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewMeasurementGroupDScomplete" method="post" name="formAdd">
+    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/MeasurementGroupDecisionSupport" method="post" name="formAdd">
         <select name="htmlName">
             <option value="-1">Select Decision Support</option>
             <%

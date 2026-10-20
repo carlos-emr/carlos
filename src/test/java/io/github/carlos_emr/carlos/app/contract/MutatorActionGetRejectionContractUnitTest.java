@@ -244,6 +244,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementStyle2Action",
                     "_admin.measurements", "w"),
+            // A group's decision support add/remove (the Add and Remove pages' POST forms).
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurementGroupDecisionSupport2Action",
+                    "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2Action",
                     "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasuringInstruction2Action",

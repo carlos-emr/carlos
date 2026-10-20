@@ -92,7 +92,7 @@
     %>
 
 
-    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewMeasurementGroupDScomplete" method="post" name="formRemove">
+    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/MeasurementGroupDecisionSupport" method="post" name="formRemove">
         <input type="hidden" name="property" value="<%=propKey%>">
 
 
