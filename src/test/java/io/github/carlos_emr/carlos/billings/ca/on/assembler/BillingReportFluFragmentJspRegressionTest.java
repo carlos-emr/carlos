@@ -66,9 +66,15 @@ class BillingReportFluFragmentJspRegressionTest {
     @DisplayName("should open each claim read-only")
     void shouldOpenEachClaimReadOnly_fromItsRow() throws Exception {
         String jsp = Files.readString(resolveProjectPath(FRAGMENT));
+        int rowLoopStart = jsp.indexOf("<c:forEach var=\"row\"");
+        int rowLoopEnd = jsp.indexOf("</c:forEach>", rowLoopStart);
+        assertThat(rowLoopStart).as("row loop start").isNotNegative();
+        assertThat(rowLoopEnd).as("row loop end").isGreaterThan(rowLoopStart);
+        String rowMarkup = jsp.substring(rowLoopStart, rowLoopEnd);
 
+        assertThat(rowMarkup)
+                .contains("/billing/CA/ON/ViewBillingONDisplay?billing_no=<carlos:encode value='${row.billingId}' context='uriComponent'/>");
         assertThat(jsp)
-                .contains("/billing/CA/ON/ViewBillingONDisplay?billing_no=<carlos:encode value='${row.billingId}' context='uriComponent'/>")
                 .doesNotContain("ViewBillingOB2")
                 .doesNotContain("BillingDeleteNoAppt");
     }
