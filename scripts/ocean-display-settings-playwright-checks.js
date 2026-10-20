@@ -12,9 +12,15 @@
  * refuses a GET carrying the save intent, so a bookmarked or prefetched URL cannot flip the
  * setting (the GET/HEAD rejection contract for mutator 2Actions).
  *
- * Owned state: the check records the pre-existing preference row (or its absence) and the
- * OceanSetting singleton and restores both in its cleanup, so a run leaves the install as it
- * found it. It opens one FAKE- patient of its own (runWorkflow) to render the encounter.
+ * The placeholder also needs the provider's own "Display OCEAN UI" eChart preference (Preferences >
+ * eChart, off by default; scripts/echart-display-preferences-playwright-checks.js). This check turns
+ * it on for the test login so the clinic switch is exercised on its own, and proves that a provider
+ * who has not opted in sees no placeholder even with the clinic switch on.
+ *
+ * Owned state: the check records the pre-existing preference row (or its absence), the
+ * OceanSetting singleton and the test login's own echart_show_ocean row, and restores all three in
+ * its cleanup, so a run leaves the install as it found it. It opens one FAKE- patient of its own
+ * (runWorkflow) to render the encounter.
  *
  * Environment (see docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*
@@ -22,6 +28,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { providerEchartDisplayRows } = require('./lib/echart-display-preferences');
 
 const PREF = 'echart_show_ocean';
 const PREF_QUERY = `SELECT \`value\` FROM SystemPreferences WHERE name='${PREF}' ORDER BY id LIMIT 1`;
@@ -97,6 +104,11 @@ async function workflow(s) {
     h.assert(JSON.stringify(s.sql.rows(PREF_ROWS)) === JSON.stringify(originalRows), 'Ocean preference restore failed');
   });
 
+  // The provider's own opt-in, so the clinic switch below is what decides.
+  const providerOcean = providerEchartDisplayRows(s.sql, s.provider, ['echart_show_ocean']);
+  s.cleanup(() => providerOcean.restore());
+  providerOcean.set('echart_show_ocean', true);
+
   const { admin, frame } = await openSettings(s);
   await s.step('the settings page reflects the stored preference (absent row means ON)', async () => {
     // An absent row is the default, ON. A row whose value is NULL is not: the action reads it
@@ -127,6 +139,13 @@ async function workflow(s) {
     const rendered = await placeholderCount(s);
     h.assert(rendered.count === 1, 'The encounter does not render #ocean_placeholder with Ocean turned on');
     h.assert(rendered.hidden, 'The Ocean placeholder must stay hidden until the toolbar script shows it');
+  });
+  await s.step('a provider who has not opted in sees no placeholder even with the clinic switch on', async () => {
+    providerOcean.set('echart_show_ocean', false);
+    h.assert((await placeholderCount(s)).count === 0,
+      'The encounter renders #ocean_placeholder for a provider whose own Ocean preference is off');
+    providerOcean.set('echart_show_ocean', true);
+    h.assert((await placeholderCount(s)).count === 1, 'Turning the provider preference back on did not restore the placeholder');
   });
   await s.step('a GET carrying the save intent is refused and changes nothing', async () => {
     const response = await s.context.request.get(`${s.config.baseUrl}/admin/EchartDisplaySettings?dboperation=Save&${PREF}=false`,

@@ -727,6 +727,17 @@
             <result name="HRM">/encounter/displayHRM</result>
             <result name="eams">/eaaps/displayEctEaaps</result>
         </action>
+        <!-- Family Doctor / Referring Doctor panels at the top of the eChart left navigation
+             (OSCAR 19's fDoc/rDoc widgets); requested only when the provider's eChart
+             preferences turn them on (newCaseManagementView.js.jsp). -->
+        <action name="encounter/displayFamilyDoctor" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayFamilyDoctor2Action">
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
+        </action>
+        <action name="encounter/displayReferringDoctor" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayReferringDoctor2Action">
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
+        </action>
 
     </package>
 </struts>
