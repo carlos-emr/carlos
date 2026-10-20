@@ -371,7 +371,9 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>
-                            <oscar:nameage demographicNo="<%=demographic_no%>"/>
+                            <%-- This is a server-side tag parameter, not HTML output. The tag parses it as
+                                 an integer and encodes the rendered patient label with SafeEncode. --%>
+                            <oscar:nameage demographicNo="${param.demographic_no}"/>
                         </td>
                         <td>&nbsp;
 

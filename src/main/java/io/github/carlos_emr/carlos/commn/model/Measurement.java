@@ -34,6 +34,8 @@ import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -136,6 +138,7 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      */
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "dateObserved")
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date dateObserved;
 
     /** 
@@ -151,6 +154,7 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      */
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "dateEntered")
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date createDate = new Date();
 
     /**

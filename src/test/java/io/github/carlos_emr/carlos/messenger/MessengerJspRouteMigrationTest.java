@@ -98,10 +98,15 @@ class MessengerJspRouteMigrationTest {
                 .doesNotContain("titleArray")
                 .doesNotContain("/messenger/Doc2PDF.do")
                 .doesNotContain("/securityError.jsp?type=_msg");
-        // The patient gate runs before any patient data is loaded or put in the session.
+        // The patient gate runs before any patient data is loaded.
         assertThat(jsp.indexOf("isAllowedAccessToPatientRecord("))
-                .isLessThan(jsp.indexOf("new DemographicData()"))
-                .isLessThan(jsp.indexOf("setAttribute(\"EctSessionBean\""));
+                .isLessThan(jsp.indexOf("new DemographicData()"));
+        // Issue #4673: the chooser no longer replaces the login-wide encounter bean with a bare
+        // one naming this patient. The encounter item's print now loads its own requested
+        // patient, and the bare bean discarded the entry of the chart opened last in this login.
+        assertThat(jsp)
+                .doesNotContain("setAttribute(\"EctSessionBean\"")
+                .doesNotContain("new EctSessionBean()");
     }
 
     @Test

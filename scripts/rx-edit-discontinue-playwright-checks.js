@@ -27,6 +27,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const DRUG_TERM = process.env.RX_EDIT_DRUG_TERM || 'LIPITOR 20';
 const DRUG_NAME = process.env.RX_EDIT_DRUG_NAME || 'LIPITOR 20MG';
@@ -81,7 +82,7 @@ async function workflow(s) {
   });
 
   const openRx = async label => {
-    const rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), label);
+    const rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), label);
     h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
     await rx.locator('#searchString').waitFor({ state: 'visible' });
     await rx.waitForLoadState('networkidle');
@@ -96,7 +97,7 @@ async function workflow(s) {
     await instructions.fill(INSTRUCTIONS);
     const [parsed] = await Promise.all([
       rx.waitForResponse(isPost('/rx/UpdateScript')),
-      // Leave the field for the indication box: Tab would land on Qty, whose blur handler throws (getCost).
+      // Leave for the indication label so parsing does not also trigger Qty/price updates.
       rx.locator(`label[for="jsonDxSearch_${card}"]`).click(),
     ]);
     h.assert(parsed.status() === 200, `rx/UpdateScript answered HTTP ${parsed.status()}`);

@@ -178,17 +178,17 @@ public class BillingOhipSimulationViewModelAssembler {
         var proObj = lookupService.getProviderObj(pro);
         // Same rule generation enforces before allocating a disk (OhipProviderFields).
         if (!OhipProviderFields.isWellFormedBillingNumber(proObj.getOhipNo())) {
-            errorMessages.add("The providers's billing code is not correct!");
+            errorMessages.add("The provider's billing code is not correct!");
         }
         String proOHIP = proObj.getOhipNo();
         String groupNo = proObj.getBillingGroupNo();
         String specialty = proObj.getSpecialtyCode();
         if (!OhipProviderFields.isWellFormedSpecialtyCode(specialty)) {
-            errorMessages.add("The providers's specialty code is not correct!");
+            errorMessages.add("The provider's specialty code is not correct!");
             specialty = "00";
         }
         if (groupNo.length() != PROVIDER_GROUPNO_LENGTH) {
-            errorMessages.add("The providers's group no is not correct!");
+            errorMessages.add("The provider's group no is not correct!");
             groupNo = "0000";
         }
 

@@ -24,6 +24,7 @@ const { createBillingFixture } = require('./billing-on-ohip-simulation-report-pl
 const { openHistory } = require('./billing-on-invoice-third-party-playwright-checks');
 const g = require('./lib/gap-billing-support');
 const { auditProbe, phiLeaks, incomplete, label } = require('./lib/audit-log-helpers');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
   const { sql, patient, provider } = s;
@@ -38,7 +39,7 @@ async function workflow(s) {
   let form;
 
   await s.step('Create Invoice opens the bill form for the owned patient', async () => {
-    const link = s.master.locator('a[onclick*="/billing?billRegion=ON"]').first();
+    const link = masterRecordLink(s.master, '/billing?billRegion=ON').first();
     h.assert(await link.count() === 1, 'The Master Record does not offer Create Invoice');
     form = await s.popup(s.master, link, 'audit-bill-form');
     await form.locator('select[name="xml_billtype"]').waitFor({ state: 'visible', timeout: 30000 });
@@ -78,7 +79,7 @@ async function workflow(s) {
 
   await s.step('the Master Record Billing History opens (audit rows observed)', async () => {
     await s.master.waitForLoadState('load').catch(() => {});
-    await s.master.locator('a[onclick*="/billing/CA/ON/ViewBillingONHistory"]').first().waitFor({ state: 'attached', timeout: 20000 });
+    await masterRecordLink(s.master, '/billing/CA/ON/ViewBillingONHistory').first().waitFor({ state: 'attached', timeout: 20000 });
     await probe.settle(1500);
     const before = probe.mark();
     const history = await openHistory(s);

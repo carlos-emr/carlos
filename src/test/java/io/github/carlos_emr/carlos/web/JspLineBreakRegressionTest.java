@@ -70,8 +70,8 @@ class JspLineBreakRegressionTest {
     private static final Pattern[] JSP_CONSTRUCTS = {
             Pattern.compile("<%--[\\s\\S]*?--%>"),
             Pattern.compile("<%[\\s\\S]*?%>"),
-            Pattern.compile("\\$\\{[^}]*}"),
-            Pattern.compile("</?[A-Za-z][\\w-]*:[\\w-]+[^>]*>")};
+            Pattern.compile("\\$\\{[^}]*}")};
+    private static final Pattern CUSTOM_TAG_START = Pattern.compile("</?[A-Za-z][\\w-]*+:[\\w-]++");
     /** A {@code javascript:} link or an {@code on*} handler, quoted with double quotes. */
     private static final Pattern SCRIPT_ATTRIBUTE =
             Pattern.compile("(?i)\\s(?:href\\s*=\\s*\"\\s*javascript:|on[a-z]+\\s*=\\s*\")([^\"]*)\"");
@@ -161,6 +161,15 @@ class JspLineBreakRegressionTest {
         assertThat(scriptCuts("sample.jsp", CUT_AFTER_TAG)).containsExactly("sample.jsp:2");
     }
 
+    @Test
+    void shouldKeepOffsetsAndCuts_whenMaskingCustomTags() {
+        String sample = "<custom-tag:field-name value=\"${value}\"/>\n" + KNOWN_CUT;
+        assertThat(maskJsp(sample)).hasSameSizeAs(sample);
+        assertThat(scriptCuts("sample.jsp", sample)).containsExactly("sample.jsp:3");
+        String unclosed = "<custom:tag " + "word ".repeat(100_000);
+        assertThat(maskJsp(unclosed)).isEqualTo(unclosed);
+    }
+
     /** Each word cut across a line break inside a {@code javascript:} link or {@code on*} handler, as page:line. */
     private static List<String> scriptCuts(String page, String jsp) {
         List<String> cuts = new ArrayList<>();
@@ -192,7 +201,24 @@ class JspLineBreakRegressionTest {
             match.appendTail(out);
             masked = out.toString();
         }
-        return masked;
+        // Find each tag prefix without overlapping quantifiers, then advance past its end.
+        // A missing end delimiter stops the scan instead of retrying every suffix.
+        Matcher tag = CUSTOM_TAG_START.matcher(masked);
+        StringBuilder out = new StringBuilder(masked);
+        int cursor = 0;
+        while (tag.find(cursor)) {
+            int close = masked.indexOf('>', tag.end());
+            if (close < 0) {
+                break;
+            }
+            for (int i = tag.start(); i <= close; i++) {
+                if (!Character.isWhitespace(masked.charAt(i))) {
+                    out.setCharAt(i, '#');
+                }
+            }
+            cursor = close + 1;
+        }
+        return out.toString();
     }
 
     private static Path resolveProjectPath(Path relativePath) {

@@ -54,6 +54,8 @@ import java.util.MissingResourceException;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class FrmBCAR2020Record extends FrmRecord {
 
@@ -85,10 +87,12 @@ public class FrmBCAR2020Record extends FrmRecord {
             //Set default prop values
             this.setDemoProperties(loggedInInfo, demographicNo, props);
 
-            //Set custom prop values
+            //Set custom prop values. Properties refuses null, and these chart fields can be null: NULL in the chart
+            //(an imported patient), or a blank province, which Demographic.setProvince turns into null. A missing
+            //value is written as "" (issue #4920). getPhone(), getPhone2() and getPronoun() already return "".
             props.setProperty("t_patientSurname", StringUtils.trimToEmpty(demographic.getLastName()));
             props.setProperty("t_patientGivenName", StringUtils.trimToEmpty(demographic.getFirstName()));
-            props.setProperty("t_patientHIN", demographic.getHin());
+            props.setProperty("t_patientHIN", StringUtils.defaultString(demographic.getHin()));
             dob = UtilDateUtilities.calcDate(demographic.getYearOfBirth(), demographic.getMonthOfBirth(), demographic.getDateOfBirth());
             props.setProperty("t_patientDOB", UtilDateUtilities.DateToString(dob, "dd/MM/yyyy"));
             Provider p = demographic.getProvider();
@@ -100,12 +104,12 @@ public class FrmBCAR2020Record extends FrmRecord {
             String fd = SxmlMisc.getXmlContent(demographic.getFamilyPhysician(), "fd");
             fd = fd != null ? fd : "";
             props.setProperty("t_familyPhysician", fd);
-            props.setProperty("t_patientAddress", demographic.getAddress());
-            props.setProperty("t_patientCity", demographic.getCity());
-            props.setProperty("t_patientProvince", demographic.getProvince());
-            props.setProperty("t_patientPostal", demographic.getPostal());
+            props.setProperty("t_patientAddress", StringUtils.defaultString(demographic.getAddress()));
+            props.setProperty("t_patientCity", StringUtils.defaultString(demographic.getCity()));
+            props.setProperty("t_patientProvince", StringUtils.defaultString(demographic.getProvince()));
+            props.setProperty("t_patientPostal", StringUtils.defaultString(demographic.getPostal()));
             props.setProperty("t_patientPhone", demographic.getPhone());
-            props.setProperty("t_patientPreferredName", demographic.getPrefName() + " / " + demographic.getPronoun());
+            props.setProperty("t_patientPreferredName", preferredName(demographic.getPrefName(), demographic.getPronoun()));
             props.setProperty("t_patientPhoneWork", demographic.getPhone2());
             String cell = demographicExtDao.getValueForDemoKey(demographicNo, "demo_cell");
             if (cell != null) {
@@ -113,7 +117,7 @@ public class FrmBCAR2020Record extends FrmRecord {
             }
 
             //Currently Unused
-            props.setProperty("t_hinVer", demographic.getVer());
+            props.setProperty("t_hinVer", StringUtils.defaultString(demographic.getVer()));
 
             if ("ON".equals(demographic.getHcType())) {
                 props.setProperty("t_hinType", "OHIP");
@@ -136,7 +140,7 @@ public class FrmBCAR2020Record extends FrmRecord {
 
             props.setProperty("t_patientSurname", StringUtils.trimToEmpty(demographic.getLastName()));
             props.setProperty("t_patientGivenName", StringUtils.trimToEmpty(demographic.getFirstName()));
-            props.setProperty("t_patientHIN", demographic.getHin());
+            props.setProperty("t_patientHIN", StringUtils.defaultString(demographic.getHin()));
             dob = UtilDateUtilities.calcDate(demographic.getYearOfBirth(), demographic.getMonthOfBirth(), demographic.getDateOfBirth());
             props.setProperty("t_patientDOB", UtilDateUtilities.DateToString(dob, "dd/MM/yyyy"));
         }
@@ -146,6 +150,13 @@ public class FrmBCAR2020Record extends FrmRecord {
         }
 
         return props;
+    }
+
+    /** The preferred name and pronoun as "name / pronoun", leaving out whichever is missing (not " / " or "null"). */
+    static String preferredName(String prefName, String pronoun) {
+        return Stream.of(prefName, pronoun)
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.joining(" / "));
     }
 
     @Deprecated
@@ -223,12 +234,16 @@ public class FrmBCAR2020Record extends FrmRecord {
         }
     }
 
+    /**
+     * One row of section 17 (prenatal visits) on page 2. The calendar image is addressed relative to the page's
+     * {@code <base href="<context>/">}; "../images/cal.gif" resolved outside the application (issue #4919).
+     */
     public String createPrenatalVisitRow(Properties props, String rowCount) {
         String row = "<tr>\n" +
                 "<td>\n" +
                 "    <div class=\"div-center\">\n" +
                 "        <input type=\"text\" id=\"d_prenatalVisitDate" + rowCount + "\" name=\"d_prenatalVisitDate" + rowCount + "\" title=\"17. Prenatal Visit Line " + rowCount + " - Visit Date\" size=\"9\" maxlength=\"150\" value=\"" + UtilMisc.htmlEscape(props.getProperty("d_prenatalVisitDate" + rowCount, "")) + "\" />\n" +
-                "        <img src=\"../images/cal.gif\" id=\"d_prenatalVisitDate" + rowCount + "_cal\">\n" +
+                "        <img src=\"images/cal.gif\" id=\"d_prenatalVisitDate" + rowCount + "_cal\">\n" +
                 "    </div>\n" +
                 "</td>\n" +
                 "<td>\n" +

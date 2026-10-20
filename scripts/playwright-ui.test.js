@@ -148,6 +148,27 @@ test('a failed destination closes its popup but preserves a same-tab host', asyn
   }
 });
 
+test('an aggregate audit can inspect an error destination and keep ownership of its popup', async () => {
+  for (const isPopup of [true, false]) {
+    const context = new EventEmitter();
+    const destination = eventPage('HTTP Status 500');
+    let closed = false;
+    destination.close = async () => { closed = true; };
+    const page = isPopup ? eventPage() : destination;
+    const result = await clickOpensPopupOrNavigates(page, control(async () => {
+      if (isPopup) context.emit('page', destination);
+      else page.emit('framenavigated', page.mainFrame());
+    }), { context, checkErrorPage: false });
+    assert.equal(result.page, destination);
+    assert.equal(result.isPopup, isPopup);
+    assert.match(await result.page.locator('body').innerText(), /HTTP Status 500/);
+    assert.equal(closed, false, 'the caller must be able to record the error page before closing');
+    noOutcomeListeners(page, context);
+    if (isPopup) await result.page.close();
+    assert.equal(closed, isPopup);
+  }
+});
+
 /*
  * pickDate.
  *

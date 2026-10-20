@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -223,7 +224,10 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 // stream was created but never added to the cleanup list, leaking one file
                 // descriptor per attached eForm on every print (see attached-forms site below
                 // for the matching leak).
-                InputStream attachedFormStream = Files.newInputStream(attachedForm);
+                // Renderers write into CARLOS-owned temp roots. Confine the returned path before
+                // reading it, including canonical resolution of any symlink in that path.
+                InputStream attachedFormStream = Files.newInputStream(
+                        PathValidationUtils.validateApplicationTempPath(attachedForm == null ? null : attachedForm.toFile()).toPath());
                 streams.add(attachedFormStream);
                 alist.add(attachedFormStream);
             }
@@ -248,7 +252,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                     } else if (doc.isPDF()) {
                         alist.add(path + doc.getFileName());
                     } else {
-                        logger.error("EctConsultationFormRequestPrintAction: " + doc.getType() + " is marked as printable but no means have been established to print it.");
+                        logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.", LogSafe.sanitize(doc.getType()));
                     }
                 }
             }
@@ -259,7 +263,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
                 // Defense-in-depth: verify temp file is in an allowed temp directory
                 if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
-                    logger.error("Temp file not in allowed temp directory: {}", tempLabPDF.getAbsolutePath());
+                    logger.error("Temp file not in allowed temp directory: {}", LogSafe.sanitize(tempLabPDF.getAbsolutePath()));
                     tempLabPDF.delete();
                     throw new SecurityException("Temp file created outside allowed temp directory");
                 }
@@ -426,7 +430,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
             Path attachedForm = faxManager.renderFaxDocument(
                     loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
-            return Files.newInputStream(attachedForm);
+            return Files.newInputStream(
+                    PathValidationUtils.validateApplicationTempPath(attachedForm == null ? null : attachedForm.toFile()).toPath());
         } catch (SQLException | IOException | ServletException | RuntimeException e) {
             throw new PDFGenerationException(
                     "Attached form \"" + formName + "\" could not be rendered: " + e.getMessage(), e);

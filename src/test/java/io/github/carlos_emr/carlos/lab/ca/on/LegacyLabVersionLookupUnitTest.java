@@ -119,7 +119,7 @@ class LegacyLabVersionLookupUnitTest extends CarlosUnitTestBase {
         field.setAccessible(true);
         field.set(data, dao);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> data.getMatchingCMLLabs("42", true))
-                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version lookup failed");
+                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
     }
 
     @Test

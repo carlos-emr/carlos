@@ -303,7 +303,7 @@
                                 }
                                 if (labLabel == null || labLabel.isEmpty()) labLabel = StringUtils.trimToEmpty(result.getDiscipline());
                             %>
-                            <a href="javascript:reportWindow('<%=SafeEncode.forJavaScript(labUrl)%>')">
+                            <a href="<%=SafeEncode.forHtmlAttribute(labUrl)%>" onclick="reportWindow(this.href); return false;">
                                 <%=SafeEncode.forHtmlContent(labLabel)%>
                             </a>
                         </td>
@@ -346,21 +346,6 @@
     }
 
     public ArrayList<LabResultData> getLatestLabVersions(ArrayList<LabResultData> labs) {
-        List<String> allLabIds = new ArrayList<>();
-        ArrayList<LabResultData> latestLabVersions = new ArrayList<>();
-        for (LabResultData lab : labs) {
-            if (allLabIds.contains(lab.getSegmentID())) {
-                continue;
-            }
-            String[] allLabVersionIdsOfLab = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
-            allLabIds.addAll(Arrays.asList(allLabVersionIdsOfLab));
-            for (LabResultData labResultData : labs) {
-                if (allLabVersionIdsOfLab[allLabVersionIdsOfLab.length - 1].equals(labResultData.getSegmentID())) {
-                    latestLabVersions.add(labResultData);
-                    break;
-                }
-            }
-        }
-        return latestLabVersions;
+        return CommonLabResultData.latestVisibleVersions(labs);
     }
 %>

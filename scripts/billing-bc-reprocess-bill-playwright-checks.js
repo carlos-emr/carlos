@@ -26,6 +26,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { expectValue, runWorkflow } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const TIMEOUT = 30000;
 
@@ -84,7 +85,7 @@ async function workflow(s) {
 
   let billStatus;
   await s.step('Invoice List on the master record lists the owned bill', async () => {
-    const link = s.master.locator('a[onclick*="/billing/CA/BC/reprocessBill?"]').first();
+    const link = masterRecordLink(s.master, '/billing/CA/BC/reprocessBill?').first();
     h.assert(await link.count() === 1, 'The BC master record has no Invoice List link');
     // Click the visible words: on BC the inline eligibility menu widens the navigation cell to
     // 350px under the content pane, so the link's centre is covered (app-findings-log.md finding 146).

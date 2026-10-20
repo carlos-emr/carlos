@@ -336,10 +336,13 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       // The entry being in the menu is what the step needs; the form opening for the owned patient is the test.
       const link = await claims.asPrecondition(async () => {
         setSex(form.sex || 'F');
-        await chart.locator('#menuTitle1 a').hover();
-        const found = chart.getByRole('link', { name, exact: true });
+        // Save refreshes the panel immediately; a started-form item can now have
+        // the same name as its menu entry. Count registrations inside the menu only.
+        const found = chart.locator('#forms .menu').getByRole('link', { name, exact: true, includeHidden: true });
+        await found.first().waitFor({state: 'attached', timeout: 20000});
         const listed = await found.count();
         claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
+        await ui.openFormsMenu(chart);
         return found;
       }, 'the Forms-menu entry');
       entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.key}`));

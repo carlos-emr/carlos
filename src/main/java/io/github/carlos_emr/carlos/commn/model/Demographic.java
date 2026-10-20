@@ -44,6 +44,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -161,6 +163,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
     private Provider provider;
     private String lastUpdateUser = null;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate = new Date();
 
     private String title;

@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.util.JasperReportPdfPrint;
+import io.github.carlos_emr.carlos.form.util.Rourke2020PdfReport.RenderingException;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
@@ -357,7 +358,15 @@ public final class Frm2Action extends ActionSupport {
         if (response.isCommitted()) return;
         response.reset();
         try {
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not generate form PDF");
+            if (failure instanceof RenderingException) {
+                // The generic error JSP hides sendError messages in production. These
+                // enum-backed messages contain no record data and must remain actionable.
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                response.setContentType("text/plain;charset=UTF-8");
+                response.getOutputStream().write(failure.getMessage().getBytes(StandardCharsets.UTF_8));
+            } else {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not generate form PDF");
+            }
         } catch (IOException sendError) {
             log.error("Could not send PDF generation error response", sendError);
         }
@@ -384,7 +393,7 @@ public final class Frm2Action extends ActionSupport {
         String redirectUrl = StringUtils.defaultString(contextPath)
                 + "/form/forwardname?form_link="
                 + URLEncoder.encode(StringUtils.defaultString(formLink), StandardCharsets.UTF_8)
-                + "&" + actionForward.substring(SAVE_ACTION_PREFIX.length());
+                + "&" + actionForward.substring(SAVE_ACTION_PREFIX.length()) + "&saved=true";
         if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
             throw new IllegalArgumentException("Unsafe form forward redirect");
         }
