@@ -50,22 +50,38 @@ class HrmReportViewerPopupRegressionTest {
     private static final Path DOC_LIST = Path.of("src/main/webapp/WEB-INF/jsp/hospitalReportManager/displayHRMDocList.jsp");
     private static final Path ECHART_SECTION = Path.of(
             "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayHRM2Action.java");
-    /** An inline event handler attribute such as {@code onClick="..."}, case-insensitive. */
-    private static final Pattern INLINE_HANDLER = Pattern.compile("(?i)\\bon[a-z]+\\s*=\\s*\"([^\"]*)\"");
+    /**
+     * An inline event handler attribute such as {@code onClick="..."} or {@code onclick='...'},
+     * case-insensitive: group 1 holds a double-quoted value, group 2 a single-quoted one.
+     */
+    private static final Pattern INLINE_HANDLER =
+            Pattern.compile("(?i)\\bon[a-z]+\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')");
 
     @Test
     @DisplayName("should keep every inline handler of the report viewer on one line")
     void shouldKeepInlineHandlersOnOneLine_inReportViewer() throws IOException {
-        String jsp = Files.readString(VIEWER);
+        assertThat(multiLineHandlers(Files.readString(VIEWER))).as("inline handlers whose code spans lines").isEmpty();
+    }
+
+    @Test
+    @DisplayName("should find a handler spanning lines in either quote style")
+    void shouldFindMultiLineHandlers_inEitherQuoteStyle() {
+        String markup = "<input onClick=\"go('a\nb')\">\n<input onclick='go(\"a\nb\")'>\n<input onclick='go(1)'>";
+        assertThat(multiLineHandlers(markup)).hasSize(2);
+    }
+
+    /** Each inline handler whose code spans lines, as "line N: first line of the handler". */
+    private static List<String> multiLineHandlers(String markup) {
         List<String> broken = new ArrayList<>();
-        Matcher handler = INLINE_HANDLER.matcher(jsp);
+        Matcher handler = INLINE_HANDLER.matcher(markup);
         while (handler.find()) {
-            if (handler.group(1).contains("\n")) {
-                int line = jsp.substring(0, handler.start()).split("\n", -1).length;
-                broken.add("line " + line + ": " + handler.group(1).lines().findFirst().orElse(""));
+            String code = handler.group(1) != null ? handler.group(1) : handler.group(2);
+            if (code.contains("\n")) {
+                int line = markup.substring(0, handler.start()).split("\n", -1).length;
+                broken.add("line " + line + ": " + code.lines().findFirst().orElse(""));
             }
         }
-        assertThat(broken).as("inline handlers whose code spans lines").isEmpty();
+        return broken;
     }
 
     @Test
@@ -74,7 +90,11 @@ class HrmReportViewerPopupRegressionTest {
         String jsp = Files.readString(VIEWER);
         Matcher button = Pattern.compile("(?s)id=\"mainEchart_[^\"]*\".*?onClick=\"([^\"]*)\"").matcher(jsp);
         assertThat(button.find()).as("the E-Chart button and its handler").isTrue();
-        assertThat(button.group(1))
+        // The handler is the popupPatient call itself, so nothing can return before it opens the chart.
+        assertThat(button.group(1).strip())
+                .startsWith("popupPatient(710, 1024,'")
+                .endsWith(")")
+                .doesNotContain("return")
                 .contains("/encounter/IncomingEncounter?updateParent=false&reason=${carlos:forUriComponent(hrmEchartReason)}"
                         + "&curDate=<%=currentDate%>&appointmentNo=")
                 .doesNotContain("%>>&");
