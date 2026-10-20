@@ -5,13 +5,26 @@
 // verify rejected creates/updates preserve entered clinical data without writing history.
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const fs = require('node:fs');
+const path = require('node:path');
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   let service;
   let lab;
   const specialists = [];
+  const captures = new Map();
+  // On the application host, remove only byte-verified drawings owned by this run.
+  const tempRoot = process.env.CONSULT_APPLICATION_TEMP_DIR
+    ? fs.realpathSync(process.env.CONSULT_APPLICATION_TEMP_DIR) : null;
   s.cleanup(() => {
+    if (tempRoot) for (const [id, bytes] of captures) {
+      const filename = path.join(tempRoot, `signature_${id}.jpg`);
+      if (!fs.existsSync(filename)) continue;
+      h.assert(fs.lstatSync(filename).isFile() && fs.readFileSync(filename).equals(bytes),
+        'Captured signature file changed; refusing to remove it');
+      fs.unlinkSync(filename);
+    }
     sql.execute(`DELETE FROM consultdocs WHERE requestId IN
       (SELECT requestId FROM consultationRequests WHERE demographicNo=${patient});
       DELETE FROM consultationRequestExtArchive WHERE requestId IN
@@ -154,6 +167,64 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM DigitalSignature WHERE demographicId=${patient}`) === '0',
       'Rejected save wrote a signature');
   }
+  async function drawSignature() {
+    if (!(await form.locator('#signatureFrame').isVisible())) {
+      await form.locator('a[onclick*="signatureFrame"]').click();
+    }
+    const pad = form.frameLocator('iframe[src*="/signature_pad/tabletSignature"]');
+    const canvas = pad.locator('#canvas');
+    await canvas.scrollIntoViewIfNeeded();
+    const box = await canvas.boundingBox();
+    h.assert(box, 'Manual signature pad is not visible');
+    await form.mouse.move(box.x + 30, box.y + 30);
+    await form.mouse.down();
+    await form.mouse.move(box.x + 180, box.y + 65, { steps: 20 });
+    await form.mouse.up();
+    const id = await pad.locator('[name="signatureRequestId"]').inputValue();
+    h.assert(/^[a-zA-Z0-9]+$/.test(id), 'Invalid owned signature capture key');
+    const bytes = Buffer.from((await canvas.evaluate(element => element.toDataURL('image/png'))).split(',')[1], 'base64');
+    captures.set(id, bytes);
+    const uploaded = form.waitForResponse(response => response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/signature_pad/SaveSignatureUpload'));
+    await pad.locator('#save').click();
+    h.assert((await uploaded).status() === 200, 'Manual signature upload failed');
+    await form.waitForFunction(() => document.getElementById('newSignature').value === 'true'
+      && document.getElementById('signatureImg').value === document.getElementById('newSignatureImg').value);
+    return {
+      id,
+      provider: await form.locator('#signatureProviderNo').inputValue(),
+      bytes,
+    };
+  }
+  async function assertRetainedSignature(captured) {
+    h.assert(await form.locator('#signatureImg').inputValue() === captured.id, 'Captured signature reference was lost');
+    h.assert(await form.locator('#newSignatureImg').inputValue() === captured.id, 'Capture key changed on retry');
+    h.assert(await form.locator('#newSignature').inputValue() === 'true', 'Retry switched the drawing to a stamp');
+    h.assert(await form.locator('#signatureProviderNo').inputValue() === captured.provider, 'Signing provider changed on retry');
+    const padUrl = await form.locator('iframe[src*="/signature_pad/tabletSignature"]').getAttribute('src');
+    h.assert(new URL(padUrl, form.url()).searchParams.get('signatureRequestId') === captured.id,
+      'Retry signature pad uses a different capture key');
+    await form.waitForFunction(() => {
+      const img = document.getElementById('signatureImgTag');
+      return img.complete && img.naturalWidth === 500 && img.naturalHeight === 100 && img.getClientRects().length > 0;
+    });
+    const imageUrl = await form.locator('#signatureImgTag').getAttribute('src');
+    const response = await s.context.request.get(new URL(imageUrl, form.url()).href);
+    try {
+      h.assert(response.ok() && (await response.body()).equals(captured.bytes), 'Retry preview is not the captured drawing');
+    } finally { await response.dispose(); }
+  }
+  async function assertSavedSignature(captured, requestId) {
+    const signatureId = sql.value(`SELECT signature_img FROM consultationRequests WHERE requestId=${requestId}
+      AND demographicNo=${patient}`);
+    h.assert(/^[1-9]\d*$/.test(signatureId), 'Consultation was saved without the pending signature');
+    h.assert(sql.value(`SELECT COUNT(*) FROM DigitalSignature WHERE id=${signatureId} AND demographicId=${patient}`) === '1',
+      'Signature was not persisted for the owned patient');
+    const response = await s.context.request.get(`${s.config.baseUrl}/imageRenderingServlet?source=signature_stored&digitalSignatureId=${signatureId}`);
+    try {
+      h.assert(response.ok() && (await response.body()).equals(captured.bytes), 'Saved signature differs from the original drawing');
+    } finally { await response.dispose(); }
+  }
   await s.step('server rejects missing, malformed, nonexistent and inactive consultant ids on create', async () => {
     const absent = String(Number(sql.value('SELECT MAX(specId) FROM professionalSpecialists')) + 1000);
     await reject(null, 'Submit Consultation Request');
@@ -166,7 +237,14 @@ async function workflow(s) {
     // CRS rule 942220 blocks integer-overflow payloads before the action; the Java tests cover that boundary.
     for (const id of ['', '0', 'abc', '-1', absent, inactive]) await reject(id, 'Submit Consultation Request');
   });
-  await s.step('active directory selection saves a consultation', async () => {
+  let captured;
+  await s.step('manual signature survives consultant rejection with the same capture key and preview', async () => {
+    await pick('#specialistInput', `${marker}-0`);
+    captured = await drawSignature();
+    await reject(inactive, 'Submit Consultation Request');
+    await assertRetainedSignature(captured);
+  });
+  await s.step('active directory selection saves a consultation with its original manual signature', async () => {
     await pick('#specialistInput', `${marker}-0`);
     h.assert(await form.locator('#specialist').inputValue() === active, 'Retry picker did not select the active consultant');
     const saved = form.waitForResponse(response => response.request().method() === 'POST'
@@ -177,6 +255,7 @@ async function workflow(s) {
     h.assert(/has been\s+Created/i.test(await form.locator('body').innerText()), 'Valid consultation was not confirmed');
     h.assert(sql.value(`SELECT specId FROM consultationRequests WHERE demographicNo=${patient}`) === active,
       'Active consultant was not persisted');
+    await assertSavedSignature(captured, sql.value(`SELECT requestId FROM consultationRequests WHERE demographicNo=${patient}`));
     await form.close();
   });
   await s.step('legacy unassigned consultation remains readable and invalid updates preserve it', async () => {
@@ -194,12 +273,16 @@ async function workflow(s) {
     for (const id of ['', 'abc', inactive]) await reject(id, 'Update Consultation Request', requestId);
     h.assert(sql.value(`SELECT IFNULL(specId,'unassigned') FROM consultationRequests WHERE requestId=${requestId}`) === 'unassigned',
       'Rejected update changed the legacy consultant');
+    captured = await drawSignature();
+    await reject(inactive, 'Update Consultation Request', requestId);
+    await assertRetainedSignature(captured);
     await pick('#specialistInput', `${marker}-0`);
     await Promise.all([form.waitForNavigation({ waitUntil: 'load' }), form.locator('[name="update"]').click()]);
     h.assert(sql.value(`SELECT specId FROM consultationRequests WHERE requestId=${requestId}`) === active,
       'Valid update did not assign the consultant');
     h.assert(sql.value(`SELECT COUNT(*) FROM consultationRequestsArchive WHERE requestId=${requestId}`) === '1',
       'Valid update did not archive exactly once');
+    await assertSavedSignature(captured, requestId);
   });
 }
 

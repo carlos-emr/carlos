@@ -2,6 +2,9 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 const {parseConsultSignatureScenarios, readSignatureState, describePdf, assertSignaturePdf} = require('./consultation-signature-playwright-checks');
 
 test('no external IDs selects the owned fixture; an incomplete explicit fixture fails', () => {
@@ -66,4 +69,77 @@ test('explicit signed fixtures cannot pass when the PDF contains only an unrelat
   assert.throws(() => assertSignaturePdf({images: [{width: 20, height: 8}]}, state, 'explicit'), /signature's dimensions/);
   assert.throws(() => assertSignaturePdf({images: []}, state, 'explicit'), /signature's dimensions/);
   assert.doesNotThrow(() => assertSignaturePdf({images: [{width: 20, height: 8}, {width: 173, height: 53}]}, state, 'explicit'));
+});
+
+/** Execute the JSP's actual signature handlers against a small image/controls DOM. */
+function signatureControls(signatureImg, newSignature) {
+  const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp'), 'utf8');
+  const elements = {
+    signatureImg: {value: signatureImg}, newSignature: {value: newSignature},
+    signatureProviderNo: {value: '800001'}, signatureImgTag: {naturalWidth: 500, naturalHeight: 100},
+    signatureFrame: {style: {}}, signatureShow: {style: {}},
+  };
+  const context = vm.createContext({document: {getElementById: id => elements[id]}, counter: 0,
+    isSignatureSaved: false, encodeURIComponent});
+  for (const name of ['isStoredSignatureId', 'hasPendingManualSignature', 'updateSignatureProvider', 'showSignatureImage']) {
+    const start = source.indexOf(`function ${name}(`);
+    assert.ok(start > 0, `Missing ${name}`);
+    let depth = 0;
+    let end = source.indexOf('{', start);
+    do {
+      if (source[end] === '{') depth++;
+      if (source[end] === '}') depth--;
+      end++;
+    } while (depth > 0 && end < source.length);
+    const code = source.slice(start, end).replace(/<%=[\s\S]*?%>/g, expression => {
+      if (expression.includes('imageUrl')) return '/carlos/imageRenderingServlet?source=signature_preview&signatureRequestId=8000011792450000000';
+      if (expression.includes('storedImgUrl')) return '/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=';
+      if (expression.includes('request.getContextPath()')) return '/carlos';
+      throw new Error(`Unexpected JSP expression in ${name}`);
+    });
+    vm.runInContext(code, context);
+  }
+  return {elements, context};
+}
+
+test('a pending drawing loads its preview and survives provider initialization in manual mode', () => {
+  const {elements, context} = signatureControls('8000011792450000000', 'true');
+  context.showSignatureImage();
+  assert.match(elements.signatureImgTag.src, /source=signature_preview.*8000011792450000000/);
+  elements.signatureImgTag.onload();
+  assert.equal(elements.newSignature.value, 'true');
+  assert.equal(elements.signatureShow.style.display, 'block');
+  assert.equal(elements.signatureFrame.style.display, 'none');
+  assert.equal(context.isSignatureSaved, true);
+  context.updateSignatureProvider('800002');
+  assert.match(elements.signatureImgTag.src, /source=signature_preview/);
+  assert.equal(elements.signatureImg.value, '8000011792450000000');
+  assert.equal(elements.newSignature.value, 'true');
+});
+
+test('an uncaptured retry or failed preview keeps the manual pad available and is not marked signed', () => {
+  for (const missing of ['placeholder', 'error']) {
+    const {elements, context} = signatureControls('8000011792450000000', 'true');
+    context.showSignatureImage();
+    if (missing === 'placeholder') {
+      elements.signatureImgTag.naturalWidth = elements.signatureImgTag.naturalHeight = 1;
+      elements.signatureImgTag.onload();
+    } else elements.signatureImgTag.onerror();
+    assert.equal(elements.newSignature.value, 'true');
+    assert.equal(elements.signatureFrame.style.display, 'block');
+    assert.equal(elements.signatureShow.style.display, 'none');
+    assert.equal(context.isSignatureSaved, false);
+  }
+});
+
+test('stored signatures and provider stamps retain their respective preview sources', () => {
+  for (const [id, source] of [['25', 'source=signature_stored&digitalSignatureId=25'], ['', 'providerSignatureImage?providerNo=800001']]) {
+    const {elements, context} = signatureControls(id, 'false');
+    context.showSignatureImage();
+    assert.ok(elements.signatureImgTag.src.includes(source));
+    elements.signatureImgTag.onload();
+    assert.equal(elements.newSignature.value, 'false');
+    assert.equal(elements.signatureShow.style.display, 'block');
+    assert.equal(elements.signatureFrame.style.display, 'none');
+  }
 });
