@@ -68,6 +68,15 @@ class ConfigureSmsCredentialLabelsRegressionTest {
                 .doesNotContain("name=\"credential.<carlos:encode value='${field.name}'");
     }
 
+    @Test
+    @DisplayName("should explain that a sender number left as shown brings back the chosen provider's own number")
+    void shouldExplainSenderNumber_whenProviderIsChosenAgain() throws IOException {
+        String jsp = Files.readString(CONFIGURE_SMS_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("aria-describedby=\"senderNumberHelp\"")
+                .contains("<div class=\"form-text\" id=\"senderNumberHelp\"><fmt:message key=\"sms.config.senderNumberHelp\"/></div>");
+    }
+
     private static Path projectRoot() {
         return Path.of(System.getProperty("maven.multiModuleProjectDirectory", System.getProperty("user.dir")));
     }

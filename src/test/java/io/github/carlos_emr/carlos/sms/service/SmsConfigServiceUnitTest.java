@@ -377,6 +377,22 @@ class SmsConfigServiceUnitTest {
     }
 
     @Test
+    @DisplayName("a double-click on a save that chose a provider again is recognized, though the field showed the other's number")
+    void shouldRecognizeAlreadySaved_whenSwapBackIsClickedTwice() {
+        SmsConfig stored = storedAt(null, "111111");
+        when(smsConfigDao.findCurrent()).thenAnswer(invocation -> Optional.of(stored));
+        service().save(update(SmsProviderType.VOIPMS, false, "613-555-0100", "", false, Map.of()), "111111");
+        service().save(update(SmsProviderType.STUB, false, "613-555-0199", "", false, Map.of()), "111111");
+        SmsConfigUpdateDto swapBack = update(SmsProviderType.VOIPMS, false, "613-555-0199", "", false, Map.of());
+        service().save(swapBack, "111111");
+
+        assertThat(stored.getSenderNumber()).isEqualTo("+16135550100");
+        assertThat(service().alreadySaved(swapBack, "111111")).isTrue();
+        assertThat(service().alreadySaved(update(SmsProviderType.VOIPMS, false, "613-555-0111", "", false, Map.of()),
+                "111111")).as("a number no provider has").isFalse();
+    }
+
+    @Test
     @DisplayName("a double-click is not recognized when a stored secret cannot be read or a stale credential remains")
     void shouldNotRecognizeAlreadySaved_whenStoredSecretsDiffer() throws Exception {
         SmsConfig stored = storedAt(1, "111111");
@@ -560,8 +576,8 @@ class SmsConfigServiceUnitTest {
     }
 
     @Test
-    @DisplayName("what a provider needs counts stored credentials only when they are that provider's")
-    void shouldCountStoredCredentials_onlyForSameProvider() {
+    @DisplayName("what a provider needs counts the credentials stored for that provider, also when the save swaps to it")
+    void shouldCountStoredCredentials_ofChosenProvider() {
         SmsConfig stored = new SmsConfig();
         stored.setProviderType(SmsProviderType.VOIPMS);
         stored.setCredential("field_one", "value one");
@@ -574,12 +590,12 @@ class SmsConfigServiceUnitTest {
 
         stored.setProviderType(SmsProviderType.STUB);
         assertThat(service().providerNeeds(update(SmsProviderType.VOIPMS, true, "", "", false, Map.of()))
-                .storedCredentials()).as("saving the swap clears them").isEmpty();
+                .storedCredentials()).as("choosing VOIPMS again keeps them").containsExactly("field_one");
     }
 
     @Test
-    @DisplayName("choosing another provider clears every stored credential, even one the new provider declares")
-    void shouldClearCredentials_whenProviderChanges() {
+    @DisplayName("choosing another provider keeps every provider's credentials, and only the selected one is handed its own")
+    void shouldKeepCredentials_whenProviderChanges() {
         SmsConfig stored = new SmsConfig();
         stored.setProviderType(SmsProviderType.STUB);
         stored.setWebhookSecret("webhook-value");
@@ -588,12 +604,128 @@ class SmsConfigServiceUnitTest {
 
         service().save(update(SmsProviderType.VOIPMS, false, "", "", false, Map.of()), "999998");
 
-        assertThat(stored.credentialNames()).isEmpty();
+        assertThat(stored.credentialNames()).as("VOIPMS has none of its own yet").isEmpty();
+        assertThat(service().providerSettings(SmsProviderType.VOIPMS).credential("field_one"))
+                .as("never handed another provider's login under the same field name").isEmpty();
+        assertThat(stored.getCredential(SmsProviderType.STUB, "field_one")).as("kept for STUB")
+                .isEqualTo("another provider's value");
         assertThat(stored.getWebhookSecret()).as("CARLOS's own secret is kept").isEqualTo("webhook-value");
 
         service().save(update(SmsProviderType.VOIPMS, false, "", "", false, Map.of("field_one", "typed")), "999998");
         service().save(update(SmsProviderType.VOIPMS, true, "", "", false, Map.of()), "999998");
         assertThat(stored.getCredential("field_one")).as("same provider: a blank field keeps it").isEqualTo("typed");
+    }
+
+    @Test
+    @DisplayName("swapping away and back restores the first provider's login and sender number without retyping them")
+    void shouldRestoreLoginAndSenderNumber_whenSwappingBack() {
+        SmsConfig stored = storedAt(null, "999998");
+        when(smsConfigDao.findCurrent()).thenAnswer(invocation -> Optional.of(stored));
+        service().save(update(SmsProviderType.VOIPMS, true, "613-555-0100", "", false,
+                Map.of("field_one", "voipms-user", "field_two", "voipms-optional")), "999998");
+
+        service().save(update(SmsProviderType.CLOUDLI, true, "613-555-0100", "", false, Map.of()), "999998");
+        service().save(update(SmsProviderType.CLOUDLI, true, "613-555-0199", "", false, Map.of()), "999998");
+        assertThat(stored.getSenderNumber()).isEqualTo("+16135550199");
+
+        SmsConfigUpdateDto swapBack = update(SmsProviderType.VOIPMS, true, "613-555-0199", "", false, Map.of());
+        assertThat(new SmsConfigValidator().validate(swapBack, service().installedProviders(),
+                service().providerNeeds(swapBack))).as("nothing to retype").isEmpty();
+        service().save(swapBack, "999998");
+
+        SmsProviderSettings settings = service().readyProviderSettings(SmsProviderType.VOIPMS);
+        assertThat(settings.credential("field_one")).contains("voipms-user");
+        assertThat(settings.credential("field_two")).contains("voipms-optional");
+        assertThat(settings.senderNumber()).as("the field still showed CLOUDLI's number").contains("+16135550100");
+        assertThat(stored.storedSenderNumber(SmsProviderType.CLOUDLI)).contains("+16135550199");
+        assertThat(service().providerReady(SmsProviderType.VOIPMS)).isTrue();
+    }
+
+    @Test
+    @DisplayName("a sender number typed while choosing a provider again replaces the one stored for it")
+    void shouldStoreTypedSenderNumber_whenSwappingBackWithNewNumber() {
+        SmsConfig stored = storedAt(null, "999998");
+        when(smsConfigDao.findCurrent()).thenAnswer(invocation -> Optional.of(stored));
+        service().save(update(SmsProviderType.VOIPMS, false, "613-555-0100", "", false, Map.of()), "999998");
+        service().save(update(SmsProviderType.STUB, false, "613-555-0100", "", false, Map.of()), "999998");
+        service().save(update(SmsProviderType.STUB, false, "", "", false, Map.of()), "999998");
+
+        SmsConfigUpdateDto blankAsShown = update(SmsProviderType.VOIPMS, true, "", "", false, Map.of("field_one", "x"));
+        assertThat(service().providerNeeds(blankAsShown).senderNumberKept()).isTrue();
+        service().save(update(SmsProviderType.VOIPMS, false, "416-555-1212", "", false, Map.of()), "999998");
+
+        assertThat(stored.getSenderNumber()).isEqualTo("+14165551212");
+        assertThat(stored.storedSenderNumber(SmsProviderType.VOIPMS)).contains("+14165551212");
+    }
+
+    @Test
+    @DisplayName("editing one provider's login leaves every other provider's stored login untouched")
+    void shouldLeaveOtherProvidersCredentials_whenEditingOne() {
+        SmsConfig stored = storedAt(null, "999998");
+        when(smsConfigDao.findCurrent()).thenAnswer(invocation -> Optional.of(stored));
+        service().save(update(SmsProviderType.STUB, false, "", "", false, Map.of()), "999998");
+        stored.setCredential("legacy_field", "STUB's own stale value");
+        String stubEntry = stored.storedCredentialsByProvider().get("STUB");
+
+        service().save(update(SmsProviderType.VOIPMS, false, "", "", false, Map.of("field_one", "first")), "999998");
+        service().save(update(SmsProviderType.VOIPMS, false, "", "", false, Map.of("field_one", "second")), "999998");
+
+        assertThat(stored.storedCredentialsByProvider().get("STUB")).as("byte for byte").isEqualTo(stubEntry);
+        assertThat(stored.getCredential("field_one")).isEqualTo("second");
+    }
+
+    @Test
+    @DisplayName("a row saved before per-provider entries keeps its login as the saved provider's and is rewritten as entries")
+    void shouldKeepFlatCredentials_asSavedProvidersEntry() {
+        SmsConfig stored = storedAt(null, "999998");
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential("field_one", "flat-value");
+        String encrypted = ((String) ReflectionTestUtils.getField(stored, "credentialsJson"))
+                .replaceAll(".*\"field_one\":\"([^\"]+)\".*", "$1");
+        ReflectionTestUtils.setField(stored, "credentialsJson", "{\"field_one\":\"" + encrypted + "\"}");
+        ReflectionTestUtils.setField(stored, "senderNumber", "+16135550100");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        assertThat(service().readyProviderSettings(SmsProviderType.VOIPMS).credential("field_one"))
+                .contains("flat-value");
+        service().save(update(SmsProviderType.STUB, false, "613-555-0100", "", false, Map.of()), "999998");
+
+        assertThat((String) ReflectionTestUtils.getField(stored, "credentialsJson")).contains("\"VOIPMS\":{")
+                .doesNotStartWith("{\"field_one\"");
+        assertThat(stored.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("flat-value");
+        assertThat(stored.storedSenderNumber(SmsProviderType.VOIPMS)).contains("+16135550100");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<String>> changed = ArgumentCaptor.forClass(List.class);
+        verify(auditRecorder).recordSaved(org.mockito.ArgumentMatchers.same(stored),
+                org.mockito.ArgumentMatchers.eq("999998"), changed.capture());
+        assertThat(changed.getValue()).as("rewriting the format changes no stored login; STUB keeps the clinic's number")
+                .containsExactly("providerType", "senderNumber.STUB");
+    }
+
+    @Test
+    @DisplayName("the audit names which provider's credentials or sender number changed, never a value")
+    void shouldAuditProviderNames_whenCredentialsOrSenderNumberChange() {
+        SmsConfig stored = storedAt(null, "999998");
+        when(smsConfigDao.findCurrent()).thenAnswer(invocation -> Optional.of(stored));
+        service().save(update(SmsProviderType.VOIPMS, false, "613-555-0100", "", false,
+                Map.of("field_one", "voipms-user")), "999998");
+        service().save(update(SmsProviderType.STUB, false, "613-555-0100", "", false, Map.of()), "999998");
+        service().save(update(SmsProviderType.STUB, false, "613-555-0199", "", false, Map.of()), "999998");
+        service().save(update(SmsProviderType.VOIPMS, false, "613-555-0199", "", false, Map.of()), "999998");
+        service().save(update(SmsProviderType.VOIPMS, false, "613-555-0177", "", false,
+                Map.of("field_one", "rotated-user")), "999998");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<String>> changed = ArgumentCaptor.forClass(List.class);
+        verify(auditRecorder, org.mockito.Mockito.times(5)).recordSaved(org.mockito.ArgumentMatchers.same(stored),
+                org.mockito.ArgumentMatchers.eq("999998"), changed.capture());
+        assertThat(changed.getAllValues()).containsExactly(
+                List.of("providerType", "senderNumber.VOIPMS", "credentials.VOIPMS"),
+                List.of("providerType", "senderNumber.STUB"),
+                List.of("senderNumber.STUB"),
+                List.of("providerType"),
+                List.of("senderNumber.VOIPMS", "credentials.VOIPMS"));
+        assertThat(changed.getAllValues().toString()).doesNotContain("555", "user");
     }
 
     private SmsConfigService service() {
@@ -631,7 +763,7 @@ class SmsConfigServiceUnitTest {
     }
 
     /** A row as loaded from the database: Hibernate sets the version, which has no setter. */
-    private static SmsConfig storedAt(int version, String updatedBy) {
+    private static SmsConfig storedAt(Integer version, String updatedBy) {
         SmsConfig stored = new SmsConfig();
         ReflectionTestUtils.setField(stored, "version", version);
         stored.markUpdated(updatedBy);

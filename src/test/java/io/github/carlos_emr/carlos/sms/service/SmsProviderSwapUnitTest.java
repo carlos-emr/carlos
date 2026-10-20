@@ -196,7 +196,9 @@ class SmsProviderSwapUnitTest {
                 SmsSendCommand.patientMessage(123, "416-555-1212", "FAKE", "999998"), SmsProviderType.CLOUDLI, CONSENTED);
 
         assertThat(configService.providerSettings(SmsProviderType.CLOUDLI).credential("api_user")).isEmpty();
-        assertThat(savedRow.get().credentialNames()).as("cleared with the swap").isEmpty();
+        assertThat(savedRow.get().credentialNames(SmsProviderType.CLOUDLI))
+                .as("kept for when it is chosen again, but never handed over meanwhile")
+                .containsExactlyInAnyOrder("api_user", "api_password");
 
         worker().processDueMessages(10);
 
@@ -219,6 +221,27 @@ class SmsProviderSwapUnitTest {
         assertThat(handedOver.credential("api_user")).isEmpty();
         assertThat(handedOver.credential("api_password")).isEmpty();
         assertThat(handedOver.senderNumber()).as("the clinic's own number is kept").contains(SENDER);
+    }
+
+    @Test
+    @DisplayName("choosing the provider again brings back its login and sender number in one save, ready to send")
+    void shouldSendThroughFormerProvider_whenChosenAgainWithoutRetyping() {
+        save(completeFakeSettings());
+        save(settings(SmsProviderType.STUB, true, "416-555-9999", Map.of()));
+        SmsConfigUpdateDto chooseAgain = settings(SmsProviderType.CLOUDLI, true, "416-555-9999", Map.of());
+        assertThat(validate(chooseAgain)).as("nothing to type again").isEmpty();
+        save(chooseAgain);
+
+        SmsSendResultDto result = sendService().send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "FAKE reminder", "999998"));
+
+        assertThat(result.status()).isEqualTo(SmsStatus.SENT);
+        assertThat(fake.settingsSeen).singleElement().satisfies(settings -> {
+            assertThat(settings.credential("api_user")).contains("fake-user");
+            assertThat(settings.credential("api_password")).contains("fake-password");
+            assertThat(settings.senderNumber()).as("its own number, not the one the field showed").contains(SENDER);
+        });
+        assertThat(savedRow.get().storedSenderNumber(SmsProviderType.STUB)).contains("+14165559999");
     }
 
     @Test

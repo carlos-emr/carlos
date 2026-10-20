@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Reads and saves the SMS settings from Administration &gt; SMS ({@link SmsConfig}).
@@ -61,10 +62,11 @@ import java.util.Set;
  * provider comes from {@code sms.provider.default} and the scheduler from
  * {@code sms.queue.scheduler.enabled}. Once saved, the stored values win.
  * <p>
- * Secrets are write-only: a blank webhook secret or credential keeps what is stored. Only the
- * credential fields the chosen provider declares are kept, and choosing another provider removes every
- * stored credential, so one provider's login is never handed to another that happens to use the same
- * field name. The webhook secret is CARLOS's own and is kept. Saving publishes
+ * Secrets are write-only: a blank webhook secret or credential keeps what is stored. Each provider keeps its
+ * own credentials and sender number, so choosing a provider again brings its login back without retyping it;
+ * a save changes only the chosen provider's entry, keeping only the credential fields that provider declares.
+ * Only the selected provider is ever handed its own login, so one provider's login never reaches another that
+ * happens to use the same field name. The webhook secret is CARLOS's own and is kept. Saving publishes
  * {@link SmsConfigChangedEvent} so the queue scheduler can start or stop without a restart.
  *
  * @since 2026-09-24
@@ -161,9 +163,9 @@ public class SmsConfigService {
 
     /**
      * What saving {@code update} needs before sending can be switched on: the provider's required credential
-     * fields, whether it needs a sender number, and which credentials are already stored for it. Nothing
-     * counts as stored when the update chooses another provider, because saving clears the old provider's
-     * credentials, or when a stored credential cannot be read.
+     * fields, whether it needs a sender number, which credentials are already stored for it (the chosen
+     * provider's own, also when the update swaps to it), and whether the save keeps a sender number for it
+     * with the field blank. A stored credential that cannot be read does not count.
      *
      * @param update the submitted settings
      * @return the provider's needs, for {@code SmsConfigValidator}
@@ -178,11 +180,30 @@ public class SmsConfigService {
         Set<String> required = new HashSet<>();
         client.credentialFields().stream().filter(SmsCredentialField::required)
                 .forEach(field -> required.add(field.name()));
+        Optional<SmsConfig> current = current();
         Set<String> stored = new HashSet<>();
-        current().filter(config -> config.getProviderType() == providerType).ifPresent(config ->
-                client.credentialFields().stream().map(SmsCredentialField::name)
-                        .filter(config::hasReadableCredential).forEach(stored::add));
-        return new SmsConfigValidator.ProviderNeeds(required, client.requiresSenderNumber(), stored);
+        current.ifPresent(config -> client.credentialFields().stream().map(SmsCredentialField::name)
+                .filter(name -> config.hasReadableCredential(providerType, name)).forEach(stored::add));
+        return new SmsConfigValidator.ProviderNeeds(required, client.requiresSenderNumber(), stored,
+                senderNumberToStore(current, update) != null);
+    }
+
+    /**
+     * The sender number saving {@code update} stores for its provider. The page has one sender number field,
+     * showing the selected provider's number. When the update chooses another provider and leaves that field as
+     * the page showed it, the number stored for the chosen provider comes back, if it has one; otherwise, and
+     * whenever the field was changed (or cleared), the field's number is stored.
+     *
+     * @return the E.164 number, or {@code null} for none
+     */
+    private static String senderNumberToStore(Optional<SmsConfig> stored, SmsConfigUpdateDto update) {
+        String submitted = SmsPhoneNumbers.normalizeToE164(update.senderNumber()).orElse(null);
+        if (stored.isEmpty() || update.providerType() == null
+                || stored.get().getProviderType() == update.providerType()
+                || !Objects.equals(submitted, stored.get().getSenderNumber())) {
+            return submitted;
+        }
+        return stored.get().storedSenderNumber(update.providerType()).orElse(submitted);
     }
 
     /**
@@ -230,8 +251,9 @@ public class SmsConfigService {
 
     /**
      * The settings a provider gets when it sends or looks up a text: the saved sender number and its declared
-     * credentials while it is the saved provider, otherwise none. While nothing is saved there is nothing to
-     * hand over, so every provider gets none.
+     * credentials while it is the saved provider, otherwise none, even though another provider's login stays
+     * stored for when it is chosen again. While nothing is saved there is nothing to hand over, so every provider
+     * gets none.
      *
      * @param providerType the provider about to send or look up a text
      * @return its settings
@@ -251,9 +273,9 @@ public class SmsConfigService {
         }
         Map<String, String> credentials = new HashMap<>();
         for (SmsCredentialField field : fields) {
-            if (config.hasCredential(field.name())) {
+            if (config.hasCredential(providerType, field.name())) {
                 try {
-                    credentials.put(field.name(), config.getCredential(field.name()));
+                    credentials.put(field.name(), config.getCredential(providerType, field.name()));
                 } catch (IllegalStateException e) {
                     throw new SmsProviderNotReadyException("a stored SMS provider credential cannot be decrypted", e);
                 }
@@ -322,19 +344,20 @@ public class SmsConfigService {
         if (retirementService != null) {
             retirementService.recordSelection(config.getProviderType(), update.providerType(), existing.isEmpty());
         }
-        if (existing.isPresent() && config.getProviderType() != update.providerType()) {
-            config.clearCredentials();
-        }
+        String senderNumber = senderNumberToStore(existing, update);
+        // The provider being left keeps its credentials and sender number in its own entry.
         config.setProviderType(update.providerType());
         config.setEnabled(update.enabled());
         config.setSchedulerEnabled(update.schedulerEnabled());
-        config.setSenderNumber(SmsPhoneNumbers.normalizeToE164(update.senderNumber()).orElse(null));
         if (update.clearWebhookSecret()) {
             config.setWebhookSecret(null);
         } else if (!isBlank(update.webhookSecret())) {
             config.setWebhookSecret(update.webhookSecret());
         }
         applyCredentials(config, update);
+        // After the credentials, so a save that repairs unreadable ones also stores the number in the entry, and
+        // a row saved before entries existed is written in the entry format.
+        config.setSenderNumber(senderNumber);
         config.markUpdated(updatedByProviderNo);
 
         if (existing.isPresent()) {
@@ -378,14 +401,28 @@ public class SmsConfigService {
             return config.getProviderType() == update.providerType()
                     && config.isEnabled() == update.enabled()
                     && config.isSchedulerEnabled() == update.schedulerEnabled()
-                    && Objects.equals(config.getSenderNumber(),
-                            SmsPhoneNumbers.normalizeToE164(update.senderNumber()).orElse(null))
+                    && senderNumberMatches(config, update)
                     && webhookSecretMatches(config, update)
                     && credentialsMatch(config, update);
         } catch (IllegalStateException unreadable) {
             // A stored secret that cannot be decrypted cannot be shown to match.
             return false;
         }
+    }
+
+    /**
+     * Whether the submitted sender number is what the save stored: the selected provider's number, or, for the
+     * second click on a save that swapped providers, the number the page still showed for the provider it left,
+     * which that provider keeps.
+     */
+    private static boolean senderNumberMatches(SmsConfig config, SmsConfigUpdateDto update) {
+        String submitted = SmsPhoneNumbers.normalizeToE164(update.senderNumber()).orElse(null);
+        if (Objects.equals(config.getSenderNumber(), submitted)) {
+            return true;
+        }
+        return submitted != null && config.storedSenderNumbers().entrySet().stream()
+                .anyMatch(stored -> !stored.getKey().equals(config.getProviderType().name())
+                        && stored.getValue().equals(submitted));
     }
 
     private static boolean webhookSecretMatches(SmsConfig config, SmsConfigUpdateDto update) {
@@ -396,13 +433,14 @@ public class SmsConfigService {
     }
 
     private boolean credentialsMatch(SmsConfig config, SmsConfigUpdateDto update) {
-        Set<String> declared = declaredNames(update.providerType());
-        if (!config.credentialsReadable() || !declared.containsAll(config.credentialNames())) {
+        SmsProviderType providerType = update.providerType();
+        Set<String> declared = declaredNames(providerType);
+        if (!config.credentialsReadable() || !declared.containsAll(config.credentialNames(providerType))) {
             return false;
         }
         for (String field : declared) {
             String value = update.credentials().get(field);
-            if (!isBlank(value) && !sameSecret(value, config.getCredential(field))) {
+            if (!isBlank(value) && !sameSecret(value, config.getCredential(providerType, field))) {
                 return false;
             }
         }
@@ -461,29 +499,31 @@ public class SmsConfigService {
         return names;
     }
 
+    /** Updates the chosen provider's credentials only; every other provider's entry is left as it is. */
     private void applyCredentials(SmsConfig config, SmsConfigUpdateDto update) {
         if (!config.credentialsReadable()) {
             // Values that cannot be parsed are lost already; dropping them lets any save repair the row, even
             // for a provider that declares no credentials and so would never rewrite them.
             config.clearCredentials();
         }
-        Set<String> declared = declaredNames(update.providerType());
-        for (String stored : config.credentialNames()) {
+        SmsProviderType providerType = update.providerType();
+        Set<String> declared = declaredNames(providerType);
+        for (String stored : config.credentialNames(providerType)) {
             if (!declared.contains(stored)) {
-                config.setCredential(stored, null);
+                config.setCredential(providerType, stored, null);
             }
         }
-        for (SmsCredentialField field : credentialFields(update.providerType())) {
+        for (SmsCredentialField field : credentialFields(providerType)) {
             String value = update.credentials().get(field.name());
             if (!isBlank(value)) {
-                config.setCredential(field.name(), value);
-            } else if (!field.required() && config.hasCredential(field.name())
-                    && !config.hasReadableCredential(field.name())) {
+                config.setCredential(providerType, field.name(), value);
+            } else if (!field.required() && config.hasCredential(providerType, field.name())
+                    && !config.hasReadableCredential(providerType, field.name())) {
                 // An optional value that no longer decrypts, left blank because the page showed it as not stored,
                 // would block every send until something was typed into its field, so it is dropped. A required
                 // one is kept, in case the encryption key is put right: sending stays blocked until it is entered
                 // again either way.
-                config.setCredential(field.name(), null);
+                config.setCredential(providerType, field.name(), null);
             }
         }
     }
@@ -493,14 +533,22 @@ public class SmsConfigService {
     }
 
     /**
-     * What the audit record compares: values for the plain settings, and only fingerprints of the stored
-     * (encrypted) secret and credentials, so a change can be named without reading any secret.
+     * What the audit record compares: values for the plain settings, each provider's stored sender number, and
+     * only fingerprints of the stored (encrypted) secret and of each provider's credentials, so a change can be
+     * named, with the provider it belongs to, without reading any secret. Choosing a provider whose number and
+     * login are already stored changes only {@code providerType}: no stored number or credential changed.
+     *
+     * @param credentialsStored each provider's encrypted credentials, or {@code null} when they cannot be read
+     * @param credentialsColumn the credentials column as stored, compared only when they cannot be read
      */
     private record Snapshot(boolean stored, SmsProviderType providerType, boolean enabled, boolean schedulerEnabled,
-                            String senderNumber, String webhookSecretStored, String credentialsStored) {
+                            Map<String, String> senderNumbers, String webhookSecretStored,
+                            Map<String, String> credentialsStored, String credentialsColumn) {
         static Snapshot of(SmsConfig config, boolean stored) {
             return new Snapshot(stored, config.getProviderType(), config.isEnabled(), config.isSchedulerEnabled(),
-                    config.getSenderNumber(), config.storedWebhookSecret(), config.storedCredentials());
+                    config.storedSenderNumbers(), config.storedWebhookSecret(),
+                    config.credentialsReadable() ? config.storedCredentialsByProvider() : null,
+                    config.storedCredentials());
         }
 
         List<String> changedFields(Snapshot after) {
@@ -517,16 +565,33 @@ public class SmsConfigService {
             if (schedulerEnabled != after.schedulerEnabled) {
                 changed.add("schedulerEnabled");
             }
-            if (!Objects.equals(senderNumber, after.senderNumber)) {
-                changed.add("senderNumber");
-            }
+            changedByProvider("senderNumber", senderNumbers, after.senderNumbers, changed);
             if (!Objects.equals(webhookSecretStored, after.webhookSecretStored)) {
                 changed.add("webhookSecret");
             }
-            if (!Objects.equals(credentialsStored, after.credentialsStored)) {
-                changed.add("credentials");
+            if (credentialsStored == null || after.credentialsStored == null) {
+                // Credentials that cannot be read cannot be told apart by provider.
+                if (!Objects.equals(credentialsColumn, after.credentialsColumn)) {
+                    changed.add("credentials");
+                }
+            } else {
+                changedByProvider("credentials", credentialsStored, after.credentialsStored, changed);
             }
             return changed;
+        }
+
+        /** Adds {@code <setting>.<PROVIDER>} for each provider whose stored value differs, in provider order. */
+        private static void changedByProvider(String setting, Map<String, String> before, Map<String, String> after,
+                                              List<String> changed) {
+            new TreeSet<>(union(before.keySet(), after.keySet())).stream()
+                    .filter(provider -> !Objects.equals(before.get(provider), after.get(provider)))
+                    .forEach(provider -> changed.add(setting + "." + provider));
+        }
+
+        private static Set<String> union(Set<String> first, Set<String> second) {
+            Set<String> all = new HashSet<>(first);
+            all.addAll(second);
+            return all;
         }
     }
 }
