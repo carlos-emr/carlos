@@ -50,7 +50,7 @@ import java.util.Set;
 @Transactional(propagation = Propagation.MANDATORY)
 public class SmsProviderRetirementService {
     /** Closes a retired provider's waiting text that was queued again, as a new row, for the selected provider. */
-    static final String QUEUE_PROVIDER_MOVED_CODE = "QUEUE_PROVIDER_MOVED";
+    public static final String QUEUE_PROVIDER_MOVED_CODE = "QUEUE_PROVIDER_MOVED";
     /**
      * Retry codes whose attempt definitely sent nothing: the provider refused the text, or CARLOS could not check
      * consent and never called the provider. A stale send the provider did not find

@@ -541,9 +541,20 @@ public class SmsConfigService {
      * @param credentialsStored each provider's encrypted credentials, or {@code null} when they cannot be read
      * @param credentialsColumn the credentials column as stored, compared only when they cannot be read
      */
-    private record Snapshot(boolean stored, SmsProviderType providerType, boolean enabled, boolean schedulerEnabled,
-                            Map<String, String> senderNumbers, String webhookSecretStored,
-                            Map<String, String> credentialsStored, String credentialsColumn) {
+    record Snapshot(boolean stored, SmsProviderType providerType, boolean enabled, boolean schedulerEnabled,
+                    Map<String, String> senderNumbers, String webhookSecretStored,
+                    Map<String, String> credentialsStored, String credentialsColumn) {
+        /** Names providers only: the stored values are ciphertexts and the clinic's numbers, never for a log. */
+        @Override
+        public String toString() {
+            return "Snapshot[stored=" + stored + ", providerType=" + providerType + ", enabled=" + enabled
+                    + ", schedulerEnabled=" + schedulerEnabled
+                    + ", senderNumberProviders=" + (senderNumbers == null ? "[]" : new TreeSet<>(senderNumbers.keySet()))
+                    + ", webhookSecretStored=" + (webhookSecretStored != null)
+                    + ", credentialProviders=" + (credentialsStored == null ? "unreadable"
+                    : new TreeSet<>(credentialsStored.keySet())) + "]";
+        }
+
         static Snapshot of(SmsConfig config, boolean stored) {
             return new Snapshot(stored, config.getProviderType(), config.isEnabled(), config.isSchedulerEnabled(),
                     config.storedSenderNumbers(), config.storedWebhookSecret(),

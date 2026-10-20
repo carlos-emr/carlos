@@ -769,4 +769,18 @@ class SmsConfigServiceUnitTest {
         stored.markUpdated(updatedBy);
         return stored;
     }
+
+    @Test
+    @DisplayName("a settings snapshot names providers only and never prints stored secrets or numbers")
+    void shouldNameProvidersOnly_whenSnapshotIsPrinted() {
+        SmsConfigService.Snapshot snapshot = new SmsConfigService.Snapshot(true, SmsProviderType.STUB, true, false,
+                Map.of("STUB", "+15555550100"), "{ENC}FAKE-webhook-cipher",
+                Map.of("STUB", "{ENC}FAKE-credential-cipher", "CLOUDLI", "{ENC}FAKE-other-cipher"),
+                "{\"STUB\":{}}");
+
+        assertThat(snapshot.toString())
+                .contains("STUB", "CLOUDLI", "webhookSecretStored=true")
+                .doesNotContain("FAKE-webhook-cipher", "FAKE-credential-cipher", "FAKE-other-cipher", "5555550100",
+                        "{ENC}");
+    }
 }
