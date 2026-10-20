@@ -34,7 +34,8 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins where the patient record's "Text Messages" section (#3839) sits in {@code demographic/edit.jsp}.
+ * Pins where the patient record's "Text Messages" section (#3839) sits in the record's navigation,
+ * {@code demographic/patient-nav.jsp}, which the record ({@code edit.jsp}) and the patient portal page share.
  *
  * <p>The left column lists the appointment history link and, when the waiting list is turned on, the
  * waiting-list link under the same appointment heading. The SMS section brings its own heading, so it must
@@ -49,18 +50,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("regression")
 class DemographicEditSmsHistoryPlacementRegressionTest {
 
-    private static final Path MASTER_JSP = Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit.jsp");
+    private static final Path NAV_JSP = Path.of("src/main/webapp/WEB-INF/jsp/demographic/patient-nav.jsp");
     private static final String SMS_HISTORY_ROW = "id=\"sms_hx\"";
     private static final String APPOINTMENT_HISTORY_ROW = "id=\"appt_hx\"";
-    private static final String WAITING_LIST_LINK = "/waitinglist/SetupDisplayPatientWaitingList";
+    private static final String WAITING_LIST_LINK = "nav.waitingListUrl";
     private static final String HEADER_ROW = "class=\"Header\"";
-    private static final Pattern CLOSE_BLOCK = Pattern.compile("<%\\s*}\\s*%>");
+    // The waiting-list row is wrapped in <c:if test="${nav.waitingListShown}">.
+    private static final Pattern CLOSE_BLOCK = Pattern.compile("</c:if>");
     private static final String BILLING_SECTION = "objectName=\"_billing\"";
 
     @Test
     @DisplayName("should place the SMS history section after the waiting-list block and before billing")
     void shouldPlaceSmsSection_afterWaitingListBlock() throws Exception {
-        String jsp = Files.readString(resolveProjectPath(MASTER_JSP), StandardCharsets.UTF_8);
+        String jsp = Files.readString(resolveProjectPath(NAV_JSP), StandardCharsets.UTF_8);
 
         int waitingListLink = jsp.indexOf(WAITING_LIST_LINK);
         int waitingListClose = indexOf(CLOSE_BLOCK, jsp, waitingListLink);
@@ -80,7 +82,7 @@ class DemographicEditSmsHistoryPlacementRegressionTest {
     @Test
     @DisplayName("should keep the waiting-list link under the appointment heading, with no other heading between")
     void shouldKeepWaitingListLink_underAppointmentHeading() throws Exception {
-        String jsp = Files.readString(resolveProjectPath(MASTER_JSP), StandardCharsets.UTF_8);
+        String jsp = Files.readString(resolveProjectPath(NAV_JSP), StandardCharsets.UTF_8);
 
         int appointmentHistoryRow = jsp.indexOf(APPOINTMENT_HISTORY_ROW);
         int waitingListLink = jsp.indexOf(WAITING_LIST_LINK);

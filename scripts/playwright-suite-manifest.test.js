@@ -245,6 +245,16 @@ test('core runs exclude incoming PDF fixtures while explicit selection retains t
   assert.deepEqual(explicit.map((check) => check.name), ['incoming-pdf-extraction']);
 });
 
+// Finding 193: the standard devcontainer demo doctor lacks _sms and _msgSMS.
+test('core runs exclude SMS history while supported deployment selections retain it', () => {
+  const core = selectChecks(checks, parseArguments(['--tier', 'core']));
+  assert.ok(!core.some((check) => check.name === 'sms-history'));
+  const extended = selectChecks(checks, parseArguments(['--tier', 'extended']));
+  assert.ok(extended.some((check) => check.name === 'sms-history'));
+  const explicit = selectChecks(checks, parseArguments(['--only', 'sms-history']));
+  assert.deepEqual(explicit.map((check) => check.name), ['sms-history']);
+});
+
 // Parsing does not open browsers or require a deployment. Catch duplicate imports
 // and other syntax errors even when a live workflow is not scheduled in CI.
 test('every registered browser check parses before it can be scheduled', () => {

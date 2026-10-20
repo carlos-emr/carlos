@@ -120,6 +120,7 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
         consentIs(EmailConsentStatus.OPT_IN);
         emailManager = new EmailManager(consentResolver, new EmailSenderFactory(), securityInfoManager,
                 archiveService);
+        injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "oscarLogDao", mock(OscarLogDao.class));

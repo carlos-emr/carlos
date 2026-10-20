@@ -46,6 +46,7 @@
     "test:logout-broadcast-playwright": "node scripts/logout-broadcast-playwright-checks.js",
     "test:encounter-header-i18n-playwright": "node scripts/encounter-header-i18n-playwright-checks.js",
     "test:echart-playwright": "node scripts/echart-playwright-checks.js",
+    "test:echart-display-preferences-playwright": "node scripts/echart-display-preferences-playwright-checks.js",
     "test:echart-new-patient-playwright": "node scripts/echart-new-patient-notes-playwright-checks.js",
     "test:echart-print-playwright": "node scripts/echart-print-playwright-checks.js",
     "test:cpp-note-extension-archive-playwright": "node scripts/cpp-note-extension-archive-playwright-checks.js",
@@ -70,6 +71,7 @@
     "test:edoc-schedule-nav-playwright": "node scripts/edoc-schedule-navigation-playwright-checks.js",
     "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js",
     "test:schedule-setting-playwright": "node scripts/schedule-setting-playwright-checks.js",
+    "test:portal-booking-playwright": "node scripts/portal-booking-prompt-playwright-checks.js",
     "test:scripts": "node --test scripts/*.test.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
     "test:tickler-attachments-playwright": "node scripts/tickler-attachments-playwright-checks.js",
@@ -96,6 +98,7 @@
     "test:eform-rtl-attachment-pdf-playwright": "node scripts/eform-rtl-attachment-pdf-playwright-checks.js",
     "test:eform-rtl-print-pdf-playwright": "node scripts/eform-rtl-print-pdf-playwright-checks.js",
     "test:eform-rtl-signature-stamp-playwright": "node scripts/eform-rtl-signature-stamp-playwright-checks.js",
+    "test:eform-rtl-side-panel-playwright": "node scripts/eform-rtl-side-panel-playwright-checks.js",
     "test:consultation-signature-playwright": "node scripts/consultation-signature-playwright-checks.js",
     "test:consultation-signature-submit-playwright": "node scripts/consultation-signature-submit-playwright-checks.js",
     "test:prescription-signature-playwright": "node scripts/prescription-signature-playwright-checks.js",
@@ -319,6 +322,8 @@
     "test:rx-edit-discontinue-playwright": "node scripts/rx-edit-discontinue-playwright-checks.js",
     "test:admin-api-keygen-playwright": "node scripts/admin-api-keygen-playwright-checks.js",
     "test:admin-email-config-playwright": "node scripts/admin-email-config-playwright-checks.js",
+    "test:email-footer-settings-playwright": "node scripts/email-footer-settings-playwright-checks.js",
+    "test:email-personal-footer-window-playwright": "node scripts/email-personal-footer-window-playwright-checks.js",
     "test:eform-email-attachment-binding-playwright": "node scripts/eform-email-attachment-binding-playwright-checks.js",
     "test:admin-role-management-playwright": "node scripts/admin-role-management-playwright-checks.js",
     "test:document-refile-combine-playwright": "node scripts/document-refile-combine-playwright-checks.js",
@@ -606,7 +611,8 @@
     "test:popup-opener-document-add-playwright": "node scripts/popup-opener-document-add-playwright-checks.js",
     "test:contact-editor-playwright": "node scripts/contact-editor-playwright-checks.js",
     "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js",
-    "test:jasper-production-playwright": "node scripts/jasper-production-playwright-checks.js"
+    "test:jasper-production-playwright": "node scripts/jasper-production-playwright-checks.js",
+    "test:sms-history-playwright": "node scripts/sms-history-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

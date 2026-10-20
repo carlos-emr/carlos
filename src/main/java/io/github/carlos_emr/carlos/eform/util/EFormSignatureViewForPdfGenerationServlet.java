@@ -54,10 +54,13 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 
     /** Matches a {@code digitalSignatureId=<n>} reference in a stored eForm value's query string. */
     // Accept the reference as a first query parameter ("?digitalSignatureId="), a raw subsequent
-    // parameter ("&digitalSignatureId="), or its HTML-escaped form ("&amp;digitalSignatureId=").
-    // The "amp;" is scoped to the "&" branch only, so a malformed "?amp;digitalSignatureId=" (neither
-    // a raw parameter nor a valid escape) is NOT accepted.
-    private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("(?:\\?|&(?:amp;)?)digitalSignatureId=(\\d+)");
+    // parameter ("&digitalSignatureId="), its HTML-escaped form ("&amp;digitalSignatureId="), or the
+    // form the Rich Text Letter stores ("&amp;amp;digitalSignatureId="): the editor serializes the
+    // signature image's src with "&amp;", and saveRTL() escapes the serialized letter once more
+    // before it is submitted, so without that form no signed letter could be printed with its
+    // signature. The "amp;" is scoped to the "&" branch only, so a malformed
+    // "?amp;digitalSignatureId=" (neither a raw parameter nor a valid escape) is NOT accepted.
+    private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("(?:\\?|&(?:amp;){0,2})digitalSignatureId=(\\d+)");
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {

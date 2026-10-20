@@ -31,7 +31,7 @@ These rules are fixed in code, and no choice below loosens them.
 - **Only the leaf key is pinned.** Pinning an issuing CA to survive key changes is not supported.
 - **Settings are read once.** CARLOS reads the portal settings the first time the portal is used
   after a start, and keeps them. Every pin change needs a restart, and a restart alone proves
-  nothing: after each one, open a patient's **Patient portal** page to make CARLOS load the new
+  nothing: after each one, open a patient's **Patient Portal** page to make CARLOS load the new
   settings and show any error.
 - **A wrong pin fails before any request.** The pin is checked during the TLS handshake, so CARLOS
   sends nothing, not even the service token, to an endpoint whose key does not match.
@@ -42,7 +42,7 @@ These rules are fixed in code, and no choice below loosens them.
   email too: CARLOS refuses every encrypted send until the portal is back. Unencrypted email is
   unaffected.
   - To switch it off, set `patient_portal.enabled=false`, restart CARLOS, and confirm the
-    **Patient portal** entry is gone from a patient's record. The switch comes with
+    **Patient Portal** entry is gone from a patient's record. The switch comes with
     [#3934](https://github.com/carlos-emr/carlos/pull/3934) (re-landed on `develop` by
     [#4306](https://github.com/carlos-emr/carlos/pull/4306)); a build has it only if its
     `carlos.properties` documents `patient_portal.enabled`.
@@ -157,7 +157,7 @@ nginx must serve the **full chain**: Java does not fetch missing intermediates, 
   `new-fullchain.pem` exists, a run deletes the other two files); upload `live.csr`; save the
   result as `new-cert.pem`, `new-chain.pem` and `new-fullchain.pem` in `/etc/portal-tls`; run the
   renewal job once (`/usr/local/sbin/portal-tls-renew`), which checks and installs them; start the
-  renewal job again; and open the **Patient portal** page.
+  renewal job again; and open the **Patient Portal** page.
 
 ### First setup
 
@@ -212,7 +212,7 @@ Then:
    certificate the portal serves.
 6. Set `patient_portal.enabled=true` (on a build with the switch; see
    [What CARLOS enforces](#what-carlos-enforces)), restart CARLOS and open a patient's
-   **Patient portal** page;
+   **Patient Portal** page;
    it loads without a portal error. The CARLOS log can confirm the pin count with
    `patient portal transport: certificate pinning active (2 pin(s))`, but that line is written at
    INFO and CARLOS logs at WARN by default. To see it, set `LOG_VERBOSITY=info` for that start (on
@@ -410,7 +410,7 @@ follow the next section instead.
    replacing `live` with `next`, and have the pin checked by a second person. The renewal job
    ignores these files, so it keeps running until step 3.
 2. Add the new pin to `patient_portal.certificate.pins` (now live, next and standby) and to
-   `approved-pins.txt`. Restart CARLOS and open a patient's **Patient portal** page; it must load
+   `approved-pins.txt`. Restart CARLOS and open a patient's **Patient Portal** page; it must load
    without a portal error. If it does not, remove the new pin from the setting and from
    `approved-pins.txt`, restart, and stop here.
 3. Stop the renewal job. Issue a certificate for `next.csr` and make it the live set, keeping the
@@ -454,7 +454,7 @@ follow the next section instead.
    openssl x509 -in /etc/portal-tls/fullchain.pem -noout -fingerprint -sha256
    ```
 
-   Open the **Patient portal** page; it must load. If either check fails, or step 3 stopped after
+   Open the **Patient Portal** page; it must load. If either check fails, or step 3 stopped after
    the swap, roll back and stop. If only some `previous-` files exist (the swap stopped part-way),
    do not run the rollback block: move each `previous-<name>` back to `<name>` by hand.
 
@@ -548,7 +548,7 @@ before step 5. Replace the key as follows; if the key is compromised, do step 3 
    ```
 
 5. Do steps 3 and 4 of the first setup (issue the certificate, point nginx at it and reload). Start
-   the renewal job and open the **Patient portal** page; it must load. The log shows 2 pins, or 1
+   the renewal job and open the **Patient Portal** page; it must load. The log shows 2 pins, or 1
    if the standby key was installed. Remove `LOG_VERBOSITY` and restart.
 6. Revoke the old certificate through your certificate authority account
    (`certbot revoke --cert-path /etc/portal-tls/previous-cert.pem --reason superseded
@@ -583,7 +583,7 @@ rotation commands, which need `live.key`, `live.csr` and the certificate files o
    directory, email or a ticket, and `chmod 600 /etc/portal-tls/next.key`. Then issue and install them by running
    **only the command block** of rotation step 3: never the rotation's failure instructions, its
    step 4 rollback or its step 5, which would bring the stolen key back. Open the
-   **Patient portal** page; it must load. If this fails, switch the portal off and leave the
+   **Patient Portal** page; it must load. If this fails, switch the portal off and leave the
    renewal job stopped until it is fixed; never put the old pin back.
 3. If the key was compromised, revoke its certificate, proving it with the key itself so the CA can
    block the key:
@@ -631,7 +631,7 @@ Do these on the production installation, in a maintenance window (the wrong-pin 
 portal unavailable for two restarts), and record the date and names. Green repository CI and a
 passed staging run are not evidence that a live installation is protected.
 
-- [ ] **The right portal connects.** Open a test patient's **Patient portal** page in CARLOS; it
+- [ ] **The right portal connects.** Open a test patient's **Patient Portal** page in CARLOS; it
       loads without a portal error.
 - [ ] **A wrong pin fails before any request.** Replace the pins with a random, correctly formed
       pin (`printf 'sha256/'; openssl rand -base64 32`; a malformed pin tests only the settings
@@ -654,7 +654,7 @@ Until each item is done, the deployment record says *not yet verified in product
 
 Search the CARLOS log for `portal transport failed: TLS handshake`. It appears as the cause under
 `patient portal panel section invites could not be read: kind=TRANSPORT_FAILURE` (or section
-`account`, from the **Patient portal** page) or `patient portal call failed: kind=TRANSPORT_FAILURE`
+`account`, from the **Patient Portal** page) or `patient portal call failed: kind=TRANSPORT_FAILURE`
 (from an invite or account action). The same line covers a pin mismatch, an expired certificate, an
 untrusted issuer, a missing intermediate and a hostname mismatch. (A malformed pin logs
 `patient portal configuration is invalid; check deployment settings` instead.) Portal features stop,

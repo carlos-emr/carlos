@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -154,7 +155,7 @@ public class EmailCompose2Action extends ActionSupport {
         "isEmailAttachmentEncrypted", "isEmailAutoSend",
         "openEFormAfterEmail", "senderEmail", "subjectEmail",
         "bodyEmail", "encryptedMessageEmail",
-        "emailPatientChartOption"
+        "emailPatientChartOption", "footerEmail"
     };
 
 
@@ -357,7 +358,8 @@ public class EmailCompose2Action extends ActionSupport {
                 isEmailAttachmentEncrypted,
                 shouldAutoSendEmail(staged.isEmailAutoSend(), isEmailEncrypted),
                 staged.emailPatientChartOption(),
-                previews);
+                previews,
+                staged.footerEmail());
 
         PreparedEmailComposeView prepared;
         try {
@@ -369,7 +371,8 @@ public class EmailCompose2Action extends ActionSupport {
                             demographicId,
                             staged.fdid(),
                             isTrue(staged.openEFormAfterEmail()),
-                            isTrue(staged.deleteEFormAfterEmail())),
+                            isTrue(staged.deleteEFormAfterEmail())).withClinicFooter(
+                                    SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class).snapshot()),
                     workingDirectory,
                     view);
         } catch (SecurityException e) {
@@ -403,6 +406,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken</li>
      *   <li>emailAttachmentList (display copies carrying each file's current preview token)</li>
      *   <li>senderEmail, subjectEmail, message, emailPatientChartOption, demographicId, fdid, fid</li>
+     *   <li>footerEmail (see {@link #resolveComposeFooter})</li>
      *   <li>openEFormAfterEmail, deleteEFormAfterEmail, isEmailEncrypted,
      *       isEmailAttachmentEncrypted, isEmailAutoSend</li>
      * </ul>
@@ -462,6 +466,13 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("senderEmail", view.senderEmail());
         request.setAttribute("subjectEmail", view.subjectEmail());
         request.setAttribute("message", view.message());
+        String personalDefault = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
+                .ownFooter(loggedInInfo.getLoggedInProviderNo());
+        request.setAttribute("footerEmail", resolveComposeFooter(view.footerEmail(), personalDefault));
+        request.setAttribute("personalFooterRevision",
+                io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf(
+                        loggedInInfo.getLoggedInProviderNo(), personalDefault));
+        io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, context.clinicFooter());
         request.setAttribute("emailPatientChartOption", view.emailPatientChartOption());
         request.setAttribute(DEMOGRAPHIC_ID_KEY, context.demographicId());
         request.setAttribute("fdid", context.fdid());
@@ -476,6 +487,24 @@ public class EmailCompose2Action extends ActionSupport {
                 prepared.emailPDFPasswordToken());
 
         return "compose";
+    }
+
+    /**
+     * Picks the footer the compose screen opens with (issue #3981): the footer the eForm staged,
+     * otherwise the saved personal default. A supplied blank value means no personal text. Staff can change it before sending, in the
+     * Edit footer window.
+     *
+     * @param stagedFooter footer the eForm posted, as plain text, or null
+     * @return the footer as formatted HTML (an eForm's line breaks kept), never null
+     */
+    static String resolveComposeFooter(String stagedFooter) {
+        return resolveComposeFooter(stagedFooter, "");
+    }
+
+    /** An explicitly empty per-message eForm footer suppresses the personal default only. */
+    static String resolveComposeFooter(String stagedFooter, String personalDefault) {
+        return stagedFooter == null ? EmailFooterHtml.clean(personalDefault)
+                : EmailFooterHtml.fromPlainText(stagedFooter);
     }
 
     /**
@@ -535,7 +564,7 @@ public class EmailCompose2Action extends ActionSupport {
                 settings.demographicNo(), settings.attachedDocuments(), settings.attachedLabs(),
                 settings.attachedForms(), settings.attachedEForms(), settings.attachedHRMDocuments(),
                 settings.senderEmail(), settings.subjectEmail(), settings.bodyEmail(),
-                settings.encryptedMessageEmail(), settings.emailPatientChartOption(),
+                settings.encryptedMessageEmail(), settings.emailPatientChartOption(), settings.footerEmail(),
                 settings.isEmailEncrypted(), settings.isEmailAttachmentEncrypted(),
                 settings.isEmailAutoSend(), settings.openAfterEmail(), settings.deleteEFormAfterEmail());
     }
@@ -568,6 +597,7 @@ public class EmailCompose2Action extends ActionSupport {
             String bodyEmail,
             String encryptedMessageEmail,
             String emailPatientChartOption,
+            String footerEmail,
             Object isEmailEncrypted,
             Object isEmailAttachmentEncrypted,
             Object isEmailAutoSend,
@@ -592,6 +622,7 @@ public class EmailCompose2Action extends ActionSupport {
                     && Objects.equals(bodyEmail, that.bodyEmail)
                     && Objects.equals(encryptedMessageEmail, that.encryptedMessageEmail)
                     && Objects.equals(emailPatientChartOption, that.emailPatientChartOption)
+                    && Objects.equals(footerEmail, that.footerEmail)
                     && Objects.equals(isEmailEncrypted, that.isEmailEncrypted)
                     && Objects.equals(isEmailAttachmentEncrypted, that.isEmailAttachmentEncrypted)
                     && Objects.equals(isEmailAutoSend, that.isEmailAutoSend)
@@ -602,8 +633,8 @@ public class EmailCompose2Action extends ActionSupport {
         @Override
         public int hashCode() {
             int result = Objects.hash(fid, attachEFormItSelf, fdid, demographicId, senderEmail, subjectEmail, bodyEmail,
-                    encryptedMessageEmail, emailPatientChartOption, isEmailEncrypted, isEmailAttachmentEncrypted,
-                    isEmailAutoSend, openEFormAfterEmail, deleteEFormAfterEmail);
+                    encryptedMessageEmail, emailPatientChartOption, footerEmail, isEmailEncrypted,
+                    isEmailAttachmentEncrypted, isEmailAutoSend, openEFormAfterEmail, deleteEFormAfterEmail);
             result = 31 * result + Arrays.hashCode(attachedDocuments);
             result = 31 * result + Arrays.hashCode(attachedLabs);
             result = 31 * result + Arrays.hashCode(attachedForms);
@@ -611,7 +642,7 @@ public class EmailCompose2Action extends ActionSupport {
             return 31 * result + Arrays.hashCode(attachedHRMDocuments);
         }
 
-        /** The attachment ids only: the subject, message and addresses are patient information. */
+        /** The attachment ids only: the subject, message, footer and addresses are patient information. */
         @Override
         public String toString() {
             return "StagedCompose[fdid=" + fdid

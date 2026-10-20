@@ -267,6 +267,20 @@ public final class EncryptionUtils {
     }
 
     /**
+     * Reports whether an application encryption key has been prepared. Read-only: it never
+     * prepares, generates or replaces a key. It says nothing about whether the key is the one
+     * existing values were encrypted under. In the servlet deployment Startup creates a key when
+     * none is set and refuses to start on an invalid one, so it is false there only before Startup
+     * runs; entry points that skip Startup may see false for a missing or invalid key.
+     *
+     * @return true when {@link #encrypt(String)} and {@link #decrypt(String)} have a key to use
+     * @since 2026-09-24
+     */
+    public static boolean isKeyConfigured() {
+        return SECRET_KEY_SPEC != null;
+    }
+
+    /**
      * Generates a secure hash of the given password using the PasswordHashHelper.
      *
      * @see PasswordHashHelper#encodePassword(CharSequence) 

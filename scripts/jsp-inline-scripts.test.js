@@ -263,8 +263,24 @@ test('the document browser link carries a scope token, never the patient-named h
   assert.equal(browserLinks.length, 1);
   assert.match(browserLinks[0], /&categorykey=<%= currentScope %>/);
   assert.doesNotMatch(browserLinks[0], /currentkey/);
-  const edit = fs.readFileSync(path.join(WEBAPP, 'WEB-INF/jsp/demographic/edit.jsp'), 'utf8');
-  assert.match(edit, /ViewDocumentBrowser\?[^']*&categorykey=private'/);
+  // The master record and the patient portal page show the link from the shared patient-nav.jsp,
+  // which prints the one URL PatientNavModel builds; neither page may build its own.
+  for (const page of ['demographic/edit.jsp', 'demographic/portalManage.jsp']) {
+    const source = fs.readFileSync(path.join(WEBAPP, 'WEB-INF/jsp', page), 'utf8');
+    assert.match(source, /<jsp:include page="\/WEB-INF\/jsp\/demographic\/patient-nav\.jsp"\/>/, `${page} must use the shared nav`);
+    assert.doesNotMatch(source, /ViewDocumentBrowser/, `${page} must not keep its own document browser link`);
+  }
+  const nav = fs.readFileSync(path.join(WEBAPP, 'WEB-INF/jsp/demographic/patient-nav.jsp'), 'utf8');
+  assert.doesNotMatch(nav, /ViewDocumentBrowser|categorykey|currentkey/, 'patient-nav.jsp must print the model URL as is');
+  assert.equal((nav.match(/nav\.documentBrowserUrl/g) || []).length, 1);
+  assert.match(nav, /<a href="\$\{carlos:forHtmlAttribute\(nav\.documentBrowserUrl\)\}"/);
+  const model = fs.readFileSync(path.join(ROOT,
+    'src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/PatientNavModel.java'), 'utf8');
+  const modelLinks = model.match(/ViewDocumentBrowser\?[^;]*;/g) || [];
+  assert.equal(modelLinks.length, 1);
+  assert.match(modelLinks[0], /^ViewDocumentBrowser\?[^"]*"\s*\+\s*no\(\)\s*\+\s*"&categorykey=private";$/);
+  assert.equal((model.match(/categorykey/g) || []).length, 1);
+  assert.doesNotMatch(model, /currentkey/);
 });
 
 test('the note browser re-opens its GET-only gate with GET and keeps Print from submitting', () => {

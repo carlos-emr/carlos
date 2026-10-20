@@ -103,6 +103,153 @@ sample SMTP/API payloads, but sender records are still managed as deployment
 configuration. Confirm the selected sender account is active before using real
 patient communications.
 
+## Credential Encryption Key
+
+Sender accounts that authenticate (an SMTP password, or a provider API key such
+as SendGrid's) store that secret in `emailConfig.configDetails`. CARLOS encrypts
+it at rest with the application key `encryption.util.secret.key`, the same key
+fax credentials use. A plaintext row inserted by hand is encrypted the first
+time a send through it gets past the consent check, unless an old credential
+on the row cannot be read (see below). An unauthenticated `LOCAL` relay never
+uses a secret and is never affected; a secret left on a `LOCAL` row is reported
+once so it can be removed.
+
+**Where the key comes from.** A packaged (Debian) install gets its key from
+`carlos-ctl init-config`, which writes it to `/etc/carlos-emr/carlos.properties`.
+If no key is set at startup, CARLOS generates one and appends it to
+`<context>.properties` in the Tomcat user's home directory (for example
+`~/carlos.properties`), which it reads after the override properties file, so a
+key there takes precedence. On a packaged install that directory is not writable,
+so CARLOS refuses to start instead. It also refuses to start with an invalid key.
+A running server therefore always has a key. That makes the key itself the thing
+to protect:
+
+- **Back it up** with the rest of the server's configuration. Everything
+  encrypted with it, email and fax credentials alike, can only be decrypted with
+  that exact key.
+- **Never replace it** on a server that has been running. A new key does not
+  decrypt what the old one encrypted.
+- **If it is lost**, CARLOS may start with a newly generated key, written to the
+  home-directory file above, and the old credentials stop working. Remove the
+  generated key line from that file, restore the original key where it was
+  configured, and restart (on a packaged install, see README.Debian for restoring
+  `/etc/carlos-emr`). Any credential entered while the generated
+  key was in use then stops working in turn, so re-enter it. If the original
+  cannot be recovered, keep the new key and re-enter every account's password or
+  API key.
+
+**What a send does** before it opens any connection:
+
+| Sender account | Result |
+|---|---|
+| Encrypted credentials that decrypt with the current key | Sent. |
+| Encrypted credentials that do **not** decrypt (the key was changed or regenerated, or no key is available) | Refused. The email log records `FAILED`: "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator." An ERROR names the account id and says to restore the original key. |
+| A leftover credential the account's transport never reads (an old password on an API account, an old API key on an SMTP account) that does not decrypt | Sent on the transport's own credential, with one WARN per account asking for the leftover to be removed. The stored row is left exactly as it is: nothing in it is encrypted while it holds a value the current key cannot read. With no key available, a leftover never decides the send, and the transport's own credential is handled by the rows above and below. |
+| The same, while the transport's own credential is still plaintext (the leftover keeps it from being encrypted) and `email.credentials.require_encryption_key` is `true`, `yes` or `on` | Refused with "Email sender account holds an old credential the server's current encryption key cannot read. Contact your administrator." An ERROR names the account id and says to clear or re-enter the old credential on that sender account. With the setting off, the row above applies: sent, with the WARN saying the credential stays unencrypted. |
+| Plaintext credentials, key available | Encrypted at rest (best-effort: if that write fails, it is retried on the next send), then sent. |
+| Plaintext credentials, no key available | Only possible where CARLOS runs without its Startup listener. Sent with one WARN per account, unless `email.credentials.require_encryption_key` is `true`, `yes` or `on`: then refused with "Email sender account cannot be used until the server encryption key is configured. Contact your administrator." |
+
+Every refusal is written to the audit log as
+`EmailManager.sendEmail.refusedCredentialKey`, with a reason: `keyMismatch` (the
+current key cannot read the credentials), `keyMissing` (the credentials are
+encrypted and no key is available), `keyRequired` (plaintext credentials
+refused under the enforcement setting) or `unreadableLeftover` (a plaintext
+credential an unreadable leftover keeps from being encrypted, refused under
+the enforcement setting). Logs name the account id, the setting and the
+credential's field name (`password` or `api_key`) only. They never contain the
+credential, the configuration JSON or the key.
+
+At startup CARLOS logs whether the enforcement setting is on. That line is
+logged at INFO, and the default log level is WARN, so it does not appear unless
+you set `LOG_VERBOSITY=info`. A value CARLOS does not recognise is logged at
+WARN, so that warning appears at the default level; enforcement is then off.
+
+### Rollout
+
+1. On every server, confirm which `encryption.util.secret.key` CARLOS uses, and
+   back it up. On a packaged install it is in `/etc/carlos-emr/carlos.properties`.
+   Otherwise check the override properties file and also `<context>.properties`
+   in the Tomcat user's home directory: a key there, such as one CARLOS
+   generated, takes precedence. Do not generate or paste in a new one on a
+   server that is already running.
+2. Send a non-PHI test message from each credentialed account, to a test
+   patient whose consent allows it. Each plaintext row is encrypted on that
+   first send; a send that consent blocks encrypts nothing.
+3. Optionally set `email.credentials.require_encryption_key=true` and restart.
+   With Startup in place, the only sends this refuses are from an account
+   whose credential stays plaintext because an old credential beside it cannot
+   be read (see the table above); clear or re-enter that old credential (its
+   field in `emailConfig.configDetails`; no screen edits it). Before
+   turning it on, look for "stays unencrypted" warnings from step 2: those
+   accounts will be refused until their old credential is cleared. It is
+   also a guard for deployments or tools that run CARLOS code without Startup,
+   and against a future change to key creation.
+
+## Email Footers
+
+By default every new CARLOS email requires the current clinic footer. An administrator sets its text on **Admin > Emails > Configure Email**; staff cannot edit or remove that clinic text from an individual email. While the footer is required, an empty clinic setting refuses preparation before any outbox row, archive, or transport action; compose disables Send and says where to set it, and a Patient Portal invitation is refused before the portal prepares any code (`clinic_footer_missing`). Before enabling production mail, configure a real clinic footer and verify it with the clinic. This change supplies no invented contact details.
+
+**Edit footer** opens one window holding the text, whether the clinic footer is **Required** (the default, and the behaviour before this choice existed) or **Off**, and **Add a logo to emails**; its **Save footer** saves all three in one step, with no second Save button on the page (My Email Footer's window saves the personal footer the same way). The window's choices are as follows. Off means emails sent from CARLOS carry no clinic footer and no logo and may be sent without one; personal footers are still added, and compose and My Email Footer say the footer is turned off. Off covers CARLOS's own emails only: the Patient Portal's emails still need the saved clinic footer (see below). The text and both choices are saved in one transaction under the footer lock, and each change is audited (`emailFooterClinicDefault`, `emailFooterClinicMode`, `emailFooterLogoShown`). Changing it, like changing the text, refuses a draft prepared before the change until staff review the new preview.
+
+A refused save (too long, or saved over a footer another administrator changed meanwhile) keeps what was typed: the text, and the choices made with it, come back in the window, marked not saved, for one view; a logo upload after that carries them through its own reload. After another administrator's change, the current footer is in the editor and the typed text is shown beside it to copy from.
+
+The compose screen shows optional personal text above a separate, read-only clinic preview. **Edit footer** changes only the personal text for that email. Removing all personal text keeps the clinic footer. An eForm's `footerEmail` supplies optional personal text, interpreted as plain text with its spacing and line breaks retained; changing the sender account does not change these footers. Saved personal defaults are managed under Preferences > Personal email footer, which opens the footer window on the Preferences page itself: the window reads the saved footer from the server and its one **Save footer** saves it there (an AJAX POST with the page's CSRF token, refused if the footer changed in another window meanwhile). The compose screen's **Edit my saved personal footer** opens the same window for the saved footer, leaving the email's own footer as it is. **My Email Footer** (`/email/myEmailFooter`) stays for direct visits and browsers without the window's scripts. A new composer uses the logged-in user’s saved personal text when an eForm supplies no personal field; an explicitly empty eForm field means no personal text. Clearing the saved personal default never removes the mandatory clinic footer. Clinic edits do not replace personal text. The optional “Also save this as my personal footer” updates only personal text after confirmed transport acceptance; failure or uncertain acceptance leaves the default unchanged. A failure to confirm that optional update keeps the result window open for review.
+
+At new send preparation, the server reads the current trusted clinic text and logo. If either differs from the server-owned compose preview, it refuses before outbox/archive/transport, preserves personal text, refreshes the clinic preview and issues a new single-use submission token. Staff review the changed preview and send again. Once an outbox row and message are prepared, that footer and logo stay frozen through dispatch and history even if an administrator edits the clinic setting.
+
+Both SMTP and SendGrid send a plain-text and formatted version, in order: message, optional personal footer, clinic logo in HTML, clinic footer. Formatting permits bold, italic, paragraph/div line breaks and HTTPS or mailto links. Server cleaning is authoritative; browser DOMPurify supports editing and preview. Both footers remain outside the password-protected message PDF and outside the chart note. Never put patient information in either footer.
+
+`emailLog.footer` stores the cleaned combined footer used to prepare the email. The outbound archive retains the prepared MIME/API payload and logo; usable portal invitation credentials are removed from every decoded archived text alternative before transport, while the transmitted copy stays unchanged. Redacted archive copies may be re-encoded. **Manage Emails** displays saved footer text in a section initially collapsed, with delivery status separate. A legacy log without footer content says none was recorded, rather than showing today's clinic setting. A resend is a new preparation with current clinic settings and the logged-in user’s current saved personal text; historical combined content never becomes the new personal footer.
+
+Each personal or clinic footer may contain at most 2,000 UTF-16 text units (including expanded link addresses) and 10,000 HTML units. Oversize submissions are refused. The combined UTF-8/base64 representation must fit the existing footer storage field; it is refused rather than cut. Plain eForm personal text is capped before compose by the existing eForm workflow.
+
+An administrator may upload a PNG/JPEG clinic logo, at most 100 KiB and 600 × 200 pixels. The page checks the type, file size and pixel size before sending a picture, naming both limits, so a picture CARLOS would refuse never reloads the page; the server checks everything again. CARLOS decodes and re-saves it, removes metadata, and embeds verified bytes under a CID rather than a hosted URL. Replaced/removed logo rows and admin changes remain auditable. Use RGB/grayscale; unsupported JPEG variants are refused. More than 64 raw JPEG start-of-scan markers are refused before decoding, conservatively including marker bytes in metadata.
+
+Until a clinic uploads its own logo, emails carry the CARLOS logo (the 96 × 96 "birdman", shipped as `email/carlos-default-email-logo.png`); **Remove logo** takes the clinic's own away and the CARLOS logo takes its place. **Add a logo to emails**, in the Edit footer window (on by default), is the one way to send without a logo; off, no logo goes into emails, previews or the Patient Portal footer snapshot. *Upgrade note:* clinics that never uploaded a logo start sending the CARLOS logo with every patient email after this change.
+
+**Patient Portal own mail.** Portal verification/MFA, password resets, contact changes and booking notices also require the current clinic footer, even when an administrator turned the footer **Off** for CARLOS's own emails (a Portal follow-up may change this). Its new read-only CARLOS endpoint `/ws/portal/email-footer` accepts only a clinic-scoped derived bearer and returns a nonce-bound Ed25519 signed snapshot under a distinct audience. Provision the endpoint's HMAC-derived read credential and public keyring to web/worker; the worker must not receive the full internal service token or a private signing key. Missing/invalid/unreachable configuration refuses SMTP without cached or footerless fallback. Each new worker transport attempt fetches current settings once; an already prepared attempt stays frozen. Portal footer-only attempt artifacts require a durable private shared volume before SMTP, with prepared snapshot separate from accepted/failed/unknown outcome. In Configure Email, staff with `_admin` READ can expand Patient Portal email footer history for a UTC date. Each attempt starts collapsed and displays the saved plain footer text and its separately recorded prepared/accepted/failed/unknown outcome. The viewer signs an audit-read request to the existing private Portal API; it never substitutes current clinic text for missing or unavailable history. Older results use an exclusive cursor. An unavailable audit service leaves clinic configuration visible and shows a localized error; it does not display an empty-history success.
+
+**Portal footer read credential.** The Portal's web and outbox processes need
+`PATIENT_PORTAL_EMAIL_FOOTER_READ_TOKEN`: a credential derived from CARLOS's `patient_portal.service_token`
+and `patient_portal.clinic_id` that opens only `/ws/portal/email-footer`. If it does not match, CARLOS answers
+401 and the Portal refuses every email. Derive it on the CARLOS server as root. The script reads the override
+properties file (Debian: `/etc/carlos-emr/carlos.properties`), so neither secret appears on a command line, and
+writes the result to a new private file. It expects plain `key=value` lines; CARLOS ignores spaces around the
+value and uses the last line for a key, and so does the script. It does not decode Java properties escapes, so a
+service token containing `\` gives a credential that does not match (the check below then answers 401).
+
+```sh
+umask 077
+python3 - /etc/carlos-emr/carlos.properties > /root/portal-footer-read-token <<'EOF'
+import hashlib, hmac, sys
+values = {}
+for line in open(sys.argv[1], encoding="utf-8"):
+    key, sep, value = line.partition("=")
+    if sep and key.strip() in ("patient_portal.service_token", "patient_portal.clinic_id"):
+        values[key.strip()] = value.strip()
+token = values["patient_portal.service_token"].encode("utf-8")
+clinic = values["patient_portal.clinic_id"].encode("utf-8")
+message = b"carlos-portal-email-footer-read-v1\0" + len(clinic).to_bytes(8, "big") + clinic
+print(hmac.new(token, message, hashlib.sha256).hexdigest())
+EOF
+```
+
+Copy the 64-character value into the Portal's private deployment files for web and outbox. Then check it
+from the Portal host with bash, reading the value from a private file there; it stays off the command line here too:
+
+```bash
+nonce=$(python3 -c 'import base64, secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode())')
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -H @<(printf 'Authorization: Bearer %s\n' "$(cat /root/portal-footer-read-token)") \
+  "https://carlos.example.ca/carlos/ws/portal/email-footer?nonce=$nonce"
+```
+
+`200` means the Portal can read the footer. `401`: the credential does not match the current service token and
+clinic id. `503`: no clinic footer is saved, or CARLOS's Portal signing settings are incomplete. Delete
+`/root/portal-footer-read-token` afterwards. Derive a new credential whenever the service token or clinic id changes.
+
+**Web application firewall.** Personal HTML is posted in `footerEmail`; admin clinic HTML uses `clinicFooter`. No broad XSS exemption is added. Test the configured ModSecurity rules and real clinic formatting before production deployment. These checks have not been run in the current private environment.
+
 ## Local Development
 
 Local development must not send real patient email.
@@ -383,6 +530,9 @@ Password-protected PDFs reduce exposure for attachments or message PDFs, but the
 password clue and surrounding email body remain normal email content. Choose
 subjects, body text, and password clues accordingly.
 
+The footer and the clinic logo are always normal email content, even when the
+message is encrypted. Never put patient information in a footer.
+
 ## Known Gaps and Related Work
 
 - Investigation: [PR #3096](https://github.com/carlos-emr/carlos/pull/3096).
@@ -398,6 +548,11 @@ subjects, body text, and password clues accordingly.
 - Email transport secrets and PDF password exposure:
   [issue #3112](https://github.com/carlos-emr/carlos/issues/3112) /
   [PR #3130](https://github.com/carlos-emr/carlos/pull/3130).
+- Require the encryption key for credentialed email:
+  [issue #3673](https://github.com/carlos-emr/carlos/issues/3673) /
+  [PR #3924](https://github.com/carlos-emr/carlos/pull/3924). Whether Startup
+  should generate a key at all when encrypted data exists is
+  [issue #3939](https://github.com/carlos-emr/carlos/issues/3939).
 - Temp PDF cleanup:
   [issue #3114](https://github.com/carlos-emr/carlos/issues/3114).
 - Single message field:
