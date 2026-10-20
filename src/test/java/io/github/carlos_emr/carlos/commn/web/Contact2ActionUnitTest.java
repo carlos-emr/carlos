@@ -226,7 +226,8 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), any()))
                 .thenReturn(false);
         withStaticWriteDependencies(() -> {
-            assertThatThrownBy(() -> new Contact2Action().execute())
+            Contact2Action action = new Contact2Action();
+            assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_demographic)");
             assertThat(mockResponse.getStatus()).isEqualTo(200);
