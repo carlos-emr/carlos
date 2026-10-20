@@ -21,6 +21,7 @@ const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { selectBillingSiteAndProvider, validateBillingContext } = require('./lib/billing-site-context');
 const { createOwnedBillingPhysician } = require('./lib/owned-billing-physician');
+const { createQuickListPreferenceFixture } = require('./lib/quick-list-preference-fixture');
 
 const CODES = ['250', '401', '428'];
 
@@ -32,19 +33,18 @@ async function workflow(s) {
   const shortName = hex => `FAKE${(parseInt(hex, 16) % 36 ** 6).toString(36).toUpperCase().padStart(6, '0')}`;
   const name = shortName(marker.slice(-8));
   const seeded = `F${marker.slice(-7)}"&`; // Ten characters; exercise literal attribute encoding.
+  createQuickListPreferenceFixture(s, [name, seeded]);
   const names = `(${sqlString(name)},${sqlString(seeded)})`;
   const ownedLists = `quickListName IN ${names} AND createdByProvider=${sqlString(provider)}`;
-  const ownedUsers = `quickListName IN ${names} AND providerNo=${sqlString(provider)}`;
   const ownedCodes = `code LIKE ${sqlString(`${marker}%`)}`;
   const listRows = () => sql.value(`SELECT GROUP_CONCAT(dxResearchCode ORDER BY dxResearchCode)
     FROM quickList WHERE quickListName=${sqlString(name)} AND codingSystem='icd9' AND createdByProvider=${sqlString(provider)}`);
   s.cleanup(() => {
+    assert(s.context.browser().isConnected() === false, 'Quick-list cleanup retained: workflow browser close is unconfirmed');
     sql.execute(`DELETE FROM quickList WHERE ${ownedLists};
-      DELETE FROM quickListUser WHERE ${ownedUsers};
       DELETE FROM dxresearch WHERE demographic_no=${patient};
       DELETE FROM dx_associations WHERE ${ownedCodes}`);
     assert(sql.value(`SELECT (SELECT COUNT(*) FROM quickList WHERE ${ownedLists})
-      + (SELECT COUNT(*) FROM quickListUser WHERE ${ownedUsers})
       + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM dx_associations WHERE ${ownedCodes})`) === '0', 'Owned quick-list fixtures were not removed');
   });

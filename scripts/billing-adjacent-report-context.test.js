@@ -15,7 +15,6 @@ const h = {assert(ok, message) { if (!ok) throw Error(message); }, sqlString: va
 const helperFile = path.join(__dirname, 'lib/billing-report-context.js');
 const helperModule = {exports: {}};
 vm.runInNewContext(fs.readFileSync(helperFile, 'utf8'), {module: helperModule, require: name => {assert.equal(name, './playwright-harness'); return h;}}, {filename: helperFile});
-const {selectBillingReportContext} = helperModule.exports;
 const owned = {multisites: true, clinic: 'FAKE Owned Clinic', providerNo: '972775', ohipNo: '123456'};
 function nativeReport({context = owned, sites = ['none', owned.clinic], physicians = ['none', owned.providerNo], sticky = true, clearable = true, siteCount} = {}) {
   const state = {site: 'none', provider: '', options: context.multisites ? [] : physicians, start: '2026-04-23', end: '2026-10-20', patient: '', status: 'O', changed: [], autoSubmits: 0, reports: []};

@@ -460,12 +460,13 @@ test('actual correction workflow creates its physician before UI and routes all 
 test('actual Dx workflow reserves the physician before any other fixture INSERT or cleanup registration',async()=>{
   const stop=Error('stop before first existing quick-list INSERT'), events=[];
   const workflow=loadEntry('dx-registry-quicklist-playwright-checks.js',{
+    './lib/quick-list-preference-fixture':{createQuickListPreferenceFixture(s,names){assert.equal(names.length,2);events.push('preference-snapshot');}},
     './lib/owned-billing-physician':{createOwnedBillingPhysician(){events.push('physician');return{};}},
     './lib/billing-site-context':{},
   });
   await assert.rejects(workflow({provider:'999998',marker:owner().marker,patient:'12',
     cleanup(){events.push('other-cleanup');},sql:{execute(){events.push('other-insert');throw stop;}}}),error=>error===stop);
-  assert.deepEqual(events,['physician','other-cleanup','other-insert']);
+  assert.deepEqual(events,['physician','preference-snapshot','other-cleanup','other-insert']);
 });
 
 test('actual Dx native billing step selects and verifies the owned physician instead of the operator or a foreign option',async()=>{
@@ -478,6 +479,7 @@ test('actual Dx native billing step selects and verifies the owned physician ins
   const bill={locator(){return plain;}};
   const admin={locator(){return plain;},getByRole(){return plain;},frameLocator(){return plain;}};
   const workflow=loadEntry('dx-registry-quicklist-playwright-checks.js',{
+    './lib/quick-list-preference-fixture':{createQuickListPreferenceFixture(){}},
     './lib/owned-billing-physician':{createOwnedBillingPhysician(){return physician;}},
     './lib/billing-site-context':{async selectBillingSiteAndProvider(page,preferred){assert.equal(page,bill);assert.equal(preferred,context.providerNo);events.push('native');return context;},validateBillingContext(){}},
     './lib/playwright-ui':{async clickOpensPopupOrNavigates(){return {page:admin};}},

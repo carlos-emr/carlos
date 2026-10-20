@@ -20,7 +20,6 @@ const files = {testSourceSha256:'scripts/lab-upload-playwright-checks.js',wrappe
   helperSourceSha256:'scripts/lib/lab-rollback-fault-proof.js',handlerSourceSha256:'src/main/java/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/CMLHandler.java'};
 const sources = Object.fromEntries(Object.entries(files).map(([k,p])=>[k,sha(fs.readFileSync(path.join(source,p)))]));
 const intended=ownedTriggerStatements('lab_upload_probe_A1B2C3D4','LUA1B2C3D4');
-const clone = value => structuredClone(value);
 function valid() {
   return {schemaVersion:1,databaseMessage:'Synthetic upload rollback probe',triggerName:'lab_upload_probe_A1B2C3D4',accession:'LUA1B2C3D4',...sources,
     payloadSha256:'d'.repeat(64),logTimeZone:'UTC',intentWrittenAt:'2026-10-19T18:55:30.000Z',
