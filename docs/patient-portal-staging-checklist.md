@@ -106,7 +106,7 @@ Set these in the deployment's override properties, not in the committed `carlos.
       to `false` later switches the portal off without removing the credentials below.
 - [ ] `patient_portal.base_url`: the internal API origin, `https://`, with no path, credentials,
       query or fragment. A path is refused the first time the portal is used after a restart (open
-      the **Patient portal** page to check), because the portal serves `/internal/carlos/` only at
+      the **Patient Portal** page to check), because the portal serves `/internal/carlos/` only at
       the root of its origin, even when patients use a prefix.
 - [ ] `patient_portal.clinic_id`: the same value as the portal's.
 - [ ] `patient_portal.service_token`, `patient_portal.staff_assertion.private_key`,
@@ -122,7 +122,7 @@ Set these in the deployment's override properties, not in the committed `carlos.
       this checklist; see [`patient-portal-email-delivery.md`](patient-portal-email-delivery.md).
       Unset, encrypted email keeps its staff-entered passwords.
 - [ ] CARLOS restarted: settings and the portal client are read once, the first time the portal is
-      used after a restart. Open the **Patient portal** page to see any configuration error. The
+      used after a restart. Open the **Patient Portal** page to see any configuration error. The
       page says only that the connection is not configured correctly; the CARLOS log line
       `patient portal configuration is invalid` names the setting.
 
@@ -174,7 +174,7 @@ private key: redact the code in screenshots.
 
 **Connection**
 
-- [ ] Open the test patient's record: **Patient portal** appears in the left column. It is absent
+- [ ] Open the test patient's record: **Patient Portal** appears in the left column. It is absent
       for a user without portal rights, and when the portal is switched off.
 - [ ] Open it: it loads in the same window with the patient header, left navigation and panels, and
       shows no portal error.
@@ -182,7 +182,7 @@ private key: redact the code in screenshots.
       (`printf 'sha256/'; openssl rand -base64 32`), and restart CARLOS: the page reports a portal
       failure, the CARLOS log shows `portal transport failed: TLS handshake`, and the portal
       receives nothing. Restore the pins.
-- [ ] Set `patient_portal.enabled=false` and restart CARLOS: the **Patient portal** entry
+- [ ] Set `patient_portal.enabled=false` and restart CARLOS: the **Patient Portal** entry
       disappears from the record, the portal page opened from Manage Emails or by its address says
       the portal is not switched on and sends no invitation, and the rest of CARLOS works as before
       (not so if `patient_portal.email.enabled` was set to `true`: encrypted email is then refused).
@@ -225,7 +225,7 @@ private key: redact the code in screenshots.
 
 ## 5. Failure drills
 
-- [ ] Stop the portal: the CARLOS patient record still opens; the Patient portal page reports the
+- [ ] Stop the portal: the CARLOS patient record still opens; the Patient Portal page reports the
       failure; nothing else in CARLOS is affected. Start it again.
 - [ ] Stop the CARLOS mail relay and invite: the delivery shows the mail server refused the email,
       or that it may not have been sent, with what to do next. After the relay returns, a resend
@@ -246,7 +246,7 @@ private key: redact the code in screenshots.
 - [ ] Rotate the staff-assertion key with old and new keys overlapping, as in `carlos.properties`,
       and confirm no call fails during the change.
 - [ ] Rotate the portal's TLS key with the five steps in section 5 of
-      [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md); the Patient portal page
+      [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md); the Patient Portal page
       loads after steps 2, 4 and 5.
 - [ ] Move the portal to the standby key as in the runbook's compromise steps, with the old pin
       removed first: portal calls fail from step 1 until nginx serves the standby key, and then

@@ -38,8 +38,11 @@
  * single-language check ever written: one language is always right.
  *
  * WHAT IT ASSERTS, per language:
- *   1. The Java-rendered identity labels (Sex, Age, Next Appt., MRP) are in the
- *      browser's language.
+ *   1. The identity labels of the OSCAR 19 style header bar (MRP, HIN, Next Appt)
+ *      are in the browser's language. The bar's other items (sex, date of birth or
+ *      age, phone, email) are unlabelled values, as in OSCAR 19, and which of them
+ *      appear is the provider's eChart preference
+ *      (scripts/echart-display-preferences-playwright-checks.js).
  *   2. The <fmt:message> labels around them are in the SAME language -- the
  *      header is not half translated.
  *   3. The header offers exactly ONE calculators control, and clicking it opens
@@ -90,17 +93,11 @@ const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
  * completely and the one the report came from.
  */
 const ENGLISH_LABELS = Object.freeze({
-  'patient-pronouns': 'Pronouns', 'patient-sex': 'Sex', 'patient-gender': 'Gender',
-  'patient-dob': 'DOB', 'patient-age': 'Age', 'patient-hin': 'HIN',
-  'patient-phone': 'Phone', 'patient-cell-phone': 'Cell Phone', 'patient-email': 'Email',
-  'patient-next-appointment': 'Next Appt.', 'patient-mrp': 'MRP',
+  'patient-hin': 'HIN', 'patient-next-appointment': 'Next Appt', 'patient-mrp': 'MRP',
 });
 const FRENCH_LABELS = Object.freeze({
   ...ENGLISH_LABELS,
-  'patient-pronouns': 'Pronoms', 'patient-sex': 'Sexe', 'patient-gender': 'Genre',
-  'patient-dob': 'DDN', 'patient-age': 'Âge', 'patient-phone': 'Téléphone',
-  'patient-cell-phone': 'Tél. cellulaire', 'patient-email': 'Courriel',
-  'patient-next-appointment': 'Prochain rendez-vous',
+  'patient-next-appointment': 'Prochain rdv',
 });
 
 const LANGUAGES = [
@@ -109,7 +106,7 @@ const LANGUAGES = [
     acceptLanguage: 'en-CA,en;q=0.9',
     // language subtag the server must state it negotiated (html lang / #header-top-row lang)
     expectedLanguage: 'en',
-    // demographic.demographicaddrecordhtm.formSex / global.age  (Java-rendered)
+    // encounter.Index.msgMRP / patient.context.hin / encounter.Header.nextAppt (OSCAR 19's keys)
     javaLabels: ENGLISH_LABELS,
     // encounter.Index.calculators  (JSP-rendered, same header)
     calculators: 'calculators',
@@ -146,8 +143,8 @@ const LANGUAGES = [
   },
 ];
 
-/** The identity block the Java half of the header renders. */
-const IDENTITY_LABELS = '#header #patient-label .label';
+/** The labelled items of the header bar (newEncounterHeader.jsp). */
+const IDENTITY_LABELS = '#header #header-top-row .label';
 /** Every control in the header that leads to the calculators, whatever its label. */
 const CALCULATOR_LINKS = '#header a[onclick*="ViewCalculators"], #header a[href*="ViewCalculators"]';
 /** The note-template search box, rendered into the chart by ChartNotes.jsp. */
@@ -241,7 +238,7 @@ async function readLangAttributes(chartPage) {
 
 /** Everything one language has to satisfy on its own. */
 function assertLanguage(language, header) {
-  for (const id of ['patient-sex', 'patient-dob', 'patient-age', 'patient-next-appointment', 'patient-mrp']) {
+  for (const id of ['patient-next-appointment', 'patient-mrp']) {
     assert(Object.hasOwn(header.identityLabelsById, id), `The ${language.tag} chart omitted identity label ${id}`);
   }
   for (const [id, text] of Object.entries(header.identityLabelsById)) {

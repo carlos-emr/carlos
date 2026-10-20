@@ -64,6 +64,8 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
     private static final String RESOURCE_EDITCONTROL = "/WEB-INF/eform-assets/editControl2.js";
     private static final String RESOURCE_BLANK = "/WEB-INF/eform-assets/blank.rtl";
     private static final String RESOURCE_HELP = "/WEB-INF/eform-assets/editor_help.html";
+    /** The Rich Text Letter loads stamps.js on every open; a missing one 404s and is refused as HTML. */
+    private static final String RESOURCE_STAMPS = "/WEB-INF/eform-assets/stamps.js";
     /**
      * The Rich Text Letter's starter templates. The editor's template dropdown is built by
      * scanning the eForm images directory for *.rtl, so a template that never deploys does not
@@ -120,6 +122,7 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
         when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(toStream("js content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(toStream("blank content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(toStream("help content"));
+        when(mockServletContext.getResourceAsStream(RESOURCE_STAMPS)).thenReturn(toStream("/* stamps */"));
         for (String template : RESOURCE_LETTER_TEMPLATES) {
             when(mockServletContext.getResourceAsStream(template))
                     .thenAnswer(invocation -> toStream("<html><body>template</body></html>"));
@@ -154,6 +157,7 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
             assertThat(new File(tempDir.toFile(), "editControl2.js")).exists();
             assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
+            assertThat(new File(tempDir.toFile(), "stamps.js")).exists();
             assertThat(new File(tempDir.toFile(), "clinic_letter.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "consultation_letter.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "patient_letter.rtl")).exists();
@@ -275,6 +279,22 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
             assertThat(Files.readString(deployed.toPath())).isEqualTo("js content");
             assertThat(tempDir.toFile().listFiles((dir, name) -> name.startsWith("editControl2.js.") && name.endsWith(".tmp")))
                 .isEmpty();
+        }
+
+        @Test
+        @DisplayName("Should keep a clinic's own stamps.js when one is already deployed")
+        void shouldPreserveClinicStampsJs_whenAlreadyDeployed() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            stubAllAssets();
+            // stamps.js is where a clinic lists its shared signature images; the shipped file is
+            // only a placeholder so the letter stops loading a 404 in its place.
+            File clinicStamps = new File(tempDir.toFile(), "stamps.js");
+            Files.writeString(clinicStamps.toPath(), "ImgArray = [\"Smith|smith_signature.png\"];");
+
+            deployer.afterPropertiesSet();
+
+            assertThat(Files.readString(clinicStamps.toPath()))
+                    .isEqualTo("ImgArray = [\"Smith|smith_signature.png\"];");
         }
 
         @Test

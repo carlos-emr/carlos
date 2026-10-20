@@ -59,6 +59,8 @@ migration/
            V1.0.76__activate_sms_consent.sql  # was V1.0.54
            V1.0.77__one_live_consent_per_type.sql  # was V1.0.33 (#3917), then V1.0.57 (#4382)
            V1.0.78__add_sms_config.sql  # was V1.0.59 (#3927)
+           V1.0.79__add_email_log_footer.sql
+           V1.0.80__email_front_desk_default.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -75,9 +77,9 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version in use is `V1.0.78` (`common/V1.0.78`,
+`V1.0.3` onward is a forward delta. The highest version in use is `V1.0.80` (`common/V1.0.80`,
 shared by both provinces), so the next free number for ANY location — shared or province — is
-`V1.0.79`. Open draft pull requests #4136 and #4487 were numbered `V1.0.60` and `V1.0.61` before
+`V1.0.81`. Open draft pull requests #4136 and #4487 were numbered `V1.0.60` and `V1.0.61` before
 this line reached `V1.0.78`; they must be renumbered above the high-water mark when they merge.
 
 `release/2026.08` and this line allocated versions independently. The 2026.08.0-alpha19 forward merge
@@ -111,8 +113,8 @@ renumbered or not merged. Apply the present migrations in version order;
 do not enable `outOfOrder` to fill gaps. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.78` on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.78`) but would silently
+run — `common/V1.0.80` on both provinces. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.80`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province. Check every active branch inventory (release and develop) before allocating a

@@ -338,6 +338,26 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     Reason.SENDER_UNAVAILABLE);
         }
 
+        @Test
+        @DisplayName("should say the clinic email footer is missing before the portal prepares a code")
+        void shouldRefuse_whenTheClinicFooterIsMissing() {
+            when(emailManager.clinicFooterMissing()).thenReturn(true);
+
+            assertRefusedBeforePortal(() -> service.invite(user, patient(), staff, emailRequest()),
+                    Reason.CLINIC_FOOTER_MISSING);
+            verify(emailManager, never()).sendEmailWithResult(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse a resend for a missing clinic email footer before the portal is asked")
+        void shouldRefuseResend_whenTheClinicFooterIsMissing() {
+            when(emailManager.clinicFooterMissing()).thenReturn(true);
+
+            assertRefusedBeforePortal(() -> service.resend(user, patient(), INVITE, staff, emailRequest()),
+                    Reason.CLINIC_FOOTER_MISSING);
+            verify(emailManager, never()).sendEmailWithResult(any(), any(), any());
+        }
+
         private void assertRefusedBeforePortal(Runnable call, Reason reason) {
             assertThatThrownBy(call::run)
                     .isInstanceOfSatisfying(PortalInviteException.class,
@@ -476,6 +496,41 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             verify(portal, never()).commitInviteDelivery(anyLong(), anyString(), anyString(), any());
             verify(portal).revokeInvite(PATIENT, INVITE, staff);
             verify(emailLogs).replaceBody(EMAIL_LOG, PortalInviteEmailComposer.CODE_FORGOTTEN);
+        }
+
+        @Test
+        void shouldWithdrawPreparedInvite_whenRealEmailManagerRefusesMissingClinicFooter() {
+            var security = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+            when(security.hasPrivilege(user, "_email", "w", null)).thenReturn(true);
+            when(security.hasPrivilege(user, "_email", "r", null)).thenReturn(true);
+            var senders = mock(io.github.carlos_emr.carlos.email.core.EmailSenderFactory.class);
+            var consent = mock(io.github.carlos_emr.carlos.email.core.EmailConsentResolver.class);
+            when(consent.resolve(user, PATIENT)).thenReturn(new io.github.carlos_emr.carlos.email.core.EmailConsentResult(
+                    "FAKE Email Consent", io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus.OPT_IN,
+                    1, null));
+            var archives = mock(io.github.carlos_emr.carlos.managers.OutboundEmailArchiveService.class);
+            var outbox = mock(io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl.class);
+            var clinic = mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
+            // The footer was there for the pre-check and gone by the send: the send refuses as before.
+            when(clinic.requiredFooterMissing()).thenReturn(false);
+            when(clinic.snapshot()).thenReturn(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("", null));
+            var realManager = new EmailManager(consent, senders, security, archives);
+            injectDependency(realManager, "clinicFooterService", clinic);
+            injectDependency(realManager, "emailLogDao", outbox);
+            injectDependency(service, "emailManager", realManager);
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.SEND_BLOCKED);
+            assertThat(row.getEmailLogId()).isNull();
+            verify(portal, never()).commitInviteDelivery(anyLong(), anyString(), anyString(), any());
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+            // The invitation checks explicit consent before preparing its token; the actual send
+            // then refuses the missing clinic without another consent read or any durable send work.
+            verify(consent).resolve(user, PATIENT);
+            org.mockito.Mockito.verifyNoMoreInteractions(consent);
+            org.mockito.Mockito.verifyNoInteractions(outbox, senders, archives);
         }
 
         @Test
@@ -748,7 +803,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             ArgumentCaptor<String> note = ArgumentCaptor.forClass(String.class);
             verify(emailManager).addEmailNote(eq(user), any(EmailLog.class), note.capture());
             assertThat(note.getValue())
-                    .contains("Patient portal invitation emailed to patient@example.com.")
+                    .contains("Patient Portal invitation emailed to patient@example.com.")
                     .contains("not recorded in CARLOS")
                     .doesNotContain(CODE)
                     .doesNotContain("replaced");

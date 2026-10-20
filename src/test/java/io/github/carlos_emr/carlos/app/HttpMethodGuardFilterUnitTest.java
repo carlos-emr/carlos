@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -417,6 +418,93 @@ class HttpMethodGuardFilterUnitTest {
                             HttpServletResponse.SC_METHOD_NOT_ALLOWED,
                             "GET requests are not allowed on this endpoint. Use POST.");
             verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET chart-note autosave with 405 and Allow: POST")
+        void shouldBlock_forGetChartNoteAutosave() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/CaseManagementEntry");
+            when(request.getParameter("method")).thenReturn("autosave");
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).setHeader("Allow", "POST");
+            verify(response)
+                    .sendError(
+                            HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                            "GET requests are not allowed on this endpoint. Use POST.");
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET chart-note saveAndExit with 405 and Allow: POST")
+        void shouldBlock_forGetChartNoteSaveAndExit() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/CaseManagementEntry");
+            when(request.getParameter("method")).thenReturn("saveAndExit");
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).setHeader("Allow", "POST");
+            verify(response)
+                    .sendError(
+                            HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                            "GET requests are not allowed on this endpoint. Use POST.");
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block HEAD chart-note saveAndExit")
+        void shouldBlock_forHeadChartNoteSaveAndExit() throws Exception {
+            when(request.getMethod()).thenReturn("HEAD");
+            when(request.getRequestURI()).thenReturn("/carlos/CaseManagementEntry");
+            when(request.getParameter("method")).thenReturn("saveAndExit");
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET saveAndExit on the CPP view action, whose save is already POST-only")
+        void shouldBlock_forGetCaseManagementViewSaveAndExit() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/CaseManagementView");
+            when(request.getParameter("method")).thenReturn("saveAndExit");
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should pass through the editor's own POST autosave and saveAndExit")
+        void shouldPassThrough_forPostChartNoteAutosaveAndSaveAndExit() throws Exception {
+            when(request.getMethod()).thenReturn("POST");
+            when(request.getRequestURI()).thenReturn("/carlos/CaseManagementEntry");
+            when(request.getParameter("method")).thenReturn("autosave", "saveAndExit");
+
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(chain, times(2)).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should pass through GET chart-note edit, which opens the note")
+        void shouldPassThrough_forGetChartNoteEdit() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/CaseManagementEntry");
+            when(request.getParameter("method")).thenReturn("edit");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
         }
 
         @Test

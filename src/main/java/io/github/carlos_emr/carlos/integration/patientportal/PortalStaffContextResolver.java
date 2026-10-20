@@ -51,6 +51,7 @@ import java.util.TreeSet;
  *   <li>{@code _portal.account.unlock} → {@code portal.account.unlock}
  *   <li>{@code _portal.secret} → {@code portal.secret.manage}
  *   <li>{@code _portal.contact.review} → {@code portal.contact.review}
+ *   <li>{@code _admin} → {@code portal.email.audit.read}
  *   <li>{@code _portal.booking_prompt} → {@code portal.booking_prompt.manage}
  * </ul>
  *
@@ -76,6 +77,8 @@ public class PortalStaffContextResolver {
     public static final String OBJECT_SECRET = "_portal.secret";
     public static final String OBJECT_CONTACT_REVIEW = "_portal.contact.review";
 
+    /** Clinic-wide email history is an administrator READ operation. */
+    public static final String OBJECT_EMAIL_AUDIT = "_admin";
     public static final String OBJECT_BOOKING_PROMPT = "_portal.booking_prompt";
 
     private static final Map<String, String> PERMISSION_BY_OBJECT =
@@ -90,6 +93,8 @@ public class PortalStaffContextResolver {
                     PatientPortalStaffContext.PERMISSION_SECRET_MANAGE,
                     OBJECT_CONTACT_REVIEW,
                     PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW,
+                    OBJECT_EMAIL_AUDIT,
+                    PatientPortalStaffContext.PERMISSION_EMAIL_AUDIT_READ,
                     OBJECT_BOOKING_PROMPT,
                     PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE);
 
