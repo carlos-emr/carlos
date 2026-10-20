@@ -614,6 +614,21 @@
       ]
     },
     {
+      "name": "consultation-consultant-validation",
+      "script": "scripts/consultation-consultant-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient, service, active/inactive specialists, HL7 lab and routing rows, referral, archives and signatures; all removed by owned keys.",
+      "notes": "Issue #3336: browser and server consultant validation, preserved clinical data, legacy unassigned reads and valid saves."
+    },
+    {
       "name": "consultation-request-create",
       "script": "scripts/consultation-request-create-playwright-checks.js",
       "tiers": [
@@ -733,7 +748,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -741,7 +756,8 @@
       "env": [
         "PLAYWRIGHT_TIMEOUT",
         "SMOKE_STAMP"
-      ]
+      ],
+      "fixtures": "One patient named with the run marker (FAKE-PW<16 hex>), created, read, edited and inactivated through the Master Record. The run removes it by its key with its archive, extension, custom, admission and report rows (lib/owned-patient), and asserts it gone; the audit log keeps its entries."
     },
     {
       "name": "demo-data-integrity",
@@ -866,6 +882,30 @@
       ],
       "notes": "Incoming Docs controls incoming-pdf-extraction leaves out (it sends Delete PDF only as a refused GET): Schedule ▸ Inbox ▸ Incoming Docs, queue 1, File. Delete PDF with its confirmation dismissed sends nothing and the queue is unchanged; accepted, it removes exactly that PDF from the queue, with the same bytes in the File_deleted recycle folder (INCOMINGDOCUMENT_RECYCLEBIN, on by default; set it to false where the install turns it off), and every other queued file is unchanged; MRP before a patient is chosen alerts and flags nobody; last, choosing the owned patient flags nobody by itself, MRP flags exactly the patient's MRP (the test login), and Save files the document for the patient routed to that provider only. PASS expected.",
       "fixtures": "Three synthetic PDFs named with the run marker, written into INCOMINGDOCUMENT_DIR/1/File (which must exist, owned like the application); the owned FAKE patient, whose MRP is the test login, and its program admission (incoming-filing-program-fixture), which filing needs. The queue is shared by every login, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the filed document with its routing, links and stored file (DOCUMENT_DIR), the queued PDFs left and the recycled copy, and asserts each is gone."
+    },
+    {
+      "name": "incoming-docs-quick-pick-filing",
+      "script": "scripts/incoming-docs-quick-pick-filing-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "INCOMINGDOCUMENT_DIR",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "file:incoming-document-queue",
+        "providerLabRouting",
+        "property:incoming_document_entry_mode"
+      ],
+      "notes": "Incoming Docs' Fast entry mode quick picks, which incoming-pdf-extraction and incoming-docs-delete-pdf-mrp (Normal mode, patient search) leave out: Schedule ▸ Inbox ▸ Incoming Docs, queue 1, File. Data Entry Mode Fast stores the login's choice and offers the document type buttons; filing a PDF for each of two owned patients through the patient search lists both under Last Patients, newest first, and offers the test login as a flag provider button; last, on a third PDF a document type button, the first patient's Last Patients button and the test login's provider button fill exactly the type, the patient and the flag list, and Save files the document for that patient only, with that type, routed to the test login only, while the second patient's document and routing stay unchanged. PASS expected.",
+      "fixtures": "Three synthetic PDFs named with the run marker, written into INCOMINGDOCUMENT_DIR/1/File (which must exist, owned like the application); the owned FAKE patient and a second owned FAKE patient, both with the test login as MRP; each one's program admission (incoming-filing-program-fixture), which filing needs. The login's incoming_document_entry_mode preference is recorded and restored exactly. The queue and the login's recent routing are shared, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the three filed documents with their routing, links and stored files (DOCUMENT_DIR), the queued PDFs left and the second patient, and asserts each is gone."
     },
     {
       "name": "lab-upload",
@@ -1505,7 +1545,7 @@
         "APCACHE_SCREENSHOT_DIR"
       ],
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client) that two eForms are filled in and saved for, and two imported templates with unique names: after the UI cleanup the instances and their values are deleted by the patient's key, the templates by name, then the patient, and each is asserted gone. It no longer saves instances for demo patient 1. No clinic-wide state is changed.",
-      "notes": "Part 2 continues on the approval page: Approve and download downloads a %PDF and saves no second eform_data row, and replaying the same approval (its one-time renderApproval token) is answered with the expired-approval message (eform.download.approvalExpired) and no PDF. Last assertion: the eForm view the approved download leaves on screen must answer its APCache lookups; on release/2026.08 it fails until #4979 is fixed (a POST result with no query string, so APCache.js sends no fid and efmformapconfig_lookup answers 400; finding 458). Needs the eForm PDF renderer and, on a private Tomcat, the packaged connector's relaxedQueryChars."
+      "notes": "Part 2 continues on the approval page: Approve and download downloads a %PDF and saves no second eform_data row, and replaying the same approval (its one-time renderApproval token) is answered with the expired-approval message (eform.download.approvalExpired) and no PDF. Last assertion: the eForm view the approved download leaves on screen must answer its APCache lookups; it checks #4979 (a POST result with no query string, so APCache.js sent no fid and efmformapconfig_lookup answered 400; finding 458); its release fix #4983 merged on 18 Oct. Needs the eForm PDF renderer and, on a private Tomcat, the packaged connector's relaxedQueryChars."
     },
     {
       "name": "eform-saved-render",
@@ -1678,7 +1718,7 @@
       "mutates": [
         "reportprovider"
       ],
-      "notes": "BC billing report centre (Schedule ▸ Report ▸ Generate a billing report), Billed and Unbilled modes: the Report index link opens the centre, which offers Billed and the test provider; Billed lists exactly the bills SQL selects (BillingDao.search_bill_history_daterange: the provider's bills in the range, not deleted, submitted or settled), each with its patient and status description; each listed bill's account number opens that bill (patient, PHN, total); Unbilled lists exactly the appointments SQL selects (OscarAppointmentDao.findUnbilledAppointments: the provider's appointments in the range that are not billed, cancelled or no-show), and each row's Bill link opens the BC bill form for that appointment and patient; LAST, a login without report read is refused by the centre and the report. billing-unbilled-report covers the Unbilled mode's No-Show and Cancelled filters by typed URL. The OB and Flu modes are not checked: neither page offers them (their radio buttons are inside an HTML comment). On release/2026.08 the refusal step fails until pending finding 453 (#4940) is fixed (the billing package maps no SecurityException, so the refusal is a 500 error page).",
+      "notes": "BC billing report centre (Schedule ▸ Report ▸ Generate a billing report), Billed and Unbilled modes: the Report index link opens the centre, which offers Billed and the test provider; Billed lists exactly the bills SQL selects (BillingDao.search_bill_history_daterange: the provider's bills in the range, not deleted, submitted or settled), each with its patient and status description; each listed bill's account number opens that bill (patient, PHN, total); Unbilled lists exactly the appointments SQL selects (OscarAppointmentDao.findUnbilledAppointments: the provider's appointments in the range that are not billed, cancelled or no-show), and each row's Bill link opens the BC bill form for that appointment and patient; LAST, a login without report read is refused by the centre and the report. billing-unbilled-report covers the Unbilled mode's No-Show and Cancelled filters by typed URL. The OB and Flu modes are not checked: neither page offers them (their radio buttons are inside an HTML comment). The refusal step checks finding 453 (#4940: the billing package mapped no SecurityException, so the refusal was a 500 error page); its release fix #4942 merged on 18 Oct.",
       "fixtures": "The owned FAKE- patient made a BC patient, and nine bills on it billed to the test provider on one 1990s service day picked per run: one each in billing status O, W, P, N and H (listed, totals 21.00 to 25.00) and B, S and D (not listed), and one O bill on the next day; six appointments for the patient and provider (status t and H listed, B, C and N not, on the same day, and one t the next day). A report-provider row ('billingreport') for the test provider only when it has none, so the provider appears in the centre's list. That row shows in every user's report-provider lists while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). An owned role (schedule read, no report read) and a throwaway login for the refusal step. Cleanup deletes the bills, the appointments, the report-provider row it added, the role and the login, and asserts they are gone."
     },
     {
@@ -1758,7 +1798,7 @@
         "providerLabRouting",
         "provider"
       ],
-      "notes": "The Inbox criteria inboxhub-filters and inbox-document-dates leave out: the search panel's Health Number, and the list toolbar's Acknowledged toggle. Schedule ▸ Inbox (list mode), on the test login's own results (Specific provider, the default): Inbox ▸ Create Lab files one lab for each of two owned patients, routed to the test login; with the run marker as last name, each patient's Health Number lists that patient's lab and not the other's; with both acknowledged, the toggle lists the one acknowledged today and not the one acknowledged three days ago (the acknowledgement time, not the result date); the search panel's Acknowledged status lists both; last, with the first lab also routed to and acknowledged by a second provider (as a lab forwarding rule routes it), Any provider with the Acknowledged status lists each lab once. On release/2026.08 it fails at the last step until #5016 (finding 443) is fixed: the patient search groups by lab only for the receivedCreated date type, so Any provider lists the first lab twice. Notes only, no pin: #5016's release fix is in progress.",
+      "notes": "The Inbox criteria inboxhub-filters and inbox-document-dates leave out: the search panel's Health Number, and the list toolbar's Acknowledged toggle. Schedule ▸ Inbox (list mode), on the test login's own results (Specific provider, the default): Inbox ▸ Create Lab files one lab for each of two owned patients, routed to the test login; with the run marker as last name, each patient's Health Number lists that patient's lab and not the other's; with both acknowledged, the toggle lists the one acknowledged today and not the one acknowledged three days ago (the acknowledgement time, not the result date); the search panel's Acknowledged status lists both; last, with the first lab also routed to and acknowledged by a second provider (as a lab forwarding rule routes it), Any provider with the Acknowledged status lists each lab once. The last step checks #5016 (finding 443: the patient search grouped by lab only for the receivedCreated date type, so Any provider listed the first lab twice); its fix #5017 merged on 18 Oct. Notes only, no pin.",
       "fixtures": "Two owned FAKE patients (the run marker as last name), each given a FAKE 10-digit health number that fails the Ontario check digit; one Inbox ▸ Create Lab lab per patient (the second moved to its patient by its patient routing row); both acknowledged for the test login by their routing rows, one today and one three days ago, as set-up; for the last step, a FAKE provider with no login (the run marker as last name) and its acknowledged routing row for the first lab, as set-up. The labs sit in the test login's inbox while the check runs, where other checks read it, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes both labs with all their routing and messages, their upload archives (LAB_UPLOAD_DOCUMENT_STORE), the FAKE provider and the second patient, and asserts each is gone."
     },
     {
@@ -1937,6 +1977,27 @@
         "MACRO_LAB_NO",
         "MACRO_PROVIDER_NO"
       ]
+    },
+    {
+      "name": "lab-macro-prefs-editor",
+      "script": "scripts/lab-macro-prefs-editor-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "property:labMacroJSON"
+      ],
+      "notes": "The Lab Macros editor's Delete, delete-all confirmation and raw JSON editor, which lab-macro-tickler (defines one macro) and document-viewer-macro(s) (seed by SQL) leave out: Schedule ▸ Preferences ▸ the Lab section ▸ Lab Recall Macros ▸ Lab Macros. The editor lists the two owned macros; Delete on the first and Save stores exactly the second, as the editor writes it; the document viewer's Macros menu then offers the macro left and not the deleted one; Delete on the last and Save asks first (dismissed, nothing is sent; accepted, no macro is stored); last, Show macro JSON saves a hand-edited list as typed, and JSON that does not parse is refused with a message, kept in the editor, and stores nothing.",
+      "fixtures": "viewerDocuments: the owned FAKE- patient and one owned PDF (row and file under DOCUMENT_DIR, or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) routed New to the test provider and another active provider. The test login's labMacroJSON preference holds two macros named with the run marker while the run lasts and is put back byte for byte afterwards (the row removed if there was none), which the check asserts. lab-macro-tickler and document-viewer-macro(s) use the same row, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the document's rows and file and asserts them gone."
     },
     {
       "name": "rx-stash-patient-isolation",
@@ -2788,11 +2849,15 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300
+      "timeoutSec": 300,
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "No rows of its own. Adds the first available encounter form through Administration > Select Forms, moves it up and down and deletes it again, asserting the panel's lists and the encounterForm list as seen (the shown forms and their order, since Select Forms renumbers the shown forms 1..n, #4952) are as it found them; afterwards it puts every recorded display order back and asserts the rows identical, also after a failed run. The form list is clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "specialist-add-cpso",
@@ -3236,7 +3301,7 @@
       "timeoutSec": 240,
       "assertsDatabase": true,
       "env": [],
-      "notes": "#4974: the Diabetes Flowsheet's left panel links a current diagnosis or drug to the flowsheet (encounter/oscarMeasurements/FlowSheetDrugAction). The flowsheet offers the owned diagnosis and current drug as links; linking the diagnosis saves one flowsheet_dx row and comes back to the flowsheet showing it linked; a reload of that page saves nothing more; linking the drug saves one flowsheet_drug row and the flowsheet shows it linked instead of offering it; last, the same drug clicked in a flowsheet window opened before the link saves nothing more. On release/2026.08 it fails at the diagnosis step until #4981 (#4974's release fix) merges: the link saves the row, then answers HTTP 500, a reload saves it again, and a linked drug is still offered. Notes only, no pin: the fix is an open PR.",
+      "notes": "#4974: the Diabetes Flowsheet's left panel links a current diagnosis or drug to the flowsheet (encounter/oscarMeasurements/FlowSheetDrugAction). The flowsheet offers the owned diagnosis and current drug as links; linking the diagnosis saves one flowsheet_dx row and comes back to the flowsheet showing it linked; a reload of that page saves nothing more; linking the drug saves one flowsheet_drug row and the flowsheet shows it linked instead of offering it; last, the same drug clicked in a flowsheet window opened before the link saves nothing more. The diagnosis step checks #4974 (the link saved the row, then answered HTTP 500, a reload saved it again, and a linked drug was still offered); its release fix #4981 merged on 18 Oct. Notes only, no pin.",
       "fixtures": "The owned FAKE- patient, with one active ICD-9 250 diagnosis and one current FAKE drug (ATC C10AA05), both set-up rather than the behaviour under test. Every row the check writes or makes the application write is keyed to that patient; cleanup deletes the patient's flowsheet_dx and flowsheet_drug rows, the diagnosis and the drug, and asserts each is gone."
     },
     {
@@ -3720,7 +3785,7 @@
         "file:mcedt-outbox",
         "file:obec-report-file"
       ],
-      "notes": "Administration ▸ Reports ▸ Overnight Batch (oscarReport/obec) ▸ Begin Date + Days ▸ Create Report creates the Overnight Batch Eligibility Checking file and links it (servlet/OscarDownload, homepath=obecdownload); the download is that file. It holds one record per Ontario patient with a health number who has an appointment from the Begin Date through Begin Date + Days: OBEC01, the health number padded to 10 and the version code padded to 2 (blank when there is none), with CR LF between records; a patient with two appointments in the window is listed once, and appointments the day before and after, a card from another province and a patient without a health number are left out. The file is written to DOCUMENT_DIR and staged in ONEDT_OUTBOX, each byte for byte the download, and a window with no appointments creates no file and says so. admin-report-validation covers the form's required fields and direct-response-contract the download servlet's access rules (with a seeded file, not a generated one). Ontario only (billregion=ON); SKIPs when DOCUMENT_DIR or ONEDT_OUTBOX is not usable, or when its windows already hold appointments. Last step: a patient whose version code was never set (NULL, as an HL7 feed or the REST API stores it) must be listed with a blank version; on release/2026.08 it fails, because ObecData.space() pads the version without a null check and Create Report answers 500 (finding 456, #4967).",
+      "notes": "Administration ▸ Reports ▸ Overnight Batch (oscarReport/obec) ▸ Begin Date + Days ▸ Create Report creates the Overnight Batch Eligibility Checking file and links it (servlet/OscarDownload, homepath=obecdownload); the download is that file. It holds one record per Ontario patient with a health number who has an appointment from the Begin Date through Begin Date + Days: OBEC01, the health number padded to 10 and the version code padded to 2 (blank when there is none), with CR LF between records; a patient with two appointments in the window is listed once, and appointments the day before and after, a card from another province and a patient without a health number are left out. The file is written to DOCUMENT_DIR and staged in ONEDT_OUTBOX, each byte for byte the download, and a window with no appointments creates no file and says so. admin-report-validation covers the form's required fields and direct-response-contract the download servlet's access rules (with a seeded file, not a generated one). Ontario only (billregion=ON); SKIPs when DOCUMENT_DIR or ONEDT_OUTBOX is not usable, or when its windows already hold appointments. Last step: a patient whose version code was never set (NULL, as an HL7 feed or the REST API stores it) must be listed with a blank version; it checks #4967 (ObecData.space() padded the version without a null check and Create Report answered 500; finding 456); its release fix #4970 merged on 18 Oct.",
       "fixtures": "Six FAKE patients (lib/owned-patient.js createOwnedPatient: last name = the run marker) given FAKE health numbers the database does not hold (one with a BC card, one without a number, one whose version code is NULL), and eight appointments for them on the test login's schedule (notes = the marker) in random windows decades ahead that the run first proves empty, plus an empty window. The report reads every appointment in the clinic and the file is staged in the shared EDT outbox, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup deletes the appointments and the patients, the generated OBECE file from DOCUMENT_DIR (only while it holds the bytes downloaded) and its copy from ONEDT_OUTBOX (lib/mcedt-local-state.js createOutboxLedger, which also proves the outbox is as found), and asserts each is gone."
     },
     {
@@ -3867,8 +3932,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Fails at its step 'BC-AR 2020 opens from the form list with the patient filled in' on 2026.08 and develop: BC-AR 2020's page script fails, so the form can't be saved or printed (#4919). Every earlier step passes. The owned patient carries a Master Record patient's blank contact fields, because a NULL field breaks the prefill (#4920).",
-      "fixtures": "Owned synthetic patient. Adds BC-AR 2020 and BC-AR 2012 to the encounter form list through Administration > Select Forms and removes them again, asserting every encounterForm row (display order included) is as it found it; a failed run restores the recorded display order. The form list is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The BC-AR 2020 and 2012 rows go with the owned patient; the PrintResourceLog row is keyed to the signed-in provider and stays. Needs Poppler pdftotext."
+      "notes": "Fails at its step 'BC-AR 2020 opens from the form list with the patient filled in' on develop: BC-AR 2020's page script fails, so the form can't be saved or printed (#4919). Its release fix #4926 merged on 18 Oct; develop gets it in the forward merge. Every earlier step passes. The owned patient carries a Master Record patient's blank contact fields, because a NULL field breaks the prefill (#4920).",
+      "fixtures": "Owned synthetic patient. Adds BC-AR 2020 and BC-AR 2012 to the encounter form list through Administration > Select Forms and removes them again, asserting the form list is as it found it (the shown forms and their order, since Select Forms renumbers the shown forms 1..n, #4952); cleanup puts every recorded display order back and asserts the rows identical; a failed run restores the recorded display order. The form list is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The BC-AR 2020 and 2012 rows go with the owned patient; the PrintResourceLog row is keyed to the signed-in provider and stays. Needs Poppler pdftotext."
     },
     {
       "name": "form-bc-newborn",
@@ -3882,7 +3947,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "BC-NewBorn 2008 (#4439 item 10): opens from the encounter form list with the mother filled in, saves, reopens from the chart and prints page 1. Fails at its last step 'the Part 2 page links open pages 2 and 3 of the same form' on 2026.08 and develop: the links are relative to the page's <base> without form/, so both answer 404 (#4930). Every earlier step passes.",
+      "notes": "BC-NewBorn 2008 (#4439 item 10): opens from the encounter form list with the mother filled in, saves, reopens from the chart and prints page 1. Fails at its last step 'the Part 2 page links open pages 2 and 3 of the same form' on develop: the links are relative to the page's <base> without form/, so both answer 404 (#4930). Its release fix #4934 merged on 18 Oct; develop gets it in the forward merge. Every earlier step passes.",
       "fixtures": "Owned synthetic patient; its formBCNewBorn2008 rows go with it. Opens the form from the BC seed's encounter form list and changes no clinic-wide setting (it asserts every encounterForm row is unchanged), so it can run alongside other checks. form/createpdf writes no print log. Needs Poppler pdftotext."
     },
     {
@@ -3936,6 +4001,23 @@
       "fixtures": "Seeds and removes one billing physician (bc.createBillingPhysician; its unique practitioner number keeps Generate to the owned claims) and two MSP claims on the workflow's own FAKE patient, made a BC patient; cleanup deletes every BC billing row of the patient and the physician and asserts each is gone. Records the clinic-wide Teleplan state first (the billactivity, log_teleplantx and teleplan_submission_link high-water marks and the teleplan_sequence property) and restores it at the end: it deletes the rows written after the record, once each is proven the run's (each batch written during the run, each log line an owned claim's or a batch header, each link a run batch's to an owned claim) and the HOME_DIR files those batches name (batch file names only, inside HOME_DIR), puts the sequence back or removes it, and asserts all of it. Needs HOME_DIR, the server's Teleplan output directory reachable from the runner (SKIP without it). The batch number and the sequence are clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "billing-bc-teleplan-sequence",
+      "script": "scripts/billing-bc-teleplan-sequence-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "mutates": [
+        "property:teleplan_sequence"
+      ],
+      "notes": "Manage Teleplan's Manually Set Sequence #, which billing-bc-teleplan-file only reads: Schedule ▸ Administration ▸ Billing ▸ Manage Teleplan ▸ Manually Set Sequence # ▸ save. Only that save is pressed; the page's username/password, change password, Get Sequence # and code-list buttons log in to Teleplan (live MSP) and are never touched. The form is shown only to the BILLING_SUPERUSER login (SKIP otherwise). The page shows the stored number as its Last Sequence #; a saved number is stored exactly and shown; a number that is not one, or is out of range, stores nothing; last, such a refused number says why. The last step fails on 2026.08 until #5066 (findings log 446) is fixed: a refused number returns the page with nothing stored and no message (ManageTeleplan2Action.setSequenceNumber). Notes only, no pin.",
+      "fixtures": "None of its own. Every teleplan_sequence row is recorded first and put back exactly (a row the save added is removed), and the check asserts it. The sequence is clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "billing-bc-reprocess-bill",
       "script": "scripts/billing-bc-reprocess-bill-playwright-checks.js",
       "tiers": [
@@ -3966,7 +4048,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "BC Adjust Bill's own searches (billing/CA/BC/reprocessBill, adjustBill.jsp), which billing-bc-reprocess-bill (opens the page, settles) and billing-bc-bill-form-popups (the bill form's searches) leave out: Master record ▸ Invoice List ▸ Edit opens the owned claim's Adjust Bill page; the service code's Search/Update (support/BillingFeeItem) lists the typed BC fee code and picking it fills the service code and the line's fee with that code's current fee; Dx 1's search (ViewBillingDigNewSearch) lists the codes for a typed word, nothing ticked, and Confirm fills Dx 1 with the ticked code; last, Reprocess Bill stores the picked code, its fee and the diagnosis on the claim. On release/2026.08 it fails at the fee item step until #4995 (#4990's release fix) merges: the popup's pick ends in TypeError: opener.document.focus is not a function. Notes only, no pin: the fix is an open PR.",
+      "notes": "BC Adjust Bill's own searches (billing/CA/BC/reprocessBill, adjustBill.jsp), which billing-bc-reprocess-bill (opens the page, settles) and billing-bc-bill-form-popups (the bill form's searches) leave out: Master record ▸ Invoice List ▸ Edit opens the owned claim's Adjust Bill page; the service code's Search/Update (support/BillingFeeItem) lists the typed BC fee code and picking it fills the service code and the line's fee with that code's current fee; Dx 1's search (ViewBillingDigNewSearch) lists the codes for a typed word, nothing ticked, and Confirm fills Dx 1 with the ticked code; last, Reprocess Bill stores the picked code, its fee and the diagnosis on the claim. The fee item step checks #4990 (the popup's pick ended in TypeError: opener.document.focus is not a function); its release fix #4995 merged on 18 Oct. Notes only, no pin.",
       "fixtures": "One open BC claim (billing and billingmaster) for the owned FAKE patient; the fee code and the diagnosis are existing BC reference rows picked by SQL, and neither search's own update is pressed, so nothing clinic-wide is written. Cleanup deletes the patient's billingmaster, billing_history, billingnote and billing rows and asserts them gone. BC installs only (billregion=BC)."
     },
     {
@@ -6328,7 +6410,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "BC-AR 2007 opened for a patient whose address, phone and health-card columns are NULL (the bare fixture row every workflow inserts): FrmBCAR2007Record copies them into Properties, so release/2026.08 renders an error page (#4953). Known failure until #4958 merges. Notes-only known failures (no pin): each known defect has its own form-catalog-smoke-bc-* entry so it flips on its own. The entries: form-catalog-smoke-bc (every BC pair that passes on release/2026.08), -bc-bare-contact (#4953, #4958), -bc-message-keys (#4949, #4955), -bc-date-check (finding 429), -bc-inr-print (finding 428), -bc-textarea-restore (finding 470).",
+      "notes": "BC-AR 2007 opened for a patient whose address, phone and health-card columns are NULL (the bare fixture row every workflow inserts): FrmBCAR2007Record copies them into Properties, so release/2026.08 rendered an error page (#4953); its release fix #4958 merged on 18 Oct. Notes-only known failures (no pin): each known defect has its own form-catalog-smoke-bc-* entry so it flips on its own. The entries: form-catalog-smoke-bc (every BC pair that passes on release/2026.08), -bc-bare-contact (#4953, #4958), -bc-message-keys (#4949, #4955), -bc-date-check (finding 429), -bc-inr-print (finding 428), -bc-textarea-restore (finding 470).",
       "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open, after the bare concern) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -6353,7 +6435,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "BC Birth Summary 2008 shows 23 unresolved ???key??? labels on release/2026.08 (#4949). Known failure until #4955 merges. Notes-only known failures (no pin): each known defect has its own form-catalog-smoke-bc-* entry so it flips on its own. The entries: form-catalog-smoke-bc (every BC pair that passes on release/2026.08), -bc-bare-contact (#4953, #4958), -bc-message-keys (#4949, #4955), -bc-date-check (finding 429), -bc-inr-print (finding 428), -bc-textarea-restore (finding 470).",
+      "notes": "BC Birth Summary 2008 showed 23 unresolved ???key??? labels on release/2026.08 (#4949); its release fix #4955 merged on 18 Oct. Notes-only known failures (no pin): each known defect has its own form-catalog-smoke-bc-* entry so it flips on its own. The entries: form-catalog-smoke-bc (every BC pair that passes on release/2026.08), -bc-bare-contact (#4953, #4958), -bc-message-keys (#4949, #4955), -bc-date-check (finding 429), -bc-inr-print (finding 428), -bc-textarea-restore (finding 470).",
       "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open, after the bare concern) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -7755,7 +7837,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Requires appointment_locking_timeout>0 (skips otherwise). Three throwaway logins share one Add Appointment slot: the owner (the test login's roles) holds it, then two bookers without the admin right (doctor role) each see it locked with Add/Repeat/Group hidden, take it over in turn, and A's patient Search works again after a time change. Fails at 'booker A without the admin right sees the slot locked and cannot book' on 2026.08 and develop: the slot-lock refresh refuses users without the admin right, so such a booker never sees the lock (#4917).",
+      "notes": "Requires appointment_locking_timeout>0 (skips otherwise). Three throwaway logins share one Add Appointment slot: the owner (the test login's roles) holds it, then two bookers without the admin right (doctor role) each see it locked with Add/Repeat/Group hidden, take it over in turn, and A's patient Search works again after a time change. Fails at 'booker A without the admin right sees the slot locked and cannot book' on develop: the slot-lock refresh refuses users without the admin right, so such a booker never sees the lock (#4917). Its release fix #5021 merged on 18 Oct; develop gets it in the forward merge.",
       "fixtures": "Three throwaway logins (the owner with the test login's roles; A and B with only the doctor role), the owner's schedule group and preferences, and the page-lock rows the three sessions write; all are keyed to the throwaway provider numbers and removed and verified at teardown. Nothing is booked."
     },
     {
@@ -8823,7 +8905,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Operator prerequisite: USE_NEW_PATIENT_CONSENT_MODULE=true and privateConsentEnabled=true in carlos.properties (both the packaged default), then restart; the seeds' active electronic_communication_consent type. The runWorkflow FAKE- patient; cleanup removes its Consent, demographicExtArchive and demographiccust rows and checks them gone.",
-      "notes": "Master Record patient consents. Steps: Opt In stores one consent dated today and the read view shows Consented; Opt Out flips the same row with its opt-out date (read view and reopened Edit); a GET to Update Record with a consent choice is refused and stores nothing; Clear (confirmed) marks the row deleted and the read view drops it; LAST, a consent opted in again shows its description in the popup when pointed at, without a script error. Fails at its last step until #4984 is fixed (the consent popup raises a script error); every earlier step passes."
+      "notes": "Master Record patient consents. Steps: Opt In stores one consent dated today and the read view shows Consented; Opt Out flips the same row with its opt-out date (read view and reopened Edit); a GET to Update Record with a consent choice is refused and stores nothing; Clear (confirmed) marks the row deleted and the read view drops it; LAST, a consent opted in again shows its description in the popup when pointed at, without a script error. Its last step checks #4984 (the consent popup raised a script error); its fix #4985 merged on 18 Oct. Every earlier step passes."
     },
     {
       "name": "demographic-professional-contact",
@@ -8842,7 +8924,7 @@
         "Contact"
       ],
       "fixtures": "Operator prerequisite: NEW_CONTACTS_UI=true and NEW_CONTACTS_UI_EXTERNAL_CONTACT=true in carlos.properties (both the packaged default), then restart. The runWorkflow FAKE- patient; the professional record it creates and a SQL-seeded personal contact with its association, all keyed to the marker, are removed in cleanup and checked gone. Its professional records sit in the clinic-wide specialist and contact lists while it runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Master Record contacts. Steps: the professional search's Add/Edit Professional Contact form stores one record with the typed name, specialty, CPSO and work phone; a personal contact's Edit from Other Contacts ▸ details stores the changed details on the same Contact row; LAST, the External search lists the contact just added. Fails at its last step until #4987 is fixed (the form saves a professional specialist, which the External search does not list); every earlier step passes."
+      "notes": "Master Record contacts. Steps: the professional search's Add/Edit Professional Contact form stores one record with the typed name, specialty, CPSO and work phone; a personal contact's Edit from Other Contacts ▸ details stores the changed details on the same Contact row; LAST, the External search lists the contact just added. Its last step checks #4987 (the form saved a professional specialist, which the External search did not list); its fix #5020 merged on 18 Oct. Every earlier step passes."
     },
     {
       "name": "gap-records-enrollment-history",
@@ -8970,7 +9052,7 @@
         "Contact"
       ],
       "fixtures": "The runWorkflow FAKE- patient; the professional records it creates (keyed to the marker) and the patient's team rows are removed in cleanup and checked gone. SKIPs when DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM is off (packaged default on). Its professional records sit in the clinic-wide specialist and contact lists while it runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Health Care Team, external member. Steps: External ▸ Search ▸ Add/Edit Professional Contact saves the professional and puts it on the team with its specialty, listed with an edit control; the member's edit opens the form filled in, and Save stores the new specialty on the same team row and the new phone on the same professional; LAST, a professional named O'Brien is put on the team the same way. Fails at its last step until #4986 is fixed (the O'Brien contact is saved but not added, with a script error); every earlier step passes."
+      "notes": "Health Care Team, external member. Steps: External ▸ Search ▸ Add/Edit Professional Contact saves the professional and puts it on the team with its specialty, listed with an edit control; the member's edit opens the form filled in, and Save stores the new specialty on the same team row and the new phone on the same professional; LAST, a professional named O'Brien is put on the team the same way. Its last step checks #4986 (the O'Brien contact was saved but not added, with a script error); its fix #4991 merged on 18 Oct. Every earlier step passes."
     },
     {
       "name": "prevention-reminders",
@@ -8985,7 +9067,22 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient, made 70 by SQL; its preventions and their ext rows are removed in cleanup.",
-      "notes": "A patient's prevention reminders (the Prevention Recommendations box). Steps: a 70-year-old with no flu shot is told \"Needs Flu Shot\" and decision support reports no error; recording a flu shot today takes that reminder away; LAST, a Td from twelve years ago, the patient's only tetanus vaccine, raises \"Needs repeat Td\". Fails at its last step until #4998 is fixed by #5014 (no repeat-Td reminder appears); every earlier step passes."
+      "notes": "A patient's prevention reminders (the Prevention Recommendations box). Steps: a 70-year-old with no flu shot is told \"Needs Flu Shot\" and decision support reports no error; recording a flu shot today takes that reminder away; LAST, a Td from twelve years ago, the patient's only tetanus vaccine, raises \"Needs repeat Td\". Its last step checks #4998 (no repeat-Td reminder appeared); its fix #5014 merged on 18 Oct. Every earlier step passes."
+    },
+    {
+      "name": "prevention-screening-reminder-controls",
+      "script": "scripts/prevention-screening-reminder-controls-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient, made a 60-year-old woman by SQL; its preventions and their ext rows are removed in cleanup.",
+      "notes": "What a screening's own reminder controls do to the patient's reminders (the Prevention Recommendations box), which the checks that store them (prevention-screening-result, prevention-immunization-site-next-date, prevention-followup-actions) don't read. Steps: a 60-year-old woman whose last mammogram was 30 months ago is told \"Mammogram is overdue for this patient\"; a next date a month ahead holds that back; a next date a month ago gives \"MAM is overdue for this patient\"; LAST, Never Remind shows neither warning, and the list still shows the mammogram."
     },
     {
       "name": "prevention-completed-externally",
@@ -9015,7 +9112,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient (FAKE addresses and 555 phones); the Master Record updates' ext-archive and custom rows are removed in cleanup and checked gone, before the harness removes the patient's ext and archive rows.",
-      "notes": "Master Record address and phone history. Steps: after two address changes, the Address History popup lists each address with the date it was entered; after two home phone changes, the Home phone History lists each home phone; LAST, an address or phone that did not change is listed once, not again for every save that changed something else, and a phone without an extension shows no \"x\". Failed at its last step before #5015, merged 18 Oct (unchanged values were listed once per save, and each phone ended in \"x\"); every earlier step passed."
+      "notes": "Master Record address and phone history. Steps: after two address changes, the Address History popup lists each address with the date it was entered; after two home phone changes, the Home phone History lists each home phone; after two work phone changes, the second with an extension, the Work phone History lists each work phone, the one with an extension followed by \"x\" and the extension; after two cell phone changes, the cell phone History lists each cell phone once; LAST, an address or phone that did not change is listed once, not again for every save that changed something else, and a phone without an extension shows no \"x\". Failed at its last step before #5015, merged 18 Oct (unchanged values were listed once per save, and each phone ended in \"x\"); every earlier step passed."
     },
     {
       "name": "gap-records-hrm-report-actions",
@@ -11346,7 +11443,7 @@
         "DOCUMENT_DIR",
         "RX_FAX_DOCUMENT_DIR"
       ],
-      "notes": "The document viewer's Comment and Acknowledge (through its comment prompt), opened from the E-Chart's Documents list (documentManager/ViewShowDocument?inWindow=true). Comment posts UpdateStatus method=addComment: the test provider's DOC routing row keeps status N with the typed comment and the viewer shows it. Acknowledge on the reopened document offers that comment in its prompt and keeps it (A, same comment), the queue link closes (I) and the viewer closes. Cancelling the comment prompt posts nothing; a typed comment acknowledges with it. Another provider's New row on each document is unchanged throughout. On an uncommented document the comment prompt offers no text (not the viewer's \"No comment\" placeholder) and OK as offered stores no comment. Fails on 2026.08 at its step 'Acknowledge on the commented document offers its comment and keeps it, closes the queue link and the viewer' until #5010 (#3941) is merged: the acknowledge form's onsubmit is the whole handler JavaScript-string encoded, so it doesn't compile (SyntaxError) and Acknowledge posts nothing. With that fixed, it fails at its last step 'Acknowledge on an uncommented document offers no comment, and OK as offered stores none' until #5011 is fixed: the prompt starts with \"No comment\" and OK saves it as the comment.",
+      "notes": "The document viewer's Comment and Acknowledge (through its comment prompt), opened from the E-Chart's Documents list (documentManager/ViewShowDocument?inWindow=true). Comment posts UpdateStatus method=addComment: the test provider's DOC routing row keeps status N with the typed comment and the viewer shows it. Acknowledge on the reopened document offers that comment in its prompt and keeps it (A, same comment), the queue link closes (I) and the viewer closes. Cancelling the comment prompt posts nothing; a typed comment acknowledges with it. Another provider's New row on each document is unchanged throughout. On an uncommented document the comment prompt offers no text (not the viewer's \"No comment\" placeholder) and OK as offered stores no comment. Its step 'Acknowledge on the commented document offers its comment and keeps it, closes the queue link and the viewer' checks #3941 (the acknowledge form's onsubmit was the whole handler JavaScript-string encoded, so it didn't compile, SyntaxError, and Acknowledge posted nothing), and its last step 'Acknowledge on an uncommented document offers no comment, and OK as offered stores none' checks #5011 (the prompt started with \"No comment\" and OK saved it as the comment). Their release fixes #5010 and #5012 merged on 18 Oct.",
       "fixtures": "Its owned PDFs are routed New to another active provider's Inbox too and linked to the first document queue, both shared by every provider's Inbox, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owns the synthetic patient and three PDFs in DOCUMENT_DIR with document / ctl_document / patientLabRouting rows, a New providerLabRouting row for the test login and one for another active provider, and an active queue_document_link each, plus the routing lock rows the run created for the documents' numbers; all removed and verified gone. SKIPs where the test login's lab_ack_comment preference skips the comment prompt.",
       "mutates": [
         "providerLabRouting",
@@ -11368,7 +11465,7 @@
         "DOCUMENT_DIR",
         "RX_FAX_DOCUMENT_DIR"
       ],
-      "notes": "The document viewer's Macros menu: the test login's lab macros run on a document (documentManager/inboxManage isDocumentLinkedToDemographic, then oscarMDS/RunMacro with the document's patient). An acknowledge-only macro answers success and acknowledged and sets the test provider's DOC row to A with the macro's comment, filing no tickler; a macro that also files a tickler acknowledges and files one tickler for the document's patient, assigned to the test login and attached to the document (ticklerdocs doctype D). Another provider's New row is unchanged. Fails on 2026.08 at its step 'Macros > a macro with a tickler acknowledges the document and files the tickler for its patient' until #4988 is fixed: RunMacro attaches the document as a lab, the attachment is refused, and the whole macro answers success false (alert 'Macro execution failed', nothing acknowledged, no tickler).",
+      "notes": "The document viewer's Macros menu: the test login's lab macros run on a document (documentManager/inboxManage isDocumentLinkedToDemographic, then oscarMDS/RunMacro with the document's patient). An acknowledge-only macro answers success and acknowledged and sets the test provider's DOC row to A with the macro's comment, filing no tickler; a macro that also files a tickler acknowledges and files one tickler for the document's patient, assigned to the test login and attached to the document (ticklerdocs doctype D). Another provider's New row is unchanged. Its step 'Macros > a macro with a tickler acknowledges the document and files the tickler for its patient' checks #4988 (RunMacro attached the document as a lab, the attachment was refused, and the whole macro answered success false: alert 'Macro execution failed', nothing acknowledged, no tickler); its fix #5019 merged on 18 Oct.",
       "fixtures": "Per-user state: the test login's labMacroJSON preference holds the two owned macros for the run and is restored exactly afterwards (the row deleted if there was none); lab-macro-tickler writes it too, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owns the synthetic patient and two PDFs with the same rows as document-viewer-review-actions (lib in that script), and the macro tickler with its ticklerdocs / tickler_link / tickler_comments / tickler_update rows; all removed and verified gone.",
       "mutates": [
         "providerLabRouting",
@@ -12205,11 +12302,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Finding a patient and opening its Master Record must not write to the patient's row. Steps: the owned patient is stored with NULL pronoun and gender (control); the schedule's Search finds it and its Master Record renders, with the page's own Edit control (control); then, pinned to app-findings-log.md finding 266, the stored row is unchanged. Fails at that last step on 2026.08: Demographic.getPronoun() and getGender() answer \"\" for NULL (Demographic.java:1226-1231, 1238-1243) and the entity is mapped on its getters, so Hibernate flushes an UPDATE of both columns to \"\" when the patient is only read, with no audit row and no lastUpdateDate. Found when a comparison of the demo dataset with a validation install showed the pronoun of 109 demo patients (124 by the end of that round) and the gender of 2 rewritten from NULL to an empty string by checks that only searched for or opened them.",
-      "expectedFailure": {
-        "finding": 266,
-        "step": "the stored row is unchanged after the patient was found and its Master Record opened"
-      },
+      "notes": "The write is by design (#4622); only the rendering is checked. Finding a patient and opening its Master Record: the owned patient is stored with NULL pronoun and gender, and the schedule's Search finds it and its Master Record renders, with the page's own Edit control. The step that asserted the stored row unchanged after that read (app-findings-log.md finding 266: a NULL pronoun or gender is rewritten to an empty string) was removed with its expectedFailure, because #4622 was closed as by design.",
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
     },
     {
@@ -12229,7 +12322,21 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "None: the editors are opened and their calendars used, but nothing is saved, so no message rows are written. SKIPs when the CAISI module (caisi=on) is off, because both editors' menu entries are CAISI-gated.",
-      "notes": "The System Message and Facility Message editors' Expiry Day calendar (calendar/oscarCalendarPopup?type=caisi). Steps: the System Messages calendar opens on the current month for the editor's form and field; Next and Last move one month each way; the Facility Messages calendar opens for its own form and field; LAST, picking a day closes the popup and writes the date into the editor's Expiry Day box, in both editors. Fails at the last step on 2026.08 and develop: the editors' forms lost the names the popup looks them up by when the Struts 1 tags went, so the pick writes nothing (#4916; #4923 is its release fix). The check turns green when #4923 merges; drop this note then. Skips on the packaged default (caisi=off)."
+      "notes": "The System Message and Facility Message editors' Expiry Day calendar (calendar/oscarCalendarPopup?type=caisi). Steps: the System Messages calendar opens on the current month for the editor's form and field; Next and Last move one month each way; the Facility Messages calendar opens for its own form and field; LAST, picking a day closes the popup and writes the date into the editor's Expiry Day box, in both editors. Fails at the last step on develop: the editors' forms lost the names the popup looks them up by when the Struts 1 tags went, so the pick writes nothing (#4916). Its release fix #4923 merged on 18 Oct; on develop the check waits for it in the forward merge; drop this note then. Skips on the packaged default (caisi=off)."
+    },
+    {
+      "name": "calendar-keyboard",
+      "script": "scripts/calendar-keyboard-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "notes": "The shared date-box calendar (Calendar.setup over Flatpickr) from the keyboard, on four pages that use it (#5058): Allergies ▸ Custom Allergy ▸ Start Date, Report ▸ Prevention Report ▸ as-of date, Add Appointment ▸ Repeat ▸ End date (as a throwaway login on its own day sheet), and Master Record ▸ Create Invoice ▸ Service Date (the BC bill form on a BC install, the Ontario one elsewhere). On each, the calendar button is a named button or link that Tab reaches; Enter opens the calendar with focus on a day; ArrowRight and Enter pick the next day into the box, close the calendar and return focus to the button; Enter again and Escape close it without a change. On the allergy Start Date also: Tab from the box reaches the button, ArrowDown in the empty box moves into the open calendar and Escape returns to the box, and a mouse click on the button and on a day still fills the box without moving focus into the calendar.",
+      "fixtures": "The workflow's owned FAKE patient (made a BC patient on a BC install, for its bill form) and a throwaway login (lib/gap-provider-fixture.js) whose own day sheet opens the Add Appointment window. Nothing is saved (no allergy, appointment or bill), which the check asserts. The Add Appointment window's slot lock (PageMonitor, keyed to the throwaway) is removed, then the throwaway's appointment rows and the throwaway; the patient is removed with its chart rows by key."
     },
     {
       "name": "bc-master-record-navigation",
@@ -12278,6 +12385,20 @@
       "env": [],
       "notes": "Presses the edit popup's No show and Cancel Appt buttons (the buttoncancel branch of appointment/UpdateRecord), including the billed-appointment confirmation.",
       "fixtures": "Throwaway login plus an owned FAKE- patient and three SQL-seeded appointments for today; appointment and archive rows deleted in cleanup."
+    },
+    {
+      "name": "schedule-hide-cancelled",
+      "script": "scripts/schedule-hide-cancelled-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "notes": "The day sheet's Hide/Show Cancelled button (toggleCancelled, kept in localStorage hideCancelled), which appointment-cancel-no-show leaves unpressed: on a throwaway login's own day sheet with two owned appointments for today, one cancelled and one booked, the day sheet shows both (the cancelled one greyed); Hide hides exactly the cancelled one and the button then offers Show; the choice holds after a reload; last, Show brings it back, also after a reload.",
+      "fixtures": "The throwaway login (lib/gap-provider-fixture.js, a number owning no appointment rows), the owned FAKE- patient and its two appointments for today, seeded by SQL. The browser's hideCancelled flag is removed at the end. Cleanup deletes the appointment rows by the throwaway's number, then the throwaway, and asserts they are gone."
     },
     {
       "name": "echart-note-lifecycle",
@@ -12475,7 +12596,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned FAKE- patient with two allergies seeded by SQL (a year-only and a year-and-month start date, each with its partial_date row) and the allergies the dialogue saves (two amendments and seven Custom Allergies); cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its last step on develop: a Start Date typed as 2019 or 2019-05, or a stored 2019-05 clicked into and out of on Modify, is posted as 2019-01-01 or 2019-05-01, because the box is a flatpickr field (calendar-setup.js shim) that parses typed text as a full date, so the precision is lost (pending finding 300, #4807; release fix #4810). Every earlier step passes. The check turns green when #4810 reaches develop in the forward merge; drop this note then."
+      "notes": "Fails at its last step on release/2026.08 and develop: a Start Date typed as 2019 or 2019-05, or a stored 2019-05 clicked into and out of on Modify, is posted as 2019-01-01 or 2019-05-01, because the box is a flatpickr field (calendar-setup.js shim) that parses typed text as a full date, so the precision is lost (pending finding 300, #4807; its release fix #4810 is a draft). Every earlier step passes. The check turns green on release when #4810 merges, and on develop when that reaches it in the forward merge; drop this note then."
     },
     {
       "name": "admin-lot-number-delete",
@@ -12640,7 +12761,7 @@
         "billingmaster",
         "billing_history"
       ],
-      "notes": "BC Administration ▸ Billing ▸ Upload Remittance Files (NEW_BC_TELEPLAN=no) with a FAKE remittance for two owned submitted claims: an S21 header, an S01 paid line, an S03 refusal (AA) and an S22 summary. The check covers the reconciliation list, the stored records, the paid claim settled, the remittance's Detail and Summary, and the refused claim's status. It then opens MSP Reconciliation Reports from the menu. First committed coverage of the upload. On 2026.08 it fails step by step until each fix merges. First, Submit answered HTTP 500 after storing the remittance before #4808 (#4806's release fix) merged on 18 Oct. Then Detail's stylesheet is refused (#4889; #4892). Then the refused claim's status is saved blank (#4933; #4937 is its release fix). Last, MSP Reconciliation Reports answered HTTP 405 (#4767; #4778, merged on 18 Oct; #4439 D6). With all four applied, every step passes. It SKIPs without DOCUMENT_DIR or when Upload Remittance Files isn't offered (NEW_BC_TELEPLAN=no). Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "notes": "BC Administration ▸ Billing ▸ Upload Remittance Files (NEW_BC_TELEPLAN=no) with a FAKE remittance for two owned submitted claims: an S21 header, an S01 paid line, an S03 refusal (AA) and an S22 summary. The check covers the reconciliation list with its payee and dollar amounts, the stored records, the paid claim settled, the remittance's Detail and Summary, and the refused claim's status. It then opens MSP Reconciliation Reports from the menu and, last, reads that list's Billed and Summary PDFs (needs pdftotext). First committed coverage of the upload. On 2026.08 it fails step by step until each fix merges. First, Submit answered HTTP 500 after storing the remittance before #4808 (#4806's release fix) merged on 18 Oct. Then Detail's stylesheet is refused (#4889; #4892). Then the refused claim's status is saved blank (#4933; #4937 is its release fix). Then MSP Reconciliation Reports answered HTTP 405 (#4767; #4778, merged on 18 Oct; #4439 D6). Last, the list's Billed and Summary PDF links answer HTTP 404 until #5063 (findings log 445) is fixed: written relative under the page's context-root base, they resolve to /<context>/createBillingReportAction. With all five applied, every step passes. It SKIPs without DOCUMENT_DIR or pdftotext, or when Upload Remittance Files isn't offered (NEW_BC_TELEPLAN=no). Each expectedFailure is added with its finding number when the findings log is assembled.",
       "fixtures": "Seeds and removes one billing physician (bc.createBillingPhysician), the workflow's own FAKE patient made a BC patient, and two submitted MSP claims for it. It writes the FAKE remittance file, whose name carries the run marker, in a temporary directory and uploads it. Cleanup deletes the remittance's teleplanS21, teleplanS00 and teleplanS22 rows by that file name, the uploaded copy in DOCUMENT_DIR and the local file, every BC billing row of the patient (including the billing-history rows the reconciliation writes) and the physician, and asserts each is gone. The remittance tables are shared with Settle Paid Claims (billing-bc-settle-paid-claims), so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -12689,7 +12810,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "BC Administration ▸ Billing ▸ Accounting Reports as a spreadsheet: the Invoice, A/R and Rejection CSVs list exactly the claims SQL selects over billing and billingmaster for the same day (Invoice: not deleted; A/R: neither deleted nor written off; Rejection: rejected), with Account ALL and all four payer boxes; a login with report read but not billing read gets the app's refusal and no file; LAST, the Rejection spreadsheet prints each rejected claim's full claim number and the patient's birth date. billing-bc-account-report-types reads these three reports' PDFs and payer boxes, and billing-bc-account-reports the Write-Off and Payments and Refunds PDFs; this check reads the spreadsheets against SQL. On release/2026.08 before #4805 (#4801) merged on 18 Oct, every Create Report answered HTTP 404, so the Invoice step failed there. With #4805, the refusal step fails until pending finding 453 (#4940) is fixed (the billing package maps no SecurityException, so the refusal is a 500 error page), and the last step until pending finding 452 (#4939) is fixed (the Rejection report cuts the claim number and prints the birth date as 1 January).",
+      "notes": "BC Administration ▸ Billing ▸ Accounting Reports as a spreadsheet: the Invoice, A/R and Rejection CSVs list exactly the claims SQL selects over billing and billingmaster for the same day (Invoice: not deleted; A/R: neither deleted nor written off; Rejection: rejected), with Account ALL and all four payer boxes; a login with report read but not billing read gets the app's refusal and no file; LAST, the Rejection spreadsheet prints each rejected claim's full claim number and the patient's birth date. billing-bc-account-report-types reads these three reports' PDFs and payer boxes, and billing-bc-account-reports the Write-Off and Payments and Refunds PDFs; this check reads the spreadsheets against SQL. On release/2026.08 before #4805 (#4801) merged on 18 Oct, every Create Report answered HTTP 404, so the Invoice step failed there. With #4805, the refusal step checks finding 453 (#4940: the billing package mapped no SecurityException, so the refusal was a 500 error page), and the last step finding 452 (#4939: the Rejection report cut the claim number and printed the birth date as 1 January). Their release fixes #4942 and #4948 merged on 18 Oct.",
       "fixtures": "The owned FAKE- patient made a BC patient, and six MSP claims on it billed to the test provider: one each in billingmaster status O, B, R, X and D on one 1990s service day picked per run, and one O claim on the next day; the rejected claim's remittance and refusal line (teleplanS21 and teleplanC12 named with the run marker). An owned role (report read, no billing read) and a throwaway login for the refusal step. Cleanup deletes the claims, the remittance rows, the role and the login, and asserts they are gone. No provider or report-provider row is added."
     },
     {
@@ -12740,7 +12861,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Preferences ▸ BC Billing Preferences, as a throwaway login: with nothing saved the page offers Clinic Default and no payee and posts no provider number; Save stores every choice for the provider (billing_preferences and its property rows) and no clinic-wide setting; reopening shows them; a Save that changes only the referral keeps the rest; the next bill form shows the saved billing form and service location. The preferences part of #4439 task 9. First committed coverage of this page. Fails on 2026.08 at the first step, 'Preferences ▸ BC Billing Preferences opens the throwaway's own billing preferences', until #4938 (issue #4936) merges: the page's script throws on every open. Behind it, the form posts an empty provider number, so Save stores every preference as a clinic-wide setting, the selects show their first option instead of the saved value, and the auto-populate box can never be ticked; the step with nothing saved checks the form before any Save, so on 2026.08 nothing is saved. On a release WAR with #4938 applied every step passes. The expectedFailure is added with its finding number when the findings log is assembled.",
+      "notes": "Preferences ▸ BC Billing Preferences, as a throwaway login: with nothing saved the page offers Clinic Default and no payee and posts no provider number; Save stores every choice for the provider (billing_preferences and its property rows) and no clinic-wide setting; reopening shows them; a Save that changes only the referral keeps the rest; the next bill form shows the saved billing form and service location. The preferences part of #4439 task 9. First committed coverage of this page. The first step, 'Preferences ▸ BC Billing Preferences opens the throwaway's own billing preferences', checks #4936: the page's script threw on every open. Behind it, the form posted an empty provider number, so Save stored every preference as a clinic-wide setting, the selects showed their first option instead of the saved value, and the auto-populate box could never be ticked; the step with nothing saved checks the form before any Save. Its release fix #4938 merged on 18 Oct. On a release WAR with #4938 applied every step passes. The expectedFailure is added with its finding number when the findings log is assembled.",
       "fixtures": "A throwaway login (lib/throwaway-login-fixture.js) and the workflow's own FAKE patient, made a BC patient. Cleanup deletes the throwaway's billing_preferences row (the page creates one on first open); the fixture removes its property rows and the login. A property row without a provider written during the run fails the check and is left for a look. Everything the page saves is keyed to the throwaway, so the check can run alongside others."
     },
     {
@@ -12760,7 +12881,7 @@
         "diagnosticcode",
         "ctl_servicecodes_dxcodes"
       ],
-      "notes": "BC Administration ▸ Billing ▸ Manage Service/Diagnostic Code Associations (the list, the association's Edit, Save and Remove), the bill form's fee-code search filling in the associated diagnosis, and Manage Billing Codes (search, the code's Edit and its fee row save), opened by its address because its menu item shows only with BC_BILLING_CODE_MANAGEMENT=yes. The code part of #4439 task 9; Manage Private Bill is billing-bc-private-codes. First committed coverage of these pages. On 2026.08 before #4778 (issue #4767) merged on 18 Oct, the first two steps passed and the step 'Manage Billing Codes finds the owned MSP code by its code' answered 404. With #4778 and #4844 (issue #4842), both merged on 18 Oct, it now fails at 'the association's Edit opens the editor with its service code and diagnosis' on #4941. With #4943 (the #4941 fix) and #4892 every step but the last passes; the last step collects #4842, #4439 D14 (Create New Association links back to the list) and D13 (reached only through Create New) and stays red until D14 is fixed. Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "notes": "BC Administration ▸ Billing ▸ Manage Service/Diagnostic Code Associations (the list, the association's Edit, Save and Remove), the bill form's fee-code search filling in the associated diagnosis, and Manage Billing Codes (search, the code's Edit and its fee row save), opened by its address because its menu item shows only with BC_BILLING_CODE_MANAGEMENT=yes. The code part of #4439 task 9; Manage Private Bill is billing-bc-private-codes. First committed coverage of these pages. On 2026.08 before #4778 (issue #4767) merged on 18 Oct, the first two steps passed and the step 'Manage Billing Codes finds the owned MSP code by its code' answered 404. With #4778 and #4844 (issue #4842), 'the association's Edit opens the editor with its service code and diagnosis' checks #4941; #4943 (the #4941 fix) and #4892 merged on 18 Oct. With them every step but the last passed on release on 18 Oct; the last step collects #4842, #4439 D14 (Create New Association links back to the list) and D13 (reached only through Create New) and stays red until D14 is fixed. Each expectedFailure is added with its finding number when the findings log is assembled.",
       "fixtures": "One MSP fee code (billingservice 9xxxx with an end date), two diagnostic codes (diagnosticcode Zxxxx), all described by the run marker, and one association of the fee code with the first diagnosis (ctl_servicecodes_dxcodes), for the workflow's own FAKE patient made a BC patient. Cleanup deletes the fee code's association rows and any written during the run for the owned diagnoses (the editor can store one with no service code), then the codes, and asserts each is gone. The codes and the association are visible clinic-wide while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -12775,8 +12896,26 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "#4439 item 5, the BC WCB form: Billing Type WCB ▸ New WCB Form opens the form prefilled for the patient and the chosen billing physician; Save and Close stores it as filled in, and the bill form's list then offers it, chosen; the list's date link opens the saved form with its values; a WCB Continue with a code that needs the report (19937) and that form reaches the review; LAST, a WCB Continue with an incomplete form returns to the bill form saying what the form lacks, once. billing-bc-two-window-isolation bills WCB with a seeded form. Fails on 2026.08 at the first step until #4944 (#4864 part 1) merges: New WCB Form opens a relative address (HTTP 404), and the form page answers HTTP 500 on every open. With #4944, the last step fails until #4954 (#4864 part 2) merges: a refused Continue comes back without saying why. On a release WAR with both, every step passes. The expectedFailure is added with its finding number when the findings log is assembled.",
+      "notes": "#4439 item 5, the BC WCB form: Billing Type WCB ▸ New WCB Form opens the form prefilled for the patient and the chosen billing physician; Save and Close stores it as filled in, and the bill form's list then offers it, chosen; the list's date link opens the saved form with its values; a WCB Continue with a code that needs the report (19937) and that form reaches the review; LAST, a WCB Continue with an incomplete form returns to the bill form saying what the form lacks, once. billing-bc-two-window-isolation bills WCB with a seeded form. The first step checks #4864 part 1 (New WCB Form opened a relative address, HTTP 404, and the form page answered HTTP 500 on every open), and the last step #4864 part 2 (a refused Continue came back without saying why). Their release fixes #4944 and #4954 merged on 18 Oct. On a release WAR with both, every step passes. The expectedFailure is added with its finding number when the findings log is assembled.",
       "fixtures": "The owned FAKE- patient made a BC patient with a street address and city and no postal code; one owned billing physician (bc.createBillingPhysician); one incomplete WCB form for the patient. Cleanup deletes the patient's wcb rows and BC billing rows, then the physician, and asserts each is gone. No bill is saved: the check stops at the review."
+    },
+    {
+      "name": "billing-bc-wcb-code-pickers",
+      "script": "scripts/billing-bc-wcb-code-pickers-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "mutates": [
+        "wcb_bp_code",
+        "wcb_noi_code"
+      ],
+      "notes": "The BC WCB form's code lookups, which billing-bc-wcb-form fills by typing (billing-bc-adjust-bill-code-search's diagnosis search is Adjust Bill's ViewBillingDigNewSearch, another page): Create Invoice ▸ WCB ▸ New WCB Form ▸ Search beside ICD9, Body Part and Nature of Injury (support/Icd9, support/BodyPart, support/NatureInjury). The ICD9 lookup lists the codes for the typed text and a pick fills exactly the ICD9 box; the Body Part and Nature of Injury lookups list the owned code and a pick fills exactly that box. The last step, the install lists WorkSafeBC side, body part and nature-of-injury codes of its own, fails on a Flyway-built BC install until #5062 (findings log 444) restores the reference rows: wcb_side, wcb_bp_code and wcb_noi_code are empty, so the Side list has no options and both lookups list nothing but the owned codes. Notes only, no pin.",
+      "fixtures": "One billing physician (bc.createBillingPhysician), the owned FAKE patient made a BC patient, and one wcb_bp_code and one wcb_noi_code row carrying the run marker with a non-numeric code no WorkSafeBC code uses. The two code tables are clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup deletes the owned code rows by marker, the patient's BC billing rows and the physician, and asserts each is gone."
     },
     {
       "name": "billing-bc-wcb-links",
@@ -12794,7 +12933,7 @@
         "encounterForm",
         "provider"
       ],
-      "notes": "#4439 D10 and D11 (#4965), the two links into the BC WCB pages that billing-bc-wcb-form does not take: Administration ▸ Select Forms adds BC-WCB (the BC seed ships it off the form list) and the chart's Forms menu offers it; Chart ▸ Forms ▸ BC-WCB opens a new WCB form for the patient; Administration ▸ Billing ▸ Simulate Submission File ▸ Create Report lists the owned WCB claim and its invoice link opens the claim's correction page; Settle Bill there comes back to the page with the claim settled (status S, one history row); last, Select Forms removes BC-WCB and every encounterForm row is as found. On release/2026.08 it fails at the BC-WCB step until #4966 merges: the seeded form value still names viewformwcb.do (HTTP 404), and the WCB form page itself opens only once #4944 merges. The correction link steps also wait for #4966 (the link named the WEB-INF JSP, HTTP 404). Notes only, no pin: the fixes are open PRs.",
+      "notes": "#4439 D10 and D11 (#4965), the two links into the BC WCB pages that billing-bc-wcb-form does not take: Administration ▸ Select Forms adds BC-WCB (the BC seed ships it off the form list) and the chart's Forms menu offers it; Chart ▸ Forms ▸ BC-WCB opens a new WCB form for the patient; Administration ▸ Billing ▸ Simulate Submission File ▸ Create Report lists the owned WCB claim and its invoice link opens the claim's correction page; Settle Bill there comes back to the page with the claim settled (status S, one history row); last, Select Forms removes BC-WCB and the form list is as found (the shown forms and their order, since Select Forms renumbers the shown forms 1..n, #4952). The BC-WCB step checks #4965 (the seeded form value named viewformwcb.do, HTTP 404; the WCB form page itself needs #4944), and the correction link steps too (the link named the WEB-INF JSP, HTTP 404). #4944 and the release fix #4966 merged on 18 Oct. Notes only, no pin.",
       "fixtures": "The owned FAKE- patient made a BC patient; one billing physician made in preflight, before login, because the simulation lists the cached active providers (the cache fills at login; the live wrapper starts a fresh Tomcat); one open WCB claim for them (billing, billingmaster and a wcb row for fee item 19937). BC-WCB is shown on the clinic's form list while the check runs, and the physician shows in clinic-wide lists, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup puts every encounterForm display order back and asserts the list as found, deletes the patient's wcb rows and the claim's history, billingmaster and billing rows, and the physician, and asserts each is gone."
     },
     {
@@ -12829,7 +12968,7 @@
         "billingreferral",
         "billing_on_3rdPartyAddress"
       ],
-      "notes": "BC billing popups: the day sheet's B opens the BC bill form for the owned appointment, and its dx reference (billing/CA/BC/ViewDxReference) lists the patient's earlier diagnosis; picking it fills the first diagnosis box; the referral search (billing/CA/BC/ViewBillingReferCodeSearch) with one match fills Referral 1, and with two matches lists both and Confirm fills Referral 2 with the ticked one; Save Bill writes the claim with that diagnosis and both referral numbers; the private receipt's bill-to search (billing/CA/BC/ViewOnSearch3rdBillAddr) finds the owned address and fills the recipient; Add/Edit Address (billing/CA/BC/OnAddEdit3rdAddr) saves a new name, which the search then finds. billing-bc-bill-create-save covers the fee and diagnosis searches; billing-bc-day-sheet-unbill covers B, the claim and the appointment's billed status. On release/2026.08 the last step fails until #4962 is fixed: Add/Edit Address's Search and Save throw a script error (they call a service-code check for fields the page doesn't have), so Save never asks to confirm; the address is still saved in English.",
+      "notes": "BC billing popups: the day sheet's B opens the BC bill form for the owned appointment, and its dx reference (billing/CA/BC/ViewDxReference) lists the patient's earlier diagnosis; picking it fills the first diagnosis box; the referral search (billing/CA/BC/ViewBillingReferCodeSearch) with one match fills Referral 1, and with two matches lists both and Confirm fills Referral 2 with the ticked one; Save Bill writes the claim with that diagnosis and both referral numbers; the private receipt's bill-to search (billing/CA/BC/ViewOnSearch3rdBillAddr) finds the owned address and fills the recipient; Add/Edit Address (billing/CA/BC/OnAddEdit3rdAddr) saves a new name, which the search then finds. billing-bc-bill-create-save covers the fee and diagnosis searches; billing-bc-day-sheet-unbill covers B, the claim and the appointment's billed status. The last step checks #4962 (Add/Edit Address's Search and Save threw a script error, as they called a service-code check for fields the page doesn't have, so Save never asked to confirm; the address was still saved in English); its release fix #4963 merged on 18 Oct.",
       "fixtures": "One billing physician (bc.createBillingPhysician); the workflow's own FAKE patient made a BC patient, with one earlier MSP claim (diagnosis 780, 1995) and one private bill; one appointment for it today on the test login's day sheet; two referral doctors (billingreferral, last name = the run marker) and one bill-to address (billing_on_3rdPartyAddress, company name starting with the marker); step 7 adds a second address named with the marker. The physician, the referral doctors and the addresses show in clinic-wide lists while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup deletes every BC billing row of the patient, its appointment and archive rows, the addresses and referral doctors named with the marker, and the physician, and asserts each is gone."
     },
     {
@@ -12895,6 +13034,20 @@
       "fixtures": "Three MSP bills (billing + billingmaster) for its own FAKE patient, made a BC patient: two paid with explanation (E) and one rejected (R), all dated today, holding the creation date, name check and provider billing numbers a bill-form save stores (a reprocess writes those again). Cleanup deletes every BC billing row of that patient, with the history and notes the saves wrote, and asserts none is left."
     },
     {
+      "name": "billing-bc-claim-remittance-lines",
+      "script": "scripts/billing-bc-claim-remittance-lines-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "notes": "A claim's sequence-number link on the BC Invoice List, which opens that claim's MSP remittance lines (teleplanS00) by its office number; billing-bc-remittance-upload opens the remittance only by RA number: Master record ▸ Billing ▸ Invoice List ▸ the claim's sequence number ▸ ViewGenTAS00ByOfficeNo. The list shows each owned claim's latest MSP sequence number as its link; the first claim's link opens exactly its two lines (office number linked to the claim, fee code, billed and paid amounts in dollars, explanatory code, record type, what the line code means) and counts 2 records; last, the second claim's link opens only its own line.",
+      "fixtures": "The workflow's own FAKE patient made a BC patient, two MSP claims for it (billing + billingmaster, status E) and three teleplanS00 lines whose filename is the run marker and whose office number is an owned claim's. Cleanup deletes the lines by marker and every BC billing row of the patient, and asserts none is left."
+    },
+    {
       "name": "billing-bc-private-bill-receipt",
       "script": "scripts/billing-bc-private-bill-receipt-playwright-checks.js",
       "tiers": [
@@ -12908,6 +13061,21 @@
       "env": [],
       "notes": "BC private bill: Bill Status ▸ receipt ▸ Update Invoice (bill-to and note, 405 for a GET) ▸ Receive Payment (full payment marks the bill paid). Finding 282 (#4717: Update Invoice answered 500 on an empty billingNo) is fixed on release/2026.08 by #4723 and finding 164 (#4551: Receive Payment saved nothing) by #4659, so every step is expected to pass there.",
       "fixtures": "Seeds and removes one private billing/billingmaster row for its own FAKE patient, and the bill_recipients, billingnote and billing_history rows written for it."
+    },
+    {
+      "name": "billing-bc-receipt-print-notes",
+      "script": "scripts/billing-bc-receipt-print-notes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "The BC private bill receipt's Print and Print With Notes, which billing-bc-private-bill-receipt leaves unpressed: Invoice List ▸ Bill Patient ▸ invoice number ▸ a typed Billing Notes text ▸ Print, then Print With Notes. Asserted on the printed page (the receipt rendered to PDF with its print stylesheet once the page has asked to print; only the print dialog is stubbed): both print the invoice number and amount and no buttons; Print leaves out the Billing Notes heading and the note, Print With Notes prints them. The buttons sit inside the receipt's Update Invoice form, and a press that also posts that form instead of printing is reported by the step. Notes only: both print steps fail that way until #5068 is fixed (the buttons have no type, so each submits the form and the receipt reloads before print()). Needs pdftotext (SKIP without it).",
+      "fixtures": "One private bill (billing + billingmaster, 45.00) for the workflow's own FAKE patient, made a BC patient. Cleanup deletes every BC billing row of that patient, with any bill_recipients and billingnote rows, and asserts none is left."
     },
     {
       "name": "admin-default-encounter-issues",
@@ -12962,7 +13130,7 @@
         "CAISI_REPORT"
       ],
       "fixtures": "The runWorkflow FAKE patient only (unused by this entry).",
-      "notes": "Administration > Reports > Activity Report; one script backs admin-caisi-activity-report and admin-caisi-population-report (CAISI_REPORT picks the report), so each known failure has its own entry. Skips on the packaged default (caisi=off hides the CAISI report entries; the check looks for the Population Report entry, which stays after the fix); needs caisi=on with ModuleNames including Caisi, as the shipped carlos.properties pairs them. With caisi=on it fails at its only step while the dead entry is still offered: it points at PMmodule/Reports/ProgramActivityReport, which has had no route since the report's pages were removed, so it opens a 404 (pending finding 404; the fix for #4855 removes the entry, which can come back when a report exists). No expectedFailure pin until the finding is in the log."
+      "notes": "Administration > Reports > Activity Report; one script backs admin-caisi-activity-report and admin-caisi-population-report (CAISI_REPORT picks the report), so each known failure has its own entry. Skips on the packaged default (caisi=off hides the CAISI report entries; the check looks for the Population Report entry, which stays after the fix); needs caisi=on with ModuleNames including Caisi, as the shipped carlos.properties pairs them. With caisi=on its only step checks the dead entry that pointed at PMmodule/Reports/ProgramActivityReport, which has had no route since the report's pages were removed, so it opened a 404 (finding 404). #4859, the release fix for #4855, merged on 18 Oct; it removes the entry, which can come back when a report exists. No expectedFailure pin until the finding is in the log."
     },
     {
       "name": "admin-caisi-population-report",
@@ -13101,6 +13269,27 @@
       "fixtures": "Owns a patient and one PDF document (row and file); the replacement is uploaded through the popup with the run marker in its name. All removed."
     },
     {
+      "name": "document-add-new-type",
+      "script": "scripts/document-add-new-type-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "ctl_doctype"
+      ],
+      "notes": "Add Document's New Type button, which edoc-schedule-navigation reaches only on an install with no document type: Schedule ▸ Search ▸ Master Record ▸ Documents ▸ Add Document. New Type dismissed adds no type; left blank, it adds none and says Invalid entry; neither stores anything. A marker-named type is added last in the Type list, chosen, and stored only by Add, which saves exactly one document for the owned patient with that type and the uploaded bytes, and exactly one new ctl_doctype row (module demographic, status A). Last, the reloaded report offers the type in the Type list and its type filter, and the filter lists the new document and not the owned document of another type. PASS expected.",
+      "fixtures": "The owned FAKE patient, one owned 1-page PDF document of type others (row and file under DOCUMENT_DIR, or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset; name carries the run marker) and the uploaded PDF named with the marker. The new type is named with the marker and every login's Type lists offer it while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes both documents with their patient links and stored files, the chart note and link the upload filed, and the ctl_doctype row this run added, and asserts each is gone."
+    },
+    {
       "name": "document-viewer-macro",
       "script": "scripts/document-viewer-macro-playwright-checks.js",
       "tiers": [
@@ -13178,7 +13367,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned FAKE- patient with three Inf preventions seeded by SQL (a year-only and a year-and-month date, each with its partial_date row, and a full date) and the replacements the edit form saves; cleanup deletes the patient's preventions, their ext rows and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its fourth step on develop: the edit form's Date is an input type=date, so a year-only prevention opens with an empty Date box and the required field refuses the save until a full date is typed (pending finding 302, #4814; release fix #4815). Steps 1-3 pass; steps 5 and 6 need the year-only box and do not run (step 6, an impossible day refused and the corrected day saved, also needs #4815's calendar check). The check turns green when #4815 reaches develop in the forward merge; drop this note then."
+      "notes": "Fails at its fourth step on release/2026.08 and develop: the edit form's Date is an input type=date, so a year-only prevention opens with an empty Date box and the required field refuses the save until a full date is typed (pending finding 302, #4814; its release fix #4815 is a draft). Steps 1-3 pass; steps 5 and 6 need the year-only box and do not run (step 6, an impossible day refused and the corrected day saved, also needs #4815's calendar check). The check turns green on release when #4815 merges, and on develop when that reaches it in the forward merge; drop this note then."
     },
     {
       "name": "prevention-print-selection",
@@ -13351,7 +13540,7 @@
         "eform"
       ],
       "fixtures": "Owned FAKE- patient; two marker-named eForms in the clinic's eForm library (status 1), copies of them saved through the UI, and one saved copy of each seeded by SQL (eform_data). Cleanup deletes the eForms and every copy saved from them and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Fails on develop. Step 1: the oscarOPEN button opens the internal /WEB-INF/jsp/eform/efmformadd_data.jsp path, a 404 (pending finding 304, #4773; release fix #4779). Step 2: the linked copy's save refuses the button's eform_link, which carries the opener's eForm id, so the opener never stores link$eform (pending finding 305, #4773; release fix #4779). Step 3: a saved opener's button never reads link$eform back (pending finding 303, #4764, fixed on release by #4770), and it also opens the internal path (304). All three parts run and print their outcome before the steps report them."
+      "notes": "Fails on develop. Step 1: the oscarOPEN button opens the internal /WEB-INF/jsp/eform/efmformadd_data.jsp path, a 404 (pending finding 304, #4773; its release fix #4779 merged on 18 Oct). Step 2: the linked copy's save refuses the button's eform_link, which carries the opener's eForm id, so the opener never stores link$eform (pending finding 305, #4773; its release fix #4779 merged on 18 Oct). Step 3: a saved opener's button never reads link$eform back (pending finding 303, #4764, fixed on release by #4770), and it also opens the internal path (304). All three parts run and print their outcome before the steps report them."
     },
     {
       "name": "eform-show-latest-only",
@@ -13418,7 +13607,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "EForm Report Tool (Populate) and (Mark Latest), which detached-delete-eform-report-tool does not press. On develop the last step fails: Populate copies deleted eForm instances (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "notes": "EForm Report Tool (Populate) and (Mark Latest), which detached-delete-eform-report-tool does not press. On release/2026.08 and develop the last step fails: Populate copies deleted eForm instances (a held finding, with its release fix #4824 a draft; its expectedFailure is added with the finding number when the findings log is assembled).",
       "fixtures": "Owned eForm template, the owned FAKE- patient and four SQL-seeded instances with values (one deleted); the report tool and its ERT_FAKEPW table are created through the UI. All removed in cleanup."
     },
     {
@@ -13519,7 +13708,7 @@
         "serviceSpecialists"
       ],
       "fixtures": "Owned FAKE- patient; a marker-named consultation service and FAKE-Spec specialist linked to it (serviceSpecialists); two marker-named eForms in the clinic's eForm library (status 1): one whose action template writes one consultation request, and one whose template writes an encounter note and a consultation request with no specialist; each is submitted once through E-Chart > eForms > Add. Cleanup deletes the eForms, their saved copies, the consultation request the submission wrote, the owned patient's notes with their links, and the service, specialist and their link, and asserts none remain. The eForm library and the consultation service and specialist lists are clinic-wide (every user and check sees the fixture service and specialist while the check runs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "The consultation request an eForm's action template writes (EFormUtil.writeEformTemplate, <consultRequest>); eform-template-outputs covers the template's message, document and tickler. The template asks for urgency 3 (Return) and status 2 (Pending Specialist Callback). Steps: submitting the eForm saves it and writes one request tied to the saved eForm; the request has the template's service, specialist, referring provider, reason and urgency, and Schedule > Consultations and the request screen show them; the request has status 2 saved, on the request screen and in the Consultations list; LAST, a second eForm whose template has an encounter note and a consultation request with no specialist is saved with its note, Submit answers 200 and no request is made for it. Fails at the status step before the fix: the status is read from <urgency>, so the request is saved with status 3 (Pending Patient Callback), pending finding 334 (#4826; fixed on release/2026.08 by #4828). After that, the last step fails until #4834: the template throws on the missing specialist after the eForm and its note are stored, and Submit answers 409, pending finding 335 (#4833; release fix #4834). The check turns green on release/2026.08 when #4834 merges, and on develop when #4828 and #4834 reach it in the forward merge; drop this note then."
+      "notes": "The consultation request an eForm's action template writes (EFormUtil.writeEformTemplate, <consultRequest>); eform-template-outputs covers the template's message, document and tickler. The template asks for urgency 3 (Return) and status 2 (Pending Specialist Callback). Steps: submitting the eForm saves it and writes one request tied to the saved eForm; the request has the template's service, specialist, referring provider, reason and urgency, and Schedule > Consultations and the request screen show them; the request has status 2 saved, on the request screen and in the Consultations list; LAST, a second eForm whose template has an encounter note and a consultation request with no specialist is saved with its note, Submit answers 200 and no request is made for it. Fails at the status step before the fix: the status is read from <urgency>, so the request is saved with status 3 (Pending Patient Callback), pending finding 334 (#4826; fixed on release/2026.08 by #4828). After that, the last step checks for the template throwing on the missing specialist after the eForm and its note are stored, with Submit answering 409: pending finding 335 (#4833; release fix #4834, merged on 18 Oct). On develop the check waits for #4828 and #4834 in the forward merge; drop this note then."
     },
     {
       "name": "eform-template-document-provider",
@@ -13561,11 +13750,7 @@
         "appointment"
       ],
       "fixtures": "Owned FAKE- patient; a marker-named waiting-list name whose name carries an apostrophe (for the login's schedule group) and the patient's row on it, seeded by SQL as waiting-list does. The check books two appointments for the patient from the Schedule (its reason carries the marker). Cleanup deletes those appointments (and any appointmentArchive rows for them), the waiting-list rows and the list name, and asserts none remain. An active list name makes every booking in the clinic look for waiting-list rows, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Booking an appointment for a patient on a waiting list (AppointmentAddRecord2Action, appointmentaddarecord.jsp): the result page asks 'Click OK to remove patient from the waiting list: <name>' and OK posts waitinglist/RemoveFromWaitingList; waiting-list covers the Master Record's waiting-list controls. Steps: the booking is saved and the question names the list as written (apostrophe included), Cancel keeps the patient on the list; a second booking and OK takes the patient off the list (the row becomes history); LAST, the pages on the way link only stylesheets the webapp ships. Set MANUALLY_CLEANUP_WL=yes to mirror a server whose carlos.properties sets it: the check then asserts the booking asks nothing and the patient stays on the list. Passes on release/2026.08 in both modes. Fails at its last step on develop, pinned to finding 100: removeFromWaitingListResult.jsp, the self-closing page OK opens, links /styles.css, which the webapp does not ship (the link came with #1674; release/2026.08's copy of the page has none); the earlier steps pass.",
-      "expectedFailure": {
-        "finding": 100,
-        "step": "the booking and waiting-list pages link only stylesheets the webapp ships"
-      }
+      "notes": "Booking an appointment for a patient on a waiting list (AppointmentAddRecord2Action, appointmentaddarecord.jsp): the result page asks 'Click OK to remove patient from the waiting list: <name>' and OK posts waitinglist/RemoveFromWaitingList; waiting-list covers the Master Record's waiting-list controls. Steps: the booking is saved and the question names the list as written (apostrophe included), Cancel keeps the patient on the list; a second booking and OK takes the patient off the list (the row becomes history); LAST, the pages on the way link only stylesheets the webapp ships. Set MANUALLY_CLEANUP_WL=yes to mirror a server whose carlos.properties sets it: the check then asserts the booking asks nothing and the patient stays on the list. Passes on release/2026.08 in both modes. On develop it fails at its last step (finding 100): removeFromWaitingListResult.jsp, the self-closing page OK opens, links /styles.css, which the webapp does not ship (the link came with #1674). release/2026.08's copy of the page has no such link, so the step passes there and the release manifest pins nothing (all 3 steps passed live on release fefceecc62, 19 Oct)."
     },
     {
       "name": "document-tickler",
@@ -15554,6 +15739,38 @@
         "consultationServices",
         "professionalSpecialists"
       ]
+    },
+    {
+      "name": "eform-image-links",
+      "script": "scripts/eform-image-links-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient(s) and related rows; cleanup verifies removal. Must not run concurrently with other checks.",
+      "notes": "Verifies image transport through save/reopen and the packaged WAF."
+    },
+    {
+      "name": "demographic-add-relation",
+      "script": "scripts/demographic-add-relation-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient(s) and related rows; cleanup verifies removal. Must not run concurrently with other checks.",
+      "notes": "Issue #3352: GET opens, search/select does not write, GET/HEAD save is 405, and a form POST saves the relation. Clicks the legacy master-record link when enabled; otherwise opens its supported route."
     },
     {
       "name": "admin-security-workflow",

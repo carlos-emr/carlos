@@ -111,6 +111,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SignatureReference" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.ConsultationSignatureService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -460,7 +461,10 @@
             for (DemographicContact demographicContact : demographicContacts) {
                 // ensure consent has been given to contact this specialist.
                 // ensure that this specialist has a cpso (specialist, msp, or college id)
-                if (demographicContact.isConsentToContact() &&
+                if (!demographicContact.isDeleted() && demographicContact.isActive()
+                        && demographicContact.isConsentToContact()
+                        && demographicContact.getDetails() instanceof ProfessionalContact
+                        && !demographicContact.getDetails().isDeleted() &&
                         (((ProfessionalContact) demographicContact.getDetails()).getCpso() != null) &&
                         (!((ProfessionalContact) demographicContact.getDetails()).getCpso().isEmpty())
                 ) {
@@ -1102,6 +1106,10 @@
                 };
             }
 
+            // Editing the visible name invalidates the previous hidden directory id.
+            jQuery('#specialistInput').on('input', function() {
+                jQuery('#specialist').val('');
+            });
             jQuery('#specialistInput').on('click', function() {
                 jQuery(this).autocomplete('search', '');
             });
@@ -1757,6 +1765,13 @@
     <script type="text/javascript">
 
         function checkForm(submissionVal, formName) {
+            // A typed name is not a directory selection. Validate the posted id on both pickers.
+            var consultant = document.getElementById('specialist');
+            if (/^(Submit|Update)/.test(submissionVal) && consultant && !/^[1-9][0-9]*$/.test(consultant.value)) {
+                alert('Please select an active consultant from the consultant directory before saving.');
+                (document.getElementById('specialistInput') || consultant).focus();
+                return false;
+            }
             ShowSpin(true);
             var success = true;
             var isEReferral = document.getElementById('isOceanEReferral') !== null;
@@ -2016,8 +2031,23 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
         }
 
         <%
-String signatureRequestId=DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
-String imageUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_preview.name()+"&"+DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY+"="+signatureRequestId;
+// Signature controls are rendered separately from the form bean. Keep the rejected
+// POST's capture key so correcting the consultant cannot silently discard a drawing.
+boolean signatureRetry = request.getAttribute("consultationSubmittedValues") != null;
+boolean retryManualSignature = signatureRetry && "true".equalsIgnoreCase(request.getParameter("newSignature"));
+String signatureImgValue = signatureRetry ? StringUtils.noNull(request.getParameter("signatureImg")).trim()
+        : StringUtils.noNull(consultUtil.signatureImg).trim();
+String signatureRequestId = signatureRetry
+        ? SignatureReference.parse(true, signatureImgValue, request.getParameter("newSignatureImg")).value() : "";
+if (signatureRequestId.isEmpty() || !signatureRequestId.matches("[a-zA-Z0-9]+")) {
+    signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
+}
+ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
+if (retryManualSignature) {
+    signatureImgValue = consultationSignatureService.wasManualSignatureCaptured(signatureRequestId)
+            ? signatureRequestId : "";
+}
+String imageUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_preview.name()+"&"+DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY+"="+SafeEncode.forUriComponent(signatureRequestId);
 String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_stored.name()+"&digitalSignatureId=";
 %>
 
@@ -2030,11 +2060,11 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
             if (signatureImgTag) {
                 signatureImgTag.onload = null;
                 signatureImgTag.onerror = null;
-                signatureImgTag.src = '<%=imageUrl%>&rand=' + counter;
+                signatureImgTag.src = '<%=SafeEncode.forJavaScript(imageUrl)%>&rand=' + counter;
             }
             var signatureImg = document.getElementById('signatureImg');
             if (signatureImg) {
-                signatureImg.value = '<%=signatureRequestId%>';
+                signatureImg.value = '<%=SafeEncode.forJavaScript(signatureRequestId)%>';
             }
         }
 
@@ -2085,7 +2115,31 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
 
         function showSignatureImage() {
             var signatureImg = document.getElementById('signatureImg');
-            if (signatureImg != null && isStoredSignatureId(signatureImg.value)) {
+            if (hasPendingManualSignature()) {
+                var signatureImgTag = document.getElementById('signatureImgTag');
+                var signatureFrame = document.getElementById('signatureFrame');
+                var signatureShow = document.getElementById('signatureShow');
+                signatureImgTag.onload = function() {
+                    // The preview servlet returns a 1x1 placeholder when no drawing exists.
+                    if (signatureImgTag.naturalWidth === 1 && signatureImgTag.naturalHeight === 1) {
+                        signatureImgTag.onerror();
+                        return;
+                    }
+                    isSignatureSaved = true;
+                    signatureFrame.style.display = 'none';
+                    signatureShow.style.display = 'block';
+                };
+                signatureImgTag.onerror = function() {
+                    isSignatureSaved = false;
+                    signatureShow.style.display = 'none';
+                    signatureFrame.style.display = 'block';
+                };
+                signatureImgTag.src = '<%=SafeEncode.forJavaScript(imageUrl)%>';
+            } else if (<%=retryManualSignature%>) {
+                // No capture yet: retain manual intent without requesting a nonexistent preview.
+                document.getElementById('signatureShow').style.display = 'none';
+                document.getElementById('signatureFrame').style.display = 'block';
+            } else if (signatureImg != null && isStoredSignatureId(signatureImg.value)) {
                 var signatureImgTag = document.getElementById('signatureImgTag');
                 var newSignature = document.getElementById('newSignature');
                 var signatureFrame = document.getElementById('signatureFrame');
@@ -2129,7 +2183,7 @@ if (userAgent != null) {
 %>
 
         var isSignatureDirty = false;
-        var isSignatureSaved = <%= consultUtil.signatureImg != null && !"".equals(consultUtil.signatureImg) ? "true" : "false" %>;
+        var isSignatureSaved = <%= SignatureReference.isStoredId(signatureImgValue) ? "true" : "false" %>;
 
         function signatureHandler(e) {
             isSignatureDirty = e.isDirty;
@@ -2153,7 +2207,7 @@ if (userAgent != null) {
             }
         }
 
-        var requestIdKey = "<%=signatureRequestId %>";
+        var requestIdKey = "<%=SafeEncode.forJavaScript(signatureRequestId)%>";
 
         function AddOtherFaxProvider() {
             var name = jQuery("#searchHealthCareTeamInput").val();
@@ -2342,7 +2396,7 @@ if (userAgent != null) {
                     thisForm.setSiteName(consultUtil.siteName);
                     defaultSiteName = consultUtil.siteName;
 
-                } else if (request.getAttribute("validateError") == null) {
+                } else {
                     //  new request
                     if (demo != null) {
                         RxInformation RxInfo = new RxInformation();
@@ -2373,6 +2427,12 @@ if (userAgent != null) {
                         thisForm.setSiteName(defaultSiteName);
                     }
                 }
+            }
+
+            if (request.getAttribute("consultationSubmittedValues") != null) {
+                // Overlay posted fields after loading patient/legacy metadata and defaults.
+                new org.springframework.beans.BeanWrapperImpl(thisForm).setPropertyValues((Map) request.getAttribute("consultationSubmittedValues"));
+                thisForm.setSpecialist(""); // force a fresh active directory selection
             }
 
             if (thisForm.iseReferral()) {
@@ -2635,7 +2695,7 @@ if (userAgent != null) {
                              When creating a new request (id == null): show Submit/Print/Fax buttons. --%>
                         <% if (canWriteConsult && thisForm.geteReferralId() == null) { %>
                                 <div class="consult-control-panel consult-control-panel-sticky mb-2">
-                                <% if (request.getAttribute("id") != null) { %>
+                                <% if (requestId != null && !requestId.isEmpty()) { %>
                                 <input name="update" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdate"/>"
                                        onclick="return checkForm('Update Consultation Request','EctConsultationFormRequest2Form');"/>
@@ -3337,6 +3397,11 @@ if (userAgent != null) {
                                         signatureProviderNo = referringProviderDefault.trim();
                                     }
                                 }
+                                if (signatureRetry) {
+                                    signatureProviderNo = consultationSignatureService
+                                            .resolveSignatureProviderNo(request.getParameter("signatureProviderNo"),
+                                                    thisForm.getProviderNo(), signatureProviderNo);
+                                }
                                 boolean hasStampSignature = false;
                                 try {
                                     File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
@@ -3349,13 +3414,13 @@ if (userAgent != null) {
                         <div class="consult-section-heading"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/></div>
                         <div>
                                 <% if (canWriteConsult) { %>
-                                <input type="hidden" name="newSignature" id="newSignature" value="<%= hasStampSignature ? "false" : "true" %>"/>
+                                <input type="hidden" name="newSignature" id="newSignature" value="<%= signatureRetry ? (retryManualSignature ? "true" : "false") : (hasStampSignature ? "false" : "true") %>"/>
                                 <input type="hidden" name="signatureProviderNo" id="signatureProviderNo"
                                        value="<%=SafeEncode.forHtmlAttribute(signatureProviderNo)%>"/>
                                 <input type="hidden" name="signatureImg" id="signatureImg"
-                                       value="<%=(consultUtil.signatureImg != null ? SafeEncode.forHtmlAttribute(consultUtil.signatureImg) : "") %>"/>
+                                       value="<%=SafeEncode.forHtmlAttribute(signatureImgValue)%>"/>
                                 <input type="hidden" name="newSignatureImg" id="newSignatureImg"
-                                       value="<%=signatureRequestId %>"/>
+                                       value="<%=SafeEncode.forHtmlAttribute(signatureRequestId)%>"/>
 
                                 <% if (hasStampSignature) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
@@ -3365,12 +3430,7 @@ if (userAgent != null) {
                                 </div>
                                 <div id="signatureFrame" style="display: none;">
                                     <iframe style="width:500px; height:132px;"
-                                        src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
-                                </div>
-                                <div style="margin-top:5px;">
-                                    <a href="javascript:void(0)" onclick="document.getElementById('signatureShow').style.display='none';document.getElementById('signatureFrame').style.display='block';document.getElementById('newSignature').value='true';">
-                                        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkResignManually"/>
-                                    </a>
+                                        src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=SafeEncode.forUriComponent(signatureRequestId)%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
                                 </div>
                                 <% } else { %>
                                 <div id="signatureShow" style="display: none;">
@@ -3378,8 +3438,13 @@ if (userAgent != null) {
                                 </div>
 
                                 <iframe style="width:500px; height:132px;" id="signatureFrame"
-							src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
+							src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=SafeEncode.forUriComponent(signatureRequestId)%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
                                 <% } %>
+                                <div style="margin-top:5px;">
+                                    <a href="javascript:void(0)" onclick="document.getElementById('signatureShow').style.display='none';document.getElementById('signatureFrame').style.display='block';document.getElementById('newSignature').value='true';">
+                                        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkResignManually"/>
+                                    </a>
+                                </div>
                                 <% } else if (SignatureReference.isStoredId(consultUtil.signatureImg)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
                                 <div id="signatureReadOnlyShow" style="display: block;">
@@ -3411,11 +3476,14 @@ if (userAgent != null) {
                                         initSpecialistAutocomplete();
                                         // Resolve text entered while either asynchronous lookup was loading.
                                         // Existing consultations are restored from their saved IDs immediately below.
-                                        jQuery('#serviceInput').trigger('input');
+                                        var restoredService = '<carlos:encode value='<%= thisForm.getService() %>' context="javaScriptBlock"/>';
+                                        if (!restoredService || restoredService === 'null' || restoredService === '-1') {
+                                            jQuery('#serviceInput').trigger('input');
+                                        }
                                         initializeConsultation(
-                                            '<carlos:encode value='<%= String.valueOf(consultUtil.service) %>' context="javaScriptBlock"/>',
-                                            '<%=((consultUtil.service==null)?"":SafeEncode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
-                                            '<carlos:encode value='<%= String.valueOf(consultUtil.specialist) %>' context="javaScriptBlock"/>',
+                                            restoredService,
+                                            '<carlos:encode value='<%= consultUtil.getServiceName(thisForm.getService()) %>' context="javaScriptBlock"/>',
+                                            '<carlos:encode value='<%= request.getAttribute("consultationSubmittedValues") == null ? consultUtil.specialist : thisForm.getSpecialist() %>' context="javaScriptBlock"/>',
                                             '<%=((consultUtil.specialist==null)?"":SafeEncode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
                                             '<carlos:encode value='<%= consultUtil.specPhone %>' context="javaScriptBlock"/>',
                                             '<carlos:encode value='<%= consultUtil.specFax %>' context="javaScriptBlock"/>',
@@ -3431,13 +3499,13 @@ if (userAgent != null) {
                                                     property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                     defaultVal="false">
                             <script type="text/javascript">
-                                const specialist = "${carlos:forJavaScript(consultUtil.specialist)}";
-                                const servicevalue = "${carlos:forJavaScript(consultUtil.service)}";
+                                const specialist = "${carlos:forJavaScript(empty consultationSubmittedValues ? consultUtil.specialist : EctConsultationFormRequest2Form.specialist)}";
+                                const servicevalue = "${carlos:forJavaScript(EctConsultationFormRequest2Form.service)}";
 
                                 document.EctConsultationFormRequest2Form.specialist.value = specialist;
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;
 
-                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null) {
+                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null && healthCareTeam[specialist]) {
                                     document.EctConsultationFormRequest2Form.annotation.value = healthCareTeam[specialist].note;
                                     document.EctConsultationFormRequest2Form.phone.value = healthCareTeam[specialist].phoneNum;
                                     document.EctConsultationFormRequest2Form.fax.value = healthCareTeam[specialist].specFax;
@@ -3451,6 +3519,51 @@ if (userAgent != null) {
         </div><%-- end row --%>
         </div><%-- end container-fluid --%>
         <div id="attachDocumentDisplay" style="display:none;"></div>
+    <% if (request.getAttribute("consultationSubmittedValues") != null) { %>
+    <script>
+        // Keep attachment additions/removals on the retry form without writing them to the database.
+        (function() {
+            var form = document.getElementById('EctConsultationFormRequest2Form');
+            function retainAttachments(field, values, tableId, label) {
+                form.querySelectorAll('input[name="' + field + '"]').forEach(function(input) {
+                    if (values.indexOf(input.value) < 0) input.closest('tr').remove();
+                });
+                values.forEach(function(value) {
+                    if (Array.from(form.querySelectorAll('input[name="' + field + '"]')).some(function(input) {
+                        return input.value === value;
+                    })) return;
+                    var key = field + String(value).replace(':', '');
+                    var row = document.getElementById(tableId).insertRow();
+                    row.id = 'entry_' + key;
+                    var cell = row.insertCell();
+                    cell.textContent = label + ' ' + value;
+                    var input = document.createElement('input');
+                    input.type = 'hidden'; input.name = field; input.value = value;
+                    input.id = 'delegate_' + key;
+                    input.className = 'delegateAttachment';
+                    cell.appendChild(input);
+                });
+            }
+            <% for (String[] attachment : new String[][] {
+                    {"docNo", "attachedDocumentsTable", "Document"}, {"labNo", "attachedLabsTable", "Lab"},
+                    {"formNo", "attachedFormsTable", "Form"}, {"eFormNo", "attachedEFormsTable", "eForm"},
+                    {"hrmNo", "attachedHRMDocumentsTable", "HRM report"}}) {
+                String[] selected = request.getParameterValues(attachment[0]); %>
+                retainAttachments('<carlos:encode value='<%= attachment[0] %>' context="javaScriptBlock"/>', [
+                    <% if (selected != null) { for (String value : selected) { %>
+                    '<carlos:encode value='<%= value %>' context="javaScriptBlock"/>',
+                    <% } } %>
+                ], '<carlos:encode value='<%= attachment[1] %>' context="javaScriptBlock"/>',
+                   '<carlos:encode value='<%= attachment[2] %>' context="javaScriptBlock"/>');
+            <% } %>
+            // The extension checkbox is separate from the typed form bean.
+            var title = document.getElementById('ext_letterheadTitle');
+            if (title) title.checked = <c:choose><c:when test="${not empty param.ext_letterheadTitle}">true</c:when><c:otherwise>false</c:otherwise></c:choose>;
+            var willBook = document.getElementById('patientWillBook');
+            if (willBook) willBook.checked = '<carlos:encode value='<%= thisForm.getPatientWillBook() %>' context="javaScriptBlock"/>' === '1';
+        })();
+    </script>
+    <% } %>
     </form>
     </body>
 
@@ -3511,6 +3624,22 @@ if (userAgent != null) {
             *  3 : Clinic address.
             * Clinic address is set if no selection is detected.
             */
+            <% if (request.getAttribute("consultationSubmittedValues") != null) { %>
+            // Defaults must not overwrite the letterhead selected on a rejected submission.
+            var retryLetterhead = {
+                letterheadName: '<carlos:encode value='<%= thisForm.getLetterheadName() %>' context="javaScriptBlock"/>',
+                letterheadAddress: '<carlos:encode value='<%= thisForm.getLetterheadAddress() %>' context="javaScriptBlock"/>',
+                letterheadPhone: '<carlos:encode value='<%= thisForm.getLetterheadPhone() %>' context="javaScriptBlock"/>',
+                letterheadFax: '<carlos:encode value='<%= thisForm.getLetterheadFax() %>' context="javaScriptBlock"/>',
+                faxAccount: '<carlos:encode value='<%= thisForm.getFaxAccount() %>' context="javaScriptBlock"/>'
+            };
+            Object.keys(retryLetterhead).forEach(function(field) {
+                var input = document.getElementById(field);
+                if (input) input.value = retryLetterhead[field];
+                var span = document.getElementById(field + 'Span');
+                if (span) span.textContent = retryLetterhead[field];
+            });
+            <% } else { %>
             if("${empty pageScope.consultUtil.letterheadName}" === "true") {
                 // New consultation - set default letterhead
                 if("${pageScope.lhndType eq 'providers'}" === "true"){
@@ -3524,6 +3653,7 @@ if (userAgent != null) {
                 // Existing consultation - load saved letterhead
                 switchProvider("${carlos:forJavaScriptBlock(pageScope.consultUtil.letterheadName)}");
             }
+            <% } %>
         })
     </script>
 

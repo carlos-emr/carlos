@@ -1538,7 +1538,7 @@ function HideSpin() {
 				return true;
 			}
 
-			const inputId = 'openosp-img-' + id;
+			const inputId = 'carlos-img-' + id;
 
 			// Remove any existing hidden input for this image
 			jQuery("input[type='hidden'][id='" + inputId + "']").remove();
@@ -1546,7 +1546,7 @@ function HideSpin() {
 			// Add a fresh hidden input
 			jQuery('<input>', {
 				id: inputId,
-				name: 'openosp-image-link',
+				name: 'carlos-image-link',
 				value: JSON.stringify({ id: id, value: src }),
 				type: 'hidden'
 			}).appendTo("form[method='POST']");

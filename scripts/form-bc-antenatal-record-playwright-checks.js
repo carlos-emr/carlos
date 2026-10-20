@@ -7,8 +7,9 @@
  * The BC seed registers both forms but leaves them off the encounter's form list (encounterForm.hidden=0;
  * hidden is the display order, 0 means not shown). The check adds them through Administration > Select Forms,
  * the way a clinic switches them on, and removes them again at the end. It records every encounterForm row
- * first and asserts the rows, display order included, are identical afterwards; a failed run puts the
- * recorded display order back in cleanup. The form list is clinic-wide, so the check must not run
+ * first and asserts the form list is as a clinic saw it afterwards: the same forms shown, in the same order (Select
+ * Forms renumbers the shown forms 1..n, #4952, so the numbers themselves can change). Cleanup puts the recorded
+ * display order back and asserts the rows identical. The form list is clinic-wide, so the check must not run
  * concurrently with other checks (live wrapper: EXCLUSIVE=1).
  *
  * Steps:
@@ -21,7 +22,7 @@
  *   6. Pages 3, 4, 5 and Attachments open from the page links and keep the same form.
  *   7. Print of pages 1 and 2 is a PDF with each value on its own page, and the print is logged.
  *   8. Save and Exit stores the change and closes the form window.
- *   9. Select Forms removes both forms again and every encounterForm row is as it was found.
+ *   9. Select Forms removes both forms again and the form list is as it was found (the shown forms and their order).
  *
  * BC-AR 2012's referring-doctor prefill is deliberately not asserted: release reads the family doctor's
  * referral number with SxmlMisc and develop with DemographicXml, and the check runs against both.
@@ -38,15 +39,11 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { scratchDir, saveDownload, requirePoppler, squash } = require('./lib/export-content-helpers');
 const { pageText } = require('./lib/pdf-graph');
+const { encounterForms, formListAsSeen } = require('./lib/encounter-form-list');
 
 const BCAR2020 = 'BC-AR 2020';
 const BCAR2012 = 'BC-AR 2012';
 const MIN_PANEL_CHARS = 500;
-
-/** Every encounterForm row, so the end state can be compared with the start, display order included. */
-function encounterForms(sql) {
-  return sql.rows('SELECT form_name,form_value,form_table,hidden FROM encounterForm ORDER BY form_name,form_value');
-}
 
 async function openSelectForms(page, s) {
   await h.gotoApp(page, s.config.baseUrl, '/administration');
@@ -316,8 +313,8 @@ async function workflow(s) {
       h.assert(!lists.selected.includes(name) && lists.available.includes(name), `Select Forms did not remove ${name}`);
     }
     await admin.close();
-    h.assert(JSON.stringify(encounterForms(s.sql)) === JSON.stringify(before),
-      'Removing the forms did not leave every encounterForm row, display order included, as it was');
+    h.assert(formListAsSeen(encounterForms(s.sql)) === formListAsSeen(before),
+      'Removing the forms did not leave the form list as it was (the shown forms and their order)');
   });
 }
 
