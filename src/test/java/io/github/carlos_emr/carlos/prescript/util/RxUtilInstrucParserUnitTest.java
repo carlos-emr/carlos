@@ -66,6 +66,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
     @DisplayName("strengths and dispense quantities (issue #3876)")
     class StrengthQuantities {
 
+        /** Product strengths and concentrations must not multiply the administered unit count. */
         @ParameterizedTest(name = "{0} gives 21 units")
         @ValueSource(strings = {
             "1000 mg po tid x 7 days", "Take 1000 mg po tid x 7 days",
@@ -75,6 +76,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1 g po tid x 7 days", "2g po tid x 7 days", "Take 2g po tid x 7 days",
             "1000 IU po tid x 7 days", "20 mEq po tid x 7 days",
             "20 IU po tid x 7 days", "20IU po tid x 7 days",
+            "20IU sl tid x 7 days",
+            "100IU/mL tid x 7 days", "100IU/5mL IV tid x 7 days",
             "100 IU/mL SC tid x 7 days", "100IU/mL SC tid x 7 days",
             "100 IU/5mL IM tid x 7 days", "100 IU / 5 mL SC tid x 7 days",
             "Apply 2g/g tid x 7 days", "2g/g TOP. tid x 7 days",
@@ -97,6 +100,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getQuantity()).isEqualTo("21");
         }
 
+        /** Administered amounts retain their dose bounds and round fractional dispense totals upward. */
         @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
         @CsvSource(delimiter = '|', value = {
             "2 tabs po tid x 7 days | 2 | 2 | 42",
@@ -135,6 +139,12 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "20 IU SC BID x 7 days | 20 | 20 | 280",
             "20IU sc BID x 7 days | 20 | 20 | 280",
             "20IU IM BID x 7 days | 20 | 20 | 280",
+            "20 IU qhs x 30 days | 20 | 20 | 600",
+            "20IU qhs x 30 days | 20 | 20 | 600",
+            "20IU IV qhs x 30 days | 20 | 20 | 600",
+            "1/2IU qhs x 8 days | 0.5 | 0.5 | 4",
+            "10-20IU IV qhs x 30 days | 10 | 20 | 600",
+            "20IU INH qhs x 30 days | 20 | 20 | 600",
             "20 units SC BID x 7 days | 20 | 20 | 280",
             "20units SC BID x 7 days | 20 | 20 | 280",
             "1/2units SC OD x 7 days | 0.5 | 0.5 | 4",

@@ -88,6 +88,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         action = new RxWriteScript2Action();
     }
 
+    /** The parser AJAX response and staged prescription must agree on the dose, quantity and original instructions. */
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
         "1000 mg po tid x 7 days | 1 | 21",
@@ -98,6 +99,9 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         "2g TOP. BID x 7 days | 2 | 28",
         "20 IU SC BID x 7 days | 20 | 280",
         "20IU IM BID x 7 days | 20 | 280",
+        "20 IU qhs x 30 days | 20 | 600",
+        "20IU IV qhs x 30 days | 20 | 600",
+        "20IU sl qhs x 7 days | 1 | 7",
         "100IU/mL SC tid x 7 days | 1 | 21",
         "100IU/5mL IM tid x 7 days | 1 | 21",
         "100units/mL SC tid x 7 days | 1 | 21",

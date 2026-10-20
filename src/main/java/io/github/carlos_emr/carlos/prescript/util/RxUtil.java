@@ -508,6 +508,13 @@ public class RxUtil {
         return retVal;
     }
 
+    /**
+     * Parses the prescription's free-text instructions into dose, route, frequency,
+     * duration and quantity fields, preserving the original instructions.
+     * Leading product strengths default to one unit unless an explicit count is supplied.
+     *
+     * @param rx prescription to update; null is ignored
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void instrucParser(RxPrescriptionData.Prescription rx) {
@@ -904,6 +911,10 @@ public class RxUtil {
         return;
     }
 
+    /**
+     * Calculates whole dispense units from the maximum dose and duration, rounding
+     * fractional totals upward. Periodic frequencies use exact day intervals.
+     */
     // FindSecBugs IMPROPER_UNICODE: normalization of internal frequency codes, not a security or authorization decision. See docs/static-analysis-workflows.md.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "normalization of internal frequency codes, not a security or authorization decision")
     private static int calculateDispenseQuantity(String maximumDose, String duration, String durationUnit, String frequency) {
@@ -1044,6 +1055,7 @@ public class RxUtil {
         return null;
     }
 
+    /** Finds a leading fraction whose suffix is whitespace, an amount unit, or the end of the instruction. */
     private static String findFractionAt(String text, int start) {
         if (start < 0 || start >= text.length() || !isDigit(text.charAt(start))) {
             return null;
@@ -1101,12 +1113,18 @@ public class RxUtil {
         return c >= '0' && c <= '9';
     }
 
+    /** Recognizes supported amount-unit suffixes without applying route or method context. */
     private static boolean hasAmountUnitAfter(String instructions, int amountEnd) {
         return STRENGTH_UNIT.matcher(instructions)
                 .region(skipWhitespaceForward(instructions, amountEnd), instructions.length()).lookingAt()
                 || hasDoseUnitAfter(instructions, amountEnd);
     }
 
+    /**
+     * Distinguishes product strengths from administered amounts using the parsed route
+     * and method. Concentrations are strengths; non-concentration IU requires an oral
+     * route to be treated as a strength, preserving doses when the route is unknown.
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
     private static boolean hasStrengthUnitAfter(String instructions, int amountEnd, InstructionSegment segment) {
@@ -1120,18 +1138,18 @@ public class RxUtil {
         if (hasConcentrationAfterUnit(instructions, unit.end())) {
             return true;
         }
-        // Grams applied topically and IU injected through supported parenteral
-        // routes specify administered amounts. Oral strengths remain strengths.
+        // Grams applied topically and non-oral IU specify administered amounts.
         if ("g".equalsIgnoreCase(unit.group())) {
             return !("TOP.".equalsIgnoreCase(segment.route) || METHOD_APPLY.equalsIgnoreCase(segment.method)
                     || METHOD_RUB_WELL_IN.equalsIgnoreCase(segment.method));
         }
         if ("iu".equalsIgnoreCase(unit.group())) {
-            return !("SC".equalsIgnoreCase(segment.route) || "IM".equalsIgnoreCase(segment.route));
+            return "PO".equalsIgnoreCase(segment.route) || "SL".equalsIgnoreCase(segment.route);
         }
         return true;
     }
 
+    /** Recognizes slash/per concentrations with a supported denominator unit and optional amount. */
     private static boolean hasConcentrationAfterUnit(String instructions, int unitEnd) {
         Matcher separator = CONCENTRATION_SEPARATOR.matcher(instructions)
                 .region(skipWhitespaceForward(instructions, unitEnd), instructions.length());
@@ -1148,6 +1166,7 @@ public class RxUtil {
         return hasAmountUnitAfter(instructions, denominatorStart);
     }
 
+    /** Recognizes unit suffixes permitted on administered doses when strength detection does not apply. */
     private static boolean hasDoseUnitAfter(String instructions, int amountEnd) {
         // Volumes, topical grams and injected/explicit unit counts are administered amounts,
         // including attached forms such as 5mL. Strength detection takes precedence.
@@ -1156,6 +1175,7 @@ public class RxUtil {
     }
 
 
+    /** Extracts the leading method and amount, retaining route context for ambiguous units. */
     private static InstructionSegment scanInstruction(String instructions, String[] methods, String route) {
         InstructionSegment segment = new InstructionSegment();
         segment.route = route;
@@ -1199,6 +1219,7 @@ public class RxUtil {
         segment.amountMethod = findWordAmountAfterMethod(instructions, method);
     }
 
+    /** Records a leading dose range, or marks it as a product strength when its suffix requires that interpretation. */
     private static boolean setRangeAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
         NumberRange methodRange = findRangeAt(instructions, amountStart);
         if (methodRange == null) {
@@ -1218,6 +1239,7 @@ public class RxUtil {
         return true;
     }
 
+    /** Records a leading decimal dose, or marks it as a product strength when its suffix requires that interpretation. */
     private static boolean setDecimalAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
         NumberToken methodAmount = findDecimalAt(instructions, amountStart);
         if (methodAmount == null) {
@@ -1239,6 +1261,7 @@ public class RxUtil {
         return true;
     }
 
+    /** Classifies a leading fraction before converting administered fractions into decimal doses. */
     private static boolean setFractionAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
         String fraction = findFractionAt(instructions, amountStart);
         if (fraction == null) {
@@ -1342,6 +1365,12 @@ public class RxUtil {
     }
 
 
+    /**
+     * Removes drug names and structured prescription metadata from the free-text instructions.
+     *
+     * @param rx prescription containing the text and metadata to remove
+     * @return remaining instructions, or an empty string when no text is present
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String trimSpecial(RxPrescriptionData.Prescription rx) {
