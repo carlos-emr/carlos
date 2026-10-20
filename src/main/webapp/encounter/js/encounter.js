@@ -622,6 +622,20 @@ function menuAction() {
     if (action.indexOf("ajaxInsertTemplate(") === 0) {
         var tmplName = action.replace("ajaxInsertTemplate('", "").replace("')", "");
         ajaxInsertTemplate(tmplName);
+    } else if (action.indexOf("openEncounterForm.apply(null,") === 0 && action.endsWith(");")) {
+        // Parse data only; never execute a stored action string. JSON also preserves
+        // commas, quotes and backslashes in form names and URLs.
+        var formArgs;
+        try {
+            formArgs = JSON.parse(action.slice("openEncounterForm.apply(null,".length, -2));
+        } catch (ignored) {
+            return;
+        }
+        if (Array.isArray(formArgs) && formArgs.length === 3 && formArgs.every(function (value) {
+            return typeof value === 'string';
+        })) {
+            openEncounterForm(formArgs[0], formArgs[1], formArgs[2]);
+        }
     } else if (action.indexOf("popupPage(") === 0) {
         // Calculator actions are popupPage calls - parse the arguments
         var argsStr = action.substring(action.indexOf("(") + 1, action.lastIndexOf(")"));

@@ -23,6 +23,7 @@
 
 const { chromium } = require('playwright');
 const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
+const { selectTicklerAssignee } = require('./lib/tickler-clinic');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -371,7 +372,7 @@ async function createTickler(context) {
   await page.locator('textarea[name="ticklerMessage"]').fill(createdMessage);
   await page.locator('input[name="xml_appointment_date"]').fill('2026-02-18');
   await page.locator('select[name="priority"]').selectOption('High');
-  await page.locator('select[name="task_assigned_to"]').selectOption(providerNo);
+  await selectTicklerAssignee(page, providerNo);
   await page.locator('input.btn-primary[name="Button"]').first().click();
   await page.waitForFunction(() => {
     const frame = document.getElementById('ticklerSubmitFrame');

@@ -29,8 +29,9 @@ const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
-const { masterRecordLink } = require('./lib/master-record-link');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { masterRecordLink } = require('./lib/master-record-link');
+const { clickOpensPopup } = require('./lib/playwright-ui');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -143,6 +144,7 @@ async function login(context) {
 
 async function openPatientFromSearch(context, schedulePage) {
   const searchPopup = context.waitForEvent('page');
+  searchPopup.catch(() => {});
   await schedulePage.locator('a').filter({ hasText: /^Search$/ }).click();
   const searchPage = await searchPopup;
   wirePage(searchPage, 'search');
@@ -156,6 +158,9 @@ async function openPatientFromSearch(context, schedulePage) {
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
   const patientPopup = context.waitForEvent('page');
+  // Handle an early waiter rejection even if the click itself fails first, so
+  // the main finally block can remove this check's patient fixture.
+  patientPopup.catch(() => {});
   await searchPage.locator(`a[onclick*='DemographicEdit?demographic_no=${demographicNo}']`).first().click();
   const patientPage = await patientPopup;
   wirePage(patientPage, 'patient');
@@ -216,14 +221,10 @@ async function checkDemographicCrud(context) {
   }
 }
 
-async function clickPopupLink(context, page, urlFragment, label) {
-  const [popup] = await Promise.all([
-    context.waitForEvent('page'),
-    masterRecordLink(page, urlFragment).first().click(),
-  ]);
+async function clickPopupLink(context, page, fragment, label) {
+  const popup = await clickOpensPopup(page, masterRecordLink(page, fragment).first(),
+    { context, label, timeout: 30000 });
   wirePage(popup, label);
-  await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
-  await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return popup;
 }
 
