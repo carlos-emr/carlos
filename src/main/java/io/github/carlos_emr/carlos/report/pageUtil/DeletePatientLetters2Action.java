@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -94,7 +95,7 @@ public class DeletePatientLetters2Action extends ActionSupport {
                 return deleteFailure(HttpServletResponse.SC_NOT_FOUND);
             }
         } catch (RuntimeException e) {
-            log.error("Letter template {} was not archived", id, e);
+            log.error("Letter template {} was not archived", LogSafe.sanitize(String.valueOf(id)), e);
             return deleteFailure(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
         return SUCCESS;
