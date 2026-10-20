@@ -59,6 +59,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
+    // Struts creates this action per request; its Spring services are not serialized.
     private final transient DemographicManager demographicManager;
     private final transient SecurityInfoManager securityInfoManager;
     public AddDemographicRelationship2Action(DemographicManager demographicManager, SecurityInfoManager securityInfoManager) {
@@ -67,6 +68,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     }
 
     public AddDemographicRelationship2Action() {
+        // Struts requires a public no-argument constructor; it delegates to the injecting constructor.
         this(SpringUtils.getBean(DemographicManager.class), SpringUtils.getBean(SecurityInfoManager.class));
     }
 
@@ -177,7 +179,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         }
         try {
             return Integer.parseInt(demographicNo) > 0;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }
@@ -193,6 +195,8 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     // Sex determines whether the inverse is e.g. brother/sister, grandfather/grandmother,
     // husband/wife of the same relation (from AddAlternateContact.jsp's original logic).
     // Returns null when no inverse relation applies (e.g. relation type has no sex-specific inverse).
+    // FindSecBugs IMPROPER_UNICODE: M/F are domain codes used to select an inverse relation, not identities or credentials.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "M/F domain codes select an inverse relation; no identity or credential comparison")
     private InverseRelation computeInverseRelation(LoggedInInfo loggedInInfo, String origDemo,
             String linkingDemo, String relation) {
         boolean relationset = false;

@@ -206,13 +206,13 @@
                 </tr>
                 <tr>
                     <td class="label">Drug Name:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getDrugName()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getDrugName())) %>
                     </td>
                 </tr>
                 <% if (drug.getBrandName() != null && !drug.getBrandName().equalsIgnoreCase("null")) { %>
                 <tr>
                     <td class="label">Brand Name:</td>
-                    <td><carlos:encode value='<%= drug.getBrandName() %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(drug.getBrandName())%>
                     </td>
                 </tr>
                 <%}%>
@@ -506,14 +506,14 @@
             Unused Items
 
             ID: <%= drug.getId()%><br>
-            Audit: <%= drug.getAuditString()%><br>
-            Full: <%= drug.getFullOutLine()%><br>
+            Audit: <%= SafeEncode.forHtmlContent(drug.getAuditString())%><br>
+            Full: <%= SafeEncode.forHtmlContent(drug.getFullOutLine())%><br>
             Position: <%= drug.getPosition()%><br>
             Start Date Unknown: <%= drug.getStartDateUnknown()%><br>
             Script No: <%= drug.getScriptNo()%><br>
             hide for cpp: <%= drug.getHideFromCpp() %><br>
-            GCN: <%= drug.getGcnSeqNo()%><br>
-            Gen Name: <%= drug.getGenericName()%><br>
+            GCN: <%= SafeEncode.forHtmlContent(drug.getGcnSeqNo())%><br>
+            Gen Name: <%= SafeEncode.forHtmlContent(drug.getGenericName())%><br>
             Min: <%= drug.getTakeMin()%><br>
             Max: <%= drug.getTakeMax()%><br>
              --%>

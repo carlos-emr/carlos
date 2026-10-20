@@ -122,6 +122,8 @@
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadAssociations" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadAssociations2Action">
             <interceptor-ref name="carlosDefaultStack"/>
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
+            <result name="error">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
+            <result name="input">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
         </action>
         <!--
             View gates for dxresearch popups / AJAX fragments that previously
@@ -320,9 +322,6 @@
         <action name="encounter/immunization/config/ViewCreateImmunizationSetInit" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/immunization/config/CreateImmunizationSetInit.jsp</result>
         </action>
-        <action name="encounter/immunization/config/ViewImmunizationSetDisplay" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/encounter/immunization/config/ImmunizationSetDisplay.jsp</result>
-        </action>
         <action name="encounter/oscarConsultationRequest/ViewCalendarPopup" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/CalendarPopup.jsp</result>
         </action>
@@ -431,7 +430,16 @@
         <action name="encounter/oscarMeasurements/ViewTemplateFlowSheet" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
         </action>
-        <action name="encounter/oscarMeasurements/ViewTemplateFlowSheetPrint" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+        <!--
+            Health Tracker view. Same read gate as the other flowsheet views: the
+            action enforces _eChart r and the JSP enforces _flowsheet r. The page
+            itself is only linked from the encounter left nav when the
+            health_tracker property is on.
+        -->
+        <action name="encounter/oscarMeasurements/ViewHealthTracker" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/HealthTracker.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/ViewTemplateFlowSheetPrint" class="io.github.carlos_emr.carlos.clinical.gate.ViewFlowSheetPrint2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/ViewAddMeasurementMap" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">

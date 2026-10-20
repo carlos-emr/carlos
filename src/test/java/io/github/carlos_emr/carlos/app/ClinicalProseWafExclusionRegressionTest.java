@@ -54,6 +54,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * here is the policy contract: a route or argument that leaves the exclusion file without
  * leaving this table fails the build, and vice versa.</p>
  *
+ * <p>The clinic footer rule 1144 reuses the same per-argument six-tag scope for its admin POST, and
+ * 1145 for the same unsaved footer text carried by the logo form.
+ * These tests pin that scope; they do not establish a new front-door ModSecurity runtime result.</p>
+ *
  * @since 2026-09-11
  */
 @Tag("unit")
@@ -123,7 +127,8 @@ class ClinicalProseWafExclusionRegressionTest {
                 Arguments.of("1121", "/carlos/lab/CA/ALL/UnlinkDemographic", "POST", List.of("reason")),
                 Arguments.of("1122", "/carlos/hospitalReportManager/Modify", "POST", List.of("comment", "description")),
                 Arguments.of("1123", "/carlos/messenger/CreateMessage", "POST", List.of("message", "subject")),
-                Arguments.of("1124", "/carlos/email/emailSendAction", "POST", List.of("message", "internalComment")),
+                Arguments.of("1124", "/carlos/email/emailSendAction", "POST",
+                        List.of("message", "footerEmail", "internalComment")),
                 Arguments.of("1125", "/carlos/appointment/AddRecord", "POST", List.of("reason", "notes")),
                 Arguments.of("1126", "/carlos/appointment/UpdateRecord", "POST", List.of("reason", "notes")),
                 Arguments.of("1127", "/carlos/appointment/CutRecord", "POST", List.of("reason", "notes")),
@@ -150,7 +155,11 @@ class ClinicalProseWafExclusionRegressionTest {
                 // The other GET: the tickler list's DataTables search term rides the query string.
                 Arguments.of("1141", "/carlos/tickler/ListTicklers", "GET", List.of("search[value]")),
                 // Back to POST: the provider encounter-note template body, note prose by construction.
-                Arguments.of("1142", "/carlos/admin/ProviderTemplate", "POST", List.of("value")));
+                Arguments.of("1142", "/carlos/admin/ProviderTemplate", "POST", List.of("value")),
+                // Mandatory clinic footer prose is configured only through this admin POST.
+                Arguments.of("1144", "/carlos/admin/saveClinicEmailFooter", "POST", List.of("clinicFooter")),
+                Arguments.of("1145", "/carlos/admin/saveClinicEmailLogo", "POST", List.of("clinicFooterDraft")),
+                Arguments.of("1143", "/carlos/email/saveMyEmailFooter", "POST", List.of("myFooter")));
     }
 
     /** Routes whose prose rides a GET query string; everything else must chain to POST. */
@@ -291,6 +300,53 @@ class ClinicalProseWafExclusionRegressionTest {
         String rule = exclusions.substring(ruleStart, ruleEnd);
         assertThat(rule).as("exclusion %s slice spans its chained rule", ruleId).contains("SecRule REQUEST_METHOD");
         return rule;
+    }
+
+    static Stream<Arguments> legacyLabelExclusions() {
+        return Stream.of(Arguments.of("1046", "label", 1, List.of("label", "Label")),
+                Arguments.of("1047", "label2", 1, List.of("label2")),
+                Arguments.of("1048", "label", 2, List.of("label", "Label")),
+                Arguments.of("1049", "patientlabel", 1, List.of("patientlabel")));
+    }
+
+    @ParameterizedTest
+    @MethodSource("legacyLabelExclusions")
+    @DisplayName("legacy label exceptions should require a unique historical value on POST saves")
+    void shouldLimitLegacyLabelExclusion_toUniqueHistoricalPostValues(
+            String ruleId, String group, int count, List<String> fields) throws IOException {
+        String rule = readExclusionRule(ruleId);
+        assertThat(rule)
+                .contains("SecRule REQUEST_URI \"@rx ^/carlos/eform/addEForm(?:[;?]|$)\"")
+                .contains("\"id:" + ruleId + ",phase:2,pass,nolog,chain\"")
+                .contains("SecRule REQUEST_METHOD \"@streq POST\" \"t:none,chain\"")
+                .contains("SecRule &ARGS:" + group + " \"@eq " + count + "\" \"t:none,chain\"")
+                .doesNotContain("ctl:ruleRemoveById=", "ctl:ruleRemoveByTag=", "ctl:ruleRemoveTargetByTag=");
+        Matcher target = Pattern.compile("ctl:[^\\\"\\s,]+").matcher(rule);
+        assertThat(target.results().map(java.util.regex.MatchResult::group).toList())
+                .containsExactlyElementsOf(fields.stream().map(field -> "ctl:ruleRemoveTargetById=933210;ARGS:" + field).toList());
+
+        String selector = count == 2 ? "Label" : fields.size() == 2 ? "[lL]abel" : fields.getFirst();
+        String prefix = "SecRule ARGS:/^(?-i:" + selector + ")$/ \"@rx ";
+        if (count == 2) {
+            for (String field : fields) {
+                assertThat(rule).contains("SecRule &ARGS:/^(?-i:" + field + ")$/ \"@eq 1\" \"t:none,chain\"");
+            }
+            assertThat(rule).contains("SecRule ARGS:/^(?-i:label)$/ \"@rx ")
+                    .contains("\"t:none,chain\"\n    SecRule ARGS:/^(?-i:Label)$/");
+        }
+        int patternStart = rule.indexOf(prefix) + prefix.length();
+        assertThat(rule.indexOf(prefix)).isGreaterThanOrEqualTo(0);
+        String regex = rule.substring(patternStart, rule.indexOf('"', patternStart));
+        // Java already matches Unicode code points; (*UTF) is the equivalent PCRE2 input mode.
+        Pattern historical = Pattern.compile(regex.replace("(*UTF)", ""));
+        assertThat(historical.matcher("DOE, JANE Tel:705-647-4399(W) 15/06/1985(M) HIN:7999962999CR").matches()).isTrue();
+        assertThat(historical.matcher("O'NEILL, JOSÉ\n12 Main St, Toronto, ON N3R 1Q0\nTel:555-555-5555(H)  (W)\n15/06/1985(M) HIN:7999962999CR\n").matches()).isTrue();
+        assertThat(historical.matcher("DOE, JANE \\n12 Main St, Toronto, ON \\nTel:555-555-5555(H) 555-555-5555(W) \\n15/06/1985(F) HIN:7999962999CR").matches()).isTrue();
+        for (String other : List.of("ordinary label", "$f('id')", "<?php phpinfo(); ?>",
+                "DOE, JANE Tel:705-647-4399(W) 15/06/1985(M) HIN:7999962999CR; $f('id')",
+                "$f('id') DOE, JANE Tel:705-647-4399(W) 15/06/1985(M) HIN:7999962999CR")) {
+            assertThat(historical.matcher(other).matches()).as("nonhistorical value remains inspected").isFalse();
+        }
     }
 
     @Test

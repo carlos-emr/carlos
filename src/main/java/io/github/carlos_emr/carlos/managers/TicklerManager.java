@@ -38,7 +38,6 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerCategory;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -65,11 +64,6 @@ public interface TicklerManager {
      * Validates the given tickler.
      */
     public boolean validateTicklerIsValid(Tickler tickler);
-
-    /**
-     * Adds a tickler link for the specified logged-in user.
-     */
-    public boolean addTicklerLink(LoggedInInfo loggedInInfo, TicklerLink ticklerLink);
 
     public boolean addTickler(LoggedInInfo loggedInInfo, Tickler tickler);
 

@@ -2,9 +2,15 @@
 'use strict';
 const test = require('node:test');
 const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
 const path = require('node:path');
 
-test('nginx CSP upgrade handles stock, repeated, fresh and customized installations', () => {
+// carlos-ctl is its own repository since #4001: CARLOS_CTL_SRC names a
+// checkout, else the installed package under /usr/lib/carlos-ctl is read.
+const ctlSrc = [process.env.CARLOS_CTL_SRC, '/usr/lib/carlos-ctl']
+  .find((dir) => dir && fs.existsSync(path.join(dir, 'carlos_ctl', 'config.py')));
+
+test('nginx CSP upgrade handles stock, repeated, fresh and customized installations', { skip: !ctlSrc && 'set CARLOS_CTL_SRC to a carlos-ctl checkout' }, () => {
   const root = path.resolve(__dirname, '..');
   execFileSync('python3', ['-c', `
 from pathlib import Path
@@ -30,5 +36,5 @@ with tempfile.TemporaryDirectory() as directory:
     target.unlink()
     _install_proxy_params(str(target), str(new))
     assert target.read_bytes() == new.read_bytes(), 'fresh install missed template'
-`], { cwd: root, env: { ...process.env, PYTHONPATH: path.join(root, 'debian/assets') }, timeout: 10000 });
+`], { cwd: root, env: { ...process.env, PYTHONPATH: ctlSrc }, timeout: 10000 });
 });

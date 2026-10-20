@@ -30,8 +30,9 @@
 
 package io.github.carlos_emr.carlos.mds.data;
 
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
+
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -45,9 +46,6 @@ import io.github.carlos_emr.carlos.commn.dao.LabTestResultsDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsMSHDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
-import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
-import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
 import io.github.carlos_emr.carlos.commn.model.MdsMSH;
 import io.github.carlos_emr.carlos.commn.model.MdsZRG;
@@ -87,49 +85,27 @@ public class MDSResultsData {
      */
     //Consult Request list labs
     public ArrayList<LabResultData> populateCMLResultsData(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] co : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs cd = (ConsultDocs) co[0];
-            LabResultData lbData = new LabResultData(LabResultData.CML);
-            lbData.labType = LabResultData.CML;
-            lbData.labPatientId = String.valueOf(cd.getDocumentNo());
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         return populateCMLResultsData(demographicNo, attached, attachedLabs);
     }
 
     public ArrayList<LabResultData> populateCMLResultsDataEForm(String demographicNo, String fdid, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] co : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
-            EFormDocs cd = (EFormDocs) co[0];
-            LabResultData lbData = new LabResultData(LabResultData.CML);
-            lbData.labType = LabResultData.CML;
-            lbData.labPatientId = String.valueOf(cd.getDocumentNo());
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid)), demographicNo);
         return populateCMLResultsData(demographicNo, attached, attachedLabs);
     }
 
     //Consult Response list labs
     public ArrayList<LabResultData> populateCMLResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] co : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultResponseDoc cd = (ConsultResponseDoc) co[0];
-            LabResultData lbData = new LabResultData(LabResultData.CML);
-            lbData.labType = LabResultData.CML;
-            lbData.labPatientId = String.valueOf(cd.getDocumentNo());
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         return populateCMLResultsData(demographicNo, attached, attachedLabs);
     }
 
 
     //Consult List Labs private shared method
-    private ArrayList<LabResultData> populateCMLResultsData(String demographicNo, boolean attached, List<LabResultData> attachedLabs) {
+    private ArrayList<LabResultData> populateCMLResultsData(String demographicNo, boolean attached, java.util.Set<String> attachedLabs) {
         labResults = new ArrayList<LabResultData>();
         try {
             LabResultData lbData = new LabResultData(LabResultData.CML);
-            LabResultData.CompareId c = lbData.getComparatorId();
             for (Object[] o : labPPIDao.findRoutings(ConversionUtils.fromIntString(demographicNo), "CML")) {
                 LabPatientPhysicianInfo lpp = (LabPatientPhysicianInfo) o[0];
                 PatientLabRouting r = (PatientLabRouting) o[1];
@@ -140,9 +116,9 @@ public class MDSResultsData {
                 lbData.dateTime = lpp.getCollectionDate();
                 lbData.setDateObj(UtilDateUtilities.getDateFromString(lbData.dateTime, "dd-MMM-yy"));
 
-                if (attached && Collections.binarySearch(attachedLabs, lbData, c) >= 0)
+                if (attached && attachedLabs.contains(LabResultData.labKey(lbData.labType, lbData.segmentID)))
                     labResults.add(lbData);
-                else if (!attached && Collections.binarySearch(attachedLabs, lbData, c) < 0)
+                else if (!attached && !attachedLabs.contains(LabResultData.labKey(lbData.labType, lbData.segmentID)))
                     labResults.add(lbData);
 
                 lbData = new LabResultData(LabResultData.CML);
@@ -290,19 +266,21 @@ public class MDSResultsData {
             }
 
             for (Object[] o : searchResult) {
-                Integer MSHsegmentID = (Integer) o[0];
-                String providerLabRoutingStatus = (String) o[2];
-                String mdsPIDpatientName = (String) o[3];
-                String mdsPIDhealthNumber = (String) o[4];
-                String mdsPIDsex = (String) o[5];
-                String abnormalFlag = (String) o[6]; // maxMdsZFR.abnormalFlag
-                Date mdsMSHdateTime = (Date) o[7];
-                String mdsOBRquantityTiming = (String) o[8];
-                String mdsPV1refDoctor = (String) o[9];
-                String reportFormStatus = (String) o[10]; // minMdsZFR.reportFormStatus
-                String mdsZRGreportGroupDesc = (String) o[11];
+                // The patient-only query omits providerLabRouting.status.
+                int offset = demographicNo == null ? 1 : 0;
+                Integer mshSegmentId = ((Number) o[0]).intValue();
+                String providerLabRoutingStatus = offset == 1 ? NativeQueryValues.asString(o[2]) : null;
+                String mdsPIDpatientName = NativeQueryValues.asString(o[2 + offset]);
+                String mdsPIDhealthNumber = NativeQueryValues.asString(o[3 + offset]);
+                String mdsPIDsex = NativeQueryValues.asString(o[4 + offset]);
+                String abnormalFlag = NativeQueryValues.asString(o[5 + offset]);
+                Date mdsMSHdateTime = NativeQueryValues.asDate(o[6 + offset]);
+                String mdsOBRquantityTiming = NativeQueryValues.asString(o[7 + offset]);
+                String mdsPV1refDoctor = NativeQueryValues.asString(o[8 + offset]);
+                String reportFormStatus = NativeQueryValues.asString(o[9 + offset]);
+                String mdsZRGreportGroupDesc = NativeQueryValues.asString(o[10 + offset]);
 
-                segmentID.add(Integer.toString(MSHsegmentID));
+                segmentID.add(Integer.toString(mshSegmentId));
                 if (demographicNo == null && !providerNo.equals("0")) {
                     acknowledgedStatus.add(providerLabRoutingStatus);
                 } else {
@@ -358,25 +336,13 @@ public class MDSResultsData {
      */
     //Consult Request list labs
     public ArrayList<LabResultData> populateMDSResultsData(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs cd = (ConsultDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + cd.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         List<Object[]> labsMDS = PLRDao.findResultsByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "MDS");
         return populateMDSResultsData(attachedLabs, labsMDS, attached);
     }
 
     public ArrayList<LabResultData> populateMDSResultsDataEForm(String demographicNo, String fdid, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
-            EFormDocs cd = (EFormDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + cd.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid)), demographicNo);
         List<Object[]> labsMDS = PLRDao.findResultsByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "MDS");
         return populateMDSResultsData(attachedLabs, labsMDS, attached);
     }
@@ -384,23 +350,16 @@ public class MDSResultsData {
 
     //Consult Response list labs
     public ArrayList<LabResultData> populateMDSResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs cd = (ConsultDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + cd.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         List<Object[]> labsMDS = PLRDao.findResultsByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "MDS");
         return populateMDSResultsData(attachedLabs, labsMDS, attached);
     }
 
     //Consult list labs private shared method
-    private ArrayList<LabResultData> populateMDSResultsData(List<LabResultData> attachedLabs, List<Object[]> labsMDS, boolean attached) {
+    private ArrayList<LabResultData> populateMDSResultsData(java.util.Set<String> attachedLabs, List<Object[]> labsMDS, boolean attached) {
         labResults = new ArrayList<LabResultData>();
         try {
             LabResultData lData = new LabResultData(LabResultData.MDS);
-            LabResultData.CompareId c = lData.getComparatorId();
 
             for (Object[] o : labsMDS) {
                 PatientLabRouting p = (PatientLabRouting) o[0];
@@ -422,9 +381,9 @@ public class MDSResultsData {
                     lData.discipline = "Hem/Chem/Other";
                 }
 
-                if (attached && Collections.binarySearch(attachedLabs, lData, c) >= 0)
+                if (attached && attachedLabs.contains(LabResultData.labKey(lData.labType, lData.segmentID)))
                     labResults.add(lData);
-                else if (!attached && Collections.binarySearch(attachedLabs, lData, c) < 0)
+                else if (!attached && !attachedLabs.contains(LabResultData.labKey(lData.labType, lData.segmentID)))
                     labResults.add(lData);
 
                 lData = new LabResultData(LabResultData.MDS);
@@ -475,50 +434,25 @@ public class MDSResultsData {
                 }
             }
 
-            Integer MSHsegmentID = null;
-            String accessionNum = null;
-            String providerLabRoutingStatus = null;
-            String mdsPIDpatientName = null;
-            String mdsPIDhealthNumber = null;
-            String mdsPIDsex = null;
-            String abnormalFlag = null; // maxMdsZFR.abnormalFlag
-            Date mdsMSHdateTime = null;
-            String mdsOBRquantityTiming = null;
-            String mdsPV1refDoctor = null;
-            String reportFormStatus = null; // minMdsZFR.reportFormStatus
-            String mdsZRGreportGroupDesc = null;
-
-
+            // Both provider searches and selected-patient-lab queries include routing status.
+            boolean hasRoutingStatus = demographicNo == null || (labNo != null && labNo > 0);
+            int offset = hasRoutingStatus ? 1 : 0;
             for (Object[] o : searchResult) {
-                if (demographicNo == null) {
-                    MSHsegmentID = (Integer) o[0];
-                    accessionNum = String.valueOf(o[1]); // mdsMSH.messageConID
-                    providerLabRoutingStatus = String.valueOf(o[2]);
-                    mdsPIDpatientName = (String) o[3];
-                    mdsPIDhealthNumber = (String) o[4];
-                    mdsPIDsex = (String) o[5];
-                    abnormalFlag = (String) o[6]; // maxMdsZFR.abnormalFlag
-                    mdsMSHdateTime = (Date) o[7];
-                    mdsOBRquantityTiming = (String) o[8];
-                    mdsPV1refDoctor = (String) o[9];
-                    reportFormStatus = (String) o[10]; // minMdsZFR.reportFormStatus
-                    mdsZRGreportGroupDesc = (String) o[11];
-                } else {
-                    MSHsegmentID = (Integer) o[0];
-                    accessionNum = String.valueOf(o[1]); // mdsMSH.messageConID
-                    mdsPIDpatientName = (String) o[2];
-                    mdsPIDhealthNumber = (String) o[3];
-                    mdsPIDsex = (String) o[4];
-                    abnormalFlag = (String) o[5]; // maxMdsZFR.abnormalFlag
-                    mdsMSHdateTime = (Date) o[6];
-                    mdsOBRquantityTiming = (String) o[7];
-                    mdsPV1refDoctor = (String) o[8];
-                    reportFormStatus = (String) o[9]; // minMdsZFR.reportFormStatus
-                    mdsZRGreportGroupDesc = (String) o[10];
-                }
+                Integer mshSegmentId = ((Number) o[0]).intValue();
+                String accessionNum = String.valueOf(o[1]);
+                String providerLabRoutingStatus = hasRoutingStatus ? NativeQueryValues.asString(o[2]) : null;
+                String mdsPIDpatientName = NativeQueryValues.asString(o[2 + offset]);
+                String mdsPIDhealthNumber = NativeQueryValues.asString(o[3 + offset]);
+                String mdsPIDsex = NativeQueryValues.asString(o[4 + offset]);
+                String abnormalFlag = NativeQueryValues.asString(o[5 + offset]);
+                Date mdsMSHdateTime = NativeQueryValues.asDate(o[6 + offset]);
+                String mdsOBRquantityTiming = NativeQueryValues.asString(o[7 + offset]);
+                String mdsPV1refDoctor = NativeQueryValues.asString(o[8 + offset]);
+                String reportFormStatus = NativeQueryValues.asString(o[9 + offset]);
+                String mdsZRGreportGroupDesc = NativeQueryValues.asString(o[10 + offset]);
 
                 LabResultData lData = new LabResultData(LabResultData.MDS);
-                lData.segmentID = "" + MSHsegmentID;
+                lData.segmentID = "" + mshSegmentId;
                 seqId = lData.segmentID;
 
                 if (demographicNo == null && !providerNo.equals("0")) {
@@ -636,6 +570,16 @@ public class MDSResultsData {
     }
 
     public String getMatchingCMLLabs(String labId) {
+        return getMatchingCMLLabs(labId, false);
+    }
+
+    /**
+     * Resolves a source version chain, optionally propagating lookup failures for atomic mutations.
+     * @param labId selected report identifier
+     * @param failOnLookupError true when fallback to only the selected version would hide a partial operation
+     * @return versions in clinical order
+     */
+    public String getMatchingCMLLabs(String labId, boolean failOnLookupError) {
         String ret = "";
         int monthsBetween = 0;
         try {
@@ -662,6 +606,7 @@ public class MDSResultsData {
             }
 
         } catch (Exception e) {
+            if (failOnLookupError) throw new IllegalStateException("Lab version lookup failed", e);
             logger.error("exception in getMatchingCMLLabs ({})", e.getClass().getSimpleName());
             return labId;
         }
@@ -675,6 +620,16 @@ public class MDSResultsData {
      *         version lookup fails, never an unbounded query for a missing accession
      */
     public String getMatchingLabs(String labId) {
+        return getMatchingLabs(labId, false);
+    }
+
+    /**
+     * Resolves a source version chain, optionally propagating lookup failures for atomic mutations.
+     * @param labId selected report identifier
+     * @param failOnLookupError true when fallback to only the selected version would hide a partial operation
+     * @return versions in clinical order
+     */
+    public String getMatchingLabs(String labId, boolean failOnLookupError) {
         String ret = "";
         int monthsBetween = 0;
         try {
@@ -707,6 +662,7 @@ public class MDSResultsData {
                 }
             }
         } catch (Exception e) {
+            if (failOnLookupError) throw new IllegalStateException("Lab version lookup failed", e);
             logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
             return labId;
         }

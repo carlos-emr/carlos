@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import static org.mockito.ArgumentMatchers.anyMap;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -82,10 +84,20 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(EmailManager.class, mock(EmailManager.class));
         registerMock(EmailComposeManager.class, mock(EmailComposeManager.class));
         registerMock(EformDataManager.class, mock(EformDataManager.class));
+        // Develop's send path re-reads each attachment's owner (release #4425); these tests are
+        // about other behaviour, so ownership always holds.
+        AttachmentOwnershipService ownership = mock(AttachmentOwnershipService.class);
+        when(ownership.allBelongToDemographic(anyMap(), any())).thenReturn(true);
+        registerMock(AttachmentOwnershipService.class, ownership);
         registerMock(EmailPdfPasswordService.class, mock(EmailPdfPasswordService.class));
         composeSubmissionStateService = new EmailComposeSubmissionStateService();
         registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
@@ -345,6 +357,7 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
 
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         EmailCompose2Action composeAction = new EmailCompose2Action();
 
         assertThat(composeAction.prepareComposeEFormMailer()).isEqualTo(org.apache.struts2.ActionSupport.NONE);

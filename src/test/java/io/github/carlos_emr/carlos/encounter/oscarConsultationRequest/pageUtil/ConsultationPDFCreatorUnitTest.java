@@ -226,6 +226,32 @@ class ConsultationPDFCreatorUnitTest {
         assertThat(image.getScaledHeight()).isEqualTo(12f);
     }
 
+    @Test
+    void shouldPreserveUnicodeLetterhead_whenRenderingClinicHeader() throws Exception {
+        var creator = mock(ConsultationPDFCreator.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        var form = mock(EctConsultationFormRequestUtil.class);
+        form.letterheadName = "-1";
+        form.letterheadAddress = "İstanbul";
+        org.mockito.Mockito.when(form.getLetterheadAddress()).thenReturn("İstanbul");
+        var clinic = mock(io.github.carlos_emr.carlos.clinic.ClinicData.class);
+        org.mockito.Mockito.when(clinic.getClinicName()).thenReturn("Nguyễn Łukasz");
+        org.springframework.test.util.ReflectionTestUtils.setField(creator, "reqFrm", form);
+        org.springframework.test.util.ReflectionTestUtils.setField(creator, "clinic", clinic);
+        org.springframework.test.util.ReflectionTestUtils.setField(creator, "heading",
+                io.github.carlos_emr.carlos.commn.printing.PdfFonts.getFont("Helvetica", 12));
+        org.openpdf.text.pdf.PdfPTable table = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                creator, "createClinicInfoHeader");
+        var output = new ByteArrayOutputStream();
+        var document = new org.openpdf.text.Document();
+        org.openpdf.text.pdf.PdfWriter.getInstance(document, output);
+        document.open();
+        document.add(table);
+        document.close();
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(output.toByteArray())) {
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf)).contains("Nguyễn Łukasz", "İstanbul");
+        }
+    }
+
     private static byte[] createPng(int width, int height) throws IOException {
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         ByteArrayOutputStream out = new ByteArrayOutputStream();

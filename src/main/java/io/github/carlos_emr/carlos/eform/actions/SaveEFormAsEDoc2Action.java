@@ -32,9 +32,11 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormSavedRenderResponse;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -138,7 +140,7 @@ public class SaveEFormAsEDoc2Action extends ActionSupport {
 
         String approvalToken = request.getParameter("renderApproval");
         if (approvalToken == null || approvalToken.isBlank()) {
-            logger.info("eForm eDoc approval was not supplied: fdid={}", fdidValue);
+            logger.info("eForm eDoc approval was not supplied: fdid={}", LogSafe.sanitizeObject(fdidValue));
             request.setAttribute("error", "true");
             request.setAttribute("errorMessage", message(
                     request, APPROVAL_EXPIRED_MESSAGE_KEY, APPROVAL_EXPIRED_MESSAGE_FALLBACK));
@@ -151,7 +153,7 @@ public class SaveEFormAsEDoc2Action extends ActionSupport {
             // A token was presented and did not survive — most likely the two-minute lifetime, since
             // the approval page is a list of clinical omissions meant to be read. Saying so lets the
             // clinician retry instead of hunting for a problem with the eForm itself.
-            logger.info("eForm eDoc approval expired or did not match: fdid={}", fdidValue);
+            logger.info("eForm eDoc approval expired or did not match: fdid={}", LogSafe.sanitizeObject(fdidValue));
             request.setAttribute("error", "true");
             request.setAttribute("errorMessage", message(
                     request, APPROVAL_EXPIRED_MESSAGE_KEY, APPROVAL_EXPIRED_MESSAGE_FALLBACK));
@@ -167,16 +169,16 @@ public class SaveEFormAsEDoc2Action extends ActionSupport {
             request.setAttribute("isSuccess_Autoclose", "true");
             return "close";
         } catch (EformContentUnavailableException e) {
-            // Still incomplete: either no approval was supplied, or this render reported a different
-            // issue set than the approved one — the digest binds to the exact set.
-            logger.warn("Approved eForm eDoc archive still incomplete: fdid={} issues={}",
-                    fdidValue, e.getIssueCount());
-            request.setAttribute("error", "true");
-            request.setAttribute("errorMessage", message(
-                    request, EDOC_FAILURE_MESSAGE_KEY, EDOC_FAILURE_MESSAGE_FALLBACK));
-            return "error";
+            return EFormSavedRenderResponse.missing(request, renderApprovalService, loggedInInfo,
+                    e, fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.EDOC,
+                    approval, true);
         } catch (PDFGenerationException e) {
-            logger.error("eForm eDoc archive failed: fdid={} type={}", fdidValue, e.getClass().getName());
+            if (e.isRetryable()) {
+                return EFormSavedRenderResponse.busy(request, response, renderApprovalService, loggedInInfo,
+                        fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.EDOC,
+                        approval, true);
+            }
+            logger.error("eForm eDoc archive failed: fdid={} type={}", LogSafe.sanitizeObject(fdidValue), e.getClass().getName());
             request.setAttribute("error", "true");
             request.setAttribute("errorMessage", message(
                     request, EDOC_FAILURE_MESSAGE_KEY, EDOC_FAILURE_MESSAGE_FALLBACK));

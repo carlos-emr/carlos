@@ -88,7 +88,7 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
      * keep the plan simple.</p>
      *
      * @param startDate Date inclusive lower bound for the log timestamp
-     * @param endDate Date inclusive upper bound for the log timestamp
+     * @param endDateExclusive Date exclusive upper bound, normally midnight after the selected end date
      * @param content String raw SQL LIKE parameter for the content column, bound exactly as supplied by the caller;
      *                plain values such as {@code admin} and {@code login} therefore behave as exact matches,
      *                while callers may pass wildcards such as {@code %}
@@ -97,7 +97,7 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
      *                        an empty list short-circuits to an empty result (fail-closed for site-restricted users)
      * @return List<OscarLog> matching log entries ordered by newest first
      */
-    public List<OscarLog> findForReport(Date startDate, Date endDate, String content, String providerNo,
+    public List<OscarLog> findForReport(Date startDate, Date endDateExclusive, String content, String providerNo,
                                         List<String> siteProviderNos);
 
     public int purgeLogEntries(Date maxDateToRemove);

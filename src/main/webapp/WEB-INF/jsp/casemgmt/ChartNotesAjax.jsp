@@ -853,7 +853,8 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 %>
 
 <script type="text/javascript">
-    maxNcId = <%=maxId%>;
+    // Appended batches must not discard the bounds of notes already rendered.
+    maxNcId = <%=offset%> > 0 ? Math.max(typeof maxNcId === "number" && isFinite(maxNcId) ? maxNcId : 0, <%=maxId%>) : <%=maxId%>;
     // Batch size for notesLoader() in newCaseManagementView.js.jsp. It is the only way the
     // client can tell an exhausted chart from a full batch: this fragment always emits these
     // bootstrap scripts, so even a zero-note response has a non-empty body. Without it the
@@ -972,8 +973,12 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     document.forms["caseManagementEntryForm"].noteId.value = "<%=savedId%>";
 
-    if (<%= hasOscarMsg %>) {
-        document.getElementById(caseNote).value += "\n\n<carlos:encode value='<%= oscarMsg %>' context="javaScript"/>";
+    // Empty means absent or already consumed in this chart; only legacy layouts use the shared bean.
+    var encounterMessage = typeof pendingEncounterMessage === 'string'
+        ? pendingEncounterMessage : "<carlos:encode value='<%= oscarMsg %>' context="javaScriptBlock"/>";
+    if (encounterMessage && document.getElementById(caseNote)) {
+        document.getElementById(caseNote).value += "\n\n" + encounterMessage;
+        if (typeof pendingEncounterMessage === 'string') pendingEncounterMessage = '';
     }
 <% if (noteBody != null) { %>
     document.getElementById(caseNote).value += "\n\n<carlos:encode value='<%= noteBody %>' context="javaScript"/>";

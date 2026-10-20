@@ -94,9 +94,7 @@
                     <tr>
                         <td><fmt:message key="provider.editSignature.msgProviderSignature"/></td>
                         <td>&nbsp;</td>
-                        <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                        <td style="text-align: right"><%@ include file="/WEB-INF/jsp/includes/about-license-links.jspf" %></td>
                     </tr>
                 </table>
             </td>

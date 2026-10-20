@@ -62,6 +62,8 @@
 <%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
@@ -92,3 +94,19 @@
 <div id="notCPP">
 
 </div>
+
+<%-- This leaves the OCEAN toolbar accessible but not taking up prime real estate.
+     Matches OSCAR19's newCaseManagementView.jsp: a static sibling right after #notCPP, present
+     from initial page load (no AJAX-load race). Two switches must both allow it: the clinic-wide
+     echart_show_ocean admin toggle (default "on" when unset, same as OSCAR19's
+     echartPreferencesMap.getOrDefault("echart_show_ocean", true)), and the provider's own
+     "Display OCEAN UI" eChart preference (default "off"; see EchartDisplayPreferenceResolver). --%>
+<%
+    EchartDisplayPreferenceResolver caseManagementViewEchartResolver = SpringUtils.getBean(EchartDisplayPreferenceResolver.class);
+    boolean echartShowOcean = caseManagementViewEchartResolver.isOceanShown(caseManagementViewEchartResolver.resolve(
+            LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo()));
+    if (echartShowOcean) {
+%>
+<div id="ocean_placeholder" style="display:none">
+</div>
+<% } %>

@@ -82,6 +82,9 @@ public class DocumentRefile2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid refileDocumentNo or queueId");
                 return NONE;
             }
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(sim, loggedInInfo, queueId);
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireRefileSourceAccess(
+                    sim, loggedInInfo, Integer.parseInt(refileDocumentNo));
             try {
                 refileDocument(refileDocumentNo, queueId);
             } catch (SecurityException | Error e) {
@@ -119,11 +122,7 @@ public class DocumentRefile2Action extends ActionSupport {
     }
 
     private static boolean isPositiveInteger(String s) {
-        if (s == null || s.isEmpty()) return false;
-        for (int i = 0; i < s.length(); i++) {
-            if (!Character.isDigit(s.charAt(i))) return false;
-        }
-        return true;
+        return io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.positiveId(s);
     }
 
     public String getRefileDocumentNo() { return refileDocumentNo; }

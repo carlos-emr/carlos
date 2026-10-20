@@ -306,17 +306,8 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
     public boolean isDisabled() {
         this.listMatches = null;
         Set<String> preventionStopSigns = getPreventionStopSigns();
-        // anyone up for a logic puzzle? I tried to keep existing code. But yikes.
-        if (preventionStopSigns.contains("master")) {
-            return true;
-        }
-        if (preventionStopSigns.contains("false")) {
-            return false;
-        }
-        if (preventionStopSigns.size() == 0) {
-            return true;
-        }
-        return false;
+        // Missing settings mean enabled, matching the legacy manager and settings page.
+        return preventionStopSigns.contains("master");
     }
 
     @Override

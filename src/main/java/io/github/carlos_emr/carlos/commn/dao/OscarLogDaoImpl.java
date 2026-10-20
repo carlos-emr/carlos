@@ -235,7 +235,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     }
 
     @Override
-    public List<OscarLog> findForReport(Date startDate, Date endDate, String content, String providerNo,
+    public List<OscarLog> findForReport(Date startDate, Date endDateExclusive, String content, String providerNo,
                                         List<String> siteProviderNos) {
         if (siteProviderNos != null && siteProviderNos.isEmpty()) {
             return Collections.emptyList();
@@ -257,15 +257,15 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
         String sql;
         if (providerNo != null) {
-            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 and provider_no = ?4 order by dateTime desc";
+            sql = "select * " + fromClause + " where dateTime < ?1 and dateTime >= ?2 and content like ?3 and provider_no = ?4 order by dateTime desc";
         } else if (siteProviderNos != null) {
-            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 and provider_no in (?4) order by dateTime desc";
+            sql = "select * " + fromClause + " where dateTime < ?1 and dateTime >= ?2 and content like ?3 and provider_no in (?4) order by dateTime desc";
         } else {
-            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 order by dateTime desc";
+            sql = "select * " + fromClause + " where dateTime < ?1 and dateTime >= ?2 and content like ?3 order by dateTime desc";
         }
 
         Query query = entityManager.createNativeQuery(sql, OscarLog.class);
-        query.setParameter(1, endDate);
+        query.setParameter(1, endDateExclusive);
         query.setParameter(2, startDate);
         query.setParameter(3, content);
 

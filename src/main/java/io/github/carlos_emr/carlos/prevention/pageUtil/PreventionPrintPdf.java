@@ -36,6 +36,8 @@
 
 package io.github.carlos_emr.carlos.prevention.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.awt.Color;
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.BaseFont;
@@ -182,7 +184,7 @@ public class PreventionPrintPdf {
         document.setMargins(36, 36, 80, 36);
 
         //Create the font we are going to print to       
-        Font font = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, Color.BLACK);
+        Font font = PdfFonts.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, Color.BLACK);
 
         StringBuilder demoInfo = new StringBuilder(demo.getSexDesc())
                 .append(" Age: ")
@@ -199,17 +201,17 @@ public class PreventionPrintPdf {
 
         //Header will be printed at top of every page beginning with p2
         String heading = ("true".equals(request.getParameter("immunizationOnly"))) ? "Immunizations" : "Immunizations and Screenings";
-        Phrase titlePhrase = new Phrase(HEADER_LEADING, heading, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, Color.BLACK));
+        Phrase titlePhrase = new Phrase(HEADER_LEADING, heading, PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, Color.BLACK));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demo.getFormattedName(), FontFactory.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, Color.BLACK)));
+        titlePhrase.add(new Chunk(demo.getFormattedName(), PdfFonts.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, Color.BLACK)));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demoInfo.toString(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, Color.BLACK)));
+        titlePhrase.add(new Chunk(demoInfo.toString(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, Color.BLACK)));
 
         String mrp = request.getParameter("mrp");
         if (mrp != null && CarlosProperties.getInstance().getBooleanProperty("mrp_model", "yes")) {
             Properties prop = (Properties) request.getSession().getAttribute("providerBean"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session provider bean (set post-auth)
             titlePhrase.add(Chunk.NEWLINE);
-            titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK)));
+            titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK)));
         }
 
         // Store header phrase, border flag, header padding, and border spacing for the header
@@ -229,16 +231,16 @@ public class PreventionPrintPdf {
 
         StringBuilder clinicAddrCont = new StringBuilder(clinicData.getClinicCity()).append(", ").append(clinicData.getClinicProvince()).append(" ").append(clinicData.getClinicPostal());
 
-        Paragraph clinicParagraph = new Paragraph(LEADING, clinicData.getClinicName(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK));
+        Paragraph clinicParagraph = new Paragraph(LEADING, clinicData.getClinicName(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicData.getClinicAddress(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicAddress(), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicAddrCont.toString(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        clinicParagraph.add(new Chunk(clinicAddrCont.toString(), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk("Ph.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
-        clinicParagraph.add(new Chunk(clinicData.getClinicPhone(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
-        clinicParagraph.add(new Chunk(" Fax.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
-        clinicParagraph.add(new Chunk(clinicData.getClinicFax(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        clinicParagraph.add(new Chunk("Ph.", PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicPhone(), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        clinicParagraph.add(new Chunk(" Fax.", PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicFax(), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
         clinicParagraph.setAlignment(Paragraph.ALIGN_CENTER);
         document.add(clinicParagraph);
 
@@ -310,7 +312,7 @@ public class PreventionPrintPdf {
                 isScreeningsHeaderAdded = true;
             }
 
-            Phrase procHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + "\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, Color.BLACK));
+            Phrase procHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + "\n", PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, Color.BLACK));
             ct.addText(procHeader);
             ct.setAlignment(Element.ALIGN_LEFT);
             ct.setIndent(0);
@@ -338,7 +340,7 @@ public class PreventionPrintPdf {
                     procedureStatus = "N/A";
                 }
 
-                Phrase procedure = new Phrase(LEADING, "Date: ", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK));
+                Phrase procedure = new Phrase(LEADING, "Date: ", PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK));
                 addLabelsAndValuesToProcedure(request, procedure, "preventProcedureDate", "Date: ", headerIds, idx, subIdx, font);
                 addLabelsAndValuesToProcedure(request, procedure, "preventProcedureAge", "Age: ", headerIds, idx, subIdx, font);
 
@@ -460,7 +462,7 @@ public class PreventionPrintPdf {
                     //Title (if we are starting to print a new prevention, use the Prevention name as title, otherwise if we 
                     //are in the middle of printing a prevention that has multiple items, identify this as a continued prevention
                     if (subIdx != 0) {
-                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + " (cont'd)\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, Color.BLACK));
+                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + " (cont'd)\n", PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, Color.BLACK));
                         ct.setText(contdProcHeader);
                     } else {
                         ct.setText(procHeader);
@@ -555,7 +557,7 @@ public class PreventionPrintPdf {
      * @return Paragraph the configured paragraph
      */
     private Paragraph addParagraph(String title, float size, int style) throws DocumentException, IOException {
-        Paragraph paragraph = new Paragraph(LEADING, title, FontFactory.getFont(FontFactory.HELVETICA, size, style, Color.BLACK));
+        Paragraph paragraph = new Paragraph(LEADING, title, PdfFonts.getFont(FontFactory.HELVETICA, size, style, Color.BLACK));
         paragraph.add(Chunk.NEWLINE);
         paragraph.setAlignment(Paragraph.ALIGN_LEFT);
         return paragraph;
@@ -597,7 +599,7 @@ public class PreventionPrintPdf {
     private void addPromoText() throws DocumentException, IOException {
         if (CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null) {
             cb.beginText();
-            cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED), 6);
+            cb.setFontAndSize(PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED), 6);
             cb.showTextAligned(PdfContentByte.ALIGN_CENTER, CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT"), PageSize.LETTER.getWidth() / 2, 5, 0);
             cb.endText();
         }

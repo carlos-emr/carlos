@@ -58,12 +58,6 @@ public class DiseaseRegistryHandler {
     }
 
     public Integer addToDiseaseRegistry(int demographicNo, String icd9code, String providerNo) {
-        boolean activeEntryExists = dao.activeEntryExists(demographicNo, ICD9_CODING_SYSTEM, icd9code);
-        if (activeEntryExists) {
-            logger.info("Patient (demographicNo={}) already has active entry for code {} in disease registry", demographicNo, LogSafe.sanitize(icd9code)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            return null;
-        }
-
         Dxresearch dx = new Dxresearch();
         dx.setStartDate(new Date());
         dx.setCodingSystem(ICD9_CODING_SYSTEM);
@@ -72,11 +66,12 @@ public class DiseaseRegistryHandler {
         dx.setStatus('A');
         dx.setProviderNo(providerNo);
 
-        dao.persist(dx);
+        Integer id = dao.persistActiveIfAbsent(dx);
+        if (id == null) return null;
 
         logger.info("Added disease registry entry (codingSystem={}, code={}, dxId={}, providerNo={})", // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             ICD9_CODING_SYSTEM, LogSafe.sanitize(icd9code), dx.getId(), LogSafe.sanitize(providerNo));
-        return dx.getId();
+        return id;
     }
 
     protected LoggedInInfo getLoggedInInfo() {

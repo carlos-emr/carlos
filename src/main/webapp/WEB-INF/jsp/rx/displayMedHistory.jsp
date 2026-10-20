@@ -50,6 +50,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData,java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="java.util.Calendar" %>
 <%@page import="io.github.carlos_emr.carlos.rx.data.*" %>
@@ -62,12 +63,12 @@
 <html>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <link rel="stylesheet" type="text/css" href="styles.css">
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
 </head>
 <body>
 <%
     try {
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean bean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
         String randomId = request.getParameter("randomId");
         randomId = randomId != null ? randomId.trim() : null;
         boolean renderedHistory = false;

@@ -66,6 +66,10 @@ public class PortalInviteException extends RuntimeException {
         SENDER_UNAVAILABLE("invite_sender_unavailable",
                 "The portal invitation sender address has no active email account in CARLOS. Ask an administrator "
                         + "to add or activate the account set in " + PortalInviteSettings.SENDER_EMAIL_KEY + "."),
+        CLINIC_FOOTER_MISSING("clinic_footer_missing",
+                "The invitation cannot be emailed because the clinic email footer is not set. An administrator "
+                        + "can set it under Administration > Emails > Configure Email > Clinic email footer. "
+                        + "No invitation was created."),
         DELIVERY_NOT_FOUND("delivery_not_found",
                 "That invitation delivery was not found for this patient. Refresh the panel."),
         RECOVERY_TOO_EARLY("recovery_too_early",
