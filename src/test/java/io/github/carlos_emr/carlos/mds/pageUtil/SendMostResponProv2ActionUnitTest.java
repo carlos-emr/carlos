@@ -133,6 +133,20 @@ class SendMostResponProv2ActionUnitTest extends CarlosUnitTestBase {
                 eq("999001")));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"not-a-number", "404"})
+    @DisplayName("should answer 400 and route nothing for a patient id that names no patient")
+    void shouldAnswerBadRequest_whenPatientUnknown(String demoId) throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demoId", demoId);
+        when(demographics.getDemographic(any(LoggedInInfo.class), eq(404))).thenReturn(null);
+
+        assertThat(new SendMostResponProv2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        routing.verify(() -> CommonLabResultData.updateLabRouting(any(ArrayList.class), anyString()), never());
+    }
+
     @Test
     @DisplayName("should answer 400 and route nothing when a parameter is missing")
     void shouldAnswerBadRequest_whenParameterMissing() throws Exception {

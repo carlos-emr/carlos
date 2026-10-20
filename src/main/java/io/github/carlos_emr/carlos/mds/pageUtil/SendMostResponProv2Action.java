@@ -85,7 +85,16 @@ public class SendMostResponProv2Action extends ActionSupport {
         ArrayList listFlaggedLabs = new ArrayList();
         if (demoId != null && docLabId != null && docLabType != null) {
             demoId = demoId.trim();
-            Demographic demog = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), Integer.parseInt(demoId));
+            Demographic demog;
+            try {
+                demog = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), Integer.parseInt(demoId));
+            } catch (NumberFormatException e) {
+                demog = null;
+            }
+            if (demog == null) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
             String mrp = demog.getProviderNo();
             //MiscUtils.getLogger().info(mrp);
             String[] la = new String[]{docLabId, docLabType};
