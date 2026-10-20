@@ -60,6 +60,7 @@ public class RxUtil {
             "(?:mg|mcg|[µμ]g|g|iu|meq)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern CONCENTRATION_SEPARATOR = Pattern.compile("(?:/|per\\b)\\s*", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PER_DOSE = Pattern.compile("(?:/|per\\b)\\s*dose\\b", Pattern.CASE_INSENSITIVE);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
 
     public static void setDefaultQuantity(String quantity) {
@@ -1123,7 +1124,7 @@ public class RxUtil {
     /**
      * Distinguishes product strengths from administered amounts using the parsed route
      * and method. Concentrations are strengths; non-concentration IU requires an oral
-     * route to be treated as a strength, preserving doses when the route is unknown.
+     * route without explicit per-dose syntax to be treated as a strength.
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
@@ -1144,6 +1145,10 @@ public class RxUtil {
                     || METHOD_RUB_WELL_IN.equalsIgnoreCase(segment.method));
         }
         if ("iu".equalsIgnoreCase(unit.group())) {
+            if (PER_DOSE.matcher(instructions)
+                    .region(skipWhitespaceForward(instructions, unit.end()), instructions.length()).lookingAt()) {
+                return false;
+            }
             return "PO".equalsIgnoreCase(segment.route) || "SL".equalsIgnoreCase(segment.route);
         }
         return true;
