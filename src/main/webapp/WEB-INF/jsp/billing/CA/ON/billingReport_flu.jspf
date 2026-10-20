@@ -32,7 +32,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<table width="100%" border="2" cellpadding="0" cellspacing="0">
+<table width="100%" border="2" cellpadding="0" cellspacing="0" style="font-family: Arial, Helvetica, sans-serif; font-size: small;">
 <c:choose>
 <c:when test="${empty billingReportFragmentModel.fluRows}">
     <tr>
@@ -41,42 +41,28 @@
 </c:when>
 <c:otherwise>
     <tr bgcolor="#CCCCFF">
-        <TH scope="col" align="center" width="10%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif">INVOICE</font></b></TH>
-        <TH scope="col" align="center" width="35%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif">PATIENT</font></b></TH>
-        <TH scope="col" align="center" width="20%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif">DATE</font></b></TH>
-        <TH scope="col" align="center" width="15%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif">BILLED</font></b></TH>
-        <TH scope="col" align="center" width="20%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif">STATUS</font></b></TH>
+        <TH scope="col" align="center" width="10%"><b>INVOICE</b></TH>
+        <TH scope="col" align="center" width="35%"><b>PATIENT</b></TH>
+        <TH scope="col" align="center" width="20%"><b>DATE</b></TH>
+        <TH scope="col" align="center" width="15%"><b>BILLED</b></TH>
+        <TH scope="col" align="center" width="20%"><b>STATUS</b></TH>
     </tr>
     <c:forEach var="row" items="${billingReportFragmentModel.fluRows}">
     <tr bgcolor="<carlos:encode value='${row.rowBgColor}' context='htmlAttribute'/>">
-        <TD align="left" width="10%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif"><a href=#
+        <TD align="left" width="10%"><b><a href=#
             onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONDisplay?billing_no=<carlos:encode value='${row.billingId}' context='uriComponent'/>")'
-            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <carlos:encode value="${row.billingId}" context="html"/></a></font></b></TD>
-        <TD align="left" width="35%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.demoName}" context="html"/></font></b></TD>
-        <TD align="left" width="20%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.apptDate}" context="html"/></font></b></TD>
-        <TD align="right" width="15%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.total}" context="html"/></font></b></TD>
-        <TD align="center" width="20%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.statusLabel}" context="html"/></font></b></TD>
+            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <carlos:encode value="${row.billingId}" context="html"/></a></b></TD>
+        <TD align="left" width="35%"><b><carlos:encode value="${row.demoName}" context="html"/></b></TD>
+        <TD align="left" width="20%"><b><carlos:encode value="${row.apptDate}" context="html"/></b></TD>
+        <TD align="right" width="15%"><b><carlos:encode value="${row.total}" context="html"/></b></TD>
+        <TD align="center" width="20%"><b><carlos:encode value="${row.statusLabel}" context="html"/></b></TD>
     </tr>
     </c:forEach>
     <tr bgcolor="ivory">
-        <TD align="left"><b><font size="2"
-            face="Arial, Helvetica, sans-serif">Total</font></b></TD>
-        <TD colspan="2" align="left"><b><font size="2"
-            face="Arial, Helvetica, sans-serif"><fmt:message key="billing.flu.count"><fmt:param value="${billingReportFragmentModel.fluCount}"/></fmt:message></font></b></TD>
-        <TD align="right"><b><font size="2"
-            face="Arial, Helvetica, sans-serif"><carlos:encode value="${billingReportFragmentModel.fluTotal}" context="html"/></font></b></TD>
-        <TD align="center"><b><font size="2"
-            face="Arial, Helvetica, sans-serif">&nbsp;</font></b></TD>
+        <TD align="left"><b>Total</b></TD>
+        <TD colspan="2" align="left"><b><fmt:message key="billing.flu.count"><fmt:param value="${billingReportFragmentModel.fluCount}"/></fmt:message></b></TD>
+        <TD align="right"><b><carlos:encode value="${billingReportFragmentModel.fluTotal}" context="html"/></b></TD>
+        <TD align="center"><b>&nbsp;</b></TD>
     </tr>
 </c:otherwise>
 </c:choose>
