@@ -251,6 +251,27 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("curProviderName");
     }
 
+    /**
+     * An unsupported browser language falls back to the default bundle while
+     * request.getLocale() keeps the unsupported one. The labels, the page's lang and the day
+     * names must all follow the bundle actually used, so a screen reader is not told the
+     * fallback text is in another language.
+     */
+    @Test
+    @DisplayName("labels, lang and day names should all use the negotiated bundle locale")
+    void shouldUseBundleLocale_forLabelsLangAndDayNames() throws IOException {
+        String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
+        assertThat(jsp)
+                .contains("Locale pageLocale = LocaleUtils.resolveBundleLocale(request);")
+                .contains("new SimpleDateFormat(\"EEE, yyyy/MM/dd\", pageLocale)")
+                .contains("<html lang=\"<%= SafeEncode.forHtmlAttribute(pageLocale.toLanguageTag()) %>\">")
+                .doesNotContain("request.getLocale()");
+        assertThat(jsp.indexOf("<fmt:setLocale value=\"<%= pageLocale %>\"/>"))
+                .as("the locale is set before the bundle is loaded")
+                .isPositive()
+                .isLessThan(jsp.indexOf("<fmt:setBundle basename=\"oscarResources\"/>"));
+    }
+
     private static Path projectRoot() {
         return Path.of(System.getProperty(
                 "maven.multiModuleProjectDirectory",

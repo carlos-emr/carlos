@@ -65,6 +65,7 @@
 <%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleFlipViewRequest" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -153,7 +154,10 @@
 
     int colscode = (nEndTime - nStartTime) * 60 / nStep;
     SimpleDateFormat inform = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
-    SimpleDateFormat outform = new SimpleDateFormat("EEE, yyyy/MM/dd", request.getLocale());
+    // The bundle locale, not the raw request locale: an unsupported browser language falls back to
+    // the default bundle, and the day names, the labels and the page's lang must all follow it.
+    Locale pageLocale = LocaleUtils.resolveBundleLocale(request);
+    SimpleDateFormat outform = new SimpleDateFormat("EEE, yyyy/MM/dd", pageLocale);
     inform.setLenient(false);
     GregorianCalendar now = new GregorianCalendar();
     String requestedStartDate = request.getParameter("startDate");
@@ -184,6 +188,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setLocale value="<%= pageLocale %>"/>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -195,7 +200,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE html>
-<html lang="<%= SafeEncode.forHtmlAttribute(request.getLocale().toLanguageTag()) %>">
+<html lang="<%= SafeEncode.forHtmlAttribute(pageLocale.toLanguageTag()) %>">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
