@@ -1368,6 +1368,22 @@
       "fixtures": "Needs consult_sig_<signer>.png in the eForm images directory (deb-install-validation.md fixture b); read-only, never saves the letter."
     },
     {
+      "name": "eform-rtl-side-panel",
+      "script": "scripts/eform-rtl-side-panel-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "RTL_FORM_NAME"
+      ],
+      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js) seeded with one allergy, prescription, prevention, weight and history note per side-panel section and a referring doctor; a throwaway login (lib/throwaway-login-fixture.js) who is that patient's MRP and signs the letters; that login's signature stamp, uploaded and deleted through the Preferences stamp endpoint (asserted 204 before and after); and a FAKE specialist named by the patient's referral number. The letters, their values, the drawn signature, the specialist, the login and the patient are removed by key and asserted gone. The signature pad's preview image in the server's temp directory is the application's own and is left. Step 7 needs the eForm PDF renderer and pdfimages (poppler-utils)."
+    },
+    {
       "name": "eform-runtime-compat",
       "script": "scripts/eform-runtime-compat-playwright-checks.js",
       "tiers": [
@@ -3399,7 +3415,37 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Records and restores the echart_show_ocean SystemPreferences row and the OceanSetting singleton; opens an owned FAKE-PW patient; local disposable database only."
+      "mutates": [
+        "SystemPreferences",
+        "property:echart_show_ocean"
+      ],
+      "fixtures": "Records and restores the echart_show_ocean SystemPreferences row, the OceanSetting singleton and the test login's own echart_show_ocean eChart preference (turned on so the clinic switch is tested alone); opens an owned FAKE-PW patient; local disposable database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "echart-display-preferences",
+      "script": "scripts/echart-display-preferences-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "property:echart_show_timer",
+        "property:echart_show_group_document_by_type",
+        "property:echart_show_DOB",
+        "property:echart_show_cell",
+        "property:echart_phone_tel_links",
+        "property:echart_show_HIN",
+        "property:echart_email_indicator",
+        "property:echart_show_fam_doc_widget",
+        "property:echart_show_ref_doc_widget",
+        "property:echart_show_ocean"
+      ],
+      "fixtures": "Snapshots the test login's eChart display preference rows, clears them to read the defaults, saves the opposite through Preferences > eChart and restores the rows exactly (ids included); gives an owned FAKE-PW patient a HIN, phones, email, Referral Doctor, a Family Doctor contact and two typed documents, removed with it; local disposable database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "hrm-retired-statement",
@@ -4497,6 +4543,35 @@
       "env": [],
       "notes": "Fails at its last step on 2026.08: Manage Emails Resolve shows RESOLVED but never updates the log row (setResolved is not dispatched).",
       "fixtures": "Owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink, owned eForm template and owned patient email (one valid example.com, one .invalid); nothing leaves the host; emailConfig snapshot asserted unchanged. The sender is offered clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "email-footer-settings",
+      "script": "scripts/email-footer-settings-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Changes clinic-wide footer settings while it runs (restored after), so it must not run concurrently with checks that send email (live wrapper: EXCLUSIVE=1).",
+      "fixtures": "Snapshots the clinic rows of email_footer_clinic_default, email_footer_clinic_mode and email_footer_logo_shown and restores them exactly; a FAKE clinic footer when none is saved; never uploads a logo (both pictures offered are refused); removes the audit rows it wrote."
+    },
+    {
+      "name": "email-personal-footer-window",
+      "script": "scripts/email-personal-footer-window-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Snapshots the test user's own email_footer rows and restores them exactly; FAKE footer text only; removes the audit rows it wrote."
     },
     {
       "name": "eform-email-two-windows",
@@ -6231,8 +6306,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient (E-Chart lock taken by opening the chart) and one marker tickler seeded by SQL; cleanup deletes the patient's notes, note links/exts/issue links, casemgmt_issue, casemgmt_cpp, eChart rows and the tickler, and asserts it.",
-      "notes": "Expected to FAIL at the last step 'chart-note writes refuse GET/HEAD, and the tickler note dialog itself saves by POST': CaseManagementEntry method=issueNoteSave and method=ticklerSaveNote write on GET, and ticklerMain.jsp saveNoteDialog() sends its save as a GET."
+      "fixtures": "Owned synthetic patient (E-Chart lock taken by opening the chart) and two marker ticklers seeded by SQL; cleanup deletes the patient's notes, note links/exts/issue links, casemgmt_issue, casemgmt_cpp, casemgmt_tmpsave, eChart rows and the ticklers, and asserts it.",
+      "notes": "The CaseManagementEntry methods that change a note, an issue, a draft or a note lock accept only POST (CaseManagementEntry2Action.POST_ONLY_METHODS); both tickler note dialogs (ticklerMain.jsp, ticklerDemoMain.jsp) save by POST."
     },
     {
       "name": "get-reject-eform-editor",
@@ -10864,6 +10939,34 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "portal-booking-prompt",
+      "script": "scripts/portal-booking-prompt-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": ["PORTAL_BOOKING_SCREENSHOT", "CHROME_PATH"]
+    },
+    {
+      "name": "sms-history",
+      "script": "scripts/sms-history-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The owned FAKE- patient, a second FAKE- patient (owned-patient.js), and 28 sms_transaction rows inserted for them (27 and 1) with marker text in finished states (SENT, DELIVERED, FAILED), so the SMS sender never picks them up. Cleanup removes those rows by id, asserts none remain, and removes the second patient. The read's audit row (log action SmsMessageBody.readFullBody) is written under the test login and stays, as the audit log is append-only; each step counts only audit rows written after a mark taken just before it.",
+      "notes": "The patient's SMS history popup (sms/ViewSmsHistory, #3839) from the Master Record's patient navigation. Steps: the history lists the patient's messages newest first, 25 on page 1 of 2, with none of their text; Next shows the other 2; Show message with a reason opens that message's full text and writes one audit row naming the message, the patient and the reason; the same request without a reason answers 400 with no text and no audit row; LAST, a message that belongs to another patient answers 404 with no text and no audit row. Needs the _sms and _msgSMS rights the doctor role gets from V1.0.67 and V1.0.71 (develop only). Extended because the standard devcontainer demo doctor lacks both rights (finding 193); run --tier extended or --only sms-history against a develop deployment whose test login has them."
     }
   ]
 }

@@ -377,6 +377,20 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
         }
 
         @Test
+        @DisplayName("should give the record its patient navigation")
+        void shouldSetPatientNavigation_onSuccess() throws Exception {
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(PatientNavModel.REQUEST_ATTRIBUTE))
+                    .isInstanceOfSatisfying(PatientNavModel.class, nav -> {
+                        assertThat(nav.getDemographicNo()).isEqualTo(12345);
+                        assertThat(nav.isOnPortalPage()).isFalse();
+                        assertThat(nav.isOntarioBilling()).isTrue();
+                        assertThat(nav.getRecordUrl()).endsWith("/demographic/DemographicEdit?demographic_no=12345");
+                    });
+        }
+
+        @Test
         @DisplayName("should set birth date fields when demographic has populated dates")
         void shouldSetBirthDateFields_whenDatesProvided() throws Exception {
             executeAction(action);

@@ -438,13 +438,15 @@ would mint preview/write state on a read-only path).
 
 ### Optional assets that are referenced but not deployed
 
-`eformGenerator.jsp` injects a `stamps.js` tag into **every generated eForm**, while
-`EFormAssetDeployer` intentionally never deploys `stamps.js` (it holds clinic-specific signature-image
-mappings administrators create themselves). On a fresh install that tag 404s, and `Script` is a
-content-critical resource type — so the completeness gate blocked the PDF over an asset that is
-absent by design. `removeAbsentOptionalStamps` drops the tag only when the file is genuinely absent
-from the eForm image directory; if the directory cannot be read, the tag is left in place so the
-browser gate still reports the real failure rather than silently hiding it.
+`eformGenerator.jsp` injects a `stamps.js` tag into **every generated eForm**, and the Rich Text
+Letter loads one too. `stamps.js` holds clinic-specific signature-image mappings administrators
+create themselves, so `EFormAssetDeployer` seeds only a comment-only placeholder, once, when the
+file is absent, and never overwrites it. An install that removed it, or that predates the
+placeholder, has no file there; that tag 404s, and `Script` is a content-critical resource type —
+so the completeness gate blocked the PDF over an asset that is absent by design.
+`removeAbsentOptionalStamps` drops the tag only when the file is genuinely absent from the eForm
+image directory; if the directory cannot be read, the tag is left in place so the browser gate still
+reports the real failure rather than silently hiding it.
 
 ### Stored letters are decoded before they are spliced
 
@@ -454,6 +456,15 @@ so text a clinician actually typed as `&lt;` stays text. Diverging from that ord
 the on-screen editor disagree about the same stored letter; change both together or neither. Without
 the decode the PDF prints the clinician's own markup as visible text (`<h3>Consultation Letter</h3>`
 instead of a heading) — a clean render, gate-green, and clinically useless.
+
+The same encoding decides which signatures the render may fetch. A drawing from the letter's
+signature pad is an `<img>` whose `src` names `digitalSignatureId=<id>`; the editor serializes its
+`&` as `&amp;` and `saveRTL()` escapes the serialized letter again, so the stored `Letter` value
+carries `&amp;amp;digitalSignatureId=<id>`. `EFormSignatureViewForPdfGenerationServlet` streams only
+a signature the render's eForm references in its stored values (and only one that belongs to that
+eForm's patient, the authoritative check), and it accepts the reference raw, escaped once and
+escaped twice. Until it accepted the last form, every letter signed on the pad was refused its
+signature (403) and the render blocked as incomplete.
 
 Decoding turns previously-inert markup into live markup on a surface that permits
 `'unsafe-inline'`, so `hardenLetterHtml` strips event-handler attributes and `javascript:` URLs
@@ -601,11 +612,11 @@ operational configuration matter:
   ever appears, the fix is provenance tracking (record the digest CARLOS deployed; replace only when
   the on-disk copy still matches it), not a return to skip-if-exists, which silently pinned every
   install to whatever version it first received.
-- **`stamps.js` is still referenced by every generated eForm.** `removeAbsentOptionalStamps` hides
-  the consequence on the render path only; the interactive viewer still requests it and still logs a
-  404 in the browser console on a fresh install. Shipping a default empty `stamps.js` would not
-  clobber clinic files (the deployer's exists-guard already protects them), and not emitting the tag
-  when no stamps exist is the other option; neither is done here.
+- **`stamps.js` is still referenced by every generated eForm.** The deployer now seeds a
+  comment-only placeholder (its exists-guard keeps a clinic's own file), so a stock install no
+  longer logs a 404 for it. An install whose placeholder was removed still does in the interactive
+  viewer; `removeAbsentOptionalStamps` covers the render path only. Not emitting the tag when no
+  stamps exist would remove the request altogether; that is not done here.
 - **Viewer-relative URLs built inside JavaScript strings are not re-anchored.**
   `EForm.rewriteViewerRelativeAssetReferences` re-anchors `../` references in element attributes, but
   a URL assembled in a script literal (`var url = "../eform/displayAttachedFiles"`) resolves against

@@ -94,6 +94,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
@@ -584,6 +585,10 @@
 
             <div id="form-control-panel">
                 <div id="save-sign-bill-buttons">
+                    <%-- "Display eChart Timer" in the provider's eChart preferences (on by default).
+                         setTime() in newEncounterLayout.js.jsp tolerates the button's absence. --%>
+                    <% if (SpringUtils.getBean(EchartDisplayPreferenceResolver.class)
+                            .resolve(loggedInInfo.getLoggedInProviderNo()).showTimer()) { %>
                     <button type="button" onclick="pasteTimer()" id="aTimer"
                             title="<fmt:message key="encounter.Index.pasteTimer"/>">00:00
                     </button>
@@ -594,6 +599,7 @@
                             <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"></path>
                         </svg>
                     </button>
+                    <% } %>
                     <%
                         try {
                         if (facility != null && facility.isEnableGroupNotes()) {
