@@ -17,11 +17,14 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -513,6 +516,181 @@ class SmsQueueProcessingServiceUnitTest {
         assertThat(worker.processDueMessages(25)).isEqualTo(2);
 
         assertThat(List.of(first.getStatus(), second.getStatus())).containsOnly(SmsStatus.FAILED);
+    }
+
+    @Test
+    @DisplayName("an unrecognised refusal uses one of that text's attempts and the run goes on to the next")
+    void shouldCountAttemptAndContinue_whenProviderRefusesForUnrecognisedReason() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(SmsProviderErrorCode.REJECTED_OTHER))),
+                new SmsRetryCalculator(), providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(2);
+
+        assertThat(List.of(first, second)).allSatisfy(row -> {
+            assertThat(row).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                    SmsTransaction::getErrorCode).containsExactly(SmsStatus.QUEUED, 1, "REJECTED_OTHER");
+            assertThat(row.getNextAttemptAt()).isNotNull();
+        });
+    }
+
+    @ParameterizedTest
+    @MethodSource("failuresForEveryTextThatUseAnAttempt")
+    @DisplayName("a failure for every text, other than a request to slow down, uses an attempt and ends the run")
+    void shouldCountAttemptAndStopDraining_whenFailureAffectsEveryText(SmsProviderErrorCode code) {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(code))),
+                new SmsRetryCalculator(), providerType -> true, command -> CONSENTED);
+        Date startedAt = new Date();
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(1);
+
+        assertThat(first)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.QUEUED, 1, code.name());
+        assertThat(first.getNextAttemptAt()).isAfter(startedAt);
+        assertThat(second).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .as("not tried").containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    static List<SmsProviderErrorCode> failuresForEveryTextThatUseAnAttempt() {
+        List<SmsProviderErrorCode> codes = Arrays.stream(SmsProviderErrorCode.values())
+                .filter(SmsProviderErrorCode::affectsEveryText)
+                .filter(code -> code != SmsProviderErrorCode.RATE_LIMITED)
+                .toList();
+        assertThat(codes).contains(SmsProviderErrorCode.ACCOUNT_LIMIT, SmsProviderErrorCode.PROVIDER_UNAVAILABLE);
+        return codes;
+    }
+
+    @Test
+    @DisplayName("a request to send more slowly hands the text back without using an attempt and ends the run")
+    void shouldHandBackWithoutUsingAttempt_whenProviderAsksToSendMoreSlowly() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second));
+        SmsProviderClient client = rateLimitedClient();
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(client)), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED);
+        Instant before = Instant.ofEpochMilli(System.currentTimeMillis());
+
+        try (LogCapture logs = LogCapture.forLogger(SmsQueueProcessingService.class)) {
+            assertThat(worker.processDueMessages(25)).as("not processed").isZero();
+
+            assertThat(logs.events()).anySatisfy(event -> assertThat(event.getMessage().getFormattedMessage())
+                    .contains("RATE_LIMITED", "handed back without using an attempt"));
+        }
+
+        assertThat(first)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+        assertThat(first.getNextAttemptAt().toInstant())
+                .isAfterOrEqualTo(before.plus(SmsQueueProcessingService.RATE_LIMITED_HAND_BACK_DELAY));
+        assertThat(first.getErrorCode()).as("the hand-back records no reason").isNull();
+        assertThat(second).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .as("not tried").containsExactly(SmsStatus.QUEUED, 0);
+        verify(client, times(1)).send(any(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("a text handed back after a request to slow down is not sent again by an immediate run")
+    void shouldNotResendInNextImmediateRun_whenTextWasHandedBackAfterRateLimit() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsProviderClient client = rateLimitedClient();
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(client)), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(1)).isZero();
+        assertThat(worker.processDueMessages(1)).isZero();
+
+        verify(client, times(1)).send(any(), anyString(), any());
+        assertThat(transaction).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    @Test
+    @DisplayName("a request to slow down on a text's last attempt hands it back with that attempt restored")
+    void shouldHandBackWithAttemptRestored_whenRateLimitedOnLastAttempt() {
+        SmsTransaction transaction = queuedTransaction();
+        scheduleTwoFailedAttempts(transaction);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(SmsProviderErrorCode.RATE_LIMITED))),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(25)).isZero();
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .as("not failed at the retry limit, and still showing its last counted reason")
+                .containsExactly(SmsStatus.QUEUED, 2, "PROVIDER_ERROR");
+    }
+
+    @Test
+    @DisplayName("a request to slow down whose hand-back fails leaves the row for stale recovery and logs no PHI")
+    void shouldLeaveRowSendingWithoutLoggingPhi_whenRateLimitHandBackFails() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second)) {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction row, Date dueAt) {
+                throw new IllegalStateException("synthetic-hin-9876543210 row cannot be written");
+            }
+        };
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(SmsProviderErrorCode.RATE_LIMITED))),
+                new SmsRetryCalculator(), providerType -> true, command -> CONSENTED);
+
+        try (LogCapture logs = LogCapture.forLogger(SmsQueueProcessingService.class)) {
+            assertThat(worker.processDueMessages(25)).isZero();
+
+            assertThat(logs.events()).anySatisfy(event -> assertThat(event.getMessage().getFormattedMessage())
+                    .contains("RATE_LIMITED", "could not be handed back"));
+            assertThat(logs.events()).allSatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).doesNotContain("synthetic-hin-9876543210");
+                assertThat(event.getThrown()).isNull();
+            });
+        }
+
+        assertThat(first)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.SENDING, 1, null);
+        assertThat(second).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .as("not tried").containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    @Test
+    @DisplayName("an unclear answer carrying the slow-down code is still an unknown outcome, never handed back")
+    void shouldAwaitStatusLookup_whenUnclearAnswerCarriesRateLimitCode() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction)) {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction row, Date dueAt) {
+                throw new AssertionError("the text may have gone out, so its claim must not be handed back");
+            }
+        };
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        when(client.send(any(), anyString(), any()))
+                .thenReturn(SmsProviderSendResultDto.uncertain(SmsProviderErrorCode.RATE_LIMITED.name()));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(client)), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(1);
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.SENDING, 1, "RATE_LIMITED");
     }
 
     @Test
@@ -1177,6 +1355,15 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new AcceptingProviderClient(), new VoipMsAcceptingProviderClient())),
                 new SmsRetryCalculator(), rateLimiter, consentService, () -> SmsProviderType.VOIPMS,
                 SmsProviderSettings::none);
+    }
+
+    /** A STUB client whose every send is refused with a request to send more slowly. */
+    private static SmsProviderClient rateLimitedClient() {
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        when(client.send(any(), anyString(), any()))
+                .thenReturn(SmsProviderSendResultDto.failed(SmsProviderErrorCode.RATE_LIMITED));
+        return client;
     }
 
     private static void scheduleTwoFailedAttempts(SmsTransaction transaction) {

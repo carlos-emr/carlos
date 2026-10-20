@@ -34,9 +34,11 @@ import java.util.Optional;
  * retries every other failure with back-off up to the retry limit, because it may clear once an administrator
  * fixes a setting or the provider recovers; a failure that affects every text (credentials, account, the
  * provider itself) also ends that run's sending, as does an unclear answer, so one outage costs one text per run
- * rather than the whole queue its retries. A direct send, a failed delivery report or a status lookup's answer is
- * final. A timeout or any other unclear outcome is not a failure at all: the client answers "uncertain", and the
- * text is sent again only if the provider's status lookup later says it definitely never arrived.
+ * rather than the whole queue its retries. {@link #RATE_LIMITED} ends the run's sending too, but uses none of the
+ * text's retries: the queue hands the text back to wait a minute, as nothing is wrong with it. A direct send, a
+ * failed delivery report or a status lookup's answer is final. A timeout or any other unclear outcome is not a
+ * failure at all: the client answers "uncertain", and the text is sent again only if the provider's status lookup
+ * later says it definitely never arrived.
  *
  * @since 2026-10-08
  */
@@ -55,7 +57,10 @@ public enum SmsProviderErrorCode {
     INVALID_SENDER(false, true, "The SMS provider refused the sender number."),
     /** The account is out of credit or over a daily or monthly limit. */
     ACCOUNT_LIMIT(false, true, "The SMS provider account is out of credit or over its limit."),
-    /** The SMS provider asked CARLOS to slow down. */
+    /**
+     * The SMS provider asked CARLOS to slow down. The queue hands the text back without using a retry, and
+     * sends nothing more through that provider in the run.
+     */
     RATE_LIMITED(false, true, "The SMS provider asked CARLOS to send more slowly."),
     /** The SMS provider could not be reached or reported an error, and definitely did not send the text. */
     PROVIDER_UNAVAILABLE(false, true, "The SMS provider could not take the message; nothing was sent."),
