@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
@@ -54,6 +55,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class EctDisplayForm2Action extends EctDisplayAction {
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final ObjectMapper FORM_ACTION_JSON = new ObjectMapper();
 
     private String cmd = "forms";
     private String menuId = "1";
@@ -87,7 +89,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                 String fullTitle;
                 Date date = null;
                 String key;
-                int hash;
+                long hash;
                 // grab all of the forms
                 EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
                 List<EncounterForm> encounterForms = encounterFormDao.findAll();
@@ -146,7 +148,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                                 }
                             }
                             winName = winName + serviceDateStr;
-                            hash = Math.abs(winName.hashCode());
+                            hash = NavBarDisplayDAO.popupWindowHash(winName);
                             url = new StringBuilder(
                                     "popupPage(700,960,'" + hash + "started', '" +
                                             request.getContextPath() +
@@ -177,7 +179,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
 
                     // we add all unhidden forms to the pop up menu
                     if (!encounterForm.isHidden()) {
-                        hash = Math.abs(winName.hashCode());
+                        hash = NavBarDisplayDAO.popupWindowHash(winName);
                         // Legacy form_value stores paths like "../form/formX.jsp?demographic_no=".
                         // Form JSPs now live under /WEB-INF/jsp/form/ and are served by the
                         // form/* Struts wildcard action, so translate the legacy path to the
@@ -194,7 +196,11 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                         Dao.addPopUpText(encounterForm.getFormName());
 
                         // auto completion arrays and colour code are set
-                        Dao.addAutoCompleteItem(key, "popupPage(700,960,'" + hash + "new','" + newFormPath + "');", BGCOLOUR);
+                        // JSON arguments let the legacy dispatcher invoke the same guard without eval.
+                        // LeftNavBarDisplay encodes the complete expression for its JavaScript block.
+                        Dao.addAutoCompleteItem(key, "openEncounterForm.apply(null,"
+                                + FORM_ACTION_JSON.writeValueAsString(new String[] {
+                                        newFormPath, hash + "new", encounterForm.getFormName()}) + ");", BGCOLOUR);
                     }
                 }
                 Dao.setRightURL("return !showMenu('" + menuId + "', event);");

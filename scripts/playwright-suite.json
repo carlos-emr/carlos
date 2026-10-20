@@ -827,6 +827,23 @@
       ]
     },
     {
+      "name": "lab-merged-patient-routing",
+      "script": "scripts/lab-merged-patient-routing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "notes": "HIN matching for an incoming HL7 lab (issue #3880): a HIN shared by a merged source and its head files and routes to the head alone, and a HIN also carried by an unmerged patient stays unmatched.",
+      "fixtures": "A merged duplicate and an unrelated patient (marker surname) are seeded by SQL next to the run's head patient; cleanup removes both labs' rows by accession, the merge row and the seeded patients."
+    },
+    {
       "name": "incoming-docs-delete-pdf-mrp",
       "script": "scripts/incoming-docs-delete-pdf-mrp-playwright-checks.js",
       "tiers": [
@@ -3018,6 +3035,25 @@
       ]
     },
     {
+      "name": "multisite-tickler-filter",
+      "script": "scripts/multisite-tickler-filter-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Issue #4865: verifies all active providers in a multi-provider clinic, encoded provider names, exclusion of inactive providers, clinic switching and clearing, and both assignees through ListTicklers and the visible table. Skips unless multisites=on.",
+      "fixtures": "Requires multisites=on; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned patient, two clinics, three throwaway providers and two ticklers. Every owned row is removed and checked.",
+      "mutates": [
+        "site",
+        "providersite"
+      ]
+    },
+    {
       "name": "tickler-crud",
       "script": "scripts/tickler-crud-playwright-checks.js",
       "tiers": [
@@ -4773,6 +4809,17 @@
       "env": [],
       "notes": "Earlier steps pass on 2026.08.0~alpha19 (the old note that the Health Tracker custom print omits patient customisations is out of date). The last four steps are for finding 176: the CKD flowsheet (ckd.drl) warns that no urine ACR is recorded; a patient-scope Hide of one item (the row the flowsheet editor writes) takes effect; the customized flowsheet renders (not an error page) and its recommendations list is read; and, in the pinned step, that list must still show the warning. makeNewFlowsheet re-parses an export that omits the root ds_rules, so the customized copy has no rule base and getMessages throws (the page logs 'Error getting messages for flowsheet' at ERROR). The Health Tracker's own tracker.drl holds no rules, so the pin uses CKD. Finding 176 is fixed on release/2026.08 by #4459 and the step that was pinned to it passed live on 2026.09.0~snapshot26, so it is now this fix's regression test and the entry carries no expectedFailure.",
       "fixtures": "Owned patient with seeded WT/HT measurements; flowsheet_customization rows created through the Health Tracker editor (patient scope) and, for finding 176, one patient-scope Hide row on the CKD flowsheet; all owned rows removed."
+    },
+    {
+      "name": "flowsheet-prevention-print",
+      "script": "scripts/flowsheet-prevention-print-playwright-checks.js",
+      "tiers": ["core"],
+      "assertsDatabase": true,
+      "provinces": ["all"],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Owned synthetic patient with three preventions and four A1C readings; all removed and verified by workflow cleanup.",
+      "notes": "Issue #3884: a selected prevention posts no printStyle and retains its history in preview and print media. Unchecked preventions stay hidden; explicit all, numeric and date-range measurement filters remain effective."
     },
     {
       "name": "flowsheet-customized-rules",
@@ -7544,8 +7591,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Regression #4141: Rourke2017 retains its opener, registers Forms menu popup tracking, and Save and Exit refreshes the chart Forms module without a full reload.",
-      "fixtures": "Owns the synthetic patient; cleanup deletes its formRourke2017 rows and asserts they are gone."
+      "notes": "Regressions #4141/#3354: Rourke2017 retains its opener; Save and Save and Exit refresh Forms without changing the encounter draft; reopening offers existing, explicit blank, and cancel choices; two open charts keep their own patient.",
+      "fixtures": "Owns two synthetic patients; cleanup deletes their support rows and formRourke2017 checkbox values and rows and asserts they are gone."
     },
     {
       "name": "popup-opener-dx-registry-back",
@@ -9167,6 +9214,25 @@
       "notes": "Expected to FAIL at the last step 'the chart's Note Browser lists documents only to a role holding _edoc': casemgmt/ViewNoteBrowser lists the patient's document descriptions to a nurse without _edoc. Steps 1-4 (controls, 13 pinned by-id routes x 3 roles, HEAD) pass."
     },
     {
+      "name": "authz-rest-sweep",
+      "script": "scripts/authz-rest-sweep-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "The workflow's owned FAKE- patient; two throwaway logins (own provider rows 800000-899999, roles receptionist and doctor); an |o| _eChart$<patient> lock row keyed on the doctor login; one consent type named after the run marker, created through the API by the control login; one out-of-band OAuth ServiceClient named after the run marker, with the request/access tokens and nonces issued to it. Cleanup removes every owned row and asserts it.",
+      "notes": "Issue #2798: the /ws/rs REST services authorize, not only authenticate. Anonymous calls get 401; the receptionist is refused (application 403) app/getApps, the recordUX chart print, summary and templates, and the consent-type POST (which must write nothing), while still reading the consent catalogue; the doctor reads the chart and templates but is refused the admin-only endpoints; a patient-level _eChart lock withholds that patient's print and summary. Requires oauth.scope.enforcement.enabled=true on the disposable install. On /ws/services full-provider and receptionist OAuth tokens receive identical app.read, recordux.read, pharmacy.read and form.read scopes. The full token must reach every service with HTTP 200 before the receptionist token is checked for the exact service-level 403 body; scope-layer refusals cannot pass as privilege checks."
+    },
+    {
       "name": "gap-encounter-eform-save-as-edoc",
       "script": "scripts/gap-encounter-eform-save-as-edoc-playwright-checks.js",
       "tiers": [
@@ -10513,11 +10579,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, a message to the test provider attached to that patient, a consultation service with a specialist and a consultation request, all carrying inert markup. Inserts GLOBALLY VISIBLE poisoned rows while it runs (a consultation service and specialist): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "The patient-label and consultation letterhead script sinks are encoded (#4905, #4910). Other recorded messaging/consultation defects remain in findings 78 and 124, including the specialist page failure. This broader walk has not been rerun for #4910; its final assertion remains required and the independent open findings remain visible.",
-      "expectedFailure": {
-        "finding": 124,
-        "step": "the walk found no output-encoding defect"
-      }
+      "notes": "Packaged Ubuntu 26.04 rerun for #4188 passed every step, including the specialist editor with a text specialty type. The shared patient-label and consultation letterhead script sinks remain covered (#4905, #4910)."
     },
     {
       "name": "xss-poison-billing",
@@ -12185,6 +12247,20 @@
       "notes": "The System Message and Facility Message editors' Expiry Day calendar (calendar/oscarCalendarPopup?type=caisi). Steps: the System Messages calendar opens on the current month for the editor's form and field; Next and Last move one month each way; the Facility Messages calendar opens for its own form and field; LAST, picking a day closes the popup and writes the date into the editor's Expiry Day box, in both editors. Fails at the last step on 2026.08 and develop: the editors' forms lost the names the popup looks them up by when the Struts 1 tags went, so the pick writes nothing (#4916; #4923 is its release fix). The check turns green when #4923 merges; drop this note then. Skips on the packaged default (caisi=off)."
     },
     {
+      "name": "calendar-keyboard",
+      "script": "scripts/calendar-keyboard-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "notes": "The shared date-box calendar (Calendar.setup over Flatpickr) from the keyboard, on four pages that use it (#5058): Allergies ▸ Custom Allergy ▸ Start Date, Report ▸ Prevention Report ▸ as-of date, Add Appointment ▸ Repeat ▸ End date (as a throwaway login on its own day sheet), and Master Record ▸ Create Invoice ▸ Service Date (the BC bill form on a BC install, the Ontario one elsewhere). On each, the calendar button is a named button or link that Tab reaches; Enter opens the calendar with focus on a day; ArrowRight and Enter pick the next day into the box, close the calendar and return focus to the button; Enter again and Escape close it without a change. On the allergy Start Date also: Tab from the box reaches the button, ArrowDown in the empty box moves into the open calendar and Escape returns to the box, and a mouse click on the button and on a day still fills the box without moving focus into the calendar.",
+      "fixtures": "The workflow's owned FAKE patient (made a BC patient on a BC install, for its bill form) and a throwaway login (lib/gap-provider-fixture.js) whose own day sheet opens the Add Appointment window. Nothing is saved (no allergy, appointment or bill), which the check asserts. The Add Appointment window's slot lock (PageMonitor, keyed to the throwaway) is removed, then the throwaway's appointment rows and the throwaway; the patient is removed with its chart rows by key."
+    },
+    {
       "name": "bc-master-record-navigation",
       "script": "scripts/bc-master-record-navigation-playwright-checks.js",
       "tiers": [
@@ -12460,8 +12536,23 @@
         "DOCUMENT_DIR",
         "RX_FAX_DOCUMENT_DIR"
       ],
-      "fixtures": "Owned synthetic patient with three active ticklers due today and one PDF document (row, ctl_document link and file) so the document viewer offers the patient tickler list; all removed and asserted gone. SKIPs without DOCUMENT_DIR.",
-      "notes": "Patient tickler list (tickler/ViewTicklerDemoMain) Delete and Complete through tickler/DbTicklerDemoMain, the Active/Completed/Deleted views and the buttons each offers, and GET and tokenless POST refusals. Erase Completely is listed but not pressed."
+      "fixtures": "Owned synthetic patient with three active ticklers due today, a comment, legacy link, active and detached attachment associations, and one PDF document (row, ctl_document link and file) so the document viewer offers the patient tickler list; all removed and asserted gone. SKIPs without DOCUMENT_DIR.",
+      "notes": "Patient tickler list (tickler/ViewTicklerDemoMain) Delete and Complete through tickler/DbTicklerDemoMain, the Active/Completed/Deleted views and the buttons each offers, and GET and tokenless POST refusals. Deleted has no erase action. Delete and a legacy Erase Completely submission retain the task, comments, links, attachments and tickler_update history (#4993)."
+    },
+    {
+      "name": "tickler-main-list-lifecycle",
+      "script": "scripts/tickler-main-list-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient with four ticklers carrying the run marker; every tickler, comment, link, attachment and tickler_update row is removed and asserted gone.",
+      "notes": "Provider-wide task list (tickler/ViewTicklerMain) status lifecycle, issue #4993: the footer follows the status filter in place (Deleted has no Complete, Delete or erase action, and Active gets Complete and Delete back); a popup edit that reactivates a Completed task refreshes the opener through the carlos_tickler_refresh_all channel without Create Report; a legacy Erase Completely submission retains the task and tickler_update history and leaves an unticked deleted task alone."
     },
     {
       "name": "admin-login-agreement-upload",
@@ -12612,7 +12703,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "BC Administration ▸ Billing ▸ Accounting Reports: the Invoice, Accounts Receivable and Rejection reports as PDFs, and the payer boxes, for one FAKE provider's five claims (MSP open, private, ICBC rejected, MSP deleted, MSP written off), each with its own amount. Invoice takes all but the deleted claim; Accounts Receivable, the open ones; Rejection, the rejected one only. With one payer box ticked, Invoice takes that payer's claims only. billing-bc-account-reports covers Write-Off and Payments and Refunds. Failed at the Invoice step on 2026.08 before #4805 (#4801's release fix) merged on 18 Oct, and on develop fails until that is forward-merged: the form posts to an address that is not mapped (HTTP 404). On a release WAR with #4805 every step passes. Needs Poppler pdftotext (SKIP without it). The expectedFailure is added with its finding number when the findings log is assembled.",
+      "notes": "BC Administration ▸ Billing ▸ Accounting Reports: the Invoice, Accounts Receivable and Rejection reports as PDFs, and the payer boxes, for one FAKE provider's five claims (MSP open, private, ICBC rejected, MSP deleted, MSP written off), each with its own amount. Invoice takes all but the deleted claim; Accounts Receivable, the open ones; Rejection, the rejected one only. With one payer box ticked, Invoice takes that payer's claims only. billing-bc-account-reports covers Write-Off and Payments and Refunds. Failed at the Invoice step on 2026.08 before #4805 (#4801's release fix) merged on 18 Oct, and on develop fails until that is forward-merged: the form posts to an address that is not mapped (HTTP 404). Also verifies payment plus internal-adjustment balances, negative history totals and a later payment balancing the private claim: Invoice refreshes and A/R omits it (#3967). On a release WAR with #4805 the original report-selection steps pass. Needs Poppler pdftotext (SKIP without it). The expectedFailure is added with its finding number when the findings log is assembled.",
       "fixtures": "Seeds and removes one FAKE provider (provider, OHIP and billing number one free 5-digit number, last name = the run marker) with its billing-report row, and five claims for it on the workflow's own FAKE patient, made a BC patient. Cleanup deletes every BC billing row of the patient, then the billing-report row and the provider, and asserts each is gone."
     },
     {
@@ -12829,7 +12920,7 @@
       "env": [
         "HOME_DIR"
       ],
-      "notes": "BC Invoice List's ticked-bill buttons, which billing-bc-bill-status-filters (filters only) and billing-bc-reprocess-bill (one bill through Adjust Bill) leave out: Master record ▸ Billing ▸ Invoice List lists the three owned bills, with Settle and Reprocess And Resubmit disabled until one is ticked; Settle settles exactly the two ticked bills, changing nothing else on them, and leaves the unticked bill unchanged in every column; last, Reprocess And Resubmit puts exactly the ticked rejected bill back to Not Submitted (queued for the next Teleplan file), changing nothing else on it, leaves the settled bills unchanged, and sends nothing: no Teleplan batch, log line or submission link, the sequence unmoved, no new file in HOME_DIR (which must exist when set; unset, the step prints that it did not look), and no Teleplan page or write to another host from the browser. PASS expected.",
+      "notes": "BC Invoice List's ticked-bill buttons, which billing-bc-bill-status-filters (filters only) and billing-bc-reprocess-bill (one bill through Adjust Bill) leave out: Master record ▸ Billing ▸ Invoice List lists the three owned bills, with Settle and Reprocess And Resubmit disabled until one is ticked; Settle settles exactly the two ticked bills, changing nothing else on them, and leaves the unticked bill unchanged in every column; last, Reprocess And Resubmit puts exactly the ticked rejected bill back to Not Submitted (queued for the next Teleplan file), changing nothing else on it, leaves the settled bills unchanged, and sends nothing: no Teleplan batch, log line or submission link, the sequence unmoved, no new file in HOME_DIR (which must exist when set; unset, the step prints that it did not look), and no Teleplan page or write to another host from the browser. PASS expected. Also verifies a private bill's PAID excludes internal adjustments while OWED includes them, and both refresh after another payment and adjustment (#3967).",
       "fixtures": "Three MSP bills (billing + billingmaster) for its own FAKE patient, made a BC patient: two paid with explanation (E) and one rejected (R), all dated today, holding the creation date, name check and provider billing numbers a bill-form save stores (a reprocess writes those again). Cleanup deletes every BC billing row of that patient, with the history and notes the saves wrote, and asserts none is left."
     },
     {
@@ -13320,7 +13411,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "The Ontario Billing Report Center (Billed, Unsettled, OB, Flu) as a login with report rights that is neither administrator nor doctor sees it; those two roles skip to the dashboard billing-on-reports-inr-eoy drives. On develop the last step fails: the four reports read the retired billing tables, so current Ontario claims are not listed (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "notes": "The Ontario Billing Report Center (Billed, Unsettled, OB, Flu) as a login with report rights that is neither administrator nor doctor sees it; those two roles skip to the dashboard billing-on-reports-inr-eoy drives. Fails at its last step until #5061 is fixed: Billed, Unsettled and OB list Ontario claims since its first fix, and Flu still reads the retired billing table (how to split its walk-in and clinic lists is an open question on #5061).",
       "fixtures": "Owned patient, a FAKE- billable provider with its billingreport reportprovider row, an open, a submitted, an obstetric and a flu-shot Ontario claim (written in strict SQL mode), an owned role and a throwaway login; all removed in cleanup."
     },
     {
@@ -13783,11 +13874,7 @@
       "env": [
         "TICKLER_BULK_ONLY"
       ],
-      "notes": "Task-list Check All / Clear All, selected-only Complete/Delete, Completed-to-Active through the row pencil and opener refresh, and Deleted action availability. Four owned tasks include a hidden control. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 292.",
-      "expectedFailure": {
-        "finding": 292,
-        "step": "the Completed row pencil reactivates one task and refreshes the opener"
-      }
+      "notes": "Task-list Check All / Clear All, selected-only Complete/Delete, Completed-to-Active through the row pencil and automatic opener refresh, and no erase, Complete or Delete actions in Deleted. Four owned tasks include a hidden control. Regression coverage for #4993; packaged validation remains pending for this revision."
     },
     {
       "name": "rh-workflow-queue-lifecycle",
@@ -13853,13 +13940,9 @@
       "env": [
         "TICKLER_BULK_ONLY"
       ],
-      "notes": "Bulk task states and Deleted action buttons after an explicit Create Report refresh. Runs independently of the automatic-opener-refresh assertion so one defect does not hide later task operations. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 289.",
+      "notes": "Bulk task states and Deleted action buttons after an explicit Create Report refresh. Runs independently of the automatic-opener-refresh assertion. Deleted has no erase, Complete or Delete action (#4993); packaged validation remains pending for this revision.",
       "envSet": {
         "TICKLER_BULK_ONLY": "state-actions"
-      },
-      "expectedFailure": {
-        "finding": 289,
-        "step": "the Deleted filter offers Erase Completely and hides Complete and Delete"
       }
     },
     {
@@ -14062,11 +14145,7 @@
         "RX_FAX_DOCUMENT_DIR"
       ],
       "fixtures": "Owned synthetic patient, three tasks and one PDF document/file; cleanup removes and verifies tasks, their history/links, the document and chart support rows.",
-      "notes": "E-Chart > document > open ticklers > Deleted > Erase Completely: empty selection changes nothing; selected task disappears while deleted/active controls remain; retention of audit data is permitted. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 296.",
-      "expectedFailure": {
-        "finding": 296,
-        "step": "Erase Completely removes only the checked task from Deleted and preserves unchecked tasks"
-      }
+      "notes": "E-Chart > document > open ticklers > Deleted: no erase control; legacy Erase Completely submissions with empty or selected tasks retain every task and its existing history, preserving deleted and active controls (#4993). Packaged validation remains pending for this revision."
     },
     {
       "name": "patient-letter-template-delete",
@@ -15462,6 +15541,48 @@
         "finding": 312,
         "step": "a discarded draft calculation is handled without a server exception"
       }
+    },
+    {
+      "name": "lab-file-for-others",
+      "script": "scripts/lab-file-for-others-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "on",
+        "other"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns a synthetic lab and two throwaway providers; restores the offer preference. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "property:hl7_offer_file_for_others"
+      ],
+      "notes": "Issue #3970: real preferences, consent, atomic rejection, filing comments and audit, and combined acknowledgement dialog."
+    },
+    {
+      "name": "consultation-specialty-selection",
+      "script": "scripts/consultation-specialty-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned marker-named consultation service and seven specialists with text, numeric, zero, empty and NULL specialty types. Cleanup deletes exactly the marker-owned rows and verifies they are gone. These rows are visible in clinic-wide lists and pickers, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue #4188: Administration > Consultation Settings opens every specialist editor with HTTP 200; matching service IDs stay selected and all unmatched specialties select the blank option. Opening the form must not change the stored specialty.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists"
+      ]
     }
   ]
 }

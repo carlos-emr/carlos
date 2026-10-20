@@ -141,6 +141,14 @@ public interface TicklerManager {
 
     public void completeTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
+    /**
+     * Marks the tickler Deleted while retaining the task, comments, links, attachments and
+     * status history as part of the clinical record.
+     *
+     * @param loggedInInfo LoggedInInfo the acting user
+     * @param tickler_id Integer the task to mark Deleted
+     * @param provider String the provider recording the status change
+     */
     public void deleteTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,

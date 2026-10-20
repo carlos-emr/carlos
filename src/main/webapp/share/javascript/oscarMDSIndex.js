@@ -2219,7 +2219,16 @@ function serverClearedCount(responseBody) {
     }
 }
 
-function updateStatus(formid) {//acknowledge
+function confirmedLabAcknowledgement(responseBody) {
+    try {
+        const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
+        return !!parsed && Number.isInteger(parsed.clearedCount) && parsed.clearedCount >= 0;
+    } catch (error) {
+        return false;
+    }
+}
+
+function updateStatus(formid, requireConfirmation) {//acknowledge
     const num = formid.split("_");
     const doclabid = num[1];
     if (doclabid) {
@@ -2279,8 +2288,17 @@ function updateStatus(formid) {//acknowledge
                     updateGlobalDataAndSideNav(doclabid, null);
                 }
             }
-            if (data.labType === 'DOC') window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);
-            else jQuery.post(url, data).done(acknowledged);
+            if (data.labType === 'DOC') return window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);
+            return jQuery.post(url, data).then(function (responseBody) {
+                // Combined filing must not advertise success for an error page or the legacy
+                // HTTP-200 failure response. Other callers retain the older count fallback.
+                if ((requireConfirmation === true && !confirmedLabAcknowledgement(responseBody))
+                        || (typeof responseBody === 'string' && responseBody.trim() === 'failure')) {
+                    throw new Error('Lab acknowledgement was not confirmed');
+                }
+                acknowledged(responseBody);
+                return true;
+            });
         }
     }
 }

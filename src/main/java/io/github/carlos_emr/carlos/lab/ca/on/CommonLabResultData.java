@@ -471,7 +471,8 @@ public class CommonLabResultData {
      *
      * @param labNo the version the clinician acted on
      * @param providerNo acting provider (session-derived, never client-supplied)
-     * @param status status to apply to {@code labNo}; older versions are always filed as {@code F}
+     * @param status status to apply to {@code labNo}; older versions are filed as {@code F}
+     *               unless this provider has already acknowledged them
      * @param comment comment for {@code labNo}, may be null or empty
      * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
      * @param skipCommentOnUpdate true to leave an existing comment untouched
@@ -535,7 +536,9 @@ public class CommonLabResultData {
             if (version == labNo) {
                 updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
             } else {
-                updateReportStatus(version, providerNo, 'F', "", labType);
+                // The chain locks are held by this transaction. Preserve each acknowledged
+                // routing row's audit data, including when duplicate routes have mixed states.
+                updateReportStatusInTransaction(version, providerNo, 'F', "", labType, false, true);
             }
         }
         return clearedFromNew;
@@ -583,6 +586,13 @@ public class CommonLabResultData {
 
     private static boolean updateReportStatusInTransaction(int labNo, String providerNo, char status,
                                                             String comment, String labType, boolean skipCommentOnUpdate) {
+        return updateReportStatusInTransaction(labNo, providerNo, status, comment, labType,
+                skipCommentOnUpdate, false);
+    }
+
+    private static boolean updateReportStatusInTransaction(int labNo, String providerNo, char status,
+                                                            String comment, String labType, boolean skipCommentOnUpdate,
+                                                            boolean preserveAcknowledged) {
         if (comment == null) {
             comment = "";
         }
@@ -593,6 +603,11 @@ public class CommonLabResultData {
         List<ProviderLabRoutingModel> providerLabRoutingModelList = providerLabRoutingDao.findRoutingForUpdate(labNo, labType, providerNo);
         if (providerLabRoutingModelList != null && !providerLabRoutingModelList.isEmpty()) {
             for (ProviderLabRoutingModel providerLabRoutingModel : providerLabRoutingModelList) {
+                // Automatic filing of an older version must not erase a prior acknowledgement.
+                // Explicit status changes to the selected report keep their existing semantics.
+                if (preserveAcknowledged && "A".equals(providerLabRoutingModel.getStatus())) {
+                    continue;
+                }
                 providerLabRoutingModel.setStatus("" + status);
 
                 //we don't want to clobber existing comments when filing labs

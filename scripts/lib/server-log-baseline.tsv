@@ -15,6 +15,7 @@
 # pass -- an unexplained ERROR is a finding first (report, don't encode).
 #
 # Provoked on purpose by checks that prove error handling or refusal:
+^ERROR pageUtil\.EctConsultationFormFax2Action \(EctConsultationFormFax2Action\.java:235\)$	the no-active-sender refusal of scripts/consultation-submit-and-fax-playwright-checks.js, which asserts the configured-account error dialog and zero queued fax jobs
 ^ERROR utility\.ResponseSanitizationFilter \(ResponseSanitizationFilter\.java:[0-9]+\) uri=/carlos/form/createcustomedpdf @FrmCustomedPDFServlet\.parseSCAddress :: jakarta\.servlet\.ServletException java\.lang\.NullPointerException$	the deliberate uncaught-exception 500 of scripts/error-sanitization-playwright-checks.js (createcustomedpdf?useSC=true)
 ^ERROR utility\.DbConnectionFilter \(DbConnectionFilter\.java:[0-9]+\) @FrmCustomedPDFServlet\.parseSCAddress :: java\.lang\.NullPointerException$	the same deliberate 500 of scripts/error-sanitization-playwright-checks.js, logged again by the filter it passes through
 ^ERROR utility\.ResponseSanitizationFilter \(ResponseSanitizationFilter\.java:[0-9]+\) uri=/carlos/ws/rs/schedule/fetchProvidersApptsCount/not-a-date/not-a-date$	the deliberate /ws 5xx body replacement of scripts/error-sanitization-playwright-checks.js

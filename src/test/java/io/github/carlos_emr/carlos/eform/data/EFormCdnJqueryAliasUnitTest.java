@@ -13,11 +13,14 @@
 
 package io.github.carlos_emr.carlos.eform.data;
 
+import java.time.Duration;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 
 /**
  * Pins the CDN-jQuery local alias.
@@ -108,11 +111,168 @@ class EFormCdnJqueryAliasUnitTest {
                 .doesNotContain("crossorigin");
     }
 
+    /** A local legacy alias must shed its old digest without a CDN script triggering cleanup. */
+    @Test
+    @DisplayName("should drop stale integrity pins from legacy-only library aliases in both quote styles")
+    void shouldDropSubresourceIntegrity_whenAliasingLegacyLibraryScripts() {
+        for (String prefix : java.util.List.of("/carlos", "..", "")) {
+            for (String build : java.util.List.of("jquery-2.2.4.min.js", "jquery-1.4.2.js")) {
+                for (String quote : java.util.List.of("\"", "'")) {
+                    String html = normalized("<script src=" + quote + prefix + "/library/jquery/" + build
+                            + quote + " integrity=" + quote + "sha256-old" + quote
+                            + " crossorigin=" + quote + "anonymous" + quote + "></script>");
+
+                    assertThat(html).as(prefix + "/" + build + " with " + quote)
+                            .contains("src=" + quote + LOCAL_BUNDLE + quote)
+                            .doesNotContain("integrity", "crossorigin");
+                }
+            }
+        }
+    }
+
+    /** The older eForm-relative spellings replace the bytes in exactly the same way. */
+    @Test
+    @DisplayName("should drop stale integrity pins from legacy eForm-relative aliases")
+    void shouldDropSubresourceIntegrity_whenAliasingLegacyRelativeScripts() {
+        for (String reference : java.util.List.of("jquery-1.12.0.min.js", "/eform/jquery-1.12.0.min.js")) {
+            assertThat(normalized("<script src='" + reference
+                    + "' integrity='sha256-old' crossorigin='anonymous'></script>"))
+                    .contains("src='" + LOCAL_BUNDLE + "'")
+                    .doesNotContain("integrity", "crossorigin");
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve SRI-like text inside other attributes when removing real pins")
+    void shouldPreserveQuotedAttributeText_whenRemovingSubresourceIntegrity() {
+        for (String source : java.util.List.of("../library/jquery/jquery-2.2.4.min.js",
+                "https://code.jquery.com/jquery-2.2.4.min.js")) {
+            for (String config : java.util.List.of(
+                    "data-config=\"keep integrity='sha256-config' crossorigin='config' value\"",
+                    "data-config='keep integrity=\"sha256-config\" crossorigin=\"config\" value'")) {
+                String attributes = config + " data-integrity='keep' data-crossorigin='keep'";
+                assertThat(normalized("<script " + attributes + " integrity='sha256-old' src='"
+                        + source + "' crossorigin=\"anonymous\"></script>"))
+                        .contains("<script " + attributes + " src='" + LOCAL_BUNDLE + "'></script>");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should read the whole opening tag when a quoted value contains a greater-than sign")
+    void shouldDropSubresourceIntegrity_whenQuotedAttributeContainsTagDelimiter() {
+        for (String attributes : java.util.List.of("data-config=\"a > b\"", "data-config='a > b'")) {
+            for (boolean beforeSrc : java.util.List.of(true, false)) {
+                String prefix = beforeSrc ? attributes + " " : "";
+                String suffix = beforeSrc ? "" : " " + attributes;
+                assertThat(normalized("<script " + prefix + "src='../library/jquery/jquery-2.2.4.min.js'"
+                        + suffix + " integrity='sha256-old' crossorigin='anonymous'></script>"))
+                        .contains("<script " + prefix + "src='" + LOCAL_BUNDLE + "'" + suffix + "></script>");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should remove unquoted, valueless, duplicate and mixed-case integrity attributes")
+    void shouldDropSubresourceIntegrity_forAllAttributeValueStyles() {
+        for (String pins : java.util.List.of(
+                " INTEGRITY = sha256-old\tcRoSsOrIgIn=anonymous",
+                " integrity crossorigin",
+                " integrity='sha256-old' integrity=sha256-other crossorigin='anonymous' crossorigin")) {
+            assertThat(normalized("<script defer src='../library/jquery/jquery-2.2.4.min.js'"
+                    + pins + " data-note='keep'></script>"))
+                    .contains("<script defer src='" + LOCAL_BUNDLE + "' data-note='keep'></script>");
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve Unicode lookalikes of ASCII integrity attribute names")
+    void shouldKeepUnicodeAttributeNames_whenRemovingAsciiIntegrityAttributes() {
+        String attributes = "\u0131ntegrity='keep-dotless' \u0130ntegrity='keep-dotted'"
+                + " cro\u017f\u017forigin='keep-long-s'";
+
+        assertThat(normalized("<script " + attributes + " src='../library/jquery/jquery-2.2.4.min.js'"
+                + " INTEGRITY='sha256-old' CROSSORIGIN='anonymous'></script>"))
+                .contains("<script " + attributes + " src='" + LOCAL_BUNDLE + "'></script>");
+    }
+
+    @Test
+    @DisplayName("should preserve large quoted attribute values without backtracking through their contents")
+    void shouldPreserveLargeAttributeValues_whenRemovingSubresourceIntegrity() {
+        String attributes = "data-config=\"" + " integrity='keep' > ".repeat(5000) + "\"";
+
+        assertTimeout(Duration.ofSeconds(5), () ->
+                assertThat(normalized("<script " + attributes + " src='../library/jquery/jquery-2.2.4.min.js'"
+                        + " integrity='sha256-old' crossorigin='anonymous'></script>"))
+                        .contains("<script " + attributes + " src='" + LOCAL_BUNDLE + "'></script>"));
+    }
+
+    @Test
+    @DisplayName("should preserve quoted configuration and JavaScript around document.write aliases")
+    void shouldPreserveDocumentWriteMarkup_whenRemovingRealIntegrityAttributes() {
+        String before = "<script>window.jQuery || document.write('<script data-config=\"a > b integrity=value\""
+                + " src=\"../library/jquery/jquery-2.2.4.min.js\" integrity=\"sha256-old\""
+                + " crossorigin=\"anonymous\">< \\/script>')</script>";
+        String expected = before.replace("../library/jquery/jquery-2.2.4.min.js", LOCAL_BUNDLE)
+                .replace(" integrity=\"sha256-old\"", "").replace(" crossorigin=\"anonymous\"", "");
+
+        assertThat(normalized(before)).isEqualTo("<html><body>" + expected + "</body></html>");
+    }
+
+    /** Attribute lookalikes must not cause another script's integrity guarantee to be removed. */
+    @Test
+    @DisplayName("should preserve integrity when the alias URL occurs outside the actual src value")
+    void shouldKeepSubresourceIntegrity_whenAliasUrlAppearsOutsideSrc() {
+        for (String attribute : java.util.List.of(
+                "data-src=\"" + LOCAL_BUNDLE + "\"",
+                "data-note=' src=\"" + LOCAL_BUNDLE + "\"'",
+                "data-note=\" src='" + LOCAL_BUNDLE + "'\"")) {
+            String unrelated = "<script src='https://cdn.example.org/analytics.js' " + attribute
+                    + " integrity='sha256-analytics' crossorigin='anonymous'></script>";
+            assertThat(normalized("<script src='https://code.jquery.com/jquery-2.2.4.min.js'"
+                    + " integrity='sha256-old'></script>" + unrelated))
+                    .contains(unrelated)
+                    .doesNotContain("sha256-old");
+        }
+    }
+
+    /** HTML whitespace and quote style do not change which script is receiving the local bytes. */
+    @Test
+    @DisplayName("should remove pins from aliased src attributes after HTML whitespace")
+    void shouldDropSubresourceIntegrity_whenSrcFollowsHtmlWhitespace() {
+        for (String whitespace : java.util.List.of(" ", "\t", "\n", "\f", "\r")) {
+            for (String quote : java.util.List.of("\"", "'")) {
+                assertThat(normalized("<script" + whitespace + "src=" + quote
+                        + "https://code.jquery.com/jquery-2.2.4.min.js" + quote
+                        + " integrity=" + quote + "sha256-old" + quote
+                        + " crossorigin=" + quote + "anonymous" + quote + "></script>"
+                        + "<script" + whitespace + "SRC" + whitespace + "=" + whitespace + quote
+                        + LOCAL_BUNDLE + quote + " integrity=" + quote + "sha256-old" + quote
+                        + " crossorigin=" + quote + "anonymous" + quote + "></script>"))
+                        .contains(LOCAL_BUNDLE)
+                        .doesNotContain("integrity", "crossorigin");
+            }
+        }
+    }
+
+    /** Inspecting one opening tag must preserve the surrounding JavaScript fallback string. */
+    @Test
+    @DisplayName("should remove a legacy-only document.write fallback's stale integrity pin")
+    void shouldDropSubresourceIntegrity_whenAliasingLegacyDocumentWriteFallback() {
+        String html = normalized("<script>window.jQuery || document.write('<script"
+                + " src=\"../library/jquery/jquery-2.2.4.min.js\" integrity=\"sha256-old\""
+                + " crossorigin=\"anonymous\">< \\/script>')</script>");
+
+        assertThat(html).contains("document.write('<script src=\"" + LOCAL_BUNDLE + "\"")
+                .doesNotContain("integrity", "crossorigin");
+    }
+
     @Test
     @DisplayName("should keep subresource integrity on resources it did not alias")
     void shouldKeepSubresourceIntegrity_onUntouchedResources() {
         String html = normalized(
-                "<script src=\"https://cdn.example.org/analytics.js\" integrity=\"sha256-abc\"></script>");
+                "<script src='https://code.jquery.com/jquery-2.2.4.min.js'></script>"
+                + "<script src=\"https://cdn.example.org/analytics.js\" integrity=\"sha256-abc\"></script>");
 
         assertThat(html).contains("integrity=\"sha256-abc\"");
     }
@@ -206,13 +366,14 @@ class EFormCdnJqueryAliasUnitTest {
     @DisplayName("should alias a pre-3.x webapp jQuery build on a root-context deployment")
     void shouldAliasLegacyLibraryJquery_onRootContext() {
         EForm eform = new EForm();
-        eform.setFormHtml("<html><body><script src=\"${oscar_javascript_path}jquery/jquery-2.2.4.min.js\">"
+        eform.setFormHtml("<html><body><script src=\"${oscar_javascript_path}jquery/jquery-2.2.4.min.js\""
+                + " integrity='sha256-old' crossorigin='anonymous'>"
                 + "</script></body></html>");
         eform.setContextPath("");
 
         assertThat(eform.getFormHtml())
                 .contains("src=\"/eform/displayImage?imagefile=jquery-1.12.0.min.js\"")
-                .doesNotContain("2.2.4");
+                .doesNotContain("2.2.4", "integrity", "crossorigin");
     }
 
     @Test
