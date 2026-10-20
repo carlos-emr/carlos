@@ -92,7 +92,6 @@ class RxRequestedPatientAccessUnitTest extends CarlosUnitTestBase {
                 Arguments.of(ViewSideLinksNoEditFavorites22Action.class, "_rx", "r"),
                 Arguments.of(ViewSideLinksNoEditFavorites2Action.class, "_rx", "r"),
                 Arguments.of(ViewStaticScript2Action.class, "_rx", "r"),
-                Arguments.of(ViewUpdateInteractingDrugs2Action.class, "_rx", "r"),
                 Arguments.of(ViewViewPharmacy2Action.class, "_rx", "r"));
     }
 

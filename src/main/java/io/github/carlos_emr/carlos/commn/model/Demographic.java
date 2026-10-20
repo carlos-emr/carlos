@@ -44,6 +44,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -161,6 +163,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
     private Provider provider;
     private String lastUpdateUser = null;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate = new Date();
 
     private String title;
@@ -1568,7 +1571,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
         if (dateOfBirth != null && monthOfBirth != null && yearOfBirth != null) {
             cal = new GregorianCalendar();
-            cal.setTimeInMillis(0);
+            // Clear the epoch's local time-of-day before setting this date-only value.
+            cal.clear();
             cal.set(Integer.parseInt(yearOfBirth), Integer.parseInt(monthOfBirth) - 1, Integer.parseInt(dateOfBirth));
 
             // force materialisation of data

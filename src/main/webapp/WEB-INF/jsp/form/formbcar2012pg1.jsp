@@ -1098,9 +1098,9 @@
 
                 <td align="right"></td>
                 <td align="right"><b>Edit:</b>AR1 | <a
-                        href="formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                        href="form/formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                        href="form/formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                     <font size=-2>(pg.2)</font></a></td>
                 <%
                     }
@@ -1141,7 +1141,7 @@
                             <td width="33%">
 
                                 <a href="javascript: function myFunction() {return false; }"
-                                   onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup'); return false;">
+                                   onClick="popupFixedPage(600, 300, 'form/formbcarpg1namepopup'); return false;">
                                     Attending Physician/Midwife:
                                 </a><br/>
                                 <input type="text" name="pg1_priCare" style="width: 100%" size="30"
@@ -1369,7 +1369,7 @@
                 <td valign="top" width="33%">Medications/herbals
                     <textarea
                             name="pg1_curMedic" style="width: 100%" cols="30" rows="2"
-                            @oscar.formDB dbType="varchar(255)"><%= props.getProperty("pg1_curMedic", "") %></textarea>
+                            @oscar.formDB dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_curMedic", "") %>'/></textarea>
                 </td>
                 <td valign="top" width="33%">Beliefs & Practices <input type="text"
                                                                         name="pg1_beliPract" style="width: 100%"
@@ -2118,7 +2118,7 @@
                             <td width="30%" valign="top"><span class="small8">Surgery</span></td>
                             <td><textarea name="pg1_operationSpec" style="width: 100%"
                                           cols="60" rows="1" @oscar.formDB
-                                          dbType="varchar(255)"><%= props.getProperty("pg1_operationSpec", "") %></textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_operationSpec", "") %>'/></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -2241,7 +2241,7 @@
 
                             <td><textarea name="pg1_deprPsySpec" style="width: 100%"
                                           cols="60" rows="1" @oscar.formDB
-                                          dbType="varchar(255)"><%= props.getProperty("pg1_deprPsySpec", "") %></textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_deprPsySpec", "") %>'/></textarea>
                         </tr>
                         <tr>
                             <td></td>
@@ -2819,7 +2819,7 @@
                         <tr>
                             <td colspan="4">
                                 <textarea name="pg1_summary" style="width:100%" cols="100" rows="3" @oscar.formDB
-                                          dbType="text"><%= props.getProperty("pg1_summary", "") %></textarea>
+                                          dbType="text"><carlos:encode value='<%= props.getProperty("pg1_summary", "") %>'/></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -2857,15 +2857,15 @@
                 <td>
                 </td>
                 <td align="right"><b>View:</b> <a
-                        href="javascript: popupPage('formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
+                        href="javascript: popupPage('form/formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="javascript: popupPage('formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
+                        href="javascript: popupPage('form/formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
                     <font size=-2>(pg.2)</font></a> &nbsp;
                 </td>
                 <td align="right"><b>Edit:</b>AR1 | <a
-                        href="formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                        href="form/formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                        href="form/formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                     <font size=-2>(pg.2)</font></a>
                 </td>
                 <%

@@ -61,6 +61,17 @@ import java.io.OutputStream;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.*;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+import java.util.function.Function;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.LockModeType;
+import org.springframework.orm.jpa.EntityManagerFactoryUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 
 public class Pregnancy2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -69,6 +80,7 @@ public class Pregnancy2Action extends ActionSupport {
     private EpisodeDao episodeDao = SpringUtils.getBean(EpisodeDao.class);
     private ObjectMapper objectMapper = new ObjectMapper();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private Integer demographicNo;
 
     // Allowlist of form class names valid for pregnancy-related AJAX form saves.
     // Prevents user-controlled input from loading arbitrary classes via FrmRecordFactory.
@@ -84,55 +96,23 @@ public class Pregnancy2Action extends ActionSupport {
         }
     }
 
+    private static final String CODING_SYSTEM = "SnomedCore";
+    private static final Map<String, String> PREGNANCY_TYPES = Map.of(
+            "72892002", "Normal", "47200007", "High Risk", "16356006", "Multiple", "34801009", "Ectopic");
+
+    /** Only the episode lifecycle is exposed by the Pregnancy route. Legacy helpers below
+     * are deliberately not dispatched: they require separate authorization reviews. */
+    @Override
     public String execute() throws Exception {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
-            throw new SecurityException("missing required sec object (_form)");
-        }
         String method = request.getParameter("method");
-        if ("getLatestFormIdByPregnancy".equals(method)) {
-            return getLatestFormIdByPregnancy();
-        } else if ("create".equals(method)) {
-            return create();
-        } else if ("complete".equals(method)) {
-            return complete();
-        } else if ("doComplete".equals(method)) {
-            return doComplete();
-        } else if ("doDelete".equals(method)) {
-            return doDelete();
-        } else if ("list".equals(method)) {
-            return list();
-        } else if ("createGBSLabReq".equals(method)) {
-            return createGBSLabReq();
-        } else if ("createMCVLabReq".equals(method)) {
-            return createMCVLabReq();
-        } else if ("getAllergies".equals(method)) {
-            return getAllergies();
-        } else if ("getMeds".equals(method)) {
-            return getMeds();
-        } else if ("saveFormAjax".equals(method)) {
-            return saveFormAjax();
-        } else if ("getMeasurementsAjax".equals(method)) {
-            return getMeasurementsAjax();
-        } else if ("saveMeasurementAjax".equals(method)) {
-            return saveMeasurementAjax();
-        } else if ("getAR1Labs".equals(method)) {
-            return getAR1Labs();
-        } else if ("loadEformByName".equals(method)) {
-            return loadEformByName();
-        } else if ("createGCTLabReq".equals(method)) {
-            return createGCTLabReq();
-        } else if ("createGTTLabReq".equals(method)) {
-            return createGTTLabReq();
-        } else if ("getEformsByGroupAjax".equals(method)) {
-            return getEformsByGroupAjax();
-        } else if ("getFundalImage".equals(method)) {
-            return getFundalImage();
-        } else if ("recordPrint".equals(method)) {
-            return recordPrint();
-        } else if ("getPrintData".equals(method)) {
-            return getPrintData();
-        } 
-        return getLatestFormIdByPregnancy();
+        if (method == null || "list".equals(method)) return list();
+        return switch (method) {
+            case "new" -> newPregnancy();
+            case "edit" -> editPregnancy();
+            case "create" -> create();
+            case "complete" -> complete();
+            default -> reject(400, "Unknown pregnancy operation");
+        };
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
@@ -155,129 +135,198 @@ public class Pregnancy2Action extends ActionSupport {
         return null;
     }
 
-    public String create() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form write)");
-        }
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+    /** Displays a form; following or reloading the Add link never writes an episode. */
+    public String newPregnancy() throws IOException {
+        Integer patient = authorizePatient("r");
+        if (patient == null) return NONE;
         String code = request.getParameter("code");
-        String codeType = request.getParameter("codetype");
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        //check for an existing pregnancy
-        List<String> codes = new ArrayList<String>();
-        codes.add("72892002");
-        codes.add("47200007");
-        codes.add("16356006");
-        codes.add("34801009");
-        List<Episode> existingEpisodes = episodeDao.findCurrentByCodeTypeAndCodes(demographicNo, "SnomedCore", codes);
-        if (existingEpisodes.size() > 0) {
-            request.setAttribute("error", "There is already a pregnancy in progress. Please close the existing one before creating a new one.");
-            return SUCCESS;
-        }
-
-        AbstractCodeSystemDao.codingSystem cs;
-        try {
-            cs = AbstractCodeSystemDao.codingSystem.valueOf(codeType);
-        } catch (IllegalArgumentException | NullPointerException e) {
-            MiscUtils.getLogger().warn("Invalid code type requested in pregnancy create: {}", LogSafe.sanitize(codeType));
-            request.setAttribute("error", "There was an internal error processing this request, please contact your system administrator");
-            return SUCCESS;
-        }
-        AbstractCodeSystemDao dao = (AbstractCodeSystemDao) SpringUtils.getBean(AbstractCodeSystemDao.getDaoName(cs));
-        AbstractCodeSystemModel mod = dao.findByCode(code);
-
-        if (mod == null) {
-            request.setAttribute("error", "There was an internal error processing this request, please contact your system administrator");
-            return SUCCESS;
-        }
-
-        //create pregnancy episode
-        Episode e = new Episode();
-        e.setCode(code);
-        e.setCodingSystem(codeType);
-        e.setDemographicNo(demographicNo);
-        e.setDescription("");
-        e.setLastUpdateTime(new Date());
-        e.setLastUpdateUser(providerNo);
-        e.setStatus("Current");
-        e.setStartDate(new Date());
-        e.setDescription(mod.getDescription());
-        episodeDao.persist(e);
-
-        // formONAREnhancedRecord table removed (deprecated 2026-03-25); ONAR form creation disabled
-
-        return SUCCESS;
+        if (!validType(code)) return reject(400, "Invalid pregnancy type");
+        request.setAttribute("code", code);
+        request.setAttribute("description", PREGNANCY_TYPES.get(code));
+        request.setAttribute("startDate", LocalDate.now(ZoneId.systemDefault()).toString());
+        return "form";
     }
 
-    public String complete() {
-        Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
-        Episode e = episodeDao.find(episodeId);
-        if (e == null) {
-            request.setAttribute("error", "There was an internal error. Please contact tech support.");
-        }
-        request.setAttribute("episode", e);
-        return "complete";
+    /** Opens only this patient's pregnancy, including its completed history. */
+    public String editPregnancy() throws IOException {
+        Integer patient = authorizePatient("r");
+        if (patient == null) return NONE;
+        Integer id = episodeId();
+        if (id == null) return reject(400, "Invalid pregnancy identifier");
+        Episode episode = episodeDao.find(id);
+        if (!ownsPregnancy(episode, patient)) return reject(404, "Pregnancy not found");
+        request.setAttribute("episode", episode);
+        return "form";
     }
 
-    public String doComplete() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form write)");
-        }
-        //Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
-        Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
-        String endDate = request.getParameter("endDate");
+    /** POST-only creation, serialized with this patient's other pregnancy mutations. */
+    public String create() throws IOException {
+        if (!"POST".equals(request.getMethod())) return postRequired();
+        Integer patient = authorizePatient("w");
+        if (patient == null) return NONE;
+        String code = request.getParameter("code");
+        LocalDate start = calendarDate(request.getParameter("startDate"));
         String notes = request.getParameter("notes");
-        Episode e = episodeDao.find(episodeId);
-        if (e != null) {
-            e.setStatus("Complete");
-            e.setEndDateStr(endDate);
-            e.setNotes(notes);
-            episodeDao.merge(e);
-            request.setAttribute("close", true);
-        } else {
-            request.setAttribute("error", "There was an internal error. Please contact tech support.");
-            return "complete";
+        if (!validType(code) || start == null || start.isAfter(LocalDate.now(ZoneId.systemDefault())) || !validNotes(notes)) {
+            return invalidForm("Check the pregnancy type, start date and notes.");
         }
-        return "complete";
+        Mutation result = inPatientTransaction(patient, em -> {
+            if (!em.createQuery("SELECT e FROM Episode e WHERE e.demographicNo=:patient "
+                            + "AND e.status='Current' AND e.codingSystem=:system AND e.code IN :codes", Episode.class)
+                    .setParameter("patient", patient).setParameter("system", CODING_SYSTEM)
+                    .setParameter("codes", PREGNANCY_TYPES.keySet()).setMaxResults(1).getResultList().isEmpty()) {
+                return new Mutation(409, "A current pregnancy already exists.");
+            }
+            Episode episode = new Episode();
+            episode.setDemographicNo(patient);
+            episode.setCode(code);
+            episode.setCodingSystem(CODING_SYSTEM);
+            episode.setDescription(PREGNANCY_TYPES.get(code));
+            episode.setStatus("Current");
+            episode.setStartDate(asDate(start));
+            episode.setNotes(notes == null ? "" : notes);
+            episode.setLastUpdateUser(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+            em.persist(episode);
+            em.flush();
+            return new Mutation(200, null);
+        });
+        return finishMutation(result);
     }
 
-    public String doDelete() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form write)");
-        }
-        //Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
-        Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
-        Episode e = episodeDao.find(episodeId);
+    /** POST-only completion; invalid or stale submissions never alter managed fields. */
+    public String complete() throws IOException {
+        if (!"POST".equals(request.getMethod())) return postRequired();
+        Integer patient = authorizePatient("w");
+        if (patient == null) return NONE;
+        Integer id = episodeId();
+        if (id == null) return reject(400, "Invalid pregnancy identifier");
+        LocalDate end = calendarDate(request.getParameter("endDate"));
         String notes = request.getParameter("notes");
-        if (e != null) {
-            e.setNotes(notes);
-            e.setStatus("Deleted");
-            e.setEndDate(new Date());
-            episodeDao.merge(e);
-            request.setAttribute("close", true);
-        } else {
-            request.setAttribute("error", "There was an internal error. Please contact tech support.");
-            return "complete";
+        if (end == null || end.isAfter(LocalDate.now(ZoneId.systemDefault())) || !validNotes(notes)) {
+            return invalidForm("Check the completion date and notes.");
         }
-        return "complete";
+        Mutation result = inPatientTransaction(patient, em -> {
+            Episode episode = em.find(Episode.class, id, LockModeType.PESSIMISTIC_WRITE);
+            if (!ownsPregnancy(episode, patient)) return new Mutation(404, "Pregnancy not found");
+            if (!"Current".equals(episode.getStatus())) return new Mutation(409, "This pregnancy is already complete.");
+            if (episode.getStartDate() == null || end.isBefore(LocalDate.parse(episode.getStartDateStr()))) {
+                return new Mutation(400, "Completion date cannot precede the start date.");
+            }
+            episode.setStatus("Complete");
+            episode.setEndDate(asDate(end));
+            episode.setNotes(notes == null ? "" : notes);
+            episode.setLastUpdateUser(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+            em.flush();
+            return new Mutation(200, null);
+        });
+        return finishMutation(result);
     }
 
-    public String list() {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
-
-        List<String> codes = new ArrayList<String>();
-        codes.add("72892002");
-        codes.add("47200007");
-        codes.add("16356006");
-        codes.add("34801009");
-        List<Episode> episodes = episodeDao.findCurrentByCodeTypeAndCodes(demographicNo, "SnomedCore", codes);
-        List<Episode> episodes2 = episodeDao.findCompletedByCodeTypeAndCodes(demographicNo, "SnomedCore", codes);
-        episodes.addAll(episodes2);
+    public String list() throws IOException {
+        Integer patient = authorizePatient("r");
+        if (patient == null) return NONE;
+        List<Episode> episodes = new ArrayList<>(episodeDao.findCurrentByCodeTypeAndCodes(
+                patient, CODING_SYSTEM, PREGNANCY_TYPES.keySet()));
+        episodes.addAll(episodeDao.findCompletedByCodeTypeAndCodes(patient, CODING_SYSTEM, PREGNANCY_TYPES.keySet()));
         request.setAttribute("episodes", episodes);
         return "list";
+    }
+
+    private Integer authorizePatient(String right) throws IOException {
+        int patient;
+        try {
+            patient = Integer.parseInt(EncounterPatientContext.requireDemographicNo(request));
+        } catch (IllegalArgumentException invalid) {
+            reject(400, "Invalid patient identifier");
+            return null;
+        }
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(info, "_eChart", "r", patient)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(info, patient)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
+        if (!securityInfoManager.hasPrivilege(info, "_pregnancy", right, patient)) {
+            throw new SecurityException("missing required sec object (_pregnancy)");
+        }
+        demographicNo = patient;
+        request.setAttribute("demographicNo", Integer.toString(patient));
+        request.setAttribute("canWrite", securityInfoManager.hasPrivilege(info, "_pregnancy", "w", patient));
+        return patient;
+    }
+
+    private boolean validType(String code) {
+        String system = request.getParameter("codetype");
+        return code != null && PREGNANCY_TYPES.containsKey(code) && (system == null || CODING_SYSTEM.equals(system));
+    }
+
+    private static boolean ownsPregnancy(Episode episode, int patient) {
+        return episode != null && episode.getDemographicNo() == patient
+                && CODING_SYSTEM.equals(episode.getCodingSystem()) && PREGNANCY_TYPES.containsKey(episode.getCode())
+                && ("Current".equals(episode.getStatus()) || "Complete".equals(episode.getStatus()));
+    }
+
+    private Integer episodeId() {
+        String value = request.getParameter("episodeId");
+        try {
+            if (value != null && value.matches("[0-9]{1,10}")) {
+                int id = Integer.parseInt(value);
+                if (id > 0) return id;
+            }
+        } catch (NumberFormatException ignored) {
+            // A number outside the identifier range is still invalid.
+        }
+        return null;
+    }
+
+    private static LocalDate calendarDate(String value) {
+        if (value == null || !value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) return null;
+        try {
+            LocalDate date = LocalDate.parse(value);
+            return date.getYear() >= 1000 ? date : null;
+        }
+        catch (DateTimeParseException invalid) { return null; }
+    }
+
+    private static Date asDate(LocalDate date) {
+        return Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+    }
+
+    private static boolean validNotes(String notes) { return notes == null || notes.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 65535; }
+
+    private record Mutation(int status, String error) { }
+
+    private Mutation inPatientTransaction(int patient, Function<EntityManager, Mutation> mutation) {
+        return new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).execute(status -> {
+            EntityManager em = EntityManagerFactoryUtils.getTransactionalEntityManager(SpringUtils.getBean(EntityManagerFactory.class));
+            if (em == null) throw new IllegalStateException("Pregnancy transaction has no entity manager");
+            // Lock an existing row even for the first pregnancy: locking an empty Episode
+            // query cannot serialize concurrent creates. The same lock orders completion.
+            // Loading Demographic invokes legacy property getters that can dirty null fields.
+            // A scalar, parameterized row lock establishes ownership/existence without hydration.
+            if (em.createNativeQuery("SELECT demographic_no FROM demographic WHERE demographic_no=:patient FOR UPDATE")
+                    .setParameter("patient", patient).getResultList().isEmpty()) {
+                return new Mutation(404, "Patient not found");
+            }
+            return mutation.apply(em);
+        });
+    }
+
+    private String finishMutation(Mutation result) throws IOException {
+        if (result.status() != 200) return reject(result.status(), result.error());
+        return "saved";
+    }
+
+    /** Returns the authorized patient identifier used by the fixed post-save Struts redirect. */
+    public Integer getDemographicNo() { return demographicNo; }
+
+    private String invalidForm(String message) throws IOException { return reject(400, message); }
+    private String postRequired() throws IOException {
+        response.setHeader("Allow", "POST");
+        return reject(405, "POST required");
+    }
+    private String reject(int status, String message) throws IOException {
+        response.sendError(status, message);
+        return NONE;
     }
 
     public String createGBSLabReq() throws SQLException {

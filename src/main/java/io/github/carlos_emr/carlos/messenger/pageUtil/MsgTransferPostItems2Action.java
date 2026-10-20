@@ -45,8 +45,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * scriptlet previously in Transfer/PostItems.jsp.
  * <p>
  * Parses {@code item*} checkbox parameters and the Base64-encoded
- * {@code xmlDoc}, builds the attachment XML, writes it onto
- * {@link MsgSessionBean}, and redirects to the compose-message view gate.
+ * {@code xmlDoc}, builds the attachment XML, stages it for a new compose window
+ * ({@link MsgAttachmentStaging}) and redirects to the compose-message view gate
+ * with that window's key. It used to write the XML onto the login-wide
+ * {@link MsgSessionBean}, where whichever compose window sent next took it, for
+ * whatever patient that message was about (issue #4673).
  * <p>
  * POST-only: mutates session state.
  *
@@ -60,8 +63,8 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
 
     /**
      * Parses checkbox selections and the Base64-encoded {@code xmlDoc},
-     * builds the attachment XML, writes it onto the messenger session bean,
-     * and redirects to the compose-message view gate.
+     * builds the attachment XML, stages it under a new compose key, and
+     * redirects to the compose-message view gate with that key.
      *
      * @return {@link #NONE} — the action always redirects or sends an HTTP status code
      * @throws Exception if {@code MsgCommxml} / {@code MsgSendDocument} parsing
@@ -148,9 +151,12 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
             return NONE;
         }
 
-        bean.setAttachment(sXML);
+        // A new compose window of its own: the redirect hands it the key the items are staged under.
+        String attachmentKey = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stageItems(session, attachmentKey, sXML);
 
-        response.sendRedirect(request.getContextPath() + "/messenger/ViewCreateMessage");
+        response.sendRedirect(request.getContextPath() + "/messenger/ViewCreateMessage?"
+                + MsgAttachmentStaging.KEY_PARAMETER + "=" + attachmentKey);
         return NONE;
     }
 

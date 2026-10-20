@@ -58,6 +58,7 @@
 const fs = require('fs');
 const { createJournalLogSource } = require('./logout-journal-log');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -332,7 +333,7 @@ async function checkAuthenticatedPageRoute(context, route) {
 }
 
 async function checkUnauthenticatedRoute(browser, route) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   const page = await context.newPage();
   const label = `unauthenticated:${route.label}`;
   wirePage(page, label);
@@ -441,7 +442,7 @@ function checkLogDelta(snapshot) {
       await checkUnauthenticatedRoute(browser, route);
     }
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const landingPage = await login(context);
     if (!findings.some((finding) => finding.label === 'post-login' && finding.type === 'login-failed')) {
       for (const route of pageRoutes) {

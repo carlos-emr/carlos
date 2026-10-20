@@ -1090,6 +1090,10 @@
     <div id="secLab" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
 
+            <div class="pref-row">
+                <a href="${pageContext.request.contextPath}/setProviderStaleDate?method=viewHl7LabResultPrefs"
+                   target="_blank" rel="noopener"><fmt:message key="provider.setHl7LabResultPrefs.title"/></a>
+            </div>
             <%-- Lab acknowledgement --%>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.disableLabAckComment"/></div>
@@ -1371,7 +1375,7 @@
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-file-alt"></i> <fmt:message key="provider.providerpreference.link.docDescTemplate"/>
                 </a>
-                <a href="<%=request.getContextPath()%>/setProviderStaleDate?method=viewTicklerTaskAssignee"
+                <a href="<%=request.getContextPath()%>/setTicklerPreferences?method=viewTicklerTaskAssignee"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-tasks"></i> <fmt:message key="provider.providerpreference.link.ticklerPrefs"/>
                 </a>

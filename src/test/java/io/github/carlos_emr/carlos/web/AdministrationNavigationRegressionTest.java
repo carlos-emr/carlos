@@ -70,6 +70,16 @@ class AdministrationNavigationRegressionTest {
     }
 
     @Test
+    @DisplayName("Administration navigation should not link the removed Survey Manager route")
+    void shouldNotLinkSurveyManager_inAdministrationNavigation() throws IOException {
+        for (Path navFile : ADMIN_NAV_FILES) {
+            assertThat(Files.readString(navFile))
+                    .as("%s must not link the unmapped /SurveyManager route (issue #4563)", navFile)
+                    .doesNotContain("SurveyManager");
+        }
+    }
+
+    @Test
     @DisplayName("Lab forwarding link should require lab write privilege")
     void shouldRequireLabWritePrivilege_forLabForwardingLink() throws IOException {
         for (Path navFile : ADMIN_NAV_FILES) {

@@ -85,6 +85,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="report.reportonbilledphcp.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/receptionistapptstyle.css">
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/css/report-print.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -127,7 +128,7 @@
                                                  color="#FFFFFF"><fmt:message key="report.reportonbilledphcp.header.report"/></font></th>
         </tr>
     </table>
-    <form name="myform" action="<%= request.getContextPath() %>/report/ViewReportonbilledphcp" method="POST"
+    <form name="myform" class="report-print-hide" action="<%= request.getContextPath() %>/report/ViewReportonbilledphcp" method="POST"
           onsubmit="return onSub();">
         <table width="100%" border="0" bgcolor="ivory" cellspacing="1"
                cellpadding="1">
@@ -752,7 +753,7 @@
         <tr bgcolor="<%="#669999"%>">
             <th align="left"><font face="Helvetica" color="white"><carlos:encode value='<%= providerName %>' context="html"/>
                 - <%= bundle.getString("report.reportonbilledphcp.header.patientVisitList") %> </font></th>
-            <th width="10%" nowrap><input type="button" name="Button"
+            <th width="10%" nowrap class="report-print-hide"><input type="button" name="Button"
                                           value="<%= bundle.getString("global.btnPrint") %>" onClick="window.print()"> <input type="button"
                                                                                          name="Button" value="<%= bundle.getString("global.btnExit") %>"
                                                                                          onClick="window.close()"></th>
@@ -763,8 +764,9 @@
             <td><%= bundle.getString("report.reportonbilledphcp.label.period") %> ( <carlos:encode value='<%= startDate %>' context="html"/> ~ <carlos:encode value='<%= endDate %>' context="html"/> )</td>
         </tr>
     </table>
-    <table width="100%" border="1" bgcolor="#ffffff" cellspacing="0"
+    <table class="report-print-table report-print-wide" width="100%" border="1" bgcolor="#ffffff" cellspacing="0"
            cellpadding="0">
+        <thead>
         <tr bgcolor="<%=tdTitleColor%>">
             <TH colspan="2" width="10%"><%=bDx ? bundle.getString("report.reportonbilledphcp.header.dxCode") : bundle.getString("report.reportonbilledphcp.header.serviceCode")%>
             </TH>
@@ -806,6 +808,8 @@
             <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
             <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
         </tr>
+        </thead>
+        <tbody>
         <%
             String catName = "";
             String color = "";
@@ -981,6 +985,7 @@
                 <td>< %=total1[i]%></td>
                 < % } %>
               </tr-->
+        </tbody>
     </table>
     <%
         }

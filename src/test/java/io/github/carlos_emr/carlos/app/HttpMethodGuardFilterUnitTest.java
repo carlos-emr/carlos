@@ -26,6 +26,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -193,6 +195,20 @@ class HttpMethodGuardFilterUnitTest {
         void shouldPassThrough_forGetToMoveMohFilesRenderAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
             when(request.getRequestURI()).thenReturn("/carlos/billing/CA/ON/moveMOHFiles");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should pass through GET to the BC reprocessBill route, which opens Bill Status and the adjust bill page")
+        void shouldPassThrough_forGetToBcReprocessBillOpenAction() throws Exception {
+            // BillingReProcessBill2Action itself answers 405 to a GET carrying billCheck or billingmasterNo (#4343).
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/billing/CA/BC/reprocessBill");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -413,6 +429,42 @@ class HttpMethodGuardFilterUnitTest {
 
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
+        }
+    }
+
+    /**
+     * Satellite-sites Admin (issue #4700): the site list opens a site with a GET link, so that link uses the
+     * read-only method=edit; method=update and method=save stay refused on GET.
+     */
+    @Nested
+    @DisplayName("Satellite-sites Admin (admin/ManageSites)")
+    class ManageSites {
+
+        @Test
+        @DisplayName("should pass through the list's GET link with method=edit")
+        void shouldPassThrough_forGetWithEditMethodOnManageSites() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/ManageSites");
+            when(request.getParameter("method")).thenReturn("edit");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"update", "save"})
+        @DisplayName("should block GET with method=update or method=save")
+        void shouldBlock_forGetWithWriteMethodOnManageSites(String method) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/ManageSites");
+            when(request.getParameter("method")).thenReturn(method);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
         }
     }
 
@@ -849,6 +901,62 @@ class HttpMethodGuardFilterUnitTest {
         void shouldStripPathParameters_fromMutatorActionSegment() {
             assertThat(HttpMethodGuardFilter.extractActionName("/admin/ProviderDelete;jsessionid=secret"))
                     .isEqualTo("ProviderDelete");
+        }
+    }
+
+    /**
+     * Customize Measurements (issue #3335). The Setup* routes only load lists into the
+     * session and render a form, so GET must reach them. AddMeasurementMap and
+     * RemoveMeasurementMap render their page on a GET without write parameters and reject a
+     * non-POST write themselves; the other write routes stay POST-only here.
+     */
+    @Nested
+    @DisplayName("Customize Measurements routes")
+    class MeasurementCustomization {
+
+        @ParameterizedTest(name = "GET {0} renders its form")
+        @ValueSource(strings = {
+                "SetupAddMeasurementType",
+                "SetupAddMeasuringInstruction",
+                "SetupAddMeasurementGroup",
+                "SetupStyleSheetList",
+                "SetupGroupList",
+                "SetupEditMeasurementGroup",
+                "AddMeasurementMap",
+                "RemoveMeasurementMap",
+                "ViewAddMeasurementMap",
+                "ViewRemoveMeasurementMap",
+                "ViewViewMeasurementMap"
+        })
+        void shouldPassThrough_forGetToMeasurementFormRoute(String route) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/encounter/oscarMeasurements/" + route);
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @ParameterizedTest(name = "GET {0} is refused")
+        @ValueSource(strings = {
+                "NewMeasurementMap",
+                "RemapMeasurementMap",
+                "AddMeasurementType",
+                "AddMeasuringInstruction",
+                "AddMeasurementGroup",
+                "DeleteMeasurementTypes"
+        })
+        void shouldBlock_forGetToMeasurementWriteRoute(String route) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/encounter/oscarMeasurements/" + route);
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
         }
     }
 

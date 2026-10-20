@@ -44,6 +44,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assertNoPageErrors,
   assertNotErrorPage,
@@ -133,7 +134,7 @@ async function clickAndFindStamp(page, buttonName, label) {
   try {
     // A self-signed front door is only acceptable on the loopback install the runbook describes.
     const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
-    const context = await browser.newContext({ ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const landing = await login(context, config, recorder);
     await landing.close();
     const manager = await openManager(context, config, recorder, 'rtl-stamp-manager');

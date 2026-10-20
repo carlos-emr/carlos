@@ -45,7 +45,7 @@ public class ProviderLabRoutingModel extends AbstractModel<Integer> implements S
     @Column(name = "status")
     private String status;
 
-    @Column(name = "comment")
+    @Column(name = "comment", columnDefinition = "TEXT")
     private String comment;
 
     @Column(name = "timestamp")

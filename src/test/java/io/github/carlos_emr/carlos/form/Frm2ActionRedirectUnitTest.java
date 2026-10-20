@@ -43,7 +43,7 @@ class Frm2ActionRedirectUnitTest {
 
         assertThat(redirect).isEqualTo(
                 "/carlos/form/forwardname?form_link=formannual.jsp%26demographic_no%3D999"
-                        + "&demographic_no=123&formId=456");
+                        + "&demographic_no=123&formId=456&saved=true");
     }
 
     @Test

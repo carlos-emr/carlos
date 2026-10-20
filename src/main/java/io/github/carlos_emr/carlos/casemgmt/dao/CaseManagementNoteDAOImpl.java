@@ -101,7 +101,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         String uuid = note.getUuid();
         if (uuid == null) return Collections.emptyList();
         return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(),
-                "from CaseManagementNote cmn where cmn.uuid = ?1 order by cmn.update_date asc", uuid);
+                "from CaseManagementNote cmn where cmn.uuid = ?1 order by cmn.update_date asc, cmn.id asc", uuid);
     }
 
     @SuppressWarnings("unchecked")
@@ -142,6 +142,20 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
     }
 
     @Override
+    public CaseManagementNote getNoteForUpdate(Long id) {
+        // A locking query can otherwise return an older or edited first-level-cache instance.
+        // Keep the caller's draft intact, but load the historical values from a current read.
+        CaseManagementNote cached = entityManager().find(CaseManagementNote.class, id);
+        if (cached != null) entityManager().detach(cached);
+        List<CaseManagementNote> notes = entityManager().createQuery(
+                "select n from CaseManagementNote n where n.id = :id", CaseManagementNote.class)
+                .setParameter("id", id)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getResultList();
+        return notes.isEmpty() ? null : notes.getFirst();
+    }
+
+    @Override
     public List<CaseManagementNote> getNotes(List<Long> ids) {
         if (ids.size() == 0)
             return new ArrayList<CaseManagementNote>();
@@ -168,6 +182,18 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
             return null;
 
         return tmp.get(0);
+    }
+
+    @Override
+    public CaseManagementNote getMostRecentNoteForUpdate(String uuid) {
+        // Lock in a stable order so competing edits serialize on the same logical note.
+        // This is a current locking read, including under MariaDB's REPEATABLE READ isolation.
+        List<CaseManagementNote> revisions = entityManager().createQuery(
+                "select n from CaseManagementNote n where n.uuid = :uuid order by n.id", CaseManagementNote.class)
+                .setParameter("uuid", uuid)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getResultList();
+        return revisions.isEmpty() ? null : revisions.getLast();
     }
 
     @Override

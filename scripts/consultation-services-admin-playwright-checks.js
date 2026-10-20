@@ -8,61 +8,26 @@
 // the owned consultant is assigned to it and the new-consultation pickers offer exactly that
 // consultant for it; DelService honours its confirm, inactivates only the checked row and the
 // service stops being offered; UpdateInstitutionDepartment adds and then clears the owned
-// department link; EnableConRequestResponse stores both flags and toggles the "Referring Doctor"
-// service. Fixtures: FAKE- patient (runWorkflow), FAKE- specialist, institution, department and
+// department link; the consultant, institution and department editors open the owned rows, a
+// consultant edit persists, and each editor's delete removes the checked owned row;
+// EnableConRequestResponse stores both flags and toggles the "Referring Doctor" service.
+// Fixtures: FAKE- patient (runWorkflow), FAKE- specialist, institution, department and
 // a sentinel service seeded by SQL; the UI-created service. Cleanup deletes only owned rows.
-// GLOBAL: the request/response flags and the Referring Doctor service are snapshotted and
-// restored exactly, so this check must run with EXCLUSIVE=1.
+// GLOBAL: the request/response flags and the Referring Doctor service are snapshotted and restored
+// exactly (lib/consult-config-state.js), so this check must run with EXCLUSIVE=1.
+// Finding 260 (#4617): every service and consultant write, and each editor's open, used to regenerate
+// the legacy specialistsJavascript script for no reader. Each step that drives one of them asserts the
+// row's MD5 is unchanged, and the final restore asserts it again.
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-
-const FLAGS = ['consultRequestEnabled', 'consultResponseEnabled'];
-const REFERRING = 'Referring Doctor';
+const { REFERRING, restoreSwitch, scriptDigests, snapshotSwitch } = require('./lib/consult-config-state');
+const { masterRecordLink } = require('./lib/master-record-link');
 const { insertId } = h;
-
-/**
- * Snapshot of the clinic-wide request/response switch: two property rows and one service.
- * Each value is selected with an explicit IS NULL flag: `mysql -B` prints SQL NULL and the
- * text 'NULL' alike, so only the flag can tell the restore which one to write back.
- */
-function snapshotSwitch(sql) {
-  const names = FLAGS.map(h.sqlString).join(',');
-  return {
-    properties: sql.rows(`SELECT id,name,value,value IS NULL FROM property WHERE name IN (${names}) ORDER BY id`),
-    services: sql.rows(`SELECT serviceId,active,active IS NULL FROM consultationServices
-      WHERE serviceDesc=${h.sqlString(REFERRING)} ORDER BY serviceId`),
-  };
-}
-
-/** SQL literal for a snapshotted value: the flag decides NULL; a parsed null beside flag 0 was the text 'NULL'. */
-function restoredLiteral(value, isNull) {
-  return isNull === '1' ? 'NULL' : h.sqlString(value === null ? 'NULL' : value);
-}
-
-function restoreSwitch(sql, before) {
-  const names = FLAGS.map(h.sqlString).join(',');
-  const keepProps = before.properties.map(row => row[0]);
-  const keepServices = before.services.map(row => row[0]);
-  sql.execute(`DELETE FROM property WHERE name IN (${names})
-    ${keepProps.length ? `AND id NOT IN (${keepProps.join(',')})` : ''}`);
-  for (const [id, , value, isNull] of before.properties) {
-    sql.execute(`UPDATE property SET value=${restoredLiteral(value, isNull)} WHERE id=${id}`);
-  }
-  // A Referring Doctor row that did not exist before was created by this check's toggle.
-  sql.execute(`DELETE FROM consultationServices WHERE serviceDesc=${h.sqlString(REFERRING)}
-    ${keepServices.length ? `AND serviceId NOT IN (${keepServices.join(',')})` : ''}`);
-  for (const [id, active, isNull] of before.services) {
-    sql.execute(`UPDATE consultationServices SET active=${restoredLiteral(active, isNull)} WHERE serviceId=${id}`);
-  }
-  const after = snapshotSwitch(sql);
-  h.assert(JSON.stringify(after) === JSON.stringify(before),
-    'The consultation request/response switch was not restored to its snapshot');
-}
 
 async function openNewConsultation(s, label) {
   const list = await s.popup(s.master,
-    s.master.locator("a[onclick*='ViewDisplayDemographicConsultationRequests']"), `${label}-list`);
+    masterRecordLink(s.master, 'ViewDisplayDemographicConsultationRequests'), `${label}-list`);
   const form = await s.popup(list, list.locator('a.btn', { hasText: /New Consultation/i }), label);
   await form.locator('#EctConsultationFormRequest2Form').waitFor({ state: 'attached' });
   h.assert(await form.locator('#demographicNo').inputValue() === s.patient,
@@ -87,6 +52,8 @@ async function workflow(s) {
   const sentinelName = `${marker}-Keep`;
   const lastName = `${marker}-Spec`;
   const before = snapshotSwitch(sql);
+  const scriptUntouched = what => h.assert(JSON.stringify(scriptDigests(sql)) === JSON.stringify(before.scripts),
+    `${what} rewrote the legacy specialistsJavascript script (finding 260, #4617)`);
   let serviceId;
   // Registered first so it runs last: the switch is restored after every owned row is gone.
   s.cleanup(() => restoreSwitch(sql, before));
@@ -144,6 +111,7 @@ async function workflow(s) {
     serviceId = serviceRows[0][0];
     h.assert(sql.value(`SELECT active FROM consultationServices WHERE serviceId=${serviceId}`) === '1',
       'The added service is not active');
+    scriptUntouched('Add Service');
   });
 
   await s.step('Show All Services assigns the owned consultant to the new service', async () => {
@@ -155,6 +123,7 @@ async function workflow(s) {
     await clickAndAwaitReload(config, config.locator('form[action$="/UpdateServiceSpecialists"] input[type="submit"]'));
     h.assert(sql.value(`SELECT GROUP_CONCAT(specId) FROM serviceSpecialists WHERE serviceId=${serviceId}`) === specId,
       'The service-consultant assignment did not persist exactly the owned consultant');
+    scriptUntouched('Update Service Specialists');
   });
 
   await s.step('a new consultation for the owned patient offers the service and only its consultant', async () => {
@@ -195,6 +164,7 @@ async function workflow(s) {
       'The deleted service is still listed');
     h.assert(await config.getByRole('link', { name: sentinelName, exact: true }).count() === 1,
       'The unchecked service is no longer listed');
+    scriptUntouched('Delete Services');
   });
 
   await s.step('a deleted service is no longer offered for a new consultation', async () => {
@@ -225,6 +195,46 @@ async function workflow(s) {
     await box.uncheck();
     await update();
     h.assert(sql.value(link('')) === '0', 'Unchecking the department did not remove the link');
+  });
+
+  await s.step('the consultant, institution and department editors open the owned rows and a consultant edit persists', async () => {
+    await menu('ViewEditSpecialists');
+    await clickAndAwaitReload(config, config.locator(`a[href$="/encounter/EditSpecialists?specId=${specId}"]`));
+    h.assert(await config.locator('#specId').inputValue() === specId, 'The consultant editor did not open the owned consultant');
+    h.assert(await config.locator('#phone').inputValue() === '555-0150', 'The consultant editor did not load the stored phone');
+    await config.locator('#phone').fill('555-0152');
+    await clickAndAwaitReload(config, config.locator('form[action$="/encounter/AddSpecialist"] input[name="transType"]'));
+    await config.locator('.alert-success').waitFor({ state: 'visible' });
+    await expectValue(sql, `SELECT phone FROM professionalSpecialists WHERE specId=${specId}`, '555-0152',
+      'The consultant edit did not persist');
+    h.assert(sql.value(`SELECT CONCAT(lName,'|',deleted) FROM professionalSpecialists WHERE specId=${specId}`) === `${lastName}|0`,
+      'The consultant edit lost the name or deleted the consultant');
+    await menu('ViewEditInstitutions');
+    await clickAndAwaitReload(config, config.getByRole('link', { name: institutionName, exact: true }));
+    h.assert(await config.locator('#inst-name').inputValue() === institutionName, 'The institution editor did not open the owned institution');
+    await menu('ViewEditDepartments');
+    await clickAndAwaitReload(config, config.getByRole('link', { name: departmentName, exact: true }));
+    h.assert(await config.locator('#name').inputValue() === departmentName, 'The department editor did not open the owned department');
+    scriptUntouched('Opening the consultant, institution and department editors, or saving a consultant');
+  });
+
+  await s.step('the consultant, institution and department editors delete the checked owned rows', async () => {
+    const remove = async (view, box, what) => {
+      await menu(view);
+      await config.locator(box).check();
+      const dialogs = await h.withExpectedDialogs(config, () => clickAndAwaitReload(config, config.locator('input[name="delete"]')));
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', `Deleting the ${what} bypassed its confirmation`);
+    };
+    await remove('ViewEditSpecialists', `input[name="specialists"][value="${specId}"]`, 'consultant');
+    await expectValue(sql, `SELECT deleted FROM professionalSpecialists WHERE specId=${specId}`, '1',
+      'The consultant editor did not soft-delete the owned consultant');
+    await remove('ViewEditInstitutions', `input[name="institutions"][value="${institutionId}"]`, 'institution');
+    await expectValue(sql, `SELECT COUNT(*) FROM Institution WHERE id=${institutionId}`, '0',
+      'The institution editor did not delete the owned institution');
+    await remove('ViewEditDepartments', `input[name="specialists"][value="${departmentId}"]`, 'department');
+    await expectValue(sql, `SELECT COUNT(*) FROM Department WHERE id=${departmentId}`, '0',
+      'The department editor did not delete the owned department');
+    scriptUntouched('Deleting through the consultant, institution and department editors');
   });
 
   const referringActive = `SELECT GROUP_CONCAT(active ORDER BY serviceId) FROM consultationServices

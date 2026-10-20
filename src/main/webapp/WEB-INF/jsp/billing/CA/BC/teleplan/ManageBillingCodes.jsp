@@ -114,7 +114,6 @@
 
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/niftyCorners.css"/>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/niftyPrint.css" media="print"/>
-        <link rel="stylesheet" type="text/css" href="preventPrint.css" media="print"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/nifty.js"></script>
         <script type="text/javascript">
             window.onload = function () {
@@ -358,8 +357,8 @@
                         </td>
                         <td style="text-align:right">
                             <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewHelp')"><fmt:message key="global.help"/></a> |
-                            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
+                            <a href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a>
+                            | <a href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>

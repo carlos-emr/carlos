@@ -88,8 +88,6 @@ public class EctConEditSpecialists2Action extends ActionSupport {
                     }
                 }
             }
-            EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-            constructSpecialistsScriptsFile.makeString(request.getLocale());
             return "delete";
         }
 
@@ -133,9 +131,6 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         request.setAttribute("eformId", professionalSpecialist.getEformId());
 
         request.setAttribute("upd", Integer.valueOf(updater));
-        EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-        request.setAttribute("verd", constructSpecialistsScriptsFile.makeFile());
-        constructSpecialistsScriptsFile.makeString(request.getLocale());
         return SUCCESS;
     }
 

@@ -266,7 +266,7 @@
             <input type="hidden" name="emailRejectedForLength" id="emailRejectedForLength"
                    value="${ not empty emailLengthViolations }"/>
             <input type="hidden" name="isEmailError" id="isEmailError" value="${isEmailError}"/>
-            <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
+            <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${carlos:forHtmlAttribute(emailErrorMessage)}"/>
             <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
             <input type="hidden" name="emailPatientChartOption" id="emailPatientChartOption"
                    value="${carlos:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption)}"/>
@@ -284,6 +284,10 @@
                 <input type="hidden" name="openEFormAfterEmail" value="${openEFormAfterEmail}"/>
                 <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
                 <input type="hidden" name="transactionType" id="transactionType" value="${transactionType}"/>
+                <%-- This window's own attachments: the send takes exactly the entry staged under this key,
+                     bound to this patient, so another window's compose cannot change them (#4425). --%>
+                <input type="hidden" name="emailAttachmentKey" id="emailAttachmentKey"
+                       value="${carlos:forHtmlAttribute(emailAttachmentKey)}"/>
 
                 <%-- To and From sit side by side: recipient (To) first/leftmost, sender (From) on the right.
                      Equal-height cards keep the row tidy when the To card grows with extra recipients. --%>
@@ -431,7 +435,7 @@
 
                 <div class="card mt-4">
                     <div class="card-header">
-                        <h5 class="card-title">${emailComposeBodyLabel}</h5>
+                        <h5 class="card-title"><label class="mb-0" for="bodyEmail">${emailComposeBodyLabel}</label></h5>
                     </div>
                     <div class="card-body">
                         <div class="container">

@@ -52,6 +52,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -262,6 +264,37 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("RptByExamplesFavorite deletes the verified ID rather than the detached entity")
+    void shouldDeleteVerifiedFavoriteId_whenFavoriteBelongsToCurrentProvider() throws Exception {
+        authorizeFavoritePost();
+        ReportByExamplesFavorite favorite = favorite(42, "999998", "Mine", "select 1");
+        when(favoritesDao.find(42)).thenReturn(favorite);
+        when(favoritesDao.remove((Object) 42)).thenReturn(true);
+
+        RptByExamplesFavorite2Action action = new RptByExamplesFavorite2Action();
+        action.setToDelete("true");
+        action.setId("42");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(favoritesDao).remove((Object) 42);
+        verify(favoritesDao, never()).remove(favorite);
+        verify(favoritesDao).findByProvider("999998");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"not-a-number", "2147483648"})
+    void shouldRejectFavoriteDelete_whenIdentifierIsInvalid(String id) {
+        authorizeFavoritePost();
+        RptByExamplesFavorite2Action action = new RptByExamplesFavorite2Action();
+        action.setToDelete("true");
+        action.setId(id);
+
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("Invalid favorite selection");
+        verifyNoInteractions(favoritesDao);
+    }
+
+    @Test
     @DisplayName("RptByExamplesFavorite rejects deletion of another provider's favorite")
     void shouldRejectFavoriteDelete_whenFavoriteBelongsToAnotherProvider() {
         authorizeFavoritePost();
@@ -276,6 +309,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("Favorite does not belong to the current provider");
         verify(favoritesDao, never()).remove(favorite);
+        verify(favoritesDao, never()).remove((Object) 42);
     }
 
     @Test

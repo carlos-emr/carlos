@@ -30,6 +30,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -42,6 +44,7 @@ public class ConsultationResponseSearchResult {
     private String teamName;
     private String status;
     private Provider provider;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date appointmentDate;
     private Date lastFollowUp;
     private Date referralDate;

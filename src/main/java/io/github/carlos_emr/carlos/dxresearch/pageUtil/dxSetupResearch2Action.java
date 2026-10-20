@@ -35,6 +35,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -76,17 +77,20 @@ public final class dxSetupResearch2Action extends ActionSupport {
             return ERROR;
         }
 
-        // Validate quickList is numeric if supplied and non-empty
-        String selectedQuickList = request.getParameter("quickList");
-        if (selectedQuickList == null) {
-            selectedQuickList = "";
-        }
-        if (!selectedQuickList.isEmpty() && !selectedQuickList.matches("\\d+")) {
-            return ERROR;
+        // The selector carries a list name, not a numeric identifier. Resolve it
+        // against stored names before loading items or recording the last-used list.
+        String requestedQuickList = request.getParameter("quickList");
+        String selectedQuickList = "";
+        if (requestedQuickList != null && !requestedQuickList.isEmpty()) {
+            selectedQuickList = SpringUtils.getBean(QuickListDao.class).findDistinct().stream()
+                    .filter(String.class::isInstance).map(String.class::cast)
+                    .filter(requestedQuickList::equals).findFirst().orElse(null);
+            if (selectedQuickList == null) {
+                return ERROR;
+            }
         }
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
-        dxResearchBeanHandler hd = new dxResearchBeanHandler(demographicNo);
 
         dxQuickListBeanHandler quicklistHd;
         dxQuickListItemsHandler quicklistItemsHd;
@@ -107,10 +111,26 @@ public final class dxSetupResearch2Action extends ActionSupport {
         session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("allDiagnostics", hd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("demographicNo", demographicNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // The patient and its diagnoses belong to this request. In the session they were the
+        // registry opened last in any window, and dxResearch.jsp's ${demographicNo} also leaked
+        // into every other page that resolves that name from session scope (issue #4673).
+        publishPatient(request, demographicNo, providerNo);
 
         return SUCCESS;
+    }
+
+    /**
+     * Publishes the registry page's patient, its diagnosis list and the provider as request
+     * attributes, which is where {@code dxResearch.jsp} and its quick-list include read them.
+     *
+     * @param request the request rendering the registry page
+     * @param demographicNo the canonical patient number the page is for
+     * @param providerNo the provider the page acts for
+     */
+    static void publishPatient(HttpServletRequest request, String demographicNo, String providerNo) {
+        request.setAttribute("demographicNo", demographicNo);
+        request.setAttribute("allDiagnostics", new dxResearchBeanHandler(demographicNo));
+        request.setAttribute("providerNo", providerNo);
     }
 }

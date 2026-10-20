@@ -58,7 +58,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -155,10 +154,6 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    String wLReadonly = "";
-    if (oscarProps != null && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"))) {
-        wLReadonly = "readonly";
-    }
     
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
@@ -1460,10 +1455,13 @@
                                                                                 property="FIRST_NATIONS_MODULE">
                                                         <tr>
                                                             <td colspan="8">
+                                                                <%-- This editor redirects readers without write access, which breaks an included response. --%>
+                                                                <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w">
                                                                 <jsp:include page="/WEB-INF/jsp/demographic/manageFirstNationsModule.jsp">
                                                                     <jsp:param name="demo"
                                                                                value="<%= demographic_no %>"/>
                                                                 </jsp:include>
+                                                                </security:oscarSec>
                                                             </td>
                                                         </tr>
                                                     </oscar:oscarPropertiesCheck>

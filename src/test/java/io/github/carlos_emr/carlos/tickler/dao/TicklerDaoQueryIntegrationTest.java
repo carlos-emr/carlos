@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.tickler.dao;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -150,6 +151,56 @@ public class TicklerDaoQueryIntegrationTest extends TicklerDaoBaseIntegrationTes
             assertThat(results).isNotNull();
             assertThat(results).anyMatch(t -> t.getPriority() == Tickler.PRIORITY.High);
             assertThat(results).allMatch(t -> t.getStatus() == Tickler.STATUS.A);
+        }
+    }
+
+    /**
+     * The lab displays (labDisplay.jsp, labDisplayAjax.jsp) print each linked tickler's assignee after
+     * these lookups have returned and the transaction has ended (#4722). The base data assigns patient
+     * 1001's tickler to 999998 and patient 1002's to 999999, both seeded as "Test Provider".
+     */
+    @Nested
+    @DisplayName("Lab-linked tickler lookups")
+    class LabLinkedTicklerLookups {
+
+        private Integer ticklerIdOf(Integer demographicNo) {
+            return entityManager.createQuery("select t.id from Tickler t where t.demographicNo = :demographicNo", Integer.class)
+                    .setParameter("demographicNo", demographicNo)
+                    .getSingleResult();
+        }
+
+        private void assertAssigneeReadableAfterDetach(List<Tickler> results, String providerNo) {
+            assertThat(results).hasSize(1);
+            Tickler found = results.getFirst();
+            // clear() detaches the tickler and every proxy it holds, as the end of the request's transaction does.
+            entityManager.clear();
+            assertThat(Hibernate.isInitialized(found.getAssignee())).as("the assignee is loaded with the tickler").isTrue();
+            assertThat(found.getAssignee().getProviderNo()).isEqualTo(providerNo);
+            assertThat(found.getAssignee().getLastName()).isEqualTo("Provider");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should load the assignee with the lab's ticklers for a patient")
+        void shouldLoadAssignee_whenFindingLabTicklersForPatient() {
+            Integer ticklerId = ticklerIdOf(1002);
+            entityManager.clear();
+
+            List<Tickler> results = ticklerDao.findByTicklerNosDemo(List.of(ticklerId), 1002);
+
+            assertAssigneeReadableAfterDetach(results, "999999");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should load the assignee with the lab's ticklers assigned to one provider")
+        void shouldLoadAssignee_whenFindingLabTicklersAssignedToProvider() {
+            Integer ticklerId = ticklerIdOf(1001);
+            entityManager.clear();
+
+            List<Tickler> results = ticklerDao.findByTicklerNosAssignedTo(List.of(ticklerId), "999998", 1001);
+
+            assertAssigneeReadableAfterDetach(results, "999998");
         }
     }
 

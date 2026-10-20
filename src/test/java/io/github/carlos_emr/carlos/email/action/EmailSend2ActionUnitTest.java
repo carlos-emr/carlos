@@ -17,7 +17,6 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.struts2.ServletActionContext;
@@ -34,6 +33,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
@@ -72,6 +74,7 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
     private EformDataManager eformDataManager;
     private EmailComposeManager emailComposeManager;
     private DemographicManager demographicManager;
+    private AttachmentOwnershipService ownership;
 
     @BeforeEach
     void setUp() {
@@ -79,6 +82,9 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         eformDataManager = mock(EformDataManager.class);
         emailComposeManager = mock(EmailComposeManager.class);
         demographicManager = mock(DemographicManager.class);
+        ownership = mock(AttachmentOwnershipService.class);
+        registerMock(AttachmentOwnershipService.class, ownership);
+        when(ownership.allBelongToDemographic(any(), any())).thenReturn(true);
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(EmailManager.class, emailManager);
         registerMock(EformDataManager.class, eformDataManager);
@@ -121,6 +127,13 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     private EmailSend2Action overLengthAction(MockHttpServletRequest request) {
+        if (request.getParameter("demographicId") == null) {
+            request.setParameter("demographicId", "7");
+        }
+        if (request.getParameter(EmailAttachmentStaging.KEY_PARAMETER) == null) {
+            request.setParameter(EmailAttachmentStaging.KEY_PARAMETER,
+                    EmailAttachmentStaging.stage(request.getSession(), 7, List.of()).key());
+        }
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         List<EmailFieldLengthValidator.Violation> violations = EmailFieldLengthValidator.validate(overLengthSubject());
         when(emailManager.sendEmail(any(), any())).thenThrow(new EmailFieldLengthException(violations));
@@ -177,23 +190,56 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should keep the prepared attachments for a retry when a field is too long")
-    void shouldRestoreAttachments_whenFieldTooLong() {
+    @DisplayName("should restage this window's PDFs and send them once after correcting an over-length field")
+    void shouldSendRetainedAttachments_whenRejectedEmailIsCorrected() {
+        assertCorrectedRetry(List.of(new EmailAttachment("FAKE.pdf", "/tmp/FAKE.pdf", DocumentType.EFORM, 42, 10L)));
+    }
+
+    @Test
+    @DisplayName("should allow a corrected retry even when the email has no attachments")
+    void shouldAllowCorrectedRetry_whenEmailHasNoAttachments() {
+        assertCorrectedRetry(List.of());
+    }
+
+    private void assertCorrectedRetry(List<EmailAttachment> attachments) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("transactionType", "EFORM");
         request.setParameter("fdid", "42");
         request.setParameter("demographicId", "7");
-        List<EmailAttachment> attachments = new ArrayList<>(List.of(new EmailAttachment()));
-        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY, attachments);
-        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, "7");
+        String originalKey = EmailAttachmentStaging.stage(request.getSession(), 7, attachments).key();
+        request.setParameter(EmailAttachmentStaging.KEY_PARAMETER, originalKey);
+        String otherWindow = EmailAttachmentStaging.stage(request.getSession(), 8,
+                List.of(new EmailAttachment("OTHER.pdf", "/tmp/OTHER.pdf", DocumentType.EFORM, 99, 10L))).key();
         EmailSend2Action action = overLengthAction(request);
 
-        action.sendEFormEmail();
+        assertThat(action.sendEFormEmail()).isEqualTo("success");
 
-        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY)).isSameAs(attachments);
-        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY)).isEqualTo("7");
-        // The retry form lists them too.
-        assertThat(request.getAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY)).isSameAs(attachments);
+        String retryKey = (String) request.getAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE);
+        assertThat(EmailAttachmentStaging.isKey(retryKey)).isTrue();
+        assertThat(retryKey).isNotEqualTo(originalKey);
+        assertThat(EmailAttachmentStaging.take(request.getSession(), originalKey)).isNull();
+        assertThat((List<?>) request.getAttribute("emailAttachmentList")).hasSize(attachments.size());
+        verifyNoInteractions(eformDataManager);
+
+        EmailLog sent = new EmailLog();
+        sent.setStatus(EmailLog.EmailStatus.SUCCESS);
+        org.mockito.Mockito.doReturn(sent).when(emailManager).sendEmail(any(), any());
+        MockHttpServletRequest retry = new MockHttpServletRequest("POST", "/email/emailSendAction");
+        retry.setSession((org.springframework.mock.web.MockHttpSession) request.getSession());
+        retry.setParameter("transactionType", "EFORM");
+        retry.setParameter("demographicId", "7");
+        retry.setParameter("subjectEmail", "Corrected subject");
+        retry.setParameter(EmailAttachmentStaging.KEY_PARAMETER, retryKey);
+        action.request = retry;
+        assertThat(action.sendEFormEmail()).isEqualTo("success");
+        assertThat(retry.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        ArgumentCaptor<EmailData> emails = ArgumentCaptor.forClass(EmailData.class);
+        verify(emailManager, org.mockito.Mockito.times(2)).sendEmail(any(), emails.capture());
+        assertThat(emails.getAllValues().get(1).getAttachments()).extracting(EmailAttachment::getDocumentId)
+                .containsExactlyElementsOf(attachments.stream().map(EmailAttachment::getDocumentId).toList());
+        assertThat(EmailAttachmentStaging.take(retry.getSession(), retryKey)).isNull();
+        assertThat(EmailAttachmentStaging.take(retry.getSession(), otherWindow).attachments())
+                .extracting(EmailAttachment::getDocumentId).containsExactly(99);
     }
 
     @Test
@@ -258,7 +304,7 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
             LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
             MockHttpServletResponse response = new MockHttpServletResponse();
             EmailSend2Action action = new EmailSend2Action(securityInfoManager, emailManager, eformDataManager,
-                    emailComposeManager, demographicManager);
+                    emailComposeManager, demographicManager, ownership);
             action.request = request;
             action.response = response;
 
@@ -288,7 +334,7 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
                 LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
                 MockHttpServletResponse response = new MockHttpServletResponse();
                 EmailSend2Action action = new EmailSend2Action(securityInfoManager, emailManager, eformDataManager,
-                        emailComposeManager, demographicManager);
+                        emailComposeManager, demographicManager, ownership);
                 action.request = request;
                 action.response = response;
 
@@ -316,13 +362,15 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("transactionType", "DIRECT");
         request.setParameter("method", "sendDirectEmail");
         request.setParameter("demographicId", "7");
+        request.setParameter(EmailAttachmentStaging.KEY_PARAMETER,
+                EmailAttachmentStaging.stage(request.getSession(), 7, List.of()).key());
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         EmailLog log = new EmailLog();
         log.setStatus(EmailLog.EmailStatus.SUCCESS);
         when(emailManager.sendEmail(any(), any())).thenReturn(log);
         MockHttpServletResponse response = new MockHttpServletResponse();
         EmailSend2Action action = new EmailSend2Action(securityInfoManager, emailManager, eformDataManager,
-                emailComposeManager, demographicManager);
+                emailComposeManager, demographicManager, ownership);
         action.request = request;
         action.response = response;
 
@@ -373,7 +421,6 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(false);
         assertThat(request.getAttribute("emailPatientChartOption")).isNull();
         assertThat(request.getAttribute("receiverName")).isNull();
-        verifyNoInteractions(demographicManager);
         verifyNoInteractions(eformDataManager);
     }
 
@@ -394,71 +441,4 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("emailLengthViolations")).isNotNull();
     }
 
-    @Test
-    @DisplayName("should not send attachments prepared for another patient")
-    void shouldDropAttachments_whenPreparedForAnotherPatient() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("transactionType", "DIRECT");
-        request.setParameter("demographicId", "8");
-        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY,
-                new ArrayList<>(List.of(new EmailAttachment())));
-        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, "7");
-        EmailSend2Action action = sendingAction(request);
-
-        action.sendDirectEmail();
-
-        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
-        verify(emailManager).sendEmail(any(), sent.capture());
-        assertThat(sent.getValue().getAttachments()).isEmpty();
-        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY)).isNull();
-        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY)).isNull();
-    }
-
-    @Test
-    @DisplayName("should discard prepared attachments when the patient is missing")
-    void shouldDropAttachments_whenPatientIsMissing() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("transactionType", "DIRECT");
-        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY,
-                new ArrayList<>(List.of(new EmailAttachment())));
-        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, "7");
-        EmailSend2Action action = sendingAction(request);
-
-        action.sendDirectEmail();
-
-        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
-        verify(emailManager).sendEmail(any(), sent.capture());
-        assertThat(sent.getValue().getAttachments()).isEmpty();
-        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY)).isNull();
-        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY)).isNull();
-    }
-
-    @Test
-    @DisplayName("should send attachments prepared for the same patient")
-    void shouldKeepAttachments_whenPreparedForSamePatient() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("transactionType", "DIRECT");
-        request.setParameter("demographicId", "7");
-        List<EmailAttachment> attachments = new ArrayList<>(List.of(new EmailAttachment()));
-        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY, attachments);
-        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, "7");
-        EmailSend2Action action = sendingAction(request);
-
-        action.sendDirectEmail();
-
-        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
-        verify(emailManager).sendEmail(any(), sent.capture());
-        assertThat(sent.getValue().getAttachments()).isSameAs(attachments);
-    }
-
-    private EmailSend2Action sendingAction(MockHttpServletRequest request) {
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
-        EmailLog log = new EmailLog();
-        log.setStatus(EmailLog.EmailStatus.FAILED);
-        when(emailManager.sendEmail(any(), any())).thenReturn(log);
-        EmailSend2Action action = new EmailSend2Action();
-        action.request = request;
-        action.response = new MockHttpServletResponse();
-        return action;
-    }
 }

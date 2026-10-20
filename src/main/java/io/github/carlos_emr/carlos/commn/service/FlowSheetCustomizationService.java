@@ -207,17 +207,37 @@ public class FlowSheetCustomizationService {
     /**
      * Determines the scope level for a customization.
      *
+     * <p>Scope is encoded in two string columns: clinic rows store an empty provider and
+     * demographic {@code "0"}, provider rows store the provider number with demographic
+     * {@code "0"}, and patient rows store a real demographic number. Both model fields default
+     * to {@code null}, and a legacy or newly written row may leave either unset, so a null or
+     * blank provider is treated as {@code ""} (no provider) and a null or blank demographic as
+     * {@code "0"} (no patient). Without this a null demographic would be read as a patient row
+     * and a null provider on a demographic-{@code "0"} row as a provider row, mis-ranking the
+     * row in {@link #checkCascadingBlocked}.</p>
+     *
      * @param cust the FlowSheetCustomization to check
      * @return the ScopeLevel (CLINIC, PROVIDER, or PATIENT)
+     * @throws IllegalArgumentException if {@code cust} is null, since no scope can be inferred
      */
     public ScopeLevel getScopeLevel(FlowSheetCustomization cust) {
-        if ("".equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo())) {
+        if (cust == null) {
+            throw new IllegalArgumentException("cust must not be null");
+        }
+        boolean noProvider = isBlank(cust.getProviderNo());
+        boolean noPatient = isBlank(cust.getDemographicNo()) || "0".equals(cust.getDemographicNo());
+
+        if (noProvider && noPatient) {
             return ScopeLevel.CLINIC;
-        } else if (!"0".equals(cust.getDemographicNo())) {
+        } else if (!noPatient) {
             return ScopeLevel.PATIENT;
         } else {
             return ScopeLevel.PROVIDER;
         }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     /**
@@ -225,6 +245,7 @@ public class FlowSheetCustomizationService {
      *
      * @param cust the FlowSheetCustomization to check
      * @return "clinic", "provider", or "patient"
+     * @throws IllegalArgumentException if {@code cust} is null
      */
     public String getScopeLevelName(FlowSheetCustomization cust) {
         return getScopeLevel(cust).getName();

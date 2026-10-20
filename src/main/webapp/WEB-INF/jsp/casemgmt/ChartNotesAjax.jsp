@@ -90,6 +90,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.EmailComposeManager"%>
 <%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager"%>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -134,8 +135,22 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
         return;
     }
+    // The session bean follows whichever chart was entered last in any window of this login
+    // (issues #4556, #4673). Only this chart's own patient may supply its entry metadata and its
+    // pending message; another chart's are neither shown here nor consumed.
+    String chartPatientNo;
+    try {
+        chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        chartPatientNo = null;
+    }
+    boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);
 
-    String provNo = bean.providerNo;
+    // This chart's own entry provider: the patient's remembered entry, or the logged-in provider
+    // when this login has not entered the chart. The login-wide bean's belongs to whichever chart
+    // was entered last, so taking it only when it was this chart's still changed the same chart's
+    // edit warnings with the order its windows were opened in (issue #4673).
+    String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);
 
     String dateFormat = "dd-MMM-yyyy H:mm";
     String anotherDateFormat = "dd-MM-yyyy";
@@ -607,8 +622,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
+                <%-- url is a whole statement built from URI-encoded values: HTML-attribute encoding, not JavaScript-string encoding,
+                     which would escape its own quotes so the link never opened the form (#3941). --%>
                 <a class="links" title="<fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<carlos:encode value='<%= url %>' context="javaScriptAttribute"/>"><fmt:message key="encounter.view"/></a>
+                   href="javascript:void(0)" onclick="<carlos:encode value='<%= url %>' context="htmlAttribute"/>"><fmt:message key="encounter.view"/></a>
             </div>
             <%
             } else if (note.isEmailNote()) {
@@ -885,7 +902,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         }
     }
 
-    String oscarMsg = bean.oscarMsg != null ? bean.oscarMsg : "";
+    String oscarMsg = ownChartBean && bean.oscarMsg != null ? bean.oscarMsg : "";
     boolean hasOscarMsg = renderMoreNotesScript && !oscarMsg.equals("");
     if (hasOscarMsg) {
         bean.reason = "";
@@ -955,19 +972,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     jQuery(document).ready(function () {
         if ('<%=singleLineFormat%>' == 'true') {
-            var staleIds = new Array();
-
-            jQuery("img[id^='quitImg']").each(function () {
-                if (jQuery(this).attr('src').indexOf('/encounter/graphics/triangle_down.gif') != -1) {
-                    var iid = jQuery(this).attr('id');
-                    jQuery(this).trigger('click');
-                    staleIds.push(iid);
-                }
+            // The provider's single-line format: fold each shortened (stale) note onto one line with its
+            // date. These notes carry the Maximize image (name fullViewTrigger). Clicking it twice, to expand
+            // the note and fold it again, stopped working when fullViewById began adding a Minimize image of
+            // its own beside it: the second click hit the Maximize image and expanded the note again.
+            jQuery("img[name='fullViewTrigger'][id^='quitImg']").each(function () {
+                minStaleNoteView(this.id.substring('quitImg'.length));
             });
-
-            for (var i = 0; i < staleIds.length; i++) {
-                jQuery("#" + staleIds[i]).trigger('click');
-            }
         }
     });
 
@@ -1002,13 +1013,16 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     //flag for determining if we want to submit case management entry form with enter key pressed in auto completer text box
     var submitIssues = false;
+    noteIssuesChanged = false;
 
 <%
     int MaxLen = 20;
     int TruncLen = 17;
     String ellipses = "...";
-    for (int j = 0; j < bean.templateNames.size(); j++) {
-        String encounterTmp = bean.templateNames.get(j);
+    // Template names are not patient data; a bean that never set up an encounter carries none.
+    List<String> templateNames = bean.templateNames != null ? bean.templateNames : List.of();
+    for (int j = 0; j < templateNames.size(); j++) {
+        String encounterTmp = templateNames.get(j);
         encounterTmp = StringUtils.maxLenString(encounterTmp, MaxLen, TruncLen, ellipses);
         encounterTmp = SafeEncode.forJavaScript(encounterTmp);
 %>
@@ -1018,16 +1032,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 <%
     }
 %>
-    //set default event for assigning issues
-    //we do this here so we can change event listener when changing diagnosis
-    var obj = {};
-    makeIssue = "makeIssue";
-    defaultDiv = "sig<%=savedId%>";
-    changeIssueFunc;  //set in changeDiagnosis function above
-    addIssueFunc = function(event) { updateIssues.call(obj, event, makeIssue, defaultDiv); };
-    if (document.getElementById('asgnIssues')) {
-        document.getElementById('asgnIssues').addEventListener('click', addIssueFunc);
-    }
     try {
          new Autocompleter.Local('enTemplate', 'enTemplate_list', autoCompList, {
              colours: itemColours,

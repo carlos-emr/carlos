@@ -16,7 +16,7 @@
  * `appointmentType` rows after each save/delete, the validation alerts, the preview and calendar
  * rendering of the owned code and holiday, and that GET cannot reach any of the mutators.
  * Fixtures: a throwaway login (doctor + an owned role holding _admin.schedule; the seeded admin
- * role carries _site_access_privacy, which hides Holiday/Template Code Setting) with one seeded day
+ * role carries _site_access_privacy; #4528 stopped that hiding Holiday/Template Code Setting) with one seeded day
  * template, an unused template code character, a holiday on a free far-future date, and a marker
  * appointment type. One editable appointment
  * status is snapshotted, changed through the UI and restored (run with EXCLUSIVE=1: the status
@@ -109,8 +109,9 @@ async function workflow(s) {
   const statusSnapshot = () => JSON.stringify(sql.rows(`SELECT description,color,active FROM appointment_status WHERE id=${Number(statusId)}`));
   const originalStatus = statusSnapshot();
   const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
-  // The seeded admin role carries _site_access_privacy, which hides Holiday Setting and Template
-  // Code Setting. The throwaway is a doctor plus an owned schedule-administrator role instead.
+  // The throwaway is a doctor plus an owned schedule-administrator role, so the check owns its
+  // privileges. The role deliberately has no _site_access_privacy: the seeded admin's does not hide
+  // Holiday/Template Code Setting since #4528, which the unit test on the JSP pins.
   const role = `PW${hex}`;
   let owner = null;
   // Cleanups run in reverse: settings rows go before the throwaway login.
@@ -316,6 +317,37 @@ async function workflow(s) {
     await h.assertNotErrorPage(f, 'calendar after the date popup saved');
   });
 
+  await s.step('the date popup reloads the saved manual override and its template', async () => {
+    const cell = settingFrame.locator(`a[onclick*="/schedule/DatePopup"][onclick*="&day=${hDay}&"]`);
+    const popup = await ui.clickOpensPopup(admin, cell, {context, recorder, label: 'manual-date-popup', timeout: 20000});
+    await popup.locator('select[name="hour"]').waitFor();
+    h.assert(await popup.locator('input[name="available"][value="0"]').isChecked(),
+      'The saved unavailable override did not reload');
+    h.assert(await popup.locator('select[name="hour"]').inputValue() === templateName,
+      'The manual override lost its template');
+    h.assert(JSON.stringify(dateRows()) === JSON.stringify([['1', templateName, 'D'], ['0', templateName, 'A']]),
+      'Opening the manual override changed its schedule rows');
+    await popup.close();
+  });
+
+  await s.step('the date popup prefers the manual override when a newer generated row is also active', async () => {
+    // Only the owned provider/date is touched; workflow cleanup also removes this row after a failure.
+    const duplicateId = sql.value(`INSERT INTO scheduledate (sdate,provider_no,available,priority,reason,hour,creator,status)
+      SELECT sdate,provider_no,'1','b',reason,hour,creator,'A' FROM scheduledate
+      WHERE provider_no=${q(owner)} AND sdate=${q(holidayDate)} AND status='D' ORDER BY id LIMIT 1;
+      SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(duplicateId) && dateRows("status='A'").length === 2,
+      'The duplicate active-day fixture was not created');
+    const cell = settingFrame.locator(`a[onclick*="/schedule/DatePopup"][onclick*="&day=${hDay}&"]`);
+    const popup = await ui.clickOpensPopup(admin, cell, {context, recorder, label: 'duplicate-date-popup', timeout: 20000});
+    await popup.locator('select[name="hour"]').waitFor();
+    h.assert(await popup.locator('input[name="available"][value="0"]').isChecked()
+      && await popup.locator('select[name="hour"]').inputValue() === templateName,
+      'A duplicate generated day hid the manual override');
+    await popup.close();
+    sql.execute(`DELETE FROM scheduledate WHERE id=${Number(duplicateId)} AND provider_no=${q(owner)}`);
+  });
+
   await s.step('Holiday Setting deletes the owned holiday', async () => {
     const popup = await holidayPopupAtTarget();
     await holidayBox(popup).check();
@@ -432,14 +464,13 @@ async function workflow(s) {
 
   await s.step('edit forms reload what was saved: an apostrophe code description and a generated day\'s template', async () => {
     const problems = [];
-    // scheduledatepopup.jsp reads the session scheduleDateBean, which CreateDate fills BEFORE it
-    // generates the week-setting dates, so a just-generated day opens with the first template.
+    // Assert the generated-day selection after preserving the other positive workflow checks.
     if (deferred.datePopupHour !== templateName) {
       problems.push('the date popup for a day the week setting just scheduled did not preselect that day\'s template');
     }
     const popup = await codePopup();
     const form = popup.locator('form[name="addtemplatecode"]');
-    const desc = `${marker} O'Neil`;
+    const desc = `${marker} O'Neil \"<>&`;
     await form.locator('#code').fill(code);
     await form.locator('#description').fill(desc);
     await form.locator('#bookinglimit').fill('1');
@@ -457,4 +488,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('schedule-admin-settings', workflow, {openPatient: false});
-module.exports = {workflow};
+module.exports = {workflow, openAdminSection, frameNavigation, navigates};

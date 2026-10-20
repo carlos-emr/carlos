@@ -46,6 +46,7 @@ import java.util.TreeMap;
 import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.commons.lang3.StringUtils;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
 
@@ -611,6 +612,14 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 } catch (NumberFormatException _) {
                     yield null;
                 }
+            }
+            case "search_band_number" -> {
+                // First Nations band (status) number, kept in the statusNum extension: every record that
+                // carries the number matches, as in the other modes (a patient registered twice shows twice).
+                if (keyword.isEmpty()) yield null;
+                parameters.put("bandNumber", keyword);
+                yield "EXISTS (SELECT e.id FROM DemographicExt e WHERE e.demographicNo=d.demographicNo"
+                        + " AND e.key='statusNum' AND e.value=:bandNumber)";
             }
             default -> null;
         };
@@ -1694,6 +1703,14 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             }
             list = q.getResultList();
         return list;
+    }
+
+    @Override
+    public Demographic findForUpdate(Integer demographicNo) {
+        if (demographicNo == null) {
+            return null;
+        }
+        return entityManager().find(Demographic.class, demographicNo, LockModeType.PESSIMISTIC_WRITE);
     }
 
     @Override

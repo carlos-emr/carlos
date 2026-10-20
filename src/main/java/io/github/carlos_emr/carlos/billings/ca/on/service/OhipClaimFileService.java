@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingDomIdTokens;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
@@ -378,15 +379,16 @@ public class OhipClaimFileService {
         String header2 = "";
         updateDemoData(loggedInInfo, currentClaimHeader);
         String str1Hin = isRMB() ? space(10) : leftJustify(" ", 10, currentClaimHeader.getHin());
-        String ver = isRMB() ? space(2) : leftJustify(" ", 2, currentClaimHeader.getVer());
-        String dob = leftJustify(" ", 8, currentClaimHeader.getDob().replaceAll("-", ""));
+        String ver = isRMB() ? space(2) : leftJustify(" ", 2, upperAscii(currentClaimHeader.getVer()));
+        String dob = leftJustify(" ", 8, compactDob(currentClaimHeader.getDob()));
         referral = currentClaimHeader.referralNumber().length() > 1 ? "R" : "";
         hcFlag = isRMB() ? "H" : "";
         m_Flag = currentClaimHeader.manualReview().equals("Y") ? "M" : "";
         _logger.debug("buildHeader1(ver = {})", ver);
 
-        header1 = currentClaimHeader.transactionId() + currentClaimHeader.recordId() + str1Hin + ver + dob + rightJustify("0", 8, currentClaimHeader.getId()) + currentClaimHeader.payProgram() + currentClaimHeader.getPayee() + rightJustify(" ", 6, currentClaimHeader.referralNumber()) + rightJustify(" ", 4, currentClaimHeader.facilityNumber().equals("0000") ? "" : currentClaimHeader.facilityNumber()) + rightJustify(" ", 8, getCompactDateStr(currentClaimHeader.admissionDate() == null ? "" : currentClaimHeader.admissionDate())) + rightJustify(" ", 4, currentClaimHeader.referringLabNumber())
-                + rightJustify(" ", 1, currentClaimHeader.manualReview()) + leftJustify(" ", 4, currentClaimHeader.getLocation().equals("0000") ? "" : currentClaimHeader.getLocation()) + space(11) + space(6);
+        header1 = currentClaimHeader.transactionId() + currentClaimHeader.recordId() + str1Hin + ver + dob + rightJustify("0", 8, currentClaimHeader.getId()) + currentClaimHeader.payProgram() + currentClaimHeader.getPayee() + rightJustify(" ", 6, upperAscii(currentClaimHeader.referralNumber())) + rightJustify(" ", 4, currentClaimHeader.facilityNumber().equals("0000") ? "" : currentClaimHeader.facilityNumber()) + rightJustify(" ", 8, getCompactDateStr(currentClaimHeader.admissionDate() == null ? "" : currentClaimHeader.admissionDate())) + rightJustify(" ", 4, currentClaimHeader.referringLabNumber())
+                + rightJustify(" ", 1, currentClaimHeader.manualReview()) + leftJustify(" ", 4, currentClaimHeader.getLocation().equals("0000") ? "" : upperAscii(currentClaimHeader.getLocation())) + space(11) + space(6);
+        requireAscii(header1, "Header 1");
         checkHeader1();
         if (isRMB()) {
             header2 = buildHeader2();
@@ -404,14 +406,13 @@ public class OhipClaimFileService {
         healthcardCount++;
         String str1Hin = leftJustify(" ", 12, currentClaimHeader.getHin());
         String strDemoName = currentClaimHeader.demographicName();
-        hcLast = strDemoName.substring(0, strDemoName.indexOf(",")).toUpperCase();
-        hcFirst = strDemoName.substring(strDemoName.indexOf(",") + 1).toUpperCase();
-        hcLast = hcLast.replaceAll("\\W", "");
-        hcFirst = hcFirst.replaceAll("\\W", "");
+        hcLast = mohName(strDemoName.substring(0, strDemoName.indexOf(",")));
+        hcFirst = mohName(strDemoName.substring(strDemoName.indexOf(",") + 1));
         hcLast = hcLast.length() < 9 ? (hcLast + space(9 - hcLast.length())) : (hcLast.substring(0, 9));
         hcFirst = hcFirst.length() < 5 ? (hcFirst + space(5 - hcFirst.length())) : (hcFirst.substring(0, 5));
 
-        String header2 = "\n" + "HER" + str1Hin + hcLast + hcFirst + currentClaimHeader.getSex() + currentClaimHeader.getProvince() + space(47) + "\r";
+        String header2 = "\n" + "HER" + str1Hin + hcLast + hcFirst + currentClaimHeader.getSex() + upperAscii(currentClaimHeader.getProvince()) + space(47) + "\r";
+        requireAscii(header2, "Header 2");
         if (header2.length() != 81)
             errorFatalMsg += "Header 2 length wrong! - " + currentClaimHeader.getId() + " length = " + header2.length() + "<br>";
         return header2;
@@ -574,8 +575,9 @@ public class OhipClaimFileService {
     }
 
     private String buildItem() {
-        String ret = currentItem.transactionId() + currentItem.recordId() + currentItem.serviceCode() + space(2) + rightJustify("0", 6, currentItem.getFee().replaceAll("\\.", "")) + rightJustify("0", 2, currentItem.serviceNumber()) + currentItem.serviceDate().replaceAll("-", "") + leftJustify(" ", 4, currentItem.getDx()) + space(11) + space(5) + space(2) + space(6) + space(25);
+        String ret = currentItem.transactionId() + currentItem.recordId() + upperAscii(currentItem.serviceCode()) + space(2) + rightJustify("0", 6, currentItem.getFee().replaceAll("\\.", "")) + rightJustify("0", 2, currentItem.serviceNumber()) + currentItem.serviceDate().replaceAll("-", "") + leftJustify(" ", 4, upperAscii(currentItem.getDx())) + space(11) + space(5) + space(2) + space(6) + space(25);
         if (ret.length() != 79) errorFatalMsg += "Item length wrong! - " + currentClaimHeader.getId() + "<br>";
+        requireAscii(ret, "Item");
         return "\n" + ret + "\r";
     }
 
@@ -610,6 +612,11 @@ public class OhipClaimFileService {
         if (currentClaimHeader.getHin() == null || !(isRMB() || currentClaimHeader.getHin().matches("[0-9]{10}"))) {
             errorPartMsg += "Header1: HIN is invalid!<br>";
         }
+        // The spec's D format is YYYYMMDD; a missing component used to be
+        // written as the text "null" and silently padded to eight characters.
+        if (!compactDob(currentClaimHeader.getDob()).matches("[0-9]{8}")) {
+            errorFatalMsg += "Header1: Date of birth missing or invalid! - " + currentClaimHeader.getId() + "<br>";
+        }
 
         if (errorPartMsg.length() > 0)
             errorMsg += currentClaimHeader.getId() + " - " + errorPartMsg;
@@ -618,7 +625,62 @@ public class OhipClaimFileService {
 
     private void checkItem() {
         if (currentItem.serviceCode().trim().length() != 5) errorPartMsg = "Item: Service Code wrong!<br>";
+        if (!serviceCountInRange(currentItem.serviceNumber())) errorPartMsg += "Item: Number of Services must be 01-99! - " + currentClaimHeader.getId() + "<br>";
         errorMsg += errorPartMsg;
+    }
+
+    private static boolean serviceCountInRange(String serviceNumber) {
+        if (serviceNumber == null || !serviceNumber.trim().matches("[0-9]{1,2}")) return false;
+        int n = Integer.parseInt(serviceNumber.trim());
+        return n >= 1 && n <= 99;
+    }
+
+    /** YYYYMMDD from the stored {@code yyyy-MM-dd} value; empty when any component is missing. */
+    private static String compactDob(String dob) {
+        if (dob == null || dob.contains("null")) return "";
+        return dob.replace("-", "").trim();
+    }
+
+    /** Upper-cases ASCII letters only (the MOH file is ASCII; alphabetic fields must be upper case). */
+    static String upperAscii(String value) {
+        if (value == null) return null;
+        StringBuilder out = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            out.append(c >= 'a' && c <= 'z' ? (char) (c - 32) : c);
+        }
+        return out.toString();
+    }
+
+    /**
+     * Health-card name for the HER record: accented letters are transliterated
+     * to their base letter (the spec forbids special characters; deleting the
+     * letter, as before, changed the name), then anything but A-Z and digits
+     * is dropped, as OSCAR's {@code \\W} strip intended.
+     */
+    // FindSecBugs IMPROPER_UNICODE: NFD decomposition here is a deliberate transliteration of accented
+    // letters for the ASCII-only MOH file; the result is then restricted to [A-Z0-9], so no
+    // normalization-dependent comparison or authorization decision is made. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "deliberate accent transliteration for the ASCII-only MOH claim file; output restricted to [A-Z0-9]; not a security or authorization decision")
+    static String mohName(String name) {
+        if (name == null) return "";
+        String decomposed = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+        // upperAscii is null-safe for its other callers; the decomposed name is never
+        // null here, but keep the guard explicit so the contract is visible to readers
+        // and static analysis alike.
+        String upper = upperAscii(decomposed);
+        return upper == null ? "" : upper.replaceAll("[^A-Z0-9]", "");
+    }
+
+    /** The file is written as US-ASCII: any other character would silently become '?'. */
+    private void requireAscii(String record, String what) {
+        for (int i = 0; i < record.length(); i++) {
+            if (record.charAt(i) > 0x7E || (record.charAt(i) < 0x20 && record.charAt(i) != '\n' && record.charAt(i) != '\r')) {
+                errorFatalMsg += what + ": non-ASCII character! - " + currentClaimHeader.getId() + "<br>";
+                return;
+            }
+        }
     }
 
     private void checkNoDetailRecord(int invCount) {
@@ -817,7 +879,7 @@ public class OhipClaimFileService {
                 stageBatchHeaderSum(currentBatchHeader.getId(),
                         healthcardCount, patientCount, recordCount);
             }
-        } catch (BillingFileWriteException | BillingDataLoadException domain) {
+        } catch (BillingFileWriteException | BillingDataLoadException | BillingValidationException domain) {
             // Already a typed domain exception — let it through so the
             // global Struts mapping routes to the right operator page
             // (file-write banner vs data-load banner). Wrapping these
@@ -1086,7 +1148,11 @@ public class OhipClaimFileService {
             currentClaimHeader = currentClaimHeader.withSex(demoFields.get(6));
         }
 
-        if (!"ON".equals(currentClaimHeader.getProvince()) && !"".equals(currentClaimHeader.getProvince())) currentClaimHeader = currentClaimHeader.withPayProgram("RMB");
+        // A null or blank hc_type (demographic.hc_type is nullable) is an Ontario
+        // card; only a real other-province code makes the claim RMB. Treating null
+        // as RMB blanked the HIN and wrote "null" into the HER province field.
+        String province = currentClaimHeader.getProvince();
+        if (province != null && !province.isBlank() && !"ON".equals(province)) currentClaimHeader = currentClaimHeader.withPayProgram("RMB");
     }
 
     /**
@@ -1199,6 +1265,13 @@ public class OhipClaimFileService {
         // home_dir.
         java.io.File safeOhipFile = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
                 ohipFilename, new java.io.File(home_dir));
+        if (!safeOhipFile.isFile()) {
+            // Nothing to dedup against: the file was never written (a failed
+            // generation) or was removed. The empty set selects no claim, so the
+            // regeneration writes the file empty instead of failing.
+            _logger.warn("OHIP file {} is missing; regenerating it empty", LogSafe.sanitize(ohipFilename));
+            return;
+        }
         // try-with-resources: a mid-read throw must close the file handle.
         try (RandomAccessFile raf = new RandomAccessFile(safeOhipFile, "r")) {
             do {
@@ -1355,6 +1428,42 @@ public class OhipClaimFileService {
         }
     }
 
+    /** Whether this disk's OHIP claim file currently exists as a regular file in the output directory. */
+    public boolean outputFileExists() {
+        return java.nio.file.Files.isRegularFile(BillingOutputFiles.path(ohipFilename));
+    }
+
+    /**
+     * Keeps the prior submission after a committed regeneration under the name OSCAR 19
+     * gave it, {@code <ohipfilename>.<epochMillis>} beside the new file, instead of leaving
+     * the hidden rollback copy behind. Best effort: the regeneration is already committed,
+     * so a rename failure is logged and the rollback copy is left for reconciliation.
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    public void retainFileBackup() {
+        if (lastRenamedOriginalFile == null || lastRenamedBackupFile == null) return;
+        String retainedName = ohipFilename + "." + GregorianCalendar.getInstance().getTimeInMillis();
+        try {
+            // Everything that can fail stays inside: the caller has already committed
+            // the regeneration, and an escaping exception would report it as uncertain.
+            File homeDirFile = new File(CarlosProperties.getInstance().getProperty("HOME_DIR"));
+            File retained = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(retainedName, homeDirFile);
+            try {
+                java.nio.file.Files.move(lastRenamedBackupFile.toPath(), retained.toPath(),
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException atomicNotSupported) {
+                // Cross-volume: plain move, as renameFile() falls back.
+                java.nio.file.Files.move(lastRenamedBackupFile.toPath(), retained.toPath());
+            }
+            lastRenamedOriginalFile = null;
+            lastRenamedBackupFile = null;
+        } catch (IOException | RuntimeException failure) {
+            _logger.warn("Could not retain the prior OHIP output as {} ({})",
+                    LogSafe.sanitize(retainedName), failure.getClass().getSimpleName());
+        }
+    }
+
     /** Restores the original claim file, surfacing any failure that requires operator reconciliation. */
     public void restoreRenamedFile() {
         if (lastRenamedOriginalFile == null || lastRenamedBackupFile == null) return;
@@ -1455,6 +1564,14 @@ public class OhipClaimFileService {
             returnZeroValue += y;
         }
 
+        if (z != null && z.length() > x) {
+            // A referral number, fee, count or id wider than its field cannot be
+            // written; report it against the claim instead of failing with a
+            // misleading "file write" error.
+            errorFatalMsg += "A value (" + z.length() + " characters) exceeds its " + x + "-character field! - "
+                    + (currentClaimHeader == null ? "" : currentClaimHeader.getId()) + "<br>";
+            z = z.substring(z.length() - x);
+        }
         if (z != null) {
             returnZeroValue = returnZeroValue.substring(0, x - z.length()) + z;
         }
