@@ -213,7 +213,7 @@ echo " UTF-8 Encoding Compliance"
 echo "════════════════════════════════════════════════════════"
 echo " CARLOS EMR loads ResourceBundle properties as UTF-8 on Java 25."
 echo " Properties files must be valid UTF-8."
-echo " Direct non-ASCII characters are allowed; existing \\uXXXX escapes remain valid."
+echo " Properties files are ASCII only: write accented letters as \\uXXXX escapes."
 echo
 
 all_files=("$ENGLISH_FILE" "${LOCALE_FILES[@]}")
