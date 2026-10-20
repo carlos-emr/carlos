@@ -399,6 +399,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Legacy encounter forms: every save must be POST; only submit=graph/printAll/printAllJasperReport read
+        // and permit GET. Focused GET/HEAD cases in Frm2ActionMethodGuardUnitTest.
+        "io.github.carlos_emr.carlos.form.Frm2Action",
         // Measurement data: action=saveMeasurement/saveValues must be POST; its reads permit GET.
         // Focused GET/HEAD cases in MeasurementData2ActionMethodGuardUnitTest.
         "io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action",
@@ -618,6 +621,8 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        // The form package is not in IN_SCOPE_PACKAGE_PREFIXES; its legacy form dispatcher registers here.
+        "io.github.carlos_emr.carlos.form.Frm2Action",
         // measurements.web is not in IN_SCOPE_PACKAGE_PREFIXES; its data dispatcher registers here.
         "io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action",
         "io.github.carlos_emr.carlos.lab.pageUtil.FileLabsOnBehalf2Action",

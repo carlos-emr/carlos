@@ -7078,7 +7078,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; the shipped Rourke2017 Forms-menu entry (no registration change); cleanup deletes the patient's measurements and formRourke2017 rows (the form autosaves) and asserts it.",
-      "notes": "Expected to FAIL at the last step 'every encounter-form write refused GET/HEAD, stored nothing replayed, and the measurement dialog saved': form/formname (Frm2Action) GET/HEAD write a form record, and the Rourke Wt measurement dialog Save throws a TypeError and never posts."
+      "notes": "Expected to FAIL at the last step 'every encounter-form write refused GET/HEAD, stored nothing replayed, and the measurement dialog saved': the Rourke Wt measurement dialog Save throws a TypeError and never posts. The form/formname and MeasurementData saves already refuse GET/HEAD."
     },
     {
       "name": "get-reject-chart-notes",
