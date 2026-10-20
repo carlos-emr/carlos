@@ -147,11 +147,14 @@
                     <td><a href="<%= request.getContextPath() %>/report/DownloadLetter?reportID=<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="htmlAttribute"/>"><carlos:encode value='<%= String.valueOf(h.get("file_name")) %>' context="html"/></a></td>
                     <td><carlos:encode value='<%= String.valueOf(h.get("date_time")) %>' context="html"/></td>
                     <td>
+                        <%-- Delete needs report write (DeletePatientLetters2Action); a read-only user gets no button. --%>
+                        <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="w">
                         <form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter" style="display:inline; margin:0;">
                             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                             <input type="hidden" name="reportID" value="<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="htmlAttribute"/>"/>
                         <button type="submit" class="btn btn-sm btn-danger"><fmt:message key="report.ManageLetters.btnDelete"/></button>
                         </form>
+                        </security:oscarSec>
                     </td>
                 </tr>
                 <%}%>
