@@ -82,6 +82,9 @@
     <% if (Boolean.TRUE.equals(request.getAttribute("letterUploadFailed"))) { %>
     <div id="letterUploadFailed" class="alert alert-danger" role="alert"><fmt:message key="report.ManageLetters.uploadFailed"/></div>
     <% } %>
+    <% if (Boolean.TRUE.equals(request.getAttribute("letterDeleteFailed"))) { %>
+    <div id="letterDeleteFailed" class="alert alert-danger" role="alert"><fmt:message key="report.ManageLetters.deleteFailed"/></div>
+    <% } %>
 
         <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
             <h4 style="margin:0; font-size:18px;">

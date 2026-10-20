@@ -268,6 +268,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action",
                     "_report", "r"),
+            // Manage Letters' Delete archives a template for every user: _report w, POST-only.
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DeletePatientLetters2Action",
+                    "_report", "w"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
