@@ -39,11 +39,11 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Adds or removes a measurement group's decision support
  * ({@code encounter/oscarMeasurements/MeasurementGroupDecisionSupport}), from the Add and Remove pages' POST forms,
- * then shows the complete page. The group is the one the measurement group pages put in the session, and an add
- * takes only a decision support file the Add page lists.
+ * then shows the complete page. The group is the one the page showed (its form posts the name), it must still
+ * exist, and an add takes only a decision support file the Add page lists.
  *
- * <p>POST only, with the measurement admin write right ({@code _admin} or {@code _admin.measurements} w), as the
- * other Customize Measurements writes. The complete page itself only shows the result.</p>
+ * <p>POST only, with the measurement admin write right ({@code _admin.measurements} w), the right the Add, Remove
+ * and complete pages require. The complete page itself only shows the result.</p>
  *
  * @since 2026-10-20
  */
@@ -76,15 +76,16 @@ public class EctMeasurementGroupDecisionSupport2Action extends ActionSupport {
             return NONE;
         }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.measurements)");
         }
 
-        Object group = request.getSession().getAttribute("groupName");
-        String groupName = group == null ? null : group.toString();
+        // The group the page showed, not the session's current one: another tab may have opened a different group
+        // since. A group deleted in the meantime has no id, and its setting would be stored under "null".
+        String groupName = request.getParameter("groupName");
+        String groupId = groupName == null || groupName.isBlank() ? null : measurementManager.findGroupId(groupName);
         String htmlName = request.getParameter("htmlName");
-        if (groupName == null || groupName.isBlank()) {
+        if (groupId == null) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -97,7 +98,7 @@ public class EctMeasurementGroupDecisionSupport2Action extends ActionSupport {
             measurementManager.addMeasurementGroupDS(groupName, htmlName);
             request.setAttribute("dsState", "added");
         } else if (request.getParameter("remove") != null) {
-            measurementManager.removeMeasurementGroupDS("mgroup.ds.html." + measurementManager.findGroupId(groupName));
+            measurementManager.removeMeasurementGroupDS("mgroup.ds.html." + groupId);
             request.setAttribute("dsState", "removed");
         } else {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);

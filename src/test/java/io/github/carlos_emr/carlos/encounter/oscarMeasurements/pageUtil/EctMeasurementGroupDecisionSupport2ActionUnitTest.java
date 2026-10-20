@@ -54,8 +54,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * A measurement group's decision support is added or removed only by the Add and Remove pages' POST forms, with the
- * measurement admin write right, for the group the measurement group pages put in the session, and an add takes only
- * a decision support file the Add page lists.
+ * measurement admin write right, for the still-existing group the page showed (its form posts the name), and an add
+ * takes only a decision support file the Add page lists.
  *
  * @since 2026-10-20
  */
@@ -79,7 +79,7 @@ class EctMeasurementGroupDecisionSupport2ActionUnitTest {
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
         loggedIn = mockStatic(LoggedInInfo.class);
         loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(login);
-        request.getSession().setAttribute("groupName", "FAKE group");
+        request.setParameter("groupName", "FAKE group");
         when(measurements.findGroupId("FAKE group")).thenReturn("14");
     }
 
@@ -139,9 +139,9 @@ class EctMeasurementGroupDecisionSupport2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should remove the session's group decision support")
+    @DisplayName("should remove the posted group's decision support")
     void shouldRemoveDecisionSupport_whenRemoveIsPosted() throws Exception {
-        when(security.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
+        grantMeasurementAdmin();
         request.setMethod("POST");
         request.setParameter("remove", "Remove");
 
@@ -167,16 +167,59 @@ class EctMeasurementGroupDecisionSupport2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should answer 400 and change nothing when no group is open")
-    void shouldChangeNothing_whenNoGroupIsOpen() throws Exception {
+    @DisplayName("should answer 400 and change nothing when the form names no group")
+    void shouldChangeNothing_whenNoGroupIsPosted() throws Exception {
         grantMeasurementAdmin();
-        request.getSession().removeAttribute("groupName");
+        request.removeParameter("groupName");
         request.setMethod("POST");
         request.setParameter("remove", "Remove");
 
         assertThat(action().execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(measurements);
+    }
+
+    @Test
+    @DisplayName("should answer 400 and change nothing when the group no longer exists")
+    void shouldChangeNothing_whenGroupNoLongerExists() throws Exception {
+        grantMeasurementAdmin();
+        request.setParameter("groupName", "FAKE deleted group");
+        request.setMethod("POST");
+        request.setParameter("add", "Add");
+        request.setParameter("htmlName", "FAKE.html");
+
+        assertThat(action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(measurements, never()).addMeasurementGroupDS(any(), any());
+        verify(measurements, never()).removeMeasurementGroupDS(any());
+    }
+
+    @Test
+    @DisplayName("should change the group the page showed, not the session's current one")
+    void shouldChangePostedGroup_whenSessionHoldsAnother() throws Exception {
+        grantMeasurementAdmin();
+        // Another tab opened a different group after this page was rendered.
+        request.getSession().setAttribute("groupName", "FAKE other group");
+        request.setMethod("POST");
+        request.setParameter("add", "Add");
+        request.setParameter("htmlName", "FAKE.html");
+
+        assertThat(action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(measurements).addMeasurementGroupDS("FAKE group", "FAKE.html");
+    }
+
+    @Test
+    @DisplayName("should refuse a login with _admin w but not the measurement admin write right the pages require")
+    void shouldRefuseChange_withAdminWriteOnly() {
+        when(security.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
+        request.setMethod("POST");
+        request.setParameter("remove", "Remove");
+
+        assertThatThrownBy(() -> action().execute()).isInstanceOf(SecurityException.class);
+
         verifyNoInteractions(measurements);
     }
 }

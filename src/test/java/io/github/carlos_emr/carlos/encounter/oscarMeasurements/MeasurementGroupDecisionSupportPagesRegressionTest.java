@@ -53,6 +53,9 @@ class MeasurementGroupDecisionSupportPagesRegressionTest {
             String jsp = Files.readString(resolveProjectPath(DIR.resolve(page)));
             assertThat(jsp).as(page)
                     .contains("<form action=\"<%= request.getContextPath() %>/" + ROUTE + "\" method=\"post\"")
+                    // The group the page shows travels with the form, encoded, so another tab can't change the target.
+                    .contains("<input type=\"hidden\" name=\"groupName\" value=\"<carlos:encode value='<%= groupName %>' "
+                            + "context=\"htmlAttribute\"/>\">")
                     .doesNotContain("ViewMeasurementGroupDScomplete");
         }
     }
