@@ -456,6 +456,7 @@ public class DemographicManagerImpl implements DemographicManager {
 
         if (demographic.getExtras() != null) {
             for (DemographicExt ext : demographic.getExtras()) {
+                ext.setDemographicNo(demographic.getDemographicNo());
                 createExtension(loggedInInfo, ext);
             }
         }

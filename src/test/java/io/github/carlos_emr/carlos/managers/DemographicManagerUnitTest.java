@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -842,6 +843,46 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
 
             verify(mockDemographicExtDao, times(2)).saveEntity(any(DemographicExt.class));
+        }
+
+        @Test
+        @DisplayName("should link extensions to the new demographic number when creating")
+        void shouldLinkExtensionsToNewDemographicNo_whenCreating() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            demographic.setExtras(new DemographicExt[] {
+                createTestDemographicExt(null, "demo_cell", "555-0100")
+            });
+            doAnswer(invocation -> {
+                invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
+                return null;
+            }).when(mockDemographicDao).save(demographic);
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            ArgumentCaptor<DemographicExt> saved = ArgumentCaptor.forClass(DemographicExt.class);
+            verify(mockDemographicExtDao).saveEntity(saved.capture());
+            assertThat(saved.getValue().getDemographicNo()).isEqualTo(TEST_DEMO_NO);
+        }
+
+        @Test
+        @DisplayName("should override a client-supplied demographic number on extensions when creating")
+        void shouldOverrideClientDemographicNoOnExtensions_whenCreating() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            demographic.setExtras(new DemographicExt[] {
+                createTestDemographicExt(999, "demo_cell", "555-0100")
+            });
+            doAnswer(invocation -> {
+                invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
+                return null;
+            }).when(mockDemographicDao).save(demographic);
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            ArgumentCaptor<DemographicExt> saved = ArgumentCaptor.forClass(DemographicExt.class);
+            verify(mockDemographicExtDao).saveEntity(saved.capture());
+            assertThat(saved.getValue().getDemographicNo()).isEqualTo(TEST_DEMO_NO);
         }
 
         @Test
