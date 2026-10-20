@@ -29,6 +29,9 @@ import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
+import org.springframework.core.env.MutablePropertySources;
+import org.springframework.core.env.PropertiesPropertySource;
+import org.springframework.core.env.PropertySourcesPropertyResolver;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -52,7 +55,9 @@ import java.util.StringJoiner;
  *
  * <p>Startup runs before the Spring context, so this uses plain JDBC with the same {@code db_*}
  * settings, and the same URL assembly, as the {@code dataSource} bean in {@code spring_jpa.xml}.
- * It only ever runs {@code SELECT}s on a connection marked read-only.</p>
+ * It only ever runs {@code SELECT}s. It deliberately leaves the JDBC read-only routing flag unset:
+ * a replication-aware driver can send read-only connections to a stale replica instead of the
+ * application's source database.</p>
  *
  * <p>What is counted, one record per account, user or image:</p>
  * <ul>
@@ -265,6 +270,8 @@ final class EncryptedDataCountLoader {
     /**
      * Builds a loader that connects with the {@code db_driver}, {@code db_uri}, {@code db_name},
      * {@code db_username} and {@code db_password} settings the application's data source uses.
+     * Nested property references and defaults use Spring's resolution rules, with no JVM or
+     * environment property sources, just like {@code OscarPropertyPlaceholderConfigurer}.
      *
      * @param properties the loaded application properties
      * @return a loader for that database
@@ -291,7 +298,6 @@ final class EncryptedDataCountLoader {
         List<String> failures = new ArrayList<>();
         List<String> absent = new ArrayList<>();
         try {
-            markReadOnly(connection);
             for (Probe probe : PROBES) {
                 runProbe(connection, probe, found, failures, absent);
             }
@@ -403,17 +409,23 @@ final class EncryptedDataCountLoader {
     private static final String CONNECT_TIMEOUT_MILLIS = "15000";
 
     private static Connection openConnection(Properties properties) throws SQLException, ClassNotFoundException {
-        String driver = properties.getProperty("db_driver");
-        String uri = properties.getProperty("db_uri");
+        // Spring resolves nested ${...} references in every dataSource setting. Resolve from the
+        // same loaded application properties, without adding system properties or the environment,
+        // so the guard cannot inspect a different database or reject otherwise valid credentials.
+        MutablePropertySources sources = new MutablePropertySources();
+        sources.addLast(new PropertiesPropertySource("carlosProperties", properties));
+        PropertySourcesPropertyResolver resolver = new PropertySourcesPropertyResolver(sources);
+        String driver = resolver.getProperty("db_driver");
+        String uri = resolver.getProperty("db_uri");
         if (driver == null || driver.isBlank() || uri == null || uri.isBlank()) {
             throw new MissingSettingsException("db_driver or db_uri is not set");
         }
-        String name = properties.getProperty("db_name");
+        String name = resolver.getProperty("db_name");
         registerDriver(driver.trim());
         String url = uri + (name == null ? "" : name);
         Properties connection = new Properties();
-        putIfSet(connection, "user", properties.getProperty("db_username"));
-        putIfSet(connection, "password", properties.getProperty("db_password"));
+        putIfSet(connection, "user", resolver.getProperty("db_username"));
+        putIfSet(connection, "password", resolver.getProperty("db_password"));
         if (url.startsWith("jdbc:mysql:") || url.startsWith("jdbc:mariadb:")) {
             // An unreachable host would otherwise hang startup until the OS gives up on TCP;
             // this check only runs when the key is missing, and it fails closed either way.
@@ -443,15 +455,6 @@ final class EncryptedDataCountLoader {
     private static void putIfSet(Properties target, String key, String value) {
         if (value != null) {
             target.setProperty(key, value);
-        }
-    }
-
-    private static void markReadOnly(Connection connection) {
-        try {
-            connection.setReadOnly(true);
-        } catch (SQLException | RuntimeException e) {
-            // A hint only: every statement here is a SELECT, so the check stays read-only without it.
-            logger.debug("Encryption key check: could not mark the connection read-only ({})", describe(e));
         }
     }
 

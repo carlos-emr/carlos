@@ -117,6 +117,12 @@ that has been running.
 
 **Where the key comes from.** A packaged (Debian) install gets its key from
 `carlos-ctl init-config`, which writes it to `/etc/carlos-emr/carlos.properties`.
+That command and the package scripts can still generate a missing key without
+checking existing data ([#4371](https://github.com/carlos-emr/carlos/issues/4371)).
+For a restored or existing database, restore its original key before running
+`init-config`, `finish-install`, or installing, upgrading, reconfiguring or removing
+the packages. The startup check below cannot detect a replacement key already
+written by those paths.
 Otherwise, when no key is set at startup, CARLOS first checks the database for
 data encrypted with a previous key (#3939):
 

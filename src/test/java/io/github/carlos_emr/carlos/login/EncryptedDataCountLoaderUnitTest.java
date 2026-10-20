@@ -37,15 +37,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.carlos_emr.carlos.login.EncryptedDataTestDatabase.encryptBytes;
 import static io.github.carlos_emr.carlos.login.EncryptedDataTestDatabase.encryptText;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -334,7 +338,6 @@ class EncryptedDataCountLoaderUnitTest {
                         .doesNotContain(PLAINTEXT_SECRET));
         assertThat(result.describeFailures())
                 .contains("fax_config.passwd", "sms_config.credentials", "DigitalSignature.signatureImage");
-        verify(connection).setReadOnly(true);
         verify(connection).close();
     }
 
@@ -361,6 +364,101 @@ class EncryptedDataCountLoaderUnitTest {
             database.applyTo(properties);
 
             Result result = EncryptedDataCountLoader.fromProperties(properties).load();
+
+            assertThat(result.complete()).isTrue();
+            assertThat(result.counts()).containsExactly(Map.entry(Kind.MFA_SECRETS, 1));
+        }
+    }
+
+    @Test
+    @DisplayName("should inspect the application's database when its name is a property reference")
+    void shouldCountCiphertext_whenDatabaseNameUsesPropertyReference() throws Exception {
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withSecurity()) {
+            database.insertSecurity(1, "synthetic-user-1", encryptText("JBSWY3DPEHPK3PXP"));
+            Properties properties = new Properties();
+            database.applyTo(properties);
+            properties.setProperty("clinic.database.name", properties.getProperty("db_name"));
+            properties.setProperty("db_name", "${clinic.database.name}");
+
+            Result result = EncryptedDataCountLoader.fromProperties(properties).load();
+
+            // An unresolved name creates a different, empty H2 database and silently misses this row.
+            assertThat(result.complete()).isTrue();
+            assertThat(result.counts()).containsExactly(Map.entry(Kind.MFA_SECRETS, 1));
+        }
+    }
+
+    @Test
+    @DisplayName("should resolve nested references and defaults in every database setting as Spring does")
+    void shouldConnect_whenDatabaseSettingsUseNestedPropertyReferences() throws Exception {
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withSecurity()) {
+            database.insertSecurity(1, "synthetic-user-1", encryptText("JBSWY3DPEHPK3PXP"));
+            Properties properties = new Properties();
+            database.applyTo(properties);
+            for (String setting : List.of("db_driver", "db_uri", "db_name", "db_username", "db_password")) {
+                properties.setProperty("clinic." + setting, properties.getProperty(setting));
+                properties.setProperty(setting, "${clinic." + setting + "}");
+            }
+            properties.setProperty("clinic.db_driver", "${clinic.jdbc.driver:org.h2.Driver}");
+            properties.setProperty("clinic.db_password", "${clinic.jdbc.password}");
+            properties.setProperty("clinic.jdbc.password", EncryptedDataTestDatabase.DB_PASSWORD);
+
+            Result result = EncryptedDataCountLoader.fromProperties(properties).load();
+
+            assertThat(result.complete()).isTrue();
+            assertThat(result.counts()).containsExactly(Map.entry(Kind.MFA_SECRETS, 1));
+        }
+    }
+
+    @Test
+    @DisplayName("should fail closed without exposing unresolved references or using JVM properties")
+    void shouldReportIncomplete_whenReferencedSettingOnlyExistsAsSystemProperty() throws Exception {
+        String reference = "guard.synthetic.database.password";
+        String original = System.getProperty(reference);
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withSecurity()) {
+            System.setProperty(reference, EncryptedDataTestDatabase.DB_PASSWORD);
+            Properties properties = new Properties();
+            database.applyTo(properties);
+            properties.setProperty("db_password", "${" + reference + "}");
+
+            Result result = EncryptedDataCountLoader.fromProperties(properties).load();
+
+            assertThat(result.complete()).isFalse();
+            assertThat(result.describeFailures()).contains("database connection (")
+                    .doesNotContain(reference, EncryptedDataTestDatabase.DB_PASSWORD);
+        } finally {
+            if (original == null) {
+                System.clearProperty(reference);
+            } else {
+                System.setProperty(reference, original);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should count source data when read-only JDBC routing would select a stale replica")
+    void shouldCountSourceCiphertext_whenReadOnlyRoutingWouldHideIt() throws Exception {
+        try (EncryptedDataTestDatabase source = new EncryptedDataTestDatabase().withSecurity();
+             EncryptedDataTestDatabase replica = new EncryptedDataTestDatabase().withSecurity();
+             Connection sourceConnection = DriverManager.getConnection(
+                     EncryptedDataTestDatabase.uri() + source.dbName(), EncryptedDataTestDatabase.DB_USER,
+                     EncryptedDataTestDatabase.DB_PASSWORD);
+             Connection replicaConnection = DriverManager.getConnection(
+                     EncryptedDataTestDatabase.uri() + replica.dbName(), EncryptedDataTestDatabase.DB_USER,
+                     EncryptedDataTestDatabase.DB_PASSWORD)) {
+            source.insertSecurity(1, "synthetic-user-1", encryptText("JBSWY3DPEHPK3PXP"));
+            // Connector/J's replication connection switches to a replica on setReadOnly(true).
+            // Simulate a replica that has not received the source's encrypted credential yet.
+            AtomicReference<Connection> active = new AtomicReference<>(sourceConnection);
+            Connection routingConnection = mock(Connection.class);
+            doAnswer(invocation -> {
+                active.set(invocation.getArgument(0, Boolean.class) ? replicaConnection : sourceConnection);
+                return null;
+            }).when(routingConnection).setReadOnly(anyBoolean());
+            when(routingConnection.prepareStatement(anyString())).thenAnswer(invocation ->
+                    active.get().prepareStatement(invocation.getArgument(0, String.class)));
+
+            Result result = new EncryptedDataCountLoader(() -> routingConnection).load();
 
             assertThat(result.complete()).isTrue();
             assertThat(result.counts()).containsExactly(Map.entry(Kind.MFA_SECRETS, 1));
