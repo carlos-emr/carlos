@@ -24,7 +24,7 @@
    min-width:0 so long text can never force horizontal scroll. */
 .cs-page { padding: 1rem; background: var(--carlos-bg-light); }
 .cs-header { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: 1rem; }
-.cs-title { font-size: 1.25rem; margin: 0; }
+.cs-title { font-size: 1.25rem; margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .cs-patient-age { font-weight: 400; color: inherit; margin-left: .25rem; }
 
 .cs-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; }
