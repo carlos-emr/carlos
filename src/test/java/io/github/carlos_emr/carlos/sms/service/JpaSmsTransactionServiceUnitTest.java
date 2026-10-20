@@ -1059,6 +1059,55 @@ class JpaSmsTransactionServiceUnitTest {
         }
 
         @Test
+        @DisplayName("a text that went unanswered and was then refused stays marked, and is failed for review, not moved")
+        void shouldFailRow_whenNotFoundTextWasRefusedLater() {
+            SmsTransaction retired = retiredRow(45L);
+            retired.markSending(new Date());
+            retired.markStaleRecoveryStarted(new Date());
+            retired.markRetryScheduled(SmsProviderSendResultDto.failed("QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED",
+                    "SMS stale send was not found by SMS provider status lookup; retry scheduled."), new Date());
+            retired.markSending(new Date());
+            when(smsTransactionDao.find(45L)).thenReturn(retired);
+            Date nextAttemptAt = Date.from(Instant.now().plusSeconds(600));
+
+            recorder().markRetryScheduled(retired, SmsProviderSendResultDto.failed(
+                    "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED",
+                    "SMS queued provider failure recorded; retry scheduled."), nextAttemptAt);
+
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode,
+                            SmsTransaction::getErrorMessage, SmsTransaction::getNextAttemptAt)
+                    .containsExactly(SmsStatus.QUEUED, "QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED",
+                            "SMS stale send was not found by SMS provider status lookup; retry scheduled.",
+                            nextAttemptAt);
+
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(inserted).isEmpty();
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
+        }
+
+        @Test
+        @DisplayName("a text that was only ever refused is moved after the refusal is recorded")
+        void shouldMoveRow_whenRefusalIsRecordedWithoutNotFoundTry() {
+            SmsTransaction retired = retiredRow(46L);
+            retired.markSending(new Date());
+            when(smsTransactionDao.find(46L)).thenReturn(retired);
+
+            recorder().markRetryScheduled(retired, SmsProviderSendResultDto.failed(
+                    "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED",
+                    "SMS queued provider failure recorded; retry scheduled."), new Date());
+            assertThat(retired.getErrorCode()).isEqualTo("QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED");
+
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(inserted).hasSize(1);
+            assertThat(retired.getErrorCode()).isEqualTo("QUEUE_PROVIDER_MOVED");
+        }
+
+        @Test
         @DisplayName("a held system test of the retired provider keeps its own failure and is never moved")
         void shouldFailSystemTest_whenItsProviderWasRetired() {
             SmsTransaction systemTest = SmsTransaction.outboundAttempt(new SmsSendCommand(null, "416-555-1212",

@@ -191,9 +191,10 @@ Every other retired queued row is failed for staff to review and resend: `QUEUE_
 for a row rescheduled after a stale send the provider did not find
 (`QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED`, which may have gone out), a retry the rule does not
 recognize, or a row a provider accepted or reported on; `QUEUE_SYSTEM_TEST_PROVIDER_CHANGED` for a
-system test. A row rescheduled for a retry keeps only its latest error code, so an earlier not-found
-retry followed by a definite refusal is moved on the strength of the refusal; by the adapter contract a
-"not found" answer already means the provider has no such text. With sending or the scheduler
+system test. A row that once had a stale send the provider did not find keeps
+`QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED` while it waits, even when a later try is refused
+(`JpaSmsTransactionService.keepNotFoundMarker`): that earlier send may still have gone out, so the row
+is failed for review, never moved. A row that was only ever refused is moved. With sending or the scheduler
 disabled, settling waits until a worker runs; retirement already prevents sending on resume. An unsent
 claim returned, or a retry scheduled, after retirement is failed rather than moved or requeued. Cleanup
 writes each row in its own transaction; one failed write is skipped for that run so a healthy row can

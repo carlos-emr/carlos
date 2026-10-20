@@ -191,8 +191,27 @@ public class JpaSmsTransactionService implements SmsTransactionService {
         return applyIfVersionMatches(
                 transaction,
                 "markRetryScheduled",
-                row -> row.markRetryScheduled(providerResult, nextAttemptAt)
+                row -> row.markRetryScheduled(keepNotFoundMarker(row, providerResult), nextAttemptAt)
         );
+    }
+
+    /**
+     * A text that once had a try the provider could not account for (a stale send its status lookup did not
+     * find) keeps that marker for as long as it waits: a later refusal is not written over it. The marker is
+     * what keeps a provider swap from moving the text, and so from sending it a second time, while it may already
+     * have gone out ({@link SmsProviderRetirementService#movable}). The new try's provider message id and due time
+     * are still recorded.
+     *
+     * @param row the row as it is now, before this retry is written
+     * @param providerResult the result of the try that just ended
+     * @return {@code providerResult}, or the same result carrying the row's not-found code and message
+     */
+    static SmsProviderSendResultDto keepNotFoundMarker(SmsTransaction row, SmsProviderSendResultDto providerResult) {
+        if (!SmsQueueProcessingService.QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED_CODE.equals(row.getErrorCode())) {
+            return providerResult;
+        }
+        return new SmsProviderSendResultDto(providerResult.accepted(), providerResult.providerMessageId(),
+                providerResult.status(), row.getErrorCode(), row.getErrorMessage());
     }
 
     @Override
