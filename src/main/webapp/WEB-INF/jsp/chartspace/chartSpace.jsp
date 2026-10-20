@@ -67,8 +67,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><carlos:encode value="${csPatientName}"/>${empty csPatientAge ? '' : ' &middot; '}<carlos:encode value="${csPatientAge}"/> &middot; <carlos:encode value="${csTitle}"/></title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/chartspace.css">
+    <%@ include file="/WEB-INF/jspf/bootstrap-css.jspf" %>
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/css/global.css">
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/css/chartspace.css">
 </head>
 <body class="cs-page">
 <header class="cs-header">
@@ -109,7 +110,6 @@
      never hidden or moved. --%>
 <div id="cs-announcer" class="visually-hidden" role="status" aria-live="polite"></div>
 
-<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 <script src="${pageContext.request.contextPath}/js/chartspace/chartspace-layout.js"></script>
 <script src="${pageContext.request.contextPath}/js/chartspace/chartspace-allergies.js"></script>
 <script src="${pageContext.request.contextPath}/js/chartspace/chartspace.js"></script>

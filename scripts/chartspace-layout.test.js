@@ -78,9 +78,9 @@ test('chartSpace.jsp keeps the presentation contract', () => {
     "${empty csPatientAge ? '' : '<span aria-hidden=" + '"true"' + ">&middot;</span> '}" +
     '<carlos:encode value="${csPatientAge}"/></span>'),
     'h1 renders an aria-hidden separator only with an age, then the encoded age, in its own span');
-  const ctx = '${pageContext.request.contextPath}';
-  assert.ok(jsp.includes(ctx + '/library/bootstrap/5.3.8/css/bootstrap.min.css'));
-  assert.ok(jsp.includes(ctx + '/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js'));
+  assert.ok(jsp.includes('<%@ include file="/WEB-INF/jspf/bootstrap-css.jspf" %>'));
+  assert.ok(jsp.includes('${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/css/global.css'));
+  assert.ok(!jsp.includes('/library/bootstrap/'), 'Bootstrap asset versions belong in the shared include');
   const order = ['chartspace-layout.js', 'chartspace-allergies.js', 'chartspace.js']
     .map((f) => jsp.indexOf('/js/chartspace/' + f));
   assert.ok(order[0] > -1 && order[0] < order[1] && order[1] < order[2], String(order));
