@@ -118,7 +118,8 @@ final class InMemorySmsTransactionService implements SmsTransactionService {
     @Override
     public SmsTransaction markRetryScheduled(SmsTransaction transaction, SmsProviderSendResultDto providerResult,
                                              Date nextAttemptAt) {
-        transaction.markRetryScheduled(providerResult, nextAttemptAt);
+        transaction.markRetryScheduled(JpaSmsTransactionService.keepNotFoundMarker(transaction, providerResult),
+                nextAttemptAt);
         return transaction;
     }
 
