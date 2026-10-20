@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport name="bcar2020" pageWidth="612" pageHeight="792" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b9997476-3eb5-48e8-b3a7-28b4b42bd333">
 	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record" />
-	<import value="org.apache.commons.lang3.StringUtils" />
+	<import>org.apache.commons.lang3.StringUtils</import>
 	<parameter name="background_image" class="java.lang.String">
-		<parameterDescription><![CDATA[The background image of the current page]]></parameterDescription>
+		<description><![CDATA[The background image of the current page]]></description>
 	</parameter>
 	<parameter name="c_1st3rdTrimesterNutrition" class="java.lang.String" />
 	<parameter name="c_1st3rdTrimesterWeightGain" class="java.lang.String" />
@@ -57,11 +57,11 @@
 	<parameter name="c_3rdTrimesterInfantSleep" class="java.lang.String" />
 	<parameter name="c_3rdTrimesterWorkPlan" class="java.lang.String" />
 	<parameter name="c_3rdTrimesterEPDSScreening" class="java.lang.String" />
-	<queryString>
+	<query>
 		<![CDATA[]]>
-	</queryString>
+	</query>
 	<background height="792" splitType="Stretch">
-		<element kind="image" uuid="7a3c6eed-42d8-4cac-9b37-0b3ad6239468" mode="Transparent" x="0" y="0" width="612" height="792" backcolor="#000000" isRemoveLineWhenBlank="true">
+		<element kind="image" uuid="7a3c6eed-42d8-4cac-9b37-0b3ad6239468" mode="Transparent" x="0" y="0" width="612" height="792" backcolor="#000000" removeLineWhenBlank="true">
 			<expression><![CDATA[$P{background_image}]]></expression>
 		</element>
 		<element kind="textField" uuid="b18ff040-cc26-4029-9c20-383ebc286ac7" mode="Opaque" x="23" y="510" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">

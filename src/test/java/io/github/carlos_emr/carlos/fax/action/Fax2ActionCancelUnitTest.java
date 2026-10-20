@@ -129,7 +129,8 @@ class Fax2ActionCancelUnitTest extends CarlosUnitTestBase {
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setTransactionId(55);
             action.setDemographicNo(10);
-            claim(55, 10, "999998");
+            claim(55, 10, "999998").replaceAll((path, claim) -> new Fax2Action.FaxPreviewClaim(
+                    FaxManager.TransactionType.CONSULTATION, 55, 10, "999998", false));
 
             String result = action.cancel();
 
@@ -156,7 +157,8 @@ class Fax2ActionCancelUnitTest extends CarlosUnitTestBase {
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setTransactionId(55);
             action.setDemographicNo(10);
-            claim(55, 10, "999998");
+            claim(55, 10, "999998").replaceAll((path, claim) -> new Fax2Action.FaxPreviewClaim(
+                    FaxManager.TransactionType.CONSULTATION, 55, 10, "999998", false));
 
             String result = action.cancel();
 

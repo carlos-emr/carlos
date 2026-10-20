@@ -107,7 +107,7 @@
 
     CaseManagementNoteDAO noteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
     try (Connection conn = LegacyJdbcQuery.getConnection();
-         PreparedStatement pstmt = conn.prepareStatement("update casemgmt_note set reporter_caisi_role = ? where reporter_caisi_role  = 0")) {
+         PreparedStatement pstmt = conn.prepareStatement("update casemgmt_note set reporter_caisi_role = ? where reporter_caisi_role = '0'")) {
         pstmt.setInt(1, Integer.parseInt(roleTo));
         pstmt.executeUpdate();
     }

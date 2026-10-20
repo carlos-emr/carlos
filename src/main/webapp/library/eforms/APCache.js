@@ -89,7 +89,8 @@
 
  getMapping(mappingKey) - Return the mapping associated with mappingKey or null if no mapping exists. 
  
- lookup(key) - Performs a lookup in the cache.
+ lookup(key, timeoutMillis, handlers) - Performs a lookup in the cache. Optional timeoutMillis bounds the AJAX request.
+ Optional handlers bind a request to its caller: isCurrent, onStale, onResponse, onError.
     key: if there is a mapping for key then the associated values are retrieved otherwise the value for key is retrieved.    
     
     e.g., retrieve the key "age" defined in the apconfig.xml:
@@ -209,6 +210,31 @@ function showLookupFailureNotice(failedKeys) {
         + ". Check them before saving.";
 }
 
+/**
+ * Drops the names the page derives itself from a lookup's list of failed keys.
+ *
+ * A mapping may list another mapping's name among its values, and a template lookup sends each
+ * placeholder's name, so that efmformapconfig_lookup echoes the name back and that mapping's
+ * storeInCacheHandler runs: the Rich Text Letter's ageGender mapping lists "_age" and "gender", and
+ * its templates send "letterhead" and "_ClosingSalutation". The server cannot tell such a name from
+ * a misconfigured key and lists it as unconfigured, but whatever it returns for a mapping name is
+ * never stored, because the mapping's handler builds that value. Only a mapping that lists its own
+ * name among its values (the letter's "sex") reads it from the server, so that failure stays.
+ *
+ * @param {object} cache the cache whose mappings the lookup used
+ * @param {string} failedKeys comma-separated keys the server could not resolve
+ * @return {string} the failed keys a clinician would actually see blank, comma-separated
+ */
+function serverResolvedFailures(cache, failedKeys) {
+    return String(failedKeys == null ? "" : failedKeys)
+        .split(",")
+        .filter(function (key) {
+            var mapping = cache.getMapping(key);
+            return mapping == null || mapping.values.indexOf(key) >= 0;
+        })
+        .join(",");
+}
+
 function createCache(options) {
     function Cache(options) {
         this.flushCache = options.flushCache == null ? true : options.flushCache;
@@ -248,7 +274,7 @@ function createCache(options) {
             }
             return null;
         };
-        this.lookup = function (key) {
+        this.lookup = function (key, timeoutMillis, handlers) {
 
             if (this.flushCache) {
                 this.values = {};
@@ -286,61 +312,80 @@ function createCache(options) {
             var rendererEndpointElement = document.getElementById("carlosEformRendererApCacheUrl");
             var rendererEndpoint = rendererEndpointElement == null ? "" : rendererEndpointElement.value;
             jQuery.ajax({
+                timeout: typeof timeoutMillis === "number" ? timeoutMillis : undefined,
                 url: rendererEndpoint || "efmformapconfig_lookup",
                 // Renderer identity is capability-bound on the server. Never forward fdid,
                 // demographic, provider, or appointment values from the browser query string.
                 data: rendererEndpoint ? query : query + "&" + window.location.search.substr(1),
                 success: function (response) {
-                    response = jQuery(response);
-                    var y;
-                    var map;
-                    var _lookupType = "";
-                    // Adding values retrieved to the cache.
-                    for (y = 0; y < response.length; y++) {
-                        item = jQuery(response[y]);
-                        var _key = item.attr("name");
-                        var _val = item.val();
-
-                        if (_key == "oscarAPCacheLookupType") {
-                            _lookupType = _val;
-                            continue;
-                        }
-                        // Reserved name, not a cache entry: the server lists the keys it could not
-                        // resolve (unconfigured, unusable result, or lookup error). Keys that simply
-                        // matched no rows are deliberately absent — that is data, and reporting it
-                        // would fire on nearly every form.
-                        if (_key == "oscarAPCacheLookupFailures") {
-                            showLookupFailureNotice(_val);
-                            continue;
-                        }
-                        // Checking if a key has a mapping.
-                        map = _cache.getMapping(_key);
-                        if (map != null) {
-                            map.onStoreInCache(_key, _val);
-                        } else {
-                            _cache.put(_key, _val);
-                        }
-
+                    if (handlers && handlers.isCurrent && !handlers.isCurrent()) {
+                        if (handlers.onStale) { handlers.onStale(); }
+                        return;
                     }
-                    // Performing store in cache for mapping if lookup type matches a mapping 
-                    if (_lookupType != null && _lookupType != "") {
+                    try {
+                        response = jQuery(response);
+                        if (handlers && handlers.onResponse) {
+                            // Per-request consumers must not treat a login page or a
+                            // different lookup as success, or mutate the cache first.
+                            var responseTypes = response.filter('[name="oscarAPCacheLookupType"]');
+                            if (responseTypes.length !== 1 || responseTypes.val() !== key) {
+                                throw new Error('Unexpected APCache response type');
+                            }
+                        }
+                        var y;
+                        var map;
+                        var _lookupType = "";
+                        // Adding values retrieved to the cache.
+                        for (y = 0; y < response.length; y++) {
+                            item = jQuery(response[y]);
+                            var _key = item.attr("name");
+                            var _val = item.val();
+
+                            if (_key == "oscarAPCacheLookupType") {
+                                _lookupType = _val;
+                                continue;
+                            }
+                            // Reserved name, not a cache entry: the server lists the keys it could not
+                            // resolve (unconfigured, unusable result, or lookup error). Keys that simply
+                            // matched no rows are deliberately absent — that is data, and reporting it
+                            // would fire on nearly every form.
+                            if (_key == "oscarAPCacheLookupFailures") {
+                                showLookupFailureNotice(serverResolvedFailures(_cache, _val));
+                                continue;
+                            }
+                            // Checking if a key has a mapping.
+                            map = _cache.getMapping(_key);
+                            if (map != null) {
+                                map.onStoreInCache(_key, _val);
+                            } else {
+                                _cache.put(_key, _val);
+                            }
+
+                        }
+                        // Performing store in cache for mapping if lookup type matches a mapping
+                        if (_lookupType != null && _lookupType != "") {
+                            map = _cache.getMapping(_lookupType);
+                            if (map != null) {
+                                map.onStoreInCache();
+                            }
+                        }
+                        // Look for mapping and pass off to handler.
                         map = _cache.getMapping(_lookupType);
-                        if (map != null) {
-                            map.onStoreInCache();
+                        if (handlers && handlers.onResponse) {
+                            handlers.onResponse(_lookupType);
+                        } else if (map != null) {
+                            map.onCacheResponse(_lookupType);
                         }
+                        // Otherwise print the cache entry associated with this lookup type.
+                        else {
+                            _cache.defaultCacheResponseHandler(_lookupType);
+                        }
+                    } catch (error) {
+                        if (handlers && handlers.onError) { handlers.onError(null, 'parsererror', error); }
+                        else { throw error; }
                     }
-                    // Look for mapping and pass off to handler.
-                    map = _cache.getMapping(_lookupType);
-                    if (map != null) {
-                        map.onCacheResponse(_lookupType);
-                    }
-                    // Otherwise print the cache entry associated with this lookup type.
-                    else {
-                        _cache.defaultCacheResponseHandler(_lookupType);
-                    }
-
                 },
-                error: this.cacheResponseErrorHandler
+                error: handlers && handlers.onError ? handlers.onError : this.cacheResponseErrorHandler
             });
             return null;
         };

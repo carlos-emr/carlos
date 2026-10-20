@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
 import io.github.carlos_emr.carlos.commn.model.Admission;
+import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.CountryCode;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicArchive;
@@ -244,7 +245,15 @@ public class DemographicEdit2Action extends ActionSupport {
         // --- Patient consent module ---
         if (oscarProps.getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
             PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
-            request.setAttribute("consentTypes", patientConsentManager.getActiveConsentTypes());
+            List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();
+            request.setAttribute("consentTypes", consentTypes);
+            // Set when the save that led here refused a consent change made against a record that
+            // had since changed. Only names looked up here reach the page, never the parameter.
+            List<String> consentNotSavedNames = ConsentNotSavedNotice.consentTypeNames(
+                    request.getParameter(ConsentNotSavedNotice.PARAMETER), consentTypes);
+            if (!consentNotSavedNames.isEmpty()) {
+                request.setAttribute(ConsentNotSavedNotice.NAMES_ATTRIBUTE, consentNotSavedNames);
+            }
             request.setAttribute("patientConsents", patientConsentManager.getAllConsentsByDemographic(
                     loggedInInfo, Integer.parseInt(demographic_no)));
         }
@@ -354,6 +363,8 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("userlastname", session.getAttribute("userlastname"));
         request.setAttribute("apptProvider", request.getParameter("apptProvider"));
         request.setAttribute("appointment", request.getParameter("appointment"));
+        request.setAttribute(PatientNavModel.REQUEST_ATTRIBUTE,
+                PatientNavModel.forRequest(request, demographic, PatientNavModel.Page.RECORD));
         request.setAttribute("oscarProps", oscarProps);
         request.setAttribute("firstNationCommunities", firstNationCommunities);
         request.setAttribute("phuLookupList", phuLookupList);

@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Immunizations;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -60,5 +61,76 @@ public class ImmunizationsDaoIntegrationTest extends CarlosTestBase {
         hibernateTemplate.flush();
 
         assertThat(entity.getId()).isNotNull();
+    }
+
+    @Autowired
+    private DemographicDao demographicDao;
+
+    private int patient() {
+        Demographic patient = new Demographic();
+        patient.setFirstName("Test");
+        patient.setLastName("ScheduleRevision");
+        patient.setSex("F");
+        patient.setProviderNo("999998");
+        patient.setHcType("ON");
+        patient.setPatientStatus("AC");
+        patient.setYearOfBirth("1980");
+        patient.setMonthOfBirth("01");
+        patient.setDateOfBirth("01");
+        demographicDao.save(patient);
+        hibernateTemplate.flush();
+        return patient.getDemographicNo();
+    }
+
+    @Test
+    void shouldAdvanceRevisionAndKeepHistory_whenExpectedVersionMatches() {
+        int patient = patient();
+        assertThat(dao.replaceCurrent(patient, "999998", "<immunizations/>", 0)).isTrue();
+        Immunizations first = dao.findCurrentByDemographicNo(patient).getFirst();
+        assertThat(dao.replaceCurrent(patient, "999998", "<immunizations updated=\"true\"/>", first.getId())).isTrue();
+        hibernateTemplate.flush();
+
+        assertThat(dao.findCurrentByDemographicNo(patient)).singleElement()
+                .satisfies(current -> {
+                    assertThat(current.getId()).isGreaterThan(first.getId());
+                    assertThat(current.getImmunizations()).isEqualTo("<immunizations updated=\"true\"/>");
+                });
+        assertThat(dao.find(first.getId()).getArchived()).isEqualTo(1);
+        assertThat(dao.find(first.getId()).getImmunizations()).isEqualTo("<immunizations/>");
+    }
+
+    @Test
+    void shouldRejectOldAndEmptyVersions_withoutChangingTheWinner() {
+        int patient = patient();
+        assertThat(dao.replaceCurrent(patient, "999998", "first", 0)).isTrue();
+        Immunizations first = dao.findCurrentByDemographicNo(patient).getFirst();
+        assertThat(dao.replaceCurrent(patient, "999998", "winner", first.getId())).isTrue();
+        Immunizations winner = dao.findCurrentByDemographicNo(patient).getFirst();
+
+        assertThat(dao.replaceCurrent(patient, "999998", "stale", first.getId())).isFalse();
+        assertThat(dao.replaceCurrent(patient, "999998", "second initial save", 0)).isFalse();
+        hibernateTemplate.flush();
+
+        assertThat(dao.findCurrentByDemographicNo(patient)).singleElement()
+                .satisfies(current -> {
+                    assertThat(current.getId()).isEqualTo(winner.getId());
+                    assertThat(current.getImmunizations()).isEqualTo("winner");
+                });
+        assertThat(dao.find(first.getId()).getArchived()).isEqualTo(1);
+        assertThat(hibernateTemplate.find("from Immunizations i where i.demographicNo=?1", patient)).hasSize(2);
+    }
+
+    @Test
+    void shouldRejectAnotherPatientsVersion_withoutCreatingASchedule() {
+        int firstPatient = patient();
+        int secondPatient = patient();
+        assertThat(dao.replaceCurrent(firstPatient, "999998", "first patient", 0)).isTrue();
+        int firstVersion = dao.findCurrentByDemographicNo(firstPatient).getFirst().getId();
+
+        assertThat(dao.replaceCurrent(secondPatient, "999998", "wrong version", firstVersion)).isFalse();
+        assertThat(dao.findCurrentByDemographicNo(secondPatient)).isEmpty();
+        assertThat(dao.replaceCurrent(secondPatient, "999998", "second patient", 0)).isTrue();
+        assertThat(dao.findCurrentByDemographicNo(firstPatient)).singleElement()
+                .extracting(Immunizations::getImmunizations).isEqualTo("first patient");
     }
 }

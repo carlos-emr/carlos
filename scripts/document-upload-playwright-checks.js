@@ -54,6 +54,10 @@
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (to confirm the row landed)
  * Optional: CHROME_PATH, DOCUMENT_UPLOAD_SCREENSHOT_DIR (default /tmp).
  *
+ * The chart upload is also opened from the patient chart and forwarded (#3708):
+ * dialog-load failure feedback and retry, empty-recipient validation, provider
+ * autocomplete, and the persisted route are all checked.
+ *
  * FIXTURE SAFETY: uploads a PDF this script generates under a unique,
  * timestamped name, only ever asserts on rows matching that name, and removes
  * exactly those rows on the way out -- pass OR fail. The cleanup is
@@ -65,6 +69,7 @@
  */
 
 const { chromium } = require('playwright');
+const { releaseChartLocks, closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -77,11 +82,17 @@ const {
   createRecorder,
   getLaunchOptions,
   gotoApp,
+  installCleanupSignalHandlers,
   login,
+  NO_PLAYWRIGHT_SIGNAL_HANDLING,
   screenshot,
   validateBaseUrl,
   wirePage,
 } = require('./eform-local-playwright-utils');
+const { clickOpensPopup } = require('./lib/playwright-ui');
+const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
+const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
+const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
@@ -120,20 +131,157 @@ function sql(query) {
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
 }
 
+// The harness-shaped view of sql() that lib/document-residue.js takes.
+const residueSql = {
+  value: (query) => sql(query),
+  rows: (query) => { const out = sql(query); return out ? out.split('\n').map((line) => line.split('\t')) : []; },
+  execute: (query) => { sql(query); },
+};
+// Taken before the first upload: the rows the application files for the uploaded documents are found by it.
+let residueMark = null;
+
+/** Deletes the stored copies of the probe documents (the uploader prefixes a 14-digit timestamp to the name), inside DOCUMENT_DIR only. */
+function removeProbeFiles(names) {
+  const configured = process.env.DOCUMENT_DIR;
+  if (!configured) {
+    if (names.length) console.warn(`WARN: DOCUMENT_DIR is not set, so the uploaded file(s) ${names.join(', ')} stay in the document store`);
+    return;
+  }
+  const store = fs.realpathSync(configured);
+  for (const name of names) {
+    // Only a name that is a bare file name ending in this run's probe name: no other document is touched.
+    if (name !== path.basename(name) || !name.endsWith(probeName)) continue;
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- name is a bare file name (equal to its own basename, checked in the condition above) taken from the document store listing this check just made
+    const target = path.join(store, name);
+    if (fs.existsSync(target)) fs.unlinkSync(target);
+    assert(!fs.existsSync(target), `The uploaded probe file ${name} was not removed from the document store`);
+  }
+}
+
 // Remove the document rows this run created, by its unique stamp only.
 function cleanupProbeDocuments() {
   try {
-    const ids = sql(
-      `SELECT document_no FROM document WHERE docfilename LIKE '%${stamp}%' OR docdesc LIKE '%${stamp}%'`,
-    ).split(/\s+/).filter(Boolean);
-    if (!ids.length) return;
+    const found = sql(
+      `SELECT document_no, docfilename FROM document WHERE docfilename LIKE '%${stamp}%' OR docdesc LIKE '%${stamp}%'`,
+    ).split('\n').filter(Boolean).map((line) => line.split('\t'));
+    if (!found.length) return;
+    const ids = found.map(([id]) => id);
     const list = ids.join(',');
     console.log(`cleanup: removing probe document row(s) ${list} for stamp ${stamp}`);
+    sql(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${list})`);
     sql(`DELETE FROM ctl_document WHERE document_no IN (${list})`);
     sql(`DELETE FROM document WHERE document_no IN (${list})`);
+    // The note the application filed for each upload, the queue links and the routing lock (lib/document-residue.js).
+    if (residueMark) removeDocumentResidue(residueSql, residueMark, ids);
+    removeProbeFiles(found.map(([, name]) => name).filter(Boolean));
   } catch (e) {
-    // Cleanup is housekeeping, not an assertion: never turn a passing run red.
-    console.warn(`WARN: could not clean up probe documents for stamp ${stamp}: ${e.message}`);
+    // A leftover routed document can poison later workflow checks.
+    process.exitCode = 1;
+    console.error(`WARN: could not clean up probe documents for stamp ${stamp}: ${e.message}`);
+  }
+}
+
+/** Issue #3708: forward this run's uploaded document through the chart viewer. */
+async function checkDocumentForwarding(context, recorder, demographicNo, description, schedule) {
+  assert(/^\d+$/.test(demographicNo), 'Document demographic number must be numeric');
+  const documentNo = sql(`SELECT document_no FROM document WHERE docdesc='${description}'`);
+  assert(/^\d+$/.test(documentNo), 'Expected exactly one owned upload to forward');
+  // Forward to the logged-in test provider, never to an external destination.
+  const recipient = sql(`SELECT provider_no FROM security WHERE user_name='${config.testUser.replace(/'/g, "''")}'`);
+  assert(/^\d+$/.test(recipient), 'Expected a numeric recipient provider');
+  const [recipientLast, recipientFirst = ''] = sql(
+    `SELECT COALESCE(last_name,''), COALESCE(first_name,'') FROM provider WHERE provider_no='${recipient}'`,
+  ).split('\t');
+  assert(recipientLast, 'Recipient provider must have a surname to search');
+  // Search the "last, first" form the autocomplete itself renders. Its three
+  // character minimum is otherwise unreachable for a one- or two-character
+  // surname, which is valid provider data and would fail this check before the
+  // forwarding flow even starts.
+  const searchTerm = `${recipientLast}, ${recipientFirst}`;
+  assert(searchTerm.length >= 3, 'Provider autocomplete needs at least three characters to search');
+  const surname = sql(`SELECT last_name FROM demographic WHERE demographic_no=${demographicNo}`);
+  // Track every popup from its creation, including helpers that throw before
+  // returning. Keep caller-owned pages, and close each new page independently.
+  const ownedPages = new Set();
+  const trackPage = page => ownedPages.add(page);
+  context.on('page', trackPage);
+  try {
+    // Keep the chart handoff inspectable when it calls self.close(), as in the
+    // other chart workflows. Declining an existing-draft prompt must preserve
+    // that draft; this check only uses the document navigation.
+    await context.addInitScript(() => { window.close = () => {}; });
+    const { masterPage } = await openMasterRecord(context, schedule, recorder, {
+      searchTerm: surname, preferredDemographicNo: demographicNo, timeout: 30000,
+    });
+    const chart = await openChart(context, masterPage, recorder, 30000);
+    await waitForNavbars(chart, 30000);
+    const link = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: description }).first();
+    // Click the visible left edge of the title, as an operator does. LeftNavBarDisplay.jsp
+    // lays each entry out as an absolutely positioned title span under a right-floated
+    // "...date" span (z-index 100) that truncates long titles; a title this long has its
+    // centre under that suffix, so a centre click is refused as intercepted even though the
+    // suffix link opens the same document.
+    const viewer = await clickOpensPopup(chart, link, { context, recorder, label: 'document-forward', timeout: 30000, position: { x: 8, y: 9 } });
+    const routes = () => sql(`SELECT provider_no,status FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} ORDER BY id`);
+    const before = routes();
+    assert(sql(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} AND provider_no='${recipient}'`) === '0',
+      'The owned upload must not already be routed to this recipient');
+    // A refused dialog request must be visible and recoverable, not another
+    // silent Forward click. Only this owned browser request is intercepted.
+    const dialogRoute = '**/oscarMDS/ViewSelectProvider';
+    await viewer.route(dialogRoute, route => route.fulfill({ status: 503, body: 'test outage' }));
+    try {
+      await viewer.locator(`[id="fwdBtn_${documentNo}"]`).click();
+      const errorDialog = viewer.getByRole('dialog', { name: 'Error', exact: true });
+      await errorDialog.waitFor({ state: 'visible' });
+      assert(/Failed to load the forwarding dialog/.test(await errorDialog.innerText()),
+        'Failed dialog request produced no actionable message');
+      await errorDialog.getByRole('button', { name: 'Close', exact: true }).last().click();
+      assert(routes() === before, 'Failed dialog request changed document routing');
+    } finally {
+      await viewer.unroute(dialogRoute);
+    }
+    await viewer.locator(`[id="fwdBtn_${documentNo}"]`).click();
+    const dialog = viewer.getByRole('dialog', { name: 'Forward Documents', exact: true });
+    await dialog.waitFor({ state: 'visible', timeout: 15000 });
+    const forward = dialog.getByRole('button', { name: 'Forward', exact: true });
+    await forward.click();
+    await dialog.locator('#fwdProviders.input-error').waitFor({ state: 'visible' });
+    assert(routes() === before, 'Forward with no recipient changed document routing');
+
+    await dialog.locator('#autocompleteprov').fill(searchTerm);
+    // Surnames are not unique, so pick the entry carrying the intended provider
+    // number rather than the first row the search happens to order first.
+    const options = viewer.locator('.ui-autocomplete:visible .ui-menu-item');
+    await options.first().waitFor({ state: 'visible' });
+    const index = await options.evaluateAll((items, providerNo) => items.findIndex(item => {
+      const data = window.jQuery && window.jQuery(item).data('ui-autocomplete-item');
+      return !!data && String(data.providerNo) === providerNo;
+    }), recipient);
+    assert(index >= 0, 'Provider autocomplete offered no entry for the intended recipient');
+    await options.nth(index).click();
+    const selected = await dialog.locator('#fwdProviders option').evaluateAll(es => es.map(e => e.value));
+    assert(selected.length === 1 && selected[0] === recipient, 'Autocomplete selected a different provider');
+    const [response] = await Promise.all([
+      viewer.waitForResponse(r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/oscarMDS/ReportReassign')),
+      viewer.waitForEvent('domcontentloaded', { timeout: 30000 }),
+      forward.click(),
+    ]);
+    assert(response.status() === 200, `Forward returned HTTP ${response.status()}`);
+    // Success reloads the viewer immediately; Chromium may discard the XHR body
+    // during that navigation. Assert the reload and persisted route instead.
+    await assertNotErrorPage(viewer, 'document viewer after forwarding');
+    await dialog.waitFor({ state: 'hidden', timeout: 30000 });
+    const count = sql(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} AND provider_no='${recipient}'`);
+    assert(count === '1', `Expected one route to the selected provider, got ${count}`);
+    console.log('PASS chart document Forward: visible dialog, empty-recipient refusal, autocomplete, persisted routing');
+  } finally {
+    context.off('page', trackPage);
+    await releaseChartLocks(context, config.baseUrl, [...ownedPages]);
+    for (const page of ownedPages) {
+      await page.close().catch(() => {});
+    }
   }
 }
 
@@ -204,17 +352,34 @@ function documentRowCount() {
   return Number(sql(`SELECT COUNT(*) FROM document WHERE docfilename LIKE '%${probeName}'`) || '0');
 }
 
+let workDir = null;
+
+// Everything the run owns outside the browser. Idempotent, and also run from
+// SIGINT/SIGTERM (issue #3600): a finally does not run when the process is killed,
+// which would leave the probe document rows (and the temp PDF) behind.
+function cleanupRunResources() {
+  if (mysqlDefaults) cleanupProbeDocuments();
+  cleanupMysqlDefaults();
+  if (workDir) {
+    fs.rmSync(workDir, { recursive: true, force: true });
+    workDir = null;
+  }
+}
+
+const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
+
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-upload-'));
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
+  workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-upload-'));
   initMysqlDefaults();
   try {
+    residueMark = markDocumentResidue(residueSql);
     const probePdf = writeProbePdf(workDir);
 
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
     const landing = await login(context, config, recorder);
-    await landing.close();
+
 
     // ---- 1. a single upload succeeds ---------------------------------------
     const first = await openUploadPopup(context, recorder);
@@ -323,6 +488,8 @@ function documentRowCount() {
       `eDocs upload did not attach to the patient: expected module_id ${edocsDemo}, got `
         + `${JSON.stringify(attached)} — an orphaned document is saved but appears in no chart.`,
     );
+
+    await checkDocumentForwarding(context, recorder, edocsDemo, edocsDesc, landing);
 
     // Add Link: the SAME case-collapse defect, on a route nothing else drives.
     //
@@ -452,6 +619,7 @@ function documentRowCount() {
 
     assertNoPageErrors(recorder);
 
+    await releaseChartLocks(context, config.baseUrl);
     await context.close();
 
     console.log(
@@ -472,9 +640,9 @@ function documentRowCount() {
     // report it needs and fails it. A failing run here was silently failing a
     // sibling. The rows are listed as they are removed, so a failure is still
     // diagnosable from this output without leaving the fixture poisoned.
-    cleanupProbeDocuments();
-    cleanupMysqlDefaults();
-    fs.rmSync(workDir, { recursive: true, force: true });
-    await browser.close();
+    cleanupRunResources();
+    await closeBrowserWithChartCleanup(browser, config.baseUrl);
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })();

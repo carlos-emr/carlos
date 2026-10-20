@@ -1,6 +1,6 @@
 #!/bin/sh
-# Fetch the pinned Chromium + chromedriver for the carlos-emr-eform-renderer
-# binary package.
+# Fetch the pinned Chromium + chromedriver for the eForm renderer carlos-emr
+# ships.
 #
 #   debian/fetch-chromium.sh <rev> <chrome_sha256> <chromedriver_sha256> <destdir>
 #

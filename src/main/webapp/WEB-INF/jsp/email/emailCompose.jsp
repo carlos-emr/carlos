@@ -5,9 +5,10 @@
   Key features: Selects sender and recipients, composes one message, controls message and
   attachment encryption, manages attachments, and displays send or validation results.
   Request attributes: senderAccounts, receiverEmailList, invalidReceiverEmailList, message,
-  emailAttachmentList, isEmailEncrypted, isEmailAttachmentEncrypted, and emailLog.
+  footerEmail, emailAttachmentList, isEmailEncrypted,
+  isEmailAttachmentEncrypted, and emailLog.
   Request parameters: demographicId, transactionType, senderConfigId, subjectEmail, message,
-  isEmailEncrypted, isEmailAttachmentEncrypted, and patientChartOption.
+  footerEmail, isEmailEncrypted, isEmailAttachmentEncrypted, and patientChartOption.
   @since 2023-12-21
 --%>
 
@@ -18,12 +19,35 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService" %>
+<%@ page import="io.github.carlos_emr.carlos.email.core.EmailFooterHtml" %>
+<%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException" %>
+<%
+    // A malformed setting must not break unencrypted email. Treat it as portal delivery so no
+    // manual password is collected; the send path refuses encrypted email until it is fixed.
+    boolean portalEmailMisconfigured = false;
+    boolean portalEmailEnabled;
+    try {
+        portalEmailEnabled = PortalEmailDeliveryService.isEnabled();
+    } catch (PatientPortalConfigurationException malformed) {
+        portalEmailEnabled = true;
+        portalEmailMisconfigured = true;
+    }
+    request.setAttribute("portalEmailEnabled", portalEmailEnabled);
+    request.setAttribute("portalEmailMisconfigured", portalEmailMisconfigured);
+%>
+<c:set var="portalDeliveryNeedsRecovery" value="${not empty emailLog and emailLog.portalDeliveryUnresolved}"/>
+
 
 <html>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <fmt:message key="email.compose.title" var="emailComposeTitle"/>
+    <fmt:message key="email.compose.msg.sentTo" var="emailComposeSentTo"/>
+    <fmt:message key="email.compose.msg.acceptedForDelivery" var="emailComposeAcceptedForDelivery"/>
+    <fmt:message key="email.compose.msg.acceptedNotDelivered" var="emailComposeAcceptedNotDelivered"/>
     <fmt:message key="email.compose.label.sender" var="emailComposeSenderLabel"/>
     <fmt:message key="email.compose.label.patient" var="emailComposePatientLabel"/>
     <fmt:message key="email.compose.placeholder.searchPatient" var="emailComposeSearchPatientPlaceholder"/>
@@ -41,6 +65,8 @@
     <fmt:message key="email.compose.heading.message" var="emailComposeMessageLabel"/>
     <fmt:message key="email.compose.placeholder.message" var="emailComposeMessagePlaceholder"/>
     <fmt:message key="email.compose.msg.encryptedMessageNotice" var="emailComposeEncryptedMessageNotice"/>
+    <fmt:message key="email.compose.footer.heading" var="emailComposeFooterLabel"/>
+    <fmt:message key="email.compose.footer.help" var="emailComposeFooterHelp"/>
     <fmt:message key="email.compose.msg.unencryptedSubject" var="emailComposeUnencryptedSubject"/>
     <fmt:message key="email.compose.msg.encryptionDisabledWarning" var="emailComposeEncryptionDisabledWarning"/>
     <fmt:message key="email.compose.modal.disableEncryption.title" var="emailComposeDisableEncryptionTitle"/>
@@ -61,10 +87,17 @@
     <fmt:message key="email.compose.btn.addAdditionalParameters" var="emailComposeAddAdditionalParameters"/>
     <fmt:message key="email.compose.btn.send" var="emailComposeSend"/>
     <fmt:message key="email.compose.btn.cancel" var="emailComposeCancel"/>
-    <fmt:message key="email.compose.msg.windowClosing" var="emailComposeWindowClosing"/>
+    <%-- One number for the auto-close after a send: the timer at the end of this page and the
+         message that announces it, so the two cannot drift apart again. A number, not the text "8":
+         the Polish message picks its word for "seconds" by the number and fails on text. --%>
+    <c:set var="windowCloseSeconds" value="${8}"/>
+    <fmt:message key="email.compose.msg.windowClosing" var="emailComposeWindowClosing">
+        <fmt:param value="${windowCloseSeconds}"/>
+    </fmt:message>
     <fmt:message key="email.compose.btn.close" var="emailComposeClose"/>
     <fmt:message key="email.compose.msg.subjectRequired" var="emailComposeSubjectRequired"/>
     <fmt:message key="email.compose.msg.messageRequired" var="emailComposeMessageRequired"/>
+    <fmt:message key="email.compose.portal.misconfigured" var="emailComposePortalMisconfigured"/>
     <fmt:message key="email.compose.msg.passwordRequired" var="emailComposePasswordRequired"/>
     <fmt:message key="email.compose.msg.clueRequired" var="emailComposeClueRequired"/>
     <fmt:message key="email.compose.msg.passwordMinLength" var="emailComposePasswordMinLength"/>
@@ -98,7 +131,7 @@
         Action return flashy confirmation messages.
     --%>
     <%-- Keep failed sends editable for retry; only a successful send collapses the composer. --%>
-    <c:if test="${ isEmailSuccessful eq true or isEmailDeliveryUnconfirmed eq true }">
+    <c:if test="${ isEmailSuccessful eq true or isEmailDeliveryUnconfirmed eq true or portalDeliveryNeedsRecovery }">
         <script type="text/javascript">
             $(document).ready(function () {
                 $("#page-body").slideUp("slow");
@@ -294,6 +327,7 @@
 
             <form id="emailComposeForm" class="email-compose-form" action="${carlos:forHtmlAttribute(emailSendAction)}" method="post"
                   onsubmit="return validateEmailForm()" novalidate>
+                <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
                 <input type="hidden" name="demographicId" value="${carlos:forHtmlAttribute(demographicId)}"/>
                 <input type="hidden" name="fdid" value="${carlos:forHtmlAttribute(fdid)}"/>
                 <input type="hidden" name="fid" id="fid" value="${carlos:forHtmlAttribute(fid)}"/>
@@ -516,24 +550,30 @@
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeEncryptionDisabledWarning}
                     </div>
                     <div class="card-body" id="encryptionOptions">
+                        <c:if test="${portalEmailMisconfigured}">
+                            <div class="alert alert-danger" role="alert"><fmt:message key="email.compose.portal.misconfigured"/></div>
+                        </c:if>
+                        <c:if test="${portalEmailEnabled and not portalEmailMisconfigured}">
+                            <p><fmt:message key="email.compose.portal.notice"/></p>
+                        </c:if>
                         <div class="container">
                             <%-- The message content itself now lives in the single "Message" field above;
                                  this card only carries the password / clue / encrypt-attachments controls
                                  that govern how that message (and any attachments) are protected. --%>
-                            <div class="row mt-3 mb-3 align-items-center">
+                            <div class="row mt-3 mb-3 align-items-center ${portalEmailEnabled ? 'd-none' : ''}">
                                 <div class="col-sm-3">
                                     <label class="col-form-label" for="emailPDFPassword">${emailComposePasswordLabel}</label>
                                 </div>
                                 <div class="col-sm-9">
                                     <input class="form-control" type="text"
                                            id="emailPDFPassword" placeholder="${emailComposePasswordPlaceholder}"
-                                           value="${carlos:forHtmlAttribute(emailPDFPassword)}"
+                                           value="${carlos:forHtmlAttribute(portalEmailEnabled ? '' : emailPDFPassword)}"
                                            autocomplete="off" spellcheck="false" autocapitalize="none"
                                            autocorrect="off" readonly/>
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 mb-3 align-items-center">
+                            <div class="row mt-3 mb-3 align-items-center ${portalEmailEnabled ? 'd-none' : ''}">
                                 <div class="col-sm-3">
                                     <label class="col-form-label" for="emailPDFPasswordClue">${emailComposeClueLabel} <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
                                                       data-bs-placement="right"
@@ -541,7 +581,7 @@
                                 </div>
                                 <div class="col-sm-9">
                                     <textarea class="form-control" id="emailPDFPasswordClue"
-                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtmlContent(emailPDFPasswordClue)}</textarea>
+                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtmlContent(portalEmailEnabled ? '' : emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
@@ -563,6 +603,77 @@
                             <input type="hidden" name="isEmailEncrypted" id="isEmailEncrypted"
                                    value="${ isEmailEncrypted ? 'true' : 'false' }"/>
                         </div>
+                    </div>
+                </div>
+
+                <%-- Personal text is optional; the trusted clinic snapshot below is read-only. --%>
+                <div class="card mt-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0" id="footerEmailLabel">${emailComposeFooterLabel}</h5>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="footerEmailEdit"
+                                data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                                data-footer-editor-target="footerEmail" data-footer-editor-preview="footerEmailPreview"
+                                aria-describedby="footerEmailHelp">
+                            <fmt:message key="email.footerEditor.open"/></button>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" name="footerEmail" id="footerEmail" value="<carlos:encode value='${footerEmail}' context='htmlAttribute'/>"/>
+                        <div id="footerEmailPreview" class="footer-editor-mail" style="white-space: pre-wrap;" aria-labelledby="footerEmailLabel"
+                             data-empty-text="<fmt:message key='email.footerEditor.none'/>"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText(EmailFooterHtml.clean((String) request.getAttribute("footerEmail")))) %></div>
+                    </div>
+                    <div class="card-body border-top">
+                        <div class="form-check">
+                            <input type="hidden" name="personalFooterRevision" value="${carlos:forHtmlAttribute(personalFooterRevision)}"/>
+                            <input type="checkbox" class="form-check-input" id="saveFooterAsMine" name="saveFooterAsMine"
+                                   value="true" ${param.saveFooterAsMine eq 'true' ? 'checked' : ''}>
+                            <label class="form-check-label" for="saveFooterAsMine"><fmt:message key="email.compose.footer.saveAsMine"/></label>
+                        </div>
+                        <%-- "Edit my saved personal footer" opens this page's footer window in server-save mode: it
+                             reads and saves the saved footer, not this email's (Ben's demo of 15 Oct 2026), and gives
+                             the hidden revision above the new one. Without the window's scripts it stays a link to
+                             My Email Footer. --%>
+                        <c:set var="myFooterScopeText"><fmt:message key="email.footerEditor.scopeMine"/></c:set>
+                        <c:set var="myFooterApplyText"><fmt:message key="email.footerEditor.save"/></c:set>
+                        <c:set var="myFooterSavedText"><fmt:message key="email.compose.footer.savedMineThisEmailKept"/></c:set>
+                        <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer" class="small" id="myFooterEdit"
+                           data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                           data-footer-editor-load="${carlos:forHtmlAttribute(ctx)}/email/myEmailFooter"
+                           data-footer-editor-remote-save="${carlos:forHtmlAttribute(ctx)}/email/saveMyEmailFooter"
+                           data-footer-editor-scope-text="${carlos:forHtmlAttribute(myFooterScopeText)}"
+                           data-footer-editor-apply-text="${carlos:forHtmlAttribute(myFooterApplyText)}"
+                           data-footer-editor-saved-text="${carlos:forHtmlAttribute(myFooterSavedText)}"
+                           data-footer-editor-revision-field="personalFooterRevision"
+                           data-footer-editor-status="myFooterSavedStatus">
+                            <fmt:message key="email.compose.footer.myFooterLink"/></a>
+                        <p class="form-text text-success d-none mb-0" role="status" id="myFooterSavedStatus"></p>
+                        <c:if test="${footerSaveAsMineNotDone}"><p class="form-text text-warning"><fmt:message key="email.compose.footer.saveAsMineNotDone"/></p></c:if>
+                    </div>
+                    <div class="card-footer text-danger" id="footerEmailHelp">
+                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeFooterHelp}
+                    </div>
+                </div>
+                <div class="card shadow-sm rounded mt-3 mb-3" id="clinicFooterCard">
+                    <div class="card-body">
+                        <h5><fmt:message key="email.compose.footer.clinicHeading"/></h5>
+                        <c:choose>
+                            <c:when test="${clinicFooterOff}">
+                                <p class="small text-muted" id="clinicFooterOffNote"><fmt:message key="email.compose.footer.clinicOff"/></p>
+                            </c:when>
+                            <c:otherwise>
+                        <p class="small"><fmt:message key="email.compose.footer.clinicReadonly"/></p>
+                        <div class="d-flex align-items-start" style="gap: 12px;">
+                            <c:if test="${not empty clinicFooterLogoPreview}">
+                                <img src="${carlos:forHtmlAttribute(clinicFooterLogoPreview)}" alt=""
+                                     style="display: block; max-width: 160px; height: auto; flex-shrink: 0;"/>
+                            </c:if>
+                            <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap; min-width: 0;"
+                                 data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
+                        </div>
+                            </c:otherwise>
+                        </c:choose>
+                        <c:if test="${clinicFooterMissing}">
+                            <p class="alert alert-warning mt-2"><fmt:message key="email.compose.footer.clinicRequired"/></p>
+                        </c:if>
                     </div>
                 </div>
 
@@ -649,12 +760,26 @@
                                                  aria-labelledby="emailAttachmentHeader${loop.count}"
                                                  data-bs-parent="#emailAttachmentList">
                                                 <div class="accordion-body">
-                                                    <object id="emailAttachmentPDF${loop.count}"
-                                                            data="${carlos:forHtmlAttribute(ctx)}/previewDocs?method=renderPDF&amp;previewToken=${carlos:forHtmlAttribute(carlos:forUriComponent(emailAttachment.previewToken))}"
-                                                            type="application/pdf" width="100%" height="500">
-                                                        <%-- Accessible fallback shown when the browser cannot render the inline PDF preview. --%>
-                                                        <p class="text-muted mb-0">${carlos:forHtml(emailAttachment.fileName)}</p>
-                                                    </object>
+                                                    <%-- iframe, not <object>: the packaged CSP sets object-src 'none',
+                                                         which silently blanks an <object>-based PDF preview. --%>
+                                                    <%-- The title carries the filename: this loop renders one frame per
+                                                         attachment, and a shared title makes them indistinguishable in a
+                                                         screen reader's frame list. --%>
+                                                    <iframe id="emailAttachmentPDF${loop.count}"
+                                                            title="Attachment preview: ${carlos:forHtmlAttribute(emailAttachment.fileName)}"
+                                                            src="${carlos:forHtmlAttribute(ctx)}/previewDocs?method=renderPDF&amp;previewToken=${carlos:forHtmlAttribute(carlos:forUriComponent(emailAttachment.previewToken))}"
+                                                            style="width: 100%; height: 500px; border: 0;"></iframe>
+                                                    <%-- Outside the iframe on purpose. Unlike <object>, which this preview
+                                                         used to be, an iframe's child markup is ignored by every browser
+                                                         that supports iframes — so a fallback nested inside it can never
+                                                         be reached. A sibling link to the same URL is reachable whether
+                                                         or not the inline PDF renders. --%>
+                                                    <p class="text-muted mb-0 mt-1">
+                                                        <a href="${carlos:forHtmlAttribute(ctx)}/previewDocs?method=renderPDF&amp;previewToken=${carlos:forHtmlAttribute(carlos:forUriComponent(emailAttachment.previewToken))}"
+                                                           target="_blank" rel="noopener">
+                                                            ${carlos:forHtml(emailAttachment.fileName)}
+                                                        </a>
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -687,7 +812,7 @@
                 <div class="container mt-4" id="form-control-buttons">
                     <div class="row">
                         <div class="col-sm-12">
-                            <button type="submit" ${isEmailSuccessful or isEmailDeliveryUnconfirmed ? 'disabled' : ''} id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
+                            <button type="submit" ${isEmailSuccessful or isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery or clinicFooterMissing ? 'disabled' : ''} id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
                                 <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
                                 ${emailComposeSend}
                             </button>
@@ -706,9 +831,19 @@
         <%-- the confirmation tags. --%>
         <c:if test="${ not empty isEmailSuccessful }">
             <c:choose>
+                <c:when test="${portalDeliveryNeedsRecovery}">
+                    <div class="alert alert-warning" role="alert">
+                        <p><fmt:message key="email.compose.portal.needsRecovery"/></p>
+                        <a href="${carlos:forHtmlAttribute(ctx)}/email/portalDelivery?emailLogId=${carlos:forUriComponent(emailLog.id)}"><fmt:message key="email.compose.portal.checkDelivery"/></a>
+                    </div>
+                </c:when>
                 <c:when test="${ isEmailSuccessful }">
 					<div class="alert alert-success" role="alert" id="successMessage">
-						<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
+						<p>${carlos:forHtml(emailComposeSentTo)} <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> ${carlos:forHtml(emailComposeAcceptedForDelivery)}</p>
+						<%-- CARLOS observes the transport handing off, nothing beyond it: a provider can --%>
+						<%-- still bounce or discard the message afterwards without telling us. Saying    --%>
+						<%-- "sent" alone invites a clinician to treat unread lab results as received.    --%>
+						<p class="small text-muted mb-0" id="acceptedNotDeliveredNotice">${carlos:forHtml(emailComposeAcceptedNotDelivered)}</p>
                     </div>
 					<c:if test="${not isEmailStatusRecorded}">
 						<div class="alert alert-warning" role="alert" id="statusTrackingWarning">
@@ -720,7 +855,7 @@
                             <fmt:message key="email.compose.msg.followUpRequired"/>
                         </div>
                     </c:if>
-                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired}">
+                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired and not footerSaveAsMineFailed and not footerSaveAsMineStale}">
                         <p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
                     </c:if>
                 </c:when>
@@ -735,9 +870,42 @@
                             <fmt:message key="email.compose.msg.reviewErrorAndTryAgain"/><br><br>
                             <b><fmt:message key="email.compose.msg.errorMessage"/></b> <br>
                             ${carlos:forHtml(emailLog.errorMessage)}</p>
+                        <%-- Set only when the transport proved the server refused an address, so --%>
+                        <%-- the sender knows whether to fix the patient's address or call an admin. --%>
+                        <c:choose>
+                            <c:when test="${emailRefusal eq 'RECIPIENT'}">
+                                <p class="mb-0" id="recipientRefusedHint"><fmt:message key="email.compose.msg.recipientRefusedHint"/></p>
+                            </c:when>
+                            <c:when test="${emailRefusal eq 'SENDER'}">
+                                <p class="mb-0" id="senderRefusedHint"><fmt:message key="email.compose.msg.senderRefusedHint"/></p>
+                            </c:when>
+                        </c:choose>
                     </div>
                 </c:otherwise>
             </c:choose>
+            <c:if test="${footerSavedAsMine}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.savedAsMine"/></p></c:if>
+            <c:if test="${footerSavedEmpty}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.savedEmpty"/></p></c:if>
+            <c:if test="${footerSaveAsMineNotDone and (isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery)}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.saveAsMineNotDone"/></p></c:if>
+            <c:if test="${footerSaveAsMineFailed or footerSaveAsMineStale}">
+                <div class="alert alert-warning" role="alert" id="footerSaveAsMineFailed">
+                    <c:choose>
+                        <c:when test="${footerSaveAsMineStale}"><fmt:message key="email.compose.footer.saveAsMineStale"/></c:when>
+                        <c:otherwise><fmt:message key="email.compose.footer.saveAsMineFailed"/></c:otherwise>
+                    </c:choose>
+                    <%-- As above, the window in server-save mode; the email has gone, so the saved message says only
+                         that. Without the window's scripts it stays a link to My Email Footer. --%>
+                    <c:set var="myFooterScopeText"><fmt:message key="email.footerEditor.scopeMine"/></c:set>
+                    <c:set var="myFooterApplyText"><fmt:message key="email.footerEditor.save"/></c:set>
+                    <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer" id="myFooterEditAfterSend"
+                       data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                       data-footer-editor-load="${carlos:forHtmlAttribute(ctx)}/email/myEmailFooter"
+                       data-footer-editor-remote-save="${carlos:forHtmlAttribute(ctx)}/email/saveMyEmailFooter"
+                       data-footer-editor-scope-text="${carlos:forHtmlAttribute(myFooterScopeText)}"
+                       data-footer-editor-apply-text="${carlos:forHtmlAttribute(myFooterApplyText)}"
+                       data-footer-editor-status="myFooterSavedAfterSend"><fmt:message key="email.compose.footer.myFooterLink"/></a>
+                    <p class="mb-0 mt-2 d-none" role="status" id="myFooterSavedAfterSend"></p>
+                </div>
+            </c:if>
             <input type="button" class="btn btn-danger btn-md float-end" value="${emailComposeClose}" onclick="window.close();"/>
         </c:if>
     </div>
@@ -783,14 +951,24 @@
 
         // A successful send is terminal for this composer. A failed send deliberately continues
         // through normal initialization below so the fully restored form remains usable for retry.
+        const portalDeliveryNeedsRecovery = ${portalDeliveryNeedsRecovery};
         if (document.getElementById('isEmailSuccessful').value === 'true') {
+            // The email was delivered even when its portal password still needs attention, so
+            // the eForm steps still run; only the auto-close waits for the recovery link.
             openEFormAfterSend();
 
             if (document.getElementById('isEmailStatusRecorded').value === 'true'
-                    && !document.getElementById('emailFollowUpWarning')) {
-                setTimeout(() => window.close(), 3000);
+                    && !document.getElementById('emailFollowUpWarning')
+                    && !document.getElementById('footerSaveAsMineFailed')
+                    && !portalDeliveryNeedsRecovery) {
+                // Long enough to read the acceptedNotDeliveredNotice caveat. At 3 seconds the
+                // window closed before anyone could, which made the notice decorative.
+                setTimeout(() => window.close(), ${windowCloseSeconds * 1000});
             }
             return;
+        }
+        if (portalDeliveryNeedsRecovery) {
+            return; // Recovery never resends the email.
         }
 
         if (document.getElementById('deliveryUnconfirmedWarning')) {
@@ -818,13 +996,17 @@
 
     document.addEventListener("keydown", function (event) {
         const targetTag = event.target.tagName.toLowerCase();
-        if (event.key === "Enter" && targetTag !== "textarea" && targetTag !== "button") {
+        // Enter must not submit the form from a single-line field. Multi-line places keep it: the
+        // message textarea and the Edit footer window's editor (contenteditable, issue #3981).
+        if (event.key === "Enter" && targetTag !== "textarea" && targetTag !== "button"
+                && !event.target.isContentEditable) {
             event.preventDefault();
         }
     });
 
     const emailComposeSubjectRequiredMsg = "<carlos:encode value='${emailComposeSubjectRequired}' context="javaScript"/>";
     const emailComposeMessageRequiredMsg = "<carlos:encode value='${emailComposeMessageRequired}' context="javaScript"/>";
+    const emailComposePortalMisconfiguredMsg = "<carlos:encode value='${emailComposePortalMisconfigured}' context="javaScript"/>";
     const emailComposePasswordRequiredMsg = "<carlos:encode value='${emailComposePasswordRequired}' context="javaScript"/>";
     const emailComposeClueRequiredMsg = "<carlos:encode value='${emailComposeClueRequired}' context="javaScript"/>";
     const emailComposePasswordMinLengthMsg = "<carlos:encode value='${emailComposePasswordMinLength}' context="javaScript"/>";
@@ -867,13 +1049,20 @@
 
         validateField(subjectEmail, emailComposeSubjectRequiredMsg, errors, 'subjectError');
         validateField(message, emailComposeMessageRequiredMsg, errors, 'messageError');
-        const needsPdfPassword = isEncrypted || (hasAttachments && isAttachmentEncrypted);
+        const needsPdfPassword = !${portalEmailEnabled} && (isEncrypted || (hasAttachments && isAttachmentEncrypted));
         if (needsPdfPassword) {
             validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
             validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
         } else {
             clearError('emailPDFPasswordError');
             clearError('emailPDFPasswordClueError');
+        }
+        // A malformed portal setting refuses encrypted email on the server. Stop it here instead, so
+        // staff stay on this draft and can turn encryption off rather than land on a bare error page.
+        const portalEmailMisconfigured = ${portalEmailMisconfigured};
+        if (portalEmailMisconfigured && (isEncrypted || (hasAttachments && isAttachmentEncrypted))) {
+            errors.portalEmailMisconfigured = emailComposePortalMisconfiguredMsg;
+            displayError('messageError', emailComposePortalMisconfiguredMsg, message);
         }
         if (consentOverride && consentOverride.checked) {
             validateField(consentOverrideReason, emailComposeConsentOverrideReasonRequiredMsg, errors, 'consentOverrideReasonError');
@@ -1132,5 +1321,9 @@ function toggleInternalTextArea() {
 }
 
 </script>
+<c:set var="footerEditorPersonalOnly" value="${true}"/>
+<c:set var="footerEditorScopeKey" value="email.footerEditor.scopeThisEmail"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.applyThisEmail"/>
+<%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
 </body>
 </html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+
+  Synthetic eForm for scripts/eform-apcache-renderer-playwright-checks.js.
+
+  It populates two fields THROUGH APCache.js (an XHR lookup, not a server-side
+  oscarDB attribute), so a saved-form PDF render must go through the renderer's
+  capability-scoped APCache bridge (EFormApCacheForPdfGenerationServlet) to fill
+  them. The literal .lookup('...') calls are what the render composer scans to
+  grant exactly these keys to the render. The keys are deliberately non-clinical
+  (the signed-in provider's name and today's date) so the check reads no patient
+  record. The script replaces the APCACHE_KEY_* placeholders per run.
+-->
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>CARLOS APCache renderer bridge check</title>
+<script type="text/javascript" src="${oscar_javascript_path}eforms/APCache.js"></script>
+<script type="text/javascript">
+var apCache = createCache({
+  defaultCacheResponseHandler: function (key) {
+    var value = apCache.get(key);
+    var target = document.querySelector('[data-apcache-key="' + key + '"]');
+    if (!target) { return; }
+    // Both the input value (what the clinician sees) and a text node (a DOM
+    // mutation the renderer's quiescence observer can see, and text pdftotext
+    // extracts reliably).
+    target.value = value;
+    var echo = document.getElementById(target.id + '_echo');
+    if (echo) { echo.textContent = 'APCACHE-VALUE[' + key + ']=' + value; }
+  },
+  defaultCacheResponseErrorHandler: function (xhr, error) {
+    var status = document.getElementById('apcache_error_status');
+    status.textContent = 'APCACHE-ERROR[' + (xhr && xhr.status) + ']';
+  }
+});
+function startApCacheChecks() {
+  apCache.lookup('APCACHE_KEY_PROVIDER');
+  apCache.lookup('APCACHE_KEY_TODAY');
+  APCACHE_EXTRA_LOOKUP
+}
+if (window.addEventListener) {
+  window.addEventListener('load', startApCacheChecks);
+} else {
+  window.onload = startApCacheChecks;
+}
+</script>
+<style>
+body { font: 14px sans-serif; }
+.field { margin: 8px 0; }
+input.value { width: 420px; }
+</style>
+</head>
+<body>
+<form method="post" action="" name="FormName" id="FormName">
+<input type="hidden" name="test_apcache_fdid_marker" id="test_apcache_fdid_marker" value="${fdid}">
+<h1>CARLOS APCache renderer bridge check</h1>
+<p>Fields below are populated by APCache lookups at load time.</p>
+<div class="field">
+  <label>Signed-in provider (AP APCACHE_KEY_PROVIDER)
+    <input type="text" class="value" name="apcache_provider" id="apcache_provider" value="TemplateProvider" data-apcache-key="APCACHE_KEY_PROVIDER">
+  </label>
+  <div id="apcache_provider_echo">APCACHE-PENDING[APCACHE_KEY_PROVIDER]</div>
+</div>
+<div class="field">
+  <label>Today (AP APCACHE_KEY_TODAY)
+    <input type="text" class="value" name="apcache_today" id="apcache_today" value="TemplateToday" data-apcache-key="APCACHE_KEY_TODAY">
+  </label>
+  <div id="apcache_today_echo">APCACHE-PENDING[APCACHE_KEY_TODAY]</div>
+</div>
+APCACHE_EXTRA_FIELD
+<div id="apcache_error_status">APCACHE-NO-ERROR</div>
+<div class="field">
+  <label>Subject
+    <input type="text" name="subject" id="subject" value="APCache bridge check">
+  </label>
+</div>
+</form>
+</body>
+</html>

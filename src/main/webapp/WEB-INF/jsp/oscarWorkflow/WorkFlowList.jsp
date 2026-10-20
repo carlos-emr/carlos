@@ -28,6 +28,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays active RH workflow records and workflow help links.
+    Features: workflow listing and About/License windows within the application context.
+    Parameters: no workflow-type request parameter is consumed; this page uses RH.
+    Authentication is enforced by the existing workflow entry point; each row links its patient.
+    @since 2026-09-19
+--%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -119,8 +126,8 @@
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="${pageContext.request.contextPath}/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="${pageContext.request.contextPath}/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

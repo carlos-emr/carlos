@@ -44,13 +44,20 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+// Issue #3701 also exercises the new provider's first login: access is refused
+// until the administrator follows the creation confirmation's role-assignment
+// link. Assigning only doctor must then make a fresh login reach the schedule.
+// Cleanup includes the facility/program memberships created by these UI steps.
+
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const {
+  buildArtifactPath, installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING,
+} = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -82,7 +89,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -95,6 +106,16 @@ function playwrightBaseUrl() {
   return `${baseUrl.origin}${pathname}/`;
 }
 
+// A MariaDB option file is NOT a raw key=value format: in a value, '\' starts an
+// escape sequence ('\s' is a space, '\t' a tab) and an unquoted '#' starts a
+// comment that truncates the rest of the line. Writing the password verbatim
+// therefore silently corrupts it and the script dies on "Access denied".
+// Double-quoting the value neutralizes '#' and surrounding whitespace; '\' and
+// '"' still need escaping inside the quotes.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
@@ -102,7 +123,11 @@ function createMysqlDefaultsFile() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-add-login-mysql-'));
   const file = path.join(dir, 'client.cnf');
   try {
-    fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+    fs.writeFileSync(
+      file,
+      `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`,
+      { mode: 0o600 }
+    );
     return { dir, file };
   } catch (error) {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -282,7 +307,12 @@ function cleanupRows(providerNo, username, firstName) {
   const nameMatch = firstName
     ? `last_name='Playwright' AND first_name='${escapeSql(firstName)}'`
     : null;
+  const ownedProvider = `provider_no='${escapeSql(providerNo)}'`
+    + (nameMatch ? ` OR provider_no IN (SELECT provider_no FROM provider WHERE ${nameMatch})` : '');
   const statements = [
+    `DELETE FROM program_provider WHERE ${ownedProvider}`,
+    `DELETE FROM provider_facility WHERE ${ownedProvider}`,
+    `DELETE FROM secUserRole WHERE ${ownedProvider}`,
     `DELETE FROM security WHERE user_name='${escapeSql(username)}' OR provider_no='${escapeSql(providerNo)}'`,
     `DELETE FROM providersite WHERE provider_no='${escapeSql(providerNo)}'`
       + (nameMatch ? ` OR provider_no IN (SELECT provider_no FROM provider WHERE ${nameMatch})` : ''),
@@ -339,6 +369,43 @@ async function login(page) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 }
 
+/** Exercise an actual new login in a separate session; credentials are never logged. */
+async function verifyNewProviderLogin(browser, username, expectDenied) {
+  const context = await browser.newContext({
+    baseURL: playwrightBaseUrl(), ignoreHTTPSErrors: true,
+  });
+  const page = await context.newPage();
+  const pageErrors = [];
+  const httpErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('response', response => {
+    if (response.status() >= 400) httpErrors.push({ status: response.status(), path: new URL(response.url()).pathname });
+  });
+  try {
+    await page.goto('./', { waitUntil: 'domcontentloaded' });
+    await page.locator('#username').fill(username);
+    await page.locator('#password').fill(fixturePassword);
+    await page.locator('#pin').fill(fixturePin);
+    await Promise.all([
+      page.waitForURL(/providercontrol/, { timeout: 30000 }),
+      page.locator('input[type="submit"],button[type="submit"]').first().click(),
+    ]);
+    if (expectDenied) {
+      await page.getByText('You tried to access a resource with insufficient privileges.').waitFor();
+      assert(httpErrors.length === 1 && httpErrors[0].status === 403
+        && httpErrors[0].path.endsWith('/provider/providercontrol'),
+        `Unassigned provider must be refused at the schedule: ${JSON.stringify(httpErrors)}`);
+      assert(await page.locator('a.adhour').count() === 0, 'Unassigned provider received schedule access');
+    } else {
+      await page.locator('a.adhour').first().waitFor({ state: 'visible', timeout: 30000 });
+      assert(httpErrors.length === 0, `Assigned provider hit HTTP errors: ${JSON.stringify(httpErrors)}`);
+    }
+    assert(pageErrors.length === 0, `New login raised JavaScript errors: ${JSON.stringify(pageErrors)}`);
+  } finally {
+    await context.close();
+  }
+}
+
 async function providerOptions(page) {
   const select = page.locator('select[name="provider_no"]').first();
   await select.waitFor({ state: 'visible', timeout: 30000 });
@@ -348,13 +415,30 @@ async function providerOptions(page) {
   })));
 }
 
+// Module scope so the SIGINT/SIGTERM handler (issue #3600) can reach the same
+// fixture identity the finally block cleans up.
+let providerNo = null;
+let username = null;
+// Stable across the providerNo reassignment below: seedProviderViaUi names the
+// created row Account<fixture id>, so cleanup can find it by name even after
+// providerNo is replaced with the app-assigned number.
+let fixtureFirstName = null;
+
+// Idempotent. Removes the fixture rows and the cleartext MySQL password file; a
+// finally does not run when the process is killed, so this is also the signal path.
+function cleanupRunFixtures() {
+  try {
+    if (mysqlDefaults && providerNo && username) {
+      cleanupRows(providerNo, username, fixtureFirstName);
+    }
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+}
+
+const signalHandlers = installCleanupSignalHandlers(cleanupRunFixtures);
+
 async function run() {
-  let providerNo = null;
-  let username = null;
-  // Stable across the providerNo reassignment below: seedProviderViaUi names the
-  // created row Account<fixture id>, so cleanup can find it by name even after
-  // providerNo is replaced with the app-assigned number.
-  let fixtureFirstName = null;
   let browser = null;
 
   try {
@@ -381,7 +465,7 @@ async function run() {
 
     cleanupRows(providerNo, username, fixtureFirstName);
 
-    const launchOptions = { headless: true };
+    const launchOptions = { headless: true, ...NO_PLAYWRIGHT_SIGNAL_HANDLING };
     if (chromePath) {
       launchOptions.executablePath = chromePath;
     }
@@ -463,6 +547,26 @@ async function run() {
     result.securityRows = securityRows;
     assert(securityRows.length === 1, `Expected one security row for ${username}/${providerNo}, found ${securityRows.length}`);
 
+    const guidance = page.locator('#providerRoleGuidance');
+    await guidance.waitFor({ state: 'visible' });
+    assert(/role assignments/i.test(await guidance.innerText()), 'Login creation must explain the remaining role-assignment step');
+    const existingRoles = rows(`SELECT role_name FROM secUserRole WHERE provider_no='${escapeSql(providerNo)}'`);
+    assert(existingRoles.length === 0, 'Creating a login unexpectedly granted a role');
+    await verifyNewProviderLogin(browser, username, true);
+
+    await page.locator('#assignProviderRole').click();
+    await page.locator('input[name="keyword"]').first().fill(`Playwright,${fixtureFirstName}`);
+    await page.locator('input[name="search"]').first().click();
+    const roleRow = page.locator('tr', { hasText: providerNo }).first();
+    await roleRow.locator('select[name="roleNew"]').selectOption('doctor');
+    await roleRow.locator('input[name="submit"][value="Add"]').click();
+    const assignedRoles = rows(`SELECT role_name FROM secUserRole WHERE provider_no='${escapeSql(providerNo)}'`);
+    assert(assignedRoles.length === 1 && assignedRoles[0][0] === 'doctor',
+      `Role assignment must grant only doctor: ${JSON.stringify(assignedRoles)}`);
+    await verifyNewProviderLogin(browser, username, false);
+    result.steps.push('new login denied without a role; explicit doctor assignment through the guidance link enabled schedule access');
+
+
     await page.goto('admin/ViewSecurityAddARecord', { waitUntil: 'networkidle', timeout: 30000 });
     const afterOptions = await providerOptions(page);
     result.afterOptions = afterOptions;
@@ -486,13 +590,9 @@ async function run() {
         await browser.close();
       }
     } finally {
-      try {
-        if (providerNo && username) {
-          cleanupRows(providerNo, username, fixtureFirstName);
-        }
-      } finally {
-        cleanupMysqlDefaultsFile();
-      }
+      cleanupRunFixtures();
+      // Last, so a signal arriving during cleanup still reaches the handler.
+      signalHandlers.dispose();
     }
   }
 }

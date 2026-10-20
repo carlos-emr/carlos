@@ -268,7 +268,17 @@
                         }
                     %>
 
+                    <%-- inboxInline below tells the viewer it is being rendered inline in the inbox
+                         rather than in its own window. It cannot work this out for itself: the
+                         jakarta.servlet.include.* attributes name the INCLUDED resource, not this
+                         page. It uses the flag for the Print button and, after a sign-off, to hide
+                         its own card — there being no window to close here.
+
+                         The comment sits outside the <jsp:include> on purpose: Jasper accepts only
+                         <jsp:param> elements in that body and fails the whole JSP compile on
+                         anything else, including a JSP comment. --%>
                     <jsp:include page="/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp" flush="true">
+                        <jsp:param name="inboxInline" value="true"/>
                         <jsp:param name="id" value="<%=segmentID %>"/>
                         <jsp:param name="segmentID" value="<%=segmentID %>"/>
                         <jsp:param name="providerNo" value="<%=providerNo %>"/>
@@ -322,22 +332,22 @@
 
                         <td>
                             <% if (result.isMDS()) { %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
+                            <a href="<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=SafeEncode.forUriComponent(segmentID)%>&amp;providerNo=<%=SafeEncode.forUriComponent(providerNo)%>&amp;searchProviderNo=<%=SafeEncode.forUriComponent(searchProviderNo)%>&amp;status=<%=SafeEncode.forUriComponent(status)%>" onclick="parent.reportWindow(this.href); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <% } else if (result.isCML()) { %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
+                            <a href="<%=request.getContextPath()%>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=SafeEncode.forUriComponent(segmentID)%>&amp;providerNo=<%=SafeEncode.forUriComponent(providerNo)%>&amp;searchProviderNo=<%=SafeEncode.forUriComponent(searchProviderNo)%>&amp;status=<%=SafeEncode.forUriComponent(status)%>" onclick="parent.reportWindow(this.href); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <% } else if (result.isHL7TEXT()) {
                                 String categoryType = result.getDiscipline();
 
                                 if ("REF_I12".equals(categoryType)) {
                             %>
-                            <a href="javascript:parent.popupConsultation('<%=segmentID%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
+                            <a href="<%=request.getContextPath()%>/encounter/ViewRequest?segmentId=<%=SafeEncode.forUriComponent(segmentID)%>" onclick="parent.popupConsultation('<%=SafeEncode.forJavaScriptAttribute(segmentID)%>'); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <%
                             } else {
                             %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay?inWindow=true&segmentID=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= status %>' context="uriComponent"/>&showLatest=true')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
+                            <a href="<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay?inWindow=true&amp;segmentID=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&amp;providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>&amp;searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&amp;status=<carlos:encode value='<%= status %>' context="uriComponent"/>&amp;showLatest=true" onclick="parent.reportWindow(this.href); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <%
                                 }
@@ -368,10 +378,10 @@
                                     duplicateLabIds.append(duplicateLabId);
                                 }
                             %>
-                            <a href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=segmentID%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>&demoName=<%=demoName%>&duplicateLabIds=<%=duplicateLabIds.toString()%>&isListView=<%=isListView%>',850,1020)"><%=labRead%><%=result.getPatientName()%>
+                            <a href="<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=SafeEncode.forUriComponent(segmentID)%>&amp;segmentID=<%=SafeEncode.forUriComponent(segmentID)%>&amp;providerNo=<%=SafeEncode.forUriComponent(providerNo)%>&amp;searchProviderNo=<%=SafeEncode.forUriComponent(searchProviderNo)%>&amp;status=<%=SafeEncode.forUriComponent(status)%>&amp;demoName=<%=SafeEncode.forUriComponent(result.getPatientName())%>&amp;duplicateLabIds=<%=duplicateLabIds.toString()%>&amp;isListView=<%=isListView%>&amp;inWindow=true" onclick="reportWindow(this.href,850,1020); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <% } else {%>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/BC/ViewLabDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="javaScript"/>
+                            <a href="<%=request.getContextPath()%>/lab/CA/BC/ViewLabDisplay?segmentID=<%=SafeEncode.forUriComponent(segmentID)%>&amp;providerNo=<%=SafeEncode.forUriComponent(providerNo)%>&amp;searchProviderNo=<%=SafeEncode.forUriComponent(searchProviderNo)%>&amp;status=<%=SafeEncode.forUriComponent(status)%>" onclick="parent.reportWindow(this.href); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="javaScriptAttribute"/>
                             </a>
                             <% }%>
                         </td>

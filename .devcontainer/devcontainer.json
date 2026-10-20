@@ -6,6 +6,7 @@
     "shutdownAction": "stopCompose",
     "dockerComposeOptions": ["--project-name", "carlos-emr"],
     "postCreateCommand": "cd /workspace && sh .devcontainer/development/setup/seed_data.sh && mvn -B dependency:go-offline dependency:sources dependency:resolve -Dclassifier=javadoc",
+    "postStartCommand": "sh /workspace/.devcontainer/development/scripts/setup-commit-signing",
 
     "customizations": {
         "vscode": {

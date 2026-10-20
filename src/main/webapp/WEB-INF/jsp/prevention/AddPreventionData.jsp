@@ -353,23 +353,47 @@
                 document.getElementById(id).style.display = 'none';
             }
 
+            // The "next date" fieldset, its "never warn" checkbox and the legend that
+            // toggles them all live inside the prevHash != null branch, so a request whose
+            // prevention type does not resolve renders "prevention not found" and none of
+            // them.
+            //
+            // disableifchecked is the one #3732 was reported on: body onload calls it on
+            // every load, including that page, where getElementById returns null and the
+            // handler threw before the user touched anything.
+            //
+            // showHideNextDate cannot be reached on that page at all -- its only caller is
+            // the legend's onclick, which is not rendered there. Its guards are defensive:
+            // they keep a future caller, or a layout that renders the legend without the
+            // fieldset, from reintroducing the same class of failure.
             function showHideNextDate(id, nextDate, neverWarn) {
-                if (document.getElementById(id).style.display == 'none') {
+                var container = document.getElementById(id);
+                if (!container) {
+                    return;
+                }
+                if (container.style.display == 'none') {
                     showItem(id);
                 } else {
                     hideItem(id);
-                    document.getElementById(nextDate).value = "";
-                    document.getElementById(neverWarn).checked = false;
-
+                    var nextDateField = document.getElementById(nextDate);
+                    if (nextDateField) {
+                        nextDateField.value = "";
+                    }
+                    var neverWarnBox = document.getElementById(neverWarn);
+                    if (neverWarnBox) {
+                        neverWarnBox.checked = false;
+                    }
                 }
             }
 
             function disableifchecked(ele, nextDate) {
-                if (ele.checked == true) {
-                    document.getElementById(nextDate).disabled = true;
-                } else {
-                    document.getElementById(nextDate).disabled = false;
+                var nextDateField = document.getElementById(nextDate);
+                if (!nextDateField) {
+                    return;
                 }
+                // The unresolved page has no "never warn" checkbox, so ele is null here;
+                // that is the same as unchecked, so the next-date field stays enabled.
+                nextDateField.disabled = !!(ele && ele.checked);
             }
 
         </SCRIPT>
@@ -669,9 +693,7 @@
 
                         </td>
                         <td style="text-align:right; background-color:silver;">
-                            <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
+                            <%@ include file="/WEB-INF/jsp/includes/about-license-links.jspf" %>
                         </td>
                     </tr>
                 </table>
@@ -711,6 +733,9 @@
                 <form action="${pageContext.request.contextPath}/prevention/AddPrevention" method="post" onsubmit="return handleFormSubmission()">
                     <%-- Startup lot lookup runs before CSRFGuard's asynchronous form injection. --%>
                     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+                    <%-- One rendering saves once (issue #4410): a double click or slow-response re-click
+                         repeats this token and AddPrevention2Action answers the repeat from the first save. --%>
+                    <input type="hidden" name="<%= PreventionSubmissionGuard.PARAMETER %>" value="<carlos:encode value='<%= PreventionSubmissionGuard.issue(session, demographic_no, id) %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="prevention" value="<carlos:encode value='<%= prevention != null ? prevention : "" %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no != null ? demographic_no : "" %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="providerNo" value="<carlos:encode value='<%= provider != null ? provider : "" %>' context="htmlAttribute"/>"/>

@@ -16,11 +16,11 @@
  * Rich Text Letter attachment families end to end: each family the letter's Attach popup offers
  * (documents, labs, HRM reports, other eForms, encounter forms) is attached to its own saved
  * letter, must SHOW on the saved letter (the "Attached Files" panel, the hidden attachment input
- * the toolbar re-submits, the toolbar badge) and must APPEAR in the PDF from both download paths:
- * the toolbar's Download (saveAndDownloadEForm) and printControl.js's PDF button (print=true,
- * the legacy alias AddEForm2Action folds into the same download). Appearing is proven by page
- * count: the merged PDF must carry more pages than the same letter downloaded before the
- * attachment, and both paths must agree. When poppler's pdftotext is on PATH the letter's typed
+ * the toolbar re-submits, the toolbar badge) and must APPEAR in the PDF from every download path:
+ * the toolbar's Download (saveAndDownloadEForm), its Save PDF Only menu item, and printControl.js's
+ * PDF button (print=true, the legacy alias AddEForm2Action folds into the same download). Appearing
+ * is proven by page count: the merged PDF must carry more pages than the same letter downloaded
+ * before the attachment, and all paths must agree. When poppler's pdftotext is on PATH the letter's typed
  * marker (and, for labs/HRM/eForms, a family-specific text) is also required in the PDF text.
  *
  * Page counts are read without any PDF library: the merged file's page dictionaries live inside
@@ -39,6 +39,12 @@
  * A family with nothing to attach is reported as SKIP and does not fail the run unless
  * RTL_REQUIRE_ALL_FAMILIES=1.
  *
+ * The letters are saved for demographic 1 on purpose: what this check asserts is that patient's documents, labs, forms and HRM
+ * reports in the Attach popup, which an owned patient does not have. Every instance it saves, with its values and attachment rows,
+ * is therefore removed again by its number (lib/eform-instance-residue.js: only that patient's instances above a mark taken before
+ * the first save), where the application's own Delete only marks them removed; it used to leave 25 instances, 245 values and 20
+ * attachment rows behind per run. MYSQL_* reaches the database.
+ *
  * Environment: BASE_URL, CHROME_PATH, TEST_USER/TEST_PASSWORD/TEST_PIN, RTL_DEMOGRAPHIC_NO,
  * RTL_FORM_NAME, RTL_SCREENSHOT_DIR, RTL_REQUIRE_ALL_FAMILIES, RTL_HRM_TEXT_MARKER, RTL_HRM_DOCUMENT_NO (default 1).
  */
@@ -46,6 +52,9 @@ const fs = require('fs');
 const zlib = require('zlib');
 const { spawnSync } = require('child_process');
 const { chromium } = require('playwright');
+const { settleOperations } = require('./graceful-signal-cancellation');
+const { createSqlRunner, readConfig } = require('./lib/playwright-harness');
+const { markEformInstances, removeEformInstancesSince } = require('./lib/eform-instance-residue');
 const {
   assert,
   buildArtifactPath,
@@ -200,16 +209,22 @@ async function typeIntoLetter(page, text) {
   await page.keyboard.type(text);
 }
 
-async function downloadPdf(page, locator, label) {
+// `trigger` defaults to a real click. The legacy printControl.js buttons are hidden behind the
+// floating toolbar but remain the supported path for forms that call them, so they are driven with
+// a dispatched click, which runs their handlers without the visibility a user click needs.
+async function downloadPdf(page, locator, label, trigger = (target) => target.click()) {
   const file = buildArtifactPath(config.screenshotDir, `rtl-attachment-pdf-${label}-${Date.now()}`, '.pdf');
   const downloadPromise = page.waitForEvent('download', { timeout: 120000 });
   const responsePromise = page.waitForResponse(
     (response) => response.url().includes('/eform/addEForm') && response.request().method() === 'POST',
     { timeout: 120000 },
   );
-  await locator.click();
-  const response = await responsePromise;
-  const download = await downloadPromise;
+  // Settle the trigger and both waits together: awaiting one while another is pending lets a
+  // second timeout reject unhandled and kill the process before cleanup runs (#3607). The trigger
+  // goes first so its own failure is the one reported, not the waits' timeout.
+  const [, download, response] = await settleOperations([
+    Promise.resolve().then(() => trigger(locator)), downloadPromise, responsePromise,
+  ]);
   try {
     // saveAs sits inside the try as well: if it rejects part-way, whatever it did write is
     // still removed below.
@@ -224,7 +239,7 @@ async function downloadPdf(page, locator, label) {
   }
 }
 
-// Both download paths re-render the saved view; wait for it to settle before the next click.
+// Every download path re-renders the saved view; wait for it to settle before the next click.
 async function settleSavedView(page) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await waitForEditor(page);
@@ -321,7 +336,9 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     const panelText = (await saved.locator('#tdAttachedDocs').innerText().catch(() => '')).trim();
     // Plain string matching (no RegExp built from page values): "Doc #3" must not match "Doc #31".
     // The panel prints "<Type> #<id>" lines only, so counting those lines is a safe detail to log.
-    const panelEntries = (text) => (text || '').split(/\r?\n/).map((line) => line.trim()).filter((line) => /^[A-Za-z]+ #\d+$/.test(line));
+    // Lab attachment IDs include their source (for example HL7:162), while
+    // other attachment families use numeric IDs.
+    const panelEntries = (text) => (text || '').split(/\r?\n/).map((line) => line.trim()).filter((line) => /^[A-Za-z]+ #[A-Za-z0-9:]+$/.test(line));
     const panelEntry = { test: (text) => panelEntries(text).includes(`${family.panelPrefix} #${value}`) };
     record(family.key, 'Attached Files panel lists it', panelEntry.test(panelText), `entries=${panelEntries(panelText).length}`);
     const hidden = await saved.locator(`input[name="${family.inputName}"]`).evaluateAll((els) => els.map((e) => e.value));
@@ -330,13 +347,20 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     record(family.key, 'toolbar Attach badge counts it', Number(badge) >= 1, `badge=${badge}`);
     await screenshot(saved, config.screenshotDir, `rtl-attachment-pdf-${family.key}-saved`);
 
-    // The attachment must APPEAR in the PDF from both download paths.
+    // The attachment must APPEAR in the PDF from every download path.
     const toolbar = await downloadPdf(saved, saved.locator('#remoteDownloadButton'), `${family.key}-toolbar`);
     record(family.key, 'toolbar Download PDF gains the attachment pages',
       toolbar.status === 200 && toolbar.pages > baseline.pages,
       `pages=${toolbar.pages} (baseline ${baseline.pages}) size=${toolbar.size}`);
     await settleSavedView(saved);
-    const printAlias = await downloadPdf(saved, saved.locator('input[name="pdfButton"]'), `${family.key}-print-alias`);
+    await saved.locator("#remotePrintOptions summary").click();
+    const savePdf = await downloadPdf(saved, saved.locator("#remoteSavePdfButton"), `${family.key}-save-pdf`);
+    record(family.key, 'Save PDF Only matches the toolbar Download packet',
+      savePdf.status === 200 && savePdf.pages === toolbar.pages,
+      `pages=${savePdf.pages} size=${savePdf.size}`);
+    await settleSavedView(saved);
+    const printAlias = await downloadPdf(saved, saved.locator('input[name="pdfButton"]'), `${family.key}-print-alias`,
+      (target) => target.dispatchEvent('click'));
     record(family.key, 'form PDF button (print=true alias) PDF matches the toolbar PDF',
       printAlias.status === 200 && printAlias.pages === toolbar.pages,
       `pages=${printAlias.pages} size=${printAlias.size}`);
@@ -357,7 +381,7 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
       }
       for (const [needle, what, loggable] of expected) {
         record(family.key, `PDF text contains the ${what}`,
-          toolbar.text.includes(needle) && printAlias.text != null && printAlias.text.includes(needle),
+          [toolbar, savePdf, printAlias].every((pdf) => pdf.text != null && pdf.text.includes(needle)),
           loggable ? needle : `${needle.length} chars`);
       }
       // The packet is letter first, attachments after: every family-specific text must come after
@@ -368,10 +392,10 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
       }
     }
 
-    // The two re-saves the downloads performed must not have detached it.
+    // The re-saves the downloads performed must not have detached it.
     await settleSavedView(saved);
     const fetched = await invokeFetchAttached(saved);
-    record(family.key, 'still attached after both downloads', panelEntry.test(fetched.text || ''), `entries=${panelEntries(fetched.text).length}`);
+    record(family.key, 'still attached after every download', panelEntry.test(fetched.text || ''), `entries=${panelEntries(fetched.text).length}`);
     // The downloads saved newer instances; hand the current one to the eForm family so it attaches
     // a letter the popup still lists.
     const currentFdid = await saved.locator('#fdid').inputValue().catch(() => fdid);
@@ -389,6 +413,9 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
 
 (async () => {
   const recorder = createRecorder();
+  const sql = createSqlRunner(readConfig().mysql);
+  // Before the first save: the instances saved after this are the run's, and only they are removed.
+  const instanceMark = markEformInstances(sql);
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
     // Only a loopback target (the packaged install's self-signed front door) may skip TLS
@@ -416,6 +443,13 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2).slice(0, 6000));
   } finally {
     await browser.close();
+    try {
+      removeEformInstancesSince(sql, instanceMark, config.demographicNo);
+    } catch (error) {
+      record('cleanup', 'the saved letters were removed', false, String(error && error.message || error));
+    } finally {
+      sql.dispose();
+    }
   }
   const failed = results.filter((r) => !r.ok).length;
   const skipped = results.filter((r) => r.skipped).length;

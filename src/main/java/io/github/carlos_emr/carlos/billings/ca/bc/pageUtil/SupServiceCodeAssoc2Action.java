@@ -40,6 +40,9 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -98,27 +101,80 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
+        boolean mutation = MODE_EDIT.equals(actionMode) || MODE_DELETE.equals(actionMode);
+        if (!mutation && !MODE_VIEW.equals(actionMode)) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        // Associations are shared billing configuration, so mutating them needs the same
+        // billing-admin rights billingSVCTrayAssoc.jsp enforces with its <security:oscarSec>
+        // tag. A successful mutation redirects instead of rendering that JSP, so the check has
+        // to be repeated here: without it a plain "_billing" writer could POST the action
+        // directly and change the configuration the page refuses to show them.
+        if (mutation && !securityInfoManager.hasPrivilege(loggedInInfo, ADMIN_OBJECTS, "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.billing or _admin)");
+        }
+        if (mutation && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         SupServiceCodeAssocDAO dao = SpringUtils.getBean(SupServiceCodeAssocDAO.class);
-        if (!MODE_VIEW.equals(this.getActionMode())) {
-            if (validateForm()) {
-                if (MODE_DELETE.equals(this.getActionMode())) {
-                    dao.deleteServiceCodeAssociation(this.getId());
-                } else if (MODE_EDIT.equals(this.getActionMode())) {
-                    dao.saveOrUpdateServiceCodeAssociation(this.getPrimaryCode(),
-                            this.getSecondaryCode());
+        if (mutation && validateForm()) {
+            if (MODE_DELETE.equals(actionMode)) {
+                if (id == null || !id.matches("[1-9][0-9]*")) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
                 }
-                try {
-                    response.sendRedirect(request.getContextPath() + "/billing/CA/BC/supServiceCodeAssocAction");
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                return NONE;
+                dao.deleteServiceCodeAssociation(id);
+            } else {
+                dao.saveOrUpdateServiceCodeAssociation(primaryCode, secondaryCode);
             }
+            try {
+                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/supServiceCodeAssocAction");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return NONE;
         }
 
+        // The JSP renders errors from this request attribute; getActionErrors() is not visible
+        // to it once Struts forwards, so copy the collection across like the other 2Actions do.
+        List<String> renderedErrors = new ArrayList<>();
+        for (String error : getActionErrors()) {
+            renderedErrors.add(stripBreakTags(error));
+        }
+        request.setAttribute("actionErrors", renderedErrors);
         request.setAttribute("list", dao.getServiceCodeAssociactions());
         return SUCCESS;
     }
+
+    /**
+     * Strips legacy {@code <br>} markup from a validation message.
+     * <p>
+     * Every locale ends these messages with a trailing {@code <br/>}, left over from when BC
+     * billing errors were concatenated into raw HTML. This page renders each message through
+     * {@code <carlos:encode>} in its own {@code <li>}, which already breaks the line and would
+     * otherwise print the tag as literal text. The strip happens here rather than in the resource
+     * bundles because {@code SaveAssoc2Action} and {@code BillingCreateBilling2Action} share these
+     * keys and still render them as markup.
+     * <p>
+     * Note the order: break tags go first and nothing is unescaped, so a message that legitimately
+     * contains the escaped text {@code &lt;br/&gt;} keeps it, and the JSP's encoder remains the
+     * only thing deciding how the result reaches the browser.
+     *
+     * @param message a resolved action error, possibly null
+     * @return the message without break tags, never null
+     */
+    private static String stripBreakTags(String message) {
+        if (message == null) {
+            return "";
+        }
+        return BREAK_TAG.matcher(message).replaceAll(" ").trim();
+    }
+
+    /** Matches {@code <br>}, {@code <br/>} and {@code <br />} in any case. */
+    private static final Pattern BREAK_TAG = Pattern.compile("<br\\s*/?>", Pattern.CASE_INSENSITIVE);
 
     /**
      * Validates the service code association form data.
@@ -156,6 +212,13 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
         }
         return test;
     }
+
+    /**
+     * Security objects that grant the right to change associations, matching the
+     * {@code objectName} the JSP gate uses. {@code SecurityInfoManager} treats the
+     * comma-separated list as "any of these", not "all of these".
+     */
+    private static final String ADMIN_OBJECTS = "_admin.billing,_admin";
 
     /** Action mode constant for edit/create operation */
     public static final String MODE_EDIT = "edit";

@@ -95,7 +95,7 @@
         - Ticklers: io.github.carlos_emr.carlos.managers.TicklerManager
         - Macros: Jackson ObjectMapper for JSON parsing
         - Security: OWASP Encoder, SecurityInfoManager
-        - UI: Bootstrap 5, showDocument.js, oscarMDSIndex.js (jQuery UI removed)
+        - UI: Bootstrap 5, showDocument.js, oscarMDSIndex.js, jQuery UI dialog/autocomplete
 
     @since 2003 (Macro and Tickler improvements 2026-02)
 --%>
@@ -130,6 +130,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.*" %>
@@ -216,6 +217,12 @@
     }
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, documentNo, request.getRemoteAddr(),demographicID);
     String docId = curdoc.getDocId();
+    String sourceRevision = "";
+    try {
+        sourceRevision = io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.forDocumentFile(curdoc.getFileName());
+    } catch (java.io.IOException | SecurityException unavailableRevision) {
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("Document revision could not be observed; page edits require refresh");
+    }
     String ackFunc;
     if(skipComment) {
       ackFunc = "updateStatus('acknowledgeForm_" + SafeEncode.forJavaScript(docId) + "'," + inQueueB + ");";
@@ -245,6 +252,18 @@
     String url2 = cp + "/documentManager/ManageDocument?method=display&doc_no=" + docId;
     String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
 
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    boolean faxEnabled = FaxManager.isEnabled()
+        && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null);
+    // Exact match, matching AnnotateDocument2Action's own test. contains("pdf") also matched
+    // "application/pdfx", so the button was offered for documents the action then refused.
+    boolean docIsPdf = "application/pdf".equalsIgnoreCase(
+        org.apache.commons.lang3.StringUtils.trimToEmpty(curdoc.getContentType()));
+    // Annotation composes and files a NEW document, so it needs _edoc write. Without this the
+    // button was live for a read-only user and the click ended on the security error page.
+    boolean canAnnotate = docIsPdf
+        && securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null);
+
     Set<Integer> docFiledQueues = new HashSet<>();
 
     request.setAttribute("mrpProviderName", mrpProviderName);
@@ -269,7 +288,6 @@
     DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     String strDate = nearFuture.format(dtFormatter);
 
-    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
 
     if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic) {
@@ -302,6 +320,9 @@
         </script>
         <!-- include jQuery Bootstrap jQueryUI fontawesome standard styles -->
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <%-- Forward loads its dialog by AJAX; scripts in that response are not loaded. --%>
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context="htmlAttribute"/>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context="htmlAttribute"/>/js/carlosAutocomplete.js"></script>
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
 
@@ -360,29 +381,6 @@
                 })
                 .catch(function(error) {
                     console.error('Error:', error);
-                });
-            }
-
-
-            function rotate90(id) {
-                var btn = document.getElementById('rotate90btn_' + id);
-                if (btn) btn.disabled = true;
-
-                fetch(contextpath + "/documentManager/SplitDocument", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: "method=rotate90&document=" + encodeURIComponent(id) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken())
-                })
-                .then(function(response) {
-                    if (btn) btn.disabled = false;
-                    var img = document.getElementById('docImg_' + id);
-                    if (img) img.src = contextpath + "/documentManager/ManageDocument?method=showPage&doc_no=" + encodeURIComponent(id) + "&page=1&rand=" + (new Date().getTime());
-                })
-                .catch(function(error) {
-                    console.error('Error:', error);
-                    if (btn) btn.disabled = false;
                 });
             }
 
@@ -488,6 +486,18 @@
                onClick="window.close()">
         <input type="button" class="btn btn-outline-secondary btn-sm" id="printBtn_<%=docId%>" value=" <fmt:message key="global.btnPrint"/> "
                onClick="popup(700,960,'<%=url2%>','file download')">
+        <%if (faxEnabled) {%>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="faxBtn_<%=docId%>"
+               value=" <fmt:message key="showDocument.btnFax"/> "
+               <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.faxPdfOnlyTooltip"/>" disabled<%}%>
+               <%if (docIsPdf) {%>onClick="popup(800,850,'${pageContext.servletContext.contextPath}/documentManager/FaxDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','faxDoc')"<%}%>>
+        <%}%>
+        <%-- Annotate opens the markup viewer. Saving there files a NEW document rather than
+             editing this one, so the received record is never altered. PDF only. --%>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="annotateBtn_<%=docId%>"
+               value=" <fmt:message key="showDocument.btnAnnotate"/> "
+               <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.annotatePdfOnlyTooltip"/>" disabled<%} else if (!canAnnotate) {%>title="<fmt:message key="showDocument.annotateNoRightsTooltip"/>" disabled<%}%>
+               <%if (canAnnotate) {%>onClick="popup(900,1000,'${pageContext.servletContext.contextPath}/documentManager/AnnotateDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','annotateDoc')"<%}%>>
         <%
             String btnDisabled = "disabled";
             if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {
@@ -556,7 +566,7 @@
     <table class="docTable">
         <tr>
             <td class="pdfPreviewColumn" style="vertical-align: top;">
-                <div style="text-align: right;font-weight: bold">
+                <div class="document-pagination" style="text-align: right; font-weight: bold; position: sticky; top: 0; background: white; z-index: 1;">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
                     <a id="firstP_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
                        onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></a>
@@ -569,21 +579,10 @@
                     <%} %>
                 </div>
                 <% if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
-                <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" src="<%=url%>"
-                                                         onerror="this.src='<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptAttribute"/>/images/icon_alert.gif'"/></a>
+                <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" data-document-image-src="<carlos:encode value='<%=url%>' context="htmlAttribute"/>"/></a>
                 <%} else {%>
                 <div id="docDispPDF_<%=docId%>"></div>
                 <%}%>
-                <div style="text-align: right;font-weight: bold">
-                    <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
-                    <a id="firstP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></a>
-                    <a id="prevP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
-                       onclick="prevPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.previous"/></a>
-                    <a id="nextP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);" onclick="nextPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.next"/></a>
-                    <a id="lastP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);" onclick="lastPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.last"/></a>
-                    <%} %>
-                </div>
             </td>
 
             <td class="pdfAssignmentToolsColumn" style="vertical-align: top;">
@@ -627,15 +626,21 @@
                                     %>
                                 </oscar:oscarPropertiesCheck>
                                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
+                                    <input type="hidden" id="sourceRevision_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"
+                                           value="<carlos:encode value='<%= sourceRevision %>' context="htmlAttribute"/>">
+                                    <% if (sourceRevision.isEmpty()) { %><p role="alert"><fmt:message key="documentMutation.sourceUnavailable"/></p><% } %>
                                     <input onclick="split('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','${carlos:forJavaScript(demoName)}')"
                                            type="button" class=" btn btn-light btn-sm" value="<fmt:message key="inboxmanager.document.split"/>">
                                     <input id="rotate180btn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" onclick="rotate180('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')"
+                                           <%=sourceRevision.isEmpty() ? "disabled" : ""%>
                                            type="button" class=" btn btn-light btn-sm"
                                            value="<fmt:message key="inboxmanager.document.rotate180"/>">
                                     <input id="rotate90btn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" onclick="rotate90('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')"
+                                           <%=sourceRevision.isEmpty() ? "disabled" : ""%>
                                             type="button" class=" btn btn-light btn-sm"
                                            value="<fmt:message key="inboxmanager.document.rotate90"/>">
                                     <% if (numOfPage > 1) { %><input id="removeFirstPagebtn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"
+                                            <%=sourceRevision.isEmpty() ? "disabled" : ""%>
                                             onclick="removeFirstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')"
                                             type="button" class=" btn btn-light btn-sm"
                                             value="<fmt:message key="inboxmanager.document.removeFirstPage"/>"><% } %>
@@ -911,6 +916,8 @@
 
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
+<script src="${pageContext.servletContext.contextPath}/js/documentImageLoader.js"></script>
+    <%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <script type="text/javascript" src="showDocument.js"></script>
@@ -940,28 +947,7 @@
          * The inbox list view keeps its original removeLink from oscarMDSIndex.js.
          */
         window.removeLink = function(docTypeStr, docId, providerNo, e) {
-            var data = new URLSearchParams({
-                method: 'removeLinkFromDocument',
-                docType: docTypeStr,
-                docId: docId,
-                providerNo: providerNo,
-                'CSRF-TOKEN': getCsrfToken()
-            });
-            fetch(contextpath + '/documentManager/ManageDocument', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: data.toString()
-            }).then(function(response) {
-                if (response.ok) {
-                    if (e && e.parentNode) {
-                        e.parentNode.remove();
-                    }
-                } else {
-                    console.error('Error removing provider link: ' + response.statusText);
-                }
-            }).catch(function(error) {
-                console.error('Error removing provider link:', error);
-            });
+            return window.CarlosDocumentMetadata.unlink(docTypeStr, docId, providerNo, e);
         };
     }
 

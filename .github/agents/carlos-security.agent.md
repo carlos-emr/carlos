@@ -23,7 +23,7 @@ tools: ["*"]
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 **Tech Stack** (April 2026):
-- Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3
+- Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3
 - Tomcat 11.0, MariaDB/MySQL, Spring Security 7.0.4
 - OWASP CSRFGuard 4.5, OWASP Encoder 1.4.0 (Jakarta edition)
 - Apache CXF 4.1.5, HAPI FHIR 8.4.0, Drools 10.1.0

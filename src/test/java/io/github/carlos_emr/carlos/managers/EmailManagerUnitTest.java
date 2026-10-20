@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -44,9 +45,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.Consent;
+import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
@@ -55,10 +61,13 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
+import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -89,6 +98,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     private EmailConsentResolver emailConsentResolver;
     private EmailSenderFactory emailSenderFactory;
     private EmailSender emailSender;
+    private EmailFooterLogoService footerLogoService;
     private LoggedInInfo loggedInInfo;
     private String originalKey;
 
@@ -104,13 +114,9 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailConsentResolver = mock(EmailConsentResolver.class);
         emailSenderFactory = mock(EmailSenderFactory.class);
         emailSender = mock(EmailSender.class);
+        footerLogoService = mock(EmailFooterLogoService.class);
         loggedInInfo = new LoggedInInfo();
-        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class));
-
-        injectDependency(emailManager, "emailConfigDao", emailConfigDao);
-        injectDependency(emailManager, "emailLogDao", emailLogDao);
-        injectDependency(emailManager, "demographicManager", demographicManager);
-        injectDependency(emailManager, "providerManager", providerManager);
+        initializeEmailManager(emailConsentResolver);
         when(securityInfoManager.hasPrivilege(
                 loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(emailConfig());
@@ -346,6 +352,158 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
         assertThat(config.getConfigDetailsJson()).isEqualTo(original);
         verify(emailConfigDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("should block implied consent without confirmation through the real resolver")
+    void shouldBlockSend_whenImpliedConsentHasNoOverride() {
+        useImpliedConsentRecord(false);
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
+        assertThat(emailLog.getConsentId()).isEqualTo(55);
+        assertThat(emailLog.getConsentLastUpdateDate()).isEqualTo(new Date(1_000L));
+        assertThat(emailLog.getConsentOverride()).isFalse();
+        verify(emailLogDao).merge(emailLog);
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should send implied consent with a documented override through the real resolver")
+    void shouldSendWithAuditSnapshot_whenImpliedConsentHasDocumentedOverride() throws Exception {
+        useImpliedConsentRecord(false);
+        EmailData emailData = emailData();
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("Patient verbally confirmed email consent");
+        when(emailSenderFactory.create(any(), any(), any())).thenReturn(emailSender);
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
+        assertThat(emailLog.getConsentId()).isEqualTo(55);
+        assertThat(emailLog.getConsentLastUpdateDate()).isEqualTo(new Date(1_000L));
+        assertThat(emailLog.getConsentOverride()).isTrue();
+        assertThat(emailLog.getConsentOverrideReason()).isEqualTo("Patient verbally confirmed email consent");
+        verify(emailLogDao).merge(emailLog);
+        verify(emailSender).sendPrepared();
+    }
+
+    @Test
+    @DisplayName("should block opted out implied consent even with an override through the real resolver")
+    void shouldBlockSend_whenImpliedConsentIsOptedOutEvenWithOverride() {
+        useImpliedConsentRecord(true);
+        EmailData emailData = emailData();
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("Patient verbally confirmed email consent");
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.OPT_OUT);
+        assertThat(emailLog.getConsentOverride()).isFalse();
+        assertThat(emailLog.getConsentOverrideReason()).isEmpty();
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should log the footer apart from the body and send both")
+    void shouldStoreFooterApartFromBody_whenSendAccepted() throws Exception {
+        EmailData emailData = emailData();
+        emailData.setFooter("<b>Riverside Clinic</b> footer<script>x()</script>");
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.OPT_IN, 55, new Date()));
+        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
+        when(emailSenderFactory.create(any(), any(), sent.capture())).thenReturn(emailSender);
+        EmailInlineImage logo = new EmailInlineImage("clinic-logo-1@carlos-emr", "image/png", new byte[] {1});
+        when(footerLogoService.inlineLogo()).thenReturn(logo);
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        // The chart note is built from the body, so the body must stay footer-free.
+        assertThat(emailLog.getBody()).isEqualTo("Body");
+        // The log keeps the cleaned, formatted footer that was sent.
+        assertThat(emailLog.getFooter()).containsSubsequence("<b>Riverside Clinic</b> footer", "FAKE Mandatory Clinic");
+        assertThat(sent.getValue().getTransmittedBody()).isEqualTo("Body\n\nRiverside Clinic footer\n\nFAKE Mandatory Clinic");
+        assertThat(sent.getValue().getFooterLogo()).isEqualTo(logo);
+        assertThat(sent.getValue().getTransmittedHtml()).contains("cid:clinic-logo-1@carlos-emr");
+    }
+
+    @Test
+    @DisplayName("should fail the send before writing any log row when the clinic logo cannot be read")
+    void shouldFailBeforeLogging_whenLogoLookupFails() {
+        EmailData emailData = emailData();
+        emailData.setFooter("<b>Riverside Clinic</b>");
+        when(footerLogoService.inlineLogo()).thenThrow(new IllegalStateException("database unavailable"));
+
+        assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData))
+                .isInstanceOf(IllegalStateException.class);
+
+        // Nothing is left PENDING: no row was written and nothing reached a sender.
+        verify(emailLogDao, never()).persist(any());
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should include the clinic footer and its logo even when personal text is empty")
+    void shouldIncludeClinic_whenNoPersonalFooter() throws Exception {
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.OPT_IN, 55, new Date()));
+        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
+        when(emailSenderFactory.create(any(), any(), sent.capture())).thenReturn(emailSender);
+
+        emailManager.sendEmail(loggedInInfo, emailData());
+
+        verify(footerLogoService).inlineLogo();
+        assertThat(sent.getValue().getTransmittedHtml()).contains("FAKE Mandatory Clinic");
+        assertThat(sent.getValue().getSentFooter()).isEqualTo("FAKE Mandatory Clinic");
+    }
+
+    @Test
+    @DisplayName("should keep the footer on the failed log when the sender account is missing")
+    void shouldStoreFooterOnFailedLog_whenSenderConfigurationMissing() {
+        EmailData emailData = emailData();
+        emailData.setSenderConfigId(99);
+        emailData.setFooter("<i>Riverside Clinic footer</i>");
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.FAILED);
+        assertThat(emailLog.getBody()).isEqualTo("Body");
+        assertThat(emailLog.getFooter()).containsSubsequence("<i>Riverside Clinic footer</i>", "FAKE Mandatory Clinic");
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    private void initializeEmailManager(EmailConsentResolver resolver) {
+        emailManager = new EmailManager(resolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class));
+        injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service(footerLogoService));
+        injectDependency(emailManager, "emailConfigDao", emailConfigDao);
+        injectDependency(emailManager, "emailLogDao", emailLogDao);
+        injectDependency(emailManager, "demographicManager", demographicManager);
+        injectDependency(emailManager, "providerManager", providerManager);
+    }
+
+    private void useImpliedConsentRecord(boolean optout) {
+        UserPropertyDAO userPropertyDAO = mock(UserPropertyDAO.class);
+        PatientConsentManager patientConsentManager = mock(PatientConsentManager.class);
+        UserProperty property = new UserProperty();
+        property.setValue("EmailConsent");
+        ConsentType consentType = new ConsentType();
+        consentType.setName("EmailConsent");
+        consentType.setActive(true);
+        Consent consent = new Consent();
+        ReflectionTestUtils.setField(consent, "id", 55);
+        consent.setExplicit(false);
+        consent.setOptout(optout);
+        consent.setEditDate(new Date(1_000L));
+        when(userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION)).thenReturn(property);
+        when(patientConsentManager.getConsentType("EmailConsent")).thenReturn(consentType);
+        when(patientConsentManager.getConsentByDemographicAndConsentType(loggedInInfo, 123, consentType))
+                .thenReturn(consent);
+        initializeEmailManager(new EmailConsentResolver(userPropertyDAO, patientConsentManager));
     }
 
     private EmailData emailData() {

@@ -89,8 +89,11 @@
     <div id="viewTemplateActions" class="form-actions noprint">
         <input type="button" class="btn btn-secondary" value="Back" onclick="javascript: window.history.back();return false;"/>
         <input type="button" class="btn btn-secondary" value="Print" onclick="javascript: window.print();"/>
+        <%-- Template changes need _report write (ManageTemplates2Action); readers do not get controls that would only end in a security error. --%>
+        <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="w">
         <input type="button" class="btn btn-primary" value="Edit"
                onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<carlos:encode value='<%= templateid %>' context="uriComponent"/>&opentext=1'"/>
+        </security:oscarSec>
     </div>
 
 </html>

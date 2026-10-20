@@ -106,91 +106,81 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() {
-        MiscUtils.getLogger().debug("FrmFormRHPrevention Action");
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+        String demographicNo = RhFormRequestGuard.authorize(request, response, securityInfoManager);
+        if (demographicNo == null) return NONE;
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        final String patient = demographicNo;
+        try {
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+            Integer formId = transaction.execute(status -> {
+                try {
+                    return saveInTransaction(patient, info.getLoggedInProviderNo());
+                } catch (SQLException failure) {
+                    throw new IllegalStateException("Unable to save RH form", failure);
+                }
+            });
+            request.setAttribute("demographic_no", patient);
+            request.setAttribute("savedRhFormId", String.valueOf(formId));
+            LogAction.addLog(info.getLoggedInProviderNo(), LogConst.ADD, "RhImmuneGlobulin",
+                    String.valueOf(formId), request.getRemoteAddr());
+            LogAction.addLog(info.getLoggedInProviderNo(), LogConst.UPDATE, "WF_RH",
+                    (String) request.getAttribute("savedRhState"), request.getRemoteAddr());
+            return SUCCESS;
+        } catch (IllegalArgumentException invalid) {
+            RhFormRequestGuard.rejectInvalidWorkflow(response);
+            return NONE;
+        } catch (RuntimeException failure) {
+            MiscUtils.getLogger().error("RH form save failed", failure);
+            RhFormRequestGuard.rejectSaveFailure(response);
+            return NONE;
         }
+    }
 
-        String demographicNo = request.getParameter("demographic_no");
-        if (demographicNo == null) {
-            demographicNo = (String) request.getAttribute("demographic_no");
-        }
-        String ip = request.getRemoteAddr();
-        String providerNo = (String) request.getSession().getAttribute("user");
+    private int saveInTransaction(String demographicNo, String providerNo) throws SQLException {
         String workflowId = request.getParameter("workflowId");
         String state = request.getParameter("state");
-
-        MiscUtils.getLogger().debug("FrmFormRHPrevention2Action demographic " + demographicNo);
-        String af = SUCCESS;
-
-        int workId = -1;
-
-        String workflowType = "RH";
-        WorkFlowFactory flowFactory = new WorkFlowFactory();
-        WorkFlow flow = flowFactory.getWorkFlow(workflowType);
-        List<Map<String, Object>> currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
-
-        String dateToParse = request.getParameter("edd");
-        MiscUtils.getLogger().debug("New workflow for " + demographicNo + " EDD " + dateToParse);
-        Date endDate = UtilDateUtilities.StringToDate(dateToParse);
-
-        //Currently open work flows ?
-        if (currentWorkFlows != null && currentWorkFlows.size() > 0) {
-            MiscUtils.getLogger().debug("size of current workflows " + currentWorkFlows.size());
-            request.setAttribute("currentWorkFlow", currentWorkFlows.get(0));
-            Map<String, Object> h = currentWorkFlows.get(0);
-            String currentId = (String) h.get("ID");
-            if (workflowId != null) {
-                //LOG CHANGE NOW
-                MiscUtils.getLogger().debug("Changing workflow for  " + demographicNo + " to " + state);
-
-                WorkFlowState wfs = new WorkFlowState();
-
-                wfs.updateWorkFlowState(workflowId, state, endDate);
-                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, "WF_" + workflowType, state, ip);
+        if (state != null && !java.util.Set.of("1", "2", "3", "4", "5", "C").contains(state)) {
+            throw new IllegalArgumentException("Invalid RH state");
+        }
+        WorkFlow flow = new WorkFlowFactory().getWorkFlow("RH");
+        List<Map<String, Object>> current = flow.getActiveWorkFlowList(demographicNo);
+        Map<String, Object> selected = null;
+        if (current != null) {
+            for (Map<String, Object> row : current) {
+                if (workflowId == null || workflowId.equals(row.get("ID"))) {
+                    selected = row;
+                    break;
+                }
             }
-        } else {
-            //if none are found open, offer to create a new one  (could be existing but closed)
-            request.setAttribute("newWorkFlowNeeded", "true");
-
+        }
+        if (workflowId != null && selected == null) {
+            throw new IllegalArgumentException("RH workflow does not belong to this patient's active pregnancy");
+        }
+        Date endDate = UtilDateUtilities.StringToDate(request.getParameter("edd"));
+        int workId;
+        if (selected == null) {
             workId = flow.addToWorkFlow(providerNo, demographicNo, endDate);
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, "WF_" + workflowType, state, ip);
-
+            state = WorkFlowState.INIT_STATE;
+        } else {
+            workId = Integer.parseInt((String) selected.get("ID"));
+            if (state == null) state = (String) selected.getOrDefault("current_state", WorkFlowState.INIT_STATE);
+            new WorkFlowState().updateWorkFlowState(String.valueOf(workId), state, endDate);
         }
-
-
-        //SAVE RECORD   
-        FrmRecord rec = null;
-        String where = "";
-        int newID = 0;
-
-        FrmRecordFactory recorder = new FrmRecordFactory();
-        try {
-            rec = recorder.factory(request.getParameter("form_class"));
-            Properties props = new Properties();
-            for (Enumeration<String> varEnum = request.getParameterNames(); varEnum.hasMoreElements(); ) {
-                String name = varEnum.nextElement();
-                props.setProperty(name, request.getParameter(name));
-            }
-            if (!props.containsKey("workflowId")) {
-                props.setProperty("workflowId", "" + workId);
-            }
-
-            props.setProperty("provider_no", providerNo);
-            newID = rec.saveFormRecord(props);
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, request.getParameter("form_class"), "" + newID, ip);
-        } catch (Exception factEx) {
-            MiscUtils.getLogger().error("Error", factEx);
+        if (workId <= 0) throw new IllegalStateException("RH workflow was not created");
+        FrmRecord record = new FrmRecordFactory().factory("RhImmuneGlobulin");
+        Properties props = new Properties();
+        for (Enumeration<String> names = request.getParameterNames(); names.hasMoreElements();) {
+            String name = names.nextElement();
+            props.setProperty(name, request.getParameter(name));
         }
-
-        request.setAttribute("demographic_no", demographicNo);
-        try {
-            where = rec.createActionURL(af, "save", demographicNo, "" + newID);
-        } catch (SQLException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-
-        return where;
+        props.setProperty("workflowId", String.valueOf(workId));
+        props.setProperty("state", state);
+        props.setProperty("provider_no", providerNo);
+        props.setProperty("demographic_no", demographicNo);
+        int formId = record.saveFormRecord(props);
+        if (formId <= 0) throw new IllegalStateException("RH form was not saved");
+        request.setAttribute("savedRhState", state);
+        return formId;
     }
 }

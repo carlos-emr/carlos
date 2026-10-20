@@ -88,6 +88,9 @@ public interface DrugDao extends AbstractDao<Drug> {
 
     public List<Object[]> findDrugsAndPrescriptionsByScriptNumber(int scriptNumber);
 
+    /** Loads a script only when both its prescription and drug rows belong to the patient. */
+    public List<Object[]> findDrugsAndPrescriptionsByScriptNumber(int scriptNumber, int demographicNo);
+
     public int getMaxPosition(int demographicNo);
 
     public Drug findByEverything(String providerNo, int demographicNo, Date rxDate, Date endDate, Date writtenDate,

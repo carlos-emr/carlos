@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -29,6 +31,9 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("service")
 class SmsQueueServiceUnitTest {
+    private static final SmsConsentDecisionDto CONSENTED = SmsConsentDecisionDto.permitted(
+            SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"));
+
     @Test
     @DisplayName("enqueue returns queued after validation and consent pass")
     void shouldQueueMessage_whenConsentAllows() {
@@ -36,7 +41,7 @@ class SmsQueueServiceUnitTest {
         SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
-                command -> SmsConsentDecisionDto.permit(),
+                command -> CONSENTED,
                 recorder,
                 worker,
                 new SmsDefaultProviderResolver(() -> "STUB")
@@ -66,6 +71,31 @@ class SmsQueueServiceUnitTest {
     }
 
     @Test
+    @DisplayName("enqueue refuses without recording anything when SMS is turned off in Administration")
+    void shouldRefuseQueue_whenSmsIsTurnedOff() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
+        SmsConfigService configService = mock(SmsConfigService.class);
+        when(configService.sendingEnabled()).thenReturn(false);
+        SmsQueueService service = new SmsQueueService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                recorder,
+                worker,
+                new SmsDefaultProviderResolver(() -> "STUB"),
+                configService
+        );
+
+        SmsSendResultDto result = service.enqueueAndProcessNow(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.messages()).containsExactly(SmsSendService.SMS_TURNED_OFF_MESSAGE);
+        assertThat(recorder.transactions()).isEmpty();
+        verify(worker, never()).processDueMessages(anyInt());
+    }
+
+    @Test
     @DisplayName("enqueueAndProcessNow wakes the queue worker after queuing")
     void shouldWakeWorker_whenMessageIsQueuedForImmediateProcessing() {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
@@ -73,7 +103,7 @@ class SmsQueueServiceUnitTest {
         when(worker.processDueMessages(1)).thenReturn(1);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
-                command -> SmsConsentDecisionDto.permit(),
+                command -> CONSENTED,
                 recorder,
                 worker,
                 new SmsDefaultProviderResolver(() -> "STUB")
@@ -100,7 +130,7 @@ class SmsQueueServiceUnitTest {
         when(worker.processDueMessages(1)).thenThrow(new IllegalStateException("worker unavailable"));
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
-                command -> SmsConsentDecisionDto.permit(),
+                command -> CONSENTED,
                 recorder,
                 worker,
                 new SmsDefaultProviderResolver(() -> "STUB")
@@ -128,8 +158,8 @@ class SmsQueueServiceUnitTest {
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.blocked(
                         SmsStatus.CONSENT_BLOCKED,
-                        "CONSENT_MODEL_PENDING",
-                        "SMS consent integration is pending"
+                        "SMS_CONSENT_UNKNOWN",
+                        "No SMS consent is recorded for this patient."
                 ),
                 recorder,
                 worker,
@@ -144,7 +174,7 @@ class SmsQueueServiceUnitTest {
         assertThat(result.status()).isEqualTo(SmsStatus.CONSENT_BLOCKED);
         assertThat(recorder.transactions()).singleElement()
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getConsentReasonCode)
-                .containsExactly(SmsStatus.CONSENT_BLOCKED, "CONSENT_MODEL_PENDING");
+                .containsExactly(SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN");
         verify(worker, never()).processDueMessages(anyInt());
     }
 
@@ -157,8 +187,8 @@ class SmsQueueServiceUnitTest {
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.blocked(
                         SmsStatus.CONSENT_BLOCKED,
-                        "CONSENT_MODEL_PENDING",
-                        "SMS consent integration is pending"
+                        "SMS_CONSENT_UNKNOWN",
+                        "No SMS consent is recorded for this patient."
                 ),
                 recorder,
                 worker,
@@ -181,7 +211,7 @@ class SmsQueueServiceUnitTest {
         SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
-                command -> SmsConsentDecisionDto.permit(),
+                command -> CONSENTED,
                 recorder,
                 worker,
                 new SmsDefaultProviderResolver(() -> "STUB")
@@ -202,7 +232,7 @@ class SmsQueueServiceUnitTest {
         SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
-                command -> SmsConsentDecisionDto.permit(),
+                command -> CONSENTED,
                 recorder,
                 worker,
                 new SmsDefaultProviderResolver(() -> "STUB")
@@ -243,7 +273,9 @@ class SmsQueueServiceUnitTest {
                                                     SmsConsentDecisionDto decision) {
             SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
             transactions.add(transaction);
-            if (!decision.allowed()) {
+            if (decision.allowed()) {
+                transaction.recordConsentDecision(decision);
+            } else {
                 transaction.markConsentBlocked(decision);
             }
             return transaction;
@@ -252,6 +284,12 @@ class SmsQueueServiceUnitTest {
         @Override
         public SmsTransaction markConsentBlocked(SmsTransaction transaction, SmsConsentDecisionDto decision) {
             transaction.markConsentBlocked(decision);
+            return transaction;
+        }
+
+        @Override
+        public SmsTransaction recordConsentDecision(SmsTransaction transaction, SmsConsentDecisionDto decision) {
+            transaction.recordConsentDecision(decision);
             return transaction;
         }
 
@@ -280,6 +318,12 @@ class SmsQueueServiceUnitTest {
         @Override
         public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
             transaction.markClaimReleased(dueAt);
+            return transaction;
+        }
+
+        @Override
+        public SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt) {
+            transaction.renewSendingClaim(attemptAt);
             return transaction;
         }
 

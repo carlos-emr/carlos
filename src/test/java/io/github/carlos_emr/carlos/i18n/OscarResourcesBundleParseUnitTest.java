@@ -29,6 +29,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -257,6 +258,68 @@ class OscarResourcesBundleParseUnitTest {
                             bundlePath)
                     .isEmpty();
         }
+    }
+
+    private static final String ICD9_HINT_KEY = "oscarResearch.oscarDxResearch.icd9NoDecimalHint";
+    private static final String ICD9_WITH_DECIMAL_KEY = "oscarResearch.oscarDxResearch.error.icd9WithDecimal";
+    private static final String ICD9_DID_YOU_MEAN_KEY = "oscarResearch.oscarDxResearch.error.icd9DidYouMean";
+    private static final String[] ICD9_DECIMAL_KEYS = {ICD9_HINT_KEY, ICD9_WITH_DECIMAL_KEY, ICD9_DID_YOU_MEAN_KEY};
+
+    @Test
+    @DisplayName("should translate the ICD-9 decimal-point hint and errors in every locale")
+    void shouldTranslateIcd9DecimalPointText_inEveryLocale() throws Exception {
+        Properties english = loadBundle("en");
+        for (String locale : LOCALES) {
+            Properties bundle = loadBundle(locale);
+            for (String key : ICD9_DECIMAL_KEYS) {
+                String value = bundle.getProperty(key);
+                assertThat(value).as("%s in %s", key, locale).isNotBlank().contains(icd9Name(locale))
+                        .doesNotContain("<", "&#");
+                if (!"en".equals(locale)) {
+                    assertThat(value).as("%s in %s must be a real translation, not the English text", key, locale)
+                            .isNotEqualTo(english.getProperty(key));
+                }
+            }
+            // The hint goes through fmt:message without arguments, which prints a doubled apostrophe as is.
+            assertThat(bundle.getProperty(ICD9_HINT_KEY)).as("hint in %s", locale).doesNotContain("''");
+            // The errors go through Struts' MessageFormat: a lone apostrophe would swallow text, so each must
+            // format to its pattern with the doubled apostrophes undone and the arguments filled in. Both show
+            // the code as typed ({0}); the suggestion also shows the code without the point ({1}).
+            assertThat(bundle.getProperty(ICD9_WITH_DECIMAL_KEY)).as("%s in %s", ICD9_WITH_DECIMAL_KEY, locale)
+                    .contains("{0}");
+            assertThat(bundle.getProperty(ICD9_DID_YOU_MEAN_KEY)).as("%s in %s", ICD9_DID_YOU_MEAN_KEY, locale)
+                    .contains("{0}", "{1}");
+            for (String key : new String[]{ICD9_WITH_DECIMAL_KEY, ICD9_DID_YOU_MEAN_KEY}) {
+                String pattern = bundle.getProperty(key);
+                assertThat(new MessageFormat(pattern).format(new Object[]{"151.9", "1519"}))
+                        .as("formatted %s in %s", key, locale)
+                        .isEqualTo(pattern.replace("''", "'").replace("{0}", "151.9").replace("{1}", "1519"));
+            }
+        }
+    }
+
+    /** The usual local abbreviation of ICD-9 in each language, pinned so the three keys stay consistent. */
+    private static String icd9Name(String locale) {
+        return switch (locale) {
+            case "fr" -> "CIM-9";
+            case "es" -> "CIE-9";
+            case "pt_BR" -> "CID-9";
+            default -> "ICD-9";
+        };
+    }
+
+    @Test
+    @DisplayName("should keep markup out of the invalid-code message, which the page HTML-encodes")
+    void shouldKeepMarkupOut_ofInvalidCodeMessage() throws Exception {
+        for (String locale : LOCALES) {
+            String pattern = loadBundle(locale).getProperty("errors.codeNotFound");
+            String formatted = new MessageFormat(pattern).format(new Object[]{"151.9", "icd9"});
+
+            assertThat(formatted).as("errors.codeNotFound in %s", locale)
+                    .doesNotContain("<", "&#").contains("151.9").contains("icd9");
+        }
+        assertThat(new MessageFormat(loadBundle("fr").getProperty("errors.codeNotFound"))
+                .format(new Object[]{"151.9", "icd9"})).isEqualTo("151.9 n'est pas un code icd9 valide");
     }
 
     private Properties loadBundle(String locale) throws Exception {

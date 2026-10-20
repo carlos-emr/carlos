@@ -227,7 +227,7 @@
                             <label class="form-label"><fmt:message key="demographic.demographiclabelprintsetting.formTop"/>:</label>
                             <div>
                                 <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="top" maxlength="3"
-                                       value="<%= oscarVariables.getProperty("label.top","0")%>"
+                                       value="<%= oscarVariables.getProperty("label.top","24")%>"
                                        placeholder="<fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>">&nbsp;
                                 <fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
                             </div>

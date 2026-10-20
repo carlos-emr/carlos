@@ -38,17 +38,30 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
 import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
+import io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.util.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Date;
 
+/**
+ * Edits an existing tickler (status, priority, assignee, service date, a new comment and the
+ * picker attachments) or maintains the suggested-text list. Both routes mutate, so every verb
+ * except POST is rejected with 405 before any privilege check or side effect.
+ *
+ * <p>Attachments are synchronised only when the form carries the picker marker
+ * ({@link TicklerAttachmentParameters#SUBMITTED_MARKER}); an edit that never opened the picker
+ * leaves the stored set untouched. The form also echoes the stored rows it rendered
+ * ({@link TicklerAttachmentParameters#RENDERED_MARKER}), and only those can be detached.</p>
+ */
 public class EditTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -56,8 +69,25 @@ public class EditTickler2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
 
+    /**
+     * Dispatches POST submissions to the tickler editor or suggested-text updater.
+     * Rejects every other HTTP method with status 405 and an {@code Allow: POST} header
+     * before dispatching or changing data.
+     *
+     * @return {@link #NONE} for a rejected method; otherwise the selected handler's
+     *         result ({@code close} on success, or {@code failure}/{@code error} on failure)
+     */
+    @Override
     public String execute() {
+        // Both dispatch targets mutate; refuse GET/HEAD (and every other verb) before dispatch so
+        // a link or image tag can never update a tickler or its suggested texts.
+        if (!"POST".equals(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
+            return NONE;
+        }
         if ("editTickler".equals(request.getParameter("method"))) {
             return editTickler();
         }
@@ -71,6 +101,23 @@ public class EditTickler2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_tickler)");
         }
 
+        if (!requirePost()) return NONE;
+        try {
+            return new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class))
+                    .execute(transaction -> {
+                        String result = editTicklerInTransaction(loggedInInfo);
+                        if (!"close".equals(result)) transaction.setRollbackOnly();
+                        return result;
+                    });
+        } catch (RuntimeException e) {
+            logger.error("Failed to commit tickler edit", e);
+            addActionError(getText("tickler.ticklerEdit.arg.error"));
+            return "error";
+        }
+    }
+
+    private String editTicklerInTransaction(LoggedInInfo loggedInInfo) {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         String ticklerNoStr = request.getParameter("ticklerNo");
@@ -82,7 +129,7 @@ public class EditTickler2Action extends ActionSupport {
         try {
             ticklerNo = Integer.parseInt(ticklerNoStr.trim());
         } catch (NumberFormatException e) {
-            logger.error("Invalid ticklerNo parameter: '{}'", ticklerNoStr);
+            logger.warn("Tickler edit rejected: invalid identifier");
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
         }
@@ -101,18 +148,77 @@ public class EditTickler2Action extends ActionSupport {
             return "failure";
         }
 
-        Tickler t = ticklerManager.getTickler(loggedInInfo, ticklerNo);
-
-        if (t == null) {
+        Date parsedServiceDate;
+        Tickler.STATUS parsedStatus;
+        Tickler.PRIORITY parsedPriority;
+        try {
+            parsedServiceDate = TicklerFormDate.parse(serviceDate);
+            parsedStatus = Tickler.STATUS.valueOf(status);
+            parsedPriority = Tickler.PRIORITY.valueOf(priority);
+            if (assignedTo.isBlank()) {
+                throw new IllegalArgumentException("Missing assignee");
+            }
+        } catch (IllegalArgumentException e) {
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
         }
 
+        Tickler t = ticklerManager.getTickler(loggedInInfo, ticklerNo);
+
+        if (t == null || t.getCreator() == null || t.getCreator().isBlank()
+                || t.getDemographicNo() == null || t.getDemographicNo() <= 0) {
+            addActionError(getText("tickler.ticklerEdit.arg.error"));
+            return "failure";
+        }
+
+        // A user may change only the attachments. Keep field, comment, history and attachment
+        // writes in one transaction, and synchronise only an explicitly submitted selection.
+        // Attachments are synchronised first, before the tickler is mutated or updateTickler
+        // runs: an attachment refusal (patient, program, queue, deleted document) then returns
+        // before any field, comment or history write is attempted, rather than relying only on
+        // the rollback below. syncAttachments needs only the tickler's id and patient, which
+        // this edit does not change, and it takes the tickler row lock for the whole edit.
+        if (TicklerAttachmentParameters.isSubmitted(request)) {
+            try {
+                // The rendered list (null from a page opened before it existed) limits removals
+                // to rows the form actually showed, so a row hidden at render survives a
+                // permission change made while the page was open.
+                ticklerAttachmentService.syncAttachments(loggedInInfo, t, TicklerAttachmentParameters.read(request),
+                        TicklerAttachmentParameters.readRendered(request));
+            } catch (SecurityException | IllegalArgumentException e) {
+                logger.warn("Refused tickler attachments: ticklerNo={}: {}",
+                        LogSafe.sanitize(String.valueOf(ticklerNo)), LogSafe.sanitize(e.getMessage()));
+                addActionError(getText("tickler.ticklerEdit.attachments.error"));
+                return "error";
+            } catch (Exception e) {
+                logger.error("Failed to store tickler attachments: ticklerNo={}",
+                        LogSafe.sanitize(String.valueOf(ticklerNo)), e);
+                addActionError(getText("tickler.ticklerEdit.attachments.error"));
+                return "error";
+            }
+        }
+
         Date now = new Date();
 
-        boolean emailFailed = false;
         boolean isComment = false;
         String newMessage = request.getParameter("newMessage");
+
+        /*
+         * Create a new TicklerUpdate
+         */
+        //back fill the original state of the tickler so we don't lose it  
+        TicklerUpdate tuOriginal = new TicklerUpdate();
+
+        if (t.getUpdates().isEmpty()) {
+            tuOriginal.setTicklerNo(t.getId());
+            tuOriginal.setProviderNo(t.getCreator());
+            tuOriginal.setUpdateDate(t.getUpdateDate());
+
+            tuOriginal.setStatus(t.getStatus());
+            tuOriginal.setPriority(t.getPriority().toString());
+            tuOriginal.setAssignedTo(t.getTaskAssignedTo());
+            tuOriginal.setServiceDate(t.getServiceDate());
+        }
 
         /*
          * Create a new TicklerComment
@@ -130,25 +236,6 @@ public class EditTickler2Action extends ActionSupport {
             isComment = true;
         }
 
-        /*
-         * Create a new TicklerUpdate
-         */
-        //back fill the original state of the tickler so we don't lose it  
-        TicklerUpdate tuOriginal = new TicklerUpdate();
-
-        if (t.getUpdates().isEmpty()) {
-            tuOriginal.setTicklerNo(t.getId());
-            tuOriginal.setProviderNo(t.getCreator());
-            tuOriginal.setUpdateDate(t.getUpdateDate());
-
-            tuOriginal.setStatus(t.getStatus());
-            tuOriginal.setPriority(t.getPriority().toString());
-            tuOriginal.setAssignedTo(t.getTaskAssignedTo());
-            tuOriginal.setServiceDate(t.getServiceDate());
-
-            t.getUpdates().add(tuOriginal);
-        }
-
         TicklerUpdate tu = new TicklerUpdate();
         tu.setTicklerNo(t.getId());
         tu.setUpdateDate(now);
@@ -156,15 +243,15 @@ public class EditTickler2Action extends ActionSupport {
 
         boolean isUpdate = false;
 
-        if (!status.equals(String.valueOf(t.getStatus()))) {
-            tu.setStatusAsChar(status.charAt(0));
-            t.setStatusAsChar(status.charAt(0));
+        if (parsedStatus != t.getStatus()) {
+            tu.setStatusAsChar(parsedStatus.name().charAt(0));
+            t.setStatus(parsedStatus);
             isUpdate = true;
         }
 
-        if (!priority.equals(t.getPriority())) {
-            tu.setPriority(priority);
-            t.setPriorityAsString(priority);
+        if (parsedPriority != t.getPriority()) {
+            tu.setPriority(parsedPriority.name());
+            t.setPriority(parsedPriority);
             isUpdate = true;
         }
 
@@ -175,17 +262,14 @@ public class EditTickler2Action extends ActionSupport {
             isUpdate = true;
         }
 
-        if (!serviceDate.equals(t.getServiceDate())) {
-            try {
-                Date serviceDateAsDate = DateUtils.parseDate(serviceDate, request.getLocale());
-                tu.setServiceDate(serviceDateAsDate);
-                t.setServiceDate(serviceDateAsDate);
-                isUpdate = true;
-            } catch (java.text.ParseException e) {
-                logger.error("Service Date cannot be parsed:", e);
-                addActionError(getText("tickler.ticklerEdit.arg.error"));
-                return "error";
-            }
+        if (t.getServiceDate() == null || !DateUtils.isSameDay(parsedServiceDate, t.getServiceDate())) {
+            tu.setServiceDate(parsedServiceDate);
+            t.setServiceDate(parsedServiceDate);
+            isUpdate = true;
+        }
+
+        if ((isComment || isUpdate) && t.getUpdates().isEmpty()) {
+            t.getUpdates().add(tuOriginal);
         }
 
         if (isUpdate) {
@@ -194,17 +278,15 @@ public class EditTickler2Action extends ActionSupport {
 
         if (isComment || isUpdate) {
             try {
-                ticklerManager.updateTickler(loggedInInfo, t);
+                if (!ticklerManager.updateTickler(loggedInInfo, t)) {
+                    addActionError(getText("tickler.ticklerEdit.arg.error"));
+                    return "error";
+                }
             } catch (Exception e) {
-                logger.error("Failed to update tickler: ticklerNo={}, providerNo={}", ticklerNo, providerNo, e);
+                logger.error("Tickler update failed: {}", e.getClass().getSimpleName());
                 addActionError(getText("tickler.ticklerEdit.arg.error"));
                 return "error";
             }
-        }
-
-        if (emailFailed) {
-            addActionError(getText("tickler.ticklerEdit.emailFailed.error"));
-            return "failure";
         }
 
         if (parentAjaxId != null) {
@@ -223,6 +305,10 @@ public class EditTickler2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_tickler)");
         }
 
+        if (!requirePost()) {
+            return NONE;
+        }
+
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (activeText == null) {
@@ -237,15 +323,25 @@ public class EditTickler2Action extends ActionSupport {
         }
 
         TicklerTextSuggestDao ticklerTextSuggestDao = (TicklerTextSuggestDao) SpringUtils.getBean(TicklerTextSuggestDao.class);
+        // New editors distinguish literal text (including numeric text) from existing row IDs.
+        // Editors already open before an upgrade retain the legacy unprefixed format.
+        boolean prefixedTextValues = "prefixed".equals(request.getParameter("suggestionValueFormat"));
 
 
         for (String activeTextStr : activeText) {
+            boolean newText = prefixedTextValues && activeTextStr != null && activeTextStr.startsWith("text:");
+            String text = newText ? activeTextStr.substring(5) : activeTextStr;
+            // Accept legacy empty-list markers while preserving prefixed literal "0" text.
+            if (text == null || text.isBlank() || (!newText && "0".equals(text))) {
+                continue;
+            }
             Integer textSuggestId = null;
-            try {
-                textSuggestId = Integer.parseInt(activeTextStr);
-            } catch (NumberFormatException e) {
-                //probably a new text suggestion then
-                logger.error("textSuggestId in activeText cannot be parsed as an int. Value: '{}'", activeTextStr, e);
+            if (!newText) {
+                try {
+                    textSuggestId = Integer.parseInt(text);
+                } catch (NumberFormatException e) {
+                    // Legacy nonnumeric values are new suggestions. Never log clinical text.
+                }
             }
 
             TicklerTextSuggest ts = null;
@@ -257,7 +353,7 @@ public class EditTickler2Action extends ActionSupport {
                 ts.setActive(true);
                 ts.setCreateDate(new Date());
                 ts.setCreator(providerNo);
-                ts.setSuggestedText(activeTextStr);
+                ts.setSuggestedText(text);
                 ticklerTextSuggestDao.persist(ts);
             } else {
                 ts.setActive(true);
@@ -267,12 +363,19 @@ public class EditTickler2Action extends ActionSupport {
 
 
         for (String inactiveTextStr : inactiveText) {
+            boolean newText = prefixedTextValues && inactiveTextStr != null && inactiveTextStr.startsWith("text:");
+            String text = newText ? inactiveTextStr.substring(5) : inactiveTextStr;
+            // Accept legacy empty-list markers while preserving prefixed literal "0" text.
+            if (text == null || text.isBlank() || (!newText && "0".equals(text))) {
+                continue;
+            }
             Integer textSuggestId = null;
-            try {
-                textSuggestId = Integer.parseInt(inactiveTextStr);
-            } catch (NumberFormatException e) {
-                //probably a new text suggestion then
-                logger.error("textSuggestId in inactiveText cannot be parsed as an int. Value: '{}'", inactiveTextStr, e);
+            if (!newText) {
+                try {
+                    textSuggestId = Integer.parseInt(text);
+                } catch (NumberFormatException e) {
+                    // Legacy nonnumeric values are new suggestions. Never log clinical text.
+                }
             }
 
             TicklerTextSuggest ts = null;
@@ -284,7 +387,7 @@ public class EditTickler2Action extends ActionSupport {
                 ts.setActive(false);
                 ts.setCreateDate(new Date());
                 ts.setCreator(providerNo);
-                ts.setSuggestedText(inactiveTextStr);
+                ts.setSuggestedText(text);
                 ticklerTextSuggestDao.persist(ts);
             } else {
                 ts.setActive(false);
@@ -294,6 +397,18 @@ public class EditTickler2Action extends ActionSupport {
         }
 
         return "close";
+    }
+
+    /** Reject safe-method requests before changing ticklers or suggested text. */
+    private boolean requirePost() {
+        // HTTP method tokens are case-sensitive (RFC 9110 §9.1): a plain equals is the correct
+        // guard, as in the other guarded actions, and keeps FindSecBugs IMPROPER_UNICODE out.
+        if ("POST".equals(request.getMethod())) {
+            return true;
+        }
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     private String[] activeText;

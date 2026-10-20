@@ -81,6 +81,7 @@ public class EmailComposeManager {
      * @param emailLogId Integer the unique identifier of the email log entry to retrieve
      * @return EmailLog the email log entry containing the original email data
      * @throws RuntimeException if the user lacks the required _email READ privilege
+     * @throws PortalInviteEmailException if the email is a patient portal invitation
      */
     public EmailLog prepareEmailForResend(LoggedInInfo loggedInInfo, Integer emailLogId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
@@ -99,7 +100,34 @@ public class EmailComposeManager {
                 || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("Access to the email patient record is denied");
         }
+        if (EmailLog.TransactionType.PORTAL_INVITE.equals(emailLog.getTransactionType())) {
+            // A portal invitation carried a one-time code that activates a patient's portal account.
+            // Reopening it in the compose window would hand that credential to anyone who may read the
+            // patient's email history, so the invitation is resent from the portal panel instead.
+            throw new PortalInviteEmailException(demographicNo);
+        }
         return emailLog;
+    }
+
+    /**
+     * Refuses to reopen a patient portal invitation email, and names the patient whose portal page
+     * resends it instead, so a caller can send staff there. Checked only after the caller was allowed
+     * to read that patient's email.
+     */
+    public static final class PortalInviteEmailException extends SecurityException {
+        private static final long serialVersionUID = 1L;
+
+        private final int demographicNo;
+
+        public PortalInviteEmailException(int demographicNo) {
+            super("portal invitation emails cannot be reopened");
+            this.demographicNo = demographicNo;
+        }
+
+        /** @return the patient the invitation was sent to */
+        public int demographicNo() {
+            return demographicNo;
+        }
     }
 
     /**

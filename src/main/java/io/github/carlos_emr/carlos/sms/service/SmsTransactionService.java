@@ -18,7 +18,26 @@ public interface SmsTransactionService {
 
     SmsTransaction markConsentBlocked(SmsTransaction transaction, SmsConsentDecisionDto decision);
 
+    /**
+     * Rewrites the consent snapshot of a claimed row with the permitting decision its send relies on.
+     * Callers must continue with the returned row: the write advances the row version.
+     *
+     * @throws RuntimeException when the snapshot was not written, including when the row changed or
+     *                          disappeared under the claim; the caller must not send
+     */
+    SmsTransaction recordConsentDecision(SmsTransaction transaction, SmsConsentDecisionDto decision);
+
     SmsTransaction markSending(SmsTransaction transaction, Date attemptAt);
+
+    /**
+     * Renews a {@code SENDING} claim after the rate-limit permit and before the provider call. A permit wait
+     * can outlast the stale-send timeout, and stale recovery may then have taken the row over and found it
+     * unsent at the SMS provider. Callers must continue with the returned row: the write advances the row version.
+     *
+     * @throws RuntimeException when the claim was not renewed, including when the row changed, disappeared or
+     *                          left {@code SENDING} under the claim; the caller must not send
+     */
+    SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt);
 
     SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult);
 

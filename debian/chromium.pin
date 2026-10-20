@@ -1,4 +1,4 @@
-# The Chromium snapshot the carlos-emr-eform-renderer package ships when
+# The Chromium snapshot the carlos-emr package ships (its eForm renderer) when
 # CHROMIUM_DIST is not supplied.
 #
 # WHY A VENDORED BROWSER AT ALL. Ubuntu 26.04 has no Chromium .deb: every

@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import static org.mockito.ArgumentMatchers.anyMap;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -54,6 +56,7 @@ import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionState
 import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -81,10 +84,20 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(EmailManager.class, mock(EmailManager.class));
         registerMock(EmailComposeManager.class, mock(EmailComposeManager.class));
         registerMock(EformDataManager.class, mock(EformDataManager.class));
+        // Develop's send path re-reads each attachment's owner (release #4425); these tests are
+        // about other behaviour, so ownership always holds.
+        AttachmentOwnershipService ownership = mock(AttachmentOwnershipService.class);
+        when(ownership.allBelongToDemographic(anyMap(), any())).thenReturn(true);
+        registerMock(AttachmentOwnershipService.class, ownership);
         registerMock(EmailPdfPasswordService.class, mock(EmailPdfPasswordService.class));
         composeSubmissionStateService = new EmailComposeSubmissionStateService();
         registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
@@ -338,10 +351,17 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        // Preparation checks read access to the patient before generating anything.
+        when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
 
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         EmailCompose2Action composeAction = new EmailCompose2Action();
 
-        assertThat(composeAction.prepareComposeEFormMailer()).isEqualTo("compose");
+        assertThat(composeAction.prepareComposeEFormMailer()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(EmailComposeViewTestSupport.renderPreparedView(response)).isEqualTo("compose");
         String token = (String) request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
         assertThat(token).isNotBlank();
         request.setParameter("senderConfigId", "1");

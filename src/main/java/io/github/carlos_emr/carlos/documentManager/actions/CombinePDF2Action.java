@@ -206,6 +206,7 @@ public class CombinePDF2Action extends ActionSupport {
                                     skipped + " of " + inputPaths.size() + " document(s) could not be included; combined PDF not produced");
                         }
                     } else {
+                        response.setContentLengthLong(Files.size(tempPdf.toPath()));
                         Files.copy(tempPdf.toPath(), response.getOutputStream());
                     }
                 } catch (IOException | RuntimeException ex) {
@@ -234,6 +235,9 @@ public class CombinePDF2Action extends ActionSupport {
     }
 
     void configurePdfResponse(String contentDisposition) {
+        // No manual Transfer-Encoding: Tomcat frames the body itself, and a second
+        // "Transfer-Encoding: chunked" header made nginx reject the inline preview
+        // (502, "duplicate header line"). The length is set from the merged file before streaming.
         response.setContentType("application/pdf");
         response.setHeader("Cache-Control", "private, no-store, max-age=0");
         response.setHeader("Pragma", "no-cache");

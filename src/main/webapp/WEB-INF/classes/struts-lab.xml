@@ -90,6 +90,8 @@
             <result name="manage">/WEB-INF/jsp/oscarMDS/CreateLab.jsp</result>
         </action>
         <action name="lab/DownloadEmbeddedDocumentFromLab" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.DownloadEmbeddedDocumentFromLab2Action"/>
+        <!-- Inline preview of an HL7 ED PDF, framed by labDisplay.jsp / labDisplayAjax.jsp (#3977). -->
+        <action name="lab/ViewEmbeddedDocumentFromLab" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.ViewEmbeddedDocumentFromLab2Action"/>
 
 
         <!-- ===== lab JSP gating actions (migration slice) ===== -->

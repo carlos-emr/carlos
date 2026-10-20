@@ -41,6 +41,9 @@ public interface OutboundEmailArchiveService {
     /**
      * Stores the finalized outbound artifact through eDoc and persists archive metadata.
      *
+     * <p>The artifact is encrypted under the archive keyring's current key before it reaches the
+     * document store (#3448); the recorded SHA-256 and byte size are those of the plaintext.</p>
+     *
      * <p>Requires {@code _edoc w} plus access to the email log's patient record. Unlike the
      * three privileged operations below, this is the archive-creation gate, not the
      * admin gate.</p>
@@ -52,9 +55,55 @@ public interface OutboundEmailArchiveService {
      *         does not exist, or attachment metadata is invalid
      * @throws SecurityException when the caller lacks {@code _edoc w}, lacks access to the
      *         patient record, or supplies an attachment document belonging to another patient
-     * @throws IOException when eDoc storage fails
+     * @throws IOException when encryption or eDoc storage fails
+     * @throws IllegalStateException when the archive keyring was not loaded at startup
      */
     OutboundEmailArchive archive(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) throws IOException;
+
+    /**
+     * Advances an archive's send lifecycle to record what the transport actually did.
+     *
+     * <p>An archive is created before dispatch, so on its own it only proves the message was
+     * captured. Without these transitions every row stays at {@code ARCHIVED} forever, making an
+     * email that was accepted for delivery indistinguishable from one that was refused and one
+     * that was never dispatched at all — in a record kept under permanent legal hold.</p>
+     *
+     * <p>Callers treat this as best-effort bookkeeping: a failure here must never change the
+     * caller's send outcome, because the message may already be in the transport's custody. An
+     * outcome that could not be recorded leaves the row at its previous state, which is why
+     * neither {@code ARCHIVED} nor {@code SEND_ATTEMPTED} may be read as "delivery failed".</p>
+     *
+     * @param loggedInInfo current user context: authorizes the write and supplies the row's
+     *        {@code lastUpdateUser}. The transition itself is not audit-logged
+     * @param archiveId persisted archive identifier; null means archiving never produced a row,
+     *        so there is no lifecycle to advance and the call is a no-op
+     * @param outcome lifecycle transition to apply
+     * @return the updated archive, or {@code null} when {@code archiveId} is null. It is
+     *         detached once this call's transaction ends: read its scalar fields only, not its
+     *         lazy associations
+     * @throws IllegalArgumentException when no archive matches, the outcome is null, or the
+     *         caller carries no provider number
+     * @throws IllegalStateException when the archive has been deleted; a tombstone is frozen
+     * @throws SecurityException when the caller lacks {@code _edoc w} or access to the
+     *         archive's patient record
+     */
+    OutboundEmailArchive recordSendOutcome(LoggedInInfo loggedInInfo, Integer archiveId, SendOutcome outcome);
+
+    /**
+     * Send lifecycle transitions available to {@link #recordSendOutcome}.
+     *
+     * <p>Deliberately narrower than the status constants on the model: transports report that
+     * they tried, that custody was accepted, or that they failed. Nothing available to CARLOS
+     * at send time can report delivery to the recipient, so no such transition exists.</p>
+     */
+    enum SendOutcome {
+        /** Dispatch is starting; result not yet known. */
+        ATTEMPTED,
+        /** Transport accepted custody. Not proof of delivery. */
+        ACCEPTED,
+        /** Transport refused the artifact, or failed before taking it. */
+        FAILED
+    }
 
     /**
      * Returns an archive's metadata for an authorized caller, refusing deleted archives.
@@ -84,6 +133,12 @@ public interface OutboundEmailArchiveService {
      * read error: the mismatch is audited before the failure propagates. Callers get an
      * {@link IOException} and no bytes, never partially-verified content.</p>
      *
+     * <p>Artifacts are stored encrypted (#3448). The artifact is decrypted only after the privilege
+     * and patient-record checks pass, and the recorded size and SHA-256 are verified against the
+     * decrypted plaintext. A decryption or authentication failure, or a key missing from the archive
+     * keyring, is audited like an integrity failure. Artifacts written before #3448 are stored as
+     * plaintext and are read unchanged.</p>
+     *
      * <p>The row is read under a write lock so the archive cannot transition to its logically
      * deleted state between authorization and completion of the read. Controlled deletion
      * deliberately retains the stored bytes.</p>
@@ -94,8 +149,9 @@ public interface OutboundEmailArchiveService {
      * @throws IllegalArgumentException when the identifier is null or names no archive
      * @throws IllegalStateException when the archive, or the eDoc behind it, has been deleted
      * @throws SecurityException when the caller lacks {@code _edoc r} or access to the patient
-     * @throws IOException when metadata is missing, the file is absent or unreadable, or the
-     *         bytes do not match the recorded size or hash
+     * @throws IOException when metadata is missing, the file is absent or unreadable, the bytes do
+     *         not match the recorded size or hash, or an encrypted artifact cannot be authenticated
+     *         or its key is not in the archive keyring
      * @since 2026-08-19
      */
     byte[] readArchivedArtifact(LoggedInInfo loggedInInfo, Integer archiveId) throws IOException;

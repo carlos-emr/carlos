@@ -42,11 +42,11 @@ test('nullable consultation rejects non-numeric fixture IDs before any SQL or br
   const end = source.indexOf('const mysqlHost =', start);
   assert.ok(start >= 0 && end > start && end < source.indexOf('(async () =>'));
   const validation = source.slice(start, end);
-  for (const value of ['2 OR 1=1', '2; DELETE FROM consultationRequests', '-2', '2.5', '2\nOR 1=1']) {
+  for (const value of ['0', '0000', '2 OR 1=1', '2; DELETE FROM consultationRequests', '-2', '2.5', '2\nOR 1=1']) {
     assert.throws(() => vm.runInNewContext(validation, {
       process: { env: { CONSULT_NULLABLE_REQUEST_ID: value } },
       assert: (condition, message) => assert.ok(condition, message),
-    }), /CONSULT_NULLABLE_REQUEST_ID must be numeric/);
+    }), /CONSULT_NULLABLE_REQUEST_ID must be a positive decimal ID/);
   }
   for (const value of ['2', '0002', '2147483647']) {
     assert.doesNotThrow(() => vm.runInNewContext(validation, {
@@ -79,10 +79,14 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
         };
         if (name === 'child_process') return { execFileSync(command, args) {
           const sql = args.at(-1);
-          if (sql.startsWith('SELECT')) return '999998\t1';
+          if (sql.startsWith('SELECT COUNT')) return '0';
+          if (sql.startsWith('SELECT')) return '999998\t1\t7\t8';
+          if (sql.startsWith('INSERT')) return '9001';
+          if (sql.startsWith('DELETE dc')) { events.push('contact-cleanup'); return ''; }
+          if (sql.startsWith('DELETE')) { events.push('specialist-cleanup'); return ''; }
           if (sql.includes('providerNo=NULL')) events.push('stage');
           else {
-            assert.match(sql, /providerNo='999998', urgency='1'/);
+            assert.match(sql, /providerNo='999998', urgency='1', specId='7', demographicContactId='8'/);
             events.push('restore');
           }
           return '';
@@ -106,7 +110,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     });
     assert.equal(launchOptions.handleSIGINT, false);
     assert.equal(launchOptions.handleSIGTERM, false);
-    assert.deepEqual(events, ['stage', 'operation-settled', 'close', 'restore', 'credentials-cleanup']);
+    assert.deepEqual(events, ['stage', 'operation-settled', 'close', 'restore', 'contact-cleanup', 'specialist-cleanup', 'credentials-cleanup']);
     assert.equal(signalProcess.exitCode, signal === 'SIGINT' ? 130 : 143);
     assert.equal(signalProcess.listenerCount('SIGINT'), 0);
     assert.equal(signalProcess.listenerCount('SIGTERM'), 0);

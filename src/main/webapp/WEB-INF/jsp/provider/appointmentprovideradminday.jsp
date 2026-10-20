@@ -552,10 +552,6 @@
                 popupPage(600, 860, ('<%= request.getContextPath() %>/appointment/editappointment?dboperation=search&' + s));
             }
 
-            function goFilpView(s) {
-                self.location.href = "<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/provider/providercontrol&startDate=<%=year+"-"+month+"-"+day%>" + "&provider_no=" + s;
-            }
-
             function goWeekView(s) {
                 self.location.href = "<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1&weekView=true&provider_no=" + s;
             }
@@ -1538,7 +1534,7 @@
 
                                     <!-- caisi infirmary view extension add fffffffffffff-->
                                     <caisi:isModuleLoad moduleName="caisi">
-                                    <jsp:include page="infirmaryviewprogramlist.jspf"/>
+                                    <jsp:include page="infirmaryviewprogramlist.jsp"/>
                                 </td>
                             </tr>
                         </table>
@@ -1714,6 +1710,8 @@
                                 <tr>
                                     <td class="infirmaryView" NOWRAP ALIGN="center"
                                         BGCOLOR="<%=bColor?"#bfefff":"silver"%>">
+                                        <%-- Keeps the name in view within its own column (receptionistapptstyle.css). --%>
+                                        <span class="providerNameSticky">
                                         <!-- caisi infirmary view extension modify ffffffffffff-->
                                         <c:if test="${infirmaryView_isOscar != 'false'}">
                                             <%
@@ -1741,16 +1739,19 @@
                                                    onClick="goSearchView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:message key="provider.appointmentProviderAdminDay.searchView"/>"
                                                    style="color:black" class="noprint">
-                                            <input type='radio' name='flipview' class="noprint"
-                                                   onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
-                                                   title="<fmt:message key="schedule.scheduleflipview.title"/>">
                                             <a href=#
                                                onClick="goZoomView('<%=curProvider_no[nProvider]%>','<carlos:encode value='<%= curProviderName[nProvider] %>' context="javaScriptAttribute"/>')"
-                                               onDblClick="goFilpView('<%=curProvider_no[nProvider]%>')"
                                                title='<fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
                                                 <carlos:encode value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' context="html"/>
                                             </a>
-                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="yes">
+                                            <a class="provider-availability-link noprint"
+                                               href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<carlos:encode value='<%= String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day) %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                               title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
+                                               aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
+                                                <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
+                                                <span><fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/></span>
+                                            </a>
+                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="true">
                                                     <a href="#"
                                                        class="expand-reason-btn"
                                                        data-provider="<%= curProvider_no[nProvider] %>"
@@ -1784,8 +1785,30 @@
                                             </c:forEach>
                                         </c:if>
                                         <!-- caisi infirmary view extension modify end ffffffffffffffff-->
+                                        </span>
                                     </td>
                                 </tr>
+                                <%-- Mirrors the desktop availability link above, which the mobile
+                                     stylesheet hides with the rest of the provider header. Keep it
+                                     under the same infirmary-view guard so CAISI infirmary mode
+                                     suppresses both entry points, not just the desktop one. The week
+                                     view shows no desktop link either, and this row would repeat
+                                     under each of its seven day columns. --%>
+                                <c:if test="${infirmaryView_isOscar != 'false'}">
+                                <% if (!isWeekView) { %>
+                                <tr class="provider-availability-mobile-row noprint">
+                                    <td class="noGrid" align="center">
+                                        <a class="provider-availability-link"
+                                           href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<carlos:encode value='<%= String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day) %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
+                                           aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
+                                            <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
+                                            <span><fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/></span>
+                                        </a>
+                                    </td>
+                                </tr>
+                                <% } %>
+                                </c:if>
                                 <!-- END for the first providers's name -->
                                 <tr>
 
@@ -1794,7 +1817,10 @@
                                         <!-- caisi infirmary view exteion add -->
                                         <!--  fffffffffffffffffffffffffffffffffffffffffff-->
                                         <caisi:isModuleLoad moduleName="caisi">
-                                            <jsp:include page="infirmarydemographiclist.jspf"/>
+                                            <jsp:include page="infirmarydemographiclist.jsp">
+                                                <jsp:param name="userAvail" value="<%= userAvail %>"/>
+                                                <jsp:param name="strDate" value="<%= strDate %>"/>
+                                            </jsp:include>
                                         </caisi:isModuleLoad>
 
                                         <c:if test="${infirmaryView_isOscar != 'false'}">
@@ -2387,7 +2413,7 @@
 
                                                         <!-- add one link to caisi Program Management Module -->
                                                         <caisi:isModuleLoad moduleName="caisi">
-                                                            <a href=${pageContext.servletContext.contextPath}'/PMmodule/ClientManager?id=<%=demographic_no%>'
+                                                            <a href="${pageContext.servletContext.contextPath}/PMmodule/ClientManager?id=<%=demographic_no%>"
                                                                title="<fmt:message key="provider.appointmentProviderAdminDay.programManagement"/>">|P</a>
                                                         </caisi:isModuleLoad>
 

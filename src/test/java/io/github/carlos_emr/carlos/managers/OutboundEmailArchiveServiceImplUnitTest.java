@@ -41,6 +41,9 @@ import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveLegalHoldEven
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveEnvelope;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveTestKeyrings;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -48,6 +51,7 @@ import org.hibernate.LazyInitializationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -64,12 +68,16 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -94,6 +102,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     private OutboundEmailArchiveLegalHoldEventDao outboundEmailArchiveLegalHoldEventDao;
     private CtlDocumentDao ctlDocumentDao;
     private SecurityInfoManager securityInfoManager;
+    private OutboundEmailArchiveKeyringService keyringService;
     private LoggedInInfo loggedInInfo;
     private OutboundEmailArchiveServiceImpl service;
 
@@ -107,8 +116,10 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         outboundEmailArchiveLegalHoldEventDao = mock(OutboundEmailArchiveLegalHoldEventDao.class);
         ctlDocumentDao = mock(CtlDocumentDao.class);
         securityInfoManager = mock(SecurityInfoManager.class);
+        keyringService = mock(OutboundEmailArchiveKeyringService.class);
+        when(keyringService.getKeyring()).thenReturn(OutboundEmailArchiveTestKeyrings.keyring(1, 1));
         loggedInInfo = mock(LoggedInInfo.class);
-        service = new OutboundEmailArchiveServiceImpl(documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager, readAuditService);
+        service = new OutboundEmailArchiveServiceImpl(documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager, readAuditService, keyringService);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         allowControlledDeletion();
@@ -127,7 +138,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         Document savedDocument = savedDocument();
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument);
         doAnswer(invocation -> {
             OutboundEmailArchive archive = invocation.getArgument(0);
@@ -138,7 +149,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
-        verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), any(byte[].class));
         assertArchiveDocumentToCreate(documentCaptor.getValue());
 
         verify(outboundEmailArchiveDao).persist(archive);
@@ -154,13 +165,13 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         EmailLog persistedEmailLog = emailLog();
         Document savedDocument = savedDocument();
         when(emailLogDao.find((Object) Integer.valueOf(44))).thenReturn(persistedEmailLog);
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument);
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
         verify(emailLogDao).find((Object) Integer.valueOf(44));
-        verify(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        verify(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class));
         assertThat(archive.getEmailLog()).isSameAs(persistedEmailLog);
         assertThat(archive.getDemographic().getDemographicNo()).isEqualTo(123);
     }
@@ -171,13 +182,13 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         request.setContentType("Message/RFC822; charset=UTF-8");
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument());
 
         service.archive(loggedInInfo, request);
 
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
-        verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), any(byte[].class));
         assertThat(documentCaptor.getValue().getDocfilename()).startsWith("outbound-email-44-").endsWith(".eml");
     }
 
@@ -190,14 +201,14 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         // into document.contenttype, which every eDoc viewer reads back.
         request.setContentType("message/rfc822; name=\"" + "x".repeat(200) + "\"");
         when(documentManager.createDocument(
-                eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
         verify(documentManager).createDocument(
-                eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+                eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), any(byte[].class));
         assertThat(documentCaptor.getValue().getContenttype()).isEqualTo("message/rfc822");
         assertThat(archive.getContentType()).isEqualTo("message/rfc822");
     }
@@ -209,7 +220,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         request.setContentType("; charset=UTF-8");
         when(documentManager.createDocument(
-                eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
@@ -223,13 +234,13 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         request.setFileName("Jane-Smith-1970-01-01-referral.eml");
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
-        verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), any(byte[].class));
         assertThat(documentCaptor.getValue().getDocfilename()).startsWith("outbound-email-44-").endsWith(".eml");
         assertThat(archive.getOriginalFileName()).isEqualTo("Jane-Smith-1970-01-01-referral.eml");
     }
@@ -240,7 +251,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         request.setProviderResponse("a".repeat(999) + "\uD83D\uDE00" + "trailing");
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
@@ -269,7 +280,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 Files.write(file, RFC822_BYTES);
                 createdFile.set(file);
                 throw new RuntimeException("document database failed");
-            }).when(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+            }).when(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class));
 
             assertThatThrownBy(() -> service.archive(loggedInInfo, request))
                     .isInstanceOf(RuntimeException.class)
@@ -392,7 +403,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         Document savedDocument = savedDocument();
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument);
         doAnswer(invocation -> {
             OutboundEmailArchive archive = invocation.getArgument(0);
@@ -435,7 +446,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
             when(documentManager.getDocument(loggedInInfo, 777)).thenReturn(attachmentDocument);
 
             when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
-            when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+            when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                     .thenReturn(savedDocument());
 
             OutboundEmailArchive archive = service.archive(loggedInInfo, request);
@@ -465,7 +476,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
             when(documentManager.getDocument(loggedInInfo, 777)).thenReturn(attachmentDocument);
 
             when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
-            when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+            when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                     .thenReturn(savedDocument());
 
             OutboundEmailArchive archive = service.archive(loggedInInfo, request);
@@ -556,7 +567,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         attachmentRequest.setSourceDocumentId(9901);
         request.addAttachment(attachmentRequest);
 
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
@@ -834,7 +845,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldPlaceArchiveUnderLegalHold_whenCreated() throws Exception {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
@@ -1013,7 +1024,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         Document savedDocument = savedDocument();
         Path artifact = documentDir.resolve(savedDocument.getDocfilename());
         Files.write(artifact, RFC822_BYTES);
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), any(byte[].class)))
                 .thenReturn(savedDocument);
 
         service.archive(loggedInInfo, request);
@@ -1075,6 +1086,11 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThat(archive.getByteSize()).isEqualTo((long) RFC822_BYTES.length);
         assertThat(archive.getRetentionPolicy()).isEqualTo(OutboundEmailArchive.RETENTION_POLICY_PERMANENT);
         assertThat(archive.getStorageType()).isEqualTo(OutboundEmailArchive.STORAGE_TYPE_EDOC);
+        // From the field default: the entity has no sendStatus setter, so the send lifecycle
+        // can only be moved through its guarded record* transitions.
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ARCHIVED);
+        assertThat(archive.getSendAttemptedAt()).isNull();
+        assertThat(archive.getSentAt()).isNull();
         assertThat(archive.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
     }
 
@@ -1249,7 +1265,8 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldRefuseArtifact_whenItExceedsMaximumReadSize(@TempDir Path documentDir) throws Exception {
         OutboundEmailArchiveServiceImpl boundedService = new OutboundEmailArchiveServiceImpl(
                 documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao,
-                outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager, readAuditService, 4L);
+                outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager, readAuditService,
+                keyringService, 4L);
         OutboundEmailArchive archive = archiveUnderLegalHold();
         stubArchiveArtifactRead(archive);
         Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), RFC822_BYTES);
@@ -1270,7 +1287,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> new OutboundEmailArchiveServiceImpl(
                 documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao,
                 outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager, readAuditService,
-                (long) Integer.MAX_VALUE + 1L))
+                keyringService, (long) Integer.MAX_VALUE + 1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Maximum archived artifact read size");
     }
@@ -1388,6 +1405,176 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    // --- send lifecycle ---------------------------------------------------------------------
+
+    @Test
+    @DisplayName("should stamp the attempt timestamp when dispatch begins")
+    void shouldStampAttemptTimestamp_whenDispatchBegins() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_ATTEMPTED);
+        assertThat(archive.getSendAttemptedAt()).isNotNull();
+        assertThat(archive.getSentAt()).isNull();
+        verify(outboundEmailArchiveDao).merge(archive);
+    }
+
+    @Test
+    @DisplayName("should keep the first attempt stamp when the attempt marker is repeated")
+    void shouldKeepFirstAttemptStamp_whenAttemptMarkerIsRepeated() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+        java.util.Date firstAttemptedAt = archive.getSendAttemptedAt();
+        assertThat(firstAttemptedAt).isNotNull();
+        // Stands in for a different actor repeating the marker: the entity must keep the first.
+        archive.setLastUpdateUser("999001");
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_ATTEMPTED);
+        assertThat(archive.getSendAttemptedAt()).isSameAs(firstAttemptedAt);
+        assertThat(archive.getLastUpdateUser()).isEqualTo("999001");
+    }
+
+    @Test
+    @DisplayName("should record acceptance without claiming the recipient received it")
+    void shouldRecordAcceptance_whenTransportTookCustody() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+
+        // ACCEPTED, never "DELIVERED": SMTP hand-off is all CARLOS can observe.
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSentAt()).isNotNull();
+        assertThat(archive.getSendAttemptedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should record a transport refusal without a sent timestamp")
+    void shouldRecordFailure_whenTransportRefusedTheArtifact() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.FAILED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_FAILED);
+        assertThat(archive.getSentAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep a recorded acceptance when a later failure is reported")
+    void shouldKeepAcceptance_whenLaterFailureIsReported() {
+        // A post-acceptance bookkeeping fault must never rewrite the record into "not sent":
+        // the message is already with the transport and a clinician must not resend it.
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        java.util.Date acceptedAt = archive.getSentAt();
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.FAILED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSentAt()).isEqualTo(acceptedAt);
+    }
+
+    @Test
+    @DisplayName("should keep a recorded acceptance when a late attempt marker arrives")
+    void shouldKeepAcceptance_whenLateAttemptMarkerArrives() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        java.util.Date attemptedAt = archive.getSendAttemptedAt();
+        // Backfilled by ACCEPTED, since no attempt marker was written. Without this the
+        // identity check below would hold trivially on null.
+        assertThat(attemptedAt).isNotNull();
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSendAttemptedAt()).isSameAs(attemptedAt);
+    }
+
+    @Test
+    @DisplayName("should keep a recorded failure when a later outcome contradicts it")
+    void shouldKeepFailure_whenLaterOutcomeContradictsIt() {
+        // One archive is one dispatch. A second outcome cannot update the first, only contradict
+        // it, so the first observation stands in both directions.
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.FAILED);
+        java.util.Date attemptedAt = archive.getSendAttemptedAt();
+        assertThat(attemptedAt).isNotNull();
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_FAILED);
+        assertThat(archive.getSentAt()).isNull();
+        assertThat(archive.getSendAttemptedAt()).isSameAs(attemptedAt);
+    }
+
+    @Test
+    @DisplayName("should do nothing when archiving never produced a row")
+    void shouldDoNothing_whenArchiveIdIsNull() {
+        assertThat(service.recordSendOutcome(loggedInInfo, null,
+                OutboundEmailArchiveService.SendOutcome.ATTEMPTED)).isNull();
+
+        verifyNoInteractions(outboundEmailArchiveDao);
+    }
+
+    @Test
+    @DisplayName("should refuse to advance the lifecycle without eDoc write rights")
+    void shouldRefuseLifecycleChange_whenEdocWriteRightIsMissing() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.recordSendOutcome(loggedInInfo, 888,
+                OutboundEmailArchiveService.SendOutcome.ACCEPTED))
+                .isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(outboundEmailArchiveDao);
+    }
+
+    @Test
+    @DisplayName("should refuse to advance the lifecycle of a deleted archive")
+    void shouldRefuseLifecycleChange_whenArchiveIsDeleted() {
+        // A controlled deletion can land while a slow transport is still in flight. The late
+        // outcome must not rewrite the tombstone or replace the deleter's audit stamp.
+        OutboundEmailArchive archive = archiveForDeletion();
+        archive.markDeleted("999001", "duplicate send");
+        stubArchiveLookup(archive);
+
+        assertThatThrownBy(() -> service.recordSendOutcome(loggedInInfo, 888,
+                OutboundEmailArchiveService.SendOutcome.ACCEPTED))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(archive.getSendStatus()).isNotEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSentAt()).isNull();
+        assertThat(archive.getLastUpdateUser()).isEqualTo("999001");
+        verify(outboundEmailArchiveDao, never()).merge(any(OutboundEmailArchive.class));
+    }
+
+    @Test
+    @DisplayName("should refuse every lifecycle mutator on a deleted entity")
+    void shouldRefuseLifecycleMutators_whenEntityIsDeleted() {
+        // The service refuses first, so its test passes through either guard. This pins the
+        // entity's own, which is what protects a caller that reaches the mutators directly.
+        OutboundEmailArchive archive = archiveForDeletion();
+        archive.markDeleted("999001", "duplicate send");
+
+        assertThatThrownBy(() -> archive.recordSendAttempt(PROVIDER_NO)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> archive.recordSendAccepted(PROVIDER_NO)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> archive.recordSendFailure(PROVIDER_NO)).isInstanceOf(IllegalStateException.class);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ARCHIVED);
+        assertThat(archive.getLastUpdateUser()).isEqualTo("999001");
+    }
+
     /**
      * Stubs both reads the service performs for a privileged archive change: the scalar
      * demographic read that the patient-record gate runs on, then the locked row.
@@ -1405,5 +1592,334 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
+    }
+
+    // --- encryption at rest (#3448) ----------------------------------------------------------
+
+    /**
+     * The ticket's integrity order: hash the plaintext, store the ciphertext, verify after
+     * decrypting; and decrypt only after authorization.
+     */
+    @Nested
+    @DisplayName("encryption at rest (#3448)")
+    class EncryptionAtRest {
+
+        /** Fails if the archive row's hash or size were taken from the stored (encrypted) bytes. */
+        @Test
+        void shouldHashThePlaintextNotTheCiphertext_whenArchiving() throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+
+            OutboundEmailArchive archive = archiveCapturing(stored);
+
+            assertThat(OutboundEmailArchiveEnvelope.hasEnvelopeMagic(stored.get())).isTrue();
+            assertThat(stored.get()).isNotEqualTo(RFC822_BYTES)
+                    .hasSize(RFC822_BYTES.length + OutboundEmailArchiveEnvelope.OVERHEAD_BYTES);
+            assertThat(archive.getSha256Hash()).isEqualTo(sha256Hex(RFC822_BYTES))
+                    .isNotEqualTo(sha256Hex(stored.get()));
+            assertThat(archive.getByteSize()).isEqualTo((long) RFC822_BYTES.length);
+        }
+
+        @Test
+        void shouldReturnTheExactPlaintext_afterAnEncryptedRoundTrip(@TempDir Path documentDir) throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+
+            byte[] read = readBack(documentDir, archive, stored.get());
+
+            assertThat(read).isEqualTo(RFC822_BYTES);
+            verify(readAuditService).recordAccess(loggedInInfo, 888, 321, 123,
+                    OutboundEmailArchiveReadAuditService.Event.ARTIFACT_READ);
+        }
+
+        @Test
+        void shouldReadOldArtifactsAndSealNewOnesWithTheNewKey_acrossARotation(@TempDir Path documentDir)
+                throws Exception {
+            AtomicReference<byte[]> storedUnderKeyOne = new AtomicReference<>();
+            OutboundEmailArchive archivedUnderKeyOne = archiveCapturing(storedUnderKeyOne);
+            when(keyringService.getKeyring()).thenReturn(OutboundEmailArchiveTestKeyrings.keyring(2, 1, 2));
+            AtomicReference<byte[]> storedUnderKeyTwo = new AtomicReference<>();
+            OutboundEmailArchive archivedUnderKeyTwo = archiveCapturing(storedUnderKeyTwo);
+
+            assertThat(OutboundEmailArchiveEnvelope.readKeyId(storedUnderKeyOne.get())).isEqualTo(1);
+            assertThat(OutboundEmailArchiveEnvelope.readKeyId(storedUnderKeyTwo.get())).isEqualTo(2);
+            assertThat(readBack(documentDir, archivedUnderKeyOne, storedUnderKeyOne.get())).isEqualTo(RFC822_BYTES);
+            assertThat(readBack(documentDir, archivedUnderKeyTwo, storedUnderKeyTwo.get())).isEqualTo(RFC822_BYTES);
+        }
+
+        @Test
+        void shouldReadALegacyPlaintextArtifact_withoutTouchingTheKeyring(@TempDir Path documentDir) throws Exception {
+            byte[] read;
+            List<String> messages;
+            try (LogCapture capture = LogCapture.forLogger(OutboundEmailArchiveServiceImpl.class)) {
+                read = readBack(documentDir, archiveUnderLegalHold(), RFC822_BYTES);
+                messages = capture.messages();
+            }
+
+            assertThat(read).isEqualTo(RFC822_BYTES);
+            verify(keyringService, never()).getKeyring();
+            assertThat(messages).containsExactly("Outbound email archive artifact archiveId=888 is stored unencrypted"
+                    + " (archived before #3448); it is read as plaintext until a re-encryption job exists");
+        }
+
+        /** A stripped marker must not turn an envelope into "legacy plaintext" and hand back ciphertext. */
+        @Test
+        void shouldRefuseAnEnvelopeWhoseMarkerWasRemoved_asAnIntegrityFailure(@TempDir Path documentDir)
+                throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            byte[] stripped = stored.get().clone();
+            stripped[0] = 'S';
+            clearInvocations(keyringService);
+
+            assertReadFails(documentDir, archive, stripped, "Archived artifact size does not match archive metadata",
+                    OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
+            verify(keyringService, never()).getKeyring();
+        }
+
+        /** Ticket #3448: a read decrypts in memory and leaves no plaintext file behind. */
+        @Test
+        void shouldLeaveNoPlaintextFile_afterAnEncryptedRead(@TempDir Path documentDir) throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            Path temporaryDirectory = Path.of(System.getProperty("java.io.tmpdir"));
+            Set<Path> temporaryBefore = regularFiles(temporaryDirectory);
+
+            byte[] read = readBack(documentDir, archive, stored.get());
+
+            assertThat(read).isEqualTo(RFC822_BYTES);
+            Path artifact = documentDir.resolve(archive.getDocument().getDocfilename());
+            assertThat(regularFiles(documentDir)).containsExactly(artifact);
+            assertThat(Files.readAllBytes(artifact)).isEqualTo(stored.get());
+            // Other test forks share the temporary directory: only new files are looked at, one that
+            // vanishes or cannot be read is skipped, and the match is the whole plaintext artifact.
+            String plaintext = new String(RFC822_BYTES, StandardCharsets.ISO_8859_1);
+            for (Path created : regularFiles(temporaryDirectory)) {
+                if (temporaryBefore.contains(created)) {
+                    continue;
+                }
+                try {
+                    if (Files.size(created) < 1024 * 1024) {
+                        assertThat(new String(Files.readAllBytes(created), StandardCharsets.ISO_8859_1))
+                                .as(created.toString()).doesNotContain(plaintext);
+                    }
+                } catch (IOException gone) {
+                    // Another fork's file, deleted or not ours to read.
+                }
+            }
+        }
+
+        /** Ticket #3448: legal hold and controlled deletion still work on an encrypted record. */
+        @Test
+        void shouldHoldReleaseAndRetireAnEncryptedArchive_keepingItsEncryptedBytes(@TempDir Path documentDir)
+                throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            Path artifact = documentDir.resolve(archive.getDocument().getDocfilename());
+            Files.write(artifact, stored.get());
+            clearInvocations(documentManager);
+            stubArchiveLookup(archive);
+            assertThat(archive.isLegalHold()).isTrue();
+
+            assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "Misdirected send"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("legal hold");
+            service.releaseLegalHold(loggedInInfo, 888, "Counsel authorised release");
+            OutboundEmailArchiveDeletion deletion =
+                    service.recordControlledDeletion(loggedInInfo, 888, "Misdirected send");
+
+            assertThat(archive.isDeleted()).isTrue();
+            assertThat(deletion.getSha256Hash()).isEqualTo(sha256Hex(RFC822_BYTES));
+            assertThat(archive.getByteSize()).isEqualTo((long) RFC822_BYTES.length);
+            // Deletion is logical: the eDoc is not touched and still holds the same envelope.
+            verifyNoInteractions(documentManager);
+            assertThat(Files.readAllBytes(artifact)).isEqualTo(stored.get());
+            stubArchiveArtifactRead(archive);
+            clearInvocations(keyringService);
+            withDocumentDir(documentDir, () -> assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                    .isInstanceOf(IllegalStateException.class));
+            verify(keyringService, never()).getKeyring();
+            assertThat(Files.readAllBytes(artifact)).isEqualTo(stored.get());
+        }
+
+        @Test
+        void shouldAuditADecryptionFailureAndReturnNothing_whenTheCiphertextIsTampered(@TempDir Path documentDir)
+                throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            byte[] tampered = stored.get().clone();
+            tampered[OutboundEmailArchiveEnvelope.HEADER_BYTES + 3] ^= 0x01;
+
+            assertReadFails(documentDir, archive, tampered, "Archive artifact failed authentication",
+                    OutboundEmailArchiveReadAuditService.Event.DECRYPTION_FAILURE);
+        }
+
+        @Test
+        void shouldAuditADecryptionFailure_whenTheHeaderIsTampered(@TempDir Path documentDir) throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            byte[] tampered = stored.get().clone();
+            tampered[8] = 2;
+
+            assertReadFails(documentDir, archive, tampered, "Archive artifact envelope version is not supported",
+                    OutboundEmailArchiveReadAuditService.Event.DECRYPTION_FAILURE);
+        }
+
+        @Test
+        void shouldRefuseCiphertextCopiedFromAnotherArchive_whenTheRowContextDiffers(@TempDir Path documentDir)
+                throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            // Same patient and document, but a row describing a different artifact.
+            archive.setContentType("application/json");
+
+            assertReadFails(documentDir, archive, stored.get(), "Archive artifact failed authentication",
+                    OutboundEmailArchiveReadAuditService.Event.DECRYPTION_FAILURE);
+        }
+
+        @Test
+        void shouldRefuseCiphertextCopiedFromAnotherEmail_whenTheEmailLogDiffers(@TempDir Path documentDir)
+                throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            // Same patient, content type, hash and size: only the email the row records differs.
+            EmailLog otherEmail = emailLog();
+            injectDependency(otherEmail, "id", 45);
+            archive.setEmailLog(otherEmail);
+
+            assertReadFails(documentDir, archive, stored.get(), "Archive artifact failed authentication",
+                    OutboundEmailArchiveReadAuditService.Event.DECRYPTION_FAILURE);
+        }
+
+        @Test
+        void shouldAuditAKeyUnavailableFailure_whenTheKeyIdIsNotInTheKeyring(@TempDir Path documentDir)
+                throws Exception {
+            when(keyringService.getKeyring()).thenReturn(OutboundEmailArchiveTestKeyrings.keyring(2, 1, 2));
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            when(keyringService.getKeyring()).thenReturn(OutboundEmailArchiveTestKeyrings.keyring(1, 1));
+
+            assertReadFails(documentDir, archive, stored.get(), "Archive artifact key 2 is not in the archive keyring",
+                    OutboundEmailArchiveReadAuditService.Event.KEY_UNAVAILABLE);
+        }
+
+        /** Verification runs on the decrypted plaintext: a valid envelope over other bytes is still refused. */
+        @Test
+        void shouldRefuseTheArtifact_whenTheDecryptedPlaintextDoesNotMatchTheRecordedHash(@TempDir Path documentDir)
+                throws Exception {
+            OutboundEmailArchive archive = archiveUnderLegalHold();
+            byte[] other = "Subject: Tost\r\n\r\nBody".getBytes(StandardCharsets.UTF_8);
+            // Authenticates against the row (same recorded hash and size) but holds different content.
+            byte[] sealedOther = OutboundEmailArchiveEnvelope.seal(OutboundEmailArchiveTestKeyrings.keyring(1, 1),
+                    new OutboundEmailArchiveEnvelope.ArtifactContext(44, 123, "message/rfc822",
+                            archive.getSha256Hash(), archive.getByteSize()),
+                    other);
+
+            assertReadFails(documentDir, archive, sealedOther, "Archived artifact hash does not match archive metadata",
+                    OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
+        }
+
+        @Test
+        void shouldRefuseUnauthorizedReaders_beforeAnyDecryption() {
+            stubArchiveArtifactRead(archiveUnderLegalHold());
+            when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
+
+            assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                    .isInstanceOf(SecurityException.class);
+
+            verifyNoInteractions(keyringService);
+            verify(outboundEmailArchiveDao, never()).findForUpdate(anyInt());
+        }
+
+        @Test
+        void shouldRefuseReadersWithoutEdocRead_beforeAnyDecryption() {
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)).thenReturn(false);
+
+            assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                    .isInstanceOf(SecurityException.class);
+
+            verifyNoInteractions(keyringService);
+        }
+
+        @Test
+        void shouldWriteNothing_whenTheKeyringIsUnavailable() throws Exception {
+            when(keyringService.getKeyring()).thenThrow(new IllegalStateException("not loaded"));
+            OutboundEmailArchiveDto request = archiveRequest(emailLog());
+
+            assertThatThrownBy(() -> service.archive(loggedInInfo, request))
+                    .isInstanceOf(IllegalStateException.class);
+
+            verify(documentManager, never()).createDocument(any(), any(), any(), any(), any());
+        }
+
+        @Test
+        void shouldLogNoKeyPlaintextOrCiphertext_whenDecryptionFails(@TempDir Path documentDir) throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            byte[] tampered = stored.get().clone();
+            tampered[tampered.length - 1] ^= 0x01;
+
+            List<String> messages;
+            try (LogCapture capture = LogCapture.forLogger(OutboundEmailArchiveServiceImpl.class)) {
+                assertReadFails(documentDir, archive, tampered, "Archive artifact failed authentication",
+                        OutboundEmailArchiveReadAuditService.Event.DECRYPTION_FAILURE);
+                messages = capture.messages();
+            }
+
+            assertThat(messages).containsExactly("Outbound email archive artifact read failure archiveId=888"
+                    + " failureType=OutboundEmailArchiveEnvelopeException/AUTHENTICATION_FAILED event=DECRYPTION_FAILURE");
+            String ciphertextBase64 = java.util.Base64.getEncoder().encodeToString(tampered);
+            for (String message : messages) {
+                assertThat(message)
+                        .doesNotContain(OutboundEmailArchiveTestKeyrings.syntheticKeyBase64(1))
+                        .doesNotContain("synthetic-archive-test-key")
+                        .doesNotContain("Subject: Test")
+                        .doesNotContain(ciphertextBase64.substring(0, 40));
+            }
+        }
+
+        private Set<Path> regularFiles(Path directory) throws IOException {
+            try (Stream<Path> files = Files.list(directory)) {
+                return files.filter(Files::isRegularFile).collect(Collectors.toSet());
+            }
+        }
+
+        /** Runs archive() and captures the bytes handed to the eDoc store. */
+        private OutboundEmailArchive archiveCapturing(AtomicReference<byte[]> stored) throws Exception {
+            OutboundEmailArchiveDto request = archiveRequest(emailLog());
+            when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO),
+                    any(byte[].class))).thenAnswer(invocation -> {
+                        stored.set(invocation.getArgument(4));
+                        return savedDocument();
+                    });
+            doAnswer(invocation -> {
+                OutboundEmailArchive persisted = invocation.getArgument(0);
+                persisted.setId(888);
+                return null;
+            }).when(outboundEmailArchiveDao).persist(any(OutboundEmailArchive.class));
+            return service.archive(loggedInInfo, request);
+        }
+
+        /** Puts {@code storedBytes} where the archive's eDoc lives and reads it through the service. */
+        private byte[] readBack(Path documentDir, OutboundEmailArchive archive, byte[] storedBytes) throws Exception {
+            stubArchiveArtifactRead(archive);
+            Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), storedBytes);
+            AtomicReference<byte[]> read = new AtomicReference<>();
+            withDocumentDir(documentDir, () -> read.set(service.readArchivedArtifact(loggedInInfo, 888)));
+            return read.get();
+        }
+
+        private void assertReadFails(Path documentDir, OutboundEmailArchive archive, byte[] storedBytes,
+                                     String message, OutboundEmailArchiveReadAuditService.Event event) throws Exception {
+            stubArchiveArtifactRead(archive);
+            Files.write(documentDir.resolve(archive.getDocument().getDocfilename()), storedBytes);
+
+            withDocumentDir(documentDir, () -> assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                    .isInstanceOf(IOException.class)
+                    .hasMessage(message));
+
+            verify(readAuditService).recordAccess(loggedInInfo, 888, 321, 123, event);
+            verify(readAuditService, never()).recordAccess(loggedInInfo, 888, 321, 123,
+                    OutboundEmailArchiveReadAuditService.Event.ARTIFACT_READ);
+        }
     }
 }

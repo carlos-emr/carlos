@@ -37,4 +37,15 @@ class SmsSendFailedEventUnitTest {
                 .contains("errorCode")
                 .doesNotContain("errorMessage");
     }
+
+    @Test
+    @DisplayName("toString redacts patient, provider and appointment identifiers")
+    void shouldRedactIdentifiers_whenRenderedAsString() {
+        // Spring logs the event at DEBUG when it registers the AFTER_COMMIT listener.
+        SmsSendFailedEvent event = new SmsSendFailedEvent(41L, 4242, "999998", 7777, "CARRIER_REJECTED");
+
+        assertThat(event.toString())
+                .isEqualTo("SmsSendFailedEvent[redacted]")
+                .doesNotContain("4242", "999998", "7777");
+    }
 }

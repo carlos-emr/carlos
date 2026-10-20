@@ -8,9 +8,19 @@ const { validateMysqlHost } = require('./eform-local-playwright-utils');
 // MySQL host they are pointed at must be loopback unless the caller opts in for
 // a disposable non-local test database.
 test('validateMysqlHost accepts loopback hosts without an opt-in', () => {
-  for (const host of ['localhost', '127.0.0.1', '::1', '[::1]', 'LOCALHOST', '0:0:0:0:0:0:0:1']) {
+  for (const host of ['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']) {
     assert.equal(validateMysqlHost(host, {}), host);
   }
+});
+
+// The return value is what createSqlRunner hands to `mysql -h`, so it must be
+// the form the guard actually validated. Returning the caller's spelling would
+// send brackets, surrounding whitespace or mixed case to the client -- the
+// guard passes and the connection then fails, or reaches a different host.
+test('validateMysqlHost returns the normalised host, not the spelling it was given', () => {
+  assert.equal(validateMysqlHost('[::1]', {}), '::1');
+  assert.equal(validateMysqlHost('LOCALHOST', {}), 'localhost');
+  assert.equal(validateMysqlHost('  127.0.0.1  ', {}), '127.0.0.1');
 });
 
 test('validateMysqlHost refuses non-loopback hosts without ALLOW_NON_LOCAL_MYSQL_HOST=true', () => {

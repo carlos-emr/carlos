@@ -4,6 +4,8 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import static org.mockito.ArgumentMatchers.anyMap;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -33,6 +36,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
+import io.github.carlos_emr.carlos.utility.EmailSendingException.Refusal;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
@@ -73,6 +77,8 @@ class EmailSendRetryPassphraseUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() throws Exception {
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         states = spy(new EmailComposeSubmissionStateService());
         doAnswer(call -> ReflectionTestUtils.invokeMethod(EmailComposeWorkingDirectory.class,
                 "create", tempDir)).when(states).createWorkingDirectory();
@@ -88,6 +94,11 @@ class EmailSendRetryPassphraseUnitTest extends CarlosUnitTestBase {
         registerMock(EmailManager.class, manager);
         registerMock(EformDataManager.class, mock(EformDataManager.class));
         registerMock(EmailComposeManager.class, mock(EmailComposeManager.class));
+        // Develop's send path re-reads each attachment's owner (release #4425); these tests are
+        // about other behaviour, so ownership always holds.
+        AttachmentOwnershipService ownership = mock(AttachmentOwnershipService.class);
+        when(ownership.allBelongToDemographic(anyMap(), any())).thenReturn(true);
+        registerMock(AttachmentOwnershipService.class, ownership);
         registerMock(EmailComposeSubmissionStateService.class, states);
         registerMock(EmailPdfPasswordService.class, passwords);
         registerMock(PdfPreviewCapabilityService.class, previews);
@@ -181,9 +192,24 @@ class EmailSendRetryPassphraseUnitTest extends CarlosUnitTestBase {
         }.execute()).isEqualTo("success");
         assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(accepted);
         assertThat(request.getAttribute("isEmailDeliveryUnconfirmed")).isEqualTo(!accepted);
+        assertThat(request.getAttribute("emailRefusal")).isEqualTo("NONE");
         assertThat(states.consume(request)).isNull();
         verify(passwords, never()).generatePassphrase();
         assertThat(originalPdf).doesNotExist();
+    }
+
+    @ParameterizedTest
+    @EnumSource(Refusal.class)
+    @DisplayName("definite failure tells the result page which address the server refused, and still offers a retry")
+    void shouldExposeRefusal_whenSendDefinitelyFails(Refusal refusal) {
+        when(manager.sendEmailWithResult(any(), any()))
+                .thenReturn(EmailSendResult.failed(emailLog(EmailLog.EmailStatus.FAILED), true, refusal));
+        assertThat(new EmailSend2Action() {
+            @Override protected String encryptedBodyNotice() { return "Encrypted attachment enclosed."; }
+        }.execute()).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
+        assertThat(request.getAttribute("emailRefusal")).isEqualTo(refusal.name());
+        assertThat((String) request.getAttribute(TOKEN)).isNotBlank().isNotEqualTo(originalToken);
     }
 
     @Test

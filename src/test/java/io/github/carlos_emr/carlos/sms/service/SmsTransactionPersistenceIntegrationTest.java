@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -68,7 +69,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     void shouldRejectConflictingIdentifiers_whenDeliveryCallbackMatchesOnlyClientReference() {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
                 SmsSendCommand.patientMessage(123, "416-555-1212", "synthetic", "999998"),
-                SmsProviderType.STUB, SmsConsentDecisionDto.permit());
+                SmsProviderType.STUB, SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z")));
         outbound.markProviderResult(SmsProviderSendResultDto.accepted("correct-provider-id", SmsStatus.SENT));
         entityManager.flush();
         SmsDeliveryWebhookDto callback = new SmsDeliveryWebhookDto(SmsProviderType.STUB,
@@ -147,7 +148,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
                 SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB,
-                SmsConsentDecisionDto.permit()
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"))
         );
         String clientReferenceId = outbound.getClientReferenceId();
         assertThat(clientReferenceId).isEqualTo(SmsTransaction.clientReferenceIdFor(outbound.getId()));
@@ -190,7 +191,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
         SmsTransaction outbound = recorder.recordOutboundAttempt(
                 SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB,
-                SmsConsentDecisionDto.permit()
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"))
         );
         Long id = outbound.getId();
         long queuedVersion = outbound.getVersion();
@@ -219,6 +220,36 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
         assertThat(reloaded.getStatus()).isEqualTo(SmsStatus.SENT);
         assertThat(reloaded.getProviderMessageId()).isEqualTo("provider-direct");
         assertThat(reloaded.getAttemptCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a dispatch-time snapshot rewrite advances the version, so only the returned row can record the result")
+    void shouldRequireReturnedRow_afterDispatchConsentIsRecorded() {
+        SmsTransaction outbound = recorder.recordOutboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB,
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"))
+        );
+        Long id = outbound.getId();
+        entityManager.detach(outbound);
+        SmsTransaction sending = recorder.markSending(outbound, java.util.Date.from(Instant.parse("2026-09-10T09:05:00Z")));
+        entityManager.detach(sending);
+        SmsConsentDecisionDto reconsented = SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 9, Instant.parse("2026-09-10T09:00:00Z"));
+
+        SmsTransaction recorded = recorder.recordConsentDecision(sending, reconsented);
+        entityManager.flush();
+
+        assertThat(recorded.getVersion()).isGreaterThan(sending.getVersion());
+        entityManager.detach(recorded);
+        SmsProviderSendResultDto accepted = SmsProviderSendResultDto.accepted("provider-after-rewrite", SmsStatus.SENT);
+        assertThat(recorder.markProviderResult(sending, accepted).getStatus()).isEqualTo(SmsStatus.SENDING);
+        assertThat(recorder.markProviderResult(recorded, accepted).getStatus()).isEqualTo(SmsStatus.SENT);
+        entityManager.flush();
+        entityManager.clear();
+        SmsTransaction reloaded = entityManager.find(SmsTransaction.class, id);
+        assertThat(reloaded.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(reloaded.hasConsentSnapshot(reconsented)).isTrue();
     }
 
     @Test

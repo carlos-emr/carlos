@@ -14,7 +14,7 @@ package io.github.carlos_emr.carlos.providers.gate;
 
 /**
  * View gate for {@code provider/editSignature.jsp}. Enforces
- * {@code _appointment} {@code w} privilege before forwarding to the JSP.
+ * {@code _pref} {@code w} privilege before forwarding to the JSP.
  *
  * @since 2026-04-13
  */
@@ -22,7 +22,7 @@ public final class ViewEditSignature2Action extends BaseProviderViewGate2Action 
 
     @Override
     protected String getSecurityObject() {
-        return "_appointment";
+        return "_pref";
     }
 
     @Override
