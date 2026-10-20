@@ -13587,7 +13587,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "The Ontario Billing Report Center (Billed, Unsettled, OB, Flu) as a login with report rights that is neither administrator nor doctor sees it; those two roles skip to the dashboard billing-on-reports-inr-eoy drives. Fails at its last step until #5061 is fixed: Billed, Unsettled and OB list Ontario claims since its first fix, and Flu still reads the retired billing table (how to split its walk-in and clinic lists is an open question on #5061).",
+      "notes": "The Ontario Billing Report Center (Billed, Unsettled, OB, Flu) as a login with report rights that is neither administrator nor doctor sees it; those two roles skip to the dashboard billing-on-reports-inr-eoy drives. Each report lists its Ontario claim: Billed, Unsettled and OB since #5061's first fix, and Flu as one list of flu-shot claims since #5093.",
       "fixtures": "Owned patient, a FAKE- billable provider with its billingreport reportprovider row, an open, a submitted, an obstetric and a flu-shot Ontario claim (written in strict SQL mode), an owned role and a throwaway login; all removed in cleanup."
     },
     {
