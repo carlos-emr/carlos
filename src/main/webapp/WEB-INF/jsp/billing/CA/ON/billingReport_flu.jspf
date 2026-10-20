@@ -41,15 +41,15 @@
 </c:when>
 <c:otherwise>
     <tr bgcolor="#CCCCFF">
-        <TH align="center" width="10%"><b><font size="2"
+        <TH scope="col" align="center" width="10%"><b><font size="2"
             face="Arial, Helvetica, sans-serif">INVOICE</font></b></TH>
-        <TH align="center" width="35%"><b><font size="2"
+        <TH scope="col" align="center" width="35%"><b><font size="2"
             face="Arial, Helvetica, sans-serif">PATIENT</font></b></TH>
-        <TH align="center" width="20%"><b><font size="2"
+        <TH scope="col" align="center" width="20%"><b><font size="2"
             face="Arial, Helvetica, sans-serif">DATE</font></b></TH>
-        <TH align="center" width="15%"><b><font size="2"
+        <TH scope="col" align="center" width="15%"><b><font size="2"
             face="Arial, Helvetica, sans-serif">BILLED</font></b></TH>
-        <TH align="center" width="20%"><b><font size="2"
+        <TH scope="col" align="center" width="20%"><b><font size="2"
             face="Arial, Helvetica, sans-serif">STATUS</font></b></TH>
     </tr>
     <c:forEach var="row" items="${billingReportFragmentModel.fluRows}">

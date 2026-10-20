@@ -55,6 +55,7 @@ class BillingReportFluFragmentJspRegressionTest {
                 .contains("items=\"${billingReportFragmentModel.fluRows}\"")
                 .contains("<fmt:message key=\"billing.flu.count\"><fmt:param value=\"${billingReportFragmentModel.fluCount}\"/></fmt:message>")
                 .contains("${billingReportFragmentModel.fluTotal}")
+                .doesNotContain("<TH align")
                 .doesNotContain("fluWalkinRows")
                 .doesNotContain("fluClinicRows")
                 .doesNotContain("WALK-IN");
