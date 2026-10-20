@@ -20,6 +20,21 @@ const MARKER = 'FAKE-PW0123456789abcdef';
 const INTENTS = ['Save Query', 'Run Query And Save to Patient Set'];
 const filename = path.join(__dirname, 'demographic-report-favourites-playwright-checks.js');
 
+function nativeNoAgeValue() {
+  const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/oscarReport/ReportDemographicReport.jsp'), 'utf8');
+  const field = jsp.match(/<select\s+name="age"[\s\S]*?<\/select>/);
+  assert(field, 'The native report age criterion must be present');
+  const option = field[0].split('\n').find(line => line.includes('---NO AGE SPECIFIED---'));
+  assert(option && option.includes('formBean.getAge() == null ? "selected"'), 'A new native report must select the no-age criterion');
+  const value = option.match(/<option value="([0-9]+)"/);
+  assert(value, 'The native no-age option must have an explicit submitted value');
+  return value[1];
+}
+
+test('the native report form explicitly submits zero for no age criterion', () => {
+  assert.equal(nativeNoAgeValue(), '0');
+});
+
 function load({source, tool} = {}) {
   const module = {exports: {}};
   vm.runInNewContext(source || fs.readFileSync(filename, 'utf8'), {
@@ -164,7 +179,10 @@ for (const scenario of ['owned', 'foreign-result', 'silent-write']) test(`actual
   p.session.step = async (label, body) => {if (label.startsWith('read-only GET')) await body();};
   const run = load({tool}).workflow(p.session);
   if (scenario === 'owned') await run; else await assert.rejects(run);
-  assert.equal(calls.length, 2); assert.equal(calls[1].params.query, 'Run Query');
+  assert.equal(calls.length, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[1].params)), {
+    query: 'Run Query', select: 'demographic_no', lastName: MARKER, sex: '1', age: nativeNoAgeValue(),
+  });
 });
 
 test('native POST capture excludes another route, intent and HTTP method', async () => {

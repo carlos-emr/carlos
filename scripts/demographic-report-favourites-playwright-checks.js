@@ -186,7 +186,8 @@ async function workflow(s) {
     const before = counts();
     const display = await context.request.get(reportUrl, {maxRedirects: 0});
     h.assert(display.status() === 200 && (await display.text()).includes('id="select_demographic_no"'), 'Read-only report GET did not display its form');
-    const run = await context.request.get(reportUrl, {params: {query: 'Run Query', select: 'demographic_no', lastName: marker, sex: '1'}, maxRedirects: 0});
+    // The native report form submits age=0 for its default no-age criterion.
+    const run = await context.request.get(reportUrl, {params: {query: 'Run Query', select: 'demographic_no', lastName: marker, sex: '1', age: '0'}, maxRedirects: 0});
     const body = await run.text();
     const results = body.match(/Search Returned:\s*1 Results<\/div>\s*<table[^>]*>([\s\S]*?)<\/table>/);
     const patients = results ? [...results[1].matchAll(/<td>\s*(\d+)\s*<\/td>/g)].map(match => match[1]) : [];
