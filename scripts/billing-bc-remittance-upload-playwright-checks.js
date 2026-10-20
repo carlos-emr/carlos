@@ -20,10 +20,11 @@
  * the refused claim is marked refused (F); MSP Reconciliation Reports opens from the menu; LAST, that list's
  * Billed PDF names the owned claims (patient number and both fee codes) and its Summary PDF the payee and
  * practitioner numbers.
- * Known failures, recorded in the manifest notes: on 2026.08 Submit stores the remittance and then
- * answers HTTP 500 (#4806; #4808 is its release fix), so the upload step fails; MSP Reconciliation
- * Reports from the menu fails on every BC install (#4439, D6); the list's PDF links answer HTTP 404 until
- * #5063 is fixed (they resolve under the page's base to /<context>/createBillingReportAction), the last step.
+ * Known failures, recorded in the manifest notes: on 2026.08 Submit stored the remittance and then
+ * answered HTTP 500 (#4806), which passes since #4808 merged (18 Oct); MSP Reconciliation Reports from
+ * the menu answered HTTP 405 (#4439, D6), which passes since #4778 merged (18 Oct); the list's PDF links,
+ * the last step, answered HTTP 404 (they resolved under the page's base to
+ * /<context>/createBillingReportAction), which passes since #5070 merged (19 Oct).
  * Needs DOCUMENT_DIR, the server's document directory reachable from this runner (the uploaded copy
  * is removed from it), a NEW_BC_TELEPLAN=no install, and Poppler's pdftotext for the PDF text (SKIP otherwise).
  * Fixtures: one billing physician (bc.createBillingPhysician), the workflow's own FAKE patient made a

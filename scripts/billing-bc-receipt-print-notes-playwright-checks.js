@@ -13,8 +13,8 @@
  * neither the Billing Notes heading nor the typed note; LAST, Print With Notes prints the same and also the heading
  * and the note.
  * The print buttons sit inside the receipt's Update Invoice form; a press that also posts that form (and reloads the
- * receipt) instead of printing is reported by the step as such. Until #5068 is fixed both print steps fail that way:
- * the buttons have no type, so each submits the form.
+ * receipt) instead of printing is reported by the step as such. Both print steps failed that way on 2026.08 (#5068:
+ * the buttons had no type, so each submitted the form); they pass since #5072 merged (19 Oct).
  * Needs Poppler's pdftotext (SKIP without it). Fixtures: one private bill (billing + billingmaster, 45.00) for the
  * workflow's own FAKE patient, made a BC patient. Nothing is meant to be saved; cleanup deletes every BC billing row
  * of that patient (with any bill_recipients and billingnote rows a stray Update Invoice wrote) and asserts none is
