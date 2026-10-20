@@ -41,6 +41,13 @@ window. A visit longer than one template slot can be offered at each slot it may
 | `patient_portal.job.booking-sync.private_key` | none | The job's own Ed25519 private key (unpadded base64url PKCS#8). Required. |
 | `patient_portal.job.booking-sync.key_id` | none | Its key ID (`[A-Za-z0-9._-]{1,64}`), never the staff key ID. Required. |
 
+CARLOS reads these settings, and `patient_portal.enabled`, when it starts: restart CARLOS after
+changing any of them.
+
+`patient_portal.booking.sync.provider_no` is no longer used: the job signs with its own key
+(below), not as a provider. Remove it from `carlos.properties`. If a non-login provider was made
+for the old sync, deactivate it rather than delete it, so its past log rows still show its name.
+
 ## The booking-sync job and its key
 
 The polling job is not a person and not a CARLOS provider. It calls the portal as the
