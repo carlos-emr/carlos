@@ -268,3 +268,150 @@ test('report-filter actual caller guards all callbacks under default finalizer a
   const c=await filtersRun(t,{browserCloseFails:true});await assert.rejects(c.finish(),/browser close/);
   assert(!c.events.some(x=>['ra-cleanup','claim-cleanup','provider-cleanup','patient-cleanup'].includes(x)));
 });
+
+// Actual bill-form referral picker/native self-close and second-claim contract.
+{
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later. */
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const {test} = require('node:test');
+
+const APP = process.env.REFERRAL_APP_ROOT || path.resolve(__dirname, '..');
+const CALLERS = process.env.REFERRAL_CALLER_ROOT || __dirname;
+const h = {assert:(ok,message)=>assert(ok,message), sqlString:value=>"'"+String(value).replaceAll("'","''")+"'"};
+function load(file, deps, extra={}) {
+  const module={exports:{}};
+  const req=id=>{
+    if(Object.hasOwn(deps,id))return deps[id];
+    throw Error('Unexpected control import '+id);
+  };
+  req.main=null;
+  const context={module,exports:module.exports,require:req,console,URL,Date,Math,...extra};
+  vm.runInNewContext(fs.readFileSync(file,'utf8'),context,{filename:file});
+  return module.exports;
+}
+const helpers = load(path.join(APP,'scripts/lib/popup-opener-helpers.js'),{'./playwright-harness':h});
+const jsp = fs.readFileSync(path.join(APP,'src/main/webapp/WEB-INF/jsp/billing/CA/ON/searchRefDoc.jsp'),'utf8');
+const callback = jsp.match(/function typeInData2\(data1, data2\) \{[\s\S]*?\n            \}/)?.[0];
+assert(callback,'Native two-field referral callback missing');
+const nativeCallback = callback.replace(/<carlos:encode value='\$\{refDocModel\.(fld[12])\.(formIdx|fieldId)\}' context='[^']+'\/>/g,
+  (_,field,key)=>key==='formIdx'?'0':field==='fld1'?'referralCode':'referralDocName');
+assert(!nativeCallback.includes('<carlos:'),'Control must substitute every native field expression');
+
+async function run(options={}) {
+  const marker='FAKE-PW0123456789abcdef',referralNo='100000';
+  const events=[],cleanups=[],fields={referralCode:{value:''},referralDocName:{value:''}};
+  let popupClosed=Boolean(options.preClosed),openerClosed=false,closeResolve,saveResolve;
+  let persisted=null,saveClicks=0;
+  const closed=new Promise(resolve=>{closeResolve=resolve;});
+  const response={status:()=>options.httpStatus||200,request:()=>({method:()=> 'POST'}),url:()=> 'https://example.invalid/carlos/billing/CA/ON/BillingONSave'};
+  const close=()=>{events.push('native-close');popupClosed=true;closeResolve();if(options.closeOpener)openerClosed=true;};
+  const native={opener:{document:{forms:[{elements:fields}]}},self:{close}};
+  vm.createContext(native);vm.runInContext(nativeCallback,native);
+  const row={
+    first(){return this;},
+    async waitFor(){if(popupClosed)throw Error('Popup was already closed');events.push('row-visible');},
+    async count(){return options.duplicateRows?2:1;},
+    filter({hasText}){assert.equal(hasText,referralNo);return this;},
+    async click(clickOptions){
+      events.push('row-click');
+      if(options.clickFailure)throw Error('Synthetic unrelated click failure');
+      if(options.noUpdate){close();}
+      else {
+        const number=options.wrongNumber?'999999':referralNo;
+        const name=options.wrongName?marker+',Foreign':marker+',Referral';
+        if(options.staysOpen){fields.referralCode.value=number;fields.referralDocName.value=name;}
+        else native.typeInData2(number,name);
+      }
+      if(options.closeRace)throw Error('locator.click: Target page, context or browser has been closed');
+      if(clickOptions)assert.equal(clickOptions.noWaitAfter,true);
+    },
+  };
+  const popup={
+    isClosed:()=>popupClosed,
+    locator(selector){assert.equal(selector,'#tblDocs tbody tr');return row;},
+    waitForEvent(event){
+      assert.equal(event,'close');events.push('close-armed');
+      return options.staysOpen?Promise.reject(Error('Synthetic close timeout')):closed;
+    },
+  };
+  const firstForm={async close(){events.push('first-form-close');}};
+  const next={
+    isClosed:()=>openerClosed,
+    locator(selector){
+      if(selector==='a[href*="referralScriptAttach2"]')return {kind:'referral-link'};
+      const input=selector.match(/^input\[name="(referralCode|referralDocName)"\]$/)?.[1];
+      if(input)return {async inputValue(){if(openerClosed)throw Error('Opener context closed');return fields[input].value;}};
+      if(selector==='input[name="serviceCode0"]'||selector==='input[name="dxCode"]')return {async fill(value){if(openerClosed)throw Error('Opener context closed');events.push('fill '+value);}};
+      if(selector==='form[name="titlesearch"] input[type="submit"][value="Save"]')return {async click(){
+        if(openerClosed)throw Error('Opener context closed');saveClicks++;events.push('native-save-post');
+        if(!options.noPersist&&response.status()===200)persisted={referral:options.wrongSavedRef?'999999':fields.referralCode.value,
+          patient:options.foreignSavedPatient?'888':'777',count:options.duplicateClaims?2:1};
+        saveResolve(response);
+      }};
+      throw Error('Unexpected next-form locator '+selector);
+    },
+    waitForResponse(predicate){
+      assert.equal(predicate(response),true,'Native save POST must be observed');
+      assert.equal(predicate({...response,request:()=>({method:()=> 'GET'})}),false,'A GET must not satisfy save proof');
+      assert.equal(predicate({...response,url:()=> 'https://example.invalid/carlos/unrelated'}),false);
+      return new Promise(resolve=>{saveResolve=resolve;});
+    },
+  };
+  const sql={
+    execute(query){assert(query.startsWith('INSERT INTO professionalSpecialists'));events.push('owned-referral-fixture');},
+    value(query){
+      if(query==='SELECT COUNT(*) FROM billing_on_cheader1 WHERE appointment_no=882 AND demographic_no=777')return persisted?.patient==='777'?String(persisted.count):'0';
+      if(query==='SELECT ref_num FROM billing_on_cheader1 WHERE appointment_no=882')return persisted?.referral||'';
+      throw Error('Unexpected claim proof '+query);
+    },
+  };
+  let appointment=880;
+  const g={registerOwnedBillCleanup(){},scheduleFee:()=>1,showSeededAppointments:async()=>{},
+    openBillForm:async(_s,id)=>id==='881'?firstForm:next,chooseBillingPhysician:async()=>{},
+    nextToReview:async(page)=>{assert.equal(page,next);events.push('native-next-review');}};
+  const api=load(path.join(CALLERS,'gap-billing-bill-form-options-playwright-checks.js'),{
+    './lib/playwright-harness':h,
+    './lib/native-schedule-context':{captureScheduleContext:async()=>({}),assertScheduleContext:async()=>{},seedScheduleAppointment:()=>String(++appointment)},
+    './lib/workflow-session':{runWorkflow(){}},
+    './billing-on-ohip-simulation-report-playwright-checks':{createBillingFixture:()=>({providerNo:'970001'})},
+    './lib/gap-billing-support':g,'./lib/popup-opener-helpers':helpers,
+  },{Math:Object.assign(Object.create(Math),{random:()=>0})});
+  const s={sql,patient:'777',marker,cleanup:fn=>cleanups.push(fn),
+    async step(label,fn){if(label.startsWith('day sheet')||label.startsWith('Referral Doctor'))await fn();},
+    async popup(page,link,label){assert.equal(page,next);assert.equal(link.kind,'referral-link');assert.equal(label,'referral-search');return popup;}};
+  let error;
+  try{await api.workflow(s);}catch(caught){error=caught;}
+  return {error,events,saveClicks,persisted,fields,popupClosed};
+}
+
+test('actual caller + existing helper + native JSP callback tolerate dispatch-time popup self-close only after exact handoff and second save',async()=>{
+  const result=await run({closeRace:true});assert.ifError(result.error);
+  assert(result.events.indexOf('close-armed')<result.events.indexOf('row-click'));
+  assert(result.events.indexOf('native-close')<result.events.indexOf('native-next-review'));
+  assert.equal(result.fields.referralCode.value,'100000');assert.equal(result.fields.referralDocName.value,'FAKE-PW0123456789abcdef,Referral');
+  assert.equal(result.saveClicks,1);assert.equal(result.persisted.referral,'100000');assert.equal(result.persisted.patient,'777');
+});
+test('ordinary successful click still requires the same native callback and saved claim',async()=>{const r=await run();assert.ifError(r.error);assert.equal(r.saveClicks,1);});
+for(const [name,options,message] of [
+  ['click failure while popup remains open',{clickFailure:true},'Synthetic unrelated click failure'],
+  ['preclosed picker',{preClosed:true},'already closed'],
+  ['callback fills fields but popup stays open',{staysOpen:true},'did not close'],
+  ['popup closes without updating opener',{noUpdate:true,closeRace:true},'referral number'],
+  ['wrong referral number despite native close',{wrongNumber:true,closeRace:true},'referral number'],
+  ['same marker but wrong given name',{wrongName:true,closeRace:true},'doctor name'],
+  ['opener/browser closes too',{closeOpener:true,closeRace:true},'Opener context closed'],
+  ['duplicate matching rows',{duplicateRows:true},'exactly once'],
+])test(name+' cannot reach Save',async()=>{const r=await run(options);assert(r.error);assert.match(r.error.message,new RegExp(message));assert.equal(r.saveClicks,0);});
+for(const [name,options,message] of [
+  ['HTTP500 save',{httpStatus:500},'HTTP 500'],
+  ['save writes no second claim',{noPersist:true},'exactly one second claim'],
+  ['save writes a foreign patient claim',{foreignSavedPatient:true},'exactly one second claim'],
+  ['save writes duplicate second claims',{duplicateClaims:true},'exactly one second claim'],
+  ['save keeps a different referral',{wrongSavedRef:true},'picked referral number'],
+])test(name+' remains a failure after successful picker handoff',async()=>{const r=await run(options);assert(r.error);assert.match(r.error.message,new RegExp(message));assert.equal(r.saveClicks,1);});
+
+}

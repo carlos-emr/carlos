@@ -13,7 +13,7 @@
 const fs=require('node:fs');const path=require('node:path');const os=require('node:os');
 const vm=require('node:vm');const assert=require('node:assert/strict');const {test}=require('node:test');
 const {spawnSync}=require('node:child_process');
-const {createQuickListPreferenceFixture}=require('./lib/quick-list-preference-fixture');
+const {createQuickListPreferenceFixture,createNativeQuickListPreferenceFixture}=require('./lib/quick-list-preference-fixture');
 const {cleanupOwnedWorkflow}=require('./lib/workflow-session');
 const PYTHON_SQLITE=[
   "import sqlite3,json,hashlib,re,sys",
@@ -151,4 +151,55 @@ test('actual workflow browser-close rejection permits zero list or preference cl
  const before=all(db.sql);db.browser.close=async()=>{throw Error('synthetic browser close refusal');};db.calls.length=0;
  await assert.rejects(db.finish(),/browser close/);
  assert(!db.calls.some(call=>/^(DELETE|UPDATE)/.test(call.query)));assert.deepEqual(all(db.sql),before);
+});
+
+test('native-only registry restores a newly created default-list preference without inventing owned lists',async t=>{
+ const db=database(t,[[1,'999998','default','2024-04-02 22:33:34']]);
+ const handle=createNativeQuickListPreferenceFixture(db.session,{ledgerDirectory:db.dir});
+ const beforeLists=db.sql.rows('SELECT * FROM quickList ORDER BY id');nativePreference(db.sql,'List1');await db.finish();
+ assert.deepEqual(all(db.sql),db.before);assert.deepEqual(db.sql.rows('SELECT * FROM quickList ORDER BY id'),beforeLists);
+ assert.deepEqual(JSON.parse(fs.readFileSync(handle.ledgerPath)).ownedNames,[]);
+});
+test('native-only registry restores the exact existing timestamp and foreign rows, including NULL',async t=>{
+ const db=database(t,[[1,'999998','List1',null],[2,'2','List1','2020-01-01 00:00:00']]);
+ createNativeQuickListPreferenceFixture(db.session,{ledgerDirectory:db.dir});nativePreference(db.sql,'List1');await db.finish();assert.deepEqual(all(db.sql),db.before);
+});
+test('ordinary owned-list API still refuses empty names; native-only mode refuses unknown additions before any DML',async t=>{
+ const db=database(t);assert.throws(()=>createQuickListPreferenceFixture(db.session,[],{ledgerDirectory:db.dir}),/Invalid/);
+ createNativeQuickListPreferenceFixture(db.session,{ledgerDirectory:db.dir});nativePreference(db.sql,'Foreign');db.calls.length=0;
+ await assert.rejects(db.finish(),/Unknown preference/);assert(!db.calls.some(x=>/^(DELETE|UPDATE)/.test(x.query)));
+});
+test('native-only preference cleanup refuses browser-close failure and preserves the entire snapshot delta',async t=>{
+ const db=database(t);createNativeQuickListPreferenceFixture(db.session,{ledgerDirectory:db.dir});nativePreference(db.sql,'List1');const now=all(db.sql);
+ db.browser.close=async()=>{throw Error('synthetic close refusal');};db.calls.length=0;
+ await assert.rejects(db.finish(),/browser close/);assert(!db.calls.some(x=>/^(DELETE|UPDATE)/.test(x.query)));assert.deepEqual(all(db.sql),now);
+});
+function sessionCaller(imports={}) {
+ const m={exports:{}};const h={assert:(ok,msg)=>assert(ok,msg),sqlString:value=>"'"+String(value).replaceAll("'","''")+"'",insertId:()=> '5'};
+ const request=name=>name.startsWith('node:')?require(name):imports[name]||(name==='./lib/playwright-harness'?h:{});
+ vm.runInNewContext(fs.readFileSync(process.env.SESSION_STATE_CLEANUP_CALLER_FILE || path.join(__dirname,'session-state-two-window-isolation-playwright-checks.js'),'utf8')+'\nmodule.exports.waitingListPrompt=waitingListPrompt;',
+  {require:request,module:m,exports:m.exports,URL,URLSearchParams,Date,Buffer,process:{env:{}}});return m.exports;
+}
+test('actual session workflow snapshots native preference before its first fixture mutation or UI',async()=>{
+ const events=[];const stop=Error('first mutation');
+ const caller=sessionCaller({'./lib/quick-list-preference-fixture':{createNativeQuickListPreferenceFixture:()=>events.push('snapshot')},'./lib/export-content-helpers':{requirePoppler:()=>events.push('poppler')}});
+ const s={patient:'77',marker,sql:{execute(){events.push('mutation');throw stop;}}};
+ await assert.rejects(caller.workflow(s),e=>e===stop);assert.deepEqual(events,['snapshot','poppler','mutation']);
+});
+test('actual waiting-list caller remembers session/date before Add UI and cleans only new owned locks after browser drain',async t=>{
+ const db=database(t);db.sql.execute('CREATE TABLE PageMonitor(id INTEGER PRIMARY KEY,pageName TEXT,pageId TEXT,session TEXT)');
+ const actual=require('./lib/appointment-page-monitor-cleanup');let remembered=false;
+ const caller=sessionCaller({'./lib/appointment-page-monitor-cleanup':{appointmentMonitorCleanup:scope=>{
+  assert.equal(scope.provider,'999998');assert.equal(scope.date,'2026-10-21');const helper=actual.appointmentMonitorCleanup(scope);
+  return{remember:async context=>{await helper.remember(context);remembered=true;},cleanup:()=>helper.cleanup()};}}});
+ const origValue=db.sql.value.bind(db.sql),origExecute=db.sql.execute.bind(db.sql);
+ db.sql.value=(query,args)=>query.includes('myGroupNo')?'':query.startsWith('SELECT DATE_ADD')?'2026-10-21':origValue(query,args);
+ db.sql.execute=(query,args)=>query.includes('waitingList')?undefined:origExecute(query,args);
+ db.session.context.cookies=async()=>[{name:'JSESSIONID',path:'/carlos',value:'private-test-cookie'}];db.session.config={baseUrl:'https://127.0.0.1/carlos'};
+ const stop=Error('native UI boundary');db.session.step=async()=>{assert(remembered);throw stop;};
+ await assert.rejects(caller.waitingListPrompt(db.session,'77','78'),e=>e===stop);
+ db.sql.execute("INSERT INTO PageMonitor VALUES(1,'addappointment','999998|2026-10-21|10:15|10:29','private-test-cookie'); INSERT INTO PageMonitor VALUES(2,'addappointment','999998|2026-10-21|10:15|10:29','foreign-cookie')");
+ const cleanup=db.cleanups.at(-1);db.calls.length=0;assert.throws(cleanup,/browser close/);assert(!db.calls.some(x=>/^DELETE/.test(x.query)));
+ db.browser.connected=false;cleanup();assert.deepEqual(db.sql.rows('SELECT id FROM PageMonitor ORDER BY id'),[['2']]);
+ assert(db.calls.every(x=>!x.query.includes('private-test-cookie')));
 });

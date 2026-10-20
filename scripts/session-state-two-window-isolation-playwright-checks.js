@@ -85,6 +85,8 @@ const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const {captureScheduleContext, assertScheduleContext} = require('./lib/native-schedule-context');
 const ui = require('./lib/playwright-ui');
+const {createNativeQuickListPreferenceFixture} = require('./lib/quick-list-preference-fixture');
+const {appointmentMonitorCleanup} = require('./lib/appointment-page-monitor-cleanup');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -210,6 +212,15 @@ async function healthTrackerVisits(s, A, B) {
   const scheduleContext = await captureScheduleContext(s);
   const day = scheduleContext.date;
   const [year, month, dayOfMonth] = day.split('-');
+  const monitors = appointmentMonitorCleanup({
+    sql: statement => sql.rows(statement).map(row => row.join('\t')).join('\n'),
+    provider, date: day, baseUrl: s.config.baseUrl,
+  });
+  s.cleanup(() => {
+    h.assert(context.browser().isConnected() === false, 'Booking monitor cleanup retained: browser close is unconfirmed');
+    monitors.cleanup();
+  });
+  await monitors.remember(context); // Exact session/provider/date baseline before either Add Appointment page.
   const appointmentOf = {};
   for (const [label, patient, first, start, end] of [
     ['A', A, A_FIRST_NAME, '09:00:00', '09:14:00'], ['B', B, B_FIRST_NAME, '09:15:00', '09:29:00']]) {
@@ -1072,6 +1083,15 @@ async function waitingListPrompt(s, A, B) {
     VALUES (${listId}, ${B}, ${q(marker)}, 1, NOW(), 'N')`);
   const day = sql.value('SELECT DATE_ADD(CURDATE(), INTERVAL 1 DAY)');
   const [year, month, dayOfMonth] = day.split('-');
+  const monitors = appointmentMonitorCleanup({
+    sql: statement => sql.rows(statement).map(row => row.join('\t')).join('\n'),
+    provider, date: day, baseUrl: s.config.baseUrl,
+  });
+  s.cleanup(() => {
+    h.assert(context.browser().isConnected() === false, 'Booking monitor cleanup retained: browser close is unconfirmed');
+    monitors.cleanup();
+  });
+  await monitors.remember(context); // Exact session/provider/date baseline before either Add Appointment page.
 
   let listPage;
 
@@ -1170,6 +1190,7 @@ async function diseaseRegistry(s, A, B) {
 }
 
 async function workflow(s) {
+  createNativeQuickListPreferenceFixture(s); // Snapshot before any registry/chart UI can write its preference.
   const { sql, marker } = s;
   requirePoppler('pdftotext');
   const A = key(s.patient, 'patient');

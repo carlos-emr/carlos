@@ -26,6 +26,7 @@ const {captureScheduleContext, assertScheduleContext, seedScheduleAppointment} =
 const { runWorkflow } = require('./lib/workflow-session');
 const { createBillingFixture } = require('./billing-on-ohip-simulation-report-playwright-checks');
 const g = require('./lib/gap-billing-support');
+const { pickInPopup } = require('./lib/popup-opener-helpers');
 
 const q = h.sqlString;
 
@@ -140,20 +141,23 @@ async function workflow(s) {
     const row = popup.locator('#tblDocs tbody tr').filter({ hasText: referralNo });
     await row.first().waitFor({ state: 'visible', timeout: 20000 });
     h.assert(await row.count() === 1, 'The referral search does not list the owned specialist exactly once');
-    await row.first().click();
-    await popup.waitForEvent('close', { timeout: 10000 }).catch(() => {});
+    h.assert(await pickInPopup(popup, row.first(), { timeout: 10000 }),
+      'The referral doctor picker did not close after the native opener update');
     h.assert(await next.locator('input[name="referralCode"]').inputValue() === referralNo,
       'Picking the specialist did not fill the referral number on the bill form');
-    h.assert((await next.locator('input[name="referralDocName"]').inputValue()).includes(marker),
+    h.assert(await next.locator('input[name="referralDocName"]').inputValue() === `${marker},Referral`,
       'Picking the specialist did not fill the referral doctor name on the bill form');
     await next.locator('input[name="serviceCode0"]').fill('A007A');
     await next.locator('input[name="dxCode"]').fill('250');
     await g.nextToReview(next);
-    await Promise.all([
+    const [response] = await Promise.all([
       next.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/billing/CA/ON/BillingONSave'),
         { timeout: 30000 }),
       next.locator('form[name="titlesearch"] input[type="submit"][value="Save"]').click(),
     ]);
+    h.assert(response.status() === 200, `The referred bill save answered HTTP ${response.status()}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE appointment_no=${second} AND demographic_no=${patient}`) === '1',
+      'The referral save did not write exactly one second claim for the owned patient');
     h.assert(sql.value(`SELECT ref_num FROM billing_on_cheader1 WHERE appointment_no=${second}`) === referralNo,
       'The saved claim does not carry the picked referral number');
   });

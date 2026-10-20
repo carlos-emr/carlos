@@ -37,16 +37,17 @@ function snapshot(sql) {
   return rows;
 }
 /** Snapshot before UI; register after physician cleanup and before list cleanup. */
-function createQuickListPreferenceFixture(session, ownedNames, { ledgerDirectory } = {}) {
+function createQuickListPreferenceFixture(session, ownedNames, { ledgerDirectory, nativeOnly = false } = {}) {
   const { sql, provider, marker } = session;
   assert(/^\d{1,6}$/.test(String(provider)) && /^FAKE-PW[a-f0-9]{16}$/.test(marker)
-    && Array.isArray(ownedNames) && ownedNames.length === 2 && new Set(ownedNames).size === 2
+    && Array.isArray(ownedNames) && ((nativeOnly === false && ownedNames.length === 2)
+      || (nativeOnly === true && ownedNames.length === 0)) && new Set(ownedNames).size === ownedNames.length
     && ownedNames.every(name => typeof name === 'string' && name.length > 0 && name.length <= 10),
   'Invalid quick-list preference fixture owner');
   schema(sql);
   // Match the database's native name collation. Do not adopt orphan preferences
   // or an existing global list that happens to collide with a generated name.
-  for (const table of ['quickList', 'quickListUser']) {
+  for (const table of ownedNames.length ? ['quickList', 'quickListUser'] : []) {
     assert(sql.value(`SELECT COUNT(*) FROM ${table} WHERE quickListName IN (?,?)`, ownedNames) === '0',
       'Generated quick-list name already exists; preserving prior rows');
   }
@@ -110,4 +111,8 @@ function createQuickListPreferenceFixture(session, ownedNames, { ledgerDirectory
   save(state); // Durable exact baseline exists before the first native UI action.
   return {ledgerPath};
 }
-module.exports = {createQuickListPreferenceFixture};
+/** Native registry views select existing lists but create no owned list names. */
+function createNativeQuickListPreferenceFixture(session, options = {}) {
+  return createQuickListPreferenceFixture(session, [], {...options, nativeOnly: true});
+}
+module.exports = {createQuickListPreferenceFixture, createNativeQuickListPreferenceFixture};
