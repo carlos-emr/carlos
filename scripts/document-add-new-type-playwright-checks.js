@@ -52,8 +52,10 @@ async function workflow(s) {
   const residue = markDocumentResidue(sql);
   const owned = () => ({ sql, marker, patient, docs: [other, added], files: [other.file, ...uploads()] });
   s.cleanup(() => {
+    // Add may save the upload before its redirect fails, leaving added.id unset.
+    const ids = sql.rows(`SELECT document_no FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`).map(row => row[0]);
+    removeDocumentResidue(sql, residue, [...ids, other.id, added.id].filter(Boolean));
     removeOwnedPdfDocuments(owned());
-    removeDocumentResidue(sql, residue, [other.id, added.id].filter(Boolean));
     // Only the type this run named, and only a row added after the mark.
     sql.execute(`DELETE FROM ctl_doctype WHERE doctype=${h.sqlString(typeName)} AND id > ${typeFloor}`);
     fs.rmSync(scratch, { recursive: true, force: true });

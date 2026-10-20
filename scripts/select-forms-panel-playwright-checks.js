@@ -314,16 +314,19 @@ async function restoreSubject(page, subject) {
 
   // Recorded before the browser starts, so even a run that fails at login owes the clinic only these numbers.
   const sql = h.createSqlRunner(h.readConfig().mysql);
-  const formsBefore = encounterForms(sql);
-  const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({
-    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
-  });
+  let formsBefore = null;
+  let browser = null;
+  let context = null;
   let page = null;
   let subject = null;
   let subjectRestored = false;
   let passed = false;
   try {
+    formsBefore = encounterForms(sql);
+    browser = await chromium.launch(launchOptions);
+    context = await browser.newContext({
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
+    });
     page = await context.newPage();
     wirePage(page, 'select-forms');
     await login(page);
@@ -425,18 +428,21 @@ async function restoreSubject(page, subject) {
 
     passed = true;
   } finally {
-    if (page && subject && !subjectRestored) {
-      await restoreSubject(page, subject);
-    }
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
     try {
-      restoreFormNumbers(sql, formsBefore);
-    } catch (cleanupError) {
-      // A run that already failed keeps its own error; the cleanup failure is reported beside it.
-      if (passed) throw cleanupError;
-      console.error(`cleanup: ${cleanupError.message}`);
+      if (page && subject && !subjectRestored) {
+        await restoreSubject(page, subject);
+      }
+      if (context) await context.close().catch(() => {});
+      if (browser) await browser.close().catch(() => {});
+      try {
+        if (formsBefore) restoreFormNumbers(sql, formsBefore);
+      } catch (cleanupError) {
+        // A run that already failed keeps its own error; the cleanup failure is reported beside it.
+        if (passed) throw cleanupError;
+        console.error(`cleanup: ${cleanupError.message}`);
+      }
     } finally {
+      // The credential file exists even when the initial query or browser startup fails.
       sql.dispose();
     }
   }

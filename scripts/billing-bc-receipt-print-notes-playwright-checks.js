@@ -64,7 +64,7 @@ async function workflow(s) {
     };
     receipt.on('request', onRequest);
     const before = await receipt.evaluate(() => window.__printed);
-    await receipt.locator('button', { hasText: new RegExp(`^${button}$`) }).click();
+    await receipt.getByRole('button', { name: button, exact: true }).click();
     // The page waits for the chosen stylesheet to load before it calls print(); a navigation ends that wait.
     const outcome = await Promise.race([
       receipt.waitForFunction(count => window.__printed === count + 1, before, { timeout: TIMEOUT }).then(() => 'printed'),
@@ -88,7 +88,7 @@ async function workflow(s) {
     await h.assertNotErrorPage(receipt, 'BC private bill receipt');
     h.assert(await receipt.locator('textarea[name="messageNotes"]').count() === 1, 'The receipt has no Billing Notes box');
     for (const button of ['Print', 'Print With Notes']) {
-      h.assert(await receipt.locator('button', { hasText: new RegExp(`^${button}$`) }).count() === 1, `The receipt has no ${button} button`);
+      h.assert(await receipt.getByRole('button', { name: button, exact: true }).count() === 1, `The receipt has no ${button} button`);
     }
     // Only the dialog is stubbed: print() is counted, so the page's own wait and stylesheet switch run as they do.
     await receipt.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed += 1; }; });
