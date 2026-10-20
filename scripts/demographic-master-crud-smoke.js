@@ -478,11 +478,15 @@ async function run(sql) {
       console.log('KEEP_OPEN=true, leaving browser open.');
       await new Promise(() => {});
     }
-    await browser.close();
     try {
-      removeRunPatient(sql);
-    } catch (error) {
-      fail('remove the run patient', error.message);
+      await browser.close();
+    } finally {
+      // A failed browser shutdown must not skip the patient rows this run owns.
+      try {
+        removeRunPatient(sql);
+      } catch (error) {
+        fail('remove the run patient', error.message);
+      }
     }
   }
 
