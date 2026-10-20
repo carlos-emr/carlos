@@ -45,6 +45,8 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { selectBillingSiteAndProvider, validateBillingContext } = require('./lib/billing-site-context');
+const { selectBillingReportContext } = require('./lib/billing-report-context');
+const { createOwnedBillingPhysician } = require('./lib/owned-billing-physician');
 // Shared Ontario bill fixture and page helpers: one seeding shape and one complete
 // cleanup (repo/proc/eareport/transaction/item_payment/payment/ext/item/header).
 const {
@@ -91,6 +93,8 @@ async function saveCorrection(s, popup) {
 
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
+  const physician = createOwnedBillingPhysician(s);
+  const billSession = physician.dependentSession;
   const code = serviceCode();
   const date = billDate();
   const fee = sql.value(`SELECT value FROM billingservice WHERE service_code=${h.sqlString(code)}
@@ -107,7 +111,9 @@ async function workflow(s) {
     const invoice = s.master.getByRole('link', { name: 'Create Invoice', exact: true }).first();
     const form = await s.popup(s.master, invoice, 'billing-correction-fixture-context');
     try {
-      billingContext = await selectBillingSiteAndProvider(form, provider);
+      await physician.selectClinic(form);
+      billingContext = await selectBillingSiteAndProvider(form, physician.providerNo);
+      physician.assertContext(billingContext);
       validateBillingContext(sql, provider, billingContext);
     } finally { if (!form.isClosed()) await form.close(); }
     h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`) === before,
@@ -117,13 +123,14 @@ async function workflow(s) {
   // One open OHIP (HCP) bill, dx 250, comment1 = marker. seedOwnedBill registers
   // the complete cleanup before its first insert, bills under an active provider
   // with the native eligible provider and exact offered clinic. Existing site
-  // memberships are validated with SELECTs and are never added for these fixtures.
-  const bill = seedOwnedBill(s, { payProgram: 'HCP', status: 'O', code, fee, date, billingContext });
+  // operator memberships remain unchanged; only the owned physician membership
+  // is removed after every owned claim cleanup succeeds.
+  const bill = seedOwnedBill(billSession, { payProgram: 'HCP', status: 'O', code, fee, date, billingContext });
   const { headerId, itemId, provider: billingProvider } = bill;
   // A second owned bill already submitted to OHIP (status B): the one Unbill must refuse.
-  const billedBill = seedOwnedBill(s, { payProgram: 'HCP', status: 'B', code, fee, date, billingContext });
+  const billedBill = seedOwnedBill(billSession, { payProgram: 'HCP', status: 'B', code, fee, date, billingContext });
   // A third owned bill already settled (status S): history offers no Unbill for it either.
-  const settledBill = seedOwnedBill(s, { payProgram: 'HCP', status: 'S', code, fee, date, billingContext });
+  const settledBill = seedOwnedBill(billSession, { payProgram: 'HCP', status: 'S', code, fee, date, billingContext });
   for (const ownedBill of [bill, billedBill, settledBill]) {
     const clinicPredicate = billingContext.multisites ? `clinic=${h.sqlString(billingContext.clinic)}` : 'clinic IS NULL';
     h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE id=${ownedBill.headerId}
@@ -211,15 +218,12 @@ async function workflow(s) {
     const status = await (await iframe.elementHandle()).contentFrame();
     h.assert(status, 'The bill status page did not load in the administration frame');
     await status.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
+    await selectBillingReportContext(status, billingContext);
     await fillDate(status, '#xml_vdate', date);
     await fillDate(status, '#xml_appointment_date', date);
     await status.locator('input[name="demographicNo"]').fill(patient);
     // The report defaults to "O | Invoiced"; the bill now carries status W.
     await status.locator('#statusTypeAll').check();
-    const providers = status.locator('select[name="providerview"]').last();
-    const offered = await providers.locator('option').evaluateAll(options => options.map(option => option.value));
-    if (offered.includes(billingProvider)) await providers.selectOption(billingProvider);
-    else if (offered.includes('all')) await providers.selectOption('all');
     const navigated = admin.waitForEvent('framenavigated', { predicate: frame => frame === status, timeout: 30000 });
     navigated.catch(() => {});
     await status.locator('input[type="submit"][value="Create Report"]').click();

@@ -20,11 +20,13 @@ const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playw
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { selectBillingSiteAndProvider, validateBillingContext } = require('./lib/billing-site-context');
+const { createOwnedBillingPhysician } = require('./lib/owned-billing-physician');
 
 const CODES = ['250', '401', '428'];
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
+  const physicianFixture = createOwnedBillingPhysician(s);
   // quickListUser.quickListName is VARCHAR(10): "FAKE" plus six base-36 digits of a
   // disjoint 32-bit slice of the run marker (~31 bits each) keeps the names within it.
   const shortName = hex => `FAKE${(parseInt(hex, 16) % 36 ** 6).toString(36).toUpperCase().padStart(6, '0')}`;
@@ -131,11 +133,14 @@ async function workflow(s) {
     await bill.locator('#Layer1').getByRole('link', { name: 'General Practice' }).first().click();
     await bill.locator('input[name="xml_A007A"]:visible').first().check();
     // Populate physicians by selecting only an actually offered native clinic first.
-    const billingContext = await selectBillingSiteAndProvider(bill, provider);
+    await physicianFixture.selectClinic(bill);
+    const billingContext = await selectBillingSiteAndProvider(bill, physicianFixture.providerNo);
+    physicianFixture.assertContext(billingContext);
     validateBillingContext(sql, provider, billingContext);
-    // Physician values are "<provider_no>|<ohip_no>"; prefer the login's own entry.
+    // Select only the exact owned physician actually offered by the native clinic.
     const physicians = await bill.locator('select[name="xml_provider"] option').evaluateAll(o => o.map(x => x.value));
-    const physician = physicians.find(v => v.split('|')[0] === provider) || physicians.find(v => /^-?\d+\|\d+$/.test(v));
+    const physician = physicians.find(value => value === `${billingContext.providerNo}|${billingContext.ohipNo}`);
+    assert(physicians.filter(value => value === physician).length === 1, 'The owned physician is not uniquely offered');
     assert(physician, 'The bill form offers no billable physician');
     assert(physician === `${billingContext.providerNo}|${billingContext.ohipNo}`, 'The offered billing physician changed after clinic selection');
     await bill.locator('select[name="xml_provider"]').selectOption(physician);

@@ -30,8 +30,9 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { createOwnedBillingPhysician } = require('./lib/owned-billing-physician');
 const {
-  seedOwnedBill, openHistory, historyRow, runInvoiceReport, fillDate, awaitResponse, billDate, money,
+  seedOwnedBill, openHistory, historyRow, runInvoiceReport, fillDate, awaitResponse, billDate, money, captureNativeInvoiceContext,
 } = require('./billing-on-invoice-third-party-playwright-checks');
 
 const ER_ROUTE = '/billing/CA/ON/BillingONStatusERUpdateStatus';
@@ -66,6 +67,7 @@ async function cellsOf(row) {
 }
 
 async function workflow(s) {
+  const physician = createOwnedBillingPhysician(s);
   const { sql, patient, marker, context } = s;
   const date = billDate();
   const fee = code => sql.value(`SELECT value FROM billingservice WHERE service_code=${h.sqlString(code)}
@@ -79,8 +81,9 @@ async function workflow(s) {
     throw new h.SkipCheck(`${privateCode} or ${ohipCode} has no fee on ${date}`);
   }
 
-  const pat = seedOwnedBill(s, { payProgram: 'PAT', status: 'P', code: privateCode, fee: privateFee, date });
-  const hcp = seedOwnedBill(s, { payProgram: 'HCP', status: 'O', code: ohipCode, fee: ohipFee, date, dx: '401' });
+  const billingContext = await captureNativeInvoiceContext(s, physician);
+  const pat = seedOwnedBill(physician.dependentSession, { payProgram: 'PAT', status: 'P', code: privateCode, fee: privateFee, date, billingContext });
+  const hcp = seedOwnedBill(physician.dependentSession, { payProgram: 'HCP', status: 'O', code: ohipCode, fee: ohipFee, date, dx: '401', billingContext });
   const patTotal = money(privateFee);
   const header = id => sql.value(`SELECT CONCAT_WS('|', status, pay_program, total, paid) FROM billing_on_cheader1 WHERE id=${id}`);
 
@@ -143,7 +146,7 @@ async function workflow(s) {
       'Opening the bill form without saving changed the appointment status');
   });
   const { admin, frame: report } = await openAdminFrame(s, '/billing/CA/ON/ViewBillStatus', 'form[name="serviceform"]');
-  const search = opts => runInvoiceReport(admin, report, { date, billingProvider: pat.provider, demographic: patient, ...opts });
+  const search = opts => runInvoiceReport(admin, report, { date, billingProvider: pat.provider, billingContext, demographic: patient, ...opts });
 
   await s.step('Invoice Reports status filters list only the owned bills carrying that status', async () => {
     await search({ statusId: 'statusTypeBillPatient' });

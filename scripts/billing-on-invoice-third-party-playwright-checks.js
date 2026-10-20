@@ -20,8 +20,8 @@
  * Payer search fills and saves the bill-to (last: fails on a known defect, see report).
  *
  * Fixtures: one owned PAT bill (header + one private-code item, comment1 = marker) for
- * the owned FAKE- patient, one owned bill-to address (company = marker), the billing
- * provider's missing site memberships (as billing-on-correction-delete). Cleanup deletes
+ * the owned FAKE- patient, one owned bill-to address (company = marker), a fresh owned billing
+ * physician in an existing operator clinic. Cleanup deletes
  * owned rows by id/marker, the server-side list-print PDFs of the owned invoice, and
  * asserts they are gone. Implements coverage-plan §2.7 billing-on-invoice-third-party.
  */
@@ -34,7 +34,9 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { masterRecordLink } = require('./lib/master-record-link');
-const { validateBillingContext } = require('./lib/billing-site-context');
+const { selectBillingSiteAndProvider, validateBillingContext } = require('./lib/billing-site-context');
+const { selectBillingReportContext } = require('./lib/billing-report-context');
+const { createOwnedBillingPhysician } = require('./lib/owned-billing-physician');
 
 const CORRECTION_FORM = 'form[action$="/billing/CA/ON/UpdateBillingONCorrection"]';
 const PAYMENTS = '/billing/CA/ON/billingON3rdPayments';
@@ -179,6 +181,31 @@ async function openCorrection(s, history, headerId) {
   return popup;
 }
 
+/** Read the native invoice's exact physician/clinic before writing any claim header. */
+async function captureNativeInvoiceContext(s, physician) {
+  let billingContext;
+  await s.step('the native invoice offers the exact owned billing physician and clinic before claim creation', async () => {
+    const before = s.sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${s.patient}`);
+    const link = s.master.getByRole('link', { name: 'Create Invoice', exact: true }).first();
+    h.assert(await link.count() === 1, 'The Master Record does not offer Create Invoice');
+    const invoice = await s.popup(s.master, link, 'owned-billing-context');
+    try {
+      if (physician.selectClinic) await physician.selectClinic(invoice);
+      billingContext = await selectBillingSiteAndProvider(invoice, physician.providerNo);
+      h.assert(billingContext.providerNo === physician.providerNo && billingContext.ohipNo === physician.ohipNo,
+        'The native invoice did not offer the exact owned billing physician');
+      if (physician.assertContext) physician.assertContext(billingContext);
+      validateBillingContext(s.sql, s.provider, billingContext);
+    } finally {
+      if (!invoice.isClosed()) await invoice.close();
+    }
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${s.patient}`) === before,
+      'Reading the native billing context created or removed a claim');
+  });
+  h.assert(billingContext, 'The native invoice did not produce a billing context');
+  return billingContext;
+}
+
 /** Type an ISO date into a flatpickr (allowInput) field and close its calendar. */
 async function fillDate(frame, selector, value) {
   await frame.locator(selector).fill(value);
@@ -191,7 +218,7 @@ async function fillDate(frame, selector, value) {
  * Schedule ▸ Administration ▸ Billing ▸ Invoice Reports, then run the report for
  * the owned patient, the bill date and one status filter. Returns { admin, frame }.
  */
-async function openInvoiceReport(s, { date, statusId, billingProvider, admin }) {
+async function openInvoiceReport(s, { date, statusId, billingProvider, billingContext, admin }) {
   if (!admin || admin.isClosed()) {
     ({ page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
       { context: s.context, recorder: s.recorder, label: 'billing-administration', timeout: 20000 }));
@@ -205,20 +232,19 @@ async function openInvoiceReport(s, { date, statusId, billingProvider, admin }) 
   const frame = await (await iframe.elementHandle()).contentFrame();
   h.assert(frame, 'The bill status page did not load in the administration frame');
   await frame.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
-  await runInvoiceReport(admin, frame, { date, statusId, billingProvider, demographic: s.patient });
+  await runInvoiceReport(admin, frame, { date, statusId, billingProvider, billingContext, demographic: s.patient });
   return { admin, frame };
 }
 
 /** Fill the Invoice Reports search and press Create Report inside its frame. */
-async function runInvoiceReport(admin, frame, { date, endDate = date, statusId, billingProvider, demographic = '' }) {
+async function runInvoiceReport(admin, frame, { date, endDate = date, statusId, billingProvider, billingContext, demographic = '' }) {
+  h.assert(billingContext && billingContext.providerNo === billingProvider,
+    'The report provider must match the owned native billing context');
+  await selectBillingReportContext(frame, billingContext);
   await fillDate(frame, '#xml_vdate', date);
   await fillDate(frame, '#xml_appointment_date', endDate);
   await frame.locator('input[name="demographicNo"]').fill(demographic);
   await frame.locator(`#${statusId}`).check();
-  const providers = frame.locator('select[name="providerview"]').last();
-  const offered = await providers.locator('option').evaluateAll(options => options.map(option => option.value));
-  if (offered.includes(billingProvider)) await providers.selectOption(billingProvider);
-  else if (offered.includes('all')) await providers.selectOption('all');
   const navigated = admin.waitForEvent('framenavigated', { predicate: f => f === frame, timeout: 30000 });
   navigated.catch(() => {});
   await frame.locator('input[type="submit"][value="Create Report"]').click();
@@ -244,6 +270,7 @@ async function pdfText(download, label) {
 }
 
 async function workflow(s) {
+  const physician = createOwnedBillingPhysician(s);
   const { sql, marker, context } = s;
   const code = privateCode();
   const date = billDate();
@@ -257,6 +284,7 @@ async function workflow(s) {
   }
   const total = money(fee);
   const rest = money(Number(fee) - Number(partial));
+  const billingContext = await captureNativeInvoiceContext(s, physician);
 
   // Owned bill-to address; the UI-added one (last step) is owned by name too.
   const company = `${marker} Insurer`;
@@ -271,7 +299,7 @@ async function workflow(s) {
       'L0R 4K3', '555-555-0100', ''); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(addressId), 'The bill-to address fixture was not created');
 
-  const bill = seedOwnedBill(s, { payProgram: 'PAT', status: 'P', code, fee, date });
+  const bill = seedOwnedBill(physician.dependentSession, { payProgram: 'PAT', status: 'P', code, fee, date, billingContext });
   const { headerId, itemId } = bill;
   // Server-side copies BillingInvoiceListPrint leaves in INVOICE_DIR for this invoice.
   const invoiceDir = process.env.INVOICE_DIR || '/var/lib/carlos-emr/CarlosDocument/carlos/billing/invoices';
@@ -419,7 +447,7 @@ async function workflow(s) {
   });
 
   await s.step('Invoice Reports ▸ Bill Patient lists the bill and its Print action downloads a list PDF', async () => {
-    const { admin, frame } = await openInvoiceReport(s, { date, statusId: 'statusTypeBillPatient', billingProvider: bill.provider });
+    const { admin, frame } = await openInvoiceReport(s, { date, statusId: 'statusTypeBillPatient', billingProvider: bill.provider, billingContext });
     const box = frame.locator(`#invoiceAction${headerId}`);
     h.assert(await box.count() === 1, 'The Bill Patient report offers no print checkbox for the owned 3rd-party bill');
     const row = frame.locator('#bListTable tbody tr').filter({ has: box });
@@ -504,5 +532,5 @@ async function workflow(s) {
 if (require.main === module) runWorkflow('billing-on-invoice-third-party', workflow, { openPatient: true });
 module.exports = {
   workflow, seedOwnedBill, openHistory, historyRow, openCorrection, openInvoiceReport, runInvoiceReport,
-  fillDate, awaitResponse, billDate, money,
+  fillDate, awaitResponse, billDate, money, captureNativeInvoiceContext,
 };
