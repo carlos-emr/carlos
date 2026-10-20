@@ -867,6 +867,9 @@
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
 
+        <style>
+            .link-button { background: none; border: 0; color: var(--bs-link-color, #0000EE); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+        </style>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="javascript:pageLoad();">
@@ -1476,18 +1479,22 @@
 
                             <!-- peice Went Here --> <%
                                 //RxPatientData.Patient.Allergy[] allerg = (RxPatientData.Patient.Allergy[]) request.getAttribute("ALLERGIES");
-                                Allergy[] allerg = bean.getAllergyWarnings(loggedInInfo, atcCode);
-                                if (allerg != null && allerg.length > 0) {
-                                    for (int allergIndex = 0; allergIndex < allerg.length; allergIndex++) {
+                                RxSessionBean.AllergyCheck productAllergyCheck = bean.checkProductAllergies(loggedInInfo, atcCode, regionalIdentifier);
+                                for (Allergy allerg : productAllergyCheck.warnings()) {
                             %>
-                            <div style="background-color:<%=severityOfReactionColor(allerg[allergIndex].getSeverityOfReaction())%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;">
-                                <b>Allergy:</b> <%= allerg[allergIndex].getDescription() %> <b>Reaction:</b>
-                                <%= allerg[allergIndex].getReaction() %>
-                                <b>Severity:</b> <%=severityOfReaction(allerg[allergIndex].getSeverityOfReaction())%>
-                                <b>Onset of Reaction:</b> <%=onSetOfReaction(allerg[allergIndex].getOnsetOfReaction())%>
+                            <div style="background-color:<%=severityOfReactionColor(allerg.getSeverityOfReaction())%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;">
+                                <b>Allergy:</b> <carlos:encode value="<%= allerg.getDescription() %>"/> <b>Reaction:</b>
+                                <carlos:encode value="<%= allerg.getReaction() %>"/>
+                                <b>Severity:</b> <%=severityOfReaction(allerg.getSeverityOfReaction())%>
+                                <b>Onset of Reaction:</b> <%=onSetOfReaction(allerg.getOnsetOfReaction())%>
                             </div>
-                            <% }
-                            }%>
+                            <% } %>
+                            <% if (productAllergyCheck.failed()) { %>
+                            <div role="alert"><fmt:message key="WriteScript.allergyCheck.failed"/></div>
+                            <% } else { for (Allergy uncheckedAllergy : productAllergyCheck.unchecked()) { %>
+                            <div role="alert"><fmt:message key="WriteScript.allergyCheck.unchecked"/>:
+                                <carlos:encode value="<%= uncheckedAllergy.getDescription() %>"/></div>
+                            <% } } %>
 
                             <div id="interactionsRx"></div>
                             <div id="renalDosing"></div>
@@ -1572,15 +1579,15 @@
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:ShowDrugInfo('<carlos:encode value='${rx2.genericName}' context="javaScriptAttribute"/>', '<carlos:encode value='${rx2.regionalIdentifier}' context="javaScriptAttribute"/>');">
+                                                    <a href="${pageContext.request.contextPath}/rx/drugInfo?GN=${carlos:forUriComponent(rx2.genericName)}<c:if test="${not empty rx2.regionalIdentifier and rx2.regionalIdentifier ne 'null' and rx2.regionalIdentifier ne '0'}">&amp;DIN=${carlos:forUriComponent(rx2.regionalIdentifier)}</c:if>" onclick="ShowDrugInfo('${carlos:forJavaScriptAttribute(rx2.genericName)}', '${carlos:forJavaScriptAttribute(rx2.regionalIdentifier)}'); return false;">
                                                         <fmt:message key="WriteScript.msgInfo"/>
                                                     </a>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
+                                                    <button type="button" class="link-button" onclick="addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScriptAttribute"/>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 </tr>
                                             </c:forEach>

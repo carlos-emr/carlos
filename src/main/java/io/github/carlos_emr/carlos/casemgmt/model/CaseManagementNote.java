@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 @jakarta.persistence.FieldResult(name = "note", column = "note"),
                 @jakarta.persistence.FieldResult(name = "signed", column = "signed"),
                 @jakarta.persistence.FieldResult(name = "includeissue", column = "includeissue"),
-                @jakarta.persistence.FieldResult(name = "providerNo", column = "providerNo"),
+                @jakarta.persistence.FieldResult(name = "providerNo", column = "provider_no"),
                 @jakarta.persistence.FieldResult(name = "signing_provider_no", column = "signing_provider_no"),
                 @jakarta.persistence.FieldResult(name = "encounter_type", column = "encounter_type"),
                 @jakarta.persistence.FieldResult(name = "billing_code", column = "billing_code"),
@@ -82,7 +82,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 @jakarta.persistence.NamedNativeQueries({
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentTime", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
                 select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
-                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.demographic_no as demographic_no, cmn.provider_no as provider_no, cmn.note as note, cmn.signed as signed,
                 cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
                 cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
                 cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
@@ -101,7 +101,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 """),
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentDateRange", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
                 select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
-                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.demographic_no as demographic_no, cmn.provider_no as provider_no, cmn.note as note, cmn.signed as signed,
                 cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
                 cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
                 cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
@@ -120,7 +120,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 """),
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentLimit", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
                 select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
-                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.demographic_no as demographic_no, cmn.provider_no as provider_no, cmn.note as note, cmn.signed as signed,
                 cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
                 cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
                 cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
@@ -240,6 +240,47 @@ public class CaseManagementNote extends BaseObject {
             }
         }
         return this.hashCode;
+    }
+
+    /**
+     * Copies a submitted edit into a new revision without changing the persistent identity
+     * of its source. Extension and attachment rows are copied by the revision save service.
+     */
+    public CaseManagementNote copyForRevision() {
+        CaseManagementNote copy = new CaseManagementNote();
+        copy.update_date = update_date == null ? null : new Date(update_date.getTime());
+        copy.create_date = create_date == null ? null : new Date(create_date.getTime());
+        copy.observation_date = observation_date == null ? null : new Date(observation_date.getTime());
+        copy.demographic_no = demographic_no;
+        copy.note = note;
+        copy.signed = signed;
+        copy.includeissue = includeissue;
+        copy.providerNo = providerNo;
+        copy.signing_provider_no = signing_provider_no;
+        copy.encounter_type = encounter_type;
+        copy.billing_code = billing_code;
+        copy.program_no = program_no;
+        copy.reporter_caisi_role = reporter_caisi_role;
+        copy.reporter_program_team = reporter_program_team;
+        copy.history = history;
+        copy.provider = provider;
+        copy.issues = new HashSet<>(issues);
+        copy.editors = new ArrayList<>(editors);
+        copy.roleName = roleName;
+        copy.programName = programName;
+        copy.uuid = uuid;
+        copy.revision = revision;
+        copy.locked = locked;
+        copy.archived = archived;
+        copy.remote = remote;
+        copy.facilityName = facilityName;
+        copy.position = position;
+        copy.appointmentNo = appointmentNo;
+        copy.hourOfEncounterTime = hourOfEncounterTime;
+        copy.minuteOfEncounterTime = minuteOfEncounterTime;
+        copy.hourOfEncTransportationTime = hourOfEncTransportationTime;
+        copy.minuteOfEncTransportationTime = minuteOfEncTransportationTime;
+        return copy;
     }
 
     public CaseManagementNote() {
@@ -673,6 +714,12 @@ public class CaseManagementNote extends BaseObject {
     }
 
     private boolean isLinkTo(Integer tableName) {
+        // A note not saved yet has no links. The DAO refuses a null note id outright, so asking
+        // made every response that shows a new note fail, among them the notes REST service's
+        // new note (issue #4784). Nothing is cached: once saved, the note looks its link up.
+        if (this.id == null) {
+            return false;
+        }
         if (!cmnLinkRetrieved) {
             cmnLink = lookupNoteLinkDao().getLastLinkByNote(this.id);
             cmnLinkRetrieved = true;

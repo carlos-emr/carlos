@@ -50,9 +50,11 @@ import java.util.Date;
  */
 public class HtmlTeleplanHelper {
 
-    private static final String ADJUST_BILL_PAGE = "adjustBill.jsp";
+    // The adjust bill page is under WEB-INF (#1632); this action route opens it for a GET (#4343).
+    private static final String ADJUST_BILL_PAGE = "reprocessBill";
     private static final String ADJUST_BILL_ID_PARAM = "billingmaster_no";
-    private static final String WCB_CORRECTION_PAGE = "billingTeleplanCorrectionWCB.jsp";
+    // The WCB correction page is under WEB-INF too; its action route opens it the same way.
+    private static final String WCB_CORRECTION_PAGE = "billingTeleplanCorrectionWCB";
     private static final String WCB_CORRECTION_ID_PARAM = "billing_no";
     private static final String POPUP_FEATURES = "resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600";
 
@@ -129,7 +131,8 @@ public class HtmlTeleplanHelper {
     }
 
     /**
-     * Builds one MSP/ICBC claim row whose invoice link opens the {@code adjustBill.jsp} correction popup.
+     * Builds one MSP/ICBC claim row whose invoice link opens the adjust bill correction popup
+     * ({@code reprocessBill?billingmaster_no=...}).
      *
      * <p>Every interpolated value comes from patient/claim records, so each one is encoded for the
      * context it lands in: HTML body for cell text, and URI component then JavaScript-in-attribute for
@@ -174,7 +177,8 @@ public class HtmlTeleplanHelper {
     }
 
     /**
-     * Builds a red validation-error row linking to {@code adjustBill.jsp} for the given billing master record.
+     * Builds a red validation-error row linking to the adjust bill page ({@code reprocessBill}) for the
+     * given billing master record.
      *
      * @param billingMasterNo billingmaster id placed (encoded) in the popup URL
      * @param message plain-text validation message; encoded for HTML body

@@ -224,6 +224,17 @@ public class CommonLabResultData {
     }
 
     public ArrayList<LabResultData> populateLabResultsData(LoggedInInfo loggedInInfo, String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate) {
+        return new ArrayList<>(populateLabResultsData(loggedInInfo, providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, null));
+    }
+
+    /**
+     * As above, additionally keeping only labs whose routing row changed at or after
+     * {@code acknowledgedSince}; see {@link Hl7TextInfoDao#findLabAndDocsViaMagic}. Only the paged
+     * HL7 path takes the bound, which is the only path the Inbox Hub pages through.
+     *
+     * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
+     */
+    public List<LabResultData> populateLabResultsData(LoggedInInfo loggedInInfo, String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate, Date acknowledgedSince) {
 
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         MDSResultsData mDSData = new MDSResultsData();
@@ -254,8 +265,8 @@ public class CommonLabResultData {
 
         if (hl7text != null && hl7text.trim().equals("yes")) {
             if (isPaged) {
-                ArrayList<LabResultData> hl7Labs = Hl7textResultsData.populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName,
-                        patientHealthNumber, status, true, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate);
+                List<LabResultData> hl7Labs = Hl7textResultsData.populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName,
+                        patientHealthNumber, status, true, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, acknowledgedSince);
                 labs.addAll(hl7Labs);
             } else {
                 ArrayList<LabResultData> hl7Labs = Hl7textResultsData.populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, null);
@@ -460,7 +471,8 @@ public class CommonLabResultData {
      *
      * @param labNo the version the clinician acted on
      * @param providerNo acting provider (session-derived, never client-supplied)
-     * @param status status to apply to {@code labNo}; older versions are always filed as {@code F}
+     * @param status status to apply to {@code labNo}; older versions are filed as {@code F}
+     *               unless this provider has already acknowledged them
      * @param comment comment for {@code labNo}, may be null or empty
      * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
      * @param skipCommentOnUpdate true to leave an existing comment untouched
@@ -524,7 +536,9 @@ public class CommonLabResultData {
             if (version == labNo) {
                 updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
             } else {
-                updateReportStatus(version, providerNo, 'F', "", labType);
+                // The chain locks are held by this transaction. Preserve each acknowledged
+                // routing row's audit data, including when duplicate routes have mixed states.
+                updateReportStatusInTransaction(version, providerNo, 'F', "", labType, false, true);
             }
         }
         return clearedFromNew;
@@ -572,6 +586,13 @@ public class CommonLabResultData {
 
     private static boolean updateReportStatusInTransaction(int labNo, String providerNo, char status,
                                                             String comment, String labType, boolean skipCommentOnUpdate) {
+        return updateReportStatusInTransaction(labNo, providerNo, status, comment, labType,
+                skipCommentOnUpdate, false);
+    }
+
+    private static boolean updateReportStatusInTransaction(int labNo, String providerNo, char status,
+                                                            String comment, String labType, boolean skipCommentOnUpdate,
+                                                            boolean preserveAcknowledged) {
         if (comment == null) {
             comment = "";
         }
@@ -582,6 +603,11 @@ public class CommonLabResultData {
         List<ProviderLabRoutingModel> providerLabRoutingModelList = providerLabRoutingDao.findRoutingForUpdate(labNo, labType, providerNo);
         if (providerLabRoutingModelList != null && !providerLabRoutingModelList.isEmpty()) {
             for (ProviderLabRoutingModel providerLabRoutingModel : providerLabRoutingModelList) {
+                // Automatic filing of an older version must not erase a prior acknowledgement.
+                // Explicit status changes to the selected report keep their existing semantics.
+                if (preserveAcknowledged && "A".equals(providerLabRoutingModel.getStatus())) {
+                    continue;
+                }
                 providerLabRoutingModel.setStatus("" + status);
 
                 //we don't want to clobber existing comments when filing labs

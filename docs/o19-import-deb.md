@@ -264,6 +264,24 @@ Prerequisites, all of them before the command below:
    first phase after the staged assessment until P7 `verify` completes,
    and a corrupt ledger counts as in progress. Finish with `--resume` (or
    `--cleanup` for an abandoned dry run) and the next start proceeds.
+
+   The guard can only see an import once its ledger exists, so it is not
+   what keeps the package's own provisioning out. That is the
+   database-ownership lock, `/var/lib/carlos-emr/.finish-install.lock`
+   (the name predates the importer sharing it). `import-o19` takes it
+   before it reads or writes its workspace and holds it until it exits:
+   a real run, `--resume`, `--cleanup` and `--dry-run` all take it, and
+   `o19-preflight` does not. `carlos-emr`'s and `carlos-emr-drugref`'s
+   configure, `carlos-emr-provision.service` and `carlos-ctl finish-install`
+   take the same lock *before* they check the guard. So an import started
+   while one of them holds it is refused with nothing written; re-run it
+   once that run has finished. A configure that finds an import holding
+   the lock defers at once: `carlos-emr` does not touch the database,
+   skips the steps serialized by the lock (`init-config`, the eForm render
+   browser) and does not start the service, and `carlos-emr-drugref`
+   fails its configure. Either one says to finish the import and then
+   `dpkg-reconfigure` the package. A boot-time repair leaves the work for
+   the next boot (carlos-ctl 1.1.2 and later; #3678).
 4. **Configured backups.** The pre-import restic snapshot is the rollback
    point, and it now covers `/var/lib/carlos-emr/o19-import` as well as
    the database and the documents tree, so a restore rewinds the run's

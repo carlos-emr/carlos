@@ -198,6 +198,7 @@
 %>
 <h4 style="margin-bottom:1px;margin-top:3px;"><carlos:encode value='<%= heading %>' context="html"/></h4>
 <%}%>
+<fmt:message key="SearchDrug.msgHideCPPSaveFailed" var="msg_hideCppSaveFailed"/>
 <div class="drugProfileText" style="">
     <table class="list-drugs sortable" id="Drug_table<carlos:encode value='<%= heading %>' context="htmlAttribute"/>">
         <tr>
@@ -278,10 +279,14 @@
                 String bn = prescriptDrug.getBrandName();
 
                 boolean startDateUnknown = prescriptDrug.getStartDateUnknown();
+                // A Note (Rx page ▸ Note) has no name, brand or identifier, so the static script the row's links
+                // open would match nothing and show an empty page. Its three cells keep the same element, id and
+                // colour (the page's scripts find them by id) but get no href.
+                boolean noteRow = Boolean.TRUE.equals(prescriptDrug.isCustomNote());
         %>
         <tr>
 
-        <td><a id="createDate_<%=prescriptIdInt%>"   <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"><%=DateToString(prescriptDrug.getCreateDate())%></a></td>
+        <td><a id="createDate_<%=prescriptIdInt%>"   <%=styleColor%><% if (!noteRow) { %> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"<% } %>><%=DateToString(prescriptDrug.getCreateDate())%></a></td>
             <td>
             	<% if(startDateUnknown) { %>
             		
@@ -289,8 +294,8 @@
                     String startDate = UtilDateUtilities.DateToString(prescriptDrug.getRxDate());
                     startDate = partialDateDao.getDatePartial(startDate, PartialDate.DRUGS, prescriptDrug.getId(), PartialDate.DRUGS_STARTDATE);
                 %>
-                <a id="rxDate_<%=prescriptIdInt%>"   <%=styleColor%>
-                   href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>"><%=startDate%>
+                <a id="rxDate_<%=prescriptIdInt%>"   <%=styleColor%><% if (!noteRow) { %>
+                   href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>"<% } %>><%=startDate%>
                 </a>
                 <% } %>
             </td>
@@ -323,7 +328,7 @@
 			}
 			
 			%>
-            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"   <%=tComment%>   ><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%></a></td>
+            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%><% if (!noteRow) { %> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"<% } %>   <%=tComment%>   ><carlos:encode value='<%= RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ") %>'/></a></td>
 			<%            			
 	           	if(securityManager.hasWriteAccess("_rx",roleName$,true)) {            		
            	%>
@@ -430,15 +435,22 @@
             (function() {
                 var element = document.getElementById('hidecpp_<%=prescriptIdInt%>');
                 if (element) {
+                    // RxHideCpp (share/javascript/rx-hide-cpp.js, loaded by SearchDrug3.jsp) restores
+                    // the stored state and says so when the save is refused or fails (#5001).
                     element.addEventListener('change', function () {
                         var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                        var csrfToken = csrfEl ? csrfEl.value : '';
-                        var val = document.getElementById('hidecpp_<%=prescriptIdInt%>').checked;
-                        fetch('${carlos:forJavaScript(ctx)}/rx/hideCpp', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                            credentials: 'same-origin',
-                            body: 'method=update&prescriptId=<%=prescriptIdInt%>&value=' + encodeURIComponent(val)
+                        RxHideCpp.save({
+                            checkbox: element,
+                            url: '${carlos:forJavaScript(ctx)}/rx/hideCpp',
+                            prescriptId: '<%=prescriptIdInt%>',
+                            csrfToken: csrfEl ? csrfEl.value : '',
+                            failureMessage: '${carlos:forJavaScript(msg_hideCppSaveFailed)}',
+                            // The page's own fetch with the token it read above, so the CSRF
+                            // bootstrap audit still sees this page as an AJAX sender.
+                            fetch: function (url, init) { return fetch(url, init); },
+                            alert: function (message) { window.alert(message); },
+                            // SearchDrug3.jsp's profile loader re-reads the stored flags.
+                            reload: typeof refreshDrugProfile === 'function' ? refreshDrugProfile : null
                         });
                     });
                 }

@@ -81,6 +81,7 @@ Ontario, Canada
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.time.LocalDateTime" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@ page import="java.time.format.FormatStyle" %>
 <%@ page import="java.time.ZoneId" %>
 
@@ -1140,6 +1141,9 @@ Ontario, Canada
             <input type="hidden" name="month" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="day" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="fromAppt" value="1">
+            <%-- One booking per rendering (issue #4225): a repeat of this form ends as its first save did. --%>
+            <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+                   value="<carlos:encode value='<%= FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.APPOINTMENT_ADD, null) %>' context="htmlAttribute"/>">
 
 
             <div class="page-header-bar time" id="header">

@@ -45,48 +45,17 @@
 %>
 
 
-<%@ page import="java.sql.*, java.util.*" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/form-completion.js"></script>
         <title></title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
-    <script language="javascript">
-
-        function write2Parent(text) {
-
-            self.window.close();
-            opener.document.encForm.enTextarea.value = opener.document.encForm.enTextarea.value + "\n" + text;
-            opener.setTimeout("document.encForm.enTextarea.scrollTop=document.encForm.enTextarea.scrollHeight", 0);  // setTimeout is needed to allow browser to realize that text field has been updated
-            opener.focus();
-            opener.document.encForm.enTextarea.focus();
-        }
-
-        function closePopup() {
-            if (self.window && self.open.window && !self.closed) {
-                self.open.window.close();
-                self.close();
-            }
-        }
-    </script>
-
-
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/form/styles.css">
-    <body topmargin="0" leftmargin="0" vlink="#0000FF"
-          onunload="javascript: closePopup()">
-    <table>
-        <tr>
-            <td>
-                <script>
-                    write2Parent("<%=request.getAttribute("diagnosisVT")%>");
-                </script>
-            </td>
-        </tr>
-    </table>
-
-
+    <body>
+        <script>
+            completeEncounterForm(window, "${carlos:forJavaScript(requestScope.demographicNo)}",
+                "${carlos:forJavaScript(requestScope.diagnosisVT)}");
+        </script>
     </body>
 </html>

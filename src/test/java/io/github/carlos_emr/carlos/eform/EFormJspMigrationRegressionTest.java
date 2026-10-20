@@ -170,8 +170,24 @@ class EFormJspMigrationRegressionTest {
         assertThat(jsp).containsPattern(
                 "(?s)eForm = new EForm\\(fdid\\);\\s*"
                         + "eForm\\.setContextPath\\(request\\.getContextPath\\(\\)\\);\\s*"
-                        + "eForm\\.setOscarOPEN\\(request\\.getRequestURI\\(\\)\\);\\s*"
+                        + "eForm\\.setOscarOPEN\\(request\\.getContextPath\\(\\) \\+ \"/eform/efmshowform_data\", session, signedInProvider\\);\\s*"
                         + "eForm\\.setImagePath\\(request\\.getContextPath\\(\\)\\);");
+    }
+
+    @Test
+    @DisplayName("oscarOPEN buttons should open the public eForm routes, not the internal JSP that renders the page")
+    void shouldOpenPublicRoutes_whenOscarOpenButtonsRender() throws IOException {
+        String add = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformadd_data.jsp"), StandardCharsets.UTF_8);
+        String show = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
+
+        // Both pages are forwarded to from their actions, so request.getRequestURI() is the
+        // /WEB-INF/jsp/... path, which the browser cannot open.
+        assertThat(add + show).doesNotContain("setOscarOPEN(request.getRequestURI())");
+        assertThat(add).contains(
+                "thisEForm.setOscarOPEN(request.getContextPath() + \"/eform/efmformadd_data\", session, provider_no);");
+        assertThat(show.split(Pattern.quote(
+                "eForm.setOscarOPEN(request.getContextPath() + \"/eform/efmshowform_data\", session, signedInProvider);"), -1))
+                .as("the saved-copy view and the admin preview").hasSize(3);
     }
 
     @Test

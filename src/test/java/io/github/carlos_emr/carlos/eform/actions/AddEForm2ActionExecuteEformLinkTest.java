@@ -289,6 +289,13 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         doReturn("Check the patient eForms before reopening").when(action).getText("eform.submitUnavailable");
         doReturn("This request was not processed. Copy your changes and check saved eForms.")
                 .when(action).getText("eform.submitStale");
+        // A failure after storage started has its own texts, never the replay refusal (#4424);
+        // AddEForm2ActionPostSaveFailureUnitTest asserts the shipped wording.
+        doReturn("Could not confirm the save. Check the patient eForms.")
+                .when(action).getText("eform.submitOutcomeUnknown");
+        doReturn("a follow-on step").when(action).getText("eform.submitStep.followOn");
+        doReturn("Saved, but a follow-on step did not complete. Check the patient eForms and chart.")
+                .when(action).getText(eq("eform.submitSavedStepIncomplete"), any(String[].class));
         return action;
     }
 
@@ -358,7 +365,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should roll back and show a toolbar error when attachment access is denied")
     void shouldRollBackAndShowError_whenAttachmentAccessDenied() {
-        String validLink = "doc1_123_1_referralForm";
+        String validLink = issueOpenerLink("1");
         mockRequest.setParameter("eform_link", validLink);
         doThrow(new SecurityException("PRIVATE_ATTACHMENT_DETAILS"))
                 .when(mockDocumentAttachmentManager).attachToEForm(any(),
@@ -393,10 +400,19 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
                 .isEqualTo("This eForm (and attachments, if applicable) could not be added to this patient’s documents.");
     }
 
+    /**
+     * The link an opener eForm (fid 13) issued to its "referralForm" button, which opens {@code targetFid}.
+     * It names the opener, not the eForm being saved here (fid 1).
+     */
+    private String issueOpenerLink(String targetFid) {
+        return io.github.carlos_emr.carlos.eform.EFormOpenerLinks.issue(
+                mockRequest.getSession(), "doc1", "123", "13", "referralForm", targetFid);
+    }
+
     @Test
-    @DisplayName("should write fdid to session when eform_link is valid")
+    @DisplayName("should write fdid to session when eform_link was issued by an opener of this eForm")
     void shouldWriteFdidToSession_whenEformLinkIsValid() {
-        String validLink = "doc1_123_1_referralForm";
+        String validLink = issueOpenerLink("1");
         mockRequest.setParameter("eform_link", validLink);
 
         AddEForm2Action action = new AddEForm2Action();
@@ -406,6 +422,28 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         assertThat(session.getAttribute(validLink))
             .as("Session should have fdid stored under valid eform_link key")
             .isEqualTo("42");
+    }
+
+    @Test
+    @DisplayName("should not write to session when a well-formed eform_link was never issued")
+    void shouldNotWriteToSession_whenEformLinkWasNeverIssued() {
+        String unissued = "doc1_123_1_referralForm";
+        mockRequest.setParameter("eform_link", unissued);
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+
+        assertThat(mockRequest.getSession().getAttribute(unissued)).isNull();
+    }
+
+    @Test
+    @DisplayName("should not write to session when eform_link was issued for a button that opens another eForm")
+    void shouldNotWriteToSession_whenEformLinkOpensAnotherEForm() {
+        String otherTarget = issueOpenerLink("99");
+        mockRequest.setParameter("eform_link", otherTarget);
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+
+        assertThat(mockRequest.getSession().getAttribute(otherTarget)).isNull();
     }
 
     @Test

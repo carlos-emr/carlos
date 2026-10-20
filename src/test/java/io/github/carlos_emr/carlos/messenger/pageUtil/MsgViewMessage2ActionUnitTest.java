@@ -43,6 +43,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -126,5 +127,69 @@ class MsgViewMessage2ActionUnitTest extends CarlosUnitTestBase {
         verify(messagingManager, never()).setMessageRead(any(), anyLong(), any());
         verify(messengerDemographicManager, never()).getAttachedDemographicNameMap(any(), anyInt());
         verify(messengerDemographicManager, never()).attachDemographicToMessage(any(), anyInt(), anyInt());
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should hand the shown message to the page in the request, not the login's session")
+    void shouldPublishShownMessageInRequest_whenViewingMessage() throws Exception {
+        request.setMethod("GET");
+        request.addParameter("messageID", "100");
+        io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage shown =
+                new io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage();
+        shown.setMessageId("100");
+        shown.setThesubject("FAKE subject about patient 42");
+        shown.setMessageBody("FAKE body");
+        when(messagingManager.getInboxMessage(any(), eq(100))).thenReturn(shown);
+        when(messengerDemographicManager.getAttachedDemographicNameMap(any(), eq(100)))
+                .thenReturn(java.util.Map.of(42, "FAKE-Doe, Pat"));
+
+        assertThat(new MsgViewMessage2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        // Issue #4673: in the session, a second window opening another message at the same time
+        // could replace these between the action and the page it forwards to.
+        assertThat(request.getAttribute("viewMessageSubject")).isEqualTo("FAKE subject about patient 42");
+        assertThat(request.getAttribute("viewMessageMessage")).isEqualTo("FAKE body");
+        assertThat(request.getAttribute("viewMessageNo")).isEqualTo("100");
+        assertThat(request.getAttribute("attachedDemographics")).isEqualTo(java.util.Map.of(42, "FAKE-Doe, Pat"));
+        assertThat(java.util.Collections.list(request.getSession().getAttributeNames()))
+                .noneMatch(name -> name.startsWith("viewMessage") || name.equals("attachedDemographics"));
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should name the listing patient and the view mode for the page, when opened from a patient's message list")
+    void shouldPublishListedPatient_whenOpenedFromPatientMessageList() throws Exception {
+        request.setMethod("GET");
+        request.addParameter("messageID", "100");
+        request.addParameter("from", "encounter");
+        request.addParameter("demographic_no", "42");
+        io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage shown =
+                new io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage();
+        shown.setMessageId("100");
+        when(messagingManager.getInboxMessage(any(), eq(100))).thenReturn(shown);
+
+        assertThat(new MsgViewMessage2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        // ViewMessage.jsp offers Write to Encounter for the linked patient equal to demographic_no.
+        assertThat(request.getAttribute("demographic_no")).isEqualTo("42");
+        assertThat(request.getAttribute("from")).isEqualTo("encounter");
+    }
+
+    @ParameterizedTest(name = "from={0}, demographic_no={1}")
+    @CsvSource({"messenger,42", "encounter,12x", "encounter,0", "encounter,''"})
+    @DisplayName("should name no listing patient for an inbox view or a patient number that is not one")
+    void shouldNotPublishListedPatient_whenNotOpenedForOneValidPatient(String from, String patient) throws Exception {
+        request.setMethod("GET");
+        request.addParameter("messageID", "100");
+        request.addParameter("from", from);
+        request.addParameter("demographic_no", patient);
+        io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage shown =
+                new io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage();
+        shown.setMessageId("100");
+        when(messagingManager.getInboxMessage(any(), eq(100))).thenReturn(shown);
+
+        assertThat(new MsgViewMessage2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(request.getAttribute("demographic_no")).isNull();
+        assertThat(request.getAttribute("from")).isEqualTo(from);
     }
 }

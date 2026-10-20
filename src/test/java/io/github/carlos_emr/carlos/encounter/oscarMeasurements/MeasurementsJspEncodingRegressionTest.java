@@ -67,6 +67,29 @@ class MeasurementsJspEncodingRegressionTest extends io.github.carlos_emr.carlos.
             "encounter.oscarMeasurements.Measurements.msgParentChanged";
 
     @Test
+    @DisplayName("should ignore a second Submit while a save is out and re-enable it for a retry (issue #4410)")
+    void shouldGuardSubmit_whileMeasurementSaveIsInFlight() throws Exception {
+        String jsp = readJsp();
+        int check = jsp.indexOf("function check() {");
+        int fetch = jsp.indexOf("fetch(", check);
+        int errors = jsp.indexOf("if (data.errors && data.errors.length > 0) {", fetch);
+        int failure = jsp.indexOf(".catch(error => {", fetch);
+
+        assertThat(check).isPositive();
+        assertThat(fetch).isGreaterThan(check);
+        assertThat(errors).isGreaterThan(fetch);
+        assertThat(failure).isGreaterThan(fetch);
+        // The guard is the first thing check() does, and the save is marked out before it is sent.
+        assertThat(jsp.substring(check, check + 120)).contains("if (measurementSaveInFlight) {");
+        assertThat(jsp.lastIndexOf("setMeasurementSaving(true);", fetch)).isGreaterThan(check);
+        // Validation errors and failures hand the button back; only a stored save closes the window.
+        assertThat(jsp.indexOf("setMeasurementSaving(false);", errors)).isBetween(errors, errors + 120);
+        assertThat(jsp.indexOf("setMeasurementSaving(false);", failure)).isBetween(failure, failure + 120);
+        assertThat(jsp).contains("id=\"measurementSubmit\"")
+                .contains("var submit = document.getElementById('measurementSubmit');");
+    }
+
+    @Test
     @DisplayName("should canonicalize the demographic identifier before rendering patient data")
     void shouldCanonicalizeDemographicIdentifier_beforeRenderingPatientData() throws Exception {
         String jsp = readJsp();
@@ -115,6 +138,27 @@ class MeasurementsJspEncodingRegressionTest extends io.github.carlos_emr.carlos.
                 .contains("<carlos:encode value='<%= error %>' context=\"html\"/>")
                 .contains("Trusted clinic decision-support template HTML")
                 .contains("<%=measurementManager.getDShtml(groupName)%>");
+    }
+
+    @Test
+    @DisplayName("should exempt the request-scoped instruction collection only as a forEach items binding")
+    void shouldRecognizeInstructionCollection_onlyWithinForEachItems() {
+        String expression = "requestScope[attributeName].measuringInstructionList";
+        String binding = "${" + expression + "}";
+        String loop = "<c:forEach var=\"mInstrc\" items=\"" + binding + "\">";
+
+        assertThat(isNonRenderingExpression(loop, loop.indexOf(binding), expression)).isTrue();
+        for (String sink : List.of("<span>" + binding + "</span>",
+                "<input value=\"" + binding + "\"/>",
+                "<button onclick=\"use('" + binding + "')\">",
+                "<script>const value = '" + binding + "';</script>",
+                "<c:forEach var=\"" + binding + "\" items=\"${other}\">")) {
+            assertThat(isNonRenderingExpression(sink, sink.indexOf(binding), expression))
+                    .as("rendered or non-collection use: %s", sink).isFalse();
+        }
+        String otherExpression = "requestScope[attributeName].unencodedValue";
+        String otherLoop = "<c:forEach items=\"${" + otherExpression + "}\">";
+        assertThat(isNonRenderingExpression(otherLoop, otherLoop.indexOf("${"), otherExpression)).isFalse();
     }
 
     @Test
@@ -241,6 +285,15 @@ class MeasurementsJspEncodingRegressionTest extends io.github.carlos_emr.carlos.
         }
         int tagStart = jsp.lastIndexOf('<', expressionStart);
         int tagEnd = jsp.indexOf('>', tagStart);
+        if (tagStart >= 0 && tagEnd >= expressionStart
+                && expression.equals("requestScope[attributeName].measuringInstructionList")) {
+            String tagPrefix = jsp.substring(tagStart, expressionStart);
+            // JSTL consumes this collection as data; its rendered child values still require encoders.
+            if (tagPrefix.startsWith("<c:forEach ")
+                    && (tagPrefix.endsWith(" items=\"") || tagPrefix.endsWith(" items='"))) {
+                return true;
+            }
+        }
         return tagStart >= 0 && tagEnd >= expressionStart
                 && jsp.substring(tagStart, expressionStart).startsWith("<fmt:param ");
     }

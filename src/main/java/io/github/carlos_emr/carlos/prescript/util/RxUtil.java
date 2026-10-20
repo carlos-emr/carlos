@@ -36,7 +36,6 @@ import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -75,6 +74,18 @@ public class RxUtil {
         } catch (Exception _) {
             return null;
         }
+    }
+
+    /**
+     * Reads a prescription's pick-up time as the card's Pick Up Time box gives it: a 24-hour {@code H:mm}
+     * or {@code HH:mm}, which is also how the card shows it again (issue #4799). It was read with the
+     * 12-hour {@code hh:mm}, which turned 12:00 to 12:59 into 00:00 to 00:59.
+     *
+     * @param value the posted time
+     * @return the time of day, or {@code null} if it cannot be read
+     */
+    public static Date parsePickupTime(String value) {
+        return StringToDate(value, "HH:mm");
     }
 
     public static String DateToString(Date Expression) {
@@ -1318,7 +1329,7 @@ public class RxUtil {
 
     public static void setDefaultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx) {
 
-        String defaultRx = CarlosProperties.getInstance().getProperty("prescript.default_instruction");
+        String defaultRx = RxSettings.get("default_instruction");
         if (defaultRx != null) {
             rx.setSpecial(defaultRx);
         } else {
@@ -1663,17 +1674,6 @@ public class RxUtil {
         return retStr;
 
     }
-
-    public static String findInterDrugStr(final UserPropertyDAO propDAO, String provider, final RxSessionBean bean) {
-        // External drug interaction service (MyDrugRef) has been removed
-        // Local MediSpan drug interactions are handled by DrugrefUtil instead
-        logger.debug("External drug interaction checking disabled - using local MediSpan via DrugrefUtil");
-        return "";
-    }
-
-
-    // External drug interaction service removed - local MediSpan used via DrugrefUtil
-
 
     // MyDrugRef callWebserviceLite method removed - no longer needed
 

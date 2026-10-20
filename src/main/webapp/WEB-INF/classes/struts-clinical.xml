@@ -38,6 +38,18 @@
             <exception-mapping exception="java.lang.Exception" result="error"/>
         </global-exception-mappings>
 
+        <!-- Pregnancy navigation is read-only; its allowlisted create/complete operations require POST. -->
+        <action name="Pregnancy" class="io.github.carlos_emr.carlos.commn.web.Pregnancy2Action" method="execute">
+            <result name="list">/WEB-INF/jsp/pregnancy/list.jsp</result>
+            <result name="form">/WEB-INF/jsp/pregnancy/form.jsp</result>
+            <result name="saved" type="redirectAction">
+                <param name="actionName">Pregnancy</param>
+                <param name="demographicNo">${demographicNo}</param>
+                <param name="saved">true</param>
+            </result>
+            <allowed-methods>execute</allowed-methods>
+        </action>
+
         <action name="encounter/decisionSupport/guidelineAction" class="io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action" method="execute">
             <result name="guidelineList">/WEB-INF/jsp/encounter/decisionSupport/guidelineList.jsp</result>
             <result name="guidelineDetail">/WEB-INF/jsp/encounter/decisionSupport/guidelineDetail.jsp</result>
@@ -312,9 +324,6 @@
         </action>
         <action name="encounter/immunization/config/ViewCreateImmunizationSetInit" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/immunization/config/CreateImmunizationSetInit.jsp</result>
-        </action>
-        <action name="encounter/immunization/config/ViewImmunizationSetDisplay" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/encounter/immunization/config/ImmunizationSetDisplay.jsp</result>
         </action>
         <action name="encounter/oscarConsultationRequest/ViewCalendarPopup" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/CalendarPopup.jsp</result>

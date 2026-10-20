@@ -46,7 +46,10 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="form.rourke2020.saving" var="rourkeSavingMessage"/>
+<fmt:message key="form.rourke2020.preparingPrint" var="rourkePreparingPrintMessage"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
@@ -287,7 +290,12 @@
         function onPrintAll() {
             document.forms["frmP1"].action = "<%= request.getContextPath() %>/form/formname?__title=Rourke+Baby+Report&__cfgfile=Rourke2020printCfgPg1&__cfgfile=Rourke2020printCfgPg2&__cfgfile=Rourke2020printCfgPg3&__cfgfile=Rourke2020printCfgPg4&__template=Rourke2020";
             document.forms["frmP1"].action += "&submit=printAllJasperReport";
-            document.forms["frmP1"].target = "_blank";
+            const printTarget = 'rourke2020Print' + Date.now();
+            const printWindow = window.open('', printTarget);
+            if (printWindow) {
+                printWindow.document.body.textContent = '<carlos:encode value="${rourkePreparingPrintMessage}" context="javascript"/>';
+            }
+            document.forms["frmP1"].target = printWindow ? printTarget : '_blank';
 
             return true;
         }
@@ -710,6 +718,16 @@
 
     </script>
     <style>
+        #rourke2020-tabs .measurement-button {
+            background: none;
+            border: 0;
+            padding: 0;
+            font: inherit;
+            color: #486ebd;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
         .panel-page {
             display: flex;
             flex-direction: row;
@@ -740,6 +758,7 @@
     </style>
 </head>
 <body onload="init()">
+<output id="rourkeSaveStatus" aria-live="polite" style="display:block;position:sticky;top:0;background:#fff;z-index:10001"></output>
 <form id="frmP1" name="frmP1" action="${pageContext.request.contextPath}/form/formname" method="post">
     <div id="rourke2020-tabs">
         <ul id="tab-list">
@@ -777,6 +796,8 @@
             reset();
             document.getElementById("frmP1").action += "?submit=save";
             if (confirm("<fmt:message key='global.msgWannaSave'/>")) {
+                document.getElementById('rourkeSaveStatus').textContent = '<carlos:encode value="${rourkeSavingMessage}" context="javascript"/>';
+                document.getElementById('frmP1').setAttribute('aria-busy', 'true');
                 formsTimedAutosaver.setChangedFalse();
                 document.forms["frmP1"].submit();
             }
@@ -791,6 +812,8 @@
             reset();
             document.getElementById("frmP1").action += "?submit=exit";
             if (confirm("<fmt:message key='global.msgSaveExit'/>")) {
+                document.getElementById('rourkeSaveStatus').textContent = '<carlos:encode value="${rourkeSavingMessage}" context="javascript"/>';
+                document.getElementById('frmP1').setAttribute('aria-busy', 'true');
                 formsTimedAutosaver.setChangedFalse();
                 document.forms["frmP1"].submit();
             }

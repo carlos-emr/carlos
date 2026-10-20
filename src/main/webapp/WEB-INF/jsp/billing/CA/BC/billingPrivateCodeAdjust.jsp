@@ -65,9 +65,9 @@
     <h3><fmt:message key="admin.admin.ManagePrivFrm"/></h3>
     <div class="container-fluid card card-body bg-body-tertiary">
 
-        <a href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?addNew=true" class="btn btn-primary">Add Code</a>
+        <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingAddPrivateCode?addNew=true" class="btn btn-primary">Add Code</a>
 
-        <form action="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode" method="get">
+        <form action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingPrivateCodeAdjust" method="get">
             <%if (request.getAttribute("returnMessage") != null) { %>
             <%=request.getAttribute("returnMessage")%>
             <%} %>
@@ -88,9 +88,10 @@
                     arrow = "&darr;";
                 }
         %> <% request.setAttribute("test", list); %>
+        <%-- requestURI: this page is reached by a forward, so without it the sort links name the WEB-INF path (404). --%>
         <display:table name="test" defaultsort="1" defaultorder="descending"
                        decorator="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillCodesTableWrapper"
-                       class="table table-hover table-striped">
+                       class="table table-hover table-striped" requestURI="/billing/CA/BC/ViewBillingPrivateCodeAdjust">
             <display:column property="serviceCode" title="Service Code" sortable="true" headerClass="sortable"/>
             <display:column property="description" title="Description" sortable="true" headerClass="sortable"/>
             <display:column property="value" title="Price" sortable="true" headerClass="sortable"/>

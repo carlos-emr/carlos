@@ -992,7 +992,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 %>
                 <td>
                     <a href="javascript: function myFunction() {return false; }"
-                       title="<fmt:message key='form.bcar.doubleClickHint'/>"
+                       title="<fmt:message key='form.bcar.doubleClickShadedFields'/>"
                        onClick="showHideBox('Instrdiv',1);return false;"><font color='red'><fmt:message key="form.bcar.instruction"/></font></a>
                 </td>
 
@@ -2930,7 +2930,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                         <tr>
                             <td colspan="4">
                                 <textarea name="pg3_probComment" style="width:100%" cols="40" rows="1" @oscar.formDB
-                                          dbType="varchar(255)"><%= props.getProperty("pg3_probComment", "") %></textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg3_probComment", "") %>'/></textarea>
                             </td>
                             <td></td>
                         </tr>
@@ -2943,7 +2943,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                         <tr>
                             <td colspan="4">
                                 <textarea name="pg3_investigation" style="width:100%" cols="50" rows="3" @oscar.formDB
-                                          dbType="text"><%= props.getProperty("pg3_investigation", "") %></textarea>
+                                          dbType="text"><carlos:encode value='<%= props.getProperty("pg3_investigation", "") %>'/></textarea>
                             </td>
                             <td></td>
                         </tr>

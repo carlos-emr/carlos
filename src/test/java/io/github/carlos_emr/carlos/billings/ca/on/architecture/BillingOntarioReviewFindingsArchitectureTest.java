@@ -68,9 +68,13 @@ class BillingOntarioReviewFindingsArchitectureTest {
         assertThat(billingOnPackage).isGreaterThan(billingPackage);
         String sharedBillingPackage = struts.substring(billingPackage, billingOnPackage);
 
+        // The shared package may hold only the refusal mapping every module package has (a SecurityException
+        // renders the shared refusal page); Ontario's own typed mappings stay in billing-on.
+        assertThat(globalBlock(sharedBillingPackage, "global-results"))
+                .isEqualTo("<result name=\"securityError\">/WEB-INF/jsp/error/securityError.jsp</result>");
+        assertThat(globalBlock(sharedBillingPackage, "global-exception-mappings"))
+                .isEqualTo("<exception-mapping exception=\"java.lang.SecurityException\" result=\"securityError\"/>");
         assertThat(sharedBillingPackage)
-                .doesNotContain("<global-results>")
-                .doesNotContain("<global-exception-mappings>")
                 .doesNotContain("billingValidationError")
                 .doesNotContain("BillingValidationException")
                 .doesNotContain("BillingDataLoadException")
@@ -182,6 +186,18 @@ class BillingOntarioReviewFindingsArchitectureTest {
                 .contains("<dispatcher>FORWARD</dispatcher>");
         assertThat(filterMappingFor(webXml, "struts2-execute"))
                 .contains("<dispatcher>FORWARD</dispatcher>");
+    }
+
+    /** The contents of the package's one {@code <element>} block, comments dropped and whitespace between tags removed. */
+    private static String globalBlock(String packageXml, String element) {
+        int start = packageXml.indexOf("<" + element + ">");
+        assertThat(start).as("%s block", element).isGreaterThanOrEqualTo(0);
+        assertThat(packageXml.indexOf("<" + element + ">", start + 1)).as("a second %s block", element).isNegative();
+        int end = packageXml.indexOf("</" + element + ">", start);
+        return packageXml.substring(start + element.length() + 2, end)
+                .replaceAll("(?s)<!--.*?-->", "")
+                .replaceAll(">\\s+<", "><")
+                .trim();
     }
 
     private static String filterMappingFor(String webXml, String filterName) {

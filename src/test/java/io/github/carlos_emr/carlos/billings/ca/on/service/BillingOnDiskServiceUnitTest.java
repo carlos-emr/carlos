@@ -118,6 +118,40 @@ class BillingOnDiskServiceUnitTest {
     }
 
     @Test
+    void shouldNotAllocateDisk_whenSelectedProviderOhipNumberIsMalformed() {
+        MockHttpServletRequest request = newDiskRequest("999998");
+        BillingProviderDto provider = provider("999998", "0000");
+        provider.setOhipNo("1234567");
+        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
+
+        assertThatThrownBy(() -> service.generateNewDisk(request))
+                .isInstanceOfSatisfying(io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException.class,
+                        rejected -> assertThat(rejected.getProblems()).containsExactly(
+                                "Provider 999998: the OHIP billing number must be exactly 6 digits."));
+
+        verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
+        verify(diskCreationService, never()).createBatchHeader(any(), anyString(), anyString(), anyString(), anyString());
+        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+    }
+
+    @Test
+    void shouldNotAllocateDisk_whenSelectedProviderOhipNumberIsNotAllDigits() {
+        // Six characters fit the record, but the MOH field is numeric: the batch would be rejected.
+        MockHttpServletRequest request = newDiskRequest("999998");
+        BillingProviderDto provider = provider("999998", "0000");
+        provider.setOhipNo("12345A");
+        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
+
+        assertThatThrownBy(() -> service.generateNewDisk(request))
+                .isInstanceOfSatisfying(io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException.class,
+                        rejected -> assertThat(rejected.getProblems()).containsExactly(
+                                "Provider 999998: the OHIP billing number must be exactly 6 digits."));
+
+        verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
+        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+    }
+
+    @Test
     void shouldFinalizeClaimHeaderUpdates_afterBothDiskFilesAreWritten() {
         MockHttpServletRequest request = newDiskRequest("999998");
         BillingProviderDto provider = provider("999998", "0000");
@@ -343,7 +377,29 @@ class BillingOnDiskServiceUnitTest {
         BillingProviderDto provider = new BillingProviderDto();
         provider.setProviderNo(providerNo);
         provider.setOhipNo("123456");
+        // The lookup service defaults a blank specialty to 00, so a real DTO always has one.
+        provider.setSpecialtyCode("00");
         provider.setBillingGroupNo(groupNo);
         return provider;
+    }
+
+    @Test
+    void shouldRetainPriorSubmissionBackup_afterSuccessfulSoloRegeneration() {
+        MockHttpServletRequest request = regenerateRequest("55");
+        BillingProviderDto provider = provider("999998", "0000");
+        when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
+        when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
+        when(diskCreationService.prepareBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(preparedHeader(78));
+        when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
+        when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
+
+        service.regenerateDisk(request);
+
+        InOrder order = inOrder(claimFileService, transactionService);
+        order.verify(claimFileService).backupFileForRollback();
+        order.verify(claimFileService).writeFile("claim-body");
+        order.verify(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
+        order.verify(claimFileService).retainFileBackup();
+        verify(claimFileService, never()).restoreRenamedFile();
     }
 }

@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.web;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement
@@ -44,6 +46,7 @@ public class PatientListApptItemBean implements Serializable {
     private String duration;
     private String type;
     private String notes;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date date;
 
     public Integer getDemographicNo() {

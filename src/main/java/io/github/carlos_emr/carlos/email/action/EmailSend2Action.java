@@ -1,7 +1,11 @@
 package io.github.carlos_emr.carlos.email.action;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -10,6 +14,9 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
@@ -31,7 +38,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>Sending emails directly with healthcare data and attachments</li>
  *   <li>Sending electronic forms (EForms) via email with optional deletion after send</li>
  *   <li>Handling email encryption and password protection for PHI compliance</li>
- *   <li>Managing email attachments from session storage</li>
+ *   <li>Sending exactly the attachments its own compose window staged, and only when every one
+ *       belongs to the email's patient (#4425)</li>
  *   <li>Canceling email operations and redirecting to source contexts</li>
  * </ul>
  *
@@ -62,6 +70,25 @@ public class EmailSend2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
+    private final transient AttachmentOwnershipService attachmentOwnershipService;
+
+    /**
+     * Shown when the send is refused because the window's attachments are gone (already sent,
+     * cancelled, or dropped as the oldest of many open composers) or do not belong to the email's
+     * patient (#4425). Nothing is sent and nothing is logged as sent.
+     */
+    static final String ATTACHMENTS_REFUSED_MESSAGE = "This email was not sent: this window has expired,"
+            + " or its attachments do not belong to this patient. Close it and start the email again.";
+
+    /** Struts-created: resolves the ownership check from Spring. */
+    public EmailSend2Action() {
+        this(SpringUtils.getBean(AttachmentOwnershipService.class));
+    }
+
+    /** Test constructor. */
+    EmailSend2Action(AttachmentOwnershipService attachmentOwnershipService) {
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
 
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
@@ -112,7 +139,11 @@ public class EmailSend2Action extends ActionSupport {
         boolean deleteEFormAfterEmail = request.getParameter("deleteEFormAfterEmail") != null && "true".equalsIgnoreCase(request.getParameter("deleteEFormAfterEmail"));
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        EmailLog emailLog = sendEmail(request);
+        Optional<List<EmailAttachment>> attachments = takeVerifiedAttachments(request);
+        if (attachments.isEmpty()) {
+            return refuseSend();
+        }
+        EmailLog emailLog = sendEmail(request, attachments.get());
 
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
@@ -141,7 +172,11 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 SUCCESS result for rendering the email result page
      */
     public String sendDirectEmail() {
-        EmailLog emailLog = sendEmail(request);
+        Optional<List<EmailAttachment>> attachments = takeVerifiedAttachments(request);
+        if (attachments.isEmpty()) {
+            return refuseSend();
+        }
+        EmailLog emailLog = sendEmail(request, attachments.get());
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
@@ -168,7 +203,9 @@ public class EmailSend2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String cancel() {
-        EmailData emailData = prepareEmailFields(request);
+        // Discard this window's staged attachments; nothing will send them now.
+        EmailAttachmentStaging.take(request.getSession(), request.getParameter(EmailAttachmentStaging.KEY_PARAMETER));
+        EmailData emailData = prepareEmailFields(request, List.of());
         String emailRedirect = emailData.getTransactionType().name();
         if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
             try {
@@ -192,13 +229,84 @@ public class EmailSend2Action extends ActionSupport {
      * </ul>
      *
      * @param request HttpServletRequest containing email parameters and session data
+     * @param attachments the verified attachments this window staged, from {@link #takeVerifiedAttachments}
      * @return EmailLog entity containing the result of the email send operation including
      *         status (SUCCESS/FAILURE), timestamps, and any error messages
      */
-    private EmailLog sendEmail(HttpServletRequest request) {
+    private EmailLog sendEmail(HttpServletRequest request, List<EmailAttachment> attachments) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        EmailData emailData = prepareEmailFields(request);
+        EmailData emailData = prepareEmailFields(request, attachments);
         return emailManager.sendEmail(loggedInInfo, emailData);
+    }
+
+    /**
+     * Takes the attachments this compose window staged and verifies they may go to this patient
+     * (#4425).
+     *
+     * <p>The window's {@value EmailAttachmentStaging#KEY_PARAMETER} takes its own entry, once, so a
+     * compose or resend in another window can no longer change what this one sends. The send is
+     * refused (returns an empty {@code Optional}) when:</p>
+     * <ul>
+     *   <li>nothing is staged under the key: already sent or cancelled, dropped, or forged;</li>
+     *   <li>the email's {@code demographicId} is not the patient the attachments were prepared for;</li>
+     *   <li>any eForm, document, lab or HRM attachment's record does not belong to that patient, as
+     *       {@link AttachmentOwnershipService} reads it now.</li>
+     * </ul>
+     *
+     * <p>Encounter-form ({@link DocumentType#FORM}) attachments have no common owner column to
+     * check; they were rendered server-side for the bound patient, which the second rule enforces.
+     * The entry is consumed even when refused, so a refused window cannot be retried into sending.</p>
+     *
+     * @param request the send request
+     * @return a mutable copy of the verified attachments (an empty list when the window staged
+     *         none), or an empty {@code Optional} to refuse the send
+     */
+    Optional<List<EmailAttachment>> takeVerifiedAttachments(HttpServletRequest request) {
+        EmailAttachmentStaging.Prepared prepared = EmailAttachmentStaging.take(
+                request.getSession(), request.getParameter(EmailAttachmentStaging.KEY_PARAMETER));
+        if (prepared == null) {
+            logger.warn("Email send refused: no attachments are staged for this compose window");
+            return Optional.empty();
+        }
+        Integer demographicNo = parseDemographicNo(request.getParameter("demographicId"));
+        if (demographicNo == null || demographicNo != prepared.demographicNo()) {
+            logger.warn("Email send refused: the email's patient is not the patient its attachments were prepared for");
+            return Optional.empty();
+        }
+        Map<DocumentType, List<Integer>> idsByType = new EnumMap<>(DocumentType.class);
+        for (EmailAttachment attachment : prepared.attachments()) {
+            DocumentType type = attachment.getDocumentType();
+            if (type == null) {
+                logger.warn("Email send refused: an attachment has no document type");
+                return Optional.empty();
+            }
+            if (type != DocumentType.FORM) {
+                idsByType.computeIfAbsent(type, t -> new ArrayList<>()).add(attachment.getDocumentId());
+            }
+        }
+        if (!attachmentOwnershipService.allBelongToDemographic(idsByType, demographicNo)) {
+            logger.warn("Email send refused: an attachment does not belong to the email's patient");
+            return Optional.empty();
+        }
+        return Optional.of(new ArrayList<>(prepared.attachments()));
+    }
+
+    /** Reports a refused send on the compose page, which alerts and closes the window. */
+    private String refuseSend() {
+        request.setAttribute("isEmailError", true);
+        request.setAttribute("emailErrorMessage", ATTACHMENTS_REFUSED_MESSAGE);
+        return SUCCESS;
+    }
+
+    private static Integer parseDemographicNo(String demographicId) {
+        if (demographicId == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(demographicId.trim());
+        } catch (NumberFormatException _) {
+            return null;
+        }
     }
 
     /**
@@ -212,18 +320,18 @@ public class EmailSend2Action extends ActionSupport {
      *   <li>Handling password protection parameters (password and password clue)</li>
      *   <li>Retrieving patient chart display options and demographic information</li>
      *   <li>Extracting transaction type and additional URL parameters</li>
-     *   <li>Retrieving email attachments from session storage</li>
-     *   <li>Cleaning up session by removing attachment list after extraction</li>
+     *   <li>Attaching the verified attachments this window staged (#4425)</li>
      * </ul>
      *
      * <p>The method supports PHI protection through encryption options and associates
      * emails with specific healthcare providers and patients for audit trail purposes.</p>
      *
      * @param request HttpServletRequest containing email form parameters and session data
+     * @param emailAttachmentList the attachments to send; never read from the session here
      * @return EmailData populated data transfer object containing all email parameters
      *         ready for processing by EmailManager
      */
-    private EmailData prepareEmailFields(HttpServletRequest request) {
+    private EmailData prepareEmailFields(HttpServletRequest request, List<EmailAttachment> emailAttachmentList) {
         String senderConfigId = request.getParameter("senderConfigId");
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
         String subject = request.getParameter("subjectEmail");
@@ -238,7 +346,6 @@ public class EmailSend2Action extends ActionSupport {
         String transactionType = request.getParameter("transactionType");
         String demographicNo = request.getParameter("demographicId");
         String additionalParams = request.getParameter("additionalURLParams");
-        List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession().getAttribute("emailAttachmentList");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -260,8 +367,6 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setProviderNo(providerNo);
         emailData.setAdditionalParams(additionalParams);
         emailData.setAttachments(emailAttachmentList);
-
-        request.getSession().removeAttribute("emailAttachmentList");
 
         return emailData;
     }

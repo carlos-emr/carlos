@@ -50,6 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "SF36Caregiver";
@@ -219,9 +220,9 @@
     -->
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<carlos:encode value='<%= props.getProperty("demographic_no", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
+               value="<carlos:encode value='<%= props.getProperty("formCreated", "") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
@@ -304,7 +305,7 @@
                                         <td></td>
                                         <td colspan="3">Comments: <input type="text" class="textbox"
                                                                          size="80" name="Q1Cmt"
-                                                                         value="<%= props.getProperty("Q1Cmt", "") %>"/>
+                                                                         value="<carlos:encode value='<%= props.getProperty("Q1Cmt", "") %>' context="htmlAttribute"/>"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -347,7 +348,7 @@
                                         <td></td>
                                         <td colspan="3">Comments: <input type="text" class="textbox"
                                                                          size="80" name="Q2Cmt"
-                                                                         value="<%= props.getProperty("Q2Cmt", "") %>"/>
+                                                                         value="<carlos:encode value='<%= props.getProperty("Q2Cmt", "") %>' context="htmlAttribute"/>"/>
                                         </td>
                                     </tr>
                                 </table>
@@ -408,7 +409,7 @@
                                                             <%= props.getProperty("Q3aNo", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q3aCmt"><%= props.getProperty("Q3aCmt", "") %></textarea>
+                                                            name="Q3aCmt"><carlos:encode value='<%= props.getProperty("Q3aCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -432,7 +433,7 @@
                                                             <%= props.getProperty("Q3bNo", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q3bCmt"><%= props.getProperty("Q3bCmt", "") %></textarea>
+                                                            name="Q3bCmt"><carlos:encode value='<%= props.getProperty("Q3bCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -452,7 +453,7 @@
                                                             <%= props.getProperty("Q3cNo", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q3cCmt"><%= props.getProperty("Q3cCmt", "") %></textarea>
+                                                            name="Q3cCmt"><carlos:encode value='<%= props.getProperty("Q3cCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -475,7 +476,7 @@
                                                             <%= props.getProperty("Q3dNo", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q3dCmt"><%= props.getProperty("Q3dCmt", "") %></textarea>
+                                                            name="Q3dCmt"><carlos:encode value='<%= props.getProperty("Q3dCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -498,7 +499,7 @@
                                                             <%= props.getProperty("Q3eNo", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q3eCmt"><%= props.getProperty("Q3eCmt", "") %></textarea>
+                                                            name="Q3eCmt"><carlos:encode value='<%= props.getProperty("Q3eCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -518,7 +519,7 @@
                                                             <%= props.getProperty("Q3fNo", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q3fCmt"><%= props.getProperty("Q3fCmt", "") %></textarea>
+                                                            name="Q3fCmt"><carlos:encode value='<%= props.getProperty("Q3fCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -540,7 +541,7 @@
                                                             <%= props.getProperty("Q3gNo", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q3gCmt"><%= props.getProperty("Q3gCmt", "") %></textarea>
+                                                            name="Q3gCmt"><carlos:encode value='<%= props.getProperty("Q3gCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -562,7 +563,7 @@
                                                             <%= props.getProperty("Q3hNo", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q3hCmt"><%= props.getProperty("Q3hCmt", "") %></textarea>
+                                                            name="Q3hCmt"><carlos:encode value='<%= props.getProperty("Q3hCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -583,7 +584,7 @@
                                                             <%= props.getProperty("Q3iNo", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q3iCmt"><%= props.getProperty("Q3iCmt", "") %></textarea>
+                                                            name="Q3iCmt"><carlos:encode value='<%= props.getProperty("Q3iCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -603,7 +604,7 @@
                                                             <%= props.getProperty("Q3jNo", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q3jCmt"><%= props.getProperty("Q3jCmt", "") %></textarea>
+                                                            name="Q3jCmt"><carlos:encode value='<%= props.getProperty("Q3jCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -678,7 +679,7 @@
                                                             <%= props.getProperty("Q4aNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q4aCmt"><%= props.getProperty("Q4aCmt", "") %></textarea>
+                                                            name="Q4aCmt"><carlos:encode value='<%= props.getProperty("Q4aCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -708,7 +709,7 @@
                                                             <%= props.getProperty("Q4bNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q4bCmt"><%= props.getProperty("Q4bCmt", "") %></textarea>
+                                                            name="Q4bCmt"><carlos:encode value='<%= props.getProperty("Q4bCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -740,7 +741,7 @@
                                                             <%= props.getProperty("Q4cNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q4cCmt"><%= props.getProperty("Q4cCmt", "") %></textarea>
+                                                            name="Q4cCmt"><carlos:encode value='<%= props.getProperty("Q4cCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -771,7 +772,7 @@
                                                             <%= props.getProperty("Q4dNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q4dCmt"><%= props.getProperty("Q4dCmt", "") %></textarea>
+                                                            name="Q4dCmt"><carlos:encode value='<%= props.getProperty("Q4dCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -829,7 +830,7 @@
                                                             <%= props.getProperty("Q5aNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q5aCmt"><%= props.getProperty("Q5aCmt", "") %></textarea>
+                                                            name="Q5aCmt"><carlos:encode value='<%= props.getProperty("Q5aCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -859,7 +860,7 @@
                                                             <%= props.getProperty("Q5bNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q5bCmt"><%= props.getProperty("Q5bCmt", "") %></textarea>
+                                                            name="Q5bCmt"><carlos:encode value='<%= props.getProperty("Q5bCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -889,7 +890,7 @@
                                                             <%= props.getProperty("Q5cNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q5cCmt"><%= props.getProperty("Q5cCmt", "") %></textarea>
+                                                            name="Q5cCmt"><carlos:encode value='<%= props.getProperty("Q5cCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -953,7 +954,7 @@
                                         <td></td>
                                         <td colspan="3">Comments: <input type="text" class="textbox"
                                                                          class="textbox" size="80" name="Q6Cmt"
-                                                                         value="<%= props.getProperty("Q6Cmt", "") %>"/>
+                                                                         value="<carlos:encode value='<%= props.getProperty("Q6Cmt", "") %>' context="htmlAttribute"/>"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -998,7 +999,7 @@
                                         <td></td>
                                         <td colspan="3">Comments: <input type="text" class="textbox"
                                                                          size="80" name="Q7Cmt"
-                                                                         value="<%= props.getProperty("Q7Cmt", "") %>"/>
+                                                                         value="<carlos:encode value='<%= props.getProperty("Q7Cmt", "") %>' context="htmlAttribute"/>"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -1042,7 +1043,7 @@
                                         <td></td>
                                         <td colspan="3">Comments: <input type="text" class="textbox"
                                                                          class="textbox" size="80" name="Q8Cmt"
-                                                                         value="<%= props.getProperty("Q8Cmt", "") %>"/>
+                                                                         value="<carlos:encode value='<%= props.getProperty("Q8Cmt", "") %>' context="htmlAttribute"/>"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -1125,7 +1126,7 @@
                                                             <%= props.getProperty("Q9aNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q9aCmt"><%= props.getProperty("Q9aCmt", "") %></textarea>
+                                                            name="Q9aCmt"><carlos:encode value='<%= props.getProperty("Q9aCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1153,7 +1154,7 @@
                                                             <%= props.getProperty("Q9bNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q9bCmt"><%= props.getProperty("Q9bCmt", "") %></textarea>
+                                                            name="Q9bCmt"><carlos:encode value='<%= props.getProperty("Q9bCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1183,7 +1184,7 @@
                                                             <%= props.getProperty("Q9cNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q9cCmt"><%= props.getProperty("Q9cCmt", "") %></textarea>
+                                                            name="Q9cCmt"><carlos:encode value='<%= props.getProperty("Q9cCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1211,7 +1212,7 @@
                                                             <%= props.getProperty("Q9dNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q9dCmt"><%= props.getProperty("Q9dCmt", "") %></textarea>
+                                                            name="Q9dCmt"><carlos:encode value='<%= props.getProperty("Q9dCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1239,7 +1240,7 @@
                                                             <%= props.getProperty("Q9eNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q9eCmt"><%= props.getProperty("Q9eCmt", "") %></textarea>
+                                                            name="Q9eCmt"><carlos:encode value='<%= props.getProperty("Q9eCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1267,7 +1268,7 @@
                                                             <%= props.getProperty("Q9fNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q9fCmt"><%= props.getProperty("Q9fCmt", "") %></textarea>
+                                                            name="Q9fCmt"><carlos:encode value='<%= props.getProperty("Q9fCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1295,7 +1296,7 @@
                                                             <%= props.getProperty("Q9gNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q9gCmt"><%= props.getProperty("Q9gCmt", "") %></textarea>
+                                                            name="Q9gCmt"><carlos:encode value='<%= props.getProperty("Q9gCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1323,7 +1324,7 @@
                                                             <%= props.getProperty("Q9hNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q9hCmt"><%= props.getProperty("Q9hCmt", "") %></textarea>
+                                                            name="Q9hCmt"><carlos:encode value='<%= props.getProperty("Q9hCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1351,7 +1352,7 @@
                                                             <%= props.getProperty("Q9iNone", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="15" rows="2"
-                                                            name="Q9iCmt"><%= props.getProperty("Q9iCmt", "") %></textarea>
+                                                            name="Q9iCmt"><carlos:encode value='<%= props.getProperty("Q9iCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -1428,7 +1429,7 @@
                                                             <%= props.getProperty("Q10None", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q10Cmt"><%= props.getProperty("Q10Cmt", "") %></textarea>
+                                                            name="Q10Cmt"><carlos:encode value='<%= props.getProperty("Q10Cmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -1483,7 +1484,7 @@
                                                             <%= props.getProperty("Q11aDefFalse", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q11aCmt"><%= props.getProperty("Q11aCmt", "") %></textarea>
+                                                            name="Q11aCmt"><carlos:encode value='<%= props.getProperty("Q11aCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1511,7 +1512,7 @@
                                                             <%= props.getProperty("Q11bDefFalse", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q11bCmt"><%= props.getProperty("Q11bCmt", "") %></textarea>
+                                                            name="Q11bCmt"><carlos:encode value='<%= props.getProperty("Q11bCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1539,7 +1540,7 @@
                                                             <%= props.getProperty("Q11cDefFalse", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q11cCmt"><%= props.getProperty("Q11cCmt", "") %></textarea>
+                                                            name="Q11cCmt"><carlos:encode value='<%= props.getProperty("Q11cCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1567,7 +1568,7 @@
                                                             <%= props.getProperty("Q11dDefFalse", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q11dCmt"><%= props.getProperty("Q11dCmt", "") %></textarea>
+                                                            name="Q11dCmt"><carlos:encode value='<%= props.getProperty("Q11dCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -1619,7 +1620,7 @@
                                                             <%= props.getProperty("Q12aMuch", "") %> /></td>
                                                     <td align="center" bgcolor="white"><textarea
                                                             class="textbox" cols="20" rows="2"
-                                                            name="Q12aCmt"><%= props.getProperty("Q12aCmt", "") %></textarea>
+                                                            name="Q12aCmt"><carlos:encode value='<%= props.getProperty("Q12aCmt", "") %>' context="html"/></textarea>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -1654,9 +1655,9 @@
                                                                                          value="<fmt:message key='global.btnPrint'/>"
                                                                                          onclick="javascript:window.print();"/>
                             </td>
-                            <td align="right">Study ID: <%= props.getProperty("studyID", "N/A") %>
+                            <td align="right">Study ID: <carlos:encode value='<%= props.getProperty("studyID", "N/A") %>' context="html"/>
                                 <input type="hidden" name="studyID"
-                                       value="<%= props.getProperty("studyID", "N/A") %>"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("studyID", "N/A") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                     </table>
                 </td>

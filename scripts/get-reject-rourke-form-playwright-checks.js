@@ -30,7 +30,11 @@ async function workflow(s) {
   const q = h.sqlString;
   const ledger = createLedger(NAME);
   s.cleanup(() => {
-    sql.execute(`DELETE FROM measurements WHERE demographicNo=${patient}; DELETE FROM formRourke2017 WHERE demographic_no=${patient}`);
+    // A save also writes the form's ticked boxes to form_boolean_value, keyed by the record's id (434 rows per save), so
+    // those go first, while the records that name them still exist.
+    sql.execute(`DELETE FROM form_boolean_value WHERE form_name='formRourke2017'
+        AND form_id IN (SELECT ID FROM formRourke2017 WHERE demographic_no=${patient});
+      DELETE FROM measurements WHERE demographicNo=${patient}; DELETE FROM formRourke2017 WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient})
       + (SELECT COUNT(*) FROM formRourke2017 WHERE demographic_no=${patient})`) === '0', 'Owned measurement/form rows were not removed');
   });

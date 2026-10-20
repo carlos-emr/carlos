@@ -54,6 +54,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
@@ -372,11 +373,15 @@
                     <div class="mb-3">
 
                         <% String billTypes = request.getParameter("billTypes");
-                            if (billTypes == null) {
-                                billTypes = MSPReconcile.REJECTED;
-                            }
                             if ("true".equals(readonly)) {
-                                billTypes = "%";
+                                // The Master Record's Invoice List opens on all of the patient's bills, and a blank
+                                // status keeps All; a status picked from the radios then filters them, as on the
+                                // clinic-wide page.
+                                if (billTypes == null || billTypes.isBlank()) {
+                                    billTypes = "%";
+                                }
+                            } else if (billTypes == null) {
+                                billTypes = MSPReconcile.REJECTED;
                             }
 
                         %>
@@ -484,7 +489,8 @@
     </div><!-- row well-->
 
 
-    <form name="ReProcessBillingForm" method="post" action="reprocessBill">
+    <%-- Absolute: this page sets <base href> to the context root, so a relative action posted to /reprocessBill (404). --%>
+    <form name="ReProcessBillingForm" method="post" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
                value="<carlos:encode value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
@@ -525,6 +531,7 @@
                 String demoNo = request.getParameter("demographicNo");
 
                 MSPReconcile.BillSearch bSearch = msp.getBills(billTypes, providerview, dateBegin, dateEnd, demoNo, !showWCB, !showMSP, !showPRIV, !showICBC);
+                Map<Integer, BillingHistoryDao.PaymentTotals> paymentTotals = msp.getPaymentHistoryTotals(bSearch);
 
                 Properties p2 = bSearch.getCurrentErrorMessages();
                 Properties p = msp.currentC12Records();
@@ -537,6 +544,8 @@
                     incorrectVal = false;
                     paidinCorrectval = false;
                     MSPReconcile.Bill b = (MSPReconcile.Bill) bSearch.list.get(i);
+                    BillingHistoryDao.PaymentTotals historyTotals = paymentTotals.getOrDefault(
+                            Integer.valueOf(b.billMasterNo), BillingHistoryDao.PaymentTotals.ZERO);
 
                     bodd = currentBillingNo.equals(b.billing_no) ? !bodd : bodd; //for the color of rows
                     nItems++; //to calculate if it is the end of records
@@ -550,7 +559,7 @@
                         incorrectVal = true;
                     }
                     total = total.add(valueToAdd);
-                    double pAmount = msp.getAmountPaid(b.billMasterNo, b.billingtype);
+                    double pAmount = msp.getAmountPaid(b.billMasterNo, b.billingtype, historyTotals);
                     BigDecimal valueToPaidAdd = new BigDecimal("0.00");
                     try {
                         valueToPaidAdd = new BigDecimal(pAmount).setScale(2, BigDecimal.ROUND_HALF_UP);
@@ -609,7 +618,7 @@
                 <td><%=nf.format(pAmount)%>
                 </td>
                 <%
-                    double dblAmtOwed = msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype);
+                    double dblAmtOwed = msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype, historyTotals);
                     BigDecimal amtOwed = new BigDecimal(dblAmtOwed).setScale(2, BigDecimal.ROUND_HALF_UP);
                     owedTotal = owedTotal.add(amtOwed);
 

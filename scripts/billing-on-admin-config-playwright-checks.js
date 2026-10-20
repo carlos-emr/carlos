@@ -28,6 +28,7 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { seedOwnedBill, openHistory, openCorrection, billDate } = require('./billing-on-invoice-third-party-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const FORM_ROUTE = '/billing/CA/ON/ManageBillingform';
 const LOCATION_ROUTE = '/billing/CA/ON/ManageBillingLocation';
@@ -275,7 +276,7 @@ async function workflow(s) {
 
   // Master Record ▸ Create Invoice: the Ontario bill form for the owned patient.
   const openBillForm = async () => {
-    const link = s.master.locator('a[onclick*="/billing?billRegion=ON"]').first();
+    const link = masterRecordLink(s.master, '/billing?billRegion=ON').first();
     h.assert(await link.count() === 1, 'The Master Record does not offer Create Invoice');
     const page = await s.popup(s.master, link, 'bill-form');
     await page.locator('select[name="xml_billtype"]').waitFor({ state: 'visible', timeout: 30000 });

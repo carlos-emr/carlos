@@ -42,7 +42,7 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})`) === '0', 'Owned readings or notes were not removed');
     probe.cleanup();
   });
-  const writesSince = since => probe.since(since, `action NOT LIKE 'read%' AND action NOT LIKE '%Manager.get%' AND action NOT LIKE '%Manager.find%'
+  const writesSince = since => probe.ownedSince(since, `action NOT LIKE 'read%' AND action NOT LIKE '%Manager.get%' AND action NOT LIKE '%Manager.find%'
     AND action NOT LIKE 'DemographicManager.%' AND action NOT LIKE 'PatientConsentManager.%' AND NOT (content='CME note')`);
   async function judge(what, since) {
     await probe.settle(2500);

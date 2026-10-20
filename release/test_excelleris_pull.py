@@ -20,6 +20,7 @@ import dataclasses
 import datetime as dt
 import email
 import email.utils
+import hashlib
 import lzma
 import os
 import re
@@ -1105,6 +1106,32 @@ class OrchestrationTest(_OrchestrationBase):
             "POST /carlos/login", self.labels()
         )  # nothing to upload, no CARLOS session
         self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
+
+    def test_empty_ack_reply_after_an_empty_pull_is_normal(self):
+        """The Ontario test host answers the negative ack that closes an empty
+        pull with an empty 200; nothing was delivered, so that is a clean run
+        logged at INFO."""
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        self.script["excelleris:ack:Negative"] = ok("")
+        with self.assertLogs(ep.log, level="INFO") as logs:
+            rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_OK)
+        self.assertIn("negative acknowledgment sent (empty reply)", "\n".join(logs.output))
+        self.assertFalse([r for r in logs.records if r.levelno >= logging.WARNING])
+
+    def test_odd_ack_reply_after_an_empty_pull_warns_without_failing(self):
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        self.script["excelleris:ack:Negative"] = ok("<html>maintenance</html>")
+        with self.assertLogs(ep.log, level="WARNING") as logs:
+            rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_OK)
+        self.assertIn("negative ack after an empty pull", "\n".join(logs.output))
+
+    def test_empty_ack_reply_after_results_is_still_an_error(self):
+        """A positive ack that cannot be read may not have registered."""
+        self.script["excelleris:ack:Positive"] = ok("")
+        rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
 
     def test_error_document_sends_negative_ack_and_fails(self):
         self.script["excelleris:pull"] = ok('<HL7Messages ReturnCode="1"/>')
@@ -2740,6 +2767,151 @@ class LivePemPairTest(LiveServersTest):
         cert_pem, key_pem = _pem_pair_from_pfx(self.pfx, b"pfx-secret", self.tmp)
         _use_pem_pair(self.conf, cert_pem, key_pem)
         self.cfg = ep.load_config(self.conf)
+
+
+FINGERPRINT_A = ":".join(["AB"] * 32)
+
+
+class PinnedCertificateConfigTest(TempEnv):
+    """[carlos] pinned_cert_sha256: format, loopback-only, not with ca_file."""
+
+    def _load(self, base_url: str, extra: str):
+        self.write_conf(
+            self.cfg.client_private_key,
+            self.cfg.server_public_key,
+            base_url=base_url,
+            extra_carlos=extra,
+        )
+        return ep.load_config(self.conf)
+
+    def test_openssl_forms_are_accepted_for_loopback_hosts(self):
+        for base_url in (
+            "https://localhost:8443/oscar",
+            "https://127.0.0.1:8443/oscar",
+            "https://[::1]:8443/oscar",
+        ):
+            for raw in (
+                f"sha256 Fingerprint={FINGERPRINT_A}",
+                FINGERPRINT_A.lower(),
+                FINGERPRINT_A.replace(":", ""),
+            ):
+                cfg = self._load(base_url, f"pinned_cert_sha256 = {raw}")
+                self.assertEqual(cfg.carlos_pinned_cert_sha256, bytes([0xAB] * 32))
+        self.assertEqual(cfg.masked()["carlos_pinned_cert_sha256"], FINGERPRINT_A)
+
+    def test_unset_by_default(self):
+        self.assertIsNone(self.cfg.carlos_pinned_cert_sha256)
+
+    def test_pin_is_refused_for_a_non_loopback_host(self):
+        with self.assertRaisesRegex(ep.ConfigError, "only accepted when base_url is localhost"):
+            self._load("https://emr.example.test/oscar", f"pinned_cert_sha256 = {FINGERPRINT_A}")
+        with self.assertRaisesRegex(ep.ConfigError, "only accepted"):
+            self._load("https://127.0.0.1.example.test/oscar", f"pinned_cert_sha256 = {FINGERPRINT_A}")
+
+    def test_pin_cannot_be_combined_with_ca_file(self):
+        ca = self.tmp / "ca.pem"
+        ca.write_text("x")
+        ca.chmod(0o600)
+        with self.assertRaisesRegex(ep.ConfigError, "cannot be combined with ca_file"):
+            self._load(
+                "https://localhost:8443/oscar",
+                f"pinned_cert_sha256 = {FINGERPRINT_A}\nca_file = {ca}",
+            )
+
+    def test_malformed_fingerprints_are_refused(self):
+        for raw in ("AB:CD", "ZZ" * 32, "AB" * 31, "AB" * 33):
+            with self.assertRaisesRegex(ep.ConfigError, "64 hex digits"):
+                self._load("https://localhost:8443/oscar", f"pinned_cert_sha256 = {raw}")
+
+    def test_pinned_context_is_used_when_configured(self):
+        cfg = self._load("https://localhost:8443/oscar", f"pinned_cert_sha256 = {FINGERPRINT_A}")
+        ctx = ep.carlos_ssl_context(cfg)
+        self.assertFalse(ctx.check_hostname)
+        self.assertEqual(ctx.minimum_version, ssl.TLSVersion.TLSv1_2)
+        self.assertTrue(ep.carlos_ssl_context(self.cfg).check_hostname)
+
+
+def _expired_wildcard_server_pem(tmp: Path) -> tuple[Path, bytes]:
+    """A server certificate like a lapsed commercial wildcard: issued for
+    another name, expired, and served on localhost (the OSCAR 19 case the
+    pin exists for). Returns the key+cert PEM and the certificate DER."""
+    key = rsa.generate_private_key(65537, 2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "*.example.test")])
+    now = dt.datetime.now(dt.timezone.utc)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - dt.timedelta(days=400))
+        .not_valid_after(now - dt.timedelta(days=30))
+        .add_extension(
+            x509.SubjectAlternativeName([x509.DNSName("*.example.test")]), critical=False
+        )
+        .sign(key, hashes.SHA256())
+    )
+    pem = tmp / "expired-wildcard.pem"
+    pem.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+        + cert.public_bytes(serialization.Encoding.PEM)
+    )
+    return pem, cert.public_bytes(serialization.Encoding.DER)
+
+
+class LivePinnedEmrCertificateTest(LiveServersTest):
+    """The CARLOS live run again, with the EMR serving an expired certificate
+    for another name on localhost and the tool trusting it by pin alone."""
+
+    def setUp(self):
+        super().setUp()
+        self.carlos.shutdown()
+        self.carlos.server_close()
+        pem, der = _expired_wildcard_server_pem(self.tmp)
+        self.expired_pem = pem
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.load_cert_chain(str(pem))
+        old_base_url = self.carlos.base_url
+        self.carlos = _serve(self.carlos_handler, ctx)
+        self.carlos.server_key = self.server_key
+        self.carlos.client_pub = self.client_key.public_key()
+        self.carlos.base_url = f"https://localhost:{self.carlos.server_address[1]}/carlos"
+        self.pin = ep.format_fingerprint(hashlib.sha256(der).digest())
+        text = self.conf.read_text().replace(old_base_url, self.carlos.base_url)
+        text = text.replace(
+            f"[carlos]\nca_file = {self.ca_pem}\n",
+            f"[carlos]\npinned_cert_sha256 = {self.pin}\n",
+            1,
+        )
+        self.conf.write_text(text)
+        self.cfg = ep.load_config(self.conf)
+
+    def _repin(self, line: str) -> "ep.Config":
+        text = self.conf.read_text().replace(f"pinned_cert_sha256 = {self.pin}\n", line, 1)
+        self.conf.write_text(text)
+        return ep.load_config(self.conf)
+
+    def test_other_certificate_is_refused_before_any_request(self):
+        cfg = self._repin(f"pinned_cert_sha256 = {FINGERPRINT_A}\n")
+        with self.assertLogs(ep.log, level="ERROR") as logs:
+            self.assertEqual(ep.run(cfg, ep.RunOptions()), ep.EXIT_FAILED)
+        self.assertEqual(self.carlos.log, [])  # nothing reached the EMR
+        self.assertEqual(self.excelleris.acks, ["Positive"])
+        self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # kept for retry
+        self.assertIn(self.pin, "\n".join(logs.output))  # names what the server sent
+
+    def test_expired_certificate_is_refused_without_a_pin(self):
+        ca = self.tmp / "expired-ca.pem"
+        ca.write_bytes(self.expired_pem.read_bytes().split(b"-----END PRIVATE KEY-----\n")[1])
+        ca.chmod(0o600)
+        cfg = self._repin(f"ca_file = {ca}\n")
+        self.assertEqual(ep.run(cfg, ep.RunOptions()), ep.EXIT_FAILED)
+        self.assertEqual(self.carlos.log, [])
 
 
 class RetryClassificationTest(_OrchestrationBase):
