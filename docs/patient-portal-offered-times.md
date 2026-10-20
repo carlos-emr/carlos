@@ -37,12 +37,75 @@ window. A visit longer than one template slot can be offered at each slot it may
 | `patient_portal.booking.visit_mode` | `in_person` | `in_person`, `phone`, or `video`, shown to the patient. |
 | `patient_portal.booking.location_code` | none | One of the portal's `PATIENT_PORTAL_BOOKING_LOCATIONS` codes. |
 | `patient_portal.booking.sync.enabled` | `false` | Turns the polling job on. |
-| `patient_portal.booking.sync.provider_no` | none | The job's provider: an existing provider with **no login**. Required. |
 | `patient_portal.booking.sync.interval_seconds` | `60` | How often the job polls (15 to 3600). |
+| `patient_portal.job.booking-sync.private_key` | none | The job's own Ed25519 private key (unpadded base64url PKCS#8). Required. |
+| `patient_portal.job.booking-sync.key_id` | none | Its key ID (`[A-Za-z0-9._-]{1,64}`), never the staff key ID. Required. |
 
-The sync provider signs the job's portal requests holding only `portal.booking_prompt.sync`; the
-portal refuses that permission combined with any other, and records these calls as `system`.
-CARLOS refuses to run the job as a provider that can log in.
+## The booking-sync job and its key
+
+The polling job is not a person and not a CARLOS provider. It calls the portal as the
+`booking-sync` job: each call carries the service token and an `X-CARLOS-Job-Assertion` signed
+with the job's own key (audience `carlos-patient-portal-job-api`, exactly one permission,
+`portal.booking_prompt.sync`, a 60-second life, bound to the exact request). It never sends the
+staff assertion and never uses the staff key. The portal lists these calls under the job ("Clinic
+booking"), and refuses `portal.booking_prompt.sync` on any staff assertion.
+
+In CARLOS, every row the job writes names the built-in system provider `-1`: the appointment's
+creator and last update user, the replacement times it offers, and its log rows. The log row names
+the job instead: action `PortalJob.booking-sync.booked`, `PortalJob.booking-sync.undone` or
+`PortalJob.booking-sync.undoFailed`, the appointment number as the content, and data
+`kid=<key ID> choice=<choice ID>`, never the patient.
+
+The key is read once, at startup. With it missing or invalid the job is off: CARLOS logs one WARN
+naming the job and the setting and still starts, and nothing falls back to the staff key. Every start
+logs one INFO line for the job, `configured; kid=<key ID>` or `off`. The `.next` variants of both
+settings, which a rotation may stage, are ignored.
+
+### Making the key by hand
+
+A carlos-ctl command for this is planned. Until then, on a trusted machine:
+
+1. Make the key pair, in a file only you can read:
+
+   ```bash
+   umask 077
+   openssl genpkey -algorithm ed25519 -out booking-sync.pem
+   ```
+
+2. Choose its key ID. It must differ from `patient_portal.staff_assertion.key_id`:
+
+   ```bash
+   kid="booking-sync-$(date -u +%Y%m%d)-$(openssl rand -hex 3)"
+   ```
+
+3. CARLOS side: the private value, the unpadded base64url of the PKCS#8 DER key, goes in
+   `/etc/carlos-emr/carlos.properties` (installed `0640 root:carlos`) with the key ID:
+
+   ```bash
+   openssl pkey -in booking-sync.pem -outform DER | basenc --base64url | tr -d '=\n'
+   ```
+
+   ```properties
+   patient_portal.job.booking-sync.private_key=<the output above>
+   patient_portal.job.booking-sync.key_id=<the kid>
+   ```
+
+4. Portal side: the public value, the raw 32-byte key as unpadded base64url, goes in the portal's
+   `PATIENT_PORTAL_INTERNAL_JOB_ASSERTION_PUBLIC_KEYRING` as
+   `{"booking-sync": {"<kid>": "<public>"}}`:
+
+   ```bash
+   openssl pkey -in booking-sync.pem -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\n'
+   ```
+
+5. Once both values are set, shred the key file (`shred -u booking-sync.pem`); the private key now
+   lives only in the CARLOS properties file.
+
+**Rotation:** make a new pair and key ID as above. Add the new key ID to the portal's keyring first
+and restart the portal (it then accepts both). Then put the new private key and key ID in CARLOS
+and restart **every** CARLOS node. After 2 minutes, the longest a signed call lives, remove the old
+key ID from the portal. For a leaked key, remove its key ID from the portal at once: the job stops
+until CARLOS has the new key.
 
 ## What the portal sees
 
@@ -57,7 +120,8 @@ The job lists pending picks, then for each:
 
 - **Still open:** in one transaction, lock the provider's row first, check the time again (the lead
   time applies only when offering), insert the appointment (booking source `PORTAL`, status `t`,
-  reason "Booked by patient via portal", creator "patient portal") and mark the offer `booked`; then
+  reason "Booked by the patient through the portal", creator and last update user `-1`) and mark
+  the offer `booked`; then
   report `booked`. Once the portal records it the offer is `confirmed` and the prompt's other times
   are closed (the portal drops them too); until then they stay open, in case the portal refuses it.
 - **Gone:** report `slot_unavailable` with up to 3 fresh times near the refused one (never more than 8
@@ -75,7 +139,7 @@ on a clash (`removeIfDoubleBooked` is not used).
 Known limits:
 
 - If that cancellation fails, the portal will not list the pick again: CARLOS writes
-  `PortalBooking.undoFailed` with the appointment number to the audit log for staff.
+  `PortalJob.booking-sync.undoFailed` with the appointment number to the audit log for staff.
 - If reporting keeps failing until the time starts, or the portal records the booking but its answer
   is lost, the portal does not list the pick again and the offer stays `booked` (not `confirmed`) in
   `portal_booking_offer`, with the prompt's other times still `offered` there (the portal has dropped
@@ -91,8 +155,12 @@ patient declined or let expire are a follow-up (#4480): they need a new portal s
 
 `PortalOfferedSlotLoaderUnitTest`, `PortalBookingOfferServiceUnitTest`,
 `PortalBookingChoiceServiceUnitTest`, `PortalBookingSyncServiceUnitTest`,
-`PortalBookingSettingsUnitTest`, `PatientPortalBookingSyncCallsUnitTest` and
+`PortalBookingSettingsUnitTest`, `PatientPortalBookingSyncCallsUnitTest`,
+`PortalJobAssertionSignerUnitTest`, `PortalJobKeyUnitTest` and
 `PortalBookingPrompt2ActionOfferedTimesUnitTest` run in the normal suite.
+`src/test/resources/patientportal/job-assertion-contract.json` is a byte-for-byte copy of the
+portal's `tests/fixtures/job-assertion-contract.json`: CARLOS must compute each request hash and
+signed assertion in it exactly. Copy it again, unchanged, whenever the portal's copy changes.
 `PortalBookingLockMariaDbRaceTest` needs real MariaDB (H2 cannot show the race): point
 `CARLOS_TEST_MARIADB_URL` at a throwaway schema whose name contains `carlos_race_`, with
 `CARLOS_TEST_MARIADB_USER` and `CARLOS_TEST_MARIADB_PASSWORD`. Eight bookers pick the same time at
