@@ -115,6 +115,18 @@ class JspJavascriptHrefRegressionTest {
     }
 
     @Test
+    @DisplayName("should open an inbox report link without encoding it a second time")
+    void shouldOpenReportLink_withoutReencodingIt() throws Exception {
+        // The converted inbox links pass this.href, which already carries %2C, %27 or %25 from
+        // forUriComponent; encodeURI turned those into %252C, %2527 and %2525, so the servlet
+        // received the escape text (a patient name such as Smith%2C%20John) instead of the value.
+        assertThat(Files.readString(WEBAPP_ROOT.resolve("share/javascript/oscarMDSIndex.js")))
+                .doesNotContain("window.open(encodeURI(page)")
+                .contains("window.open(normalizeReportUrl(page), \"labreport\", windowprops)")
+                .contains("new URL(page, document.baseURI).href");
+    }
+
+    @Test
     @DisplayName("should give converted links a real href or make them buttons")
     void shouldNotUseHashAnchorAsButton_inConvertedPages() throws Exception {
         List<String> offenders = new ArrayList<>();
