@@ -180,6 +180,9 @@ class MutatorActionGetRejectionContractUnitTest {
             // The WCB form's save writes a wcb row (issue #4864 item 8).
             Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.WCBAction22Action",
                     "_billing", "w"),
+            // BC billing code edit: saves a code's fee and dates; every form and request on its page posts.
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingEditCode2Action",
+                    "_billing", "w"),
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
@@ -634,6 +637,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingEditCode2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action",
