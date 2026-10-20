@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -40,6 +41,8 @@ public class ConsultAttachmentApprovalService {
 
     public enum Operation { PREVIEW, PRINT, FAX }
 
+    /** The constructor Spring uses; the package-private one lets tests set the clock. */
+    @Autowired
     public ConsultAttachmentApprovalService() {
         this(Clock.systemUTC());
     }

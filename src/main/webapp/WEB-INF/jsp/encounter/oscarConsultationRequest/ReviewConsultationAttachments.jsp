@@ -4,7 +4,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
-<html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <title><fmt:message key="consultation.attachments.reviewTitle"/></title>
