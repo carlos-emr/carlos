@@ -91,6 +91,13 @@ public class ManageTeleplan2Action extends ActionSupport {
             "setPass",
             "changePass",
             "checkElig");
+    /**
+     * The writes the page offers only to the billing superuser (BILLING_SUPERUSER, compared as the page's
+     * oscarPropertiesCheck does): the Teleplan sequence, set by hand or fetched from Teleplan and stored, and the
+     * stored Teleplan username and password.
+     */
+    private static final Set<String> SUPERUSER_METHODS =
+            Set.of("setSequenceNumber", "getSequenceNumber", "setUserName", "setPass");
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -119,6 +126,10 @@ public class ManageTeleplan2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+        // Hiding the forms is not enough: a POST from another billing login reaches the same methods.
+        if (method != null && SUPERUSER_METHODS.contains(method) && !isBillingSuperuser(loggedInInfo)) {
+            throw new SecurityException("missing required billing superuser (BILLING_SUPERUSER)");
         }
 
         //log.debug("UNSPECIFIED ACTION!");
@@ -389,6 +400,13 @@ public class ManageTeleplan2Action extends ActionSupport {
         TeleplanSequenceDAO seq = new TeleplanSequenceDAO();
         seq.saveUpdateSequence(sequenceNumber);
         return SUCCESS;
+    }
+
+    /** Whether the login is the one BILLING_SUPERUSER names, exactly as ManageTeleplan.jsp decides to show the forms. */
+    private static boolean isBillingSuperuser(LoggedInInfo loggedInInfo) {
+        String superUser = CarlosProperties.getInstance().getProperty("BILLING_SUPERUSER");
+        return superUser != null && !superUser.isEmpty() && loggedInInfo != null
+                && superUser.equals(loggedInInfo.getLoggedInProviderNo());
     }
 
     public String setSequenceNumber() {
