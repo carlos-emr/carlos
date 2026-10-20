@@ -330,22 +330,21 @@ public class JpaSmsTransactionService implements SmsTransactionService {
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public int failRetiredOutboundQueue(SmsProviderType providerType, int limit) {
+    public int moveOrFailRetiredOutboundQueue(SmsProviderType providerType, int limit) {
         if (retirementService == null || providerType == null) {
             return 0;
         }
         List<Long> failedIds = new ArrayList<>();
-        int failed = 0;
+        int settled = 0;
         for (int handled = 0; handled < Math.max(1, limit); handled++) {
             AtomicReference<Long> attemptedId = new AtomicReference<>();
             try {
                 boolean found = Boolean.TRUE.equals(inboundWriteTransaction.execute(status -> {
                     var config = retirementService.lockSelection();
                     long cutoff = retirementService.retiredThrough(providerType);
-                    boolean inactive = !retirementService.admissionAllowed(config, providerType,
-                            SmsMessagePurpose.PATIENT_MESSAGE);
+                    SmsProviderType selected = retirementService.selectedProvider(config);
                     // Sending disabled does not make the selected provider's queued tests inactive.
-                    inactive = config.map(c -> c.getProviderType() != providerType).orElse(inactive);
+                    boolean inactive = selected != providerType;
                     List<SmsTransaction> rows = smsTransactionDao.findRetiredQueuedForUpdate(providerType, cutoff,
                             inactive, new Date(), failedIds);
                     if (rows.isEmpty()) {
@@ -353,6 +352,12 @@ public class JpaSmsTransactionService implements SmsTransactionService {
                     }
                     SmsTransaction row = rows.get(0);
                     attemptedId.set(row.getId());
+                    // Only a row its provider's boundary retired is moved; an inactive provider's system test above
+                    // the boundary is failed as before.
+                    if (row.getId() != null && row.getId() <= cutoff && SmsProviderRetirementService.movable(row)) {
+                        moveRetiredRow(row, selected);
+                        return true;
+                    }
                     row.markProviderResult(SmsProviderRetirementService.retirementFailure(row));
                     smsTransactionDao.flush();
                     publishIfTerminalFailure(row);
@@ -361,7 +366,7 @@ public class JpaSmsTransactionService implements SmsTransactionService {
                 if (!found) {
                     break;
                 }
-                failed++;
+                settled++;
             } catch (RuntimeException e) {
                 Long id = attemptedId.get();
                 LOGGER.warn("SMS retirement write failed; exceptionClass={}", e.getClass().getName());
@@ -374,7 +379,25 @@ public class JpaSmsTransactionService implements SmsTransactionService {
                 }
             }
         }
-        return failed;
+        return settled;
+    }
+
+    /**
+     * Queues a retired row's text again for the selected provider and closes the retired row, in the caller's
+     * transaction and under its selection and row locks. The new row's id is above every retirement boundary,
+     * which stay as they are; the retired row keeps its provider, attempts and dates as the text's history. It is
+     * not a failed send, so no failure event is published.
+     */
+    private void moveRetiredRow(SmsTransaction row, SmsProviderType selected) {
+        SmsTransaction moved = row.queuedCopyFor(selected);
+        smsTransactionDao.persist(moved);
+        smsTransactionDao.flush();
+        Long movedId = Objects.requireNonNull(moved.getId(), "the moved SMS row has no id");
+        moved.assignClientReferenceId(SmsTransaction.clientReferenceIdFor(movedId));
+        row.markProviderResult(SmsProviderRetirementService.movedResult(selected, movedId));
+        smsTransactionDao.flush();
+        LOGGER.info("SMS transaction {} of retired provider {} was queued again for {} as transaction {}.",
+                row.getId(), row.getProviderType(), selected, movedId);
     }
 
     private void requireUnretiredClaim(SmsTransaction transaction) {

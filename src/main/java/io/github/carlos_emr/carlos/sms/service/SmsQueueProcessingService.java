@@ -43,15 +43,15 @@ public class SmsQueueProcessingService {
             "QUEUE_STALE_STATUS_LOOKUP_EXCEPTION";
     private static final String QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE_CODE =
             "QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE";
-    private static final String QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED_CODE =
+    static final String QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED_CODE =
             "QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED";
     private static final String QUEUE_STALE_STATUS_NOT_FOUND_RETRY_EXHAUSTED_CODE =
             "QUEUE_STALE_STATUS_NOT_FOUND_RETRY_EXHAUSTED";
-    private static final String QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE =
+    static final String QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE =
             "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED";
     private static final String QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_CODE =
             "QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED";
-    private static final String QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED_CODE =
+    static final String QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED_CODE =
             "QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED";
     private static final String QUEUE_CONSENT_CHECK_FAILED_RETRY_EXHAUSTED_CODE =
             "QUEUE_CONSENT_CHECK_FAILED_RETRY_EXHAUSTED";
@@ -168,10 +168,11 @@ public class SmsQueueProcessingService {
     }
 
     /**
-     * Recovers stale sends, sends the active provider's due rows, then fails the due rows of any provider the
-     * clinic has left.
+     * Recovers stale sends, sends the active provider's due rows, then settles the waiting rows of any provider
+     * the clinic has left. With durable retirement (the Spring-wired worker) a text that certainly never went out
+     * is queued again for the selected provider and the rest are failed; without it they are all failed.
      *
-     * @param limit the most rows to send in this run; failing a former provider's rows has a limit of its own,
+     * @param limit the most rows to send in this run; settling a former provider's rows has a limit of its own,
      *              so a backlog left by a swap never holds up the active provider's texts
      * @return how many of the active provider's rows were sent or consent-blocked
      */
@@ -198,11 +199,12 @@ public class SmsQueueProcessingService {
             }
         }
         int processed = activeSettings == null ? 0 : drainProvider(active, safeLimit, activeSettings);
-        // Materialize retirement failures in bounded batches, including a provider reselected before
-        // cleanup ran. The durable boundary already prevents these queued rows from being dispatched.
+        // Settle retired rows in bounded batches, including a provider reselected before cleanup ran. The
+        // durable boundary already prevents these queued rows from being dispatched; a moved text goes out on
+        // a later run under its new row.
         for (SmsProviderType providerType : SmsProviderType.values()) {
             if (durableRetirement) {
-                transactionRecorder.failRetiredOutboundQueue(providerType, safeLimit);
+                transactionRecorder.moveOrFailRetiredOutboundQueue(providerType, safeLimit);
             } else if (providerType != active) {
                 failInactiveProvider(providerType, safeLimit);
             }

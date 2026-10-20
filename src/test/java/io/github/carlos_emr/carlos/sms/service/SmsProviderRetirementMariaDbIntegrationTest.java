@@ -220,7 +220,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldKeepOldBacklogRetired_whenSwitchedAwayAndBackBeforeWorker() throws Exception {
+    void shouldMoveOldBacklogToNewRows_whenSwitchedAwayAndBackBeforeWorker() throws Exception {
         save(SmsProviderType.STUB, true);
         List<SmsTransaction> old = new ArrayList<>();
         for (int i = 0; i < 5; i++) old.add(admit(SmsProviderType.STUB));
@@ -232,6 +232,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         save(SmsProviderType.STUB, false);
         assertThat(worker().processDueMessages(2)).isZero();
         save(SmsProviderType.STUB, true);
+        List<String> boundaries = retirementState();
         SmsTransaction fresh = admit(SmsProviderType.STUB);
         SmsQueueProcessingService worker = worker();
         worker.processDueMessages(2);
@@ -239,11 +240,18 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         assertThat(old.stream().map(this::stored).filter(t -> t.getStatus() == SmsStatus.FAILED)).hasSize(2);
         worker.processDueMessages(2);
         worker.processDueMessages(2);
+        long highestOld = old.get(old.size() - 1).getId();
         for (SmsTransaction row : old) {
-            assertThat(stored(row)).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
-                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
+            SmsTransaction retired = stored(row);
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED");
+            assertThat(retired.getErrorMessage()).matches("Moved to STUB as text \\d+\\.");
+            long movedId = Long.parseLong(retired.getErrorMessage().replaceAll("\\D", ""));
+            assertThat(movedId).isGreaterThan(highestOld);
         }
-        assertThat(sends.get()).isEqualTo(1);
+        assertThat(retirementState()).as("moving never lowers or resets a boundary").isEqualTo(boundaries);
+        // The fresh text, then two moved texts on each of the two later runs; the last moved one waits.
+        assertThat(sends.get()).isEqualTo(5);
     }
 
     @Test
@@ -257,7 +265,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         save(SmsProviderType.CLOUDLI, true);
         save(SmsProviderType.STUB, true);
 
-        assertThat(recorder.failRetiredOutboundQueue(SmsProviderType.STUB, 1)).isEqualTo(1);
+        assertThat(recorder.moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 1)).isEqualTo(1);
         assertThat(recorder.releaseClaim(held, new Date()).getStatus()).isEqualTo(SmsStatus.FAILED);
         for (SmsTransaction row : List.of(held, queued)) {
             assertThat(stored(row)).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
@@ -312,9 +320,9 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         SmsTransaction fresh = admit(SmsProviderType.CLOUDLI);
         worker().processDueMessages(1);
         assertThat(stored(former)).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
-                .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
+                .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED");
         assertThat(stored(fresh).getStatus()).isEqualTo(SmsStatus.SENT);
-        assertThat(sends.get()).isEqualTo(1);
+        assertThat(sends.get()).as("a moved text goes out on a later run").isEqualTo(1);
     }
 
     @Test
@@ -353,7 +361,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         });
         SmsTransactionService cleanup = transactional(new JpaSmsTransactionService(dao, publisher, manager, retirement));
         committedEvents.clear();
-        assertThat(cleanup.failRetiredOutboundQueue(SmsProviderType.STUB, 10)).isZero();
+        assertThat(cleanup.moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10)).isZero();
         assertThat(attemptedWrites.get()).isEqualTo(2);
         assertThat(rows.stream().map(this::stored)).extracting(SmsTransaction::getStatus)
                 .containsOnly(SmsStatus.QUEUED);
@@ -388,7 +396,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
             firstSave.get(20, TimeUnit.SECONDS);
             save(SmsProviderType.STUB, true);
             assertThat(recorder.claimDueOutboundQueue(SmsProviderType.STUB, new Date(), 1)).isEmpty();
-            assertThat(recorder.failRetiredOutboundQueue(SmsProviderType.STUB, 1)).isEqualTo(1);
+            assertThat(recorder.moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 1)).isEqualTo(1);
             assertThat(stored(row).getStatus()).isEqualTo(SmsStatus.FAILED);
         }
     }
@@ -424,7 +432,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         }
         save(SmsProviderType.STUB, true);
         assertThat(recorder.claimDueOutboundQueue(SmsProviderType.STUB, new Date(), 1)).isEmpty();
-        assertThat(recorder.failRetiredOutboundQueue(SmsProviderType.STUB, 1)).isEqualTo(1);
+        assertThat(recorder.moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 1)).isEqualTo(1);
         assertThat(stored(admitted.value).getStatus()).isEqualTo(SmsStatus.FAILED);
     }
 
@@ -462,7 +470,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
             save(SmsProviderType.STUB, true); // fresh transaction, not an in-transaction retry
         }
         assertThat(recorder.claimDueOutboundQueue(SmsProviderType.STUB, new Date(), 1)).isEmpty();
-        recorder.failRetiredOutboundQueue(SmsProviderType.STUB, 1);
+        recorder.moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 1);
         assertThat(stored(old.value).getStatus()).isEqualTo(SmsStatus.FAILED);
     }
 
@@ -564,7 +572,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         });
         SmsTransactionService cleanup = transactional(new JpaSmsTransactionService(dao, publisher, manager, retirement));
         try (var pool = Executors.newFixedThreadPool(2)) {
-            Future<Integer> failing = pool.submit(() -> cleanup.failRetiredOutboundQueue(SmsProviderType.STUB, 1));
+            Future<Integer> failing = pool.submit(() -> cleanup.moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 1));
             assertThat(cleanupLocked.await(20, TimeUnit.SECONDS)).isTrue();
             Future<SmsTransaction> activation = pool.submit(() -> {
                 save(SmsProviderType.STUB, true);
@@ -585,7 +593,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldSkipOneFailedCleanupWrite_andCommitNextRowAndItsEvent() {
+    void shouldSkipOneFailedCleanupWrite_andCommitNextRowsMove() {
         save(SmsProviderType.STUB, true);
         SmsTransaction faulty = admit(SmsProviderType.STUB);
         SmsTransaction healthy = admit(SmsProviderType.STUB);
@@ -600,10 +608,11 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         });
         SmsTransactionService cleanup = transactional(new JpaSmsTransactionService(dao, publisher, manager, retirement));
         committedEvents.clear();
-        assertThat(cleanup.failRetiredOutboundQueue(SmsProviderType.STUB, 10)).isEqualTo(1);
+        assertThat(cleanup.moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10)).isEqualTo(1);
         assertThat(stored(faulty).getStatus()).isEqualTo(SmsStatus.QUEUED);
-        assertThat(stored(healthy).getStatus()).isEqualTo(SmsStatus.FAILED);
-        assertThat(committedEvents).hasSize(1);
+        assertThat(stored(healthy)).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED");
+        assertThat(committedEvents).as("a moved text is not a failed send").isEmpty();
     }
 
     @Test
@@ -747,6 +756,15 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         } catch (SQLException e) {
             throw new IllegalStateException("Cannot inspect the owned FAKE SMS schema", e);
         }
+    }
+
+    private List<String> retirementState() throws Exception {
+        List<String> state = new ArrayList<>();
+        try (var s = admin.createStatement(); var r = s.executeQuery("SELECT name, `value` FROM `" + schema
+                + "`.SystemPreferences WHERE name LIKE 'sms.provider.retire%' ORDER BY name")) {
+            while (r.next()) state.add(r.getString(1) + "=" + r.getString(2));
+        }
+        return state;
     }
 
     private String limiterState() throws Exception {

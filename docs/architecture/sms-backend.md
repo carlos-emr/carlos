@@ -12,7 +12,7 @@ This module provides persistence, consent checks, queueing, provider adapters an
 | `SmsTransaction` | One logical SMS system-of-record entry, including retries; not one row per network attempt. |
 | `applyIfVersionMatches` | Applies a worker update only if its claimed version is still current; preserves a newer webhook or worker update. |
 
-There is one active SMS backend per clinic, chosen in Administration > SMS (or `sms.provider.default` while nothing is saved), and new messages use it. Every row retains its selected backend. A provider change records a durable retirement boundary with the settings: old queued rows, including future retries, remain retired even if that provider is selected again before cleanup. The worker materializes their failures in bounded batches for staff to review and resend; new rows admitted after reactivation remain eligible. One failed cleanup write is skipped for that run, and two stop that provider's cleanup batch. An inactive queued STUB system test is failed with `QUEUE_SYSTEM_TEST_PROVIDER_CHANGED`, asking the administrator to use Send test again. The compatibility cleanup path hands an unsent claim back with a 5-minute delay after a failed write and stops after two failed writes; durable cleanup excludes the failed row for that run in its own transaction.
+There is one active SMS backend per clinic, chosen in Administration > SMS (or `sms.provider.default` while nothing is saved), and new messages use it. Every row retains its selected backend. A provider change records a durable retirement boundary with the settings: old queued rows, including future retries, remain retired even if that provider is selected again before cleanup. The worker settles them in bounded batches: a waiting text that certainly never went out moves to the provider selected now as a new queued row, and the rest are failed for staff to review and resend (see [durable provider retirement](#durable-provider-retirement)); new rows admitted after reactivation remain eligible. One failed cleanup write is skipped for that run, and two stop that provider's cleanup batch. An inactive queued STUB system test is failed with `QUEUE_SYSTEM_TEST_PROVIDER_CHANGED`, asking the administrator to use Send test again. The compatibility cleanup path (a worker built without retirement tracking, as some unit tests build it; the Spring-wired worker always uses durable retirement) fails every former provider's due row instead of moving it, hands an unsent claim back with a 5-minute delay after a failed write and stops after two failed writes; durable cleanup excludes the failed row for that run in its own transaction.
 
 The worker checks the active provider before claiming each row. After claim renewal, both the worker and direct send coherently check the sending switch, active provider, settings and retirement boundary immediately before dispatch. Changed or unreadable settings return an unsent eligible claim to the queue; a retired unsent claim is failed, and the worker stops draining for that run. No lock spans the provider call, so a configuration save after this final check cannot cancel a dispatch already starting. Recovery reloads settings per message; a retired uncertain `SENDING` row requires manual reconciliation without querying a new account or automatically retrying. If the active backend cannot be determined, a run sends and fails nothing. Keep the resolver and per-backend limiter; per-message user routing and speculative adapter frameworks are unnecessary at this stage. See [durable provider retirement](#durable-provider-retirement) for locking, deployment and rollback requirements.
 
@@ -170,10 +170,32 @@ and audit. Provider calls and the separate rate-limit permit transaction occur a
 released. A final coherent check includes the sending switch, current provider and settings, and
 retirement boundary. This check cannot cancel a dispatch already starting when a later save commits.
 
-Retired queued rows, including future retries, are failed in bounded worker batches for staff to
-review and resend. New rows for a reselected provider are above its retirement boundary. With sending
-or the scheduler disabled, failure display waits until a worker runs; retirement already prevents
-sending on resume. An unsent claim returned after retirement is failed rather than requeued. Cleanup
+Retired queued rows, including future retries, are settled in bounded worker batches, at most the
+run's batch size per provider. A waiting text that certainly never went out moves to the provider
+selected now: a patient's text still `QUEUED` with its body, never accepted by a provider or touched by
+a provider callback, and either never tried (`attempt_count` 0) or waiting for a retry after an attempt
+that definitely sent nothing (`QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED`, a definite provider refusal, or
+`QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED`, where no provider was called). In one transaction, under
+the selection mutex and the retired row's lock, CARLOS inserts a new outbound `QUEUED` row for the
+selected provider (same patient, requester, appointment, recipient, text and purpose; the consent
+snapshot the text was queued on, which the worker checks again before sending as for any row; no
+attempts; due now; a fresh client reference; no provider message id) and closes the retired row as
+`FAILED` with `QUEUE_PROVIDER_MOVED` and "Moved to <PROVIDER> as text <new id>.". The retired row keeps
+its provider, attempts and dates as the text's history and stays in the patient's SMS history, where its
+status and error code show the move next to the new row; a move publishes no send-failure event. The
+new id is above every retirement boundary, so the boundaries are never lowered or reset, and a provider
+reselected before cleanup ran gets a new row too. Swapping away and back again moves a text once per
+swap; it is sent once, through the provider chosen last.
+
+Every other retired queued row is failed for staff to review and resend: `QUEUE_PROVIDER_NOT_ACTIVE`
+for a row rescheduled after a stale send the provider did not find
+(`QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED`, which may have gone out), a retry the rule does not
+recognize, or a row a provider accepted or reported on; `QUEUE_SYSTEM_TEST_PROVIDER_CHANGED` for a
+system test. A row rescheduled for a retry keeps only its latest error code, so an earlier not-found
+retry followed by a definite refusal is moved on the strength of the refusal; by the adapter contract a
+"not found" answer already means the provider has no such text. With sending or the scheduler
+disabled, settling waits until a worker runs; retirement already prevents sending on resume. An unsent
+claim returned, or a retry scheduled, after retirement is failed rather than moved or requeued. Cleanup
 writes each row in its own transaction; one failed write is skipped for that run so a healthy row can
 proceed, and two failed writes stop that provider's cleanup batch.
 
@@ -187,8 +209,8 @@ above before a real adapter ships.
 
 Deploy this protocol with all older workers and admissions quiesced; mixed binaries cannot enforce
 its boundary. Quiesce admissions and in-flight workers again across a downgrade. Keep sending and
-workers disabled unless all retired queued/definitely-unsent rows have been materialized as terminal
-failures and every retired uncertain `SENDING` row has been reconciled or materialized for manual
+workers disabled unless all retired queued/definitely-unsent rows have been moved or materialized as
+terminal failures and every retired uncertain `SENDING` row has been reconciled or materialized for manual
 review so older recovery cannot query a different account and retry it. A manual-review failure does
 not establish that the external send never occurred. Preserved keys alone cannot protect an older
 binary. Keep the retirement keys and monotonic SMS IDs; deleting the registry or resetting IDs is
