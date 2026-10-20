@@ -51,7 +51,7 @@ import org.junit.jupiter.api.Test;
  */
 @Tag("integration")
 @Tag("mariadb")
-class PortalBookingLockMariaDbRaceTest {
+class PortalBookingLockMariaDbIntegrationTest {
     private static final int BOOKERS = 8;
 
     @Test

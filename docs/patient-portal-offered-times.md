@@ -168,7 +168,7 @@ patient declined or let expire are a follow-up (#4480): they need a new portal s
 `src/test/resources/patientportal/job-assertion-contract.json` is a byte-for-byte copy of the
 portal's `tests/fixtures/job-assertion-contract.json`: CARLOS must compute each request hash and
 signed assertion in it exactly. Copy it again, unchanged, whenever the portal's copy changes.
-`PortalBookingLockMariaDbRaceTest` needs real MariaDB (H2 cannot show the race): point
+`PortalBookingLockMariaDbIntegrationTest` needs real MariaDB (H2 cannot show the race): point
 `CARLOS_TEST_MARIADB_URL` at a throwaway schema whose name contains `carlos_race_`, with
 `CARLOS_TEST_MARIADB_USER` and `CARLOS_TEST_MARIADB_PASSWORD`. Eight bookers pick the same time at
 once; exactly one is booked. Without the lock all eight are.
