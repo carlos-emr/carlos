@@ -142,8 +142,15 @@
 			s.setUsingMfa(Boolean.FALSE);
 		}
 
-                securityManager.updateSecurityRecord(loggedInInfo, s);
-                rowsAffected = 1;
+                try {
+                    securityManager.updateSecurityRecord(loggedInInfo, s);
+                    rowsAffected = 1;
+                } catch (IllegalArgumentException invalidRecord) {
+                    // The manager refuses a record without a user name, password or provider
+                    // number before it writes anything: show the failure message below, not the
+                    // error page.
+                    rowsAffected = 0;
+                }
             }
 
 

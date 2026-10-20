@@ -230,6 +230,8 @@ class RemovedJspReferenceRegressionTest {
         assertThat(jsp)
                 .contains("LoggedInInfo.getLoggedInInfoFromSession(request)")
                 .contains("securityManager.updateSecurityRecord(loggedInInfo, s);")
+                // An incomplete record is refused by the manager; the page shows its failure message.
+                .contains("catch (IllegalArgumentException invalidRecord)")
                 .doesNotContain("securityDao.saveEntity(s);");
     }
 
