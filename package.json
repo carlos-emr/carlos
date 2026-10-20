@@ -611,7 +611,8 @@
     "test:popup-opener-document-add-playwright": "node scripts/popup-opener-document-add-playwright-checks.js",
     "test:contact-editor-playwright": "node scripts/contact-editor-playwright-checks.js",
     "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js",
-    "test:jasper-production-playwright": "node scripts/jasper-production-playwright-checks.js"
+    "test:jasper-production-playwright": "node scripts/jasper-production-playwright-checks.js",
+    "test:sms-history-playwright": "node scripts/sms-history-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

@@ -10952,6 +10952,21 @@
       ],
       "timeoutSec": 120,
       "env": ["PORTAL_BOOKING_SCREENSHOT", "CHROME_PATH"]
+    },
+    {
+      "name": "sms-history",
+      "script": "scripts/sms-history-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The owned FAKE- patient, a second FAKE- patient (owned-patient.js), and 28 sms_transaction rows inserted for them (27 and 1) with marker text in finished states (SENT, DELIVERED, FAILED), so the SMS sender never picks them up. Cleanup removes those rows by id, asserts none remain, and removes the second patient. The read's audit row (log action SmsMessageBody.readFullBody) is written under the test login and stays, as the audit log is append-only; each step counts only audit rows written after a mark taken just before it.",
+      "notes": "The patient's SMS history popup (sms/ViewSmsHistory, #3839) from the Master Record's patient navigation. Steps: the history lists the patient's messages newest first, 25 on page 1 of 2, with none of their text; Next shows the other 2; Show message with a reason opens that message's full text and writes one audit row naming the message, the patient and the reason; the same request without a reason answers 400 with no text and no audit row; LAST, a message that belongs to another patient answers 404 with no text and no audit row. Needs the _sms and _msgSMS rights the doctor role gets from V1.0.67 and V1.0.71 (develop only). Extended because the standard devcontainer demo doctor lacks both rights (finding 193); run --tier extended or --only sms-history against a develop deployment whose test login has them."
     }
   ]
 }

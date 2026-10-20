@@ -425,6 +425,18 @@ const OPEN_DIFFERENCES = {
       + 'maintainers to decide how the devcontainer gets it',
     diffs: ['devcontainer|admin|x/0->absent'],
   },
+  _sms: {
+    reason: 'finding 193: the devcontainer has no admin or doctor _sms row (Flyway V1.0.71 adds them); populate_db.sh re-applies only the '
+      + 'SMS consent migrations after development.sql truncates secObjPrivilege, and development_privileges.sql omits it; '
+      + 'maintainers to decide how the devcontainer gets it',
+    diffs: ['devcontainer|admin|x/0->absent', 'devcontainer|doctor|x/0->absent'],
+  },
+  _msgSMS: {
+    reason: 'finding 193: the devcontainer has no admin or doctor _msgSMS row (Flyway V1.0.67 adds them); populate_db.sh re-applies only the '
+      + 'SMS consent migrations after development.sql truncates secObjPrivilege, and development_privileges.sql omits it; '
+      + 'maintainers to decide how the devcontainer gets it',
+    diffs: ['devcontainer|admin|x/0->absent', 'devcontainer|doctor|x/0->absent'],
+  },
 };
 
 /** Objects compared although no check names them, because a known difference concerns them. */
