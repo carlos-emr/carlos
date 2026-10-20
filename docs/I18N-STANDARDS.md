@@ -374,35 +374,41 @@ strings into JavaScript. Never use `${someVar}` directly inside `<script>` block
 
 ## UTF-8 Encoding Requirements (Java 25)
 
-Since Java 9, `ResourceBundle.getBundle()` — the primary mechanism used by JSP
-`<fmt:message>` tags — reads `.properties` files as **UTF-8** by default. CARLOS
-runs on Java 25, so all `oscarResources_*.properties` files must be saved as UTF-8.
-The old `Properties.load()` ISO 8859-1 default no longer applies to
-`ResourceBundle`-based loading.
+Since Java 9, `ResourceBundle.getBundle()` (the mechanism behind JSP `<fmt:message>`
+tags) reads `.properties` files as UTF-8, while `Properties.load(InputStream)` still
+reads them as ISO 8859-1. CARLOS keeps every `oscarResources_*.properties` file
+**ASCII only**, so both readers see exactly the same text. ASCII is a subset of UTF-8,
+so the files also pass the `i18n-encoding` UTF-8 check.
 
 ### Encoding Rules
 
-1. All `oscarResources_*.properties` files must be saved with **UTF-8** encoding.
-2. Non-ASCII characters (accented letters, special symbols) may appear directly in
-   the file without `\uXXXX` escaping.
-3. Do **not** use ISO 8859-1 or ASCII-only encoding — doing so will cause
-   `ResourceBundle` to misread multi-byte characters on Java 9+.
-4. `\uXXXX` escape sequences remain valid and will continue to work, but they are no
-   longer required for non-ASCII content.
+1. `oscarResources_*.properties` files contain **ASCII only**: no byte above `0x7F`.
+2. Write every accented letter, typographic quote or other non-ASCII character as a
+   lowercase `\uXXXX` escape: `\u00e9`, not `é`.
+3. `OscarResourcesBundleParseUnitTest` (`shouldKeepPropertiesSourceFiles_asciiOnly`)
+   enforces this: a raw non-ASCII character in any locale file fails the build.
+4. Escapes are hard to proofread, so a PR that adds or changes translations includes
+   its back-translation table with the text written out normally. That table is where
+   reviewers read the translation.
 
-### UTF-8 Character Examples
+### Escape Examples
 
-| Character | Direct UTF-8 | `\uXXXX` equivalent (still valid) |
-|-----------|-------------|-----------------------------------|
-| é (e acute) | `é` | `\u00e9` |
-| à (a grave) | `à` | `\u00e0` |
-| ç (c cedilla) | `ç` | `\u00e7` |
-| ó (o acute) | `ó` | `\u00f3` |
-| ñ (n tilde) | `ñ` | `\u00f1` |
-| ł (l with stroke) | `ł` | `\u0142` |
+| Character | Write it as |
+|-----------|-------------|
+| é (e acute) | `\u00e9` |
+| à (a grave) | `\u00e0` |
+| ç (c cedilla) | `\u00e7` |
+| ó (o acute) | `\u00f3` |
+| ñ (n tilde) | `\u00f1` |
+| ł (l with stroke) | `\u0142` |
+| ’ (right single quote) | `\u2019` |
+| non-breaking space (French, before `:` `;` `!` `?`) | `\u00a0` |
 
-**Preferred**: use direct UTF-8 characters in new translations for readability.
-**Acceptable**: `\uXXXX` escapes in existing files (no migration required).
+To check a file before committing (no output means it is ASCII only):
+
+```bash
+grep -nP '[^\x00-\x7F]' src/main/resources/oscarResources_*.properties
+```
 
 ### Validation
 
@@ -412,8 +418,8 @@ Run the encoding check script before committing any properties file changes:
 ./scripts/check-i18n-properties.sh
 ```
 
-The `UTF-8 Encoding Compliance` section of the report flags files with encoding issues.
-All current locale files are valid UTF-8 as of April 2026 (baseline).
+The `UTF-8 Encoding Compliance` section of the report flags files that are not valid
+UTF-8. The ASCII-only rule above is checked by `OscarResourcesBundleParseUnitTest`.
 
 ---
 
