@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -1023,6 +1026,36 @@ class JpaSmsTransactionServiceUnitTest {
             assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode,
                             SmsTransaction::getAttemptCount)
                     .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED", 1);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = SmsProviderErrorCode.class, mode = EnumSource.Mode.EXCLUDE,
+                names = {"INVALID_RECIPIENT", "RECIPIENT_OPTED_OUT", "MESSAGE_REJECTED"})
+        @DisplayName("a text waiting for its retry under a fixed provider code is moved")
+        void shouldMoveRow_whenRetiredTextWaitsUnderFixedProviderCode(SmsProviderErrorCode code) {
+            SmsTransaction retired = retiredRow(43L);
+            retired.markSending(new Date());
+            retired.markRetryScheduled(SmsProviderSendResultDto.failed(code.name(), code.message()),
+                    Date.from(Instant.now().plusSeconds(600)));
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(singleInsertedRow()).extracting(SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                    .containsExactly(0, null);
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED");
+        }
+
+        @Test
+        @DisplayName("every fixed code the queue retries counts as definitely unsent; no permanent code does")
+        void shouldTreatOnlyRetriedFixedCodes_asDefinitelyUnsent() {
+            for (SmsProviderErrorCode code : SmsProviderErrorCode.values()) {
+                SmsTransaction row = retiredRow(70L + code.ordinal());
+                row.markSending(new Date());
+                row.markRetryScheduled(SmsProviderSendResultDto.failed(code.name(), code.message()), new Date());
+                assertThat(SmsProviderRetirementService.movable(row)).as(code.name()).isEqualTo(!code.permanent());
+            }
         }
 
         @Test

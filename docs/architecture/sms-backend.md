@@ -175,8 +175,9 @@ Retired queued rows, including future retries, are settled in bounded worker bat
 run's batch size per provider. A waiting text that certainly never went out moves to the provider
 selected now: a patient's text still `QUEUED` with its body, never accepted by a provider or touched by
 a provider callback, and either never tried (`attempt_count` 0) or waiting for a retry after an attempt
-that definitely sent nothing (`QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED`, a definite provider refusal, or
-`QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED`, where no provider was called). In one transaction, under
+that definitely sent nothing (a definite provider refusal the queue retries, kept as its fixed
+`SmsProviderErrorCode` or, on rows saved before the fixed codes, `QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED`;
+or `QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED`, where no provider was called). In one transaction, under
 the selection mutex and the retired row's lock, CARLOS inserts a new outbound `QUEUED` row for the
 selected provider (same patient, requester, appointment, recipient, text and purpose; the consent
 snapshot the text was queued on, which the worker checks again before sending as for any row; no

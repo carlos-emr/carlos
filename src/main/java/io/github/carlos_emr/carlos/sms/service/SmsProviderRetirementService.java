@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dao.SmsConfigDao;
@@ -36,6 +37,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -51,14 +53,16 @@ import java.util.Set;
 public class SmsProviderRetirementService {
     /** Closes a retired provider's waiting text that was queued again, as a new row, for the selected provider. */
     public static final String QUEUE_PROVIDER_MOVED_CODE = "QUEUE_PROVIDER_MOVED";
+    /** The retry code a provider refusal was saved with before the fixed codes; rows saved then keep it. */
+    static final String LEGACY_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE = "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED";
     /**
-     * Retry codes whose attempt definitely sent nothing: the provider refused the text, or CARLOS could not check
-     * consent and never called the provider. A stale send the provider did not find
-     * ({@code QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED}) is not one of them: it may still have gone out.
+     * Retry codes whose attempt definitely sent nothing: the provider refused the text (a fixed code the queue
+     * retries, or the legacy code), or CARLOS could not check consent and never called the provider. The queue
+     * keeps a fixed code on a waiting row only after a definite FAILED answer; an unclear answer leaves the row
+     * {@code SENDING}. A stale send the provider did not find ({@code QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED})
+     * is not one of them: it may still have gone out.
      */
-    private static final Set<String> DEFINITELY_UNSENT_RETRY_CODES = Set.of(
-            "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED",
-            SmsQueueProcessingService.QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED_CODE);
+    private static final Set<String> DEFINITELY_UNSENT_RETRY_CODES = definitelyUnsentRetryCodes();
 
     private final SmsProviderRateLimitDao rateLimitDao;
     private final SmsConfigDao configDao;
@@ -141,6 +145,19 @@ public class SmsProviderRetirementService {
         // Set.of rejects a null lookup, and a tried row with no code is not one this rule recognizes.
         return row.getAttemptCount() == 0
                 || (row.getErrorCode() != null && DEFINITELY_UNSENT_RETRY_CODES.contains(row.getErrorCode()));
+    }
+
+    private static Set<String> definitelyUnsentRetryCodes() {
+        Set<String> codes = new HashSet<>();
+        codes.add(LEGACY_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE);
+        codes.add(SmsQueueProcessingService.QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED_CODE);
+        for (SmsProviderErrorCode code : SmsProviderErrorCode.values()) {
+            // A permanent refusal is never retried, so it is never on a waiting row.
+            if (!code.permanent()) {
+                codes.add(code.name());
+            }
+        }
+        return Set.copyOf(codes);
     }
 
     /** What the moved row is closed with: it names the provider and the new row that sends the text now. */
