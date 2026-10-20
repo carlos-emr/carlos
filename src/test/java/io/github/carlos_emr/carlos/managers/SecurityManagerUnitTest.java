@@ -24,10 +24,12 @@ import io.github.carlos_emr.carlos.commn.dao.SecurityArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -199,6 +201,43 @@ class SecurityManagerUnitTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(() -> manager.updateSecurityRecord(loggedInInfo, sec))
                     .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("should note in the log line when an update turns MFA on")
+        void shouldLogMfaOffToOn_whenUpdateTurnsMfaOn() {
+            assertThat(logDataFor(false, true)).isEqualTo("id=1, mfa off->on");
+        }
+
+        @Test
+        @DisplayName("should note in the log line when an update turns MFA off")
+        void shouldLogMfaOnToOff_whenUpdateTurnsMfaOff() {
+            assertThat(logDataFor(true, false)).isEqualTo("id=1, mfa on->off");
+        }
+
+        @Test
+        @DisplayName("should log only the id when MFA does not change")
+        void shouldLogIdOnly_whenMfaIsUnchanged() {
+            assertThat(logDataFor(true, true)).isEqualTo("id=1");
+            assertThat(logDataFor(false, false)).isEqualTo("id=1");
+        }
+
+        /** The data of the one log row written for an update from {@code mfaBefore} to {@code mfaAfter}. */
+        private String logDataFor(boolean mfaBefore, boolean mfaAfter) {
+            Security existing = createValidSecurity(1, "111", "user1", "oldpass");
+            existing.setUsingMfa(mfaBefore);
+            Security updated = createValidSecurity(1, "111", "user1", "oldpass");
+            updated.setUsingMfa(mfaAfter);
+            when(mockSecurityDao.find((Object) 1)).thenReturn(existing);
+            logActionMock.clearInvocations();
+            manager.updateSecurityRecord(loggedInInfo, updated);
+            // CarlosUnitTestBase's static LogAction mock records the audit row.
+            ArgumentCaptor<String> data = ArgumentCaptor.forClass(String.class);
+            logActionMock.verify(() -> LogAction.addLogSynchronous(same(loggedInInfo),
+                    eq("SecurityManager.updateSecurityRecord"), data.capture()));
+            // No secret, no PHI: the id and the MFA switch only.
+            assertThat(data.getValue()).doesNotContain("oldpass", "user1", "111");
+            return data.getValue();
         }
     }
 
