@@ -54,6 +54,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
@@ -530,6 +531,7 @@
                 String demoNo = request.getParameter("demographicNo");
 
                 MSPReconcile.BillSearch bSearch = msp.getBills(billTypes, providerview, dateBegin, dateEnd, demoNo, !showWCB, !showMSP, !showPRIV, !showICBC);
+                Map<Integer, BillingHistoryDao.PaymentTotals> paymentTotals = msp.getPaymentHistoryTotals(bSearch);
 
                 Properties p2 = bSearch.getCurrentErrorMessages();
                 Properties p = msp.currentC12Records();
@@ -542,6 +544,8 @@
                     incorrectVal = false;
                     paidinCorrectval = false;
                     MSPReconcile.Bill b = (MSPReconcile.Bill) bSearch.list.get(i);
+                    BillingHistoryDao.PaymentTotals historyTotals = paymentTotals.getOrDefault(
+                            Integer.valueOf(b.billMasterNo), BillingHistoryDao.PaymentTotals.ZERO);
 
                     bodd = currentBillingNo.equals(b.billing_no) ? !bodd : bodd; //for the color of rows
                     nItems++; //to calculate if it is the end of records
@@ -555,7 +559,7 @@
                         incorrectVal = true;
                     }
                     total = total.add(valueToAdd);
-                    double pAmount = msp.getAmountPaid(b.billMasterNo, b.billingtype);
+                    double pAmount = msp.getAmountPaid(b.billMasterNo, b.billingtype, historyTotals);
                     BigDecimal valueToPaidAdd = new BigDecimal("0.00");
                     try {
                         valueToPaidAdd = new BigDecimal(pAmount).setScale(2, BigDecimal.ROUND_HALF_UP);
@@ -614,7 +618,7 @@
                 <td><%=nf.format(pAmount)%>
                 </td>
                 <%
-                    double dblAmtOwed = msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype);
+                    double dblAmtOwed = msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype, historyTotals);
                     BigDecimal amtOwed = new BigDecimal(dblAmtOwed).setScale(2, BigDecimal.ROUND_HALF_UP);
                     owedTotal = owedTotal.add(amtOwed);
 

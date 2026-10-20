@@ -142,6 +142,18 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(ctlRelationshipsDao);
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("should render the popup for its actual demo-only opening request without persisting")
+    void shouldRenderPopup_whenRequestOnlyCarriesDemo(String method) throws Exception {
+        request.setMethod(method);
+        request.setParameter("demo", "1373");
+
+        assertThat(new AddDemographicRelationship2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        verifyNoInteractions(relationshipsDao, ctlRelationshipsDao, demographicManager);
+    }
+
     @Test
     @DisplayName("should reject GET carrying linkingDemo+relation mutation intent with 405 and never persist")
     void shouldReject405_whenGetCarriesLinkingDemoAndRelationMutationIntent() throws Exception {

@@ -432,6 +432,42 @@ class HttpMethodGuardFilterUnitTest {
         }
     }
 
+    /**
+     * Satellite-sites Admin (issue #4700): the site list opens a site with a GET link, so that link uses the
+     * read-only method=edit; method=update and method=save stay refused on GET.
+     */
+    @Nested
+    @DisplayName("Satellite-sites Admin (admin/ManageSites)")
+    class ManageSites {
+
+        @Test
+        @DisplayName("should pass through the list's GET link with method=edit")
+        void shouldPassThrough_forGetWithEditMethodOnManageSites() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/ManageSites");
+            when(request.getParameter("method")).thenReturn("edit");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"update", "save"})
+        @DisplayName("should block GET with method=update or method=save")
+        void shouldBlock_forGetWithWriteMethodOnManageSites(String method) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/ManageSites");
+            when(request.getParameter("method")).thenReturn(method);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+    }
+
     @Nested
     @DisplayName("GET requests to mutator JSPs")
     class MutatorJsps {

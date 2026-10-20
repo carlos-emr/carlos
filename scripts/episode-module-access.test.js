@@ -36,8 +36,11 @@ function fakeSql({ privileges = [], roles = [] } = {}) {
     rows(query) {
       statements.push(query);
       const provider = /roleUserGroup='([^']*)' OR/.exec(query)[1];
-      const holders = new Set([provider, ...roles.filter(role => role.provider === provider).map(role => role.name)]);
-      return table.filter(row => row.objectName === literal(query, 'objectName') && holders.has(row.roleUserGroup)).map(row => [row.privilege]);
+      const holders = new Set([provider, ...roles.filter(role => role.provider === provider
+        && (!/activeyn=1/.test(query) || (role.activeyn ?? 1) === 1)).map(role => role.name)]);
+      const rows = table.filter(row => row.objectName === literal(query, 'objectName') && holders.has(row.roleUserGroup));
+      if (/ORDER BY priority DESC/.test(query)) rows.sort((a, b) => Number(b.priority) - Number(a.priority));
+      return rows.map(row => [row.privilege]);
     },
     execute(query) {
       statements.push(query);
@@ -80,9 +83,36 @@ test('shouldReadUnderNavbarGate_likeSecurityManagerHasReadAccess', () => {
 });
 
 test('shouldReadUnderModuleGate_likeCheckPrivilege', () => {
-  for (const privilege of ['x', 'w', 'u', 'r', 'X', 'or', '|or|']) assert.equal(moduleGateGrants([privilege]), true, privilege);
+  for (const privilege of ['x', 'w', 'u', 'r', 'X', ' r ', 'or', 'ou', 'ow', 'ox', 'OR', '|or|']) assert.equal(moduleGateGrants([privilege]), true, privilege);
   for (const privilege of ['o', '', null, undefined, 'd', 'od', '|o|']) assert.equal(moduleGateGrants([privilege]), false, String(privilege));
   assert.equal(moduleGateGrants([]), false, 'no row for the login is no rights here, unlike the navbar gate');
+});
+
+test('shouldStopAtOnlyTokens_beforeLaterTokensOrRoles', () => {
+  for (const privileges of [['od|x'], ['od', 'x'], ['o', ' od | r'], ['oz', 'or']]) {
+    assert.equal(moduleGateGrants(privileges), false, privileges.join());
+  }
+  for (const privileges of [['x|od'], ['r', 'od'], ['o|r'], ['o', 'x'], [null, '', 'ou']]) {
+    assert.equal(moduleGateGrants(privileges), true, privileges.join());
+  }
+});
+
+test('shouldEvaluateModuleRows_inDescendingPriority', () => {
+  const denial = { ...seeded(MODULE, 'od'), priority: '10' };
+  // Put the grant first in storage: the query must order it after the higher-priority denial.
+  const sql = fakeSql({ privileges: [seeded(EPISODE, 'x'), seeded(MODULE, 'x', '999998'), denial], roles: carlosdocRoles });
+  assert.equal(episodeModuleGranted(sql, '999998'), false);
+  denial.priority = '-1';
+  const granted = fakeSql({ privileges: [denial, seeded(EPISODE, 'x'), seeded(MODULE, 'x', '999998')], roles: carlosdocRoles });
+  assert.equal(episodeModuleGranted(granted, '999998'), true, 'a grant before an only token still wins');
+});
+
+test('shouldIgnoreInactiveRoles_whenCheckingModuleAccess', () => {
+  const sql = fakeSql({
+    privileges: [...seedRows(), seeded(EPISODE, 'x', 'nurse'), seeded(MODULE, 'x', 'nurse')],
+    roles: [...carlosdocRoles, { provider: '999998', name: 'nurse', activeyn: 0 }],
+  });
+  assert.equal(episodeModuleGranted(sql, '999998'), false);
 });
 
 test('shouldReportNoGrant_whenTheSeededRolesDenyTheModule', () => {
@@ -151,7 +181,7 @@ test('shouldGrantBeforeOpeningChart_inEveryCheckThatDrivesTheModule', () => {
   // A check that clicks the module's heading must grant it first, or it fails on every seeded build.
   const scripts = fs.readdirSync(__dirname).filter(name => name.endsWith('-playwright-checks.js'));
   const drivers = scripts.filter(name => fs.readFileSync(path.join(__dirname, name), 'utf8').includes('#menuTitleepisode'));
-  assert.deepEqual(drivers.sort(), ['episode-lifecycle-playwright-checks.js', 'record-access-playwright-checks.js']);
+  assert.deepEqual(drivers.sort(), ['episode-coding-playwright-checks.js', 'episode-lifecycle-playwright-checks.js', 'record-access-playwright-checks.js']);
   for (const name of drivers) {
     const source = fs.readFileSync(path.join(__dirname, name), 'utf8');
     const grant = source.indexOf('grantEpisodeModule(s)');

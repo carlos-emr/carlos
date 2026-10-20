@@ -393,7 +393,7 @@ public final class Frm2Action extends ActionSupport {
         String redirectUrl = StringUtils.defaultString(contextPath)
                 + "/form/forwardname?form_link="
                 + URLEncoder.encode(StringUtils.defaultString(formLink), StandardCharsets.UTF_8)
-                + "&" + actionForward.substring(SAVE_ACTION_PREFIX.length());
+                + "&" + actionForward.substring(SAVE_ACTION_PREFIX.length()) + "&saved=true";
         if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
             throw new IllegalArgumentException("Unsafe form forward redirect");
         }

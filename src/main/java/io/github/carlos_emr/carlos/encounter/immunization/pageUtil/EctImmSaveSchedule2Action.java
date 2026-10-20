@@ -130,7 +130,10 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
                         cell.setAttribute("givenDate", givenDate);
                         cell.setAttribute("refusedDate", refusedDate);
                         cell.setAttribute("lot", lot);
-                        cell.setAttribute("providers", provider);
+                        // "provider" is the attribute schedules were saved with; a namespace rename wrote
+                        // "providers" for a while, which the readers still accept. Keep one attribute.
+                        cell.setAttribute("provider", provider);
+                        cell.removeAttribute("providers");
                         cell.setAttribute("comments", comments);
                     }
 

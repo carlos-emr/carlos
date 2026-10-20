@@ -294,6 +294,9 @@ async function workflow(s) {
     // release flag is cleared first, as echart-lock-lifecycle does, to stand in for an unload that never ran.
     // Then the whole browser context goes away: no Exit, no confirm, no beforeunload answer.
     await doomedChart.evaluate(() => { window.needToReleaseLock = false; });
+    // A crash ends no session either: without this the harness's teardown logout would end it, and the
+    // session listener would drop the very lock this step needs.
+    h.keepSessionOnClose(doomed.context);
     await doomed.context.close();
     // A negative wait: a release that was going to arrive does so within milliseconds (observed), so the lock
     // still being there after this is the stale lock a crash leaves.

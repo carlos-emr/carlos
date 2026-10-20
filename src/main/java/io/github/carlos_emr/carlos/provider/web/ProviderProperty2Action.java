@@ -855,16 +855,20 @@ public class ProviderProperty2Action extends ActionSupport {
             drugrefId2 = UdrugrefId2.getValue();
         }
 
-        UserProperty prop2 = this.userPropertyDAO.getProp(providerNo, UserProperty.ONTARIO_MD_PASSWORD);
+        // The password box always opens empty (the stored password is never sent to the browser), so an empty
+        // box means "keep the stored password": saving only the username must not clear it.
+        if (drugrefId2 != null && !drugrefId2.isEmpty()) {
+            UserProperty prop2 = this.userPropertyDAO.getProp(providerNo, UserProperty.ONTARIO_MD_PASSWORD);
 
-        if (prop2 == null) {
-            prop2 = new UserProperty();
-            prop2.setName(UserProperty.ONTARIO_MD_PASSWORD);
-            prop2.setProviderNo(providerNo);
+            if (prop2 == null) {
+                prop2 = new UserProperty();
+                prop2.setName(UserProperty.ONTARIO_MD_PASSWORD);
+                prop2.setProviderNo(providerNo);
+            }
+            prop2.setValue(drugrefId2);
+
+            this.userPropertyDAO.saveProp(prop2);
         }
-        prop2.setValue(drugrefId2);
-
-        this.userPropertyDAO.saveProp(prop2);
 
 
         request.setAttribute("status", "success");
@@ -2690,9 +2694,10 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
      public String setOfferFileForOthersPref() {
+        if (!validLabFilingPreferenceRequest()) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
-			throw new RuntimeException("missing required security object _lab");
+			throw new SecurityException("missing required sec object (_lab)");
 		}
         
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2702,13 +2707,14 @@ public class ProviderProperty2Action extends ActionSupport {
         Map<String, Object> json = new HashMap<>();
         json.put("status", status);
         writeJsonResponse(response, json);
-        return null;
+        return NONE;
     }
 
     public String setAllowOthersFileForYouPref() {
+        if (!validLabFilingPreferenceRequest()) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
-			throw new RuntimeException("missing required security object _lab");
+			throw new SecurityException("missing required sec object (_lab)");
 		}
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2718,7 +2724,22 @@ public class ProviderProperty2Action extends ActionSupport {
         Map<String, Object> json = new HashMap<>();
         json.put("status", status);
         writeJsonResponse(response, json);
-        return null;
+        return NONE;
+    }
+
+    private boolean validLabFilingPreferenceRequest() {
+        response.setHeader("Cache-Control", "no-store");
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return false;
+        }
+        String[] values = request.getParameterValues("value");
+        if (values == null || values.length != 1 || !("true".equals(values[0]) || "false".equals(values[0]))) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return false;
+        }
+        return true;
     }
 
     /**

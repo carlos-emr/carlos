@@ -188,7 +188,6 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.AppService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.AllergyService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.PreventionService" autowire="byName" />
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.ReportByTemplateService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.ResourceService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.DiseaseRegistryService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
@@ -203,11 +202,9 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
             <ref bean="oauthJaxbProvider"/>
             <ref bean="oauthJsonProvider"/>
-            <!-- OAuthInterceptor's 400/401/403 rejections are OAuth1Exceptions inside a CXF Fault. Without
-                 this mapper CXF writes them as an XMLFault whose faultstring is the exception's class name,
-                 which ResponseSanitizationFilter then replaces and logs at ERROR on every anonymous call
-                 (#4438). Mapped, they are a text/plain reason such as authentication_required, matching
-                 the /oauth server above. -->
+            <!-- Keep privilege denials mapped on both session and OAuth REST surfaces (#2798). -->
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper"/>
+            <!-- OAuthInterceptor rejections must retain their OAuth status and reason (#4438). -->
             <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuth1ExceptionMapper"/>
         </jaxrs:providers>
 

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -37,6 +39,7 @@ import java.util.List;
 
 import jakarta.ws.rs.core.Response;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -95,9 +98,38 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
         return service;
     }
 
+    /** Grants patient-scoped chart read, the right the PDF print requires (#2798). */
+    private void grantChartRead() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), anyInt())).thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("print returns 403 and never builds the PDF without chart read")
+    void shouldReturn403_whenChartReadDeniedForPrint() {
+        try (var printers = mockConstruction(CaseManagementPrint.class)) {
+            Response response = request().path("/recordUX/123/print").replaceHeader("Accept", "application/pdf")
+                    .query("printOps", "{\"printType\":\"all\",\"cpp\":true,\"selectedList\":[]}").get();
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(printers.constructed()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("print checks chart read for the requested patient, not any patient")
+    void shouldReturn403_whenChartReadGrantedOnlyForAnotherPatient() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq(456))).thenReturn(true);
+        try (var printers = mockConstruction(CaseManagementPrint.class)) {
+            Response response = request().path("/recordUX/123/print").replaceHeader("Accept", "application/pdf")
+                    .query("printOps", "{\"printType\":\"selected\",\"selectedList\":[\"42\"]}").get();
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(printers.constructed()).isEmpty();
+        }
+    }
+
     @Test
     @DisplayName("selected notes ignore an incomplete optional dates object")
     void shouldPrintSelectedNotes_withIncompleteOptionalDates() throws Exception {
+        grantChartRead();
         try (var printers = mockConstruction(
                 CaseManagementPrint.class)) {
             Response response = request().path("/recordUX/123/print").replaceHeader("Accept", "application/pdf")
@@ -115,6 +147,7 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
     @Test
     @DisplayName("date mode passes both bounds and all-note selection to the PDF service")
     void shouldPrintDateRange_withCompleteBounds() throws Exception {
+        grantChartRead();
         try (var printers = mockConstruction(CaseManagementPrint.class)) {
             Response response = request().path("/recordUX/123/print").replaceHeader("Accept", "application/pdf")
                     .query("printOps", "{\"printType\":\"dates\",\"selectedList\":[],\"dates\":{"
@@ -131,6 +164,7 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
     @Test
     @DisplayName("date printing rejects incomplete, invalid and reversed bounds before streaming")
     void shouldRejectDateRange_withInvalidBounds() {
+        grantChartRead();
         String[] dates = {"{}", "{\"start\":\"2026-10-03T00:00:00Z\"}",
                 "{\"start\":null,\"end\":\"2026-10-03T00:00:00Z\"}",
                 "{\"start\":\"invalid\",\"end\":\"2026-10-03T00:00:00Z\"}",
@@ -150,6 +184,7 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
     @Test
     @DisplayName("PDF generation errors produce HTTP failure instead of empty successful downloads")
     void shouldReturnServerError_whenChartPrintingFails() {
+        grantChartRead();
         try (var _ = mockConstruction(
                 CaseManagementPrint.class,
                 (printer, context) -> doThrow(new IOException("synthetic failure"))
@@ -240,6 +275,12 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
     @DisplayName("POST /recordUX/searchTemplates")
     class SearchTemplates {
 
+        @BeforeEach
+        void grantTemplateRead() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_newCasemgmt.templates"), eq("r"), isNull(String.class)))
+                .thenReturn(true);
+        }
+
         @Test
         @DisplayName("should return 200 with templates when matching templates found")
         void shouldReturn200WithTemplates_whenMatchingTemplatesFound() {
@@ -274,6 +315,22 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
             assertThat(response.getStatus()).isEqualTo(200);
             EncounterTemplateResponse result = response.readEntity(EncounterTemplateResponse.class);
             assertThat(result.getTemplates()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should return 403 without searching when template read is denied")
+        void shouldReturn403_whenTemplateReadDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_newCasemgmt.templates"), eq("r"), isNull(String.class)))
+                .thenReturn(false);
+            ObjectNode body = objectMapper.createObjectNode();
+            body.put("name", "SOAP");
+
+            Response search = request().path("/recordUX/searchTemplates").post(body);
+            Response single = request().path("/recordUX/template").post(body);
+
+            assertThat(search.getStatus()).isEqualTo(403);
+            assertThat(single.getStatus()).isEqualTo(403);
+            verifyNoInteractions(mockEncounterTemplateDao);
         }
     }
 }

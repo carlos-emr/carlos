@@ -80,7 +80,8 @@ test('shouldPinEachFindingAtItsOwnStep_inItsOwnManifestEntry', () => {
     'lab-to-flowsheet-long-value': { pin: 'value', finding: 256, step: check.STEP.value, fixed: true },
     // Finding 257 is fixed: its pin step is now a plain assertion, so the entry carries no expectedFailure.
     'lab-to-flowsheet-fraction': { pin: 'fraction', fixed: true },
-    'lab-to-flowsheet-observed-time': { pin: 'time', finding: 259, step: check.STEP.time },
+    // Finding 259 is fixed (#4631): its entry keeps the time step but no longer expects it to fail.
+    'lab-to-flowsheet-observed-time': { pin: 'time', finding: 259, step: check.STEP.time, fixed: true },
     // Finding 262 is fixed (#4619): its entry keeps the pin step but no longer expects it to fail.
     'lab-to-flowsheet-upload-time': { pin: 'seconds', finding: 262, step: check.STEP.seconds, fixed: true },
   };

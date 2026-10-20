@@ -622,8 +622,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
+                <%-- url is a whole statement built from URI-encoded values: HTML-attribute encoding, not JavaScript-string encoding,
+                     which would escape its own quotes so the link never opened the form (#3941). --%>
                 <a class="links" title="<fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<carlos:encode value='<%= url %>' context="javaScriptAttribute"/>"><fmt:message key="encounter.view"/></a>
+                   href="javascript:void(0)" onclick="<carlos:encode value='<%= url %>' context="htmlAttribute"/>"><fmt:message key="encounter.view"/></a>
             </div>
             <%
             } else if (note.isEmailNote()) {
@@ -970,19 +972,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     jQuery(document).ready(function () {
         if ('<%=singleLineFormat%>' == 'true') {
-            var staleIds = new Array();
-
-            jQuery("img[id^='quitImg']").each(function () {
-                if (jQuery(this).attr('src').indexOf('/encounter/graphics/triangle_down.gif') != -1) {
-                    var iid = jQuery(this).attr('id');
-                    jQuery(this).trigger('click');
-                    staleIds.push(iid);
-                }
+            // The provider's single-line format: fold each shortened (stale) note onto one line with its
+            // date. These notes carry the Maximize image (name fullViewTrigger). Clicking it twice, to expand
+            // the note and fold it again, stopped working when fullViewById began adding a Minimize image of
+            // its own beside it: the second click hit the Maximize image and expanded the note again.
+            jQuery("img[name='fullViewTrigger'][id^='quitImg']").each(function () {
+                minStaleNoteView(this.id.substring('quitImg'.length));
             });
-
-            for (var i = 0; i < staleIds.length; i++) {
-                jQuery("#" + staleIds[i]).trigger('click');
-            }
         }
     });
 

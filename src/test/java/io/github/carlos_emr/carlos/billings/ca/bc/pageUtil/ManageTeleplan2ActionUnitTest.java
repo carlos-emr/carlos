@@ -8,6 +8,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanAPI;
 import io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanResponse;
+import io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanSequenceDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanService;
 import io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanUserPassDAO;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
@@ -44,6 +46,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -168,5 +171,43 @@ class ManageTeleplan2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(teleplanUserPassDao.constructed()).isEmpty();
             verifyNoInteractions(securityInfoManager);
         }
+    }
+
+    /** Posts Manually Set Sequence # with {@code number}, as a login with billing read rights. */
+    private String postSequence(String number) throws Exception {
+        request.setMethod("POST");
+        request.addParameter("method", "setSequenceNumber");
+        request.addParameter("num", number);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)).thenReturn(true);
+        return new ManageTeleplan2Action().execute();
+    }
+
+    /** Issue #5066: a refused sequence number stored nothing and the page said nothing. */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+            "12a      | The sequence number must be a whole number. Nothing was saved.",
+            "''       | The sequence number must be a whole number. Nothing was saved.",
+            "-1       | The sequence number must be from 0 to 9999999. Nothing was saved.",
+            "10000000 | The sequence number must be from 0 to 9999999. Nothing was saved."
+    })
+    @DisplayName("should say why and store nothing when the sequence number is refused")
+    void shouldSayWhyAndStoreNothing_whenSequenceNumberIsRefused(String number, String message) throws Exception {
+        try (MockedConstruction<TeleplanSequenceDAO> sequenceDao = mockConstruction(TeleplanSequenceDAO.class)) {
+            assertThat(postSequence(number)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(sequenceDao.constructed()).isEmpty();
+        }
+        assertThat(request.getAttribute("error")).isEqualTo(message);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 42, 9999999})
+    @DisplayName("should store the sequence with no message when the number is in range")
+    void shouldStoreSequenceWithoutMessage_whenNumberIsInRange(int number) throws Exception {
+        try (MockedConstruction<TeleplanSequenceDAO> sequenceDao = mockConstruction(TeleplanSequenceDAO.class)) {
+            assertThat(postSequence(String.valueOf(number))).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(sequenceDao.constructed()).hasSize(1);
+            verify(sequenceDao.constructed().get(0)).saveUpdateSequence(number);
+        }
+        assertThat(request.getAttribute("error")).isNull();
     }
 }

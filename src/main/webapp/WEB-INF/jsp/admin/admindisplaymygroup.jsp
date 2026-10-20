@@ -146,7 +146,7 @@
                 return true;
             } else {
                 // none is checked
-                alert('please select providers(s)');
+                alert('please select provider(s)');
                 return false;
             }
         }

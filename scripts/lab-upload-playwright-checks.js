@@ -68,8 +68,11 @@ const { serverLogFromEnvironment, verifyStorageFailureLog } = require('./lib/ser
 
 const contextPathOf = (baseUrl) => new URL(baseUrl).pathname.replace(/\/+$/, '');
 
-/** A minimal CML ORU^R01 v2.3 message for the run's synthetic patient. */
-function syntheticCmlLab(accession, patientLast) {
+/**
+ * A minimal CML ORU^R01 v2.3 message for the run's synthetic patient. A non-empty `hin` is sent
+ * as the alternate patient id (PID-4), where the CML handler reads the health number.
+ */
+function syntheticCmlLab(accession, patientLast, hin = '') {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`
@@ -78,7 +81,7 @@ function syntheticCmlLab(accession, patientLast) {
     // The backslash is doubled so the template literal emits MSH-2 as the four HL7 encoding
     // characters ^~\&; HAPI rejects anything shorter before the CML handler sees the message.
     `MSH|^~\\&|Reports|CML|||${ts}-500||ORU^R01||1|2.3`,
-    `PID|1|||^^ON|${patientLast}^Workflow||19800102|F`,
+    `PID|1|||${hin}^^ON|${patientLast}^Workflow||19800102|F`,
     `ORC|NW|${accession}|||F|||||||999998^DR. PROBE|||${ts.slice(0, 8)}`,
     `OBR|1|${accession}||ML70^SYNTHETIC PANEL||${ts.slice(0, 8)}|${ts.slice(0, 8)}|||||||||999998^DR. PROBE|||||||||F`,
     'OBX|1|ST|7010^SYNTHETIC RESULT|^^CHEMISTRY|NORMAL|||N|||F||765^1007010||70',
@@ -400,4 +403,4 @@ async function workflow(session, options = {}) {
 }
 
 if (require.main === module) runWorkflow('lab-upload', workflow);
-module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader };
+module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader, uploadThroughPopup, removeArchivedUploads };

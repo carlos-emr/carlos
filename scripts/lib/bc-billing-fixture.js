@@ -6,6 +6,7 @@
  * same shape inline). Every row belongs to the workflow's own FAKE patient, so the cleanup is keyed
  * by that patient and still finds rows whose id read was lost after the INSERT.
  */
+const { randomInt } = require('node:crypto');
 const h = require('./playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./playwright-ui');
 const { revealAuditLink } = require('./playwright-link-audit');
@@ -24,6 +25,46 @@ function makeBcPatient(s) {
   sql.execute(`UPDATE demographic SET hc_type='BC', province='BC', hin='9${String(patient).padStart(9, '0').slice(-9)}', ver=''
     WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
   return sql.value(`SELECT hin FROM demographic WHERE demographic_no=${patient}`);
+}
+
+/** A free number: `prefix` then random digits, `digits` long in all, for which `taken` is false. */
+function unusedNumber(prefix, digits, taken) {
+  for (let i = 0; i < 50; i++) {
+    const candidate = prefix + String(randomInt(0, 10 ** (digits - prefix.length))).padStart(digits - prefix.length, '0');
+    if (!taken(candidate)) return candidate;
+  }
+  throw new Error(`No free ${digits}-character number with prefix ${prefix}`);
+}
+
+/**
+ * A billing physician the BC billing pages list: the test login's provider row with FAKE BC numbers
+ * (practitioner 9xxxx, payee 8xxxx) and last name = the run marker. Removed, and asserted gone, in cleanup.
+ *
+ * @returns {{providerNo: string, ohipNo: string, payeeNo: string}}
+ */
+function createBillingPhysician(s) {
+  const { sql, marker, provider } = s;
+  const q = h.sqlString;
+  const owned = {};
+  s.cleanup(() => {
+    if (!owned.providerNo) return;
+    sql.execute(`DELETE FROM provider WHERE provider_no=${q(owned.providerNo)} AND last_name=${q(marker)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(owned.providerNo)}`) === '0', 'The owned billing physician was not removed');
+  });
+  owned.providerNo = unusedNumber('97', 6, c => sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(c)}`) !== '0');
+  owned.ohipNo = unusedNumber('9', 5, c => sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE ohip_no=${q(c)})
+    + (SELECT COUNT(*) FROM billingmaster WHERE practitioner_no=${q(c)})`) !== '0');
+  owned.payeeNo = unusedNumber('8', 5, c => sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE billing_no=${q(c)})
+    + (SELECT COUNT(*) FROM billingmaster WHERE payee_no=${q(c)})`) !== '0');
+  const columns = sql.value(`SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='provider'`).split(',');
+  const overrides = { provider_no: q(owned.providerNo), ohip_no: q(owned.ohipNo), billing_no: q(owned.payeeNo),
+    last_name: q(marker), first_name: "'Billing'", status: "'1'" };
+  sql.execute(`INSERT INTO provider (${columns.map(c => `\`${c}\``).join(',')})
+    SELECT ${columns.map(c => overrides[c] || `\`${c}\``).join(',')} FROM provider WHERE provider_no=${q(provider)}`);
+  h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(owned.providerNo)} AND ohip_no=${q(owned.ohipNo)}`) === '1',
+    'The owned billing physician was not created');
+  return owned;
 }
 
 /**
@@ -90,6 +131,43 @@ function seedOwnedBcBill(s, { billingtype = 'MSP', status = 'O', code = '00100',
     SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(billingmasterNo), 'The BC billingmaster fixture was not created');
   return { billingNo, billingmasterNo };
+}
+
+/** A BC bill form's in-place reload: the same page fetched again for its patient bar or code table. */
+function isBillFormReload(response) {
+  const url = new URL(response.url());
+  return response.request().method() === 'GET' && url.pathname.endsWith('/billing') && url.searchParams.has('demographic_no');
+}
+
+/**
+ * Change one of the BC bill form's selects and wait for the in-place reloads that change makes (the
+ * physician reloads the patient bar and then the code table; the bill type, the code table). A
+ * Continue pressed before they finish abandons the code table's reload, which the strict page check
+ * reports as a failed request.
+ *
+ * @param {import('playwright').Page} form the bill form
+ * @param {string} select the select's locator
+ * @param {string} value the option to choose
+ * @param {number} count how many reloads the change makes
+ * @param {string} what the change, for messages
+ */
+async function changeBillFormSelect(form, select, value, count, what, timeout = 30000) {
+  const reloads = [];
+  const onResponse = (response) => { if (isBillFormReload(response)) reloads.push(response); };
+  form.on('response', onResponse);
+  try {
+    await form.locator(select).selectOption(value);
+    const deadline = Date.now() + timeout;
+    while (reloads.length < count && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
+    h.assert(reloads.length >= count, `${what} reloaded the bill form ${reloads.length} times, not ${count}`);
+    await form.waitForFunction(() => !window.jQuery || window.jQuery.active === 0, null, { timeout });
+  } finally {
+    form.off('response', onResponse);
+  }
+  for (const response of reloads) {
+    h.assert(response.status() === 200, `A bill form reload after ${what} answered HTTP ${response.status()}`);
+  }
+  await h.assertNotErrorPage(form, `bill form after ${what}`);
 }
 
 /** Open Bill Status from the master record's Invoice List link (Billing ▸ Invoice List), filtered to the owned patient. */
@@ -183,11 +261,14 @@ async function reportClinicBillStatus({ admin, frame }, { demographicNo, status,
       && new URL(response.url()).pathname.endsWith('/billing/CA/BC/reprocessBill')
       && new URL(response.url()).searchParams.get('billTypes') === status
       && new URL(response.url()).searchParams.get('demographicNo') === String(demographicNo), { timeout }),
+    // Response headers can arrive before the frame commits its new document.
+    // Wait for that commit before asking for the new document's load state.
+    admin.waitForEvent('framenavigated', { predicate: navigated => navigated === frame, timeout }),
     form.locator('input[type="submit"][value="Create Report"]').click(),
   ]);
   await frame.waitForLoadState('domcontentloaded');
   await h.assertNotErrorPage(frame, `Clinic-wide Bill Status report (${status})`);
 }
 
-module.exports = { requireBcBillingSchema, makeBcPatient, registerOwnedBcBillCleanup, seedOwnedBcBill, openBillStatus, reportBillStatus,
+module.exports = { requireBcBillingSchema, makeBcPatient, unusedNumber, createBillingPhysician, changeBillFormSelect, registerOwnedBcBillCleanup, seedOwnedBcBill, openBillStatus, reportBillStatus,
   openClinicBillStatus, reportClinicBillStatus };

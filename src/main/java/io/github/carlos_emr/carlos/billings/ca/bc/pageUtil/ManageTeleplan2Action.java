@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -397,12 +398,13 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             sequenceNumber = Integer.parseInt(sequence);
         } catch (Exception _) {
-            //TODO: ADDED ERROR MESSAGE ABOUT THE NUMBER NOT BEING A NUMBER!
+            // A refused number stores nothing; the page shows "error" so the user knows why (issue #5066).
+            request.setAttribute("error", LocaleUtils.getMessage(request, "billing.bc.manageTeleplan.sequenceNotNumber"));
             return SUCCESS;
         }
 
         if (sequenceNumber < 0 || sequenceNumber > 9999999) {
-            //TODO: ADDED ERROR MESSAGE ABOUT NUMBER BEING OUT OF RANGE
+            request.setAttribute("error", LocaleUtils.getMessage(request, "billing.bc.manageTeleplan.sequenceOutOfRange"));
             return SUCCESS;
         }
 

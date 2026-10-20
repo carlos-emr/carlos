@@ -35,12 +35,12 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.SxmlMisc;
-import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
-import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportFragmentViewModel;
 import io.github.carlos_emr.carlos.billings.ca.report.UnbilledReportStatusParameters;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
-import io.github.carlos_emr.carlos.commn.model.Billing;
+import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
+import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -58,19 +58,31 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * based on {@code reportAction}, leaving the others as empty lists so the
  * single view-model object covers all four templates.</p>
  *
+ * <p>Billed, Unsettled and OB list Ontario claims ({@code billing_on_cheader1} and its items), where
+ * the Ontario bill form stores them. They used to read the retired {@code billing} table, so they
+ * listed only old rows carried over from OSCAR (#5061). Flu still reads it: how its walk-in / clinic
+ * split maps to Ontario claims is an open question on #5061.</p>
+ *
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
 public class BillingReportFragmentViewModelAssembler {
 
+    /** The obstetric service codes the OB report lists, as it always has. */
+    static final List<String> OB_SERVICE_CODES = List.of("P006A", "P011A", "P009A", "P020A", "P022A", "P028A",
+            "P023A", "P007A", "P008B", "P018B", "E502A", "C989A", "E409A", "E410A", "E411A", "H001A");
+
     private final BillingDao billingDao;
-    private final BillingDetailDao billingDetailDao;
+    private final BillingONCHeader1Dao claimDao;
+    private final BillingONItemDao claimItemDao;
     private final io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao appointmentDao;
 
-    public BillingReportFragmentViewModelAssembler(BillingDao billingDao, BillingDetailDao billingDetailDao,
+    public BillingReportFragmentViewModelAssembler(BillingDao billingDao, BillingONCHeader1Dao claimDao,
+                                        BillingONItemDao claimItemDao,
                                         io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao appointmentDao) {
         this.billingDao = billingDao;
-        this.billingDetailDao = billingDetailDao;
+        this.claimDao = claimDao;
+        this.claimItemDao = claimItemDao;
         this.appointmentDao = appointmentDao;
     }
 
@@ -184,29 +196,20 @@ public class BillingReportFragmentViewModelAssembler {
 
     private List<BillingReportFragmentViewModel.BilledRow> loadBilledRows(
             String providerView, Date dateBegin, Date dateEnd) {
-        List<Billing> bs = billingDao.search_bill_history_daterange(providerView, dateBegin, dateEnd);
+        List<BillingONCHeader1> claims = claimDao.findReportCenterOpenClaims(providerView, dateBegin, dateEnd);
         List<BillingReportFragmentViewModel.BilledRow> rows = new ArrayList<>();
-        if (bs == null) return rows;
+        if (claims == null) return rows;
         boolean bodd = false;
-        for (Billing bill : bs) {
+        for (BillingONCHeader1 claim : claims) {
             bodd = !bodd;
-            String apptDoctorNo = nullToEmpty(bill.getApptProviderNo());
-            String userno = nullToEmpty(bill.getProviderNo());
-            String demoName = nullToEmpty(bill.getDemographicName());
-            String apptDate = ConversionUtils.toDateString(bill.getBillingDate());
-            String apptTime = ConversionUtils.toTimeString(bill.getBillingTime());
+            String demoName = nullToEmpty(claim.getDemographicName());
+            String apptDate = ConversionUtils.toDateString(claim.getBillingDate());
+            String apptTime = ConversionUtils.toTimeString(claim.getBillingTime());
             if (apptTime == null) apptTime = "00:00:00";
-            String reasonCode = nullToEmpty(bill.getStatus());
+            String reasonCode = nullToEmpty(claim.getStatus());
             String reason = describeStatus(reasonCode);
-            String note;
-            if ("none".equals(apptDoctorNo)) {
-                note = "No Appt / INR";
-            } else if (apptDoctorNo.equals(userno)) {
-                note = "With Appt. Doctor";
-            } else {
-                note = "Unmatched Appt. Doctor";
-            }
-            int billingId = bill.getId() == null ? 0 : bill.getId().intValue();
+            String note = appointmentNote(claim);
+            int billingId = claim.getId() == null ? 0 : claim.getId().intValue();
             rows.add(new BillingReportFragmentViewModel.BilledRow(
                     apptDate, apptTime, demoName, reason, note,
                     billingId, reasonCode, bodd ? "#EEEEFF" : "white"));
@@ -216,28 +219,19 @@ public class BillingReportFragmentViewModelAssembler {
 
     private List<BillingReportFragmentViewModel.UnsettledRow> loadUnsettledRows(
             String providerView, Date dateBegin, Date dateEnd) {
-        List<Billing> bs = billingDao.search_unsettled_history_daterange(providerView, dateBegin, dateEnd);
+        List<BillingONCHeader1> claims = claimDao.findReportCenterSubmittedClaims(providerView, dateBegin, dateEnd);
         List<BillingReportFragmentViewModel.UnsettledRow> rows = new ArrayList<>();
-        if (bs == null) return rows;
+        if (claims == null) return rows;
         boolean bodd = false;
-        for (Billing bill : bs) {
+        for (BillingONCHeader1 claim : claims) {
             bodd = !bodd;
-            String apptDoctorNo = nullToEmpty(bill.getApptProviderNo());
-            String userno = nullToEmpty(bill.getProviderNo());
-            String demoName = nullToEmpty(bill.getDemographicName());
-            String apptDate = ConversionUtils.toDateString(bill.getBillingDate());
-            String apptTime = ConversionUtils.toTimeString(bill.getBillingTime());
+            String demoName = nullToEmpty(claim.getDemographicName());
+            String apptDate = ConversionUtils.toDateString(claim.getBillingDate());
+            String apptTime = ConversionUtils.toTimeString(claim.getBillingTime());
             if (apptTime == null) apptTime = "00:00:00";
-            String reasonCode = nullToEmpty(bill.getStatus());
-            String note;
-            if ("none".equals(apptDoctorNo)) {
-                note = "No Appt / INR";
-            } else if (apptDoctorNo.equals(userno)) {
-                note = "With Appt. Doctor";
-            } else {
-                note = "Unmatched Appt. Doctor";
-            }
-            int billingId = bill.getId() == null ? 0 : bill.getId().intValue();
+            String reasonCode = nullToEmpty(claim.getStatus());
+            String note = appointmentNote(claim);
+            int billingId = claim.getId() == null ? 0 : claim.getId().intValue();
             rows.add(new BillingReportFragmentViewModel.UnsettledRow(
                     apptDate, apptTime, demoName, note,
                     billingId, reasonCode, bodd ? "#EEEEFF" : "white"));
@@ -247,72 +241,46 @@ public class BillingReportFragmentViewModelAssembler {
 
     private void loadBillob(String providerView, Date dateBegin, Date dateEnd,
                             BillingReportFragmentViewModel.Builder b) {
-        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow> bs =
-                billingDao.search_billob(providerView, dateBegin, dateEnd);
+        List<BillingONCHeader1> claims = claimDao.findReportCenterClaimsWithServiceCodes(
+                providerView, dateBegin, dateEnd, OB_SERVICE_CODES);
         List<BillingReportFragmentViewModel.BillobRow> rows = new ArrayList<>();
         BigDecimal total = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP);
-        if (bs == null) {
+        if (claims == null || claims.isEmpty()) {
             b.billobRows(rows).billobTotal(total.toPlainString());
             return;
         }
-        List<Integer> billingNos = bs.stream()
-                .map(io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow::id)
+        List<Integer> claimIds = claims.stream()
+                .map(BillingONCHeader1::getId)
                 .filter(id -> id != null)
-                .distinct()
                 .toList();
-        Map<Integer, List<BillingDetail>> detailsByBillingNo =
-                billingDetailDao.findByBillingNos(billingNos).stream()
-                        .collect(Collectors.groupingBy(BillingDetail::getBillingNo));
+        // The service-code columns list every live item of each claim, read in one query.
+        Map<Integer, List<BillingONItem>> itemsByClaim =
+                claimItemDao.findByCh1IdsExcludingDeleted(claimIds).stream()
+                        .collect(Collectors.groupingBy(BillingONItem::getCh1Id));
         boolean bodd = false;
-        int unreadableTotalCount = 0;
-        for (io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow row : bs) {
+        for (BillingONCHeader1 claim : claims) {
             bodd = !bodd;
-            Integer bId = row.id();
-            String bTotal = row.total();
-            String bStatus = row.status();
-            Date bBillingDate = row.billingDate();
-            String bDemographicName = row.demographicName();
-            String demoName = nullToEmpty(bDemographicName);
-            String apptDate = ConversionUtils.toDateString(bBillingDate);
-            String reasonCode = nullToEmpty(bStatus);
-            // Format: ensure decimal point — legacy scriptlet:
-            //   bTotal.indexOf(".")>0 ? bTotal : bTotal[..len-2] + "." + bTotal[len-2..]
-            String formattedTotal = formatBillobTotal(bTotal);
-            // Sum the billob "Settled" totals to drive the "Total ... Paid" footer.
+            String reasonCode = nullToEmpty(claim.getStatus());
+            BigDecimal claimTotal = (claim.getTotal() == null ? BigDecimal.ZERO : claim.getTotal())
+                    .setScale(2, RoundingMode.HALF_UP);
+            // Sum the settled claims to drive the "Total ... Paid" footer.
             if ("S".equals(reasonCode)) {
-                try {
-                    BigDecimal fee = new BigDecimal(formattedTotal).setScale(2, RoundingMode.HALF_UP);
-                    total = total.add(fee);
-                } catch (NumberFormatException e) {
-                    unreadableTotalCount++;
-                    MiscUtils.getLogger().warn(
-                            "BillingReportFragment: bill {} has unparseable total [{}]; excluded from Total Paid",
-                            bId, formattedTotal, e);
-                }
+                total = total.add(claimTotal);
             }
-            // Service codes: up to 10 non-D-status detail entries.
+            int billingNo = claim.getId() == null ? 0 : claim.getId().intValue();
+            // Up to 10 service codes, padded to the 10 columns the fragment always prints.
             List<String> codes = new ArrayList<>(10);
-            int count = 0;
-            int billingNo = bId == null ? 0 : bId.intValue();
-            List<BillingDetail> bds = detailsByBillingNo.get(billingNo);
-            if (bds != null) {
-                for (BillingDetail bd : bds) {
-                    if (count >= 10) break;
-                    if (bd.getStatus() != null && !BillingONItem.DELETED.equals(bd.getStatus())) {
-                        codes.add(nullToEmpty(bd.getServiceCode()));
-                        count++;
-                    }
-                }
+            for (BillingONItem item : itemsByClaim.getOrDefault(billingNo, List.of())) {
+                if (codes.size() >= 10) break;
+                codes.add(nullToEmpty(item.getServiceCode()));
             }
-            // Pad to 10 to mirror the original {@code for(int x=0; x<10; x++)} loop
-            // which printed every slot regardless of count (empty string for unset).
             while (codes.size() < 10) codes.add("");
             rows.add(new BillingReportFragmentViewModel.BillobRow(
-                    billingNo, demoName, apptDate, codes, formattedTotal,
+                    billingNo, nullToEmpty(claim.getDemographicName()),
+                    ConversionUtils.toDateString(claim.getBillingDate()), codes, claimTotal.toPlainString(),
                     reasonCode, bodd ? "#EEEEFF" : "white"));
         }
-        b.billobRows(rows).billobTotal(total.toPlainString())
-                .billobUnreadableTotalCount(unreadableTotalCount);
+        b.billobRows(rows).billobTotal(total.toPlainString());
     }
 
     private void loadFlu(String providerView, Date dateBegin, Date dateEnd,
@@ -379,6 +347,14 @@ public class BillingReportFragmentViewModelAssembler {
          .fluTotal1(total1.toPlainString()).fluTotal2(total2.toPlainString())
          .fluClinicCount(clinicCount).fluWalkinCount(walkinCount)
          .fluUnreadableTotalCount(unreadableTotalCount);
+    }
+
+    /** How a claim relates to its appointment, as the Billed and Unsettled lists show it. */
+    private static String appointmentNote(BillingONCHeader1 claim) {
+        String apptDoctorNo = nullToEmpty(claim.getApptProviderNo());
+        if ("none".equals(apptDoctorNo)) return "No Appt / INR";
+        if (apptDoctorNo.equals(nullToEmpty(claim.getProviderNo()))) return "With Appt. Doctor";
+        return "Unmatched Appt. Doctor";
     }
 
     /**

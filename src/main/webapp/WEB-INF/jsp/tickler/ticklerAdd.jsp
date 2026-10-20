@@ -46,11 +46,16 @@
       marker, then drives the opener refresh and window close. On success, broadcasts
       to BroadcastChannel('carlos_tickler_refresh_' + demographicNo) so ticklerMain.jsp and
       newEncounterLayout.jsp for the same patient can reload without a full page refresh.
+      It also posts to 'carlos_tickler_refresh_all', the channel the provider-wide task
+      list listens on (#4993).
 
     Parameters:
     - demographic_no:       Patient demographic number. Ignored when ForwardDemographicTickler2Action
                             set PATIENT_DROPPED_FOR_DOCUMENT (the forwarding document is not that
                             patient's, #4839); the form then asks for a patient.
+    - ticklerMessage:       Optional suggested text for the Reminder Message box. The opener only
+                            seeds the box (for example the Consultations list's overdue follow-up,
+                            #4999); nothing is created until the clinician presses Save.
     - xml_appointment_date: Initial service/appointment date (YYYY-MM-DD)
     - taskTo:               Default task assignee provider number
     - priority:             Tickler priority (High/Normal/Low)
@@ -87,6 +92,7 @@
 <%@ page import="java.util.GregorianCalendar" %>
 <%@ page import="java.util.Iterator" %>
 <%@ page import="java.util.List" %>
+<%@ page import="java.util.Objects" %>
 <%@ page import="java.util.Set" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
@@ -132,6 +138,10 @@
     boolean patientDroppedForDocument = Boolean.TRUE.equals(
             request.getAttribute(ForwardDemographicTickler2Action.PATIENT_DROPPED_FOR_DOCUMENT));
     String requestDemographicNo = patientDroppedForDocument ? null : request.getParameter("demographic_no");
+
+    // Text the opener suggests for the task. It only seeds the Reminder Message box, where it is
+    // HTML-encoded, and the clinician reviews it before Save.
+    String suggestedMessage = Objects.toString(request.getParameter("ticklerMessage"), "");
 
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
     Demographic demographic = demographicDao.getDemographic(requestDemographicNo);
@@ -522,9 +532,12 @@
                     // Always broadcast for cross-window listeners (e.g. ticklerMain.jsp)
                     try {
                         var demoNo = '<carlos:encode value='<%= requestDemographicNo != null ? requestDemographicNo : "0" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                        var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
-                        bc.postMessage({ action: 'refresh' });
-                        bc.close();
+                        // Patient-scoped listeners (encounter, patient task list) and the provider-wide list ("all").
+                        ['all', demoNo].forEach(function (scope) {
+                            var bc = new BroadcastChannel('carlos_tickler_refresh_' + scope);
+                            bc.postMessage({ action: 'refresh' });
+                            bc.close();
+                        });
                     } catch (e) {
                         console.error('[ticklerAdd] BroadcastChannel broadcast failed:', e);
                         // Fallback: reload the opener directly so the tickler list stays current
@@ -938,8 +951,8 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="tickler-label"><fmt:message key="tickler.ticklerAdd.formReminder"/>:</td>
-                    <td><textarea name="ticklerMessage" id="ticklerMessage" class="form-control"></textarea>
+                    <td class="tickler-label"><label for="ticklerMessage"><fmt:message key="tickler.ticklerAdd.formReminder"/>:</label></td>
+                    <td><textarea name="ticklerMessage" id="ticklerMessage" class="form-control"><carlos:encode value='<%= suggestedMessage %>' context="html"/></textarea>
                     </td>
                 </tr>
 

@@ -19,8 +19,8 @@
  * they are gone. The PDFs are read in memory; each download's temporary file is deleted once read.
  *
  * PDF text is read with Poppler pdftotext (lib/export-content-helpers.js); without it the check SKIPs.
- * Expected (see the manifest notes): on develop the first report step fails with HTTP 404 until #4805 (release) is
- * forward-merged.
+ * Expected (see the manifest notes): on release and develop the first report step fails with HTTP 404 until #4805
+ * (#4801's release fix) merges.
  */
 const { randomInt } = require('node:crypto');
 const fs = require('node:fs');
@@ -157,7 +157,7 @@ async function workflow(s) {
   };
   const pdfReport = async (repType) => {
     const report = await createReport(repType, 'pdf');
-    return pdfTextBuffer(report.bytes).replace(/\s+/g, ' ');
+    return pdfTextBuffer(report.bytes, { layout: true }).replace(/\s+/g, ' ');
   };
 
   await s.step(STEP.open, async () => {
@@ -191,15 +191,15 @@ async function workflow(s) {
     // The payments reports print initials: Q(uinn) F(AKE-…), Y(ara) F(AKE-…).
     h.assert(/Provider:\s*QF\b/.test(text), "The Payments and Refunds PDF does not print the provider's initials");
     h.assert(/Payee:\s*YF\b/.test(text), "The Payments and Refunds PDF does not print the payee's initials");
-    // The total paid comes from the seeded payment line (t_paidamt 0003370), so a wrong seed shows here.
-    h.assert(/TOTAL:\s*\$33\.70\b/.test(text), 'The Payments and Refunds PDF does not total the $33.70 payment');
+    // Check the total field, including on a C.UTF-8 JVM whose currency symbol is the generic ¤.
+    h.assert(/TOTAL:\s*(?:CA)?[$¤]33\.70\b/.test(text), 'The Payments and Refunds PDF does not total the 33.70 payment');
   });
 
   await s.step(STEP.payRefSummary, async () => {
     const text = await pdfReport('REP_PAYREF_SUM');
     h.assert(/Provider:\s*QF\b/.test(text), "The Payments and Refunds summary PDF does not print the provider's initials");
     h.assert(/Payee:\s*YF\b/.test(text), "The Payments and Refunds summary PDF does not print the payee's initials");
-    h.assert(/TOTAL:\s*\$33\.70\b/.test(text), 'The Payments and Refunds summary PDF does not total the $33.70 payment');
+    h.assert(/TOTAL:\s*(?:CA)?[$¤]33\.70\b/.test(text), 'The Payments and Refunds summary PDF does not total the 33.70 payment');
   });
 
   await s.step(STEP.spreadsheet, async () => {

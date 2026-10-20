@@ -86,4 +86,6 @@
             };
         </script>
         <script type="text/javascript" src="${ctx}/encounter/js/encounter.js"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/js/formOpenGuard.js"></script>
     </head>

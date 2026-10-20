@@ -246,4 +246,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('rx-drug-name-quotes', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, viewScriptFrame };

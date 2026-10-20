@@ -32,26 +32,28 @@
     Purpose: administer system and uploaded measurement flowsheet definitions.
     Features: list definitions and their triggers, enable/disable and download definitions,
     and display escaped upload errors once before removing the session flash message.
+    Access: ManageFlowsheets2Action is the only route here. It admits read on _admin, _admin.misc
+    or _admin.flowsheet, checked one object at a time, and publishes its write decision as the
+    flowsheetWriteAccess request attribute (issue #4623). Read opens the list with each row's Edit
+    link; the enable/disable links and the custom flowsheet upload are rendered only when the
+    attribute is true. A request that arrives without the attribute is refused.
     Parameters: this listing takes no query parameters; its action form submits method/name
     to ManageFlowsheets. The optional session flashError supplies upload feedback.
     @since 2026-07-07
 --%>
 <!DOCTYPE html>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
-%>
-<security:oscarSec roleName="<%=roleName$%>"
-                   objectName="_admin,_admin.misc,_admin.flowsheet" rights="r" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc&type=_admin.flowsheet");%>
-</security:oscarSec>
-<%
-    if (!authed) {
+    // The action's decision is the only one made here. A second, combined oscarSec tag
+    // over the three objects would disagree with it: the tag keeps ONE privilege per role across the
+    // objects it names, so a role's _admin.misc "o" row can mask its _admin.flowsheet "r" and bounce a
+    // reader the action admitted. Reaching the page without that decision is refused.
+    Object flowsheetWriteAccess = request.getAttribute("flowsheetWriteAccess");
+    if (!(flowsheetWriteAccess instanceof Boolean)) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc&type=_admin.flowsheet");
         return;
     }
+    boolean canModify = (Boolean) flowsheetWriteAccess;
 %>
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
@@ -87,6 +89,7 @@
 
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 
+		<% if (canModify) { %>
 		<script>
 			/** Submits a flowsheet action via the hidden #flowsheetActionForm. */
 			function submitFlowsheetAction(method, name) {
@@ -96,6 +99,7 @@
 				form.submit();
 			}
 		</script>
+		<% } %>
 
 	<style>
 		table {
@@ -114,10 +118,12 @@
         <c:remove var="flashError" scope="session"/>
     </c:if>
 
+<% if (canModify) { %>
 <form id="flowsheetActionForm" method="post" action="${pageContext.request.contextPath}/admin/ManageFlowsheets" style="display:none;">
 	<input type="hidden" name="method" value=""/>
 	<input type="hidden" name="name" value=""/>
 </form>
+<% } %>
 
 <div class="container-fluid">
 <div class="navbar" id="demoHeader"><div class="container-fluid">
@@ -172,10 +178,12 @@
 							<td><%=enabled%></td>
 							<td>
 								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<carlos:encode value='<%= flowSheet.getName() %>' context="uriComponent"/>&displayName=<carlos:encode value='<%= flowSheet.getDisplayName() %>' context="uriComponent"/>"><fmt:message key="admin.manageFlowsheets.edit"/></a>&nbsp;
-								<%if(enabled) { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<carlos:encode value='<%= flowSheet.getName() %>' context="javaScriptAttribute"/>');"><fmt:message key="admin.manageFlowsheets.disable"/></a>
-								<% } else { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<carlos:encode value='<%= flowSheet.getName() %>' context="javaScriptAttribute"/>');"><fmt:message key="admin.manageFlowsheets.enable"/></a>
+								<% if (canModify) { %>
+									<%if(enabled) { %>
+										<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<carlos:encode value='<%= flowSheet.getName() %>' context="javaScriptAttribute"/>');"><fmt:message key="admin.manageFlowsheets.disable"/></a>
+									<% } else { %>
+										<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<carlos:encode value='<%= flowSheet.getName() %>' context="javaScriptAttribute"/>');"><fmt:message key="admin.manageFlowsheets.enable"/></a>
+									<% } %>
 								<% } %>
 							</td>
 						</tr>
@@ -185,6 +193,7 @@
             </tbody>
 			</table>
 
+		<% if (canModify) { %>
 		<div class="card">
 			<div class="card-header">
 				<h4><fmt:message key="admin.manageFlowsheets.uploadCustom"/></h4>
@@ -197,5 +206,6 @@
     </form>
 		</div>
 		</div>
+		<% } %>
 </div>
 </html>

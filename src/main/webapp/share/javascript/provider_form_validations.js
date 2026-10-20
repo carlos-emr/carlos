@@ -14,8 +14,14 @@
 
 window.onload = function () {
 
+    // The page that confirms a saved preference loads this script too but has no form.
+    var form = document.getElementById("providerForm");
+    if (!form) {
+        return;
+    }
+
     // register event listener
-    document.getElementById("providerForm").onsubmit = function (e) {
+    form.onsubmit = function (e) {
         // get form element value in a safe manner
         var formFieldElement = document.getElementById("numericFormField");
         if (!formFieldElement) {

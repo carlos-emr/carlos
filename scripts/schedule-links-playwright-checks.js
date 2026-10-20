@@ -23,6 +23,7 @@
 
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -39,12 +40,12 @@ const findings = [];
 const visited = [];
 
 const scheduleLinks = [
-  { label: 'schedule-tickler-link', selector: "a[onclick*='/carlos/tickler/ViewTicklerMain']" },
-  { label: 'schedule-consultations-link', selector: "a[onclick*='/carlos/encounter/IncomingConsultation']" },
-  { label: 'schedule-scratch-link', selector: "a[onclick*='/carlos/Scratch']" },
-  { label: 'schedule-report-link', selector: "a[onclick*='/carlos/report/ViewReportindex']" },
-  { label: 'schedule-inbox-link', selector: "a[onclick*='/carlos/web/inboxhub/Inboxhub']" },
-  { label: 'schedule-edoc-link', selector: "a[onclick*='/carlos/documentManager/ViewDocumentReport']" },
+  { label: 'schedule-tickler-link', selector: 'a:has(#oscar_new_tickler)', path: '/tickler/ViewTicklerMain' },
+  { label: 'schedule-consultations-link', selector: 'a:has(#oscar_aged_consults)', path: '/encounter/IncomingConsultation' },
+  { label: 'schedule-scratch-link', selector: "a[onclick*='/Scratch']", path: '/Scratch' },
+  { label: 'schedule-report-link', selector: "a[onclick*='/report/ViewReportindex'], a[href*='/report/ViewReportindex']", path: '/report/ViewReportindex' },
+  { label: 'schedule-inbox-link', selector: '#inboxLink', path: '/web/inboxhub/Inboxhub' },
+  { label: 'schedule-edoc-link', selector: "a[onclick*='/documentManager/ViewDocumentReport'], a[href*='/documentManager/ViewDocumentReport']", path: '/documentManager/ViewDocumentReport' },
 ];
 
 function validateBaseUrl(rawBaseUrl) {
@@ -70,18 +71,18 @@ function validateBaseUrl(rawBaseUrl) {
   return parsed;
 }
 
-function appUrl(appPath) {
+function appUrl(appPath, search = '') {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
     throw new Error(`Application path must be root-relative, got ${appPath}`);
   }
   const url = new URL(baseUrl.href);
   url.pathname = `${baseUrl.pathname}${appPath}`.replace(/\/{2,}/g, '/');
-  url.search = '';
+  url.search = search;
   return url.toString();
 }
 
-function safeGoto(page, appPath, options) {
-  return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
+function safeGoto(page, appPath, options, search = '') {
+  return page.goto(appUrl(appPath, search), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
 }
 
 async function responseWithTimeout(request, timeoutMs) {
@@ -183,21 +184,39 @@ async function clickScheduleLink(context, schedulePage, linkSpec) {
     return;
   }
 
-  const existingPages = context.pages();
-  const popupPromise = context.waitForEvent('page', { timeout: 10000 }).catch(() => null);
-  await locator.click();
-  let targetPage = await popupPromise;
-
-  if (!targetPage) {
-    const currentPages = context.pages();
-    targetPage = currentPages.find((page) => !existingPages.includes(page)) || currentPages[currentPages.length - 1];
+  // Focused schedule navigation uses the current tab; legacy navigation opens
+  // popups. The old fallback inspected the last context page (often Scratch),
+  // allowing Report/Inbox/eDoc to pass without judging their actual destination.
+  const onPopup = popup => wirePage(popup, linkSpec.label);
+  const scheduleUrl = new URL(schedulePage.url());
+  const scheduleLocation = new URL(appUrl('/provider/providercontrol'));
+  if (scheduleUrl.origin !== scheduleLocation.origin || scheduleUrl.pathname !== scheduleLocation.pathname) {
+    throw new Error('Schedule navigation started outside the expected application view');
   }
-
-  wirePage(targetPage, linkSpec.label);
-  await targetPage.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
-  await targetPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: linkSpec.label, url: targetPage.url() });
-  await assertNoErrorPage(targetPage, linkSpec.label);
+  context.on('page', onPopup);
+  let outcome;
+  try {
+    outcome = await clickOpensPopupOrNavigates(schedulePage, locator,
+      { context, label: linkSpec.label, timeout: 30000, checkErrorPage: false });
+    const targetPage = outcome.page;
+    visited.push({ label: linkSpec.label, url: targetPage.url() });
+    await assertNoErrorPage(targetPage, linkSpec.label);
+    const expected = `${baseUrl.pathname}${linkSpec.path}`;
+    if (new URL(targetPage.url()).pathname !== expected) {
+      findings.push({ label: linkSpec.label, type: 'unexpected-destination',
+        path: new URL(targetPage.url()).pathname, expected });
+    }
+  } finally {
+    context.off('page', onPopup);
+    if (outcome && outcome.isPopup && !outcome.page.isClosed()) await outcome.page.close();
+    if (outcome && !outcome.isPopup) {
+      // Reopen the observed schedule address with GET; history may otherwise
+      // replay the provider-selection POST that produced the schedule.
+      await safeGoto(schedulePage, '/provider/providercontrol',
+        { waitUntil: 'domcontentloaded', timeout: 30000 }, scheduleUrl.search);
+      await schedulePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    }
+  }
 }
 
 async function selectProviderFromLastNameSearch(context, schedulePage) {
