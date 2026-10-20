@@ -718,15 +718,14 @@ public class SmsQueueProcessingService {
 
     /**
      * Hands back the claim of a row its SMS provider refused only because CARLOS is sending too fast. The
-     * attempt is given back and the row comes due again after {@link #RATE_LIMITED_HAND_BACK_DELAY}. The
-     * hand-back records no reason, so the row keeps the error of its last counted attempt, if any; the reason
-     * is logged here. Never throws: if the hand-back fails, the row stays SENDING and stale recovery
-     * reconciles it.
+     * attempt is given back and the row comes due again after {@link #RATE_LIMITED_HAND_BACK_DELAY}, carrying
+     * {@link SmsProviderErrorCode#RATE_LIMITED} and its fixed message so staff can see why the text waits. Never
+     * throws: if the hand-back fails, the row stays SENDING and stale recovery reconciles it.
      */
     private void handBackAfterRateLimit(SmsTransaction row) {
         try {
             SmsTransaction released = transactionRecorder.releaseClaim(row,
-                    Date.from(Instant.now().plus(RATE_LIMITED_HAND_BACK_DELAY)));
+                    Date.from(Instant.now().plus(RATE_LIMITED_HAND_BACK_DELAY)), SmsProviderErrorCode.RATE_LIMITED);
             if (released != null && released.getStatus() == SmsStatus.QUEUED) {
                 LOGGER.warn("SMS transaction {} not sent: SMS provider {} answered {}, so the claim was handed back"
                                 + " without using an attempt, due again in {}s; this run's sending stops",

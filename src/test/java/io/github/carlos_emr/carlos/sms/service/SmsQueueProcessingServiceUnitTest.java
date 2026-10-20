@@ -27,7 +27,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -592,7 +594,10 @@ class SmsQueueProcessingServiceUnitTest {
                 .containsExactly(SmsStatus.QUEUED, 0);
         assertThat(first.getNextAttemptAt().toInstant())
                 .isAfterOrEqualTo(before.plus(SmsQueueProcessingService.RATE_LIMITED_HAND_BACK_DELAY));
-        assertThat(first.getErrorCode()).as("the hand-back records no reason").isNull();
+        assertThat(first).as("the hand-back says why the text waits")
+                .extracting(SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly("RATE_LIMITED", SmsProviderErrorCode.RATE_LIMITED.message());
+        assertThat(recorder.releaseReasons).containsExactly(SmsProviderErrorCode.RATE_LIMITED);
         assertThat(second).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
                 .as("not tried").containsExactly(SmsStatus.QUEUED, 0);
         verify(client, times(1)).send(any(), anyString(), any());
@@ -631,8 +636,8 @@ class SmsQueueProcessingServiceUnitTest {
 
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
-                .as("not failed at the retry limit, and still showing its last counted reason")
-                .containsExactly(SmsStatus.QUEUED, 2, "PROVIDER_ERROR");
+                .as("not failed at the retry limit, and showing why it waits")
+                .containsExactly(SmsStatus.QUEUED, 2, "RATE_LIMITED");
     }
 
     @Test
@@ -642,7 +647,7 @@ class SmsQueueProcessingServiceUnitTest {
         SmsTransaction second = queuedSecondTransaction();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second)) {
             @Override
-            public SmsTransaction releaseClaim(SmsTransaction row, Date dueAt) {
+            public SmsTransaction releaseClaim(SmsTransaction row, Date dueAt, SmsProviderErrorCode reason) {
                 throw new IllegalStateException("synthetic-hin-9876543210 row cannot be written");
             }
         };
@@ -677,6 +682,11 @@ class SmsQueueProcessingServiceUnitTest {
             public SmsTransaction releaseClaim(SmsTransaction row, Date dueAt) {
                 throw new AssertionError("the text may have gone out, so its claim must not be handed back");
             }
+
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction row, Date dueAt, SmsProviderErrorCode reason) {
+                throw new AssertionError("the text may have gone out, so its claim must not be handed back");
+            }
         };
         SmsProviderClient client = mock(SmsProviderClient.class);
         when(client.providerType()).thenReturn(SmsProviderType.STUB);
@@ -691,6 +701,74 @@ class SmsQueueProcessingServiceUnitTest {
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
                 .containsExactly(SmsStatus.SENDING, 1, "RATE_LIMITED");
+    }
+
+    @Test
+    @DisplayName("a claim handed back for want of a rate-limit permit keeps the reason it already had")
+    void shouldRecordNoReason_whenPermitIsDenied() {
+        SmsTransaction transaction = queuedAfterCountedRefusal();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())), new SmsRetryCalculator(),
+                providerType -> false, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(5)).isZero();
+
+        assertHandedBackWithoutReason(transaction, recorder);
+    }
+
+    @Test
+    @DisplayName("a claim handed back because the settings changed before dispatch keeps the reason it already had")
+    void shouldRecordNoReason_whenSettingsChangeBeforeDispatch() {
+        SmsTransaction transaction = queuedAfterCountedRefusal();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        AtomicInteger reads = new AtomicInteger();
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED, () -> SmsProviderType.STUB,
+                type -> reads.getAndIncrement() == 0 ? SmsProviderSettings.none(type)
+                        : SmsProviderSettings.of(type, "+16135550100", Map.of("api_user", "fake-user")));
+
+        assertThat(worker.processDueMessages(5)).isZero();
+
+        assertThat(transaction.getProviderMessageId()).as("nothing sent").isNull();
+        assertHandedBackWithoutReason(transaction, recorder);
+    }
+
+    @Test
+    @DisplayName("a claim handed back after its renewal could not be written keeps the reason it already had")
+    void shouldRecordNoReason_whenClaimRenewalCannotBeWritten() {
+        SmsTransaction transaction = queuedAfterCountedRefusal();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction)) {
+            @Override
+            public SmsTransaction renewClaim(SmsTransaction row, Date attemptAt) {
+                throw new IllegalStateException("database unavailable");
+            }
+        };
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(5)).isZero();
+
+        assertHandedBackWithoutReason(transaction, recorder);
+    }
+
+    @Test
+    @DisplayName("a former provider's row handed back after it could not be failed keeps the reason it already had")
+    void shouldRecordNoReason_whenInactiveRowCannotBeFailed() {
+        SmsTransaction transaction = queuedAfterCountedRefusal();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction)) {
+            @Override
+            public SmsTransaction markProviderResult(SmsTransaction row, SmsProviderSendResultDto result) {
+                throw new IllegalStateException("row cannot be written");
+            }
+        };
+
+        assertThat(voipMsActiveWorker(recorder, providerType -> true, command -> CONSENTED).processDueMessages(5))
+                .isZero();
+
+        assertHandedBackWithoutReason(transaction, recorder);
     }
 
     @Test
@@ -1357,6 +1435,23 @@ class SmsQueueProcessingServiceUnitTest {
                 SmsProviderSettings::none);
     }
 
+    /** A queued STUB row whose one counted attempt the provider refused with ACCOUNT_LIMIT; due again now. */
+    private static SmsTransaction queuedAfterCountedRefusal() {
+        SmsTransaction transaction = queuedTransaction();
+        transaction.markSending(dateAt(FIRST_ATTEMPT_AT));
+        transaction.markRetryScheduled(SmsProviderSendResultDto.failed(SmsProviderErrorCode.ACCOUNT_LIMIT),
+                dateAt(RETRY_SCHEDULED_AT));
+        return transaction;
+    }
+
+    /** The row is waiting again, unsent, with its attempt given back and the reason it had before untouched. */
+    private static void assertHandedBackWithoutReason(SmsTransaction row, RecordingSmsTransactionService recorder) {
+        assertThat(row).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                        SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly(SmsStatus.QUEUED, 1, "ACCOUNT_LIMIT", SmsProviderErrorCode.ACCOUNT_LIMIT.message());
+        assertThat(recorder.releaseReasons).as("no hand-back but a request to slow down records a reason").isEmpty();
+    }
+
     /** A STUB client whose every send is refused with a request to send more slowly. */
     private static SmsProviderClient rateLimitedClient() {
         SmsProviderClient client = mock(SmsProviderClient.class);
@@ -1419,6 +1514,7 @@ class SmsQueueProcessingServiceUnitTest {
 
     private static class RecordingSmsTransactionService implements SmsTransactionService {
         private final List<SmsTransaction> transactions;
+        private final List<SmsProviderErrorCode> releaseReasons = new ArrayList<>();
         private int consentDecisionWrites;
 
         private RecordingSmsTransactionService(List<SmsTransaction> transactions) {
@@ -1477,6 +1573,13 @@ class SmsQueueProcessingServiceUnitTest {
         @Override
         public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
             transaction.markClaimReleased(dueAt);
+            return transaction;
+        }
+
+        @Override
+        public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt, SmsProviderErrorCode reason) {
+            releaseReasons.add(reason);
+            transaction.markClaimReleased(dueAt, reason);
             return transaction;
         }
 

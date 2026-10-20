@@ -39,6 +39,10 @@ import java.util.Optional;
  * failed delivery report or a status lookup's answer is final. A timeout or any other unclear outcome is not a
  * failure at all: the client answers "uncertain", and the text is sent again only if the provider's status lookup
  * later says it definitely never arrived.
+ * <p>
+ * Every code here is a definite refusal: never add one for an uncertain outcome. A waiting text that carries a
+ * code the queue retries counts as definitely unsent, so a provider swap moves it to the new provider as a new
+ * text ({@code SmsProviderRetirementService.movable}).
  *
  * @since 2026-10-08
  */
@@ -58,8 +62,8 @@ public enum SmsProviderErrorCode {
     /** The account is out of credit or over a daily or monthly limit. */
     ACCOUNT_LIMIT(false, true, "The SMS provider account is out of credit or over its limit."),
     /**
-     * The SMS provider asked CARLOS to slow down. The queue hands the text back without using a retry, and
-     * sends nothing more through that provider in the run.
+     * The SMS provider asked CARLOS to slow down. The queue hands the text back without using a retry, with this
+     * code and message on the waiting row, and sends nothing more through that provider in the run.
      */
     RATE_LIMITED(false, true, "The SMS provider asked CARLOS to send more slowly."),
     /** The SMS provider could not be reached or reported an error, and definitely did not send the text. */

@@ -733,6 +733,14 @@ class SmsSendServiceUnitTest {
         }
 
         @Override
+        public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt, SmsProviderErrorCode reason) {
+            // A distinct event, so the direct send's exact event lists show it never hands back with a reason.
+            events.add("releaseClaim " + reason);
+            transaction.markClaimReleased(dueAt, reason);
+            return transaction;
+        }
+
+        @Override
         public SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt) {
             events.add("renewClaim");
             transaction.renewSendingClaim(attemptAt);

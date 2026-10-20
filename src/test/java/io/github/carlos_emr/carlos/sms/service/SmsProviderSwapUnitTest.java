@@ -63,9 +63,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.Deque;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -665,6 +667,40 @@ class SmsProviderSwapUnitTest {
             assertThat(boundaries.snapshot()).isEqualTo(retiredThrough);
         }
 
+        @Test
+        @DisplayName("a text the old provider asked CARLOS to send more slowly follows the clinic to the new one")
+        void shouldMoveText_whenOldProviderAskedToSendMoreSlowly() {
+            SmsTransaction waiting = admit(SmsProviderType.STUB);
+            stub.refusals.add(SmsProviderErrorCode.PROVIDER_UNAVAILABLE);
+            stub.refusals.add(SmsProviderErrorCode.RATE_LIMITED);
+            durableWorker().processDueMessages(10);
+            // Due again now, so the next run tries it rather than waiting out the back-off of its counted refusal.
+            ReflectionTestUtils.setField(waiting, "nextAttemptAt", new Date(0));
+            durableWorker().processDueMessages(10);
+            assertThat(waiting)
+                    .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                            SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                    .as("handed back with only the counted refusal's attempt used, saying why it waits")
+                    .containsExactly(SmsStatus.QUEUED, 1, "RATE_LIMITED", SmsProviderErrorCode.RATE_LIMITED.message());
+
+            durableSave(completeFakeSettings());
+            durableWorker().processDueMessages(10);
+
+            SmsTransaction moved = rowNamedBy(waiting);
+            assertThat(waiting).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED");
+            assertThat(moved).extracting(SmsTransaction::getProviderType, SmsTransaction::getStatus,
+                            SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsProviderType.CLOUDLI, SmsStatus.QUEUED, 0, null);
+
+            durableWorker().processDueMessages(10);
+
+            assertThat(moved.getStatus()).isEqualTo(SmsStatus.SENT);
+            assertThat(fake.sentTo).containsExactly("4165551212");
+            assertThat(stub.sends).as("two refusals; nothing went out through the provider the clinic left")
+                    .isEqualTo(2);
+        }
+
         private SmsTransaction admit(SmsProviderType providerType) {
             return recorder.recordOutboundAttempt(
                     SmsSendCommand.patientMessage(123, "416-555-1212", "FAKE waiting text", "999998"),
@@ -838,15 +874,18 @@ class SmsProviderSwapUnitTest {
         return new SmsConfigUpdateDto(providerType, enabled, false, senderNumber, "", false, credentials, null);
     }
 
-    /** The test provider, counting the texts it is asked to send. */
+    /** The test provider, counting the texts it is asked to send; it gives any queued refusals first, in turn. */
     private static final class CountingStubProviderClient extends StubSmsProviderClient {
+        private final Deque<SmsProviderErrorCode> refusals = new ArrayDeque<>();
         private int sends;
 
         @Override
         public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId,
                                              SmsProviderSettings settings) {
             sends++;
-            return super.send(command, clientReferenceId, settings);
+            SmsProviderErrorCode refusal = refusals.poll();
+            return refusal != null ? SmsProviderSendResultDto.failed(refusal)
+                    : super.send(command, clientReferenceId, settings);
         }
     }
 
