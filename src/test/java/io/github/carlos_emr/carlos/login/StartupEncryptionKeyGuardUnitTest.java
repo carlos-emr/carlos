@@ -215,6 +215,21 @@ class StartupEncryptionKeyGuardUnitTest {
     }
 
     @Test
+    @DisplayName("should refuse to replace a missing key over a JSON-escaped encrypted credential")
+    void shouldRefuseStartup_whenJsonEncryptionMarkerIsEscaped() throws Exception {
+        database.withAllTables();
+        String escaped = encryptText(PLAINTEXT_SECRET).replace("{ENC}", "\\u007bENC\\u007d");
+        database.insertEmailConfig(1, "{\"password\":\"" + escaped + "\"}");
+        loseKey();
+
+        assertThatThrownBy(() -> new Startup().contextInitialized(newStartupEvent()))
+                .isInstanceOf(RuntimeException.class)
+                .cause().hasMessageContaining("email sender accounts: 1");
+        assertThat(props.getProperty(KEY)).isBlank();
+        assertThat(savedPropertiesFile()).doesNotExist();
+    }
+
+    @Test
     @DisplayName("should list every kind with its count in one refusal")
     void shouldListEveryKind_whenSeveralKindsAreEncrypted() throws Exception {
         database.withAllTables();

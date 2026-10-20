@@ -215,12 +215,13 @@ final class EncryptedDataCountLoader {
      * Fixed SQL, no user input. The {ENC} patterns are bound as parameters, not written as literals,
      * so no driver can mistake the brace for a JDBC escape. LIKE only narrows the rows fetched; each
      * value is then checked exactly (utf8mb4_general_ci makes LIKE case-insensitive, which only
-     * fetches more rows).
+     * fetches more rows). JSON probes read every non-null document: a valid JSON escape can hide
+     * any part of the marker from SQL LIKE while the runtime parser still reads it as ciphertext.
      */
     private static final List<Probe> PROBES = List.of(
             new Probe(Kind.EMAIL_CREDENTIALS, "emailConfig.configDetails",
-                    "SELECT id, configDetails FROM emailConfig WHERE configDetails LIKE ?",
-                    List.of("%{ENC}%"),
+                    "SELECT id, configDetails FROM emailConfig WHERE configDetails IS NOT NULL",
+                    List.of(),
                     row -> emailConfigHoldsCiphertext(row.getString(2))),
             new Probe(Kind.FAX_CREDENTIALS, "fax_config.passwd",
                     "SELECT id, passwd FROM fax_config WHERE passwd LIKE ?",
@@ -240,8 +241,8 @@ final class EncryptedDataCountLoader {
                     row -> EncryptionUtils.isWellFormedCiphertext(row.getString(2))),
             // SmsConfig encrypts every credential value, under field names that depend on the provider.
             new Probe(Kind.SMS_CREDENTIALS, "sms_config.credentials",
-                    "SELECT id, credentials FROM sms_config WHERE credentials LIKE ?",
-                    List.of("%{ENC}%"),
+                    "SELECT id, credentials FROM sms_config WHERE credentials IS NOT NULL",
+                    List.of(),
                     row -> smsCredentialsHoldCiphertext(row.getString(2))),
             new Probe(Kind.MFA_SECRETS, "security.mfaSecret",
                     "SELECT security_no, mfaSecret FROM security WHERE mfaSecret LIKE ?",

@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.login;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.login.EncryptedDataCountLoader.Kind;
 import io.github.carlos_emr.carlos.login.EncryptedDataCountLoader.Result;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
@@ -127,6 +129,31 @@ class EncryptedDataCountLoaderUnitTest {
             assertThat(result.describeCounts()).isEqualTo("email sender accounts: 2, fax accounts: 2,"
                     + " Teleplan passwords: 1, SMS settings: 1, users with an MFA secret: 1,"
                     + " stored digital signature images: 1");
+        }
+    }
+
+    @Test
+    @DisplayName("should count encrypted JSON credentials whose marker uses Unicode escapes")
+    void shouldCountJsonCredentials_whenEncryptionMarkerIsEscaped() throws Exception {
+        String ciphertext = encryptText(PLAINTEXT_SECRET);
+        String escaped = ciphertext.replace("{ENC}", "\\u007bENC\\u007d");
+        String emailJson = "{\"password\":\"" + escaped + "\"}";
+        // The normal email migration preserves an already encrypted credential's JSON spelling.
+        assertThat(EmailConfigSecrets.encryptSecrets(emailJson))
+                .isEqualTo(emailJson);
+        String decoded = new ObjectMapper().readTree(emailJson)
+                .get("password").asText();
+        assertThat(EncryptionUtils.decrypt(decoded)).isEqualTo(PLAINTEXT_SECRET);
+
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withAllTables()) {
+            database.insertEmailConfig(1, emailJson);
+            database.insertSmsConfig(1, null, "{\"auth_token\":\"" + escaped + "\"}");
+
+            Result result = database.loader().load();
+
+            assertThat(result.complete()).isTrue();
+            assertThat(result.counts()).containsExactlyInAnyOrderEntriesOf(Map.of(
+                    Kind.EMAIL_CREDENTIALS, 1, Kind.SMS_CREDENTIALS, 1));
         }
     }
 
