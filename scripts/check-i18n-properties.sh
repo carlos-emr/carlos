@@ -224,6 +224,12 @@ for props_file in "${all_files[@]}"; do
         printf " %-20s  INVALID UTF-8\n" "${locale}:"
         echo "   Fix: Save the file as UTF-8 and remove malformed byte sequences"
         overall_ok=false
+    elif LC_ALL=C command grep -q '[^[:print:][:space:]]' "$props_file"; then
+        # The bundle-parse test refuses raw non-ASCII bytes; name the first lines here too.
+        printf " %-20s  NON-ASCII CHARACTERS\n" "${locale}:"
+        LC_ALL=C command grep -n '[^[:print:][:space:]]' "$props_file" | head -5 | sed 's/^/   line /'
+        echo "   Fix: write each accented letter as a lowercase \\uXXXX escape"
+        overall_ok=false
     else
         printf " %-20s  OK\n" "${locale}:"
     fi
