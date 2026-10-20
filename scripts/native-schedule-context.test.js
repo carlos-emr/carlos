@@ -35,7 +35,7 @@ function load(file, imports = {}, env = {}, expose = '') {
       __dirname: path.dirname(file)}, {filename: file});
   return m.exports;
 }
-const helper = load(path.join(__dirname, 'lib/native-schedule-context.js'));
+const helper = load(process.env.NATIVE_SCHEDULE_HELPER_FILE || path.join(__dirname, 'lib/native-schedule-context.js'));
 const rawSite = "North's & East";
 function nativeSession({current = rawSite, sites = [rawSite, 'Other'], multisites = true,
   provider = '999998', actor = provider, visible = provider, date = '2004-02-29', scope = '1', week = false} = {}) {
@@ -118,14 +118,14 @@ test('scoped seeder registers cleanup before its INSERT, preserves native fields
     context: {browser: () => ({isConnected: () => connected})},
     cleanup(fn) {events.push('registered'); cleanup = fn;}});
   s.sql = {value(query) {events.push(query); if (/SELECT ADDTIME/.test(query)) return '14:29:00';
-    if (/INSERT INTO appointment/.test(query)) return '77'; return '0';}, execute(query) {events.push(query);}};
+    if (/INSERT INTO appointment/.test(query)) return '77'; return '0';}, rows() {return [];}, execute(query) {events.push(query);}};
   assert.equal(helper.seedScheduleAppointment(s, context), '77');
   const insert = events.findIndex(value => /INSERT INTO appointment/.test(value));
   assert(events.indexOf('registered') < insert);
   const row = appointmentRow(events[insert]);
   assert.equal(row.provider_no, s.provider); assert.equal(row.appointment_date, context.date); assert.equal(row.location, rawSite);
   assert.throws(cleanup, /browser close is unconfirmed/); assert(!events.some(value => /^DELETE/.test(value)));
-  connected = false; cleanup(); assert(events.some(value => /^DELETE/.test(value)));
+  connected = false; cleanup();
 });
 test('scoped seeder refuses mismatched provider or blank/placeholder multisite location before registering cleanup', () => {
   const context = {providerNo: '999998', date: '2004-02-29', location: rawSite, multisites: true};
@@ -199,6 +199,7 @@ function composition(file, pin = '') {
     if (/FROM ProviderPreference/.test(query)) return query.includes('SELECT CURDATE(),')
       ? [[s.state.date, '8', '18', '15']] : [['8', '18', '15']];
     if (/FROM appointment_status/.test(query)) return [['t', 'star.gif', 'To Do'], ['H', 'here.gif', 'Here']];
+    if (/FROM appointment(?:Archive)? WHERE/.test(query)) return [];
     throw Error('Unexpected setup rows');
   }, execute(query) {events.push(query);}, dispose() {events.push('disposed');}};
   const own = {providerNo: '970001', ohipNo: '123456'};
@@ -282,4 +283,145 @@ for (const mode of ['connected', 'child-failure', 'success']) test(`actual sessi
   else {await assert.rejects(run); assert(!writes.some(query => /DELETE FROM demographic/.test(query)));}
   if (connected) assert.equal(writes.length, 0);
   assert.equal(continued, true); assert.equal(disposed, true);
+});
+
+// Exercise the actual generated SELECT/DELETE predicates against a local SQLite
+// database. Only INSERT's clock/LAST_INSERT_ID syntax is adapted; no ownership
+// predicate or cleanup statement is approximated by the test.
+function archiveFixture(t, {lostInsertReply = false, deleteMode = ''} = {}) {
+  const os = require('node:os');
+  const {execFileSync} = require('node:child_process');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'native-schedule-archive-'));
+  t.after(() => fs.rmSync(root, {recursive: true, force: true}));
+  const file = path.join(root, 'fixture.sqlite');
+  const fields = 'provider_no,appointment_date,start_time,end_time,name,demographic_no,program_id,notes,reason,location,resources,type,style,billing,status,createdatetime,updatedatetime,creator,remarks,urgency';
+  const columns = fields.split(',').map(name => `${name} TEXT`).join(',');
+  const query = statement => JSON.parse(execFileSync('python3', ['-c',
+    'import json,sqlite3,sys; db=sqlite3.connect(sys.argv[1]); c=db.execute(sys.argv[2]); rows=c.fetchall(); db.commit(); print(json.dumps([[None if v is None else str(v) for v in r] for r in rows]))',
+    file, statement], {encoding: 'utf8', timeout: 10000}));
+  query(`CREATE TABLE appointment (appointment_no INTEGER PRIMARY KEY AUTOINCREMENT,${columns})`);
+  query(`CREATE TABLE appointmentArchive (id INTEGER PRIMARY KEY AUTOINCREMENT,appointment_no INTEGER,${columns})`);
+  const cleanups = [], writes = [];
+  const s = {provider: '999998', patient: '777', marker: 'FAKE-PW0123456789abcdef',
+    context: {browser: () => ({isConnected: () => s.connected})}, connected: false,
+    cleanup: fn => cleanups.push(fn), sql: {
+      rows: query,
+      value(statement) {
+        if (statement.startsWith('SELECT ADDTIME')) {
+          const clock = statement.match(/'(\d{2}):(\d{2}):(\d{2})'/);
+          const minutes = Number(clock[1]) * 60 + Number(clock[2]) + 14;
+          return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}:${clock[3]}`;
+        }
+        if (/^INSERT INTO appointment/.test(statement)) {
+          query(statement.split(';')[0].replaceAll('NOW()', 'CURRENT_TIMESTAMP'));
+          if (lostInsertReply) throw Error('synthetic lost INSERT reply');
+          return query('SELECT MAX(appointment_no) FROM appointment')[0][0];
+        }
+        return query(statement)[0]?.[0] || '';
+      },
+      execute(statement) {
+        writes.push(statement);
+        if (deleteMode === 'archive-failure' && /^DELETE FROM appointmentArchive/.test(statement)) throw Error('synthetic archive failure');
+        if (deleteMode === 'archive-ignored' && /^DELETE FROM appointmentArchive/.test(statement)) return;
+        if (deleteMode === 'live-failure' && /^DELETE FROM appointment WHERE/.test(statement)) throw Error('synthetic live failure');
+        query(statement);
+        if (deleteMode === 'archive-lost-ack' && /^DELETE FROM appointmentArchive/.test(statement)) throw Error('synthetic archive acknowledgement lost');
+      },
+    }};
+  const context = Object.freeze({providerNo: s.provider, date: '2026-10-20', location: rawSite, multisites: true});
+  const seed = options => helper.seedScheduleAppointment(s, context, options);
+  const archive = id => query(`INSERT INTO appointmentArchive (appointment_no,${fields}) SELECT appointment_no,${fields} FROM appointment WHERE appointment_no=${id}`);
+  return {s, context, seed, archive, query, cleanups, writes};
+}
+
+test('real SQL removes both owned live/archive versions while preserving similarly marked foreign rows', t => {
+  const f = archiveFixture(t); const id = f.seed(); f.archive(id);
+  f.query(`INSERT INTO appointmentArchive (id,appointment_no,provider_no,demographic_no,name,start_time)
+    VALUES (900,999,'foreign',888,'FAKE-PW0123456789abcdef0,Workflow','14:15:00')`);
+  const foreign = f.query('SELECT * FROM appointmentArchive WHERE id=900');
+  f.cleanups[0]();
+  assert.deepEqual(f.query('SELECT appointment_no FROM appointment'), []);
+  assert.deepEqual(f.query('SELECT * FROM appointmentArchive'), foreign);
+  assert.match(f.writes[0], /^DELETE FROM appointmentArchive WHERE id IN \(1\) AND/);
+  assert.match(f.writes[1], /^DELETE FROM appointment WHERE appointment_no IN \(1\) AND/);
+  assert(!f.writes.some(sql => /LIKE|appointment_no\s*>/.test(sql)));
+});
+
+test('two same-marker appointments clean their own time/ID and retain the other until its callback', t => {
+  const f = archiveFixture(t); const a = f.seed(); const b = f.seed({time: '14:30:00'});
+  f.archive(a); f.archive(b);
+  f.cleanups[1]();
+  assert.deepEqual(f.query('SELECT appointment_no FROM appointment'), [[a]]);
+  assert.deepEqual(f.query('SELECT appointment_no FROM appointmentArchive'), [[a]]);
+  f.cleanups[0]();
+  assert.equal(f.query('SELECT * FROM appointment').length, 0);
+  assert.equal(f.query('SELECT * FROM appointmentArchive').length, 0);
+});
+
+for (const table of ['appointment', 'appointmentArchive']) {
+  for (const [label, change] of [
+    ['provider', "provider_no='123'"], ['patient', "demographic_no='888'"],
+    ['marker', "name='foreign,Workflow'"], ['date', "appointment_date='2026-10-21'"],
+    ['time', "start_time='15:30:00'"], ['end', "end_time='15:44:00'"],
+    ['notes', "notes='foreign'"], ['reason', "reason='foreign'"],
+    ['location', "location='Other'"], ['creator', "creator='123'"],
+  ]) test(`real SQL refuses changed ${table} ${label} before deleting from either table`, t => {
+    const f = archiveFixture(t); const id = f.seed(); f.archive(id);
+    f.query(`UPDATE ${table} SET ${change}`);
+    const live = f.query('SELECT * FROM appointment'), archived = f.query('SELECT * FROM appointmentArchive');
+    assert.throws(f.cleanups[0], /Unowned native/);
+    assert.equal(f.writes.length, 0);
+    assert.deepEqual(f.query('SELECT * FROM appointment'), live);
+    assert.deepEqual(f.query('SELECT * FROM appointmentArchive'), archived);
+  });
+}
+
+test('a second foreign archive version of a captured ID refuses before deleting its owned sibling or live row', t => {
+  const f = archiveFixture(t); const id = f.seed(); f.archive(id); f.archive(id);
+  f.query("UPDATE appointmentArchive SET provider_no='123',name='foreign' WHERE id=2");
+  assert.throws(f.cleanups[0], /Unowned native/);
+  assert.equal(f.writes.length, 0);
+  assert.equal(f.query('SELECT * FROM appointmentArchive').length, 2);
+});
+
+test('lost INSERT reply is recovered by exact marker/time without a captured ID', t => {
+  const f = archiveFixture(t, {lostInsertReply: true});
+  assert.throws(() => f.seed(), /lost INSERT reply/);
+  assert.equal(f.cleanups.length, 1); f.archive('1');
+  f.cleanups[0]();
+  assert.equal(f.query('SELECT * FROM appointment').length, 0);
+  assert.equal(f.query('SELECT * FROM appointmentArchive').length, 0);
+});
+
+test('archive-only lost-reply recovery works after native live-row retirement', t => {
+  const f = archiveFixture(t, {lostInsertReply: true});
+  assert.throws(() => f.seed(), /lost INSERT reply/); f.archive('1');
+  f.query('DELETE FROM appointment'); f.cleanups[0]();
+  assert.equal(f.query('SELECT * FROM appointmentArchive').length, 0);
+});
+
+for (const deleteMode of ['archive-failure', 'archive-ignored', 'archive-lost-ack', 'live-failure']) {
+  test(`partial ${deleteMode} cleanup remains a failure and never claims a clean fixture`, t => {
+    const f = archiveFixture(t, {deleteMode}); const id = f.seed(); f.archive(id);
+    assert.throws(f.cleanups[0], /synthetic|archives remain/);
+    if (deleteMode.startsWith('archive-')) {
+      assert.equal(f.query('SELECT * FROM appointment').length, 1);
+      assert(!f.writes.some(query => /^DELETE FROM appointment WHERE/.test(query)));
+    }
+  });
+}
+
+test('real cleanup refuses a connected browser before reading or deleting candidate rows', t => {
+  const f = archiveFixture(t); const id = f.seed(); f.archive(id); f.s.connected = true;
+  assert.throws(f.cleanups[0], /browser close is unconfirmed/);
+  assert.equal(f.writes.length, 0); assert.equal(f.query('SELECT * FROM appointmentArchive').length, 1);
+});
+
+test('preexisting live or archive namespace refuses setup before INSERT/cleanup registration', t => {
+  for (const table of ['appointment', 'appointmentArchive']) {
+    const f = archiveFixture(t);
+    f.query(`INSERT INTO ${table} (name,start_time) VALUES ('FAKE-PW0123456789abcdef,Workflow','14:15:00')`);
+    assert.throws(() => f.seed(), /namespace already exists/);
+    assert.equal(f.cleanups.length, 0); assert.equal(f.writes.length, 0);
+  }
 });
