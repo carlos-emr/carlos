@@ -166,9 +166,16 @@ function composition(file, pin = '') {
   s.schedule.locator = selector => /^a\[onclick|^a\.apptStatus|^a\.masterBtn/.test(selector) ? nativeLookup(selector)
     : selector === 'span.dateAppointment' ? {waitFor: async () => {}} : locate(selector);
   s.schedule.reload = async () => {}; s.schedule.waitForLoadState = async () => {};
-  s.marker = 'FAKE-PW0123456789abcdef'; s.patient = '777'; s.config = {testUser: 'synthetic'};
+  s.marker = 'FAKE-PW0123456789abcdef'; s.patient = '777';
+  s.config = {testUser: 'synthetic', baseUrl: 'https://127.0.0.1/carlos'};
   const cleanups = []; s.state.connected = false;
-  s.recorder = {requestFailures: []}; s.context = {browser: () => ({isConnected: () => s.state.connected})};
+  s.recorder = {requestFailures: []}; s.context = {
+    browser: () => ({isConnected: () => s.state.connected}),
+    cookies: async url => {
+      assert.equal(url, s.config.baseUrl); events.push('monitor-session-snapshot');
+      return [{name: 'JSESSIONID', path: '/carlos', value: 'synthetic-native-schedule-session'}];
+    },
+  };
   s.cleanup = callback => {events.push('cleanup'); cleanups.push(callback);};
   s.step = async (_label, body) => {if (file.startsWith('csrf-') && events.includes('first-step')) throw stop;
     const value = await body(); events.push('first-step'); return value;};
@@ -196,6 +203,7 @@ function composition(file, pin = '') {
     if (/SELECT COUNT/.test(query)) return '0';
     throw Error('Unexpected setup query');
   }, rows(query) {
+    if (/^SELECT id FROM PageMonitor WHERE/.test(query)) {events.push(query); return [];}
     if (/FROM ProviderPreference/.test(query)) return query.includes('SELECT CURDATE(),')
       ? [[s.state.date, '8', '18', '15']] : [['8', '18', '15']];
     if (/FROM appointment_status/.test(query)) return [['t', 'star.gif', 'To Do'], ['H', 'here.gif', 'Here']];
@@ -208,6 +216,7 @@ function composition(file, pin = '') {
     seedOwnedBill: () => ({...own, provider: own.providerNo, ohip: own.ohipNo, headerId: '100', itemId: '101'}),
     billDate: () => '2030-01-01', money: value => Number(value).toFixed(2)};
   const imports = {'./lib/native-schedule-context': helper, './lib/gap-billing-support': g,
+    './lib/appointment-page-monitor-cleanup': load(path.join(repo, 'scripts/lib/appointment-page-monitor-cleanup.js')),
     './lib/owned-billing-physician': {createOwnedBillingPhysician: () => ({...own, dependentSession: s})},
     './billing-on-invoice-third-party-playwright-checks': invoice,
     './billing-on-ohip-simulation-report-playwright-checks': {createBillingFixture: () => own},
@@ -241,6 +250,14 @@ for (const [file, pin, count] of callers) test(`actual ${file} ${pin} binds nati
   }
   const insert = c.events.findIndex(e => typeof e === 'string' && /INSERT INTO appointment/.test(e));
   assert(c.events.slice(0, insert).some(e => typeof e === 'string' && /SELECT COUNT\(DISTINCT site.site_id\)/.test(e)));
+  if (file.startsWith('session-state')) {
+    const baseline = c.events.findIndex(e => /^SELECT id FROM PageMonitor WHERE/.test(e));
+    assert(c.events.indexOf('monitor-session-snapshot') < baseline && baseline < insert,
+      'The real monitor helper must capture the session-scoped baseline before fixture writes');
+    assert(c.events[baseline].includes("pageId LIKE '999998|2004-02-29|%'"));
+    assert.match(c.events[baseline], /SHA2\(session,256\)='[a-f0-9]{64}'/);
+    assert(!c.events[baseline].includes('synthetic-native-schedule-session'), 'Session values must stay out of SQL');
+  }
 });
 
 // Execute the unchanged default finalizer: it deliberately continues callbacks
