@@ -67,6 +67,13 @@ public class SendMostResponProv2Action extends ActionSupport {
     public String execute()
             throws ServletException, IOException {
 
+        // Routing a document or lab into a provider's inbox is a write; every caller posts.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
@@ -85,8 +92,8 @@ public class SendMostResponProv2Action extends ActionSupport {
             listFlaggedLabs.add(la);
             CommonLabResultData.updateLabRouting(listFlaggedLabs, mrp);
         } else {
-            //return error in json
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         }
-        return null;
+        return NONE;
     }
 }
