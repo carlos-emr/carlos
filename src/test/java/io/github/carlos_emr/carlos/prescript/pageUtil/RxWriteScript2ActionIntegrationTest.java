@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.springframework.test.context.transaction.TestTransaction;
 
 import java.util.Set;
 
@@ -280,6 +281,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
             action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(foreignDrugId, ownedDrugId),
                     "127.0.0.1", "audit");
 
+            commitAuditTransaction(logAction);
             verifyNotAudited(logAction, foreignDrugId);
             verifyAudited(logAction, ownedDrugId);
         }
@@ -308,6 +310,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
             action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(firstDrugId, secondDrugId),
                     "127.0.0.1", "audit");
 
+            commitAuditTransaction(logAction);
             verifyAudited(logAction, firstDrugId);
             verifyAudited(logAction, secondDrugId);
         }
@@ -451,6 +454,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
             action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(ownedDrugId), "127.0.0.1", "audit");
 
+            commitAuditTransaction(logAction);
             verifyAudited(logAction, ownedDrugId);
         }
 
@@ -478,6 +482,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
             action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(savedDrugId), "127.0.0.1", "audit");
 
+            commitAuditTransaction(logAction);
             verifyNotAudited(logAction, tickedOnlyDrugId);
             verifyAudited(logAction, savedDrugId);
         }
@@ -507,6 +512,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
             action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(deniedDrugId, ownedDrugId),
                     "127.0.0.1", "audit");
 
+            commitAuditTransaction(logAction);
             verifyNotAudited(logAction, deniedDrugId);
             verifyAudited(logAction, ownedDrugId);
         }
@@ -578,6 +584,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
                      org.mockito.Mockito.mockConstruction(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.class,
                              (mock, context) -> when(mock.saveScript(any(), any())).thenReturn("77"))) {
             scriptId = action.persistStash(mockLoggedInInfo, bean);
+            commitAuditTransaction(logAction);
             verifyAudited(logAction, 3003);
         }
 
@@ -622,6 +629,36 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
             logAction.verifyNoInteractions();
         }
         verify(mockRxManager, never()).archiveDrug(any(), anyInt(), anyInt(), any(String.class));
+    }
+
+    @Test
+    @DisplayName("should not emit a successful archival audit when its transaction rolls back")
+    void shouldNotAuditArchival_whenTransactionRollsBack() {
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(1001);
+        bean.getReRxDrugIdList().add("3003");
+        when(mockRxManager.archiveDrug(any(), eq(3003), eq(1001), eq(Drug.REPRESCRIBED))).thenReturn(true);
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            assertThat(action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(3003), "127.0.0.1", "audit")).isTrue();
+            logAction.verifyNoInteractions();
+
+            TestTransaction.flagForRollback();
+            TestTransaction.end();
+
+            logAction.verifyNoInteractions();
+        }
+        verify(mockRxManager).archiveDrug(any(), eq(3003), eq(1001), eq(Drug.REPRESCRIBED));
+    }
+
+    /**
+     * These tests replace drug persistence/archival with mocks, so committing writes no fixture rows.
+     * Keep the audit mock open through the real commit, and prove it was not called beforehand.
+     */
+    private void commitAuditTransaction(MockedStatic<LogAction> logAction) {
+        logAction.verifyNoInteractions();
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
     }
 
     /**

@@ -11,7 +11,7 @@ const end = source.indexOf('// display in place editor', start);
 assert.ok(start > 0 && end > start);
 const script = source.slice(start, end).replace(/<%--[\s\S]*?--%>/g, '');
 
-function harness({ throwFirstSend = false } = {}) {
+function harness({ throwFirstSend = false, patient = '2', appointment = 0 } = {}) {
   const elements = {}; const requests = []; const errors = [];
   function element(id = '') {
     return {
@@ -29,7 +29,7 @@ function harness({ throwFirstSend = false } = {}) {
   const context = {
     window: {}, document: { getElementById: id => elements[id], createElement: () => element() },
     $: id => elements[id], Element: { remove: el => { delete elements[el.id]; } },
-    Colour: new Proxy({}, { get: () => '#fff' }), ctx: '/carlos', providerNo: '9', demographicNo: '2', appointmentNo: 0,
+    Colour: new Proxy({}, { get: () => '#fff' }), ctx: '/carlos', providerNo: '9', demographicNo: patient, appointmentNo: appointment,
     famHistoryLabel: 'Family', oMedsLabel: 'Other', riskFactorsLabel: 'Risk',
     console: { error: (...args) => errors.push(args) },
     CarlosAjax: { request(url, options) {
@@ -49,6 +49,21 @@ function harness({ throwFirstSend = false } = {}) {
   }
   return { context, loader, elements, requests, errors, complete, state: () => context.window.carlosNavbarLoadState };
 }
+
+test('every initial and refreshed navbar request carries its own chart patient and appointment', () => {
+  const first = harness({patient: '101', appointment: 41});
+  const second = harness({patient: '202', appointment: 52});
+  first.context.requestNavbarColumn('/carlos/encounter/displayForms', 'forms', 'cmd=forms', null);
+  second.context.requestNavbarColumn('/carlos/encounter/displayMeasurements', 'measurements', 'cmd=measurements', null);
+  for (const [h, patient, appointment] of [[first, '101', '41'], [second, '202', '52']]) {
+    assert.equal(h.requests.length, 23);
+    for (const request of h.requests) {
+      const body = new URLSearchParams(request.options.postBody);
+      assert.equal(body.get('demographicNo'), patient);
+      assert.equal(body.get('appointmentNo'), appointment);
+    }
+  }
+});
 
 test('a slow last module retains its own column loader after other modules finish', () => {
   const h = harness(); assert.equal(h.requests.length, 22);

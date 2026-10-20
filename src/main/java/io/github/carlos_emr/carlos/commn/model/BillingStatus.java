@@ -79,6 +79,22 @@ public final class BillingStatus {
             NOT_BILLED, INDEPENDENT, WCB, ACKNOWLEDGED);
 
     /**
+     * Whether a claim stored with {@code status} has already been submitted to the insurer
+     * ({@link #BILLED}) or settled ({@link #SETTLED}), and so may no longer be unbilled.
+     *
+     * <p>This is the single definition behind both halves of Billing History ▸ Unbill: the
+     * history page hides the link for such claims, and the unbill actions refuse the POST for
+     * them. The actions must apply it to the status <em>stored</em> on the claim, never to a
+     * status the browser posts (issue #4538).</p>
+     *
+     * @param status the stored claim status code; {@code null} and unknown codes are not locked
+     * @return {@code true} when the claim is billed or settled
+     */
+    public static boolean isSubmittedOrSettled(String status) {
+        return BILLED.equals(status) || SETTLED.equals(status);
+    }
+
+    /**
      * Record one lenient-setter acceptance of an unknown status during the
      * migration window. This gives tests and future metrics plumbing a single
      * hook without changing legacy setter return types.

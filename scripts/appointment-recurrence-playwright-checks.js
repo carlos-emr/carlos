@@ -2,6 +2,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 // Uses the existing UI booking fixture. All rows are run-owned and removed in finally.
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert, assertNoPageErrors, assertNotErrorPage, getLaunchOptions, login, wirePage,
 } = require('./eform-local-playwright-utils');
@@ -13,7 +14,7 @@ async function main() {
   fixture.initMysqlDefaults();
   try {
     browser = await chromium.launch(getLaunchOptions(fixture.config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(fixture.config.baseUrl) });
     await context.addInitScript(() => { window.close = () => { window.__carlosSelfCloseRequested = true; }; });
     const daySheet = await login(context, fixture.config, fixture.recorder);
     await fixture.openDaySheet(daySheet);

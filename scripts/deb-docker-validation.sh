@@ -429,6 +429,10 @@ export NEXT_APPT_DEMOGRAPHIC_NO=1 NEXT_APPT_PROVIDER_NO=999998
 export CARLOS_LOG_AUDIT_SINCE='\$(date -u '+%Y-%m-%d %H:%M:%S UTC')'
 cd /root/carlos
 EOF
+    # Derive and quote inside this shell, after the heredoc: embedding an
+    # already-quoted path into an unquoted heredoc would consume its escapes.
+    suite_home=\"\$(node /root/carlos/scripts/packaged-home-dir.js)\"
+    printf 'export HOME_DIR=%q\\n' \"\$suite_home\" >> /root/suite-env.sh
     chmod 0600 /root/suite-env.sh"
 }
 

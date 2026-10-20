@@ -53,6 +53,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.StringJoiner;
 import java.util.Vector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RxPrescriptionData {
@@ -65,6 +67,40 @@ public class RxPrescriptionData {
 
     static String textViewLineForFullOutline(String fullOutLine) {
         return StringUtils.defaultString(fullOutLine).replace(";", "\n");
+    }
+
+    /**
+     * The prescriber, clinic and patient lines that open a stored prescription's text view, one per line in a fixed
+     * order. A value the record doesn't have is written as an empty line, not the word "null", so every line keeps its
+     * place for the readers of the stored text (the REST {@code PrescriptionTo1} and the SOAP {@code
+     * PrescriptionTransfer}).
+     *
+     * @param doctorName the prescriber's signature, or {@code null} to use the provider's first and last name
+     */
+    public static String textViewHeader(String doctorName, RxProviderData.Provider provider, RxPatientData.Patient patient,
+                                        Date today) {
+        StringBuilder header = new StringBuilder();
+        for (String line : new String[] {
+                doctorName != null ? doctorName : joinPresent(provider.getFirstName(), provider.getSurname()),
+                provider.getClinicName(),
+                provider.getClinicAddress(),
+                provider.getClinicCity(),
+                provider.getClinicPostal(),
+                provider.getClinicPhone(),
+                provider.getClinicFax(),
+                joinPresent(patient.getFirstName(), patient.getSurname()),
+                patient.getAddress(),
+                joinPresent(patient.getCity(), patient.getPostal()),
+                patient.getPhone(),
+                RxUtil.DateToString(today, "MMMM d, yyyy")}) {
+            header.append(StringUtils.defaultString(line)).append('\n');
+        }
+        return header.toString();
+    }
+
+    /** The two values that are present, separated by a space ("" when neither is). */
+    private static String joinPresent(String first, String second) {
+        return Stream.of(first, second).filter(StringUtils::isNotEmpty).collect(Collectors.joining(" "));
     }
 
     /**
@@ -578,26 +614,8 @@ public class RxPrescriptionData {
             logger.error("Prescription operation failed ({})", e.getClass().getSimpleName());
         }
         ProSignatureData sig = new ProSignatureData();
-        boolean hasSig = sig.hasSignature(bean.getProviderNo());
-        String doctorName = "";
-        if (hasSig) {
-            doctorName = sig.getSignature(bean.getProviderNo());
-        } else {
-            doctorName = (provider.getFirstName() + ' ' + provider.getSurname());
-        }
-
-        textView.append(doctorName + "\n");
-        textView.append(provider.getClinicName() + "\n");
-        textView.append(provider.getClinicAddress() + "\n");
-        textView.append(provider.getClinicCity() + "\n");
-        textView.append(provider.getClinicPostal() + "\n");
-        textView.append(provider.getClinicPhone() + "\n");
-        textView.append(provider.getClinicFax() + "\n");
-        textView.append(patient.getFirstName() + " " + patient.getSurname() + "\n");
-        textView.append(patient.getAddress() + "\n");
-        textView.append(patient.getCity() + " " + patient.getPostal() + "\n");
-        textView.append(patient.getPhone() + "\n");
-        textView.append(RxUtil.DateToString(today, "MMMM d, yyyy") + "\n");
+        String doctorName = sig.hasSignature(bean.getProviderNo()) ? sig.getSignature(bean.getProviderNo()) : null;
+        textView.append(textViewHeader(doctorName, provider, patient, today));
 
         String txt;
         for (int i = 0; i < bean.getStashSize(); i++) {
@@ -1017,6 +1035,13 @@ public class RxPrescriptionData {
         //////////////////////////////
         public int getDrugId() {
             return this.drugId;
+        }
+
+        /** Restores the last committed row after a correction-save transaction rolls back. */
+        public void restoreSavedIdentity(int previousDrugId, String previousScriptNo, String previousDraftRevision) {
+            this.drugId = previousDrugId;
+            this.script_no = previousScriptNo;
+            this.draftRevision = previousDraftRevision;
         }
 
         public String getProviderNo() {

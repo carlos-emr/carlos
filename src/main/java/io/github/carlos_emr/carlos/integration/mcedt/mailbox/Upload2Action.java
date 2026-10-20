@@ -95,20 +95,17 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
         ActionUtils.removeSuccessfulUploads(request);
         ActionUtils.removeUploadResponseResults(request);
         ActionUtils.removeSubmitResponseResults(request);
-        Date startDate = ActionUtils.getOutboxTimestamp();
-        Date endDate = new Date();
-        if (startDate != null && endDate != null) {
-            ActionUtils.moveOhipToOutBox(startDate, endDate);
-            
-            /*
-             * The method ActionUtils.moveObecToOutBox is slow with many files in 'OscarDocument/oscar/document/'.
-             * To optimize, we will move OBEC files during generation rather than during MCEDT mailbox opening.
-             * See ObecData.writeFile() for details on the updated process.
-             */
-            // ActionUtils.moveObecToOutBox(startDate, endDate);	
-
-            ActionUtils.setOutboxTimestamp(endDate);
+        // Copies the claim files generated since the last open into the outbox; a file that
+        // fails to copy is retried on the next open. The failure itself is only in the server
+        // log, so the tab says when the list may be missing a file.
+        if (!ActionUtils.stageGeneratedClaimFiles()) {
+            addActionError(getText("uploadAction.stage.failure"));
         }
+        /*
+         * The method ActionUtils.moveObecToOutBox is slow with many files in 'OscarDocument/oscar/document/'.
+         * To optimize, we will move OBEC files during generation rather than during MCEDT mailbox opening.
+         * See ObecData.writeFile() for details on the updated process.
+         */
         ActionUtils.setUploadResourceId(request, new BigInteger("-1"));
 
         return SUCCESS;

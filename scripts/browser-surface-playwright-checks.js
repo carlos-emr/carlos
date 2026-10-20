@@ -26,9 +26,11 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -140,9 +142,12 @@ async function login(context) {
 }
 
 async function openPatientFromSearch(context, schedulePage) {
-  const searchPopup = context.waitForEvent('page');
-  await schedulePage.locator('a').filter({ hasText: /^Search$/ }).click();
-  const searchPage = await searchPopup;
+  const searchLink = schedulePage.locator('a').filter({ hasText: /^Search$/ });
+  await searchLink.waitFor({ state: 'visible', timeout: 15000 });
+  const [searchPage] = await Promise.all([
+    context.waitForEvent('page'),
+    searchLink.click(),
+  ]);
   wirePage(searchPage, 'search');
   await searchPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
@@ -153,9 +158,12 @@ async function openPatientFromSearch(context, schedulePage) {
   ]);
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
-  const patientPopup = context.waitForEvent('page');
-  await searchPage.locator(`a[onclick*='DemographicEdit?demographic_no=${demographicNo}']`).first().click();
-  const patientPage = await patientPopup;
+  const patientLink = searchPage.locator(`a[onclick*='DemographicEdit?demographic_no=${demographicNo}']`).first();
+  await patientLink.waitFor({ state: 'visible', timeout: 15000 });
+  const [patientPage] = await Promise.all([
+    context.waitForEvent('page'),
+    patientLink.click(),
+  ]);
   wirePage(patientPage, 'patient');
   await patientPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return patientPage;
@@ -214,10 +222,13 @@ async function checkDemographicCrud(context) {
   }
 }
 
-async function clickPopupLink(context, page, selector, label) {
-  const popupPromise = context.waitForEvent('page');
-  await page.locator(selector).first().click();
-  const popup = await popupPromise;
+async function clickPopupLink(context, link, label) {
+  // Resolve the visible opener first, so a missing link cannot leave an unobserved popup timeout.
+  await link.first().waitFor({ state: 'visible', timeout: 15000 });
+  const [popup] = await Promise.all([
+    context.waitForEvent('page'),
+    link.first().click(),
+  ]);
   wirePage(popup, label);
   await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -238,10 +249,11 @@ async function assertDataTablesAvailable(page, label) {
 async function checkPatientPopups(context, patientPage) {
   const tickler = await clickPopupLink(
     context,
-    patientPage,
-    "a[onclick*='/tickler/ViewTicklerMain']",
+    masterRecordLink(patientPage, '/tickler/ViewTicklerMain'),
     'tickler'
   );
+  assert(new URL(tickler.url()).searchParams.get('demoview') === String(demographicNo),
+    'tickler popup did not open for the owned patient');
   await tickler.locator('body').waitFor({ state: 'visible', timeout: 15000 });
   await assertDataTablesAvailable(tickler, 'tickler');
   await tickler.screenshot({ path: buildArtifactPath(screenshotDir, 'surface-tickler'), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
@@ -250,10 +262,11 @@ async function checkPatientPopups(context, patientPage) {
 
   const consultation = await clickPopupLink(
     context,
-    patientPage,
-    "a[onclick*='ViewDisplayDemographicConsultationRequests']",
+    masterRecordLink(patientPage, 'ViewDisplayDemographicConsultationRequests'),
     'consultation'
   );
+  assert(new URL(consultation.url()).searchParams.get('de') === String(demographicNo),
+    'consultation popup did not open for the owned patient');
   await consultation.locator('body').waitFor({ state: 'visible', timeout: 15000 });
   await assertDataTablesAvailable(consultation, 'consultation');
   await consultation.screenshot({ path: buildArtifactPath(screenshotDir, 'surface-consultation'), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
@@ -291,7 +304,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
     // step saves it; the demo patient this check used to open had one. A reserved real-format code, on the owned patient only.
     sql.execute(`UPDATE demographic SET postal='K1A0B1' WHERE demographic_no=${demographicNo} AND last_name=${h.sqlString(ownedMarker)}`);
     browser = await chromium.launch(launchOptions);
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context);
     const patientPage = await openPatientFromSearch(context, schedulePage);
 

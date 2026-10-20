@@ -12,8 +12,8 @@ const { spawnSync } = require('node:child_process');
  * whoever runs the meta-tests must not fail a test that only requires the module. Each case runs in a child process because the variable is read once, at load.
  *
  * Only the pin is deferred. A check's other environment variables keep their own validation: the allergy check still
- * validates DRUGREF_TEST_DATABASE (and BASE_URL and MYSQL_HOST) when its module loads, so
- * "requiring never throws" holds for a bad pin and for nothing else.
+ * validates BASE_URL and MYSQL_HOST when its module loads, so "requiring never throws" holds for a bad pin and for
+ * nothing else.
  */
 const CASES = [
   { script: 'allergy-add-penicillin-playwright-checks.js', variable: 'ALLERGY_PIN', label: 'Allergy', good: ['', 'shortcut-id'],
@@ -48,38 +48,44 @@ const CASES = [
     good: ['', 'delservice', 'enablerequest.get,updateinstitution.restricted'], run: 'workflow({})' },
 ];
 
-/**
- * Variables the allergy check validates when its module loads (see its header), whatever the pin: a stray value in the shell
- * that runs the meta-tests would fail an unrelated case with a message about a variable the case never set, so a child
- * never inherits them.
- */
-const NOT_INHERITED = ['DRUGREF_TEST_DATABASE'];
+const CHILD_TIMEOUT_MS = 30000;
 
 function child(script, variable, value, body) {
   const env = { ...process.env, [variable]: value };
-  for (const name of NOT_INHERITED) delete env[name];
   return spawnSync(process.execPath, ['-e', `const m = require(${JSON.stringify(path.join(__dirname, script))}); ${body}`],
-    { env, encoding: 'utf8', timeout: 30000 });
+    { env, encoding: 'utf8', timeout: CHILD_TIMEOUT_MS });
+}
+
+/**
+ * How a child ended, for an assertion message. A child that never got to exit has a null status: spawnSync
+ * timed it out (error ETIMEDOUT, then SIGTERM) or something else killed it. A host that pauses busy
+ * processes, as one CPU guard does, turns a one-second require into a timeout; without this the failure
+ * read as "threw while being required" with an empty stderr.
+ */
+function ending(result) {
+  if (result.error) return `${result.error.code || result.error.message} (limit ${CHILD_TIMEOUT_MS} ms), signal ${result.signal}`;
+  if (result.signal) return `killed by ${result.signal}`;
+  return `exit status ${result.status}`;
 }
 
 for (const { script, variable, label, good, run } of CASES) {
   test(`shouldLoadWithoutThrowing_when${label}PinIsInvalid`, () => {
     const result = child(script, variable, 'not-a-pin', "console.log('loaded', typeof m.validatePin);");
-    assert.equal(result.status, 0, `${script} threw while being required: ${result.stderr}`);
+    assert.equal(result.status, 0, `${script} threw while being required (${ending(result)}): ${result.stderr}`);
     assert.match(result.stdout, /loaded function/);
   });
 
   test(`shouldRefuseToRun_when${label}PinIsInvalid`, () => {
     const result = child(script, variable, 'not-a-pin',
       `m.${run}.then(() => { console.log('RESOLVED'); }, (error) => { console.log('REJECTED ' + error.message); });`);
-    assert.equal(result.status, 0, `${script}: ${result.stderr}`);
+    assert.equal(result.status, 0, `${script} (${ending(result)}): ${result.stderr}`);
     assert.match(result.stdout, new RegExp(`REJECTED ${variable} must be unset`), `${script} did not refuse a bad ${variable} when it ran`);
   });
 
   test(`shouldAcceptEveryDocumentedValue_for${label}Pin`, () => {
     for (const value of good) {
       const result = child(script, variable, value, 'm.validatePin(); console.log("accepted");');
-      assert.equal(result.status, 0, `${script} refused ${variable}=${JSON.stringify(value)}: ${result.stderr}`);
+      assert.equal(result.status, 0, `${script} refused ${variable}=${JSON.stringify(value)} (${ending(result)}): ${result.stderr}`);
       assert.match(result.stdout, /accepted/);
     }
   });
@@ -107,19 +113,4 @@ test('shouldRefuseToRun_whenAuthzWriteSelectorIsInvalid', () => {
   assert.throws(() => selection({ AUTHZ_WRITE_MODE: 'not-a-mode' }), /AUTHZ_WRITE_MODE must be one of matrix, chart-bill, issue-change/);
   assert.throws(() => selection({ AUTHZ_WRITE_ONLY: 'not-a-family' }), /AUTHZ_WRITE_ONLY names an unknown family/);
   assert.throws(() => selection({ AUTHZ_WRITE_MODE: 'issue-change', AUTHZ_WRITE_ONLY: 'billing-on-save' }), /cannot be combined/);
-});
-
-test('shouldNotInheritTheAllergyLoadVariables_whenTheShellHoldsOddValues', () => {
-  // It would throw as the allergy module loads (DRUGREF_TEST_DATABASE must be a plain name).
-  const saved = Object.fromEntries(NOT_INHERITED.map((name) => [name, process.env[name]]));
-  try {
-    process.env.DRUGREF_TEST_DATABASE = 'not a database';
-    const result = child('allergy-add-penicillin-playwright-checks.js', 'ALLERGY_PIN', 'shortcut-id', "console.log('loaded', typeof m.validatePin);");
-    assert.equal(result.status, 0, `a stray shell value leaked into the child: ${result.stderr}`);
-    assert.match(result.stdout, /loaded function/);
-  } finally {
-    for (const [name, value] of Object.entries(saved)) {
-      if (value === undefined) delete process.env[name]; else process.env[name] = value;
-    }
-  }
 });

@@ -32,6 +32,7 @@ import org.springframework.mock.web.MockHttpSession;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -49,6 +50,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     private EmailComposeManager emailComposeManager;
     private MockedStatic<ServletActionContext> servletActionContext;
     private final MockHttpSession session = new MockHttpSession();
+    /** The response of the last {@link #prepare(String)}. */
+    private MockHttpServletResponse response;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -97,7 +100,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             request.addParameter(EmailComposeStaging.DRAFT_PARAMETER, draftKey);
         }
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
-        servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        response = new MockHttpServletResponse();
+        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
         String result = new EmailCompose2Action().prepareComposeEFormMailer();
         request.setAttribute("FAKE-result", result);
         return request;
@@ -193,20 +197,39 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should show the expired page, never another window's email, for a missing, unknown or reused key")
-    void shouldShowExpired_whenKeyMissingUnknownOrReused() throws Exception {
+    @DisplayName("should show the draft-expired page with 410, never another window's email, for a missing, unknown or reused key")
+    void shouldShowDraftExpired_whenKeyMissingUnknownOrReused() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
         EmailComposeStaging.stage(session, "40002", draft("10002", "20002", true, "B"));
         assertThat(prepare(keyA).getAttribute("FAKE-result")).isEqualTo("compose");
 
+        // Missing, malformed, unknown (well-formed but never staged), and reused (window A's key again).
         for (String key : new String[]{null, "not-a-key", "AAAAAAAAAAAAAAAAAAAAAA", keyA}) {
-            MockHttpServletRequest request = prepare(key);
-            assertThat(request.getAttribute("FAKE-result")).as(String.valueOf(key)).isEqualTo("eFormError");
-            assertThat(request.getAttribute("errorMessage")).isEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_MESSAGE);
-            assertThat(request.getAttribute("demographicId")).as("no patient shown").isNull();
-            assertThat(request.getAttribute("bodyEmail")).as("no message shown").isNull();
+            assertShowsDraftExpired(prepare(key), String.valueOf(key));
         }
         verify(emailComposeManager, never()).prepareEFormAttachments(any(), eq("20002"), any());
+    }
+
+    @Test
+    @DisplayName("should show the draft-expired page with 410 when newer saves dropped the window's draft")
+    void shouldShowDraftExpired_whenDraftWasDroppedForNewerSaves() throws Exception {
+        String oldest = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        for (int i = 0; i < EmailComposeStaging.MAX_DRAFTS; i++) {
+            EmailComposeStaging.stage(session, "40002", draft("10002", "2100" + i, true, "B" + i));
+        }
+
+        assertShowsDraftExpired(prepare(oldest), "dropped");
+        verify(emailComposeManager, never()).prepareEFormAttachments(any(), eq("20001"), any());
+    }
+
+    /** The draft-expired page: its own result, 410, and nothing about any patient, eForm or draft. */
+    private void assertShowsDraftExpired(MockHttpServletRequest request, String description) {
+        assertThat(request.getAttribute("FAKE-result")).as(description).isEqualTo(EmailCompose2Action.DRAFT_EXPIRED_RESULT);
+        assertThat(response.getStatus()).as(description).isEqualTo(410);
+        assertThat(request.getAttribute("errorMessage")).as("no eForm error text").isNull();
+        assertThat(request.getAttribute("demographicId")).as("no patient shown").isNull();
+        assertThat(request.getAttribute("fdid")).as("no eForm shown").isNull();
+        assertThat(request.getAttribute("bodyEmail")).as("no message shown").isNull();
     }
 
     @Test
@@ -218,6 +241,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(file("A"));
 
         assertThat(prepare(keyA).getAttribute("FAKE-result")).isEqualTo("eFormError");
+        assertThat(response.getStatus()).as("a failed preparation is not an expired draft").isEqualTo(200);
         assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
     }
 
@@ -231,8 +255,70 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
         MockHttpServletRequest failed = prepare(keyA);
         assertThat(failed.getAttribute("FAKE-result")).isEqualTo("eFormError");
-        assertThat(failed.getAttribute("errorMessage")).isNotEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_MESSAGE);
+        assertThat(response.getStatus()).as("a failed lookup is not an expired draft").isEqualTo(200);
+        assertThat((String) failed.getAttribute("errorMessage")).as("the lookup error's own text stays off the page")
+                .startsWith("This eForm could not be emailed").doesNotContain("FAKE");
         assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
+    }
+
+    @Test
+    @DisplayName("should refuse to the access-denied page, not the retry message, when an attachment privilege is missing")
+    void shouldRethrowRefusal_whenAttachmentPrivilegeMissing() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any())).thenReturn(file("A"));
+        when(emailComposeManager.prepareEDocAttachments(any(), any()))
+                .thenThrow(new SecurityException("missing required sec object (_edoc)"))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> prepare(keyA)).isInstanceOf(SecurityException.class);
+        // Like any failure after take(), the window keeps its draft.
+        assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
+    }
+
+    @Test
+    @DisplayName("should show the generic message, not the error's text, when attachment preparation throws unexpectedly")
+    void shouldShowGenericMessage_whenAttachmentPreparationThrowsUnexpectedly() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        when(emailComposeManager.prepareEDocAttachments(any(), any()))
+                .thenThrow(new IllegalStateException("FAKE-Smith /var/FAKE-path/scan.pdf"));
+
+        MockHttpServletRequest request = prepare(keyA);
+
+        assertThat(request.getAttribute("FAKE-result")).isEqualTo("eFormError");
+        assertThat((String) request.getAttribute("errorMessage"))
+                .startsWith("This eForm could not be emailed because an attachment could not be prepared.")
+                .doesNotContain("FAKE");
+    }
+
+    @Test
+    @DisplayName("should show a generic message and log only the failure's class and reference when attachments fail")
+    void shouldShowGenericMessageAndLogNoDetail_whenAttachmentPreparationFails() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        // Stands for an exception whose text names a file and repeats document content.
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any()))
+                .thenThrow(new PDFGenerationException("FAKE-Smith /var/FAKE-path/report.pdf"));
+
+        MockHttpServletRequest request;
+        List<String> log;
+        boolean anyThrowableLogged;
+        try (LogCapture capture = LogCapture.forLogger(EmailCompose2Action.class)) {
+            request = prepare(keyA);
+            log = capture.messages();
+            // A logged exception would print its text with the stack trace.
+            anyThrowableLogged = capture.events().stream().anyMatch(event -> event.getThrown() != null);
+        }
+
+        String message = (String) request.getAttribute("errorMessage");
+        assertThat(request.getAttribute("FAKE-result")).isEqualTo("eFormError");
+        assertThat(message).startsWith("This eForm could not be emailed because an attachment could not be prepared.")
+                .doesNotContain("FAKE");
+        String reference = message.substring(message.lastIndexOf(' ') + 1);
+        assertThat(reference).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(log).noneSatisfy(line -> assertThat(line).contains("FAKE"));
+        assertThat(anyThrowableLogged).as("no exception attached to the log line").isFalse();
+        assertThat(log).anySatisfy(line -> assertThat(line)
+                .contains("causeType=" + PDFGenerationException.class.getName())
+                .contains("reference=" + reference));
     }
 
     @Test
@@ -253,13 +339,11 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should show the expired page for a draft without a usable patient number")
-    void shouldShowExpired_whenDraftHasNoUsablePatientNumber() throws Exception {
+    @DisplayName("should show the draft-expired page for a draft without a usable patient number")
+    void shouldShowDraftExpired_whenDraftHasNoUsablePatientNumber() throws Exception {
         for (String patient : new String[]{null, "", "FAKE", " 10001"}) {
             String key = EmailComposeStaging.stage(session, "40001", draft(patient, "20001", false, "A"));
-            MockHttpServletRequest request = prepare(key);
-            assertThat(request.getAttribute("FAKE-result")).as(String.valueOf(patient)).isEqualTo("eFormError");
-            assertThat(request.getAttribute("errorMessage")).isEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_MESSAGE);
+            assertShowsDraftExpired(prepare(key), String.valueOf(patient));
         }
         verify(emailComposeManager, never()).getRecipients(any(), anyInt());
     }

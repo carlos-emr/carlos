@@ -77,7 +77,14 @@ public class EditServiceCodeAssoc2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        // Set mode to "edit"
+        if ("create".equals(mode)) {
+            // A new association has no service code to look up or lock read-only.
+            this.mode = "";
+            serviceCodeAssociation = new ServiceCodeAssociation();
+            request.setAttribute("mode", this.mode);
+            request.setAttribute("serviceCodeAssociation", serviceCodeAssociation);
+            return SUCCESS;
+        }
         this.mode = "edit";
 
         // Retrieve the service code from request or action property
@@ -98,7 +105,7 @@ public class EditServiceCodeAssoc2Action extends ActionSupport {
 
     @Override
     public void validate() {
-        if (svcCode == null || svcCode.trim().isEmpty()) {
+        if (!"create".equals(mode) && (svcCode == null || svcCode.trim().isEmpty())) {
             addFieldError("svcCode", "Service code cannot be empty.");
         }
     }

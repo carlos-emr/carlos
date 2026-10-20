@@ -83,20 +83,48 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
     @Test void shouldRejectUnrelatedRecord_beforeDelete() throws Exception {
         mockRequest.setParameter("id", "100");
         mockRequest.setParameter("delete", "true");
+        mockRequest.removeParameter("prevDate");
+        mockRequest.removeParameter("prevention");
         data.when(() -> PreventionData.requirePreventionInChart(100, 42))
                 .thenThrow(new IllegalArgumentException("unrelated patient"));
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
+        data.verify(() -> PreventionData.requirePreventionInChart(100, 42));
         data.verify(() -> PreventionData.deletePreventionData(any(), any()), never());
         verifyNoInteractions(manager);
     }
 
-    @Test void shouldDeleteOnlyValidatedChartRecord_whenRequestIsValid() throws Exception {
+    @Test void shouldDeleteOnlyValidatedChartRecord_whenRhFormPostsNoCreationFields() throws Exception {
         mockRequest.setParameter("id", "100");
-        mockRequest.setParameter("delete", "true");
+        mockRequest.setParameter("delete", "delete");
+        mockRequest.removeParameter("prevDate");
+        mockRequest.removeParameter("prevention");
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        data.verify(() -> PreventionData.requirePreventionInChart(100, 42));
         data.verify(() -> PreventionData.deletePreventionData("100", "42"));
         verify(manager).removePrevention("42");
+    }
+
+    @Test void shouldRejectDeleteWithoutRecordId_insteadOfCreatingAPrevention() throws Exception {
+        mockRequest.setParameter("delete", "delete");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        data.verifyNoInteractions();
+        verifyNoInteractions(manager);
+    }
+
+    @Test void shouldRejectRhDeleteOnGet_beforeReadingOrDeletingRecords() throws Exception {
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "delete");
+        mockRequest.removeParameter("prevDate");
+        mockRequest.removeParameter("prevention");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        data.verifyNoInteractions();
+        verifyNoInteractions(manager);
     }
     @Test void shouldRejectMissingInteractiveDate_withoutWriting() throws Exception {
         mockRequest.removeParameter("prevDate");
@@ -177,6 +205,8 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
     void shouldDeleteOnce_whenTheDeleteIsSubmittedTwice() throws Exception {
         mockRequest.setParameter("id", "100");
         mockRequest.setParameter("delete", "true");
+        mockRequest.removeParameter("prevDate");
+        mockRequest.removeParameter("prevention");
         issueToken("100");
 
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");

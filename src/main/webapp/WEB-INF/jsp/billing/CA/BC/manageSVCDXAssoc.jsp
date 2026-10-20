@@ -95,7 +95,7 @@
                     <%} %>
                     <tr bgcolor="CCCCFF">
                         <td colspan="3">
-                            <div align="center"><a href="<%= request.getContextPath() %>/billing/CA/BC/showServiceCodeAssocs">Create
+                            <div align="center"><a href="<%= request.getContextPath() %>/billing/CA/BC/editServiceCodeAssocAction?mode=create">Create
                                 New Association</a></div>
                         </td>
                     </tr>

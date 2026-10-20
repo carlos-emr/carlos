@@ -43,8 +43,6 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key='oscarwaitinglist.removeFromWaitingListResult.title'/></title>
-    <link rel="stylesheet" type="text/css"
-          href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/styles.css">
 </head>
 <body>
 <table>

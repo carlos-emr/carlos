@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 const {assert, assertStrictPage, createRecorder, wireStrictPage} = require('./playwright-harness');
+const {createInjectedResponseEvidence} = require('./injected-response-evidence');
 
 /** Real installed UI plus explicit capacity responses; the split POST is intercepted before filing. */
 async function checkLegacyDocumentImages(context, config, documentId) {
@@ -8,13 +9,14 @@ async function checkLegacyDocumentImages(context, config, documentId) {
   const page = await context.newPage();
   page.setDefaultTimeout(120000); page.setDefaultNavigationTimeout(120000);
   wireStrictPage(page, 'legacy-document-capacity', recorder);
+  const injectionEvidence = createInjectedResponseEvidence(recorder, 'legacy-document-capacity');
+  page.on('response', response => injectionEvidence.observe(response));
   const render = requestUrl => {
     const url = new URL(requestUrl);
     return url.pathname.endsWith('/documentManager/ManageDocument')
       && ['showPage', 'viewDocPage'].includes(url.searchParams.get('method'))
       && url.searchParams.get('doc_no') === String(documentId);
   };
-  const capacityUrls = new Set();
   let injected = 0, phase = 'viewer';
   const pending = new Set(); let peak = 0, drainFinished;
   const finished = request => {
@@ -29,7 +31,7 @@ async function checkLegacyDocumentImages(context, config, documentId) {
     const url = new URL(route.request().url());
     if (render(url.href) && ((phase === 'viewer' && url.searchParams.get('curPage') === '2' && injected < 5)
       || (phase === 'split' && url.searchParams.get('curPage') === '1'))) {
-      injected++; capacityUrls.add(url.href);
+      injected++; injectionEvidence.expect(route.request(), 503);
       await route.fulfill({status: 503, headers: {'Retry-After': '1', 'Content-Type': 'text/plain'}, body: 'Document capacity is busy'});
     } else await route.continue();
   });
@@ -109,7 +111,7 @@ async function checkLegacyDocumentImages(context, config, documentId) {
     // intercept the POST and suppress only its resulting popup in this test.
     await first.locator('div').first().click();
     await page.locator('#tool_add').click();
-    const postedBodies = [], mutationFailures = new Map();
+    const postedBodies = [];
     let mutationPhase = 'busy';
     await page.route('**/documentManager/SplitDocument', async route => {
       const fields = new URLSearchParams(route.request().postData());
@@ -125,8 +127,7 @@ async function checkLegacyDocumentImages(context, config, documentId) {
         status = 500; data = {success: false, accepted: true, retryable: false};
       }
       if (status !== 200) {
-        const statuses = mutationFailures.get(route.request().url()) || new Set();
-        statuses.add(status); mutationFailures.set(route.request().url(), statuses);
+        injectionEvidence.expect(route.request(), status);
       }
       await route.fulfill({status, contentType: 'application/json', headers: {'Retry-After': '1'}, body: JSON.stringify(data)});
     });
@@ -178,20 +179,12 @@ async function checkLegacyDocumentImages(context, config, documentId) {
       'unknown outcome must prevent duplicate filing');
     assert(peak <= 4, `legacy viewers exceeded four image requests (${peak})`);
 
-    // Filter only the failures explicitly injected above; unrelated errors remain fatal.
-    recorder.badResponses = recorder.badResponses.filter(entry => !(entry.status === 503 && capacityUrls.has(entry.url))
-      && !mutationFailures.get(entry.url)?.has(entry.status));
-    recorder.consoleIssues = recorder.consoleIssues.filter(entry => {
-      const code = /Failed to load resource:.*(503|500)/.exec(entry.text)?.[1];
-      return !(code && ((code === '503' && capacityUrls.has(entry.location?.url))
-        || mutationFailures.get(entry.location?.url)?.has(Number(code))));
-    });
-    assertStrictPage(recorder);
     return {capacityResponses: injected, peak, rotations: 2, interceptedSplit: true, splitBusyResponses: 4, preservedUncertainSplit: true};
   } catch (error) {
     originalError = error;
     throw error;
   } finally {
+    phase = 'complete';
     // Accepted renders stay counted until complete even when their page is removed.
     // Keep cleanup failures visible, together with the original assertion if any.
     const cleanupErrors = [];
@@ -202,8 +195,15 @@ async function checkLegacyDocumentImages(context, config, documentId) {
       });
     } catch (error) {cleanupErrors.push(error);}
     try {await page.close();} catch (error) {cleanupErrors.push(error);}
+    // Closing the page is the final event boundary. A busy image retry can
+    // finish while cleanup drains accepted work; account for its exact response
+    // here, rather than checking before those last diagnostics are delivered.
+    try {
+      injectionEvidence.removeExpectedDiagnostics();
+      assertStrictPage(recorder);
+    } catch (error) {cleanupErrors.push(error);}
     if (cleanupErrors.length) throw new AggregateError([originalError, ...cleanupErrors].filter(Boolean),
-      'Legacy document image check or cleanup failed');
+      'Legacy document image check or cleanup failed: ' + cleanupErrors.map(error => error.message).join('; '));
   }
 }
 module.exports = {checkLegacyDocumentImages};

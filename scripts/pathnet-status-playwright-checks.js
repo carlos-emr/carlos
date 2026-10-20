@@ -3,10 +3,11 @@
 // Requires legacy BC tables and PATHNET_LABS=yes in a disposable installation.
 // Exercise the real Hibernate projection and patient lab list with owned labs.
 // Three owned PathNet messages: one with a final (F) result, one with a preliminary (P) result and one
-// with both. The last step is pinned to app-findings-log.md finding 165: a report mixing final and
-// preliminary results is Partial, but the list takes the alphabetical MIN of the OBR statuses
-// (Hl7MshDao), so F beside P reads F and the list says Final. The controls (the mixed report is
-// listed, with its lab-display link and its ordering provider) are in the step before it.
+// with both, plus one holding a final and an in-process (I) result. The last steps are the regression
+// check for app-findings-log.md finding 165 (#4552): a report mixing final and pending results is
+// Partial. The status aggregate used to be the alphabetical MIN of the OBR statuses (Hl7MshDao), so F
+// beside P or I read F and the list said Final. The controls (the mixed report is listed, with its
+// lab-display link and its ordering provider) are in the step before them.
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -46,8 +47,8 @@ async function workflow(s) {
       'Owned PathNet fixture was not removed');
     }
   });
-  // One OBR per status in `statuses`: ['F'] final, ['P'] preliminary, ['F', 'P'] a report mixing both.
-  for (const statuses of [['F'], ['P'], ['F', 'P']]) {
+  // One OBR per status in `statuses`: ['F'] final, ['P'] preliminary, ['F', 'P'] and ['F', 'I'] reports mixing final and pending results.
+  for (const statuses of [['F'], ['P'], ['F', 'P'], ['F', 'I']]) {
     const status = statuses.join('');
     const id = randomInt(1000000000, 1800000000);
     const occupied = sql.value(`SELECT (SELECT COUNT(*) FROM hl7_message WHERE message_id=${id})
@@ -106,12 +107,21 @@ async function workflow(s) {
       'The mixed PathNet fixture does not hold one final and one preliminary result');
   });
 
-  // Pinned: holds only the assertion finding 165 breaks.
+  // Finding 165 (#4552): a report holding a pending result is never listed as Final.
   await s.step('a PathNet report with both final and preliminary results is listed as Partial, not Final', async () => {
     await h.gotoApp(page, s.config.baseUrl, `/lab/ViewDemographicLab?demographicNo=${patient}`);
     await page.locator('#labResultsTbl').waitFor();
     const shown = (await mixedRow().locator('td').nth(4).innerText()).trim();
     h.assert(shown === 'Partial', `The PathNet report with a final and a preliminary result is listed as ${shown}, expected Partial`);
+  });
+
+  await s.step('a PathNet report with both final and in-process results is listed as Partial, not Final', async () => {
+    await h.gotoApp(page, s.config.baseUrl, `/lab/ViewDemographicLab?demographicNo=${patient}`);
+    await page.locator('#labResultsTbl').waitFor();
+    const row = page.locator('#labResultsTbl tbody tr').filter({ has: page.locator(`a[href*="${owned[3]}"]`) });
+    h.assert(await row.count() === 1, 'The PathNet report with F and I results was omitted from the patient listing');
+    const shown = (await row.locator('td').nth(4).innerText()).trim();
+    h.assert(shown === 'Partial', `The PathNet report with a final and an in-process result is listed as ${shown}, expected Partial`);
   });
 }
 

@@ -42,6 +42,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -138,7 +139,7 @@ function isExpectedLogoutDestination(pathname) {
 }
 
 async function assertLogoutPageNoLoop(browser) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   const page = await context.newPage();
   const paths = [];
   page.on('framenavigated', (frame) => {
@@ -174,8 +175,8 @@ async function assertLogoutPageNoLoop(browser) {
   }
 
   const browser = await chromium.launch(launchOptions);
-  const contextA = await browser.newContext({ ignoreHTTPSErrors: true });
-  const contextB = await browser.newContext({ ignoreHTTPSErrors: true });
+  const contextA = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  const contextB = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
   try {
     const pageA = await login(contextA, 'browser A');

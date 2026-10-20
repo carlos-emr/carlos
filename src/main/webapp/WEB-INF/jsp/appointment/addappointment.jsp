@@ -81,6 +81,7 @@ Ontario, Canada
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.time.LocalDateTime" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@ page import="java.time.format.FormatStyle" %>
 <%@ page import="java.time.ZoneId" %>
 
@@ -987,7 +988,11 @@ Ontario, Canada
             function locale() {
                 // add style for multisites location
                 var loc = document.forms['ADDAPPT'].location;
-                if (loc.nodeName.toUpperCase() == 'SELECT') loc.style.backgroundColor = loc.options[loc.selectedIndex].style.backgroundColor;
+                if (loc && loc.nodeName.toUpperCase() === 'SELECT') {
+                    var selectedLocation = loc.options[loc.selectedIndex];
+                    // A provider may have no active site assignments; initialization must continue.
+                    if (selectedLocation) loc.style.backgroundColor = selectedLocation.style.backgroundColor;
+                }
             }
 
         </script>
@@ -1140,6 +1145,9 @@ Ontario, Canada
             <input type="hidden" name="month" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="day" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="fromAppt" value="1">
+            <%-- One booking per rendering (issue #4225): a repeat of this form ends as its first save did. --%>
+            <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+                   value="<carlos:encode value='<%= FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.APPOINTMENT_ADD, null) %>' context="htmlAttribute"/>">
 
 
             <div class="page-header-bar time" id="header">
@@ -1280,7 +1288,7 @@ Ontario, Canada
                                 %>
                                 <select tabindex="4" class="form-select form-select-sm" name="location"
                                         style="background-color: <%=safeColoAttr%>"
-                                        onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+                                        onchange='locale()'>
                                     <% for (Site s : sites) {
                                         String safeBgColorAttr = (s.getBgColor() != null && cssColorPattern.matcher(s.getBgColor()).matches()) ? SafeEncode.forHtmlAttribute(s.getBgColor()) : "";
                                     %>

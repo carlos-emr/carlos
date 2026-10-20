@@ -26,15 +26,17 @@
  * expectedFailure per check, so a broken page of one vendor would hide the defects of the others. The
  * script therefore runs ONE lab type per run, selected by LEGACY_LAB_TYPE (the manifest sets it with
  * envSet, as surface-audit does; each entry has its own npm alias):
- *   cml      legacy-lab-display          expectedFailure finding 184, at the CML forward step.
- *   mds      legacy-lab-display-mds      expectedFailure finding 194, at the MDS display step.
+ *   cml      legacy-lab-display          passes every step (finding 184, Forward, is fixed: #4558).
+ *   mds      legacy-lab-display-mds      passes every step (its display, finding 194, is fixed: #4567;
+ *                                        its Forward, finding 184: #4558).
  *   pathnet  legacy-lab-display-pathnet  ends SKIP (never PASS) when the legacy BC tables are absent; on
  *                                        a BC install it would fail at its display step (finding 195).
  * Unset, the type is cml. Any other value is an error.
  *
  * STEPS, in order, for the one type of the run: seed; Display; Acknowledge; Forward picker; Forward.
  *   Display      the page-specific form is there; no error page; the patient's name, birth date and health
- *                number as the lab carries them; the result row (test name, result, flag, range, units);
+ *                number as the lab carries them; the result row (test name, result, flag, range, units) and,
+ *                for MDS, a second result row with its own values and the note filed with it;
  *                the link to the OWNED patient (the Msg button renders only when the routing resolved a
  *                patient, and names its demographic_no); the routing status "Not Acknowledged".
  *   Acknowledge  Acknowledge asks for a comment (a real prompt); the popup closes; the patient lab list
@@ -42,20 +44,25 @@
  *                provider, status A, with the comment; opened again the page shows Acknowledged and it.
  *   Forward picker  Forward opens the picker; its provider search offers the throwaway recipient; the Forward
  *                List holds exactly that provider. The windows stay open for the next step.
- *   Forward      the picker offers a control that sends the list; pressing it makes the lab page post its
- *                Forward request; the recipient then holds a providerLabRouting row, status N, and the
- *                sender's row and every other provider's are untouched. This is the step finding 184 is
- *                pinned at, and it holds only what the finding breaks: the picker step before it holds the
- *                controls. Each stage is asserted on its own, so the failure says which one stands.
+ *   Forward      the picker offers a control that sends the list; pressing it closes the picker and makes
+ *                the lab page post its Forward request, carrying the one JSON contract ReportReassign reads
+ *                (this lab as "<id>:<TYPE>", exactly the recipient, the Favorites list as shown); the lab page
+ *                then lands back on its own display for the same lab, not on an error or the landing page;
+ *                the recipient holds a providerLabRouting row, status N; the sender's row, every other
+ *                provider's and the sender's forwarding favourites are untouched. This is the step finding
+ *                184 was pinned at; the picker step before it holds the controls. Each stage is asserted on
+ *                its own, so a failure says which one stands.
  *
  * KNOWN DEFECTS (docs/ui-tests/app-findings-log.md):
- *   184  Forward from these pages cannot be completed: SelectProvider.jsp has no Submit button, the
- *        picker looks its opener's form up under another name, and the form carries plain id lists where
- *        ReportReassign2Action reads JSON. The cml run reaches Forward and fails there.
- *   194  MDS display throws on every lab. MdsMSHDaoImpl.findMdsSementDataById builds invalid HQL and binds
- *        the wrong parameter, MDSSegmentData swallows the exception, and SegmentDisplay.jsp dereferences
- *        the providers object that was never set. The mds run fails at its display step, so its Forward
- *        step is not reached until that is fixed.
+ *   184  (fixed, #4558) Forward from these pages could not be completed: SelectProvider.jsp had no Submit
+ *        button, the picker looked its opener's form up under another name, the form carried plain id
+ *        lists where ReportReassign2Action reads JSON, and the action redirected a page post to
+ *        "<route>&providerNo=..." (no "?"), which is not a route.
+ *   194  (fixed, #4567) MDS display threw on every lab: MdsMSHDaoImpl.findMdsSementDataById built invalid
+ *        HQL, MDSSegmentData swallowed the exception, and SegmentDisplay.jsp dereferenced the providers
+ *        object that was never set. Behind it, the result query returned entities keyed by the segmentID
+ *        every row shares, so a report showed its first result once per row; the second MDS result row
+ *        guards that.
  *   195  PathNet display shows an empty report (PathnetLabTest.populateLab reads message 0). The pathnet
  *        run needs the legacy BC tables.
  *
@@ -74,8 +81,9 @@
  * and a throwaway provider login that is the Forward recipient. Cleanup removes exactly those rows by key,
  * after proving the lab header still carries this run's marker, and asserts them gone: the lab tables,
  * patientLabRouting, providerLabRouting, providerLabRoutingLock and the audit rows the pages wrote for the
- * owned lab numbers. The test login's forwarding favourites are snapshotted and restored if a Forward
- * rewrote them.
+ * owned lab numbers. The test login's forwarding favourites are snapshotted, one favourite to the recipient
+ * is seeded so that "favourites unchanged" is asserted against a list that is never empty, and cleanup
+ * restores the snapshot.
  */
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
@@ -181,6 +189,11 @@ function describeLab({ sql, marker, hex, patient, provider, type }) {
         // drops the health number's first character, which it treats as a prefix.
         patient: { name: `${marker}, Workflow`, dob: '02-Jan-1980', hin: 'FAKE00000' },
         result: { name: `${marker} Glucose`, cells: ['7.7', 'HI', '3.5-5.0', 'mmol/L'] },
+        // A second result in the same report: every mds row of a report shares its segmentID, and a report that
+        // shows one result per row of the first one (finding 194) fails here. Its note is an "M" NTE row, whose text
+        // follows a three-character prefix.
+        moreResults: [{ name: `${marker} Sodium`, cells: ['140', '135-145', 'mmol/L'] }],
+        note: `${marker} fasting sample`,
         headerSql: `SELECT COUNT(*) FROM mdsMSH WHERE segmentID=${mdsId} AND sendingApp=${q(marker)}`,
         rows: counts(mdsId, mdsTables).join('+'),
         deleteSql: MDS_TABLES.map((table) => `DELETE FROM ${table} WHERE segmentID=${mdsId}`),
@@ -199,11 +212,15 @@ function describeLab({ sql, marker, hex, patient, provider, type }) {
             INSERT INTO mdsZRG(segmentID,reportSequence,reportGroupID,reportGroupVersion,reportFlags,reportGroupDesc,MDSIndex,reportGroupHeading)
               VALUES(${mdsId},'1','FKGRP','1','','FAKE CHEMISTRY','1','');
             INSERT INTO mdsZMN(segmentID,resultMnemonic,resultMnemonicVersion,reportName,units,cumulativeSequence,referenceRange,resultCode,reportForm,reportGroup,reportGroupVersion)
-              VALUES(${mdsId},'FKGLU','1',${q(`${marker} Glucose`)},'mmol/L','1','3.5-5.0','FKGLU','1','1','1');
+              VALUES(${mdsId},'FKGLU','1',${q(`${marker} Glucose`)},'mmol/L','1','3.5-5.0','FKGLU','1','FKGRP','1'),
+                    (${mdsId},'FKNA','1',${q(`${marker} Sodium`)},'mmol/L','2','135-145','FKNA','1','FKGRP','1');
             INSERT INTO mdsOBR(segmentID,obrID,placerOrderNo,universalServiceID,observationDateTime,specimenRecDateTime,fillerFieldOne,quantityTiming)
               VALUES(${mdsId},1,'FAKEORD','FAKE^SVC','20260101080000','20260101080000','','R');
             INSERT INTO mdsOBX(segmentID,obxID,valueType,observationIden,observationSubID,observationValue,abnormalFlags,observationResultStatus,producersID,associatedOBR)
-              VALUES(${mdsId},1,'NM','XFKGLU^Glucose','FKGLU','7.7','HI','F','FK^Fake',1)`);
+              VALUES(${mdsId},1,'NM','XFKGLU^Glucose','FKGLU','7.7','HI','F','FK^Fake',1),
+                    (${mdsId},2,'NM','XFKNA^Sodium','FKNA','140','','F','FK^Fake',1);
+            INSERT INTO mdsNTE(segmentID,sourceOfComment,comment,associatedOBX)
+              VALUES(${mdsId},'M',${q(`XXX${marker} fasting sample`)},2)`);
         },
       };
       return lab;
@@ -345,19 +362,23 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
   // Forward rewrites the sender's forwarding favourites from what the page posts; put them back as found.
   const favourites = () => JSON.stringify(sql.rows(`SELECT id, route_to_provider_no FROM providerLabRoutingFavorites
     WHERE provider_no=${q(provider)} ORDER BY id`));
-  const favouritesBefore = favourites();
+  // favouritesOriginal is what cleanup restores. favouritesBaseline is the state after the seed step adds a
+  // fixture favourite, so "favourites unchanged" is asserted against a list that is never empty: a Forward
+  // that wiped the sender's favourites (the pre-#4558 action did, for any post without selectedFavorites)
+  // cannot pass by finding an empty list empty.
+  const favouritesOriginal = favourites();
+  let favouritesBaseline = null;
 
   // Cleanup runs last-registered first. Everything is registered before its first write.
   s.cleanup(() => recipient.cleanup());
   s.cleanup(() => {
-    if (favourites() === favouritesBefore) return;
+    if (favourites() === favouritesOriginal) return;
     sql.execute(`DELETE FROM providerLabRoutingFavorites WHERE provider_no=${q(provider)}`);
-    for (const [id, to] of JSON.parse(favouritesBefore)) {
+    for (const [id, to] of JSON.parse(favouritesOriginal)) {
       h.assert(/^[1-9]\d*$/.test(id) && /^[A-Za-z0-9]{1,6}$/.test(to), 'A snapshotted favourite has an unexpected shape');
       sql.execute(`INSERT INTO providerLabRoutingFavorites (id,provider_no,route_to_provider_no) VALUES (${id},${q(provider)},${q(to)})`);
     }
-    h.assert(favourites() === favouritesBefore, 'The test login\'s forwarding favourites were not restored');
-    console.log('  note: a Forward rewrote the test login\'s forwarding favourites; they were restored as found');
+    h.assert(favourites() === favouritesOriginal, 'The test login\'s forwarding favourites were not restored');
   });
   s.cleanup(() => {
     const failures = [];
@@ -425,13 +446,21 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
     for (const [what, shown] of [['name', lab.patient.name], ['birth date', lab.patient.dob], ['health number', lab.patient.hin]]) {
       h.assert(text.includes(shown), `The ${lab.title} lab page does not show the patient's ${what} the lab carries`);
     }
-    const row = popup.locator('#tblDiscs tr').filter({ hasText: lab.result.name });
-    const rows = await row.count();
-    h.assert(rows === 1, `The ${lab.title} lab page shows ${rows} result rows for the seeded test, expected 1`);
-    const cells = (await row.first().locator('td').allInnerTexts()).map(squash);
-    for (const value of lab.result.cells) {
-      h.assert(cells.includes(value), `The ${lab.title} result row does not show "${value}" (${cells.filter(Boolean).length} cells are filled)`);
+    for (const result of [lab.result, ...(lab.moreResults || [])]) {
+      const row = popup.locator('#tblDiscs tr').filter({ hasText: result.name });
+      const rows = await row.count();
+      h.assert(rows === 1, `The ${lab.title} lab page shows ${rows} result rows for the seeded test ${result.name}, expected 1`);
+      const cells = (await row.first().locator('td').allInnerTexts()).map(squash);
+      for (const value of result.cells) {
+        h.assert(cells.includes(value), `The ${lab.title} result row for ${result.name} does not show "${value}" (${cells.filter(Boolean).length} cells are filled)`);
+      }
     }
+    if (lab.note) {
+      h.assert(text.includes(lab.note), `The ${lab.title} lab page does not show the note filed with a result`);
+    }
+    // SegmentDisplay.jsp shows these warnings when a query failed part-way through this report or one of its versions.
+    h.assert(await popup.locator('#mdsLoadFailed, .mds-load-failed').count() === 0,
+      `The ${lab.title} lab page says part of the report could not be loaded`);
     // Msg renders only when the routing resolved a patient for the lab, and it names that patient's number.
     const msg = popup.locator('input[type="button"][value="Msg"]').first();
     h.assert(await msg.count() === 1 && (await msg.getAttribute('onclick') || '').includes(`demographic_no=${patient}`),
@@ -442,6 +471,10 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
   // ---- Fixtures ---------------------------------------------------------------------------------------------
   await s.step(STEP.seed, async () => {
     recipient.create();
+    sql.execute(`INSERT INTO providerLabRoutingFavorites (provider_no,route_to_provider_no) VALUES (${q(provider)},${q(recipient.providerNo)})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRoutingFavorites WHERE provider_no=${q(provider)}
+      AND route_to_provider_no=${q(recipient.providerNo)}`) === '1', 'The fixture forwarding favourite was not seeded');
+    favouritesBaseline = favourites();
     for (const lab of labs) {
       lab.seed();
       sql.execute(`INSERT INTO patientLabRouting(demographic_no,lab_no,lab_type,created) VALUES(${patient},${lab.id},${q(lab.labType)},NOW());
@@ -507,10 +540,10 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
   }
 
   // ---- Forward ------------------------------------------------------------------------------------------------------
-  // Two steps per lab. The first holds everything the pinned one depends on (the lab page opens, its Forward button opens
+  // Two steps per lab. The first holds everything the second depends on (the lab page opens, its Forward button opens
   // the picker, the picker searches and puts the recipient in the Forward List) and leaves both windows open; the
-  // pinned one holds only what finding 184 breaks (a control that sends the list back, and what comes of pressing it).
-  // A page or search that fails to work therefore reads failed-elsewhere, never as the known failure.
+  // second holds only what finding 184 broke (a control that sends the list back, and what comes of pressing it), so a
+  // regression of that finding reads as a Forward failure and a broken page or search as a failure before it.
   for (const lab of labs) {
     let held = null;
     await s.step(STEP[lab.key].picker, async () => {
@@ -552,9 +585,50 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
 
         const sent = labPage.waitForRequest((request) => request.method() === 'POST'
           && new URL(request.url()).pathname.endsWith(lab.forwardPath), { timeout: 15000 }).catch(() => null);
+        const pickerClosed = picker.waitForEvent('close', { timeout: 15000 }).then(() => true, () => false);
+        // The page the Forward post's redirect lands on. Keyed on the redirected navigation itself: the lab page
+        // is already on its display URL, so waiting on the URL alone would be satisfied before the post commits.
+        const returned = labPage.waitForResponse((response) => {
+          const navigation = response.request();
+          const from = navigation.redirectedFrom();
+          return navigation.isNavigationRequest() && navigation.method() === 'GET' && from !== null && from.method() === 'POST';
+        }, { timeout: TIMEOUT }).catch(() => null);
         await submit.first().click();
-        h.assert(await sent, `Pressing the picker's Submit made the ${lab.title} page post no Forward request to ${lab.forwardPath} `
+        const request = await sent;
+        h.assert(request, `Pressing the picker's Submit made the ${lab.title} page post no Forward request to ${lab.forwardPath} `
           + '(the picker looks its opener\'s form up under another name)');
+        h.assert(await pickerClosed, `The provider picker opened from the ${lab.title} page stayed open after Forward`);
+
+        // The one contract ReportReassign2Action reads; the pre-#4558 form posted bare id lists here.
+        const body = new URLSearchParams(request.postData() || '');
+        const parsed = (name, key) => {
+          try { return JSON.parse(body.get(name))[key]; } catch (error) { return undefined; }
+        };
+        h.assert(JSON.stringify(parsed('flaggedLabs', 'files')) === JSON.stringify([`${lab.id}:${lab.labType}`]),
+          `The ${lab.title} Forward request does not name exactly this lab as "<id>:<type>" in flaggedLabs`);
+        h.assert(JSON.stringify(parsed('selectedProviders', 'providers')) === JSON.stringify([recipient.providerNo]),
+          `The ${lab.title} Forward request does not name exactly the recipient in selectedProviders`);
+        const postedFavourites = parsed('selectedFavorites', 'favorites');
+        h.assert(Array.isArray(postedFavourites) && postedFavourites.includes(recipient.providerNo),
+          `The ${lab.title} Forward request does not carry the Favorites list as shown (the seeded favourite is missing), `
+          + 'so it cannot keep the sender\'s favourites');
+
+        // The page post returns to the lab page's own display for the same lab, not "<route>&providerNo=...".
+        const displayRoute = lab.displayPath.split('?')[0];
+        const landing = await returned;
+        h.assert(landing, `The ${lab.title} Forward post was not redirected to a page`);
+        const landed = new URL(landing.url());
+        h.assert(landed.pathname.endsWith(displayRoute) && landed.searchParams.get('segmentID') === String(lab.id),
+          `After Forward the ${lab.title} lab page did not return to its own display for the lab (it was sent to ${landed.pathname})`);
+        h.assert(landing.status() === 200, `The ${lab.title} display the Forward post returned to answered HTTP ${landing.status()}`);
+        await labPage.waitForURL(landing.url(), { timeout: TIMEOUT });
+        await labPage.waitForLoadState('load', { timeout: TIMEOUT });
+        await h.assertNotErrorPage(labPage, `${lab.title} lab display after Forward`);
+        // The picker closes itself while its CSRFGuard client script may still be loading; excuse that one abort.
+        await labPage.waitForTimeout(500);
+        excuseAbandonedLoads();
+        h.assert(await labPage.locator('form[name="acknowledgeForm"]').count() === 1,
+          `The ${lab.title} lab page shown after Forward has no acknowledge form`);
         await expectValue(sql, `SELECT COUNT(*) FROM providerLabRouting WHERE lab_type=${q(lab.labType)} AND lab_no=${lab.id}
           AND provider_no=${q(recipient.providerNo)}`, '1',
         `The ${lab.title} page posted a Forward request but the recipient has no routing row `
@@ -562,6 +636,7 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
         h.assert(statusOf(lab, recipient.providerNo) === 'N', 'The recipient\'s routing row is not New');
         h.assert(mine(lab) === beforeMine, 'Forwarding changed the sender\'s own routing row');
         h.assert(others(lab) === beforeOthers, 'Forwarding changed another provider\'s routing row');
+        h.assert(favourites() === favouritesBaseline, 'Forwarding changed the sender\'s forwarding favourites, which the picker showed unchanged');
       } finally {
         if (picker) await picker.close().catch(() => {});
         await labPage.close().catch(() => {});
@@ -574,4 +649,4 @@ if (require.main === module) {
   const mode = modeFrom(process.env.LEGACY_LAB_TYPE);
   runWorkflow(mode.name, (s) => workflow(s, mode), { openMaster: false, preflight: (context) => preflight(context, mode) });
 }
-module.exports = { workflow, preflight, modeFrom, MODES, STEP };
+module.exports = { workflow, preflight, modeFrom, MODES, STEP, describeLab, removeLab };

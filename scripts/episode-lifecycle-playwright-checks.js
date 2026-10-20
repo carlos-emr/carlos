@@ -2,13 +2,21 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 // Coverage plan §2.5: an episode survives create/edit/complete/reopen/delete.
 // All writes follow the chart's controls; SQL only seeds, asserts and cleans up.
+// The seeded roles deny the Episode module (doctor holds `o` on its two gate objects, _episode and
+// _newCasemgmt.episode, in the Flyway seeds and, since #4566, in the devcontainer), so the first
+// step grants both to the test login for this run and proves the module follows them.
 const { assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { clickOpensPopup } = require('./lib/playwright-ui');
+const { EPISODE_MODULE_GATES, episodeModuleGranted, grantEpisodeModule } = require('./lib/episode-module-access');
+
+const EPISODE_HEADING = '#menuTitleepisode';
+const EPISODE_OBJECTS = EPISODE_MODULE_GATES.map(gate => gate.objectName).join(' and ');
 
 async function workflow(s) {
-  const { sql, patient, marker } = s;
+  const { sql, patient, marker, provider } = s;
   s.cleanup(() => sql.execute(`DELETE FROM Episode WHERE demographicNo=${patient}`));
-  const chart = await s.chart();
+  let chart;
   let editor;
   let id;
   const row = () => chart.locator(`a[onclick*="episode.id=${id}"]`).first();
@@ -20,7 +28,30 @@ async function workflow(s) {
     await editor.locator('input[type="submit"]').click();
     await closed;
   }
-  async function edit() { editor = await s.popup(chart, row(), 'episode-editor'); }
+  // Click the start of the title, as a clinician does: a long title runs under the row's
+  // right-floated date link (LeftNavBarDisplay.jsp), which covers the title's centre.
+  async function edit() {
+    editor = await clickOpensPopup(chart, row(), {
+      context: s.context, recorder: s.recorder, label: 'episode-editor', timeout: 20000, position: { x: 8, y: 9 },
+    });
+  }
+  await s.step(`the chart draws the Episode module only once the login holds ${EPISODE_OBJECTS}`, async () => {
+    if (episodeModuleGranted(sql, provider)) {
+      console.log(`    (the test login's roles already hold ${EPISODE_OBJECTS}; the hidden half is not asserted)`);
+    } else {
+      const denied = await s.chart();
+      // s.chart() waits for every module request to settle; require the Episode one to have
+      // answered, so an absent heading means "not drawn" rather than "never asked for".
+      const status = await denied.evaluate(() => window.carlosNavbarLoadState?.modules?.episode?.status ?? 'not requested');
+      assert(status === 'loaded', `The chart's Episode module request did not complete (status: ${status})`);
+      assert(await denied.locator(EPISODE_HEADING).count() === 0,
+        `The chart drew the Episode module for a login whose roles do not hold ${EPISODE_OBJECTS}`);
+      await denied.close();
+    }
+    grantEpisodeModule(s);
+    chart = await s.chart();
+    await chart.locator(EPISODE_HEADING).first().waitFor({ state: 'visible' });
+  });
   await s.step('empty description is refused without writing', async () => {
     editor = await s.popup(chart, chart.locator('#menuTitleepisode a').first(), 'episode-editor');
     const dialogs = await withExpectedDialogs(editor, () => editor.locator('input[type="submit"]').click());
@@ -60,7 +91,8 @@ async function workflow(s) {
     await row().waitFor({ state: 'detached' });
   });
   await s.step('completed episode can be reopened and deleted with history retained', async () => {
-    const list = await s.popup(chart, chart.locator('h3[onclick*="/Episode?method=list"]').first(), 'episode-list');
+    // LeftNavBarDisplay.jsp renders the module heading as <h3><a onclick="popupPage(..., '/Episode?method=list...')">.
+    const list = await s.popup(chart, chart.locator('#episode h3 a[onclick*="/Episode?method=list"]').first(), 'episode-list');
     const link = list.getByRole('link', { name: `${marker}-EDIT`, exact: true });
     await link.click();
     editor = list;

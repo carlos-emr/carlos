@@ -82,6 +82,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -545,14 +546,26 @@ async function acknowledgeLab(popup) {
 async function checkCumulativeValues(context) {
   const page = await context.newPage();
   wirePage(page, 'cumulative-labs', recorder);
-  const response = await gotoApp(page, config.baseUrl,
-    `/lab/ViewCumulativeLabValues?demographicNo=${encodeURIComponent(demographicNo)}`);
-  assert(response.status() < 400, `ViewCumulativeLabValues returned HTTP ${response.status()}`);
-  await page.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
-  await assertNotErrorPage(page, 'cumulative lab values');
-  const text = await page.locator('body').innerText().catch(() => '');
-  await page.close().catch(() => {});
-  return text;
+  try {
+    const names = sqlRows(`SELECT last_name,first_name FROM demographic WHERE demographic_no=${Number(demographicNo)}`);
+    assert(names.length === 1 && names[0].length === 2 && names[0].every(name => name.trim()),
+      'cumulative lab fixture must resolve one patient with a complete name');
+    const response = await gotoApp(page, config.baseUrl,
+      `/lab/ViewCumulativeLabValues?demographic_no=${encodeURIComponent(demographicNo)}`);
+    assert(response.status() < 400, `ViewCumulativeLabValues returned HTTP ${response.status()}`);
+    await page.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
+    await assertNotErrorPage(page, 'cumulative lab values');
+    // A generic cumulative-labs shell also renders for a missing patient parameter.
+    // Require the actual tag's patient header, rather than accepting that shell as patient data.
+    const normalize = text => text.trim().replace(/\s+/g, ' ');
+    const expectedName = normalize(`${names[0][0]}, ${names[0][1]}`);
+    const header = normalize(await page.locator('.TopStatusBar td').first().innerText());
+    assert(header.startsWith(expectedName + ' '),
+      'cumulative lab values must show the selected patient in the rendered header');
+    return await page.locator('body').innerText();
+  } finally {
+    await page.close().catch(() => {});
+  }
 }
 
 (async () => {
@@ -571,7 +584,7 @@ async function checkCumulativeValues(context) {
     seedQueueLink();
 
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    context = await browser.newContext({ ignoreHTTPSErrors: true });
+    context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
     await login(context, config, recorder);
 

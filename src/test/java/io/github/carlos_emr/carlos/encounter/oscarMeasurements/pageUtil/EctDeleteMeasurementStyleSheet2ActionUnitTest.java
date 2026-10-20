@@ -107,4 +107,36 @@ class EctDeleteMeasurementStyleSheet2ActionUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class)
                 .hasMessage("Owned test failure");
     }
+
+    @Test
+    void shouldRemoveTheStyleSheet_whenNoGroupMapsIt() throws Exception {
+        when(security.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
+        MeasurementCSSLocation location = new MeasurementCSSLocation();
+        location.setId(27);
+        location.setLocation("unused.css");
+        when(locations.find(Integer.valueOf(27))).thenReturn(location);
+        when(styles.findByCssId(27)).thenReturn(List.of());
+        assertThat(action.execute()).isEqualTo("success");
+        verify(locations).remove(Integer.valueOf(27));
+        verify(styles, never()).remove(any(Integer.class));
+    }
+
+    @Test
+    void shouldDeleteNothing_whenAnyOfSeveralSelectedStyleSheetsIsInUse() throws Exception {
+        when(security.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
+        MeasurementCSSLocation unused = new MeasurementCSSLocation();
+        unused.setId(26);
+        unused.setLocation("unused.css");
+        MeasurementCSSLocation inUse = new MeasurementCSSLocation();
+        inUse.setId(27);
+        inUse.setLocation("used.css");
+        when(locations.find(Integer.valueOf(26))).thenReturn(unused);
+        when(locations.find(Integer.valueOf(27))).thenReturn(inUse);
+        when(styles.findByCssId(26)).thenReturn(List.of());
+        doReturn("in use").when(action).getText(
+                eq("error.encounter.Measurements.cannotDeleteStyleSheet"), any(String[].class));
+        action.setDeleteCheckbox(new String[]{"26", "27"});
+        assertThat(action.execute()).isEqualTo("error");
+        verify(locations, never()).remove(any(Integer.class));
+    }
 }

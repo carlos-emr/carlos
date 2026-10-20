@@ -270,10 +270,10 @@ function pdfText(file, { layout = false, raw = false } = {}) {
 }
 
 /** Reads rendered PDF text, including CID/ToUnicode fonts, directly from response bytes. */
-function pdfTextBuffer(bytes) {
+function pdfTextBuffer(bytes, { raw = false, layout = false } = {}) {
   h.assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', 'The response is not a PDF');
   h.assert(/%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')), 'The PDF is truncated (missing %%EOF)');
-  return execFileSync('pdftotext', ['-enc', 'UTF-8', '-', '-'], {
+  return execFileSync('pdftotext', [...(raw ? ['-raw'] : layout ? ['-layout'] : []), '-enc', 'UTF-8', '-', '-'], {
     input: bytes, encoding: 'utf8', timeout: TOOL_TIMEOUT, maxBuffer: 8 * 1024 * 1024,
   });
 }

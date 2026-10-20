@@ -49,8 +49,11 @@ public class MdsOBXDaoImpl extends AbstractDaoImpl<MdsOBX> implements MdsOBXDao 
 
     @SuppressWarnings("unchecked")
     @Override
-    public List<MdsOBX> findByIdObrAndCodes(Integer id, String associatedOBR, List<String> codes) {
-        ParamAppender pa = getAppender("obx");
+    public List<Object[]> findByIdObrAndCodes(Integer id, Integer associatedOBR, List<String> codes) {
+        // Scalar columns, not MdsOBX entities: every result row of a report shares the segmentID the
+        // entity maps as @Id, and an entity query hands back the first result's values once per row.
+        ParamAppender pa = new ParamAppender("SELECT obx.obxId, obx.observationIdentifier, obx.observationValue, "
+                + "obx.abnormalFlags, obx.observationResultStatus, obx.producersId FROM MdsOBX obx");
         pa.and("obx.id = :id", "id", id);
         pa.and("obx.associatedOBR = :associatedOBR", "associatedOBR", associatedOBR);
 

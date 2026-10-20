@@ -252,7 +252,8 @@ public final class RxShowAllergy2Action extends ActionSupport {
                 // request must identify the patient whose page initiated this check.
                 allergies = RxPatientData.getPatient(loggedInInfo, Integer.parseInt(demographicNo)).getActiveAllergies();
                 List<Allergy> missing = new ArrayList<>();
-                Allergy[] matches = new RxDrugData().getAllergyWarnings(request.getParameter("atcCode"), allergies, missing);
+                Allergy[] matches = new RxDrugData().getAllergyWarnings(request.getParameter("atcCode"), allergies, missing,
+                        request.getParameter("din"));
                 boolean highestOnly = systemPreferencesDao.isReadBooleanPreference(
                         SystemPreferences.RX_PREFERENCE_KEYS.rx_show_highest_allergy_warning);
                 Allergy highest = null;

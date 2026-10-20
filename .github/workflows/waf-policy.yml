@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 CARLOS Contributors
+# Real nginx + ModSecurity + CRS against a fixture upstream. Application and
+# browser integration remain in their own checks.
+name: WAF Policy
+
+on:
+  pull_request:
+    paths:
+      - 'debian/assets/modsecurity/**'
+      - 'scripts/waf/**'
+      - 'scripts/lib/clinical-prose-corpus.js'
+      - '.github/workflows/waf-policy.yml'
+  push:
+    branches: [main, develop, 'release/**']
+    paths:
+      - 'debian/assets/modsecurity/**'
+      - 'scripts/waf/**'
+      - 'scripts/lib/clinical-prose-corpus.js'
+      - '.github/workflows/waf-policy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: waf-policy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: nginx / ModSecurity / CRS regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    container:
+      # Match the target distribution and exact base pin in deb-packages.yml.
+      image: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      WAF_EVIDENCE: /tmp/waf-policy-evidence
+    steps:
+      - name: Install real-engine dependencies
+        id: dependencies
+        run: |
+          set -euo pipefail
+          mkdir -p "$WAF_EVIDENCE"
+          # Package installation must not start the distribution's nginx.
+          printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
+          chmod +x /usr/sbin/policy-rc.d
+          apt-get update 2>&1 | tee "$WAF_EVIDENCE/dependencies.log"
+          apt-get install -y --no-install-recommends \
+            nginx libnginx-mod-http-modsecurity modsecurity-crs \
+            nodejs python3 git ca-certificates \
+            2>&1 | tee -a "$WAF_EVIDENCE/dependencies.log"
+          dpkg-query -W -f='${binary:Package}\t${Version}\n' \
+            nginx libnginx-mod-http-modsecurity modsecurity-crs \
+            nodejs python3 'libmodsecurity*' > "$WAF_EVIDENCE/package-versions.txt"
+          nginx -V > "$WAF_EVIDENCE/nginx-version.txt" 2>&1
+
+      - name: Check out source
+        id: checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Record tested source
+        run: |
+          set -euo pipefail
+          git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD > "$WAF_EVIDENCE/source-revision.txt"
+          cp .github/workflows/waf-policy.yml "$WAF_EVIDENCE/workflow.yml"
+
+      - name: Test harness mechanics
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=10s 1m \
+            python3 scripts/waf/check-clinical-policy.py --self-test \
+            2>&1 | tee "$WAF_EVIDENCE/self-tests.log"
+
+      - name: Run real-engine policy regressions
+        # Still collect engine results if a mechanics check fails.
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.checkout.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          # The harness uses master_process off: nginx keeps the invoking UID,
+          # including root in this container, and can read its private prefix.
+          # It opens only ephemeral loopback ports and stops its own process.
+          # TERM lets its finally blocks export evidence and clean up before
+          # the outer job timeout; pipefail preserves regression/setup failures.
+          timeout --signal=TERM --kill-after=10s 5m \
+            python3 scripts/waf/check-clinical-policy.py \
+              --evidence-dir "$WAF_EVIDENCE/engine" \
+            2>&1 | tee "$WAF_EVIDENCE/engine.log"
+
+      - name: Upload policy evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: waf-policy-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.WAF_EVIDENCE }}/
+          if-no-files-found: error
+          retention-days: 14

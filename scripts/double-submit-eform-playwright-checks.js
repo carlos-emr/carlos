@@ -8,7 +8,7 @@
  * clicks, double Enter on the focused toolbar Save button (the fixture's own submit is not the eForm save path), slow-response re-click) the check saves ONE instance with
  * its own marker subject and asserts EXACTLY ONE eform_data row for the owned patient and that subject.
  *
- * Last (pinned to app-findings-log.md finding 168): a login that may save eForms but holds no `_edoc` x
+ * Last (app-findings-log.md finding 168, fixed by #4424): a login that may save eForms but holds no `_edoc` x
  * presses Add to Documents. The eForm is stored, the eDoc step is then refused, and the answer must not be
  * the replay refusal ("This form can no longer be submitted from this page"): that text tells the
  * clinician nothing failed and that the page was submitted twice.
@@ -24,6 +24,25 @@ const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-suppo
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { signIn } = require('./lib/authz-read-probe');
 const { bundleMessage } = require('./lib/throwaway-login-fixture');
+const { csrfToken } = require('./lib/front-door-checks');
+
+/**
+ * Whether this install renders eForm PDFs: Download (eform/downloadEFormPdf) of the run's first saved instance, as the
+ * test login, comes back with the PDF in the page's eFormPDF field.
+ */
+async function eformPdfRenders(s, formName) {
+  const fdid = s.sql.value(`SELECT MIN(fdid) FROM eform_data WHERE demographic_no=${s.patient}
+    AND form_name=${h.sqlString(formName)} AND status=1`);
+  h.assert(/^\d+$/.test(fdid), 'No saved eForm of this run to render');
+  const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/eform/downloadEFormPdf'), {
+    form: { fdid, demographicNo: String(s.patient), 'CSRF-TOKEN': await csrfToken(s.schedule, s.config.baseUrl) },
+  });
+  const input = /<input[^>]*\bid="eFormPDF"[^>]*>/.exec(await response.text());
+  return Boolean(input && /\bvalue="[A-Za-z0-9+/=]{100,}"/.test(input[0]));
+}
+
+// What the 409 for a replayed submission tells the clinician to do (eform.submitUnavailable, as getText formats it).
+const RECOVERY_GUIDANCE = "Check the patient's eForms";
 const { MODES_REPLAY: MODES, rapid, settledCount, watchPosts, verdicts, armSlowServer, sleep, recorderMark, forgiveAbortedSecondRequest } = require('./lib/double-submit-helpers');
 
 const q = h.sqlString;
@@ -127,16 +146,27 @@ async function workflow(s) {
       const since = recorderMark(s.recorder);
       const failures = failureMark(s.recorder);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
-      const activate = () => rapid(mode.key, form.locator('#remoteSubmitButton'),
-        { textField: form.locator('#remoteSubmitButton') });
+      const activate = async () => {
+        if (mode.key !== 'replay') return rapid(mode.key, form.locator('#remoteSubmitButton'),
+          { textField: form.locator('#remoteSubmitButton') });
+        // Reload the completed POST result, not an in-flight submit. A fixed delay can cancel
+        // the first response under load even though its row was committed, which never tests replay.
+        const [initial] = await Promise.all([
+          form.waitForResponse(response => response.request().method() === 'POST' && route.test(response.url())),
+          form.locator('#remoteSubmitButton').click({ noWaitAfter: true }),
+        ]);
+        h.assert(initial.status() === 200, `The initial eForm submission answered HTTP ${initial.status()}`);
+        h.assert((await initial.finished()) === null, 'The initial eForm submission response did not finish');
+        await form.waitForURL(url => route.test(url.pathname), { waitUntil: 'domcontentloaded' });
+        await form.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
+      };
       if (mode.key === 'slowResubmit') {
         await armUnsavedChangesPrompt(form);
         const dialogs = await h.withExpectedDialogs(form, activate);
         h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload', 'Expected an accepted unsaved-form navigation prompt');
       } else await activate();
-      // The saved result page closes itself only after its 5 s success alert, so the replay reload (2.5 s after the
-      // click) should land on the still-open result page. rapid() swallows a "Target page closed" error, so prove the
-      // reload really ran: the window is still open, or the reload re-sent the POST.
+      // The saved result page closes itself after its 5 s success alert. Replay reloads as
+      // soon as that result loads, then proves the reload really re-sent the POST below.
       if (mode.key === 'replay') {
         h.assert(!form.isClosed() || posts.seen.length >= 2,
           'The eForm window closed before the replay reload ran, so the POST replay was never exercised');
@@ -155,8 +185,10 @@ async function workflow(s) {
           `Reload did not reject the consumed submission (AddEForm responses seen: [${responses.map(response => response.status()).join(', ')}]; owned rows: ${count})`);
         const conflict = responses.find(response => response.status() === 409);
         const conflictText = await conflict.text().catch(error => `<body unavailable: ${String(error.message).split('\n')[0]}>`);
-        h.assert(conflictText.includes('Check the patient'),
-          `Replay did not explain how to check the saved eForm (HTTP 409 body of ${conflictText.length} characters)`);
+        // The full phrase, apostrophe included: getText formats the message through MessageFormat, which drops a
+        // single quote, so "Check the patient" alone also matched the broken "patients eForms" (#4424, finding 169).
+        h.assert(conflictText.includes(RECOVERY_GUIDANCE),
+          `Replay did not explain how to check the saved eForm, as "${RECOVERY_GUIDANCE}" (HTTP 409 body of ${conflictText.length} characters)`);
         // This exact, asserted conflict is the expected result of the deliberately replayed POST.
         consumeExpectedFailure(s.recorder, failures, { status: 409, path: /\/eform\/addEForm$/ });
       }
@@ -168,8 +200,8 @@ async function workflow(s) {
         data: original.postData(), headers: { 'Content-Type': original.headers()['content-type'] },
         maxRedirects: 0,
       });
-      h.assert(repeated.status() === 409 && (await repeated.text()).includes('Check the patient'),
-        `Server accepted a repeated eForm POST or omitted recovery guidance (HTTP ${repeated.status()})`);
+      h.assert(repeated.status() === 409 && (await repeated.text()).includes(RECOVERY_GUIDANCE),
+        `Server accepted a repeated eForm POST or omitted the recovery guidance "${RECOVERY_GUIDANCE}" (HTTP ${repeated.status()})`);
       h.assert(sql.value(`SELECT COUNT(*) FROM eform_values v JOIN eform_data d ON d.fdid=v.fdid
         WHERE d.demographic_no=${patient} AND d.form_name=${q(formName)} AND d.subject=${q(subject)}
         AND v.var_name='note' AND v.var_value='double submit'`) === '1', 'Clinical field was lost or duplicated');
@@ -272,10 +304,11 @@ async function workflow(s) {
     for (const form of [first, second, revision]) if (!form.isClosed()) await form.close();
   });
 
-  // ---- Finding 168: a failure after the eForm is stored is reported as a replay -------------------
-  // AddEForm2Action answers every RuntimeException after the eForm is committed with the replay 409
-  // (rejectSubmission(false): eform.submitUnavailable). Add to Documents moves the PDF into the document
-  // store, which DocumentManagerImpl.moveDocument refuses without `_edoc` x.
+  // ---- Finding 168: a failure after the eForm is stored was reported as a replay -----------------
+  // AddEForm2Action used to answer every RuntimeException after the eForm is committed with the replay 409
+  // (eform.submitUnavailable); since #4424 it answers 409 eform.submitSavedStepIncomplete, naming the step.
+  // Add to Documents moves the PDF into the document store, which DocumentManagerImpl.moveDocument refuses
+  // without `_edoc` x.
   const replayText = bundleMessage('eform.submitUnavailable', "This form can no longer be submitted from this page.")
     .split('. ')[0].replace(/\.$/, '');
   let noEdoc;
@@ -296,7 +329,7 @@ async function workflow(s) {
         page.waitForResponse(r => r.request().method() === 'POST' && /\/eform\/addEForm$/i.test(new URL(r.url()).pathname)),
         page.locator('#remoteSaveEdocumentButton').click(),
       ]);
-      noEdoc = { status: response.status(), text: await response.text() };
+      noEdoc = { status: response.status(), text: await response.text(), receivedAt: new Date().toISOString() };
       await page.close();
     } finally {
       await restricted.context.close();
@@ -308,13 +341,28 @@ async function workflow(s) {
       'A document was filed for a login that may not add documents');
   });
 
-  // Pinned: holds only the assertion finding 168 breaks.
+  // Holds only the assertion finding 168 broke (fixed by #4424), so a regression fails exactly here.
   await s.step('a failed Add to Documents is not answered with the replay refusal', async () => {
+    // Finding 168 is about the document step failing AFTER the eForm PDF exists. Where the install cannot render an
+    // eForm PDF at all (no eForm render browser service), Add to Documents stops before that step, and this assertion
+    // would pass without testing anything, so the pin would read as fixed. So before passing it, prove the PDF renders.
+    if (!noEdoc.text.includes(replayText) && !(await eformPdfRenders(s, formName))) {
+      throw new h.SkipCheck('This install cannot render an eForm PDF (a Download of one of the run\'s saved eForms '
+        + 'came back without one), so Add to Documents never reaches the document step finding 168 is about; '
+        + 'run it where the eForm renderer is up');
+    }
     h.assert(!noEdoc.text.includes(replayText),
       `The answer to a failed Add to Documents (HTTP ${noEdoc.status}) is the replay refusal "${replayText}.", which is what a `
       + 'replayed submission gets and hides that the eForm was saved and only the document step failed');
+    const failedStep = bundleMessage('eform.submitStep.addToDocuments', 'Add to Documents');
+    const savedStepMessage = bundleMessage('eform.submitSavedStepIncomplete',
+      "The eForm was saved, but {0} did not complete. Check the patient''s eForms and chart before you redo that step.")
+      .replace('{0}', failedStep).replace(/''/g, "'");
+    h.assert(noEdoc.status === 409 && noEdoc.text === savedStepMessage,
+      `The saved eForm's refused document step did not return HTTP 409 and its specific recovery guidance (HTTP ${noEdoc.status})`);
+    console.log(`    expected post-save denial receipt: ${noEdoc.receivedAt}; HTTP 409; eForm stored once; no document filed; step=ADD_TO_DOCUMENTS`);
   });
 }
 
-module.exports = { workflow };
+module.exports = { workflow, eformPdfRenders };
 if (require.main === module) runWorkflow('double-submit-eform', workflow, { openPatient: true });

@@ -39,7 +39,7 @@ const WAF_DIR = path.join(ROOT, 'debian', 'assets', 'modsecurity');
 const CLASSES_DIR = path.join(ROOT, 'src', 'main', 'webapp', 'WEB-INF', 'classes');
 const WEB_XML = path.join(ROOT, 'src', 'main', 'webapp', 'WEB-INF', 'web.xml');
 
-const { CONTEXT, wafRouteRules } = require('./lib/waf-exclusion-rules');
+const { CONTEXT, TERMINATOR, wafRouteRules } = require('./lib/waf-exclusion-rules');
 
 // ---------------------------------------------------------------------------------------------
 // Route pattern -> concrete routes
@@ -127,8 +127,26 @@ function expandRoutePattern(pattern, limit = 256) {
 // ---------------------------------------------------------------------------------------------
 
 function withoutXmlComments(xml) {
-  return xml.replace(/<!--[\s\S]*?-->/g, '');
+  let cursor = 0;
+  let result = '';
+  for (let start = xml.indexOf('<!--', cursor); start >= 0; start = xml.indexOf('<!--', cursor)) {
+    const end = xml.indexOf('-->', start + 4);
+    assert.ok(end >= 0, 'Unterminated XML comment in route catalogue');
+    // Keep a token boundary: deleting a comment must not concatenate its neighbours into markup.
+    result += xml.slice(cursor, start) + ' ';
+    cursor = end + 3;
+  }
+  return result + xml.slice(cursor);
 }
+
+test('XML comment removal preserves token boundaries instead of constructing new markup', () => {
+  assert.equal(withoutXmlComments('<!<!-- ignored -->-->'), '<! -->');
+  assert.equal(withoutXmlComments('<action/><!-- hidden --><package/>'), '<action/> <package/>');
+});
+
+test('an unterminated XML comment cannot silently hide route declarations', () => {
+  assert.throws(() => withoutXmlComments('<!-- <action name="not-live"/>'), /Unterminated XML comment/);
+});
 
 /**
  * Every Struts action as { path, file }: package namespace joined to the action name. Names that
@@ -270,6 +288,29 @@ test('shouldResolveEveryWafExclusionRoute_toStrutsActionOrServlet', () => {
   const problems = unresolvedRoutes(allRules(), loadedRoutes());
   // assert.ok, not deepEqual: the diff of two arrays would print every message a second time.
   assert.ok(problems.length === 0, `${problems.length} WAF exclusion route(s) resolve to nothing:\n${problems.join('\n')}\n`);
+});
+
+test('shouldKeepClinicalRequestAndResponseExceptionsOnExactRoutes_forMilestoneFixes', () => {
+  // Source regex boundaries only. The real-engine suite must independently
+  // check normalization, encoded paths, methods and CRS anomaly decisions.
+  const rules = allRules();
+  for (const [id, routes] of [
+    ['1071', ['encounter/IncomingEncounter', 'tickler/ListTicklers', 'casemgmt/ViewForward', 'CaseManagementEntry']],
+    ['1072', ['encounter/Measurements']], ['1073', ['tickler/ListTicklers']],
+    ['1143', ['casemgmt/ViewForward']], ['1144', ['CaseManagementEntry']],
+  ]) {
+    const rule = rules.find((entry) => entry.id === id);
+    assert.ok(rule, `missing rule ${id}`);
+    assert.equal(rule.shape, 'exact');
+    assert.deepEqual(expandRoutePattern(rule.route).map((entry) => entry.text).sort(), [...routes].sort());
+    const pattern = new RegExp(`^${CONTEXT}${rule.route}${TERMINATOR}`);
+    for (const route of routes) {
+      for (const suffix of ['', '?x=1', ';jsessionid=abc']) assert.ok(pattern.test(`${CONTEXT}${route}${suffix}`));
+      for (const suffix of ['Extra', '/Other', '/../../admin']) assert.equal(pattern.test(`${CONTEXT}${route}${suffix}`), false);
+      assert.equal(pattern.test(`/other/${route}`), false);
+      assert.equal(pattern.test(`${CONTEXT}${route.toLowerCase()}`), false);
+    }
+  }
 });
 
 test('shouldExpandAlternationsAndOptionalGroups_intoRequiredRoutes', () => {

@@ -200,6 +200,7 @@
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
             <ref bean="oauthJaxbProvider"/>
             <ref bean="oauthJsonProvider"/>
             <!-- OAuthInterceptor's 400/401/403 rejections are OAuth1Exceptions inside a CXF Fault. Without

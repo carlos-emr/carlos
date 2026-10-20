@@ -434,3 +434,20 @@ BUNDLE_PREFIX_RENAMES = [
     ("oscarEncounter.class.EctSaveEncounterAction.",
      "encounter.class.EctSaveEncounterAction."),
 ]
+
+# `carry` keys whose CARLOS default differs from the stock O19 one but which the
+# manifest must NOT list in CARLOS_DEFAULTS (and so the props phase does not
+# report as `carlos-default`). Key -> why. The value wins all the same: a clinic
+# still on the stock O19 value is skipped by baseline-diff and gets CARLOS's
+# default; only the report row naming both values is left out.
+#
+# resource_base_url: the stock O19 Help link (http://oscarmanual.org/14/) now
+# returns 404, so CARLOS's default is the CARLOS wiki. The pinned carlos-ctl
+# release's contract test (tests/test_props.py DIVERGENT_CARRY_DEFAULTS) holds
+# the manifest's divergent set to a fixed list that lacks this key, so listing
+# it fails that suite until a carlos-ctl release carries it. Drop this entry,
+# regenerate and raise debian/carlos-ctl.pin when such a release exists.
+DIVERGENCE_REPORT_EXEMPT = {
+    "resource_base_url": "stock O19 Help link is dead; pinned carlos-ctl "
+                         "contract test does not list the key",
+}

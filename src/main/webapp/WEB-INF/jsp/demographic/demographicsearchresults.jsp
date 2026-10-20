@@ -103,8 +103,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -555,28 +553,10 @@
         List<String> stati = Arrays.asList(pstatus.split(","));
 
 
-        if ("search_band_number".equals(searchMode)) {
-            keyword = getDemographicNumberWithBandNumber(keyword);
-            searchMode = "search_demographic_no";
-        }
+        // search_band_number is a DemographicDao search mode of its own, so every record carrying the number is listed.
         List<String> statuses = "active".equals(ptstatus) || "inactive".equals(ptstatus) ? stati : null;
         return demographicDao.searchForPatientList(new DemographicListSearch(searchMode, keyword, orderBy,
                 statuses, "active".equals(ptstatus), offset, limit), providerNo, outOfDomain);
-    }
-
-    String getDemographicNumberWithBandNumber(String bandNumber) {
-        //Gets the demographicExtDao
-        DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
-        //Gets the demographicExts that match the given key and value
-        List<DemographicExt> demographicExts = demographicExtDao.getDemographicExtByKeyAndValue("statusNum", bandNumber);
-        //Creates a demographicNumber string with the value of '-1'
-        String demographicNumber = "-1";
-        //If the list is not null and is not empty, gets the demographic number from the first record and converts it to a string
-        if (demographicExts != null && !demographicExts.isEmpty()) {
-            demographicNumber = demographicExts.get(0).getDemographicNo().toString();
-        }
-        //Returns the demographicNumber
-        return demographicNumber;
     }
 
 %>

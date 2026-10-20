@@ -90,19 +90,20 @@ const FORMS = [
     // problems: the typo that every page of the form throws (237). opener: the note-lock beacon the chart sends as it is
     // reloaded by an Assessment Save (242), so a different E-Chart problem after that is fixed does not read as pinned.
     known: { problems: /docuemtn is not defined/, opener: /CaseManagementEntry failed \(net::ERR_ABORTED\)/ } },
-  // The shipped registration points at the Struts 1 route SetupForm.do, which the chart opens as a raw URL and the
-  // application answers 404 (finding 103). That row only opens, so its pin is the open step and nothing downstream of
-  // the open can hold it up; the form behind it is VT2.
+  // The shipped registration points at the Struts 1 route SetupForm.do. The chart opened it as a raw URL and the
+  // application answered 404 (finding 103, fixed in #4667: the route now resolves to SetupForm). That row only opens,
+  // so nothing downstream of the open can hold it up; the form behind it is VT2.
   { key: 'VT', title: 'Vascular Tracker', path: '../form/SetupForm.do', query: 'formName=VTForm&',
     table: 'formVTForm', openOnly: true, ready: { button: 'Update VT' } },
-  // The same form registered the way the route is mapped (SetupForm without the .do suffix; SetupForm.do is also
-  // refused by the action's own check of the registration). It saves through form/SubmitForm, names its inputs
-  // `value(Name)` (the column is Name), and has an Update VT button instead of Save (finding 254).
+  // The same form registered the way the route is mapped (SetupForm without the .do suffix, which the action's own
+  // registration check now accepts either way). It saves through form/SubmitForm, names its inputs
+  // `value(Name)` (the column is Name), and has an Update VT button instead of Save. Its Save answered 400 (finding
+  // 254) and every load and Update VT threw a TypeError from the missing eye-exam inputs (finding 255); both are fixed
+  // in #4667 and stay covered as regressions.
   { key: 'VT2', title: 'Vascular Tracker (extensionless route)', path: '../form/SetupForm', query: 'formName=VTForm&',
     table: 'formVTForm', idColumn: 'ID', provider: false, confirm: false, prose: 'value(ExerComments)',
     fields: [{ name: 'value(ExerValue)', value: 'Y', stored: 'Y' }], saveButton: 'Update VT', savePath: '/form/SubmitForm',
-    idInUrl: false, ready: { button: 'Update VT' },
-    known: { problems: /Cannot set properties of undefined \(setting '(?:disabled|value)'\)/ } },
+    idInUrl: false, ready: { button: 'Update VT' } },
 ].map(form => {
   if (form.openOnly) return { ...form, claim: form.key.toLowerCase(), concerns: ['open', 'problems'] };
   const concerns = ['open'];
@@ -136,9 +137,6 @@ function validatePin(env = process.env) {
  * scripts/form-claims.test.js proves each pinned literal equals the label the run generates.
  */
 const PINNED = Object.freeze({
-  'vt.open': 'Vascular Tracker: is listed once in the Forms menu and opens for the owned patient',
-  'vt2.problems': 'Vascular Tracker (extensionless route): raised no JavaScript-layer problems',
-  'vt2.save': 'Vascular Tracker (extensionless route): Save stores exactly the typed prose and structured fields for the signed-in provider',
   'mh14.problems': 'Mental Health Form 14: raised no JavaScript-layer problems',
   'mhc.problems': 'Mental Health: raised no JavaScript-layer problems',
   'mhc.opener': 'Mental Health: Saving a page leaves the E-Chart that opened the form alone',
@@ -153,6 +151,48 @@ const labels = form => [`form-${form.key}`, `reopen-${form.key}`, `print-${form.
 const column = name => name.replace(/^value\((.+)\)$/, '$1');
 /** The input that carries the form's text once everything is saved: the last page of a multi-page form. */
 const lastProse = form => (form.chain ? form.chain[form.chain.length - 1].prose : form.prose);
+const VT_EYE_TYPES = ['iDia', 'iHyp', 'iOth', 'iRef'];
+const VT_FOOT_TYPES = ['FTEx', 'FTNe', 'FTIs', 'FTUl', 'FTIn', 'FTOt', 'FTRe'];
+
+async function assertVascularTrackerGroups(page, diabetes, pvd) {
+  for (const [types, enabled] of [[VT_EYE_TYPES, diabetes], [VT_FOOT_TYPES, diabetes || pvd]]) {
+    for (const type of types) {
+      const radios = page.locator(`input[name="value(${type}Value)"]`);
+      h.assert(await radios.count() === 2, `${type} must have both Yes and No controls`);
+      for (const radio of await radios.all()) {
+        h.assert(await radio.isEnabled() === enabled, `${type} enablement differs from the selected DM/PVD state`);
+      }
+    }
+  }
+}
+
+async function prepareVascularTracker(page, text) {
+  await page.waitForLoadState('load'); // VT restores values and enables controls in body.onload.
+  h.assert(await page.locator('td').filter({hasText: /^\s*null\s*$/}).count() === 0,
+    'A fresh VT renders missing history as the literal null');
+  const diabetes = page.locator('input[name="value(DMValue)"]');
+  const pvd = page.locator('input[name="value(PVDValue)"]');
+  await assertVascularTrackerGroups(page, false, false);
+  await pvd.check();
+  await assertVascularTrackerGroups(page, false, true);
+  await diabetes.check();
+  await assertVascularTrackerGroups(page, true, true);
+  await pvd.uncheck();
+  await assertVascularTrackerGroups(page, true, false);
+  await diabetes.uncheck();
+  await assertVascularTrackerGroups(page, false, false);
+  await diabetes.check();
+  await page.locator('input[name="value(iDiaValue)"][value="yes"]').check();
+  await page.locator('input[name="iDate"]').fill(DATE.stored);
+  await page.locator('textarea[name="iComments"]').fill(`${text} eye`);
+}
+
+function assertVascularTrackerStored(sql, patient, id, text) {
+  const columns = ['DMValue', 'iDiaValue', ...VT_EYE_TYPES.flatMap(type => [`${type}Date`, `${type}Comments`])];
+  const [row] = sql.rows(`SELECT ${columns.join(',')} FROM formVTForm WHERE ID=${id} AND demographic_no=${patient}`);
+  const expected = ['yes', 'yes', ...VT_EYE_TYPES.flatMap(() => [DATE.stored, `${text} eye`])];
+  h.assert(JSON.stringify(row) === JSON.stringify(expected), 'The saved eye result/date/comments differ from the visible VT fields');
+}
 
 async function fieldValue(page, field) {
   const input = page.locator(`[name="${field.name}"]`).first();
@@ -160,6 +200,7 @@ async function fieldValue(page, field) {
 }
 
 async function assertShown(page, form, text, where, proseName = form.prose) {
+  if (form.key === 'VT2') await page.waitForLoadState('load');
   if (proseName) {
     h.assert(await page.locator(`[name="${proseName}"]`).first().inputValue() === text,
       `${where} does not show the saved ${proseName}`);
@@ -167,6 +208,14 @@ async function assertShown(page, form, text, where, proseName = form.prose) {
   for (const field of form.fields) {
     const shown = await fieldValue(page, field);
     h.assert(shown === (field.check ? '1' : field.value), `${where} does not show the saved ${field.name}`);
+  }
+  if (form.key === 'VT2') {
+    h.assert(await page.locator('input[name="value(DMValue)"]').isChecked(), `${where} lost the DM selection`);
+    h.assert(!await page.locator('input[name="value(PVDValue)"]').isChecked(), `${where} invented a PVD selection`);
+    await assertVascularTrackerGroups(page, true, false);
+    h.assert(await page.locator('input[name="value(iDiaValue)"][value="yes"]').isChecked(), `${where} lost the eye result`);
+    h.assert(await page.locator('input[name="iDate"]').inputValue() === DATE.stored, `${where} lost the eye observation date`);
+    h.assert(await page.locator('textarea[name="iComments"]').inputValue() === `${text} eye`, `${where} lost the eye comment`);
   }
 }
 
@@ -199,6 +248,15 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
     sql.execute(FORMS.map(form => `DELETE FROM ${form.table} WHERE demographic_no=${patient}`).join(';'));
     h.assert(sql.value(`SELECT ${FORMS.map(form => `(SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient})`)
       .join('+')}`) === '0', 'Form rows of the owned patient were not removed');
+  });
+  if (chosen.some(form => form.key === 'VT2')) s.cleanup(() => {
+    // VT Save & Exit writes measurements. runWorkflow verifies ownership of this synthetic
+    // patient before invoking cleanup; remove only its child rows before removing the patient.
+    sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN
+      (SELECT id FROM measurements WHERE demographicNo=${patient});
+      DELETE FROM measurements WHERE demographicNo=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`) === '0',
+      'VT measurements of the owned patient were not removed');
   });
   s.cleanup(() => {
     for (const { name, value } of registrations) {
@@ -278,19 +336,20 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       // The entry being in the menu is what the step needs; the form opening for the owned patient is the test.
       const link = await claims.asPrecondition(async () => {
         setSex(form.sex || 'F');
-        await chart.locator('#menuTitle1 a').hover();
+        await ui.openFormsMenu(chart);
         const found = chart.getByRole('link', { name, exact: true });
         const listed = await found.count();
         claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
         return found;
       }, 'the Forms-menu entry');
       entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.key}`));
-      // SetupForm redirects to a bare /form/formVTForm and reads the patient from the chart's session, so for that
-      // form the address cannot say whose record it is (the chart-wide session bean is finding 182).
+      // SetupForm forwards internally; VT's hidden patient is the explicit setup/save contract.
       if (form.idInUrl !== false) h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'The form opened for another patient');
       const ready = form.ready ? entry.page.getByRole('button', { name: form.ready.button, exact: true }).first()
         : entry.page.locator(`[name="${form.prose}"]`).first();
       await ready.waitFor({ state: 'visible' });
+      if (form.key === 'VT2') h.assert(await entry.page.locator('input[name="demographic_no"]').inputValue() === patient,
+        'VT setup rendered another patient');
     });
 
     if (form.openOnly) continue;
@@ -384,6 +443,7 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
 
     await attempt(entry, 'save', 'Save stores exactly the typed prose and structured fields for the signed-in provider', async () => {
       const { page } = entry;
+      if (form.key === 'VT2') await prepareVascularTracker(page, entry.text);
       await claims.asPrecondition(async () => {
         await page.locator(`[name="${form.prose}"]`).first().fill(entry.text);
         for (const field of form.fields) {
@@ -419,6 +479,7 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       form.fields.forEach((field, i) => h.assert(row[2 + i] === field.stored, `The stored ${field.name} differs from what was set`));
       if (form.provider) h.assert(row[row.length - 1] === provider, 'The row is not attributed to the signed-in provider');
       entry.id = row[0];
+      if (form.key === 'VT2') assertVascularTrackerStored(sql, patient, entry.id, entry.text);
       if (form.idInUrl !== false) h.assert(new URL(page.url()).searchParams.get('formId') === entry.id, 'Save redisplayed another record');
     }, ['open']);
 
@@ -537,11 +598,48 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
         'The folded-navigation fixture did not put the saved form beyond the first page');
       page = await claims.reaching(() => openSavedEntry(fresh, entry));
       const params = new URL(page.url()).searchParams;
-      // A form whose id is not in the URL takes its patient from the session too (see the open step).
+      // VT uses the setup route and explicit hidden patient/record fields after its internal forward.
       if (form.idInUrl !== false) h.assert(params.get('demographic_no') === patient, 'The saved-form entry opened another patient');
       if (form.idInUrl !== false) h.assert(params.get('formId') === entry.id, 'The saved-form entry did not open the saved record');
       // After a multi-page form's last Save the chart opens its last page, so that page's text is what must be there.
       await assertShown(page, form, entry.text, 'The reopened form', lastProse(form));
+      if (form.key === 'VT2') {
+        h.assert(await page.locator('input[name="demographic_no"]').inputValue() === patient,
+          'VT reopened for another patient');
+        h.assert(await page.locator('input[name="value(formId)"]').inputValue() === entry.id,
+          'VT did not reopen the saved record');
+        const before = sql.rows(`SELECT * FROM formVTForm WHERE ID=${entry.id} AND demographic_no=${patient}`);
+        const count = Number(sql.value(`SELECT COUNT(*) FROM formVTForm WHERE demographic_no=${patient}`));
+        const posted = page.waitForResponse(response => response.request().method() === 'POST'
+          && new URL(response.url()).pathname.endsWith('/form/SubmitForm'));
+        const closed = page.waitForEvent('close');
+        const refreshed = fresh.waitForResponse(response => new URL(response.url()).pathname.endsWith('/encounter/displayForms'));
+        for (const pending of [posted, closed, refreshed]) pending.catch(() => {});
+        const dialogs = await h.withExpectedDialogs(page, () => page.locator('input[type="submit"][onclick*="onSaveExit();"]').first().click()
+          .catch(error => { if (!page.isClosed()) throw error; }));
+        h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'VT Save & Exit must ask for confirmation once');
+        const response = await posted;
+        h.assert(response.status() === 200, 'VT Save & Exit was not accepted');
+        const submitted = new URLSearchParams(response.request().postData() || '');
+        h.assert(submitted.get('submit') === 'exit' && submitted.get('demographic_no') === patient
+          && submitted.get('value(formId)') === entry.id, 'VT Save & Exit did not submit its own patient and record');
+        await closed;
+        h.assert((await refreshed).status() === 200, 'VT completion did not refresh its own Forms module');
+        await expectValue(sql, `SELECT COUNT(*) FROM formVTForm WHERE demographic_no=${patient}`, String(count + 1),
+          'VT Save & Exit did not create exactly one form revision');
+        h.assert(JSON.stringify(sql.rows(`SELECT * FROM formVTForm WHERE ID=${entry.id} AND demographic_no=${patient}`)) === JSON.stringify(before),
+          'VT Save & Exit overwrote the previous form revision');
+        entry.id = sql.value(`SELECT MAX(ID) FROM formVTForm WHERE demographic_no=${patient}`);
+        assertVascularTrackerStored(sql, patient, entry.id, entry.text);
+        const readings = sql.rows(`SELECT dataField,DATE(dateObserved),comments FROM measurements
+          WHERE demographicNo=${patient} AND type='iDia'`);
+        h.assert(JSON.stringify(readings) === JSON.stringify([['yes', DATE.stored, `${entry.text} eye`]]),
+          'VT Save & Exit did not file the owned eye measurement exactly once');
+        page = await openSavedEntry(fresh, entry);
+        h.assert(await page.locator('input[name="value(formId)"]').inputValue() === entry.id,
+          'VT reopened an older record after Save & Exit');
+        await assertShown(page, form, entry.text, 'VT reopened after Save & Exit');
+      }
       if (!foldSavedForms) return;
       // A previously loaded and collapsed saved-form list must expand and reopen the same record.
       await page.close();

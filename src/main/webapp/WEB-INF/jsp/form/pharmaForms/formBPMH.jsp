@@ -100,8 +100,9 @@
     <!--  HEADING  -->
     <!-- FORM BEGIN -->
     <form action="${pageContext.request.contextPath}/formBPMH" method="post">
-        <input type="hidden" name="demographicNo" id="demographicNo"/>
-        <input type="hidden" name="formId" id="formId"/>
+        <%-- BpmhFormRetrieve2Action binds its bean as "form": every posted field is form.<property>. --%>
+        <input type="hidden" name="form.demographicNo" id="demographicNo" value="${carlos:forHtmlAttribute(bpmh.demographicNo)}"/>
+        <input type="hidden" name="form.formId" id="formId" value="${carlos:forHtmlAttribute(bpmh.formId)}"/>
         <header>
 
             <h1><fmt:message key="colcamex.formBPMH.title"/></h1>
@@ -206,7 +207,7 @@
 
         <!-- FAMILY PHYSICIAN -->
         <section id="familyPhysician">
-            <input type="hidden" name="bpmh" property="familyDrContactId" id="familyDrContactId"/>
+            <input type="hidden" name="form.familyDrContactId" id="familyDrContactId" value="${carlos:forHtmlAttribute(bpmh.familyDrContactId)}"/>
             <table id="providerId">
                 <tr>
                     <th colspan="7"><fmt:message key="colcamex.formBPMH.familyDr"/></th>
@@ -288,7 +289,7 @@
 							<fmt:message key="colcamex.formBPMH.drugs.why.sub"/>
 						</span>
                     </td>
-                    <td class="columnTitle">
+                    <td class="columnTitle" id="drugInstructionsHeader">
                         <fmt:message key="colcamex.formBPMH.drugs.instructions"/><br/>
                         <span class="smallText">
 							<fmt:message key="colcamex.formBPMH.drugs.instructions.sub"/>
@@ -299,9 +300,8 @@
                 <c:if test="${not empty bpmh.drugs}">
                     <c:forEach var="drugs" items="${bpmh.drugs}" varStatus="status">
                         <tr>
-                            <form:hidden property="id" indexed="true" value="${drugs.id}"/>
-
-                            <td>
+                            <td id="drugWhat${status.index}">
+                                <input type="hidden" name="form.drugs[${status.index}].id" value="${carlos:forHtmlAttribute(drugs.id)}"/>
                                 <!-- WHAT -->
                                 ${carlos:forHtml(drugs.what)}
                             </td>
@@ -345,9 +345,8 @@
                                         ${carlos:forHtml(drugs.instruction)}
                                     </c:when>
                                     <c:otherwise>
-                                        <form:textarea property="instruction" indexed="true">
-                                            &nbsp;
-                                        </form:textarea>
+                                        <textarea name="form.drugs[${status.index}].instruction" id="drugInstruction${status.index}"
+                                                  aria-labelledby="drugInstructionsHeader drugWhat${status.index}" rows="2"></textarea>
                                     </c:otherwise>
                                 </c:choose>
                             </td>
@@ -362,7 +361,7 @@
             <table>
                 <tr>
                     <td>
-                        <input type="checkbox" name="confirm" id="confirm" value="checked"/>
+                        <input type="checkbox" name="form.confirm" id="confirm" value="true"/>
                         <label for="confirm"><fmt:message key="colcamex.formBPMH.confirm"/></label>
                     </td>
                 </tr>
@@ -371,7 +370,7 @@
         <section id="note">
             <table>
                 <tr>
-                    <td>
+                    <td id="bpmhNoteLabel">
                         <fmt:message key="colcamex.formBPMH.notes"/>
                     </td>
                 </tr>
@@ -382,7 +381,8 @@
                                 ${carlos:forHtml(bpmh.note)}&nbsp;
                             </c:when>
                             <c:otherwise>
-                                <form:textarea property="note">&nbsp;</form:textarea>
+                                <%-- "note" is the section's id. --%>
+                                <textarea name="form.note" id="bpmhNote" aria-labelledby="bpmhNoteLabel" rows="4"></textarea>
                             </c:otherwise>
                         </c:choose>
                     </td>
@@ -416,10 +416,11 @@
 
                         <c:if test="${ controls eq 'on' }">
 
-                            <input type="submit" name="submit" value="<fmt:message key="colcamex.formBPMH.print"/>" />
+                            <%-- The action dispatches on "method"; a button keeps the translated label as its text. --%>
+                            <button type="submit" name="method" value="print"><fmt:message key="colcamex.formBPMH.print"/></button>
 
                             <c:if test="${bpmh.formId == 0}">
-                            <input type="submit" name="submit" value="<fmt:message key="colcamex.formBPMH.save"/>" />
+                            <button type="submit" name="method" value="save"><fmt:message key="colcamex.formBPMH.save"/></button>
                             </c:if>
 
                         </c:if>

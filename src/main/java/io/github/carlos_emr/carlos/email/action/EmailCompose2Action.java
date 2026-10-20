@@ -16,8 +16,10 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
 import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
+import io.github.carlos_emr.carlos.email.core.EmailFailureMessage;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -104,9 +106,12 @@ public class EmailCompose2Action extends ActionSupport {
         "emailAttachmentList"
     };
 
-    /** Shown when no draft is staged under the request's key: missing, already used, or dropped (#4101). */
-    static final String COMPOSE_EXPIRED_MESSAGE = "This email window has expired or was already opened."
-            + " Close it and email the eForm again.";
+    /**
+     * Result for a request whose key finds no usable draft: missing, unknown, already used, or dropped
+     * for a newer save (#4101). The eForm error page needs an eForm to show anything, and there is none
+     * here, so this has its own page, worded from the bundle, naming no patient, eForm or key.
+     */
+    static final String DRAFT_EXPIRED_RESULT = "draftExpired";
 
 
     /**
@@ -115,8 +120,9 @@ public class EmailCompose2Action extends ActionSupport {
      * This method serves as the main entry point for the Struts2 action and delegates to
      * prepareComposeEFormMailer() to handle the email composition preparation logic.
      *
-     * @return String the Struts2 result name, either "compose" for successful preparation
-     *         or "eFormError" if PDF generation fails
+     * @return String the Struts2 result name: "compose" for successful preparation,
+     *         {@link #DRAFT_EXPIRED_RESULT} if there is no usable draft for the window's key, or
+     *         "eFormError" if PDF generation fails
      * @see #prepareComposeEFormMailer()
      */
     public String execute() {
@@ -150,8 +156,8 @@ public class EmailCompose2Action extends ActionSupport {
      * The eForm save stages an {@link EmailComposeStaging.Draft} (template id, patient, message,
      * options and attachment selections) under a one-time key passed as the {@code draft}
      * parameter. This takes exactly that draft, once, and reads nothing else from the session, so
-     * another window's save cannot change it. A missing, reused or dropped key shows the error page
-     * with {@link #COMPOSE_EXPIRED_MESSAGE}, never another window's draft. If any later step of
+     * another window's save cannot change it. A missing, unknown, reused or dropped key shows the
+     * "draft expired" page ({@link #DRAFT_EXPIRED_RESULT}), never another window's draft. If any later step of
      * preparing the compose fails (the patient, consent, recipient or sender lookups, the PDF
      * password, or the attachments), the draft goes back under its key, so refreshing retries.
      *
@@ -199,10 +205,11 @@ public class EmailCompose2Action extends ActionSupport {
      * If PDF generation fails for any attachment (eForm, document, lab, form, HRM), the method
      * returns the "eFormError" result with a descriptive error message. This prevents incomplete
      * emails from being composed when required attachments cannot be generated. Without a usable
-     * draft for the request's key, it returns "eFormError" with {@link #COMPOSE_EXPIRED_MESSAGE}.
+     * draft for the request's key, it returns {@link #DRAFT_EXPIRED_RESULT} with HTTP 410.
      *
      * @return String the Struts2 result name: "compose" for successful preparation,
-     *         "eFormError" if there is no draft for the key or PDF generation fails for any attachment
+     *         {@link #DRAFT_EXPIRED_RESULT} if there is no usable draft for the key, or "eFormError" if
+     *         PDF generation fails for any attachment
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getEmailConsentStatus(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getRecipients(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#createEmailPDFPassword(LoggedInInfo, Integer)
@@ -221,7 +228,7 @@ public class EmailCompose2Action extends ActionSupport {
         String draftKey = request.getParameter(EmailComposeStaging.DRAFT_PARAMETER);
         EmailComposeStaging.Draft draft = EmailComposeStaging.take(session, draftKey);
         if (draft == null) {
-            return emailComposeError(request, COMPOSE_EXPIRED_MESSAGE);
+            return draftExpired();
         }
         // Fields that versions before #4101 staged one by one; nothing reads them now.
         cleanupEmailSessionAttributes(request);
@@ -244,7 +251,10 @@ public class EmailCompose2Action extends ActionSupport {
 
         Integer demographicNo = parseDemographicNo(demographicId);
         if (demographicNo == null) {
-            return emailComposeError(request, COMPOSE_EXPIRED_MESSAGE);
+            // The eForm save only stages a draft for a patient, so this should not happen; staff see
+            // the expired page, and the log says why (no ids: the value itself is not trusted).
+            logger.warn("eForm email draft had no usable patient number; showing the draft-expired page");
+            return draftExpired();
         }
 
         // Validate the draft's fid is numeric if provided
@@ -287,10 +297,23 @@ public class EmailCompose2Action extends ActionSupport {
                 attachment.setPreviewToken(pdfPreviewCapabilityService.issue(
                         request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
             }
-        } catch (PDFGenerationException | RuntimeException e) {
-            logger.error(e.getMessage(), e);
+        } catch (SecurityException e) {
+            // A missing privilege is a refusal, not a preparation failure: it goes to the access-denied
+            // page rather than the generic "try again" message. The draft still goes back, like any
+            // failure after take().
             restoreDraft.run();
-            return emailComposeError(request, "This eForm (and attachments, if applicable) could not be emailed. \\n\\n" + e.getMessage());
+            throw e;
+        } catch (PDFGenerationException | RuntimeException e) {
+            // The exception's text can name a file or repeat document content, so neither the log nor
+            // the page gets it: the log has its class and a reference, the page a fixed message with
+            // the same reference for staff to quote.
+            String reference = EmailFailureMessage.newReference();
+            // exceptionTrace gives the types and code locations, never a message.
+            logger.error("Unable to prepare the eForm email; causeType={}, reference={}{}",
+                    e.getClass().getName(), reference, LogSafe.exceptionTrace(e));
+            restoreDraft.run();
+            return emailComposeError(request, EmailFailureMessage.format(LocaleUtils.resolveBundleLocale(request),
+                    EmailFailureMessage.EFORM_ATTACHMENTS_KEY, reference));
         }
 
         // Set request attributes for JSP (from the draft and computed values)
@@ -358,6 +381,17 @@ public class EmailCompose2Action extends ActionSupport {
     }
 
     /**
+     * Shows the "draft expired" page: this window's one-time draft is gone, so 410 Gone. The page
+     * tells staff to close the window and email the eForm again.
+     *
+     * @return {@link #DRAFT_EXPIRED_RESULT}
+     */
+    private String draftExpired() {
+        response.setStatus(HttpServletResponse.SC_GONE);
+        return DRAFT_EXPIRED_RESULT;
+    }
+
+    /**
      * Handles email composition errors by setting error message and returning error result.
      *
      * This method is called when email composition preparation fails, typically due to PDF generation
@@ -373,8 +407,8 @@ public class EmailCompose2Action extends ActionSupport {
      * </ul>
      *
      * @param request HttpServletRequest the HTTP servlet request to store the error message
-     * @param errorMessage String the error message to display to the user, typically includes
-     *                     the specific exception message from PDFGenerationException
+     * @param errorMessage String the error message to display to the user: fixed or bundle text,
+     *                     never an exception's own message
      * @return String the Struts2 result name "eFormError" which maps to the error display page
      * @see io.github.carlos_emr.carlos.utility.PDFGenerationException
      */

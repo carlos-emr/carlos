@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-alpha19</version>
+    <version>2026.08.0-beta1</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -19,7 +19,7 @@
         <url>https://github.com/carlos-emr/carlos</url>
         <connection>scm:git:https://github.com/carlos-emr/carlos.git</connection>
         <developerConnection>scm:git:ssh://git@github.com:carlos-emr/carlos.git</developerConnection>
-        <tag>2026.08.0-alpha19</tag>
+        <tag>2026.08.0-beta1</tag>
     </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -110,12 +110,12 @@
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
-        <spring.version>7.0.8</spring.version>
+        <spring.version>7.0.9</spring.version>
         <spring-security.version>7.0.5</spring-security.version>
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.22.2</jackson.version>
+        <jackson.version>2.22.3</jackson.version>
         <!-- Apache HttpClient 5 -->
         <httpclient5.version>5.6.3</httpclient5.version>
         <!-- Version of the provided-scope Tomcat artifacts we compile against. The servlet
@@ -1540,6 +1540,7 @@
                     <propertiesEncoding>ISO-8859-1</propertiesEncoding>
                     <nonFilteredFileExtensions>
                         <nonFilteredFileExtension>ttf</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>ttc</nonFilteredFileExtension>
                         <nonFilteredFileExtension>pdf</nonFilteredFileExtension>
                         <nonFilteredFileExtension>jar</nonFilteredFileExtension>
                         <nonFilteredFileExtension>xls</nonFilteredFileExtension>
@@ -1919,8 +1920,14 @@
                                     <goal>compile</goal>
                                 </goals>
                                 <configuration>
-                                    <sourceDirectory>src/main/webapp</sourceDirectory>
-                                    <outputDirectory>src/main/jsp</outputDirectory>
+                                    <webAppSourceDirectory>${project.basedir}/src/main/webapp</webAppSourceDirectory>
+                                    <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+                                    <!-- Validation only: keep generated JSP classes separate from
+                                         application classes and leave the source web.xml untouched.
+                                         sourceDirectory/outputDirectory are not jspc 5 parameters. -->
+                                    <generatedClasses>${project.build.directory}/jspc/classes</generatedClasses>
+                                    <webXmlFragment>${project.build.directory}/jspc/webfrag.xml</webXmlFragment>
+                                    <mergeFragment>false</mergeFragment>
                                     <excludes>
                                         <exclude>**/*.jspf</exclude>
                                         <!-- Exclude the deprecated jsp file, the file is not using now -->
