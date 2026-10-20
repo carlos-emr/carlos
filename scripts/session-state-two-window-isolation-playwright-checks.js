@@ -83,6 +83,7 @@
  */
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
+const {captureScheduleContext, assertScheduleContext} = require('./lib/native-schedule-context');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
@@ -102,7 +103,7 @@ function key(value, what) {
 }
 
 /** The second patient, owned by this run; removed last, after every child row. */
-function createSecondPatient(s) {
+function createSecondPatient(s, beforeCleanup = () => {}) {
   const { sql, marker, provider } = s;
   const patient = h.insertId(sql, `INSERT INTO demographic (last_name, first_name, year_of_birth,
       month_of_birth, date_of_birth, sex, patient_status, provider_no, hc_type, province, roster_status,
@@ -110,6 +111,8 @@ function createSecondPatient(s) {
     VALUES (${q(marker)}, ${q(B_FIRST_NAME)}, '1975', '03', '04', 'M', 'AC', ${q(provider)}, 'ON', 'ON', 'NR',
       NOW())`, 'second patient');
   s.cleanup(() => {
+    h.assert(s.context.browser().isConnected() === false, 'Second patient retained: browser close is unconfirmed');
+    beforeCleanup();
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}
       AND last_name=${q(marker)}`) === '1', 'The second patient fixture changed owner');
     const support = [
@@ -156,14 +159,18 @@ function ownChartRows(s, patients) {
 function ownAppointments(s, patients) {
   const { sql } = s;
   const list = patients.join(',');
+  let cleaned = false;
   s.cleanup(() => {
+    h.assert(s.context.browser().isConnected() === false, 'Appointment cleanup retained: browser close is unconfirmed');
     sql.execute(`DELETE FROM appointmentArchive WHERE demographic_no IN (${list});
       DELETE FROM appointment WHERE demographic_no IN (${list})`);
     // An appointment left behind for a removed patient breaks the whole day sheet.
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE demographic_no IN (${list}))
       + (SELECT COUNT(*) FROM appointmentArchive WHERE demographic_no IN (${list}))`) === '0',
     'Owned appointments were not removed');
+    cleaned = true;
   });
+  return () => h.assert(cleaned, 'Second patient retained: appointment cleanup is unconfirmed');
 }
 
 /**
@@ -200,16 +207,17 @@ async function openPage(s, path, label) {
 
 async function healthTrackerVisits(s, A, B) {
   const { sql, marker, provider, context } = s;
-  const day = sql.value('SELECT CURDATE()');
+  const scheduleContext = await captureScheduleContext(s);
+  const day = scheduleContext.date;
   const [year, month, dayOfMonth] = day.split('-');
   const appointmentOf = {};
   for (const [label, patient, first, start, end] of [
     ['A', A, A_FIRST_NAME, '09:00:00', '09:14:00'], ['B', B, B_FIRST_NAME, '09:15:00', '09:29:00']]) {
     appointmentOf[label] = h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time,
         end_time, name, demographic_no, notes, reason, status, createdatetime, updatedatetime, creator,
-        lastupdateuser)
+        lastupdateuser, location)
       VALUES (${q(provider)}, ${q(day)}, '${start}', '${end}', ${q(`${marker},${first}`)}, ${patient},
-        ${q(marker)}, ${q(marker)}, 't', NOW(), NOW(), ${q(provider)}, ${q(provider)})`, 'appointment');
+        ${q(marker)}, ${q(marker)}, 't', NOW(), NOW(), ${q(provider)}, ${q(provider)}, ${q(scheduleContext.location)})`, 'appointment');
   }
   // The tracker ships empty; one weight item per patient, the way Edit Flowsheet adds it.
   const item = `<item measurement_type="${TRACKER_TYPE}" display_name="Weight kg" guideline="" graphable="yes" value_name="Weight" />`;
@@ -271,6 +279,7 @@ async function healthTrackerVisits(s, A, B) {
   await step(s, 'a Health Tracker save links each patient\'s measurement and note to that patient\'s own visit', async () => {
     await h.gotoApp(daySheet, s.config.baseUrl, `/provider/providercontrol?${query}`);
     await settle(daySheet, 'day sheet');
+    await assertScheduleContext(s, scheduleContext);
     await openFromDaySheet('A', A);
     await openFromDaySheet('B', B);
     // A's visit was opened first and B's last: A's save must still name A's visit.
@@ -1166,9 +1175,10 @@ async function workflow(s) {
   const A = key(s.patient, 'patient');
   sql.execute(`UPDATE demographic SET first_name=${q(A_FIRST_NAME)} WHERE demographic_no=${A} AND last_name=${q(marker)}`);
   // Registered first, so it runs after every child cleanup below.
-  const B = key(createSecondPatient(s), 'second patient');
+  let assertAppointmentsCleaned;
+  const B = key(createSecondPatient(s, () => { if (assertAppointmentsCleaned) assertAppointmentsCleaned(); }), 'second patient');
   ownChartRows(s, [A, B]);
-  ownAppointments(s, [A, B]);
+  assertAppointmentsCleaned = ownAppointments(s, [A, B]);
   const messenger = ownedMessengerGroup(s);
 
   await healthTrackerVisits(s, A, B);

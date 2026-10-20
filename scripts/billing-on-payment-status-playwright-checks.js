@@ -27,6 +27,7 @@
  */
 
 const h = require('./lib/playwright-harness');
+const {captureScheduleContext, assertScheduleContext} = require('./lib/native-schedule-context');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -82,6 +83,7 @@ async function workflow(s) {
   }
 
   const billingContext = await captureNativeInvoiceContext(s, physician);
+  const scheduleContext = await captureScheduleContext(s, {preferredSite: billingContext.clinic});
   const pat = seedOwnedBill(physician.dependentSession, { payProgram: 'PAT', status: 'P', code: privateCode, fee: privateFee, date, billingContext });
   const hcp = seedOwnedBill(physician.dependentSession, { payProgram: 'HCP', status: 'O', code: ohipCode, fee: ohipFee, date, dx: '401', billingContext });
   const patTotal = money(privateFee);
@@ -100,6 +102,7 @@ async function workflow(s) {
 
   // An appointment today for the test login, so its day sheet offers the "B" link.
   s.cleanup(() => {
+    h.assert(s.context.browser().isConnected() === false, 'Appointment cleanup retained: browser close is unconfirmed');
     sql.execute(`DELETE FROM appointment WHERE demographic_no=${patient} AND name=${h.sqlString(`${marker},Workflow`)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE demographic_no=${patient}`) === '0',
       'The owned appointment was not removed');
@@ -107,13 +110,14 @@ async function workflow(s) {
   const appointment = sql.value(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name,
       demographic_no, program_id, notes, reason, location, resources, type, style, billing, status, createdatetime,
       updatedatetime, creator, remarks, urgency)
-    VALUES (${h.sqlString(s.provider)}, CURDATE(), '13:15:00', '13:29:00', ${h.sqlString(`${marker},Workflow`)}, ${patient},
-      0, '', 'Billing workflow', '', '', '', '', '', 't', NOW(), NOW(), ${h.sqlString(s.provider)}, '', '');
+    VALUES (${h.sqlString(s.provider)}, ${h.sqlString(scheduleContext.date)}, '13:15:00', '13:29:00', ${h.sqlString(`${marker},Workflow`)}, ${patient},
+      0, '', 'Billing workflow', ${h.sqlString(scheduleContext.location)}, '', '', '', '', 't', NOW(), NOW(), ${h.sqlString(s.provider)}, '', '');
     SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(appointment), 'The appointment fixture was not created');
 
   await s.step('day sheet "B" opens the Ontario bill form whose history popup lists both owned bills', async () => {
     await s.schedule.reload({ waitUntil: 'domcontentloaded' }); // shows the appointment seeded after login
+    await assertScheduleContext(s, scheduleContext);
     const link = s.schedule.locator(`a[onclick*="appointment_no=${appointment}&"][onclick*="/billing?"]`).first();
     h.assert(await link.count() === 1, 'The day sheet does not offer the B link for the owned appointment');
     const form = await s.popup(s.schedule, link, 'bill-form');

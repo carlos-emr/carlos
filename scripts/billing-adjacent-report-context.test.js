@@ -15,6 +15,10 @@ const h = {assert(ok, message) { if (!ok) throw Error(message); }, sqlString: va
 const helperFile = path.join(__dirname, 'lib/billing-report-context.js');
 const helperModule = {exports: {}};
 vm.runInNewContext(fs.readFileSync(helperFile, 'utf8'), {module: helperModule, require: name => {assert.equal(name, './playwright-harness'); return h;}}, {filename: helperFile});
+const scheduleHelperFile = path.join(__dirname, 'lib/native-schedule-context.js');
+const scheduleHelperModule = {exports: {}};
+vm.runInNewContext(fs.readFileSync(scheduleHelperFile, 'utf8'), {module: scheduleHelperModule, URL,
+  require: name => {assert.equal(name, './playwright-harness'); return h;}}, {filename: scheduleHelperFile});
 const owned = {multisites: true, clinic: 'FAKE Owned Clinic', providerNo: '972775', ohipNo: '123456'};
 function nativeReport({context = owned, sites = ['none', owned.clinic], physicians = ['none', owned.providerNo], sticky = true, clearable = true, siteCount} = {}) {
   const state = {site: 'none', provider: '', options: context.multisites ? [] : physicians, start: '2026-04-23', end: '2026-10-20', patient: '', status: 'O', changed: [], autoSubmits: 0, reports: []};
@@ -47,6 +51,7 @@ function load(filename, overrides = {}) {
     if (name in overrides) return overrides[name];
     if (name === './lib/playwright-harness') return h;
     if (name === './lib/billing-report-context') return helperModule.exports;
+    if (name === './lib/native-schedule-context') return scheduleHelperModule.exports;
     if (name === './lib/billing-site-context') return {selectBillingSiteAndProvider: async () => owned, validateBillingContext: (_sql, _operator, c) => c};
     if (name.startsWith('node:')) return require(name);
     return {};
@@ -129,7 +134,20 @@ function billingStart() {
   const s = {provider: '999998', patient: '777', marker: 'FAKE-PW0123456789abcdef', context: {}, master: {getByRole: () => ({first() {return this;}, count: async () => 1})},
     popup: async () => ({isClosed: () => false, close: async () => {calls.push('closed');}}),
     cleanup: fn => {cleanups.push(fn); calls.push('ordinary cleanup');}, step: async (_name, callback) => callback(),
-    sql: {value(q) {if (/FROM billingservice/.test(q)) return '50.00'; if (/^SELECT COUNT/.test(q)) return '0'; if (/INSERT INTO billing_on_3rdPartyAddress/.test(q)) return '20'; if (/INSERT INTO billing_on_cheader1/.test(q)) {calls.push('header'); header = q; throw stop;} throw Error('Unexpected SQL ' + q);}, rows: () => {throw Error('Unexpected provider/site membership lookup');}}};
+    sql: {value(q) {if (/SELECT COUNT\(DISTINCT site.site_id\)/.test(q)) {
+      assert(q.includes("site.name='FAKE Owned Clinic'") && q.includes("membership.provider_no='999998'"));
+      calls.push('native schedule membership'); return '1';
+    } if (/FROM billingservice/.test(q)) return '50.00'; if (/^SELECT COUNT/.test(q)) return '0'; if (/INSERT INTO billing_on_3rdPartyAddress/.test(q)) return '20'; if (/INSERT INTO billing_on_cheader1/.test(q)) {calls.push('header'); header = q; throw stop;} throw Error('Unexpected SQL ' + q);}, rows: () => {throw Error('Unexpected provider/site membership lookup');}}};
+  s.schedule = {url: () => 'https://127.0.0.1/carlos/provider/providercontrol?displaymode=day', locator(selector) {
+    const fields = {'#scheduleLoggedInProviderNo': s.provider, '#scheduleCurrentDate': '2026-10-20', '#scheduleVisibleProviderNos': s.provider};
+    if (Object.hasOwn(fields, selector)) return {inputValue: async () => {
+      if (selector === '#scheduleLoggedInProviderNo') calls.push('native schedule');
+      return fields[selector];
+    }};
+    assert.equal(selector, 'select#site[name="site"]');
+    return {count: async () => 1, inputValue: async () => owned.clinic, locator: () => ({evaluateAll: async fn =>
+      fn(['none', owned.clinic].map(value => ({value, disabled: false, closest: () => null})))})};
+  }};
   const dependentSession = Object.create(s); dependentSession.cleanup = fn => {calls.push('dependent cleanup'); cleanups.push(fn);};
   const factory = session => {assert.equal(session, s); assert.equal(calls.length, 0); calls.push('physician'); return {...owned, dependentSession, selectClinic: async () => {calls.push('clinic');}, assertContext: c => {assert.equal(c, owned); calls.push('context');}};};
   const overrides = {'./lib/owned-billing-physician': {createOwnedBillingPhysician: factory}, './lib/billing-site-context': {selectBillingSiteAndProvider: async () => {calls.push('native'); return owned;}, validateBillingContext: (_sql, _operator, c) => c}};
@@ -145,6 +163,9 @@ test('actual payment-status workflow also binds a per-case physician before its 
   const c = billingStart(); const payment = load(candidate('billing-on-payment-status-playwright-checks.js'), {...c.overrides, './billing-on-invoice-third-party-playwright-checks': c.invoice});
   await assert.rejects(payment.workflow(c.s), e => e === c.stop);
   assert.equal(c.calls[0], 'physician'); assert(c.calls.indexOf('native') < c.calls.indexOf('header')); assert(c.calls.includes('dependent cleanup'));
+  assert(c.calls.indexOf('native') < c.calls.indexOf('native schedule'));
+  assert(c.calls.indexOf('native schedule') < c.calls.indexOf('native schedule membership'));
+  assert(c.calls.indexOf('native schedule membership') < c.calls.indexOf('header'));
   assert(c.header().endsWith("'999998', 'FAKE Owned Clinic'); SELECT LAST_INSERT_ID()"));
 });
 function actualOhipFixture() {

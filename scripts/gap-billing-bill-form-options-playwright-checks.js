@@ -22,6 +22,7 @@
  * Implements the gap-billing "create a bill from the schedule" workflow.
  */
 const h = require('./lib/playwright-harness');
+const {captureScheduleContext, assertScheduleContext, seedScheduleAppointment} = require('./lib/native-schedule-context');
 const { runWorkflow } = require('./lib/workflow-session');
 const { createBillingFixture } = require('./billing-on-ohip-simulation-report-playwright-checks');
 const g = require('./lib/gap-billing-support');
@@ -30,6 +31,7 @@ const q = h.sqlString;
 
 async function workflow(s) {
   const { sql, patient, marker } = s;
+  const scheduleContext = await captureScheduleContext(s);
   const owned = createBillingFixture(s);
   g.registerOwnedBillCleanup(s);
   const feeA = g.scheduleFee(sql, 'A007A');
@@ -45,10 +47,11 @@ async function workflow(s) {
   sql.execute(`INSERT INTO professionalSpecialists (fName, lName, proLetters, address, phone, fax, specType, lastUpdated,
       referralNo, institutionId, departmentId, hideFromView, deleted)
     VALUES ('Referral', ${q(marker)}, '', '1 Fake Street', '555-555-0101', '', 'Fake specialty', NOW(), ${q(referralNo)}, 0, 0, 0, 0)`);
-  const appointment = g.seedAppointment(s, { time: '14:15:00' });
-  const second = g.seedAppointment(s, { time: '14:30:00' });
+  const appointment = seedScheduleAppointment(s, scheduleContext, { time: '14:15:00' });
+  const second = seedScheduleAppointment(s, scheduleContext, { time: '14:30:00' });
 
   await g.showSeededAppointments(s);
+  await assertScheduleContext(s, scheduleContext);
   let form;
   let facility;
   await s.step('day sheet "B" opens the bill form and offers the owned billing physician', async () => {
