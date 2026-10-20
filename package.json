@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test:rx-reprint-authorization-playwright": "node scripts/rx-reprint-authorization-playwright-checks.js",
+    "test:flowsheet-prevention-print-playwright": "node scripts/flowsheet-prevention-print-playwright-checks.js",
     "test:rx-profile-legend": "node scripts/rx-profile-legend-playwright-checks.js",
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
@@ -54,6 +55,7 @@
     "test:lab-embedded-pdf-playwright": "node scripts/lab-embedded-pdf-playwright-checks.js",
     "test:lab-epsilon-playwright": "node scripts/lab-epsilon-playwright-checks.js",
     "test:rest-roster-enrolled-to-playwright": "node scripts/rest-roster-enrolled-to-playwright-checks.js",
+    "test:lab-file-for-others-playwright": "node scripts/lab-file-for-others-playwright-checks.js",
     "test:lab-upload-playwright": "node scripts/lab-upload-playwright-checks.js",
     "test:login-failure-host-header-playwright": "node scripts/login-failure-host-header-playwright-checks.js",
     "test:add-login-account-playwright": "node scripts/add-login-account-playwright-checks.js",
@@ -91,12 +93,14 @@
     "test:schedule-setting-playwright": "node scripts/schedule-setting-playwright-checks.js",
     "test:schedule-period-delete-playwright": "node scripts/schedule-period-delete-playwright-checks.js",
     "test:scripts": "node --test scripts/*.test.js",
+    "test:multisite-tickler-filter-playwright": "node scripts/multisite-tickler-filter-playwright-checks.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
     "test:tickler-attachments-playwright": "node scripts/tickler-attachments-playwright-checks.js",
     "test:fax-configure-playwright": "node scripts/fax-configure-playwright-checks.js",
     "test:tickler-note-dialog-playwright": "node scripts/tickler-note-dialog-playwright-checks.js",
     "test:tickler-demo-main-playwright": "node scripts/tickler-demo-main-playwright-checks.js",
     "test:tickler-demo-main-status-playwright": "node scripts/tickler-demo-main-status-playwright-checks.js",
+    "test:tickler-main-list-lifecycle-playwright": "node scripts/tickler-main-list-lifecycle-playwright-checks.js",
     "test:logout-session-invalidation-playwright": "node scripts/logout-session-invalidation-playwright-checks.js",
     "test:multiple-session-playwright": "node scripts/multiple-session-playwright-checks.js",
     "test:logout-redirect-playwright": "node scripts/logout-redirect-playwright-checks.js",
@@ -469,6 +473,7 @@
     "test:login-facility-chooser-playwright": "node scripts/login-facility-chooser-playwright-checks.js",
     "test:demographic-open-writes-nothing-playwright": "node scripts/demographic-open-writes-nothing-playwright-checks.js",
     "test:admin-message-expiry-calendar-playwright": "node scripts/admin-message-expiry-calendar-playwright-checks.js",
+    "test:calendar-keyboard-playwright": "node scripts/calendar-keyboard-playwright-checks.js",
     "test:lab-to-flowsheet-long-value-playwright": "LAB_FLOWSHEET_PIN=value node scripts/lab-to-flowsheet-playwright-checks.js",
     "test:lab-to-flowsheet-observed-time-playwright": "LAB_FLOWSHEET_PIN=time node scripts/lab-to-flowsheet-playwright-checks.js",
     "test:lab-to-flowsheet-fraction-playwright": "LAB_FLOWSHEET_PIN=fraction node scripts/lab-to-flowsheet-playwright-checks.js",
@@ -860,7 +865,8 @@
     "test:rx-favourite-multiline-directions-playwright": "RX_FAVOURITE_ACTION=multiline node scripts/rx-favourite-actions-playwright-checks.js",
     "test:patient-letter-manager-labels-playwright": "PATIENT_LETTER_ACTION=labels node scripts/patient-letter-actions-playwright-checks.js",
     "test:rx-quantity-delete-race-playwright": "RX_DISCARD_CALLBACK=quantity node scripts/rx-discarded-card-callback-playwright-checks.js",
-    "test:rx-instructions-delete-race-playwright": "RX_DISCARD_CALLBACK=instructions node scripts/rx-discarded-card-callback-playwright-checks.js"
+    "test:rx-instructions-delete-race-playwright": "RX_DISCARD_CALLBACK=instructions node scripts/rx-discarded-card-callback-playwright-checks.js",
+    "test:consultation-specialty-selection-playwright": "node scripts/consultation-specialty-selection-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

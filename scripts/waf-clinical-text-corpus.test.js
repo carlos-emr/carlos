@@ -26,6 +26,18 @@ const BEFORE_CRS = path.join(WAF_DIR, 'REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.co
 const AFTER_CRS = path.join(WAF_DIR, 'RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf');
 const characters = (text) => Array.from(text).length;
 
+test('filing on behalf allows clinical prose only in its exact POST comment field', () => {
+  const rules = exemptArguments(BEFORE_CRS);
+  const filing = rules.get('1145');
+  assert.ok(filing);
+  assert.equal(filing.route, 'oscarMDS/FileLabsOnBehalf');
+  assert.equal(filing.shape, 'exact');
+  assert.deepEqual([...filing.methods], ['POST']);
+  assert.deepEqual([...filing.args], ['comment']);
+  assert.deepEqual(filing.removals.get('comment'), rules.get('1120').removals.get('comment'));
+  assert.equal(filing.removals.get('comment').has('attack-xss'), false);
+});
+
 test('RTL comparison decodes exactly the two transport layers and preserves literal markup/entities', () => {
   const { rtlPlainText } = require('./waf-clinical-text-corpus-playwright-checks');
   const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };

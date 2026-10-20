@@ -132,8 +132,8 @@ async function workflow(s) {
     h.assert(await box(ids[1]).count() === 1 && await list.locator('#ticklerResults input[name="checkbox"]').count() === 1,
       'Deleted does not show exactly the archived batch task');
   });
-  await s.step('the Deleted filter offers Erase Completely and hides Complete and Delete', async () => {
-    h.assert(await button('Erase Completely').isVisible(), 'Deleted filter has no Erase Completely action');
+  await s.step('the Deleted filter has no erase action and hides Complete and Delete', async () => {
+    h.assert(await button('Erase Completely').count() === 0, 'Deleted filter still renders an erase action');
     h.assert(!await button('Complete').isVisible() && !await button('Delete').isVisible(),
       'Deleted filter still offers active-task actions');
   });
