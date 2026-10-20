@@ -78,17 +78,22 @@ import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ManageTeleplan2Action extends ActionSupport {
+    private static final String SET_USER_NAME = "setUserName";
+    private static final String GET_SEQUENCE_NUMBER = "getSequenceNumber";
+    private static final String SET_SEQUENCE_NUMBER = "setSequenceNumber";
+    private static final String SET_PASS = "setPass";
+
     private static final Set<String> POST_ONLY_METHODS = Set.of(
-            "setUserName",
+            SET_USER_NAME,
             "updateBillingCodes",
             "updateteleplanICDCodesList",
             "updateExplanatoryCodesList",
             "commitUpdateBillingCodes",
-            "getSequenceNumber",
-            "setSequenceNumber",
+            GET_SEQUENCE_NUMBER,
+            SET_SEQUENCE_NUMBER,
             "sendFile",
             "remit",
-            "setPass",
+            SET_PASS,
             "changePass",
             "checkElig");
     /**
@@ -97,7 +102,7 @@ public class ManageTeleplan2Action extends ActionSupport {
      * stored Teleplan username and password.
      */
     private static final Set<String> SUPERUSER_METHODS =
-            Set.of("setSequenceNumber", "getSequenceNumber", "setUserName", "setPass");
+            Set.of(SET_SEQUENCE_NUMBER, GET_SEQUENCE_NUMBER, SET_USER_NAME, SET_PASS);
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -127,13 +132,10 @@ public class ManageTeleplan2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
-        // Hiding the forms is not enough: a POST from another billing login reaches the same methods.
-        if (method != null && SUPERUSER_METHODS.contains(method) && !isBillingSuperuser(loggedInInfo)) {
-            throw new SecurityException("missing required billing superuser (BILLING_SUPERUSER)");
-        }
+        requireBillingSuperuser(method, loggedInInfo);
 
         //log.debug("UNSPECIFIED ACTION!");
-        if ("setUserName".equals(method)) {
+        if (SET_USER_NAME.equals(method)) {
             return setUserName();
         } else if ("updateBillingCodes".equals(method)) {
             return updateBillingCodes();
@@ -143,15 +145,15 @@ public class ManageTeleplan2Action extends ActionSupport {
             return updateExplanatoryCodesList();
         } else if ("commitUpdateBillingCodes".equals(method)) {
             return commitUpdateBillingCodes();
-        } else if ("getSequenceNumber".equals(method)) {
+        } else if (GET_SEQUENCE_NUMBER.equals(method)) {
             return getSequenceNumber();
-        } else if ("setSequenceNumber".equals(method)) {
+        } else if (SET_SEQUENCE_NUMBER.equals(method)) {
             return setSequenceNumber();
         } else if ("sendFile".equals(method)) {
             return sendFile();
         } else if ("remit".equals(method)) {
             return remit();
-        } else if ("setPass".equals(method)) {
+        } else if (SET_PASS.equals(method)) {
             return setPass();
         } else if ("changePass".equals(method)) {
             return changePass();
@@ -400,6 +402,16 @@ public class ManageTeleplan2Action extends ActionSupport {
         TeleplanSequenceDAO seq = new TeleplanSequenceDAO();
         seq.saveUpdateSequence(sequenceNumber);
         return SUCCESS;
+    }
+
+    /**
+     * Refuses one of {@link #SUPERUSER_METHODS} to any login but the billing superuser. Hiding the forms is not enough: a
+     * POST from another billing login reaches the same methods.
+     */
+    private static void requireBillingSuperuser(String method, LoggedInInfo loggedInInfo) {
+        if (method != null && SUPERUSER_METHODS.contains(method) && !isBillingSuperuser(loggedInInfo)) {
+            throw new SecurityException("missing required billing superuser (BILLING_SUPERUSER)");
+        }
     }
 
     /** Whether the login is the one BILLING_SUPERUSER names, exactly as ManageTeleplan.jsp decides to show the forms. */
