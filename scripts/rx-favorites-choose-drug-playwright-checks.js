@@ -61,6 +61,27 @@ async function openRx(session, demographicNo) {
   return page;
 }
 
+/** Lets staging's asynchronous requests finish before the test navigates away and cancels them. */
+async function stageCustomDrugBeforeNavigation(page, name) {
+  const pending = new Set();
+  let changed = Date.now();
+  const started = request => { pending.add(request); changed = Date.now(); };
+  const settled = request => { pending.delete(request); changed = Date.now(); };
+  page.on('request', started);
+  page.on('requestfinished', settled);
+  page.on('requestfailed', settled);
+  try {
+    const key = await stageCustomDrug(page, name);
+    await waitUntil(() => pending.size === 0 && Date.now() - changed > 500,
+      'requests started by staging to settle before navigation');
+    return key;
+  } finally {
+    page.off('request', started);
+    page.off('requestfinished', settled);
+    page.off('requestfailed', settled);
+  }
+}
+
 function insertFavorite(sql, providerNo, name) {
   // dispenseInternal is NOT NULL with no default: strict sql_mode refuses a row that omits it.
   const id = sql.value(`INSERT INTO favorites (provider_no, favoritename, customName, GCN_SEQNO, takemin,
@@ -515,7 +536,7 @@ async function workflow(session) {
       // so relying on them to leave one behind masks whether this handoff preserves the draft.
       const page = await openRx(session, patient);
       const priorName = `${name}-pending`;
-      const priorKey = await stageCustomDrug(page, priorName);
+      const priorKey = await stageCustomDrugBeforeNavigation(page, priorName);
       await h.gotoApp(page, config.baseUrl, url);
       await h.assertNotErrorPage(page, `${label} sidebar`);
       let releaseStash;
