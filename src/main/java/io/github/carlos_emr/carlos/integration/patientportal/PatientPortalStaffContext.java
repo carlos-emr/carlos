@@ -66,13 +66,6 @@ public record PatientPortalStaffContext(
     /** Create, list and withdraw patient booking prompts. */
     public static final String PERMISSION_BOOKING_PROMPT_MANAGE = "portal.booking_prompt.manage";
 
-    /**
-     * List patients' picks of offered times and report whether they were booked (#3850). Held only
-     * by the polling job's dedicated non-login provider: the portal refuses it combined with any
-     * other permission, so it must always be the only one.
-     */
-    public static final String PERMISSION_BOOKING_PROMPT_SYNC = "portal.booking_prompt.sync";
-
     private static final Set<String> SUPPORTED_PERMISSIONS =
             Set.of(
                     PERMISSION_INVITE_MANAGE,
@@ -81,8 +74,7 @@ public record PatientPortalStaffContext(
                     PERMISSION_SECRET_MANAGE,
                     PERMISSION_CONTACT_REVIEW,
                     PERMISSION_EMAIL_AUDIT_READ,
-                    PERMISSION_BOOKING_PROMPT_MANAGE,
-                    PERMISSION_BOOKING_PROMPT_SYNC);
+                    PERMISSION_BOOKING_PROMPT_MANAGE);
 
     /** Matches {@code MAX_PERMISSION_COUNT} in the portal's {@code staff_identity.py}. */
     public static final int MAX_PERMISSION_COUNT = 32;
@@ -104,8 +96,6 @@ public record PatientPortalStaffContext(
                     + " and hyphens";
     private static final String UNSUPPORTED_PERMISSION =
             "portal permission is not supported by this CARLOS build";
-    private static final String SYNC_NOT_ALONE =
-            "portal booking sync permission must be the only permission";
     private static final String ACTOR_TOO_LONG = "portal staff identity exceeds %d characters";
     private static final String CONTROL_CHARACTER =
             "portal staff identity must not contain control characters";
@@ -167,9 +157,6 @@ public record PatientPortalStaffContext(
                 throw new PortalRequestPreparationException(UNSUPPORTED_PERMISSION);
             }
             normalized.add(stripped);
-        }
-        if (normalized.contains(PERMISSION_BOOKING_PROMPT_SYNC) && normalized.size() > 1) {
-            throw new PortalRequestPreparationException(SYNC_NOT_ALONE);
         }
         permissions = Set.copyOf(normalized);
     }

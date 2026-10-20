@@ -121,6 +121,9 @@ public class PortalBookingOfferService {
     /**
      * Fresh times after a refused pick, from the same provider, near the refused time. A retried
      * report gets the same replacements; there are never so many that more than 8 are on offer.
+     *
+     * <p>The booking-sync job offers these, not a person, so they are recorded as offered by the
+     * built-in system provider.
      */
     @Transactional
     public List<PatientPortalOfferedSlot> replacementsFor(
@@ -154,7 +157,7 @@ public class PortalBookingOfferService {
         List<PatientPortalOfferedSlot> slots = new ArrayList<>();
         for (var time : loader.load(refused.getProviderNo(), from, to, room, exclude, settings, now)) {
             slots.add(toSlot(record(time, refused.getOperationId(), promptId,
-                    refused.getDemographicNo(), refused.getOfferedBy(), choiceId, now), settings));
+                    refused.getDemographicNo(), Provider.SYSTEM_PROVIDER_NO, choiceId, now), settings));
         }
         return slots;
     }

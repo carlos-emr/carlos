@@ -57,7 +57,7 @@ class PortalOfferedSlotLoaderUnitTest {
     private static final LocalDate MONDAY = LocalDate.of(2026, 10, 19);
     private static final ZonedDateTime NOW = MONDAY.minusDays(3).atTime(12, 0).atZone(ZONE);
     private static final PortalBookingSettings SETTINGS = new PortalBookingSettings(
-            Set.of('B'), 24, "in_person", null, false, null, 60);
+            Set.of('B'), 24, "in_person", null, false, 60);
 
     private final ScheduleManager schedules = mock(ScheduleManager.class);
     private final OscarAppointmentDao appointments = mock(OscarAppointmentDao.class);
@@ -135,7 +135,7 @@ class PortalOfferedSlotLoaderUnitTest {
     @Test
     void shouldOfferNothing_whenTheClinicChoseNoCodes() {
         template(MONDAY, Map.of("09:00", 'B'));
-        var none = new PortalBookingSettings(Set.of(), 24, "in_person", null, false, null, 60);
+        var none = new PortalBookingSettings(Set.of(), 24, "in_person", null, false, 60);
         assertThat(loader.load("101", MONDAY, MONDAY, 8, Set.of(), none, NOW)).isEmpty();
     }
 

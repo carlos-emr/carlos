@@ -24,7 +24,9 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -36,15 +38,19 @@ import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-/** Contract regressions for offered times (#3850): what CARLOS sends, and how the portal's answers read. */
+/**
+ * Contract regressions for offered times (#3850): what CARLOS sends, and how the portal's answers
+ * read. The two sync calls are signed as the booking-sync job, never as a member of staff.
+ */
 @Tag("unit")
 @Tag("patient-portal")
 class PatientPortalBookingSyncCallsUnitTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final PatientPortalStaffContext MANAGE = new PatientPortalStaffContext(
             "999998", "Synthetic Provider", Set.of(PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE));
-    private static final PatientPortalStaffContext SYNC = new PatientPortalStaffContext(
-            "-9", "Portal booking sync", Set.of(PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_SYNC));
+    private static final String JOB_KID = "booking-sync-20261020-a1b2c3";
+    private static final PortalJobAssertionSigner SYNC = PortalJobAssertionSigner.from(new PortalJobKey(
+            PortalJob.BOOKING_SYNC, PortalSecret.of(PortalTestKeys.JOB_PRIVATE_KEY), JOB_KID));
     private static final PatientPortalOfferedSlot SLOT = new PatientPortalOfferedSlot(
             "AbCdEfGh_ijklmnop-QRSTUVWXyz012345", OffsetDateTime.parse("2026-10-20T09:30:00-04:00"), 15,
             "in_person", null);
@@ -86,9 +92,28 @@ class PatientPortalBookingSyncCallsUnitTest {
         return new String(request.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
     }
 
-    private static String permissions(ClassicHttpRequest request) throws Exception {
-        String signed = request.getFirstHeader(PortalStaffAssertionSigner.HEADER).getValue();
-        return JSON.readTree(Base64.getUrlDecoder().decode(signed.split("\\.")[0])).get("permissions").toString();
+    /** The job assertion's claims, after checking it is the only assertion the request carries. */
+    private static JsonNode jobClaims(ClassicHttpRequest request) throws Exception {
+        assertThat(request.getFirstHeader(PortalStaffAssertionSigner.HEADER)).isNull();
+        String signed = request.getFirstHeader(PortalJobAssertionSigner.HEADER).getValue();
+        assertThat(PortalTestKeys.verifies(signed, PortalTestKeys.JOB_PUBLIC_KEY)).isTrue();
+        assertThat(PortalTestKeys.verifies(signed, PortalTestKeys.PUBLIC_KEY)).isFalse();
+        return JSON.readTree(Base64.getUrlDecoder().decode(signed.split("\\.")[0]));
+    }
+
+    private static void assertSignedAsBookingSync(ClassicHttpRequest request, byte[] body) throws Exception {
+        JsonNode claims = jobClaims(request);
+        assertThat(claims.get("aud").asText()).isEqualTo("carlos-patient-portal-job-api");
+        assertThat(claims.get("job").asText()).isEqualTo("booking-sync");
+        assertThat(claims.get("kid").asText()).isEqualTo(JOB_KID);
+        assertThat(claims.get("clinic_id").asText()).isEqualTo("clinic-a");
+        assertThat(claims.get("permission").asText()).isEqualTo("portal.booking_prompt.sync");
+        assertThat(claims.has("provider_id")).isFalse();
+        assertThat(claims.get("request_hash").asText()).isEqualTo(PortalStaffAssertionSigner.requestHash(
+                request.getMethod(), URI.create("https://portal.example.test" + request.getRequestUri()), body));
+        // The bearer service token is still sent beside the job assertion.
+        assertThat(request.getFirstHeader(PatientPortalService.AUTHORIZATION_HEADER).getValue())
+                .isEqualTo("Bearer test-service-token-only-00000001");
     }
 
     @Test
@@ -128,16 +153,30 @@ class PatientPortalBookingSyncCallsUnitTest {
     }
 
     @Test
-    void shouldRefuseSyncPermission_whenCombinedWithAnother() {
-        assertThatThrownBy(() -> new PatientPortalStaffContext("-9", "Portal booking sync", Set.of(
-                PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_SYNC,
-                PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE)))
+    void shouldRefuseSyncPermission_forAnyStaffContext() {
+        // Only the booking-sync job holds it; the portal refuses it on a staff assertion.
+        assertThatThrownBy(() -> new PatientPortalStaffContext("999998", "Synthetic Provider",
+                Set.of(PortalJob.PERMISSION_BOOKING_PROMPT_SYNC)))
                 .isInstanceOf(PortalRequestPreparationException.class)
-                .hasMessageContaining("only permission");
+                .hasMessageContaining("not supported");
+        assertThatThrownBy(() -> new PatientPortalStaffContext("999998", "Synthetic Provider", Set.of(
+                PortalJob.PERMISSION_BOOKING_PROMPT_SYNC, PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE)))
+                .isInstanceOf(PortalRequestPreparationException.class);
     }
 
     @Test
-    void shouldListPendingPicks_signedWithSyncAlone() throws Exception {
+    void shouldRefuseSyncCalls_withoutTheBookingSyncSigner() {
+        Exchange exchange = new Exchange();
+        assertThatThrownBy(() -> service(exchange).listPendingBookingChoices(100, null))
+                .isInstanceOf(PortalRequestPreparationException.class)
+                .hasMessageContaining("booking-sync");
+        assertThatThrownBy(() -> service(exchange).recordBookingChoiceResult(7, 11, true, List.of(), null))
+                .isInstanceOf(PortalRequestPreparationException.class);
+        assertThat(exchange.sent).isEmpty();
+    }
+
+    @Test
+    void shouldListPendingPicks_signedAsTheBookingSyncJob() throws Exception {
         Exchange exchange = new Exchange().reply(200, """
                 {"items":[{"prompt_id":7,"choice_id":11,"demographic_no":123,
                   "slot_id":"AbCdEfGh_ijklmnop-QRSTUVWXyz012345","chosen_at":"2026-10-08T15:00:00Z"}],
@@ -146,7 +185,7 @@ class PatientPortalBookingSyncCallsUnitTest {
         var page = service(exchange).listPendingBookingChoices(100, SYNC);
         assertThat(exchange.sent.get(0).getRequestUri())
                 .isEqualTo("/internal/carlos/booking-prompts/choices?state=pending&limit=100");
-        assertThat(permissions(exchange.sent.get(0))).isEqualTo("[\"portal.booking_prompt.sync\"]");
+        assertSignedAsBookingSync(exchange.sent.get(0), new byte[0]);
         assertThat(page.hasMore()).isTrue();
         assertThat(page.items()).singleElement().satisfies(choice -> {
             assertThat(choice.promptId()).isEqualTo(7);
@@ -164,6 +203,7 @@ class PatientPortalBookingSyncCallsUnitTest {
                 """);
         var result = service(exchange).recordBookingChoiceResult(7, 11, false, List.of(SLOT), SYNC);
         assertThat(exchange.sent.get(0).getRequestUri()).isEqualTo("/internal/carlos/booking-prompts/7/choice-result");
+        assertSignedAsBookingSync(exchange.sent.get(0), body(exchange.sent.get(0)).getBytes(StandardCharsets.UTF_8));
         var sent = JSON.readTree(body(exchange.sent.get(0)));
         assertThat(sent.get("choice_id").asLong()).isEqualTo(11);
         assertThat(sent.get("result").asText()).isEqualTo("slot_unavailable");

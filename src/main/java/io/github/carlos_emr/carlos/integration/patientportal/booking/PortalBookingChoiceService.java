@@ -25,8 +25,11 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.PortalBookingOffer;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingChoiceDto;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalJob;
 import io.github.carlos_emr.carlos.log.LogAction;
 import java.time.Clock;
 import java.time.ZonedDateTime;
@@ -44,12 +47,22 @@ import org.springframework.transaction.support.TransactionTemplate;
  * provider, and never books first and cancels on a clash ({@code removeIfDoubleBooked} could cancel
  * a time a patient was just told they had). Nothing is held while a prompt is open: the time is
  * checked again here against the same rule it was offered under.
+ *
+ * <p>The {@code booking-sync} job does this with no person behind it, so every row it writes names
+ * the built-in system provider {@value Provider#SYSTEM_PROVIDER_NO}: the appointment's creator and
+ * last update user, and its log rows. The log row names the job instead
+ * ({@code PortalJob.booking-sync.<event>}, data {@code kid=<key id> choice=<choice id>}), never the
+ * patient.
  */
 @Service
 public class PortalBookingChoiceService {
     /** Shown on the schedule so staff can tell these bookings apart. */
-    static final String REASON = "Booked by patient via portal";
-    static final String CREATOR = "patient portal";
+    static final String REASON = "Booked by the patient through the portal";
+    /** The job that books: its name is in the log rows, its key id in their data. */
+    static final PortalJob JOB = PortalJob.BOOKING_SYNC;
+    static final String BOOKED = "booked";
+    static final String UNDONE = "undone";
+    static final String UNDO_FAILED = "undoFailed";
     private static final String NEW_APPOINTMENT_STATUS = "t";
     private static final String CANCELLED = "C";
     /** {@code appointment.name} is VARCHAR(50); a longer name would fail the insert in strict mode. */
@@ -95,8 +108,12 @@ public class PortalBookingChoiceService {
         this.clock = clock;
     }
 
-    /** Books the pick if its time is still open, under a per-provider lock. */
-    public Result book(PatientPortalBookingChoiceDto choice, String systemProviderNo, PortalBookingSettings settings) {
+    /**
+     * Books the pick if its time is still open, under a per-provider lock.
+     *
+     * @param jobKeyId the key id the job signed its portal calls with, recorded in the log row
+     */
+    public Result book(PatientPortalBookingChoiceDto choice, String jobKeyId, PortalBookingSettings settings) {
         // Read the provider in its own transaction: the booking transaction must start with the lock.
         PortalBookingOffer seen = transactions.execute(status -> offers.find(choice.slotId()));
         if (seen == null || seen.getDemographicNo() != choice.demographicNo()
@@ -127,7 +144,7 @@ public class PortalBookingChoiceService {
                 }
                 return new Result(Outcome.UNAVAILABLE, offer);
             }
-            Appointment appointment = appointmentFor(offer, start, systemProviderNo, now);
+            Appointment appointment = appointmentFor(offer, start, now);
             appointments.persist(appointment);
             offer.setStatus(PortalBookingOffer.BOOKED);
             offer.setChoiceId(choice.choiceId());
@@ -136,8 +153,7 @@ public class PortalBookingChoiceService {
             offer.setUpdatedAt(Date.from(now.toInstant()));
             // The prompt's other times stay open until the portal confirms: if it refuses this
             // booking, the patient can still pick one of them.
-            LogAction.addLogSynchronous(systemProviderNo, "PortalBooking.book", "appointment",
-                    String.valueOf(appointment.getId()), null);
+            logJob(BOOKED, appointment.getId(), jobKeyId, choice.choiceId());
             return new Result(Outcome.BOOKED, offer);
         });
     }
@@ -167,9 +183,10 @@ public class PortalBookingChoiceService {
      * Undoes the booking made for a pick that the portal will never show as booked (its prompt was
      * withdrawn, the account turned off, or its time started before the result arrived).
      *
+     * @param jobKeyId the key id the job signed its portal calls with, recorded in the log row
      * @return true when an appointment was cancelled now
      */
-    public boolean undo(String slotId, long choiceId, String systemProviderNo) {
+    public boolean undo(String slotId, long choiceId, String jobKeyId) {
         PortalBookingOffer seen = transactions.execute(status -> offers.find(slotId));
         if (seen == null || !PortalBookingOffer.BOOKED.equals(seen.getStatus())
                 || !Objects.equals(seen.getChoiceId(), choiceId)) {
@@ -188,7 +205,7 @@ public class PortalBookingChoiceService {
                     : appointments.find(offer.getAppointmentNo().intValue());
             if (appointment != null && !CANCELLED.equals(appointment.getStatus())) {
                 appointment.setStatus(CANCELLED);
-                appointment.setLastUpdateUser(systemProviderNo);
+                appointment.setLastUpdateUser(Provider.SYSTEM_PROVIDER_NO);
                 appointment.setUpdateDateTime(now);
                 appointments.merge(appointment);
                 changed = true;
@@ -198,14 +215,26 @@ public class PortalBookingChoiceService {
             return changed;
         });
         if (Boolean.TRUE.equals(cancelled)) {
-            LogAction.addLogSynchronous(systemProviderNo, "PortalBooking.undo", "appointment",
-                    String.valueOf(seen.getAppointmentNo()), null);
+            logJob(UNDONE, seen.getAppointmentNo(), jobKeyId, choiceId);
         }
         return Boolean.TRUE.equals(cancelled);
     }
 
-    private Appointment appointmentFor(PortalBookingOffer offer, ZonedDateTime start, String systemProviderNo,
-            ZonedDateTime now) {
+    /**
+     * Writes one audit row for something the booking job did: the system provider, the job's event
+     * as the action, the appointment as the content, and only the key id and choice id as data.
+     */
+    static void logJob(String event, Integer appointmentNo, String jobKeyId, long choiceId) {
+        OscarLog row = new OscarLog();
+        row.setProviderNo(Provider.SYSTEM_PROVIDER_NO);
+        row.setAction(JOB.logAction(event));
+        row.setContent("appointment");
+        row.setContentId(appointmentNo == null ? "" : String.valueOf(appointmentNo));
+        row.setData("kid=" + jobKeyId + " choice=" + choiceId);
+        LogAction.addLogSynchronous(row);
+    }
+
+    private Appointment appointmentFor(PortalBookingOffer offer, ZonedDateTime start, ZonedDateTime now) {
         Appointment appointment = new Appointment();
         appointment.setProviderNo(offer.getProviderNo());
         appointment.setAppointmentDate(Date.from(start.toLocalDate().atStartOfDay(start.getZone()).toInstant()));
@@ -222,8 +251,8 @@ public class PortalBookingChoiceService {
         appointment.setNotes("");
         appointment.setStatus(NEW_APPOINTMENT_STATUS);
         appointment.setBookingSource(Appointment.BookingSource.PORTAL);
-        appointment.setCreator(CREATOR);
-        appointment.setLastUpdateUser(systemProviderNo);
+        appointment.setCreator(Provider.SYSTEM_PROVIDER_NO);
+        appointment.setLastUpdateUser(Provider.SYSTEM_PROVIDER_NO);
         appointment.setCreateDateTime(Date.from(now.toInstant()));
         appointment.setUpdateDateTime(Date.from(now.toInstant()));
         return appointment;

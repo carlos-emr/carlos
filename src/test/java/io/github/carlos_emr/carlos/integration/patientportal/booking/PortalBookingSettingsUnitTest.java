@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.integration.patientportal.booking;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.RecordComponent;
+import java.util.Arrays;
 import java.util.Map;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -49,7 +51,6 @@ class PortalBookingSettingsUnitTest {
                 "patient_portal.booking.location_code", "main",
                 "patient_portal.booking.offer_lead_hours", "48",
                 "patient_portal.booking.sync.enabled", "true",
-                "patient_portal.booking.sync.provider_no", "-9",
                 "patient_portal.booking.sync.interval_seconds", "5");
         PortalBookingSettings settings = PortalBookingSettings.fromProperties(properties::get);
         // '_' is an empty template slot and a multi-letter value is not a code: neither is offerable.
@@ -58,16 +59,29 @@ class PortalBookingSettingsUnitTest {
         assertThat(settings.locationCode()).isEqualTo("main");
         assertThat(settings.leadHours()).isEqualTo(48);
         assertThat(settings.syncEnabled()).isTrue();
-        assertThat(settings.syncProviderNo()).isEqualTo("-9");
         // Below the 15-second floor: the default minute is used instead.
         assertThat(settings.syncIntervalSeconds()).isEqualTo(60);
     }
 
     @Test
-    void shouldStayOff_whenSyncHasNoProvider() {
+    void shouldTurnSyncOn_withoutAnyProviderSetting() {
+        // The job signs as the booking-sync job; there is no provider for it to run as.
         PortalBookingSettings settings = PortalBookingSettings.fromProperties(
                 Map.of("patient_portal.booking.sync.enabled", "true", "patient_portal.booking.visit_mode", "home")::get);
-        assertThat(settings.syncEnabled()).isFalse();
+        assertThat(settings.syncEnabled()).isTrue();
         assertThat(settings.visitMode()).isEqualTo("in_person");
+        assertThat(Arrays.stream(PortalBookingSettings.class.getRecordComponents()).map(RecordComponent::getName))
+                .containsExactly("offerableCodes", "leadHours", "visitMode", "locationCode", "syncEnabled",
+                        "syncIntervalSeconds");
+    }
+
+    @Test
+    void shouldStayOff_whenSyncIsNotSwitchedOn() {
+        // Only the exact word true switches it on, as before.
+        for (String value : new String[] {"false", "yes", "TRUE", ""}) {
+            assertThat(PortalBookingSettings.fromProperties(
+                    Map.of("patient_portal.booking.sync.enabled", value)::get).syncEnabled())
+                    .as(value).isFalse();
+        }
     }
 }

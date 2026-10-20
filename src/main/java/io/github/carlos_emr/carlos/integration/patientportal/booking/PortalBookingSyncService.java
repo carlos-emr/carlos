@@ -21,28 +21,27 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal.booking;
 
-import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.PortalBookingOffer;
-import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingChoiceDto;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalOfferedSlot;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
-import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
-import io.github.carlos_emr.carlos.integration.patientportal.PortalRequestPreparationException;
-import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalJob;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalJobAssertionSigner;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalJobKey;
 import io.github.carlos_emr.carlos.utility.DeamonThreadFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,24 +50,27 @@ import org.springframework.stereotype.Service;
 /**
  * Polls the portal for patients' picks of offered times and books them (#3850).
  *
- * <p>CARLOS never accepts calls from the portal: this job asks, about once a minute, signed as the
- * clinic's dedicated non-login provider holding only {@code portal.booking_prompt.sync}. Every step
- * is safe to repeat, so an outage or a crash between booking and reporting only delays the answer:
- * the pick is listed again and the same booking is reported again, never made twice.
+ * <p>CARLOS never accepts calls from the portal: this job asks, about once a minute. It is not a
+ * person and not a CARLOS provider: it signs each call as the {@code booking-sync} job, with its own
+ * key, claiming only {@code portal.booking_prompt.sync}, and the rows it writes name the built-in
+ * system provider. Every step is safe to repeat, so an outage or a crash between booking and
+ * reporting only delays the answer: the pick is listed again and the same booking is reported
+ * again, never made twice.
  *
- * <p>Off unless {@code patient_portal.booking.sync.enabled=true} and
- * {@code patient_portal.booking.sync.provider_no} names a provider that cannot log in.
+ * <p>Off unless the portal is on, {@code patient_portal.booking.sync.enabled=true}, and the job has
+ * a valid key of its own ({@code patient_portal.job.booking-sync.private_key} and {@code .key_id}).
+ * A missing or invalid key never stops CARLOS starting and never falls back to the staff key: the
+ * job stays off and says why once, at startup.
  */
 @Service
 public class PortalBookingSyncService {
     private static final Logger LOGGER = MiscUtils.getLogger();
     /** Pages per run, so one run stays short; the rest are picked up by the next run. */
     static final int MAX_PAGES_PER_RUN = 5;
+    static final PortalJob JOB = PortalJob.BOOKING_SYNC;
 
     private final PortalBookingChoiceService bookings;
     private final PortalBookingOfferService offers;
-    private final ProviderDao providers;
-    private final SecurityDao logins;
     private final Supplier<PatientPortalService> portal;
     private ScheduledExecutorService executor;
 
@@ -77,31 +79,72 @@ public class PortalBookingSyncService {
      * bean is not an injection candidate, and it fails on purpose while the portal is misconfigured.
      */
     @Autowired
-    public PortalBookingSyncService(PortalBookingChoiceService bookings, PortalBookingOfferService offers,
-            ProviderDao providers, SecurityDao logins) {
-        this(bookings, offers, providers, logins, () -> SpringUtils.getBean(PatientPortalService.class));
+    public PortalBookingSyncService(PortalBookingChoiceService bookings, PortalBookingOfferService offers) {
+        this(bookings, offers, () -> SpringUtils.getBean(PatientPortalService.class));
     }
 
     PortalBookingSyncService(PortalBookingChoiceService bookings, PortalBookingOfferService offers,
-            ProviderDao providers, SecurityDao logins, Supplier<PatientPortalService> portal) {
+            Supplier<PatientPortalService> portal) {
         this.bookings = bookings;
         this.offers = offers;
-        this.providers = providers;
-        this.logins = logins;
         this.portal = portal;
     }
 
     @PostConstruct
     public void start() {
         PortalBookingSettings settings = PortalBookingSettings.fromCarlosProperties();
-        if (!settings.syncEnabled()) {
-            LOGGER.info("Portal booking sync is off; patients' picks of offered times are not booked automatically.");
+        // Keys are read once: rotating one means restarting every CARLOS node anyway.
+        PortalJobAssertionSigner job = startupJob(settings, PatientPortalSettings.isConfigured(),
+                PortalJobKey::fromCarlosProperties);
+        if (job == null) {
             return;
         }
         executor = Executors.newSingleThreadScheduledExecutor(
                 new DeamonThreadFactory(PortalBookingSyncService.class.getSimpleName(), Thread.NORM_PRIORITY));
-        executor.scheduleWithFixedDelay(this::runSafely, settings.syncIntervalSeconds(),
+        executor.scheduleWithFixedDelay(() -> runSafely(job), settings.syncIntervalSeconds(),
                 settings.syncIntervalSeconds(), TimeUnit.SECONDS);
+    }
+
+    /**
+     * Decides at startup whether the job runs. Logs exactly one INFO line saying it is configured
+     * (with its key id, never key material) or off, and one WARN as well when it was switched on but
+     * its key is missing or invalid, naming the job and the setting. Never throws.
+     *
+     * @return the job's signer, or null when the job stays off
+     */
+    static PortalJobAssertionSigner startupJob(PortalBookingSettings settings, boolean portalOn,
+            Function<PortalJob, Optional<PortalJobKey>> keys) {
+        String name = JOB.jobName();
+        if (!portalOn) {
+            LOGGER.info("Portal job {} is off: the patient portal is off", name);
+            return null;
+        }
+        if (!settings.syncEnabled()) {
+            LOGGER.info("Portal job {} is off: {} is not true", name, PortalBookingSettings.SYNC_ENABLED_KEY);
+            return null;
+        }
+        PortalJobAssertionSigner signer;
+        try {
+            signer = keys.apply(JOB).map(PortalJobAssertionSigner::from).orElse(null);
+        } catch (PatientPortalConfigurationException invalid) {
+            // The message names only the setting at fault; key material never reaches it.
+            LOGGER.warn("Portal job {} is off: {}", name, invalid.getMessage());
+            LOGGER.info("Portal job {} is off: its key is not configured", name);
+            return null;
+        } catch (RuntimeException unexpected) {
+            LOGGER.warn("Portal job {} is off: its key could not be read; exceptionClass={}", name,
+                    unexpected.getClass().getSimpleName());
+            LOGGER.info("Portal job {} is off: its key is not configured", name);
+            return null;
+        }
+        if (signer == null) {
+            LOGGER.warn("Portal job {} is off: {} and {} are not set", name, JOB.privateKeyProperty(),
+                    JOB.keyIdProperty());
+            LOGGER.info("Portal job {} is off: its key is not configured", name);
+            return null;
+        }
+        LOGGER.info("Portal job {} is configured; kid={}", name, signer.keyId());
+        return signer;
     }
 
     @PreDestroy
@@ -111,9 +154,9 @@ public class PortalBookingSyncService {
         }
     }
 
-    private void runSafely() {
+    private void runSafely(PortalJobAssertionSigner job) {
         try {
-            runOnce(PortalBookingSettings.fromCarlosProperties());
+            runOnce(PortalBookingSettings.fromCarlosProperties(), job);
         } catch (RuntimeException failure) {
             // The portal may be down; the picks wait there and the next run tries again.
             LOGGER.warn("Portal booking sync run failed; exceptionClass={}", failure.getClass().getSimpleName());
@@ -123,21 +166,21 @@ public class PortalBookingSyncService {
     /**
      * One poll: books or refuses every pick the portal lists, up to {@link #MAX_PAGES_PER_RUN} pages.
      *
+     * @param job the booking-sync job's signer; null means the job is off
      * @return how many picks were answered
      */
-    public int runOnce(PortalBookingSettings settings) {
-        if (!settings.syncEnabled() || !PatientPortalSettings.isConfigured()) {
+    public int runOnce(PortalBookingSettings settings, PortalJobAssertionSigner job) {
+        if (job == null || !settings.syncEnabled() || !PatientPortalSettings.isConfigured()) {
             return 0;
         }
-        PatientPortalStaffContext staff = syncIdentity(settings.syncProviderNo());
         PatientPortalService client = portal.get();
         int answered = 0;
         for (int page = 0; page < MAX_PAGES_PER_RUN; page++) {
-            var choices = client.listPendingBookingChoices(PatientPortalService.MAX_BOOKING_CHOICES_PER_POLL, staff);
+            var choices = client.listPendingBookingChoices(PatientPortalService.MAX_BOOKING_CHOICES_PER_POLL, job);
             int answeredOnPage = 0;
             for (PatientPortalBookingChoiceDto choice : choices.items()) {
                 try {
-                    if (answer(client, choice, staff, settings)) {
+                    if (answer(client, choice, job, settings)) {
                         answeredOnPage++;
                     }
                 } catch (PatientPortalException failure) {
@@ -170,8 +213,8 @@ public class PortalBookingSyncService {
 
     /** Books or refuses one pick and tells the portal; false when it must be retried later. */
     boolean answer(PatientPortalService client, PatientPortalBookingChoiceDto choice,
-            PatientPortalStaffContext staff, PortalBookingSettings settings) {
-        var result = bookings.book(choice, staff.providerId(), settings);
+            PortalJobAssertionSigner job, PortalBookingSettings settings) {
+        var result = bookings.book(choice, job.keyId(), settings);
         boolean booked = result.outcome() == PortalBookingChoiceService.Outcome.BOOKED
                 || result.outcome() == PortalBookingChoiceService.Outcome.ALREADY_BOOKED;
         List<PatientPortalOfferedSlot> replacements = List.of();
@@ -183,7 +226,7 @@ public class PortalBookingSyncService {
             LOGGER.warn("Portal booking pick does not match an offered time; refusing it");
         }
         try {
-            client.recordBookingChoiceResult(choice.promptId(), choice.choiceId(), booked, replacements, staff);
+            client.recordBookingChoiceResult(choice.promptId(), choice.choiceId(), booked, replacements, job);
             if (booked) {
                 bookings.confirm(choice);
             }
@@ -194,7 +237,7 @@ public class PortalBookingSyncService {
                     || PatientPortalService.CHOICE_EXPIRED_DETAIL.equals(detail)) {
                 if (booked) {
                     // The portal will never show this pick as booked: take the appointment back off the schedule.
-                    undoOrFlag(result.offer(), choice, staff.providerId());
+                    undoOrFlag(result.offer(), choice, job.keyId());
                 }
                 return true;
             }
@@ -211,29 +254,14 @@ public class PortalBookingSyncService {
      * The portal will not list this pick again, so a failed undo cannot be retried here: record the
      * appointment in the audit log for staff, rather than leave a booking the patient was told failed.
      */
-    private void undoOrFlag(PortalBookingOffer offer, PatientPortalBookingChoiceDto choice, String systemProviderNo) {
+    private void undoOrFlag(PortalBookingOffer offer, PatientPortalBookingChoiceDto choice, String jobKeyId) {
         try {
-            bookings.undo(choice.slotId(), choice.choiceId(), systemProviderNo);
+            bookings.undo(choice.slotId(), choice.choiceId(), jobKeyId);
         } catch (RuntimeException failure) {
-            LOGGER.error("Portal booking could not be undone; see the audit log entry PortalBooking.undoFailed");
-            LogAction.addLogSynchronous(systemProviderNo, "PortalBooking.undoFailed",
-                    "appointment", offer == null ? "" : String.valueOf(offer.getAppointmentNo()), null);
+            LOGGER.error("Portal booking could not be undone; see the audit log entry {}",
+                    JOB.logAction(PortalBookingChoiceService.UNDO_FAILED));
+            PortalBookingChoiceService.logJob(PortalBookingChoiceService.UNDO_FAILED,
+                    offer == null ? null : offer.getAppointmentNo(), jobKeyId, choice.choiceId());
         }
-    }
-
-    /**
-     * The polling identity: an existing provider that cannot log in, holding only the sync
-     * permission. A provider with a login could be used by a person, so it is refused.
-     */
-    PatientPortalStaffContext syncIdentity(String providerNo) {
-        Provider provider = providers.getProvider(providerNo);
-        if (provider == null) {
-            throw new PortalRequestPreparationException("portal booking sync provider does not exist");
-        }
-        if (!logins.findByProviderNo(providerNo).isEmpty()) {
-            throw new PortalRequestPreparationException("portal booking sync provider must not be able to log in");
-        }
-        return new PatientPortalStaffContext(providerNo, provider.getFormattedName(),
-                Set.of(PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_SYNC));
     }
 }

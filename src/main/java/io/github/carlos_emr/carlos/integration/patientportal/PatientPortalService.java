@@ -49,9 +49,12 @@ import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
  * Outbound channel to the patient portal's {@code /internal/carlos/**} API.
  *
  * <p>This owns the authenticated envelope every portal call shares: the service bearer token and a
- * short-lived, Ed25519-signed provider assertion. Timeouts and redirect policy belong to {@link
- * PatientPortalHttpClientExchange}; the status-to-outcome mapping belongs to {@link
- * PatientPortalException}.
+ * short-lived, Ed25519-signed assertion of the caller. A staff call carries the provider assertion
+ * ({@code X-CARLOS-Staff-Assertion}); a call a CARLOS job makes with no person behind it carries the
+ * job's own assertion ({@code X-CARLOS-Job-Assertion}, see {@link PortalJobAssertionSigner}) and
+ * never the staff one, since the portal refuses a request carrying both. Timeouts and redirect
+ * policy belong to {@link PatientPortalHttpClientExchange}; the status-to-outcome mapping belongs to
+ * {@link PatientPortalException}.
  *
  * <p><b>Security boundaries this class holds:</b>
  *
@@ -76,6 +79,7 @@ public class PatientPortalService implements Closeable {
 
     static final String AUTHORIZATION_HEADER = "Authorization";
     static final String STAFF_ASSERTION_HEADER = PortalStaffAssertionSigner.HEADER;
+    static final String JOB_ASSERTION_HEADER = PortalJobAssertionSigner.HEADER;
 
     private static final String BEARER_PREFIX = "Bearer %s";
     private static final String INVALID_PATH = "portal endpoint path is not a valid URI";
@@ -387,27 +391,33 @@ public class PatientPortalService implements Closeable {
     }
 
     /**
-     * Patients' picks of offered times waiting for CARLOS, oldest first (sync permission only).
-     * The portal closes picks whose time has started before listing; those must not be booked.
+     * Patients' picks of offered times waiting for CARLOS, oldest first, signed as the
+     * {@code booking-sync} job claiming {@code portal.booking_prompt.sync}. The portal closes picks
+     * whose time has started before listing; those must not be booked.
+     *
+     * @throws PortalRequestPreparationException if {@code job} is not the booking-sync job's signer
      */
-    public PatientPortalBookingChoiceDto.Page listPendingBookingChoices(int limit, PatientPortalStaffContext staff) {
+    public PatientPortalBookingChoiceDto.Page listPendingBookingChoices(int limit, PortalJobAssertionSigner job) {
         if (limit < 1 || limit > MAX_BOOKING_CHOICES_PER_POLL) {
             throw new PortalRequestPreparationException("booking choice page size is out of range");
         }
-        return fetch(GET, BOOKING_CHOICES_PATH, null, OK, staff, PatientPortalBookingChoiceDto.Page::fromJson, limit);
+        return fetch(GET, BOOKING_CHOICES_PATH, null, OK, bookingSync(job),
+                PatientPortalBookingChoiceDto.Page::fromJson, limit);
     }
 
     /**
-     * Reports whether CARLOS booked a pick (sync permission only). Idempotent per choice: the same
-     * result again is {@code recorded == false}. Replacement times go only with
+     * Reports whether CARLOS booked a pick, signed as the {@code booking-sync} job. Idempotent per
+     * choice: the same result again is {@code recorded == false}. Replacement times go only with
      * {@code slot_unavailable}; the portal adds them after the times still on offer, up to 8 in all.
      *
      * @throws PatientPortalException with {@link PatientPortalException.Kind#CONFLICT} and one of the
      *     {@code CHOICE_*_DETAIL} details when the pick is no longer pending
+     * @throws PortalRequestPreparationException if {@code job} is not the booking-sync job's signer
      */
     public PatientPortalBookingChoiceDto.Result recordBookingChoiceResult(
             long promptId, long choiceId, boolean booked, List<PatientPortalOfferedSlot> replacements,
-            PatientPortalStaffContext staff) {
+            PortalJobAssertionSigner job) {
+        Caller caller = bookingSync(job);
         List<PatientPortalOfferedSlot> extra = replacements == null ? List.of() : replacements;
         if (booked && !extra.isEmpty() || extra.size() > PatientPortalOfferedSlot.MAX_PER_PROMPT) {
             throw new PortalRequestPreparationException("replacement times are invalid");
@@ -419,7 +429,7 @@ public class PatientPortalService implements Closeable {
             var slots = body.putArray("offered_slots");
             extra.forEach(slot -> slots.add(slot.toJson(objectMapper)));
         }
-        return fetch(POST, BOOKING_CHOICE_RESULT_PATH, body.toString(), OK, staff, payload -> {
+        return fetch(POST, BOOKING_CHOICE_RESULT_PATH, body.toString(), OK, caller, payload -> {
             var result = PatientPortalBookingChoiceDto.Result.fromJson(payload);
             if (result.promptId() != promptId || result.choiceId() != choiceId
                     || !result.result().equals(booked ? "booked" : "slot_unavailable")) {
@@ -701,7 +711,18 @@ public class PatientPortalService implements Closeable {
             PatientPortalStaffContext staff,
             Function<JsonNode, T> factory,
             Object... args) {
-        Parsed parsed = send(method, pathFormat, jsonBody, staff, args);
+        return fetch(method, pathFormat, jsonBody, expectedStatus, staffCaller(staff), factory, args);
+    }
+
+    private <T> T fetch(
+            String method,
+            String pathFormat,
+            String jsonBody,
+            int expectedStatus,
+            Caller caller,
+            Function<JsonNode, T> factory,
+            Object... args) {
+        Parsed parsed = send(method, pathFormat, jsonBody, caller, args);
         if (parsed.statusCode() != expectedStatus) {
             throw PatientPortalException.ofMalformedResponse(
                     parsed.statusCode(),
@@ -844,6 +865,15 @@ public class PatientPortalService implements Closeable {
     /** A parsed success body together with the status it arrived with. */
     private record Parsed(JsonNode payload, int statusCode) {}
 
+    private Parsed send(
+            String method,
+            String pathFormat,
+            String jsonBody,
+            PatientPortalStaffContext staff,
+            Object... args) {
+        return send(method, pathFormat, jsonBody, staffCaller(staff), args);
+    }
+
     /**
      * Sends an authenticated request and returns the parsed success body.
      *
@@ -869,13 +899,13 @@ public class PatientPortalService implements Closeable {
             String method,
             String pathFormat,
             String jsonBody,
-            PatientPortalStaffContext staff,
+            Caller caller,
             Object... args) {
         String path = String.format(Locale.ROOT, pathFormat, args);
         String template = templateOf(pathFormat);
         PatientPortalHttpResponse response;
         try {
-            response = exchange.send(buildRequest(method, path, jsonBody, staff));
+            response = exchange.send(buildRequest(method, path, jsonBody, caller));
         } catch (PortalResponseTooLargeException exception) {
             throw unreadableBody(exception.statusCode(), template,
                     new PortalContractException("portal response exceeds size limit", exception));
@@ -987,6 +1017,10 @@ public class PatientPortalService implements Closeable {
      */
     ClassicHttpRequest buildRequest(
             String method, String path, String jsonBody, PatientPortalStaffContext staff) {
+        return buildRequest(method, path, jsonBody, staffCaller(staff));
+    }
+
+    private ClassicHttpRequest buildRequest(String method, String path, String jsonBody, Caller caller) {
         URI uri = resolve(path);
         HttpUriRequestBase request = new HttpUriRequestBase(method, uri);
         byte[] body = jsonBody == null ? new byte[0]
@@ -995,13 +1029,34 @@ public class PatientPortalService implements Closeable {
                 String.format(Locale.ROOT, BEARER_PREFIX, settings.serviceToken().expose()));
         // Sign the same raw URI and bytes handed to the transport. Neither the patient target
         // nor the operation/body can be substituted after CARLOS has authorized the request.
-        request.setHeader(STAFF_ASSERTION_HEADER,
-                assertionSigner.sign(staff, settings.clinicId(), settings.staffAssertionKeyId(),
-                        method, uri, body));
+        caller.sign(request, method, uri, body);
         if (jsonBody != null) {
             request.setEntity(new ByteArrayEntity(body, ContentType.APPLICATION_JSON));
         }
         return request;
+    }
+
+    /**
+     * Who a request is signed as. Exactly one assertion header is set: the portal refuses a request
+     * carrying both the staff and the job header.
+     */
+    @FunctionalInterface
+    private interface Caller {
+        void sign(HttpUriRequestBase request, String method, URI uri, byte[] body);
+    }
+
+    private Caller staffCaller(PatientPortalStaffContext staff) {
+        return (request, method, uri, body) -> request.setHeader(STAFF_ASSERTION_HEADER,
+                assertionSigner.sign(staff, settings.clinicId(), settings.staffAssertionKeyId(), method, uri, body));
+    }
+
+    /** The booking-sync job, claiming its one permission; any other signer is refused before sending. */
+    private Caller bookingSync(PortalJobAssertionSigner job) {
+        if (job == null || job.job() != PortalJob.BOOKING_SYNC) {
+            throw new PortalRequestPreparationException("portal booking sync must be signed as the booking-sync job");
+        }
+        return (request, method, uri, body) -> request.setHeader(JOB_ASSERTION_HEADER,
+                job.sign(PortalJob.PERMISSION_BOOKING_PROMPT_SYNC, settings.clinicId(), method, uri, body));
     }
 
     private URI resolve(String path) {

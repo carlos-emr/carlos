@@ -35,12 +35,17 @@ import java.util.function.Function;
  * Cortico style) is ever offered; nothing off the doctor's real template. With no codes chosen,
  * nothing is offered at all, so the feature is off until a clinic decides which codes patients
  * may book.
+ *
+ * <p>The polling job has no provider setting: it calls the portal as the {@code booking-sync} job
+ * with its own key ({@code patient_portal.job.booking-sync.*}, see
+ * {@link io.github.carlos_emr.carlos.integration.patientportal.PortalJobKey}).
  */
 public record PortalBookingSettings(
         Set<Character> offerableCodes, int leadHours, String visitMode, String locationCode,
-        boolean syncEnabled, String syncProviderNo, long syncIntervalSeconds) {
+        boolean syncEnabled, long syncIntervalSeconds) {
 
     static final String PREFIX = "patient_portal.booking.";
+    static final String SYNC_ENABLED_KEY = PREFIX + "sync.enabled";
     static final int DEFAULT_LEAD_HOURS = 24;
     static final long DEFAULT_SYNC_INTERVAL_SECONDS = 60;
 
@@ -73,12 +78,10 @@ public record PortalBookingSettings(
         if (location != null && !location.matches("[a-z0-9_-]{1,32}")) {
             location = null;
         }
-        String syncProvider = trimmed(lookup.apply(PREFIX + "sync.provider_no"));
         return new PortalBookingSettings(codes,
                 (int) bounded(lookup.apply(PREFIX + "offer_lead_hours"), DEFAULT_LEAD_HOURS, 0, 24 * 30),
                 mode, location,
-                "true".equals(trimmed(lookup.apply(PREFIX + "sync.enabled"))) && syncProvider != null,
-                syncProvider,
+                "true".equals(trimmed(lookup.apply(SYNC_ENABLED_KEY))),
                 bounded(lookup.apply(PREFIX + "sync.interval_seconds"), DEFAULT_SYNC_INTERVAL_SECONDS, 15, 3600));
     }
 

@@ -53,7 +53,7 @@ class PortalBookingOfferServiceUnitTest {
     private static final ZoneId ZONE = ZoneId.of("America/Toronto");
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-08T16:00:00Z"), ZONE);
     private static final PortalBookingSettings SETTINGS = new PortalBookingSettings(
-            Set.of('B'), 24, "phone", "main", false, null, 60);
+            Set.of('B'), 24, "phone", "main", false, 60);
     private static final LocalDate FROM = LocalDate.of(2026, 10, 19);
 
     private final PortalBookingOfferDao offers = mock(PortalBookingOfferDao.class);
@@ -176,7 +176,10 @@ class PortalBookingOfferServiceUnitTest {
         assertThat(saved.getAllValues()).allSatisfy(offer -> {
             assertThat(offer.getChoiceId()).isEqualTo(11L);
             assertThat(offer.getPromptId()).isEqualTo(7L);
+            // The booking-sync job offers these, not the staff member who sent the prompt.
+            assertThat(offer.getOfferedBy()).isEqualTo("-1");
         });
+        verify(providers, never()).getProvider(any());
     }
 
     @Test

@@ -37,6 +37,7 @@ import static org.mockito.Mockito.when;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.PortalBookingOffer;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingChoiceDto;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -55,7 +56,10 @@ import org.mockito.MockedStatic;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Booking a patient's pick checks again under a provider lock and never books first (#3850). */
+/**
+ * Booking a patient's pick checks again under a provider lock and never books first (#3850). The
+ * booking-sync job writes every row as the system provider and names itself in the log.
+ */
 @Tag("unit")
 @Tag("patient-portal")
 class PortalBookingChoiceServiceUnitTest {
@@ -63,7 +67,8 @@ class PortalBookingChoiceServiceUnitTest {
     private static final ZonedDateTime START = ZonedDateTime.of(2026, 10, 20, 9, 30, 0, 0, ZONE);
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-08T16:00:00Z"), ZONE);
     private static final PortalBookingSettings SETTINGS = new PortalBookingSettings(
-            Set.of('B'), 24, "in_person", null, true, "-9", 60);
+            Set.of('B'), 24, "in_person", null, true, 60);
+    private static final String KID = "booking-sync-20261020-a1b2c3";
     private static final PatientPortalBookingChoiceDto CHOICE = new PatientPortalBookingChoiceDto(
             7, 11, 123, "slot-a", Instant.parse("2026-10-08T15:00:00Z"));
 
@@ -106,7 +111,7 @@ class PortalBookingChoiceServiceUnitTest {
 
     @Test
     void shouldBookUnderProviderLock_whenTheTimeIsStillOpen() {
-        var result = service.book(CHOICE, "-9", SETTINGS);
+        var result = service.book(CHOICE, KID, SETTINGS);
         assertThat(result.outcome()).isEqualTo(PortalBookingChoiceService.Outcome.BOOKED);
         var order = inOrder(offers, loader, appointments);
         order.verify(offers).lockProvider("101");
@@ -119,7 +124,9 @@ class PortalBookingChoiceServiceUnitTest {
         assertThat(appointment.getProviderNo()).isEqualTo("101");
         assertThat(appointment.getDemographicNo()).isEqualTo(123);
         assertThat(appointment.getStatus()).isEqualTo("t");
-        assertThat(appointment.getReason()).isEqualTo(PortalBookingChoiceService.REASON);
+        assertThat(appointment.getReason()).isEqualTo("Booked by the patient through the portal");
+        assertThat(appointment.getCreator()).isEqualTo("-1");
+        assertThat(appointment.getLastUpdateUser()).isEqualTo("-1");
         assertThat(appointment.getStartTime().toInstant()).isEqualTo(START.toInstant());
         assertThat(appointment.getEndTime().toInstant()).isEqualTo(START.plusMinutes(14).toInstant());
         assertThat(offer.getStatus()).isEqualTo(PortalBookingOffer.BOOKED);
@@ -127,6 +134,32 @@ class PortalBookingChoiceServiceUnitTest {
         assertThat(offer.getAppointmentNo()).isEqualTo(55);
         // The other times stay open until the portal confirms the booking.
         verify(offers, never()).closeOthers(any(), any(), any());
+        assertThat(loggedRow()).satisfies(row -> {
+            assertThat(row.getProviderNo()).isEqualTo("-1");
+            assertThat(row.getAction()).isEqualTo("PortalJob.booking-sync.booked");
+            assertThat(row.getContent()).isEqualTo("appointment");
+            assertThat(row.getContentId()).isEqualTo("55");
+            assertThat(row.getData()).isEqualTo("kid=" + KID + " choice=11");
+        });
+    }
+
+    @Test
+    void shouldKeepThePatientsNameOutOfTheLog_whenBooking() {
+        io.github.carlos_emr.carlos.commn.model.Demographic patient =
+                mock(io.github.carlos_emr.carlos.commn.model.Demographic.class);
+        when(patient.getFormattedName()).thenReturn("FAKE-Patient, Synthetic");
+        when(demographics.getDemographicById(123)).thenReturn(patient);
+        service.book(CHOICE, KID, SETTINGS);
+        OscarLog row = loggedRow();
+        assertThat(row.getData()).doesNotContain("FAKE-Patient");
+        assertThat(row.getContentId()).doesNotContain("FAKE-Patient");
+        assertThat(row.getDemographicId()).isNull();
+    }
+
+    private OscarLog loggedRow() {
+        ArgumentCaptor<OscarLog> row = ArgumentCaptor.forClass(OscarLog.class);
+        logs.verify(() -> LogAction.addLogSynchronous(row.capture()));
+        return row.getValue();
     }
 
     @Test
@@ -141,9 +174,9 @@ class PortalBookingChoiceServiceUnitTest {
         assertThat(offer.getStatus()).isEqualTo(PortalBookingOffer.CONFIRMED);
         verify(offers).closeOthers(eq("operation-1"), eq("slot-a"), any());
         // A confirmed booking is reported again as booked, and is never undone.
-        assertThat(service.book(CHOICE, "-9", SETTINGS).outcome())
+        assertThat(service.book(CHOICE, KID, SETTINGS).outcome())
                 .isEqualTo(PortalBookingChoiceService.Outcome.ALREADY_BOOKED);
-        assertThat(service.undo("slot-a", 11, "-9")).isFalse();
+        assertThat(service.undo("slot-a", 11, KID)).isFalse();
         assertThat(offer.getStatus()).isEqualTo(PortalBookingOffer.CONFIRMED);
         assertThat(appointment.getStatus()).isEqualTo("t");
         verify(appointments, never()).merge(any());
@@ -155,7 +188,7 @@ class PortalBookingChoiceServiceUnitTest {
         // A character outside the BMP is two Java chars: cutting by chars could split it.
         when(patient.getFormattedName()).thenReturn("FAKE-" + "\uD835\uDD38".repeat(60));
         when(demographics.getDemographicById(123)).thenReturn(patient);
-        service.book(CHOICE, "-9", SETTINGS);
+        service.book(CHOICE, KID, SETTINGS);
         ArgumentCaptor<Appointment> saved = ArgumentCaptor.forClass(Appointment.class);
         verify(appointments).persist(saved.capture());
         assertThat(saved.getValue().getName().codePointCount(0, saved.getValue().getName().length())).isEqualTo(50);
@@ -165,7 +198,7 @@ class PortalBookingChoiceServiceUnitTest {
     void shouldReportBookedAgain_whenTheSamePickWasAlreadyBooked() {
         offer.setStatus(PortalBookingOffer.BOOKED);
         offer.setChoiceId(11L);
-        assertThat(service.book(CHOICE, "-9", SETTINGS).outcome())
+        assertThat(service.book(CHOICE, KID, SETTINGS).outcome())
                 .isEqualTo(PortalBookingChoiceService.Outcome.ALREADY_BOOKED);
         verify(appointments, never()).persist(any());
     }
@@ -174,7 +207,7 @@ class PortalBookingChoiceServiceUnitTest {
     void shouldRefuse_whenAnotherPickBookedTheTime() {
         offer.setStatus(PortalBookingOffer.BOOKED);
         offer.setChoiceId(10L);
-        assertThat(service.book(CHOICE, "-9", SETTINGS).outcome())
+        assertThat(service.book(CHOICE, KID, SETTINGS).outcome())
                 .isEqualTo(PortalBookingChoiceService.Outcome.UNAVAILABLE);
         verify(appointments, never()).persist(any());
     }
@@ -182,7 +215,7 @@ class PortalBookingChoiceServiceUnitTest {
     @Test
     void shouldMarkUnavailable_whenTheTimeIsNoLongerOpen() {
         when(loader.isOpen(any(), any(), anyInt(), any(), any())).thenReturn(false);
-        assertThat(service.book(CHOICE, "-9", SETTINGS).outcome())
+        assertThat(service.book(CHOICE, KID, SETTINGS).outcome())
                 .isEqualTo(PortalBookingChoiceService.Outcome.UNAVAILABLE);
         assertThat(offer.getStatus()).isEqualTo(PortalBookingOffer.UNAVAILABLE);
         assertThat(offer.getChoiceId()).isEqualTo(11L);
@@ -192,14 +225,14 @@ class PortalBookingChoiceServiceUnitTest {
     @Test
     void shouldNeverBook_whenThePickIsNotThisPatientsOffer() {
         var someoneElse = new PatientPortalBookingChoiceDto(7, 11, 456, "slot-a", Instant.now());
-        assertThat(service.book(someoneElse, "-9", SETTINGS).outcome())
+        assertThat(service.book(someoneElse, KID, SETTINGS).outcome())
                 .isEqualTo(PortalBookingChoiceService.Outcome.UNKNOWN);
         var otherPrompt = new PatientPortalBookingChoiceDto(8, 11, 123, "slot-a", Instant.now());
-        assertThat(service.book(otherPrompt, "-9", SETTINGS).outcome())
+        assertThat(service.book(otherPrompt, KID, SETTINGS).outcome())
                 .isEqualTo(PortalBookingChoiceService.Outcome.UNKNOWN);
         when(offers.find("missing")).thenReturn(null);
         var missing = new PatientPortalBookingChoiceDto(7, 11, 123, "missing", Instant.now());
-        assertThat(service.book(missing, "-9", SETTINGS).outcome())
+        assertThat(service.book(missing, KID, SETTINGS).outcome())
                 .isEqualTo(PortalBookingChoiceService.Outcome.UNKNOWN);
         verify(offers, never()).lockProvider(anyString());
         verify(appointments, never()).persist(any());
@@ -213,10 +246,17 @@ class PortalBookingChoiceServiceUnitTest {
         Appointment appointment = new Appointment();
         appointment.setStatus("t");
         when(appointments.find(55)).thenReturn(appointment);
-        assertThat(service.undo("slot-a", 11, "-9")).isTrue();
+        assertThat(service.undo("slot-a", 11, KID)).isTrue();
         assertThat(appointment.getStatus()).isEqualTo("C");
+        assertThat(appointment.getLastUpdateUser()).isEqualTo("-1");
         assertThat(offer.getStatus()).isEqualTo(PortalBookingOffer.CLOSED);
         verify(appointments).merge(appointment);
-        assertThat(service.undo("slot-a", 12, "-9")).isFalse();
+        assertThat(loggedRow()).satisfies(row -> {
+            assertThat(row.getProviderNo()).isEqualTo("-1");
+            assertThat(row.getAction()).isEqualTo("PortalJob.booking-sync.undone");
+            assertThat(row.getContentId()).isEqualTo("55");
+            assertThat(row.getData()).isEqualTo("kid=" + KID + " choice=11");
+        });
+        assertThat(service.undo("slot-a", 12, KID)).isFalse();
     }
 }
