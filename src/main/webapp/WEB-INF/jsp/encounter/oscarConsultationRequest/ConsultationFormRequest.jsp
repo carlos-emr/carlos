@@ -2042,8 +2042,10 @@ String signatureRequestId = signatureRetry
 if (signatureRequestId.isEmpty() || !signatureRequestId.matches("[a-zA-Z0-9]+")) {
     signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
 }
+ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
 if (retryManualSignature) {
-    signatureImgValue = signatureRequestId;
+    signatureImgValue = consultationSignatureService.wasManualSignatureCaptured(signatureRequestId)
+            ? signatureRequestId : "";
 }
 String imageUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_preview.name()+"&"+DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY+"="+SafeEncode.forUriComponent(signatureRequestId);
 String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_stored.name()+"&digitalSignatureId=";
@@ -2133,6 +2135,10 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
                     signatureFrame.style.display = 'block';
                 };
                 signatureImgTag.src = '<%=SafeEncode.forJavaScript(imageUrl)%>';
+            } else if (<%=retryManualSignature%>) {
+                // No capture yet: retain manual intent without requesting a nonexistent preview.
+                document.getElementById('signatureShow').style.display = 'none';
+                document.getElementById('signatureFrame').style.display = 'block';
             } else if (signatureImg != null && isStoredSignatureId(signatureImg.value)) {
                 var signatureImgTag = document.getElementById('signatureImgTag');
                 var newSignature = document.getElementById('newSignature');
@@ -3392,7 +3398,7 @@ if (userAgent != null) {
                                     }
                                 }
                                 if (signatureRetry) {
-                                    signatureProviderNo = SpringUtils.getBean(ConsultationSignatureService.class)
+                                    signatureProviderNo = consultationSignatureService
                                             .resolveSignatureProviderNo(request.getParameter("signatureProviderNo"),
                                                     thisForm.getProviderNo(), signatureProviderNo);
                                 }

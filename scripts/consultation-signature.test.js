@@ -72,7 +72,7 @@ test('explicit signed fixtures cannot pass when the PDF contains only an unrelat
 });
 
 /** Execute the JSP's actual signature handlers against a small image/controls DOM. */
-function signatureControls(signatureImg, newSignature) {
+function signatureControls(signatureImg, newSignature, retryManualSignature = false) {
   const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp'), 'utf8');
   const elements = {
     signatureImg: {value: signatureImg}, newSignature: {value: newSignature},
@@ -95,6 +95,7 @@ function signatureControls(signatureImg, newSignature) {
       if (expression.includes('imageUrl')) return '/carlos/imageRenderingServlet?source=signature_preview&signatureRequestId=8000011792450000000';
       if (expression.includes('storedImgUrl')) return '/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=';
       if (expression.includes('request.getContextPath()')) return '/carlos';
+      if (expression.includes('retryManualSignature')) return String(retryManualSignature);
       throw new Error(`Unexpected JSP expression in ${name}`);
     });
     vm.runInContext(code, context);
@@ -130,6 +131,16 @@ test('an uncaptured retry or failed preview keeps the manual pad available and i
     assert.equal(elements.signatureShow.style.display, 'none');
     assert.equal(context.isSignatureSaved, false);
   }
+});
+
+test('an unsigned manual retry keeps the pad without requesting a missing preview or a stamp', () => {
+  const {elements, context} = signatureControls('', 'true', true);
+  context.showSignatureImage();
+  assert.equal(elements.signatureImgTag.src, undefined);
+  assert.equal(elements.newSignature.value, 'true');
+  assert.equal(elements.signatureFrame.style.display, 'block');
+  assert.equal(elements.signatureShow.style.display, 'none');
+  assert.equal(context.isSignatureSaved, false);
 });
 
 test('stored signatures and provider stamps retain their respective preview sources', () => {
