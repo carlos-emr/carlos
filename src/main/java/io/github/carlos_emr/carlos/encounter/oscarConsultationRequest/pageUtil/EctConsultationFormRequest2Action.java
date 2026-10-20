@@ -1182,6 +1182,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      * @param demographicNo String the patient demographic number
      * @return boolean true if PDF generation succeeded, false on error
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of the fixed submit-button value, the same match execute() routes by; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of the fixed submit-button value, the same match execute() routes by; not a security or authorization decision")
     private boolean renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response, String requestId, String demographicNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         request.setAttribute("reqId", requestId);
