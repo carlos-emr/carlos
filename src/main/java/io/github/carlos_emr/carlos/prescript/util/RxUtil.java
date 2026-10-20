@@ -54,6 +54,8 @@ public class RxUtil {
     private static Locale locale = Locale.CANADA;
     private static String defaultQuantity = "30";
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String METHOD_APPLY = "Apply";
+    private static final String METHOD_RUB_WELL_IN = "Rub well in";
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
             "(?:mg|mcg|[µμ]g|g|iu|meq)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
@@ -556,7 +558,7 @@ public class RxUtil {
                 "\\s(?i)4x day\\s", "\\s(?i)3x daily\\s", "\\s(?i)4x daily\\s", "\\s(?i)OD$", "\\s(?i)BID$", "\\s(?i)TID$", "\\s(?i)QID$", "\\s(?i)Q1H$", "\\s(?i)Q2H$", "\\s(?i)Q1-2H$", "\\s(?i)Q3-4H$", "\\s(?i)Q4H$", "\\s(?i)Q4-6H$", "\\s(?i)Q6H$", "\\s(?i)Q8H$", "\\s(?i)Q12H$", "\\s(?i)QAM$", "\\s(?i)QPM$", "\\s(?i)QHS$", "\\s(?i)Q1Week$", "\\s(?i)weekly$", "\\s(?i)Q2Week$", "\\s(?i)Q1Month$", "\\s(?i)Q3Month$", "\\s(?i)monthly$", "\\s(?i)once daily$", "\\s(?i)twice daily$", "\\s(?i)3x day$",
                 "\\s(?i)4x day$", "\\s(?i)3x daily$", "\\s(?i)4x daily$", "\\s(?i)daily\\s", "\\s(?i)daily$", // put at last because if frequency is 'twice daily', it will first be detected as 'daily'
         };
-        String[] methods = {"(?i)Take", "(?i)Apply", "(?i)Rub well in"};
+        String[] methods = {"(?i)Take", "(?i)" + METHOD_APPLY, "(?i)" + METHOD_RUB_WELL_IN};
         String[] durationUnits = {"\\s+(?i)days\\s", "\\s+(?i)weeks\\s", "\\s+(?i)months\\s", "\\s+(?i)day\\s", "\\s+(?i)week\\s", "\\s+(?i)month\\s", "\\s+(?i)d\\s", "\\s+(?i)w\\s", "\\s+(?i)m\\s", "\\s+(?i)mo\\s", "\\s+(?i)days$", "\\s+(?i)weeks$", "\\s+(?i)months$", "\\s+(?i)day$", "\\s+(?i)week$", "\\s+(?i)month$", "\\s+(?i)d$", "\\s+(?i)w$", "\\s+(?i)m$", "\\s+(?i)mo$"};
         String[] durUnits2 = {"\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", };
 
@@ -1121,8 +1123,8 @@ public class RxUtil {
         // Grams applied topically and IU injected through supported parenteral
         // routes specify administered amounts. Oral strengths remain strengths.
         if ("g".equalsIgnoreCase(unit.group())) {
-            return !("TOP.".equalsIgnoreCase(segment.route) || "Apply".equalsIgnoreCase(segment.method)
-                    || "Rub well in".equalsIgnoreCase(segment.method));
+            return !("TOP.".equalsIgnoreCase(segment.route) || METHOD_APPLY.equalsIgnoreCase(segment.method)
+                    || METHOD_RUB_WELL_IN.equalsIgnoreCase(segment.method));
         }
         if ("iu".equalsIgnoreCase(unit.group())) {
             return !("SC".equalsIgnoreCase(segment.route) || "IM".equalsIgnoreCase(segment.route));
@@ -1401,14 +1403,14 @@ public class RxUtil {
                 special = special.substring(special.indexOf("take"));
             } else if (special.indexOf("TAKE") != -1) {
                 special = special.substring(special.indexOf("TAKE"));
-            } else if (special.indexOf("Apply") != -1) {
-                special = special.substring(special.indexOf("Apply"));
+            } else if (special.indexOf(METHOD_APPLY) != -1) {
+                special = special.substring(special.indexOf(METHOD_APPLY));
             } else if (special.indexOf("apply") != -1) {
                 special = special.substring(special.indexOf("apply"));
             } else if (special.indexOf("APPLY") != -1) {
                 special = special.substring(special.indexOf("APPLY"));
-            } else if (special.indexOf("Rub well in") != -1) {
-                special = special.substring(special.indexOf("Rub well in"));
+            } else if (special.indexOf(METHOD_RUB_WELL_IN) != -1) {
+                special = special.substring(special.indexOf(METHOD_RUB_WELL_IN));
             } else if (special.indexOf("rub well in") != -1) {
                 special = special.substring(special.indexOf("rub well in"));
             } else if (special.indexOf("RUB WELL IN") != -1) {
