@@ -614,6 +614,21 @@
       ]
     },
     {
+      "name": "consultation-consultant-validation",
+      "script": "scripts/consultation-consultant-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient, service, active/inactive specialists, HL7 lab and routing rows, referral, archives and signatures; all removed by owned keys.",
+      "notes": "Issue #3336: browser and server consultant validation, preserved clinical data, legacy unassigned reads and valid saves."
+    },
+    {
       "name": "consultation-request-create",
       "script": "scripts/consultation-request-create-playwright-checks.js",
       "tiers": [
@@ -15568,6 +15583,38 @@
         "consultationServices",
         "professionalSpecialists"
       ]
+    },
+    {
+      "name": "eform-image-links",
+      "script": "scripts/eform-image-links-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient(s) and related rows; cleanup verifies removal. Must not run concurrently with other checks.",
+      "notes": "Verifies image transport through save/reopen and the packaged WAF."
+    },
+    {
+      "name": "demographic-add-relation",
+      "script": "scripts/demographic-add-relation-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient(s) and related rows; cleanup verifies removal. Must not run concurrently with other checks.",
+      "notes": "Issue #3352: GET opens, search/select does not write, GET/HEAD save is 405, and a form POST saves the relation. Clicks the legacy master-record link when enabled; otherwise opens its supported route."
     },
     {
       "name": "rx-reprint-authorization",

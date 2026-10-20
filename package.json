@@ -20,6 +20,7 @@
     "test:appointment-slot-lock-booker-playwright": "node scripts/appointment-slot-lock-booker-playwright-checks.js",
     "test:appointment-group-paste-restriction-playwright": "node scripts/appointment-group-paste-restriction-playwright-checks.js",
     "test:appointment-slot-lock-non-admin-playwright": "node scripts/appointment-slot-lock-non-admin-playwright-checks.js",
+    "test:consultation-consultant-validation-playwright": "node scripts/consultation-consultant-validation-playwright-checks.js",
     "test:playwright": "node scripts/run-playwright-suite.js",
     "test:inbox-document-dates-playwright": "node scripts/inbox-document-dates-playwright-checks.js",
     "test:inbox-document-forwarding-scope-playwright": "node scripts/inbox-document-forwarding-scope-playwright-checks.js",
@@ -866,7 +867,9 @@
     "test:patient-letter-manager-labels-playwright": "PATIENT_LETTER_ACTION=labels node scripts/patient-letter-actions-playwright-checks.js",
     "test:rx-quantity-delete-race-playwright": "RX_DISCARD_CALLBACK=quantity node scripts/rx-discarded-card-callback-playwright-checks.js",
     "test:rx-instructions-delete-race-playwright": "RX_DISCARD_CALLBACK=instructions node scripts/rx-discarded-card-callback-playwright-checks.js",
-    "test:consultation-specialty-selection-playwright": "node scripts/consultation-specialty-selection-playwright-checks.js"
+    "test:consultation-specialty-selection-playwright": "node scripts/consultation-specialty-selection-playwright-checks.js",
+    "test:eform-image-links-playwright": "node scripts/eform-image-links-playwright-checks.js",
+    "test:demographic-add-relation-playwright": "node scripts/demographic-add-relation-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

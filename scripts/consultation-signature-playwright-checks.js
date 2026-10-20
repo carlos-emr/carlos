@@ -276,8 +276,10 @@ async function workflow(s) {
   s.cleanup(() => { fixture.cleanup(); consultationsClean = true; });
   const service = sql.value('SELECT MIN(serviceId) FROM consultationServices');
   h.assert(/^[1-9]\d*$/.test(service), 'At least one consultation service is required');
+  const specialist = sql.value('SELECT MIN(specId) FROM professionalSpecialists WHERE deleted=0');
+  h.assert(/^[1-9]\d*$/.test(specialist), 'An active consultant is required for signature save scenarios');
   const reason = fixture.reason('signature');
-  const form = {demographicNo: patient, service, specialist: '0', sendTo: '', providerNo: account.providerNo,
+  const form = {demographicNo: patient, service, specialist, sendTo: '', providerNo: account.providerNo,
     newSignature: 'true', signatureImg: '', signatureProviderNo: account.providerNo, newSignatureImg: '',
     reasonForConsultation: reason, 'CSRF-TOKEN': csrf};
   async function submit(extra) {
