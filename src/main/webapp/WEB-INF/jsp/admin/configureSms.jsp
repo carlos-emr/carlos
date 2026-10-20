@@ -103,8 +103,9 @@
 
         <div class="mb-3">
             <label class="form-label" for="senderNumber"><fmt:message key="sms.config.senderNumber"/></label>
-            <input class="form-control" type="text" id="senderNumber" name="senderNumber"
+            <input class="form-control" type="text" id="senderNumber" name="senderNumber" aria-describedby="senderNumberHelp"
                    value="<carlos:encode value='${smsConfig.senderNumber}' context='htmlAttribute'/>"/>
+            <div class="form-text" id="senderNumberHelp"><fmt:message key="sms.config.senderNumberHelp"/></div>
         </div>
 
         <div class="mb-3">

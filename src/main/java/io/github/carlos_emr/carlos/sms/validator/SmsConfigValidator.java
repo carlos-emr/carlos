@@ -55,15 +55,24 @@ public class SmsConfigValidator {
      * @param senderNumberRequired whether a sender number must be saved
      * @param storedCredentials    names of the credentials already stored for this provider, which a blank
      *                             field keeps
+     * @param senderNumberKept     whether saving keeps a sender number for this provider even with the field
+     *                             blank: choosing a provider again, with the field left as the page showed it,
+     *                             brings back the number stored for it
      */
     public record ProviderNeeds(Set<String> requiredCredentials, boolean senderNumberRequired,
-                                Set<String> storedCredentials) {
+                                Set<String> storedCredentials, boolean senderNumberKept) {
         /** A provider that needs nothing, such as the stub. */
         public static final ProviderNeeds NONE = new ProviderNeeds(Set.of(), false, Set.of());
 
         public ProviderNeeds {
             requiredCredentials = requiredCredentials == null ? Set.of() : Set.copyOf(requiredCredentials);
             storedCredentials = storedCredentials == null ? Set.of() : Set.copyOf(storedCredentials);
+        }
+
+        /** Needs with no sender number kept for a blank field. */
+        public ProviderNeeds(Set<String> requiredCredentials, boolean senderNumberRequired,
+                             Set<String> storedCredentials) {
+            this(requiredCredentials, senderNumberRequired, storedCredentials, false);
         }
     }
 
@@ -99,7 +108,8 @@ public class SmsConfigValidator {
             errors.add("sms.config.error.credentialTooLong");
         }
         if (update.enabled()) {
-            if (needs.senderNumberRequired() && (senderNumber == null || senderNumber.isBlank())) {
+            if (needs.senderNumberRequired() && (senderNumber == null || senderNumber.isBlank())
+                    && !needs.senderNumberKept()) {
                 errors.add("sms.config.error.senderNumberRequired");
             }
             boolean credentialMissing = needs.requiredCredentials().stream()

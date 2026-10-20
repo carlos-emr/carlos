@@ -289,7 +289,7 @@ class SmsConfigViewModelAssemblerUnitTest {
     }
 
     @Test
-    @DisplayName("shows another provider's stored credentials as not stored, since saving the swap clears them")
+    @DisplayName("shows another provider's stored credentials as not stored for this one: each keeps its own")
     void shouldShowCredentialsAsNotStored_whenTheyBelongToAnotherProvider() {
         SmsConfig stored = new SmsConfig();
         stored.setProviderType(SmsProviderType.VOIPMS);
@@ -307,6 +307,36 @@ class SmsConfigViewModelAssemblerUnitTest {
         assertThat(model.errorKeys()).containsExactly("sms.config.error.credentialRequired");
         assertThat(model.credentialFields())
                 .containsExactly(new SmsConfigViewModel.CredentialField("field_one", "sms.test.fieldOne", true, false));
+    }
+
+    @Test
+    @DisplayName("shows each provider's group with its own stored login, so choosing a provider again shows what it keeps")
+    void shouldShowStoredFlags_forEachProvidersOwnLogin() {
+        StubSmsProviderClient voipMs = new StubSmsProviderClient() {
+            @Override
+            public SmsProviderType providerType() {
+                return SmsProviderType.VOIPMS;
+            }
+        };
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential("field_one", "voipms-value");
+        stored.setProviderType(SmsProviderType.STUB);
+        when(configService.current()).thenReturn(Optional.of(stored));
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of());
+        when(configService.credentialFields(SmsProviderType.VOIPMS)).thenReturn(List.of(
+                new SmsCredentialField("field_one", "sms.test.fieldOne", true),
+                new SmsCredentialField("field_two", "sms.test.fieldTwo", false)));
+        when(providerResolver.configuredDefault()).thenReturn(SmsProviderType.STUB);
+
+        SmsConfigViewModel model = new SmsConfigViewModelAssembler(configService,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient(), voipMs)), providerResolver,
+                scheduler, () -> true).assemble(null, List.of());
+
+        assertThat(model.providerType()).isEqualTo("STUB");
+        assertThat(model.credentialGroups().get("VOIPMS")).extracting(SmsConfigViewModel.CredentialField::set)
+                .containsExactly(true, false);
+        assertThat(model.toString()).doesNotContain("voipms-value");
     }
 
     @Test

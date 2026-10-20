@@ -192,24 +192,25 @@ public class SmsConfigViewModelAssembler {
      * example after the encryption key changed) would otherwise look stored while every send fails.
      */
     private boolean credentialsReadable(SmsConfig stored) {
-        return stored.credentialsReadable() && configService.credentialFields(stored.getProviderType()).stream()
+        SmsProviderType providerType = stored.getProviderType();
+        return stored.credentialsReadable() && configService.credentialFields(providerType).stream()
                 .map(SmsCredentialField::name)
-                .allMatch(name -> !stored.hasCredential(name) || stored.hasReadableCredential(name));
+                .allMatch(name -> !stored.hasCredential(providerType, name)
+                        || stored.hasReadableCredential(providerType, name));
     }
 
     /**
-     * The provider's credential fields, each marked stored only when the stored credentials belong to that
-     * provider and can be read: after choosing another provider, saving clears them, so they must not look kept,
-     * and one that cannot be read must be entered again.
+     * The provider's credential fields, each marked stored when that provider has a readable value for it. Each
+     * provider keeps its own login, so a provider the clinic used before shows what choosing it again keeps; one
+     * that cannot be read must be entered again.
      *
      * @param stored the saved settings, or {@code null} while nothing is saved
      */
     private List<SmsConfigViewModel.CredentialField> credentialFields(SmsProviderType providerType,
                                                                       SmsConfig stored) {
-        boolean sameProvider = stored != null && stored.getProviderType() == providerType;
         return configService.credentialFields(providerType).stream()
                 .map(field -> new SmsConfigViewModel.CredentialField(field.name(), field.labelKey(), field.required(),
-                        sameProvider && stored.hasReadableCredential(field.name())))
+                        stored != null && stored.hasReadableCredential(providerType, field.name())))
                 .toList();
     }
 }

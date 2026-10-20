@@ -147,4 +147,14 @@ class SmsConfigValidatorUnitTest {
         assertThat(validator.validate(new SmsConfigUpdateDto(SmsProviderType.STUB, false, false, "", "", false,
                 Map.of(), null), INSTALLED, needs)).isEmpty();
     }
+
+    @Test
+    @DisplayName("accepts a blank sender number field when the save brings back the number stored for the provider")
+    void shouldAcceptBlankSenderNumber_whenSaveKeepsStoredNumber() {
+        SmsConfigValidator.ProviderNeeds kept = new SmsConfigValidator.ProviderNeeds(Set.of(), true, Set.of(), true);
+
+        assertThat(validator.validate(update(SmsProviderType.STUB, ""), INSTALLED, kept)).isEmpty();
+        assertThat(new SmsConfigValidator.ProviderNeeds(Set.of(), true, Set.of()).senderNumberKept())
+                .as("none kept unless the service says so").isFalse();
+    }
 }

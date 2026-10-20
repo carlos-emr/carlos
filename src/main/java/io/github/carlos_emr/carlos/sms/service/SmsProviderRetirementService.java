@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.sms.service;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dao.SmsConfigDao;
 import io.github.carlos_emr.carlos.sms.dao.SmsProviderRateLimitDao;
 import io.github.carlos_emr.carlos.sms.dao.SmsProviderRetirementDao;
@@ -37,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Serializes selection changes and queue ownership across servers. The existing STUB limiter key is
@@ -47,6 +49,17 @@ import java.util.Optional;
 @Service
 @Transactional(propagation = Propagation.MANDATORY)
 public class SmsProviderRetirementService {
+    /** Closes a retired provider's waiting text that was queued again, as a new row, for the selected provider. */
+    public static final String QUEUE_PROVIDER_MOVED_CODE = "QUEUE_PROVIDER_MOVED";
+    /**
+     * Retry codes whose attempt definitely sent nothing: the provider refused the text, or CARLOS could not check
+     * consent and never called the provider. A stale send the provider did not find
+     * ({@code QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED}) is not one of them: it may still have gone out.
+     */
+    private static final Set<String> DEFINITELY_UNSENT_RETRY_CODES = Set.of(
+            "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED",
+            SmsQueueProcessingService.QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED_CODE);
+
     private final SmsProviderRateLimitDao rateLimitDao;
     private final SmsConfigDao configDao;
     private final SmsProviderRetirementDao retirementDao;
@@ -84,7 +97,17 @@ public class SmsProviderRetirementService {
         if (purpose == SmsMessagePurpose.SYSTEM_TEST && provider == SmsProviderType.STUB) {
             return true;
         }
-        SmsProviderType selected = config.map(SmsConfig::getProviderType).orElseGet(() -> {
+        return selectedProvider(config) == provider && config.map(SmsConfig::isEnabled).orElse(true);
+    }
+
+    /**
+     * @param config the locked settings row, or empty while nothing is saved
+     * @return the provider the clinic selects now: the saved one, or {@code sms.provider.default} while nothing
+     *         is saved
+     * @throws IllegalStateException when nothing is saved and {@code sms.provider.default} names no provider
+     */
+    public SmsProviderType selectedProvider(Optional<SmsConfig> config) {
+        return config.map(SmsConfig::getProviderType).orElseGet(() -> {
             String value = CarlosProperties.getInstance().getProperty("sms.provider.default");
             if (value == null || value.isBlank()) {
                 return SmsProviderType.STUB;
@@ -95,7 +118,35 @@ public class SmsProviderRetirementService {
                 throw new IllegalStateException("Invalid sms.provider.default; configure a supported SMS provider.");
             }
         });
-        return selected == provider && config.map(SmsConfig::isEnabled).orElse(true);
+    }
+
+    /**
+     * Whether a retired provider's waiting text may be queued again for the selected provider, as a new row
+     * under a new client reference. Only a patient's text that certainly never went out qualifies: still
+     * {@code QUEUED} with its body, never accepted by a provider or reported on by one, and either never tried or
+     * rescheduled after an attempt that definitely sent nothing. Anything that may have been sent stays with
+     * staff: a {@code SENDING} row (never offered here; stale recovery owns it), a row rescheduled after a stale
+     * send the provider did not find, a row a provider callback has touched, and any retry this rule does not
+     * recognize. A system test is never moved: the administrator sends a new one.
+     */
+    static boolean movable(SmsTransaction row) {
+        if (row.getStatus() != SmsStatus.QUEUED || row.getMessagePurpose() == SmsMessagePurpose.SYSTEM_TEST
+                || !row.hasStoredMessageBody() || row.getProviderEventAt() != null
+                || (row.getProviderMessageId() != null && !row.getProviderMessageId().isBlank())) {
+            return false;
+        }
+        if (SmsQueueProcessingService.QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED_CODE.equals(row.getErrorCode())) {
+            return false;
+        }
+        // Set.of rejects a null lookup, and a tried row with no code is not one this rule recognizes.
+        return row.getAttemptCount() == 0
+                || (row.getErrorCode() != null && DEFINITELY_UNSENT_RETRY_CODES.contains(row.getErrorCode()));
+    }
+
+    /** What the moved row is closed with: it names the provider and the new row that sends the text now. */
+    static SmsProviderSendResultDto movedResult(SmsProviderType selected, Long movedToId) {
+        return SmsProviderSendResultDto.failed(QUEUE_PROVIDER_MOVED_CODE,
+                "Moved to " + selected.name() + " as text " + movedToId + ".");
     }
 
     static SmsProviderSendResultDto retirementFailure(SmsTransaction row) {

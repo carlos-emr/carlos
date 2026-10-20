@@ -31,6 +31,8 @@ import io.github.carlos_emr.carlos.sms.assembler.SmsConfigViewModelAssembler;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dao.SmsConfigDao;
 import io.github.carlos_emr.carlos.sms.dao.SmsProviderRateLimitDao;
+import io.github.carlos_emr.carlos.sms.dao.SmsProviderRetirementDao;
+import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsDeliveryWebhookDto;
@@ -47,15 +49,22 @@ import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.List;
@@ -189,7 +198,9 @@ class SmsProviderSwapUnitTest {
                 SmsSendCommand.patientMessage(123, "416-555-1212", "FAKE", "999998"), SmsProviderType.CLOUDLI, CONSENTED);
 
         assertThat(configService.providerSettings(SmsProviderType.CLOUDLI).credential("api_user")).isEmpty();
-        assertThat(savedRow.get().credentialNames()).as("cleared with the swap").isEmpty();
+        assertThat(savedRow.get().credentialNames(SmsProviderType.CLOUDLI))
+                .as("kept for when it is chosen again, but never handed over meanwhile")
+                .containsExactlyInAnyOrder("api_user", "api_password");
 
         worker().processDueMessages(10);
 
@@ -212,6 +223,27 @@ class SmsProviderSwapUnitTest {
         assertThat(handedOver.credential("api_user")).isEmpty();
         assertThat(handedOver.credential("api_password")).isEmpty();
         assertThat(handedOver.senderNumber()).as("the clinic's own number is kept").contains(SENDER);
+    }
+
+    @Test
+    @DisplayName("choosing the provider again brings back its login and sender number in one save, ready to send")
+    void shouldSendThroughFormerProvider_whenChosenAgainWithoutRetyping() {
+        save(completeFakeSettings());
+        save(settings(SmsProviderType.STUB, true, "416-555-9999", Map.of()));
+        SmsConfigUpdateDto chooseAgain = settings(SmsProviderType.CLOUDLI, true, "416-555-9999", Map.of());
+        assertThat(validate(chooseAgain)).as("nothing to type again").isEmpty();
+        save(chooseAgain);
+
+        SmsSendResultDto result = sendService().send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "FAKE reminder", "999998"));
+
+        assertThat(result.status()).isEqualTo(SmsStatus.SENT);
+        assertThat(fake.settingsSeen).singleElement().satisfies(settings -> {
+            assertThat(settings.credential("api_user")).contains("fake-user");
+            assertThat(settings.credential("api_password")).contains("fake-password");
+            assertThat(settings.senderNumber()).as("its own number, not the one the field showed").contains(SENDER);
+        });
+        assertThat(savedRow.get().storedSenderNumber(SmsProviderType.STUB)).contains("+14165559999");
     }
 
     @Test
@@ -542,6 +574,205 @@ class SmsProviderSwapUnitTest {
         assertThat(third.getAttemptCount()).isZero();
         assertThat(third.getStatus()).isEqualTo(SmsStatus.QUEUED);
         org.mockito.Mockito.verify(recorder, org.mockito.Mockito.times(2)).markProviderResult(any(), any());
+    }
+
+    /**
+     * The Spring-wired path: the durable retirement protocol with the JPA recorder, over an in-memory table. The
+     * fakes keep what the queries promise (only {@code QUEUED} rows are claimed or settled, never one at or below
+     * its provider's boundary for a claim) and the boundaries move as {@link SmsProviderRetirementDao} moves them.
+     */
+    @Nested
+    @DisplayName("with durable provider retirement")
+    class WithDurableRetirement {
+        private final List<SmsTransaction> rows = new ArrayList<>();
+        private final InMemoryRetirementDao boundaries = new InMemoryRetirementDao();
+        private SmsConfigService durableConfig;
+        private JpaSmsTransactionService recorder;
+
+        @BeforeEach
+        void wireDurableRetirement() {
+            savedRow.set(null);
+            SmsProviderRateLimitDao rateLimitDao = mock(SmsProviderRateLimitDao.class);
+            when(rateLimitDao.findByProviderTypeForUpdate(SmsProviderType.STUB))
+                    .thenAnswer(invocation -> Optional.of(SmsProviderRateLimit.forProvider(SmsProviderType.STUB,
+                            new Date())));
+            SmsConfigDao configDao = mock(SmsConfigDao.class);
+            when(configDao.findCurrent()).thenAnswer(invocation -> Optional.ofNullable(savedRow.get()));
+            when(configDao.findCurrentForUpdate()).thenAnswer(invocation -> Optional.ofNullable(savedRow.get()));
+            doAnswer(invocation -> {
+                savedRow.set(invocation.getArgument(0));
+                return null;
+            }).when(configDao).persist(any());
+            SmsProviderRetirementService retirement = new SmsProviderRetirementService(rateLimitDao, configDao,
+                    boundaries);
+            durableConfig = new SmsConfigService(configDao, clients, mock(ApplicationEventPublisher.class),
+                    mock(SmsConfigAuditRecorder.class), retirement);
+            recorder = new JpaSmsTransactionService(transactionTable(), mock(ApplicationEventPublisher.class),
+                    new NoOpTransactionManager(), retirement);
+            durableSave(settings(SmsProviderType.STUB, true, "", Map.of()));
+        }
+
+        @Test
+        @DisplayName("a text left waiting by the old provider follows the clinic to the new one and is sent there")
+        void shouldSendMovedText_throughNewProvider() {
+            SmsTransaction inFlight = admit(SmsProviderType.STUB);
+            assertThat(recorder.claimDueOutboundQueue(SmsProviderType.STUB, new Date(), 1)).containsExactly(inFlight);
+            SmsTransaction waiting = admit(SmsProviderType.STUB);
+            durableSave(completeFakeSettings());
+            Map<SmsProviderType, Long> retiredThrough = boundaries.snapshot();
+
+            durableWorker().processDueMessages(10);
+
+            SmsTransaction moved = rowNamedBy(waiting);
+            assertThat(waiting).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED");
+            assertThat(moved).extracting(SmsTransaction::getProviderType, SmsTransaction::getStatus)
+                    .containsExactly(SmsProviderType.CLOUDLI, SmsStatus.QUEUED);
+            assertThat(inFlight.getStatus()).as("an in-flight send is left to stale recovery").isEqualTo(SmsStatus.SENDING);
+
+            durableWorker().processDueMessages(10);
+
+            assertThat(moved).extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
+                    .containsExactly(SmsStatus.SENT, "fake-sms-transaction-" + moved.getId());
+            assertThat(fake.sentTo).containsExactly("4165551212");
+            assertThat(stub.sends).as("never sent through the provider the clinic left").isZero();
+            assertThat(boundaries.snapshot()).as("moving never changes a boundary").isEqualTo(retiredThrough);
+        }
+
+        @Test
+        @DisplayName("swapping away and back moves a waiting text each time, and it is sent once, by the provider chosen last")
+        void shouldKeepTextDispatchable_whenClinicSwapsAwayAndBack() {
+            SmsTransaction waiting = admit(SmsProviderType.STUB);
+            durableSave(completeFakeSettings());
+            durableWorker().processDueMessages(10);
+            SmsTransaction movedToFake = rowNamedBy(waiting);
+            durableSave(settings(SmsProviderType.STUB, true, "", Map.of()));
+            Map<SmsProviderType, Long> retiredThrough = boundaries.snapshot();
+            assertThat(retiredThrough).containsEntry(SmsProviderType.STUB, waiting.getId())
+                    .containsEntry(SmsProviderType.CLOUDLI, movedToFake.getId());
+
+            durableWorker().processDueMessages(10);
+            SmsTransaction movedBack = rowNamedBy(movedToFake);
+            durableWorker().processDueMessages(10);
+
+            assertThat(movedToFake).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorMessage)
+                    .containsExactly(SmsStatus.FAILED, "Moved to STUB as text " + movedBack.getId() + ".");
+            assertThat(movedBack).extracting(SmsTransaction::getProviderType, SmsTransaction::getStatus)
+                    .containsExactly(SmsProviderType.STUB, SmsStatus.SENT);
+            assertThat(movedBack.getId()).isGreaterThan(retiredThrough.get(SmsProviderType.STUB));
+            assertThat(stub.sends).isEqualTo(1);
+            assertThat(fake.sentTo).isEmpty();
+            assertThat(boundaries.snapshot()).isEqualTo(retiredThrough);
+        }
+
+        private SmsTransaction admit(SmsProviderType providerType) {
+            return recorder.recordOutboundAttempt(
+                    SmsSendCommand.patientMessage(123, "416-555-1212", "FAKE waiting text", "999998"),
+                    providerType, CONSENTED);
+        }
+
+        /** The row a moved row's message names. */
+        private SmsTransaction rowNamedBy(SmsTransaction movedRow) {
+            assertThat(movedRow.getErrorMessage()).matches("Moved to [A-Z]+ as text \\d+\\.");
+            long id = Long.parseLong(movedRow.getErrorMessage().replaceAll("\\D", ""));
+            return rows.stream().filter(row -> row.getId() == id).findFirst().orElseThrow();
+        }
+
+        private void durableSave(SmsConfigUpdateDto update) {
+            durableConfig.save(update, "999998");
+        }
+
+        private SmsQueueProcessingService durableWorker() {
+            return new SmsQueueProcessingService(recorder, clients, new SmsRetryCalculator(), providerType -> true,
+                    command -> CONSENTED, new SmsDefaultProviderResolver(durableConfig), durableConfig);
+        }
+
+        /** {@code sms_transaction} as a list, behind the queries the recorder uses. */
+        private SmsTransactionDao transactionTable() {
+            SmsTransactionDao dao = mock(SmsTransactionDao.class);
+            doAnswer(invocation -> {
+                SmsTransaction row = invocation.getArgument(0);
+                ReflectionTestUtils.setField(row, "id", (long) rows.size() + 1);
+                rows.add(row);
+                return null;
+            }).when(dao).persist(any());
+            when(dao.find(any(Object.class))).thenAnswer(invocation -> rows.stream()
+                    .filter(row -> row.getId().equals(invocation.getArgument(0))).findFirst().orElse(null));
+            when(dao.claimDueOutboundQueue(any(), any(), org.mockito.ArgumentMatchers.anyInt(),
+                    org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation -> {
+                        SmsProviderType providerType = invocation.getArgument(0);
+                        Date claimAt = invocation.getArgument(1);
+                        long retiredThrough = invocation.getArgument(3);
+                        List<SmsTransaction> due = rows.stream()
+                                .filter(row -> row.getProviderType() == providerType && row.getStatus() == SmsStatus.QUEUED
+                                        && row.getId() > retiredThrough
+                                        && (row.getNextAttemptAt() == null || !row.getNextAttemptAt().after(claimAt)))
+                                .sorted(Comparator.comparing(SmsTransaction::getCreatedAt))
+                                .limit((int) invocation.getArgument(2)).toList();
+                        due.forEach(row -> row.markSending(claimAt));
+                        return due;
+                    });
+            when(dao.findRetiredQueuedForUpdate(any(), org.mockito.ArgumentMatchers.anyLong(),
+                    org.mockito.ArgumentMatchers.anyBoolean(), any(), any())).thenAnswer(invocation -> {
+                        SmsProviderType providerType = invocation.getArgument(0);
+                        long retiredThrough = invocation.getArgument(1);
+                        List<Long> excluded = invocation.getArgument(4);
+                        return rows.stream()
+                                .filter(row -> row.getProviderType() == providerType && row.getStatus() == SmsStatus.QUEUED
+                                        && row.getId() <= retiredThrough && !excluded.contains(row.getId()))
+                                .limit(1).toList();
+                    });
+            return dao;
+        }
+
+        /** The boundaries in memory, moved exactly as the JPA DAO moves them. */
+        private final class InMemoryRetirementDao extends SmsProviderRetirementDao {
+            private final Map<SmsProviderType, Long> cutoffs = new EnumMap<>(SmsProviderType.class);
+
+            InMemoryRetirementDao() {
+                for (SmsProviderType type : SmsProviderType.values()) {
+                    cutoffs.put(type, 0L);
+                }
+            }
+
+            @Override
+            public long retiredThrough(SmsProviderType provider) {
+                return cutoffs.get(provider);
+            }
+
+            @Override
+            public void recordSelection(SmsProviderType previous, SmsProviderType selected, boolean firstSave) {
+                for (SmsProviderType type : SmsProviderType.values()) {
+                    if ((firstSave && type != selected) || (!firstSave && type == previous && type != selected)) {
+                        long highest = rows.stream().filter(row -> row.getProviderType() == type)
+                                .mapToLong(SmsTransaction::getId).max().orElse(0L);
+                        cutoffs.put(type, Math.max(cutoffs.get(type), highest));
+                    }
+                }
+            }
+
+            Map<SmsProviderType, Long> snapshot() {
+                return Map.copyOf(cutoffs);
+            }
+        }
+    }
+
+    /** Transactions are not under test here; each template call runs straight through. */
+    private static final class NoOpTransactionManager implements PlatformTransactionManager {
+        @Override
+        public TransactionStatus getTransaction(TransactionDefinition definition) {
+            return new SimpleTransactionStatus();
+        }
+
+        @Override
+        public void commit(TransactionStatus status) {
+            // Nothing to commit.
+        }
+
+        @Override
+        public void rollback(TransactionStatus status) {
+            // Nothing to roll back.
+        }
     }
 
     private void assertUnsentAndReleased(SmsTransaction row) {
