@@ -56,8 +56,9 @@ public final class ConsultAttachmentWarning implements Serializable {
          * consult is sent without it.
          */
         UNAVAILABLE("encounter.oscarConsultationRequest.attachmentWarning.unavailable"),
-        /** Its target exists but could not be read or rendered; print and fax refuse the consult. */
-        NOT_RENDERED("encounter.oscarConsultationRequest.attachmentWarning.notRendered");
+        /** Its target exists but could not be read or rendered; requires explicit omission approval. */
+        NOT_RENDERED("encounter.oscarConsultationRequest.attachmentWarning.notRendered"),
+        UNSUPPORTED("encounter.oscarConsultationRequest.attachmentWarning.unsupported");
 
         private final String messageKey;
 
@@ -106,6 +107,11 @@ public final class ConsultAttachmentWarning implements Serializable {
         return new ConsultAttachmentWarning(type, id, Reason.NOT_RENDERED);
     }
 
+    /** Source-qualified lab identity avoids confusing equal ids from different lab systems. */
+    public static ConsultAttachmentWarning unsupportedLab(String source, String id) {
+        return new ConsultAttachmentWarning(DocumentType.LAB, source + "-" + id, Reason.UNSUPPORTED);
+    }
+
     public Reason getReason() {
         return reason;
     }
@@ -120,8 +126,8 @@ public final class ConsultAttachmentWarning implements Serializable {
     }
 
     /**
-     * @return the type code and id, such as {@code D:41}, which the fax cover page sends back to
-     *         say which left-out attachments staff confirmed
+     * @return the type code and id, such as {@code D:41}; the approval service combines this
+     *         with the reason to bind consent to the server-observed warning set
      */
     public String getKey() {
         return (type == null ? "?" : type.getType()) + ":" + id;

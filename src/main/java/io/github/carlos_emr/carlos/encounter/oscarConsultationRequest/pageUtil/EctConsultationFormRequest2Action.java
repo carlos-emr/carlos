@@ -45,6 +45,8 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.consultation.ConsultAttachmentApprovalService;
+import io.github.carlos_emr.carlos.consultation.ConsultAttachmentApprovalService.Operation;
 import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver;
 import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver.Resolution;
 import io.github.carlos_emr.carlos.documentManager.ConsultAttachmentWarning;
@@ -482,6 +484,16 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             throw new SecurityException("consultation fax is disabled");
         }
 
+        // Approval after Submit/Update must not execute the save or signature side effects again.
+        if ("Review And Print Preview".equals(submission)) {
+            String patient = resolveConsultationPreviewDemographicNoOrSetError(loggedInInfo,
+                    SpringUtils.getBean(ConsultationRequestDao.class), getRequestId(), getDemographicNo(), false);
+            if (patient == null) return "error";
+            return renderConsultationFormWithAttachments(request, response, getRequestId(), patient)
+                    || Boolean.TRUE.equals(request.getAttribute(ConsultAttachmentApprovalService.REVIEW_REQUIRED))
+                    ? SUCCESS : "error";
+        }
+
         String appointmentHour = this.getAppointmentHour();
         String appointmentPm = this.getAppointmentPm();
         List<String> documents = new ArrayList<String>();
@@ -888,8 +900,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         request.setAttribute(ConsultationPreviewOverlay.PREVIEW_USES_UNSAVED_VALUES_ATTRIBUTE, Boolean.TRUE);
                         HttpServletResponse renderResponse = createRenderOnlyResponse(response);
                         HttpServletResponse previousResponse = ServletActionContext.getResponse();
-                        // This preview shows the attachment warnings to the user, so an attachment
-                        // that fails to render may be left out; print and fax paths fail instead.
+                        // The helper withholds PDF bytes until the provider has reviewed and
+                        // approved the omissions found by this render.
                         request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
                         ServletActionContext.setResponse(renderResponse);
                         try {
@@ -918,7 +930,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         request.setAttribute("teamVar", sendTo);
 
         if (submission.endsWith("And Print Preview")) {
-            if (renderConsultationFormWithAttachments(request, response, requestId, demographicNo)) {
+            if (renderConsultationFormWithAttachments(request, response, requestId, demographicNo)
+                    || Boolean.TRUE.equals(request.getAttribute(ConsultAttachmentApprovalService.REVIEW_REQUIRED))) {
                 return SUCCESS;
             }
             return "error";
@@ -965,8 +978,13 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 		  	request.setAttribute("documents", documents);			
 			// Attachments the consult lists that no longer exist are already missing from the
 			// list above. Name them on the cover page, before staff send the fax without them.
-			request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
-					unavailableAttachmentWarnings(requestId));
+			List<ConsultAttachmentWarning> coverWarnings = unavailableAttachmentWarnings(requestId);
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE, coverWarnings);
+            if (!coverWarnings.isEmpty()) {
+                request.setAttribute(ConsultAttachmentApprovalService.TOKEN,
+                        SpringUtils.getBean(ConsultAttachmentApprovalService.class).issue(request, loggedInInfo,
+                                requestId, demographicNo, Operation.FAX, coverWarnings));
+            }
 			request.setAttribute("copyToRecipients", copytoRecipients);
 			request.setAttribute("reqId", requestId);
 			request.setAttribute("accounts", accounts);
@@ -1168,27 +1186,44 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         request.setAttribute("reqId", requestId);
         request.setAttribute("demographicId", demographicNo);
+        Path pdfPath = null;
+        Object previousAllow = request.getAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE);
         try {
-            Path pdfPath = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
-            // The renderer sets demographicId to the saved consultation's patient (it refuses a conflicting one).
-            String consultationDemographicNo = Objects.toString(request.getAttribute("demographicId"), "");
-            int parsedConsultationDemographicNo = Integer.parseInt(consultationDemographicNo);
-            String fileName = generateFileName(loggedInInfo, parsedConsultationDemographicNo);
+            request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+            pdfPath = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
+            String patient = Objects.toString(request.getAttribute("demographicId"), "");
+            Operation operation = "And Print Preview".equalsIgnoreCase(getSubmission()) ? Operation.PREVIEW : Operation.PRINT;
+            List<ConsultAttachmentWarning> warnings = ConsultAttachmentWarning.fromRequest(request);
+            if ((!warnings.isEmpty() || request.getParameter(ConsultAttachmentApprovalService.TOKEN) != null)
+                    && SpringUtils.getBean(ConsultAttachmentApprovalService.class)
+                    .requiresReview(request, loggedInInfo, requestId, patient, operation, warnings)) {
+                // No PDF bytes are returned until the provider accepts this exact warning set.
+                return false;
+            }
+            String fileName = generateFileName(loggedInInfo, Integer.parseInt(patient));
             String base64PDF = documentAttachmentManager.convertPDFToBase64(pdfPath);
             request.setAttribute("consultPDFName", fileName);
             request.setAttribute("consultPDF", base64PDF);
             request.setAttribute("isPreviewReady", "true");
             return true;
         } catch (PDFGenerationException e) {
-            // Neither application logs nor the browser may receive renderer paths or causes.
             logger.error("Consultation attachment rendering failed ({})", e.getClass().getSimpleName());
-            request.setAttribute(ATTR_ERROR_MESSAGE, printFailureMessage(request));
+            request.setAttribute(ATTR_ERROR_MESSAGE, e.isRetryable()
+                    ? ConsultAttachmentWarning.bundleText(request.getLocale(), "consultation.attachments.retry")
+                    : printFailureMessage(request));
             return false;
         } catch (NumberFormatException e) {
-            logger.error("Invalid consultation demographic while generating print preview for requestId={}",
-                    LogSafe.sanitize(requestId));
+            logger.error("Invalid consultation demographic while generating print preview for requestId={}", LogSafe.sanitize(requestId));
             request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
             return false;
+        } finally {
+            if (previousAllow == null) request.removeAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE);
+            else request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, previousAllow);
+            // The base64 copy (or warning decision) owns the response now. Never retain patient PDFs.
+            if (pdfPath != null && PathValidationUtils.isInApplicationTempDirectory(pdfPath.toFile())) {
+                try { java.nio.file.Files.deleteIfExists(pdfPath); }
+                catch (IOException e) { logger.warn("Could not delete temporary consultation PDF"); }
+            }
         }
     }
 
@@ -1219,6 +1254,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
+        json.put(ConsultAttachmentApprovalService.REVIEW_REQUIRED,
+                Boolean.TRUE.equals(request.getAttribute(ConsultAttachmentApprovalService.REVIEW_REQUIRED)));
+        json.put(ConsultAttachmentApprovalService.TOKEN, (String) request.getAttribute(ConsultAttachmentApprovalService.TOKEN));
         json.put(ATTR_ERROR_MESSAGE, (String) request.getAttribute(ATTR_ERROR_MESSAGE));
         json.put(ATTR_WARNING_MESSAGE, (String) request.getAttribute(ATTR_WARNING_MESSAGE));
         json.put(ATTR_SIGNATURE_IMG, (String) request.getAttribute(ATTR_PREVIEW_SIGNATURE_IMG));

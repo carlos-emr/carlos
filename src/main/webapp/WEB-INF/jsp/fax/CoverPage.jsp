@@ -415,15 +415,15 @@
                                 <li><carlos:encode value="${ attachmentWarningText }"/></li>
                             </c:forEach>
                         </ul>
-                        <%-- Staff confirm sending without them; EctConsultationFormFax2Action refuses the
-                             fax unless every attachment it finds unavailable is among these keys. --%>
-                        <input type="hidden" name="confirmedUnavailableAttachments" value="<c:forEach items='${ attachmentWarnings }' var='confirmedWarning' varStatus='confirmedStatus'><carlos:encode value='${ confirmedWarning.key }' context='htmlAttribute'/><c:if test='${ not confirmedStatus.last }'>,</c:if></c:forEach>"/>
+                        <%-- The opaque ticket binds consent to the server-observed warning set.
+                             Rendering must find the same issues before the fax can be queued. --%>
+                        <input type="hidden" name="consultAttachmentApproval" value="${carlos:forHtmlAttribute(consultAttachmentApproval)}"/>
                         <div class="form-check mt-2">
                             <%-- required for checkValidity() in submitForm, which shows the browser's own
                                  prompt. The validate() rules below turn jQuery Validate's required check off
                                  for this box, so it adds no untranslated "This field is required." label. --%>
                             <input class="form-check-input" type="checkbox" id="confirmSendWithoutUnavailable"
-                                   name="confirmSendWithoutUnavailable" value="true" required>
+                                   name="confirmAttachmentOmissions" value="true" required>
                             <label class="form-check-label" for="confirmSendWithoutUnavailable">
                                 <fmt:message key="consultation.fax.confirmSendWithoutUnavailable"/>
                             </label>
@@ -767,7 +767,7 @@
         $('#coverPageForm').validate({
             rules: {
                 // submitForm checks this box itself and shows the browser's own prompt.
-                confirmSendWithoutUnavailable: {
+                confirmAttachmentOmissions: {
                     required: false
                 },
                 recipientFaxNumber: {

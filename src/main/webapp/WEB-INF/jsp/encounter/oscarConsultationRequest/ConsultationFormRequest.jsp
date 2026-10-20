@@ -2216,18 +2216,19 @@ if (userAgent != null) {
             if (btn) btn.disabled = disabled;
         }
 
-        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPreviewAttachmentsUnavailable" var="previewAttachmentsUnavailableMessage"/>
+        <fmt:message key="consultation.attachments.previewConfirm" var="previewAttachmentsUnavailableMessage"/>
         <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPreviewRequestFailed" var="previewRequestFailedMessage"/>
 
         // If the user clicks the 'Print Preview' button, ensure that their unsaved changes are preserved, allowing them to stay on the same page. Achieve this by making an AJAX call.
-	        function getConsultFormPrintPreview(form) {
+	        function getConsultFormPrintPreview(form, approvalToken) {
 	            var previewAttachmentsUnavailableMessage = '${carlos:forJavaScript(previewAttachmentsUnavailableMessage)}';
 	            var previewRequestFailedMessage = '${carlos:forJavaScript(previewRequestFailedMessage)}';
 	            form.submission.value = "And Print Preview";
             jQuery.ajax({
                 type: "POST",
                 url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
-                data: jQuery(form).serialize(),
+                data: jQuery(form).serialize() + (approvalToken
+                    ? '&confirmAttachmentOmissions=true&consultAttachmentApproval=' + encodeURIComponent(approvalToken) : ''),
                 dataType: "json",
                 success: function (data) {
                     HideSpin();
@@ -2246,13 +2247,16 @@ if (userAgent != null) {
                         }
 	                        isSignatureSaved = true;
 	                    }
-	                    showPreview(data.consultPDF, data.consultPDFName);
-	                    if (data.attachmentWarnings && data.attachmentWarnings.length > 0) {
-	                        alert(formatPreviewMessage(previewAttachmentsUnavailableMessage, data.attachmentWarnings.join("\n")));
-	                    }
 	                    if (data.warningMessage) {
 	                        alert(data.warningMessage.replace(/\\n/g, '\n'));
 	                    }
+                        if (data.attachmentReviewRequired) {
+                            if (window.confirm(formatPreviewMessage(previewAttachmentsUnavailableMessage, data.attachmentWarnings.join("\n")))) {
+                                getConsultFormPrintPreview(form, data.consultAttachmentApproval);
+                            }
+                            return;
+                        }
+                        showPreview(data.consultPDF, data.consultPDFName);
 	                },
 	                error: function (xhr, status, error) {
 	                    HideSpin();

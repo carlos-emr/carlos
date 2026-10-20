@@ -71,8 +71,7 @@ class ConsultAttachmentWarningUnitTest {
 
         assertThat(document.format(Locale.ENGLISH))
                 .isEqualTo("Document 41 is no longer available (it was deleted or does not belong to this patient).");
-        assertThat(eForm.format(Locale.ENGLISH)).isEqualTo("eForm 12 could not be read. Printing and faxing "
-                + "will not go ahead until it is fixed or detached.");
+        assertThat(eForm.format(Locale.ENGLISH)).isEqualTo("eForm 12 could not be read and would be left out. Fix it or explicitly approve proceeding without it.");
         assertThat(document.format(Locale.FRENCH))
                 .isEqualTo("Document 41 : n’est plus disponible (élément supprimé ou n’appartenant pas à ce patient).");
         assertThat(ConsultAttachmentWarning.formatNames(List.of(document, eForm), Locale.ENGLISH))

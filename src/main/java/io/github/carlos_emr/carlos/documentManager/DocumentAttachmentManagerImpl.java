@@ -735,22 +735,36 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             // by consultation id alone, so a consult_docs row written before attach-time ownership checks
             // existed could still print or fax another patient's record. Keep only this patient's own.
             // HRM lookups are already scoped to the patient; forms have no common owner column. Only
-            // HL7 labs can be rendered; other lab sources are left out of the packet (#4693).
+            // HL7 labs can be rendered; other lab sources are named before being omitted (#4693).
             List<EFormData> attachedEForms = retainOwnedAttachments(DocumentType.EFORM, ownerDemographicNo,
                     consultationManager.getAttachedEForms(requestId), eForm -> eForm.getId() == null ? null : String.valueOf(eForm.getId()));
             List<EDoc> attachedEDocs = retainOwnedAttachments(DocumentType.DOC, ownerDemographicNo,
                     EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED), EDoc::getDocId);
             CommonLabResultData labResultData = new CommonLabResultData();
+            List<LabResultData> listedLabs = labResultData.populateLabResultsData(
+                    loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED);
+            if (listedLabs != null) {
+                for (LabResultData lab : listedLabs) {
+                    // Unresolved identity is not an overridable rendering omission.
+                    if (lab != null && lab.isAttachmentUnavailable()) {
+                        throw new PDFGenerationException("A lab attachment is unavailable or has an unresolved source. Select it again before printing.");
+                    }
+                    if (lab != null && !lab.isHL7TEXT()) {
+                        recordSkippedAttachment(attachmentWarnings,
+                                ConsultAttachmentWarning.unsupportedLab(lab.getLabType(), lab.getSegmentID()),
+                                "unsupported lab source");
+                    }
+                }
+            }
             List<LabResultData> attachedLabs = retainOwnedAttachments(DocumentType.LAB, ownerDemographicNo,
-                    AttachmentOwnershipService.renderableLabsOnly(labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED)),
+                    AttachmentOwnershipService.renderableLabsOnly(listedLabs),
                     LabResultData::getSegmentID);
             ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
             List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
 
-            // Warnings so far are for documents and eForms the lists above already leave out: a target
-            // that no longer exists, was deleted, is a patient-independent eForm, or is another
-            // patient's. Any warning added below is an attachment that failed to render.
-            int unavailableWarnings = attachmentWarnings.size();
+            // Older callers can omit unavailable rows as before. Unsupported sources and render
+            // failures require a caller that reviews and approves omissions before disclosure.
+            long unavailableWarnings = attachmentWarnings.stream().filter(ConsultAttachmentWarning::isUnavailable).count();
             boolean allowSkipped = Boolean.TRUE.equals(request.getAttribute(ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE));
             attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, attachmentWarnings);
             attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList, attachmentWarnings);
@@ -1340,9 +1354,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                         ConsultAttachmentWarning.notRendered(documentType, documentId), UNREADABLE_TEMPORARY_PDF);
                 return;
             }
-            // A stored PDF document is passed on as it is. Try it now the way the merge will, so a
-            // damaged or password-protected one is named here instead of failing the whole merge.
-            String mergeFailure = documentType == DocumentType.DOC ? pdfMergeFailure(path) : null;
+            // Validate every source before merging, including generated eForm/lab/HRM/form PDFs.
+            // Attribute a damaged, protected or empty PDF to the attachment that produced it.
+            String mergeFailure = pdfMergeFailure(path);
             if (mergeFailure != null) {
                 recordSkippedAttachment(attachmentWarnings,
                         ConsultAttachmentWarning.notRendered(documentType, documentId),
@@ -1354,7 +1368,12 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             pdfDocumentList.add(path.toString());
         } catch (SecurityException e) {
             throw e;
-        } catch (PDFGenerationException | RuntimeException e) {
+        } catch (PDFGenerationException e) {
+            // Capacity/temporary infrastructure failure is a retry, never consent to discard content.
+            if (e.isRetryable()) throw e;
+            recordSkippedAttachment(attachmentWarnings,
+                    ConsultAttachmentWarning.notRendered(documentType, documentId), e.getClass().getSimpleName());
+        } catch (RuntimeException e) {
             // The exception class only: renderer messages and causes can carry clinical text and paths.
             recordSkippedAttachment(attachmentWarnings,
                     ConsultAttachmentWarning.notRendered(documentType, documentId), e.getClass().getSimpleName());
@@ -1364,7 +1383,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     /**
      * Tries the file the way {@code ConcatPDF} will merge it: opens it with no password, removes
      * any owner-only security, and saves it again, here into a discarded stream. That costs one
-     * extra parse and save of each stored PDF document.
+     * extra parse and save of each attachment PDF.
      *
      * @return {@code null} when it merges; otherwise the failure's exception class, which tells a
      *         password-protected file (InvalidPasswordException) from a damaged one (for example
@@ -1372,6 +1391,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      */
     private String pdfMergeFailure(Path path) {
         try (PDDocument document = Loader.loadPDF(path.toFile())) {
+            if (document.getNumberOfPages() == 0) return "EmptyPdf";
             if (document.isEncrypted()) {
                 document.setAllSecurityToBeRemoved(true);
             }

@@ -56,7 +56,7 @@ public interface DocumentAttachmentManager {
     /**
      * Request attribute that lets {@link #renderConsultationFormWithAttachments} leave out an
      * attachment that fails to render, recording a warning instead. Only a caller that shows
-     * those warnings to the user may set it (the on-screen print preview). Without it, a failed
+     * those warnings and checks explicit provider approval before disclosure may set it. Without it, a failed
      * attachment fails the whole render, so a printed or faxed consult is never silently missing
      * content.
      */

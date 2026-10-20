@@ -741,6 +741,64 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         }
     }
 
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"damaged", "empty", "busy"})
+    void shouldValidateGeneratedForm_beforeMergingPacket(String condition) throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        EctFormData.PatientForm form = new EctFormData.PatientForm("Annual", 3, 1, null, null);
+        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.of(form));
+        Path generated = Files.createTempFile("form-validation-", ".pdf");
+        if ("empty".equals(condition)) {
+            try (PDDocument document = new PDDocument()) { document.save(generated.toFile()); }
+        } else {
+            Files.writeString(generated, "not a valid PDF");
+        }
+        if ("busy".equals(condition)) {
+            when(formsManager.renderForm(request, response, form)).thenThrow(new PDFGenerationException("capacity", true));
+        } else {
+            when(formsManager.renderForm(request, response, form)).thenReturn(generated);
+        }
+        try (MockedStatic<LoggedInInfo> logged = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> docs = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> labs = mockCommonLabResultData(List.of())) {
+            logged.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(loggedInInfo);
+            docs.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED)).thenReturn(new ArrayList<>());
+            if ("busy".equals(condition)) {
+                assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
+                        .isInstanceOfSatisfying(PDFGenerationException.class, error -> assertThat(error.isRetryable()).isTrue());
+                assertThat(ConsultAttachmentWarning.fromRequest(request)).isEmpty();
+                verify(nioFileManager, never()).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
+            } else {
+                assertThat(manager.renderConsultationFormWithAttachments(request, response)).isEqualTo(outputPdf);
+                assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                        .containsExactly("F:3 NOT_RENDERED");
+            }
+        } finally { Files.deleteIfExists(generated); }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"CML", "MDS", "BCP"})
+    void shouldNameUnsupportedLabSource_beforeFilteringFromPacket(String source) throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        LabResultData lab = new LabResultData(source);
+        lab.setSegmentID("77");
+        try (MockedStatic<LoggedInInfo> logged = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> docs = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> labs = mockCommonLabResultData(List.of(lab))) {
+            logged.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(loggedInInfo);
+            docs.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED)).thenReturn(new ArrayList<>());
+            assertThat(manager.renderConsultationFormWithAttachments(request, response)).isEqualTo(outputPdf);
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("L:" + source + "-77 UNSUPPORTED");
+            verifyNoInteractions(labManager);
+        }
+    }
+
     private ConsultDocs attachedRow(int id, int documentNo, String docType) {
         ConsultDocs row = new ConsultDocs(9, documentNo, docType, "999998");
         row.setId(id);
