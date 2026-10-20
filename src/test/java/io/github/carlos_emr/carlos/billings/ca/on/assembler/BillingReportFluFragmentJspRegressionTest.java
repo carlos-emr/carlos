@@ -51,6 +51,7 @@ class BillingReportFluFragmentJspRegressionTest {
         String jsp = Files.readString(resolveProjectPath(FRAGMENT));
 
         assertThat(jsp)
+                .contains("<fmt:setBundle basename=\"oscarResources\"/>")
                 .contains("items=\"${billingReportFragmentModel.fluRows}\"")
                 .contains("<fmt:message key=\"billing.flu.count\"><fmt:param value=\"${billingReportFragmentModel.fluCount}\"/></fmt:message>")
                 .contains("${billingReportFragmentModel.fluTotal}")
