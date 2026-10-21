@@ -443,7 +443,7 @@ its own copy of the spec.
 **What it is:** staff send a document to the patient's myCarlos app instead of by email.
 CARLOS signs the document and seals one copy to each of the patient's accepted myCarlos
 devices. The portal holds the sealed copies but can't open them. Each copy is deleted when the
-device picks it up, or unpicked after 7 days.
+device picks it up, or after 7 days if nobody picks it up.
 
 **Off switch:** everything sits behind `patient_portal.mycarlos_delivery.enabled=false`, and
 behind the portal's own switch, `PATIENT_PORTAL_MYCARLOS_DELIVERY_ENABLED`.
@@ -462,7 +462,8 @@ behind the portal's own switch, `PATIENT_PORTAL_MYCARLOS_DELIVERY_ENABLED`.
 - **The seal:** one sealed copy per **accepted** device, using HPKE base mode
   (X25519, HKDF-SHA256, ChaCha20-Poly1305) and a fresh random ephemeral key per copy.
   - The AAD binds the delivery ID, the recipient ID and the device key ID.
-  - A device the portal lists, but CARLOS hasn't accepted (decision B), gets nothing.
+  - A device the portal lists, but CARLOS hasn't accepted, gets nothing. Ben's decision B: a
+    new device is trusted only once it is confirmed outside the portal, for example by staff.
   - The recipient ID comes from the patient's portal link and is never typed in.
 - **What the portal receives:** only the outer record and the sealed bytes. The outer record
   holds the delivery ID, recipient ID, device key ID, size, ciphertext SHA-256, and created and
@@ -473,7 +474,8 @@ behind the portal's own switch, `PATIENT_PORTAL_MYCARLOS_DELIVERY_ENABLED`.
 - **Receipts:** CARLOS checks each pickup receipt itself, not trusting the portal. The receipt
   must be signed with the accepted device's Ed25519 key. Its delivery ID, the ciphertext hash of
   the uploaded copy and the SHA-256 of the signed PDF must all match. CARLOS keeps the
-  receipt's vault head hash as an anchor for the patient's vault history (decision L).
+  receipt's vault head hash as an anchor for the patient's vault history. That is Ben's
+  decision L: a later rewrite of the patient's own history on the device then shows up.
   - **De-duplication:** CARLOS records the first valid receipt for each delivery ID and device. A
     re-sent receipt is byte-identical, with the same `jti`, and changes nothing.
   - **Device keys:** they are per link. myCarlos makes a fresh pair for each portal link, so
