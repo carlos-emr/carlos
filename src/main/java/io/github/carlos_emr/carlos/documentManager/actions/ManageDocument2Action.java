@@ -2363,7 +2363,8 @@ public class ManageDocument2Action extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public void searchDocumentDescriptions() throws IOException {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (info == null || !securityInfoManager.hasPrivilege(info, "_edoc", "w", null)) {
             throw new SecurityException("missing required security object (_edoc)");
         }
 
@@ -2375,7 +2376,30 @@ public class ManageDocument2Action extends ActionSupport {
             keyword = "%" + keyword.trim() + "%";
         }
 
-        List<String> descriptions = documentDao.findDocumentDescriptions(keyword);
+        if (!securityInfoManager.hasPrivilege(info, "_edoc", "r", (String) null)) {
+            throw new SecurityException("Document read access is required");
+        }
+        LinkedHashSet<String> visibleDescriptions = new LinkedHashSet<>();
+        Integer beforeDocumentNo = null;
+        while (visibleDescriptions.size() < 20) {
+            List<Document> candidates = documentDao.findDocumentDescriptionCandidates(keyword, beforeDocumentNo, 100);
+            if (candidates == null || candidates.isEmpty()) break;
+            for (Document candidate : candidates) {
+                if (candidate == null || candidate.getDocumentNo() == null || candidate.getDocumentNo() <= 0
+                        || (beforeDocumentNo != null && candidate.getDocumentNo() >= beforeDocumentNo)) {
+                    throw new IllegalStateException("Invalid document description page order");
+                }
+                beforeDocumentNo = candidate.getDocumentNo();
+                if (io.github.carlos_emr.carlos.documentManager.DocumentListAccess.mayReadDocument(
+                        info, securityInfoManager, candidate.getDocumentNo())) {
+                    String description = candidate.getDocdesc();
+                    if (description != null && !description.isEmpty()) visibleDescriptions.add(description);
+                    if (visibleDescriptions.size() == 20) break;
+                }
+            }
+            if (candidates.size() < 100) break;
+        }
+        List<String> descriptions = new ArrayList<>(visibleDescriptions);
 
         LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, "document_description_lookup", request.getRemoteAddr());
 

@@ -29,6 +29,9 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
     private CaseManagementEntry2Action action;
     private MockHttpServletRequest request;
     private CaseManagementNote note;
+    private CaseManagementManager manager;
+    private io.github.carlos_emr.carlos.managers.SecurityInfoManager security;
+    private LoggedInInfo user;
 
     @BeforeEach
     void prepare() {
@@ -40,7 +43,7 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("userrole", "doctor");
         request.setParameter("demographicNo", "101");
         request.setParameter("noteId", "501");
-        LoggedInInfo user = mock(LoggedInInfo.class);
+        user = mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn("4249");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
 
@@ -48,9 +51,16 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
         note.setNote(NOTE_TEXT);
         note.setDemographic_no("101");
         note.setHistory("earlier revision");
-        CaseManagementManager manager = mock(CaseManagementManager.class);
+        manager = mock(CaseManagementManager.class);
         when(manager.getNote("501")).thenReturn(note);
         action.caseManagementMgr = manager;
+        when(manager.isClientInProgramDomain("4249", "101")).thenReturn(true);
+        when(manager.getDemoName("101")).thenReturn("Actual owner");
+        security = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(action, "securityInfoManager", security);
+        when(security.hasPrivilege(user, "_demographic", "r", "101")).thenReturn(true);
+        when(security.hasPrivilege(user, "_casemgmt.notes", "r", "101")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(true);
     }
 
     @Test
@@ -76,4 +86,75 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
         logActionMock.verify(() -> LogAction.addLog("4249", LogConst.READ, LogConst.CON_CME_NOTE, "501",
                 "192.0.2.7", "101", audit));
     }
+
+    @Test
+    void forgedOpenPatientCannotAuthorizeLockedStoredNoteOwner() {
+        request.setParameter("demographicNo", "999");
+        when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
+        assertThat(action.history()).isEqualTo("none");
+        assertThat(((MockHttpServletResponse) action.response).getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("history")).isNull();
+        assertThat(request.getAttribute("demoName")).isNull();
+        assertThat(action.getCaseNote_history()).isNull();
+        verify(security, never()).isAllowedAccessToPatientRecord(user, 999);
+        verify(manager, never()).getDemoName(anyString());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"_demographic", "_casemgmt.notes"})
+    void legacyHistoryRequiresActualOwnerDomainRead(String domain) {
+        when(security.hasPrivilege(user, domain, "r", "101")).thenReturn(false);
+        assertThat(action.history()).isEqualTo("none");
+        assertThat(request.getAttribute("history")).isNull();
+        assertThat(request.getAttribute("demoName")).isNull();
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void forgedRequestDoesNotChangeAuthorizedOwnersDisplayedIdentity() {
+        request.setParameter("demographicNo", "999");
+        assertThat(action.history()).isEqualTo("historyview");
+        assertThat(request.getAttribute("demoName")).isEqualTo("Actual owner");
+        verify(manager, never()).getDemoName("999");
+        verify(manager, never()).getDemoAge("999");
+        verify(manager, never()).getDemoDOB("999");
+    }
+
+    @Test
+    void legacyHistoryRefusesPatientOutsideProgramAndReferralDomain() {
+        when(manager.isClientInProgramDomain("4249", "101")).thenReturn(false);
+        assertThat(action.history()).isEqualTo("none");
+        assertThat(request.getAttribute("history")).isNull();
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void referredActualOwnerRemainsReadable() {
+        when(manager.isClientInProgramDomain("4249", "101")).thenReturn(false);
+        when(manager.isClientReferredInProgramDomain("4249", "101")).thenReturn(true);
+        assertThat(action.history()).isEqualTo("historyview");
+    }
+
+    @Test
+    void cumulativeLegacyHistoryRefusesHiddenEarlierRevisions() {
+        request.getSession().setAttribute("case_program_id", "7");
+        CaseManagementNote old = new CaseManagementNote(); old.setDemographic_no("101");
+        when(manager.getHistory("501")).thenReturn(java.util.List.of(old, note));
+        when(manager.filterNotes(user, "4249", java.util.List.of(old, note), "7"))
+                .thenReturn(java.util.List.of(note));
+        assertThat(action.history()).isEqualTo("none");
+        assertThat(request.getAttribute("history")).isNull();
+        logActionMock.verifyNoInteractions();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0", "-1", "2147483648", "not-a-patient"})
+    void legacyHistoryRefusesInvalidStoredOwner(String owner) {
+        note.setDemographic_no(owner);
+        assertThat(action.history()).isEqualTo("none");
+        assertThat(request.getAttribute("history")).isNull();
+        logActionMock.verifyNoInteractions();
+    }
+
 }

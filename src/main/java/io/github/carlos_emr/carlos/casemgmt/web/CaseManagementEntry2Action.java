@@ -3146,28 +3146,42 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     public String history() {
-        logger.debug("history");
-
         HttpSession session = request.getSession();
         if (session.getAttribute("userrole") == null) return "expired";
-
-        String demono = getDemographicNo(request);
-        request.setAttribute("demoName", getDemoName(demono));
-        request.setAttribute("demoAge", getDemoAge(demono));
-        request.setAttribute("demoDOB", getDemoDOB(demono));
-
-        String noteid = request.getParameter("noteId");
-        CaseManagementNote note = caseManagementMgr.getNote(noteid);
-
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        Long noteId = parseExistingNoteId(request.getParameter("noteId"));
+        if (info == null || noteId == null || noteId <= 0) return refuseNoteHistory();
+        CaseManagementNote note = caseManagementMgr.getNote(noteId.toString());
+        Long owner = note == null ? null : parseExistingNoteId(note.getDemographic_no());
+        if (owner == null || owner <= 0 || owner > Integer.MAX_VALUE) return refuseNoteHistory();
+        String patient = owner.toString();
+        if (!securityInfoManager.hasPrivilege(info, "_demographic", "r", patient)
+                || !securityInfoManager.hasPrivilege(info, "_casemgmt.notes", "r", patient)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(info, owner.intValue())) {
+            return refuseNoteHistory();
+        }
+        String provider = info.getLoggedInProviderNo();
+        if (!caseManagementMgr.isClientInProgramDomain(provider, patient)
+                && !caseManagementMgr.isClientReferredInProgramDomain(provider, patient)) return refuseNoteHistory();
+        String program = (String) session.getAttribute("case_program_id");
+        if (program != null && !program.isEmpty() && !"0".equals(program)) {
+            List<CaseManagementNote> revisions = caseManagementMgr.getHistory(noteId.toString());
+            if (revisions == null || revisions.isEmpty() || revisions.stream().anyMatch(
+                    revision -> revision == null || !patient.equals(revision.getDemographic_no()))) {
+                return refuseNoteHistory();
+            }
+            List<CaseManagementNote> visible = caseManagementMgr.filterNotes(info, provider, revisions, program);
+            if (visible == null || visible.size() != revisions.size()) return refuseNoteHistory();
+        }
+        // The persisted owner governs both the access decision and every displayed/audited value.
+        // A forged unlocked demographic parameter never authorizes this note's stored history.
+        request.setAttribute("demoName", getDemoName(patient));
+        request.setAttribute("demoAge", getDemoAge(patient));
+        request.setAttribute("demoDOB", getDemoDOB(patient));
         request.setAttribute("history", note.getHistory());
-
-        this.setCaseNote_history(note.getHistory());
-
-        // The note's own demographic number is the patient the audit row is filed under; the note
-        // text goes in the data slot. Passing the text as the sixth argument put it in the
-        // demographicNo parameter, which logged it as a NumberFormatException and lost the patient (#4426).
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), note.getDemographic_no(), note.getAuditString());
-
+        setCaseNote_history(note.getHistory());
+        LogAction.addLog(provider, LogConst.READ, LogConst.CON_CME_NOTE, noteId.toString(),
+                request.getRemoteAddr(), patient, note.getAuditString());
         return "historyview";
     }
 

@@ -494,11 +494,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return results;
     }
 
-    /**
-     * Returns distinct document descriptions matching the keyword, in descending document number order.
-    /**
-     * Retrieves distinct document descriptions matching the keyword.
-     */
+    /** Raw legacy DAO lookup; callers remain responsible for clinical authorization. */
     public List<String> findDocumentDescriptions(String keyword) {
         if (keyword == null) {
             keyword = "%";
@@ -507,6 +503,23 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         Query query = entityManager.createQuery(jpql);
         query.setParameter(1, keyword);
         query.setMaxResults(20);
+        return query.getResultList();
+    }
+
+    /** Newest-first candidate pages; authorization and distinct-result limits belong to the caller. */
+    @Override
+    public List<Document> findDocumentDescriptionCandidates(String keyword, Integer beforeDocumentNo, int limit) {
+        if (limit <= 0 || limit > 100 || (beforeDocumentNo != null && beforeDocumentNo <= 0)) {
+            throw new IllegalArgumentException("Invalid document description page");
+        }
+        String jpql = "SELECT d FROM Document d WHERE d.status != 'D' AND d.docdesc LIKE ?1"
+                + " AND d.docdesc IS NOT NULL AND d.docdesc <> ''"
+                + (beforeDocumentNo == null ? "" : " AND d.documentNo < ?2")
+                + " ORDER BY d.documentNo DESC";
+        Query query = entityManager.createQuery(jpql);
+        query.setParameter(1, keyword == null ? "%" : keyword);
+        if (beforeDocumentNo != null) query.setParameter(2, beforeDocumentNo);
+        query.setMaxResults(limit);
         return query.getResultList();
     }
 
