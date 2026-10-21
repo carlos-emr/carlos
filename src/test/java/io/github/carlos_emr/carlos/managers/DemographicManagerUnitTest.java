@@ -893,6 +893,39 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
+        @DisplayName("should reject duplicate extension keys before writing anything")
+        void shouldRejectDuplicateExtensionKeys_beforeAnyWrite() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            demographic.setExtras(new DemographicExt[] {
+                createTestDemographicExt(null, "demo_cell", "555-0100"),
+                createTestDemographicExt(null, "DEMO_CELL ", "555-0199")
+            });
+
+            assertThatThrownBy(() -> manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID))
+                .isInstanceOf(IllegalArgumentException.class);
+
+            verify(mockDemographicDao, never()).save(any(Demographic.class));
+            verify(mockAdmissionDao, never()).saveAdmission(any(Admission.class));
+            verify(mockDemographicExtDao, never()).saveEntity(any(DemographicExt.class));
+        }
+
+        @Test
+        @DisplayName("should allow repeated excludeIndicator extensions when creating")
+        void shouldAllowRepeatedExcludeIndicatorExtensions_whenCreating() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            demographic.setExtras(new DemographicExt[] {
+                createTestDemographicExt(null, "excludeIndicator", "a"),
+                createTestDemographicExt(null, "excludeIndicator", "b")
+            });
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            verify(mockDemographicExtDao, times(2)).saveEntity(any(DemographicExt.class));
+        }
+
+        @Test
         @DisplayName("should throw exception when birth date invalid")
         void shouldThrowException_whenBirthDateInvalid() {
             Demographic demographic = createTestDemographic();
