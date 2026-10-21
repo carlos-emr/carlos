@@ -54,7 +54,9 @@ import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureInterface;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
+import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSet;
 import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.AttributeTable;
@@ -96,6 +98,15 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 public final class PDFSigningUtil {
     private static final String PROVIDER_NAME = BouncyCastleProvider.PROVIDER_NAME;
     private static final int PREFERRED_SIGNATURE_SIZE = 32768;
+
+    /**
+     * id-aa-carlos-documentManifestSha256 (v1): the signed attribute that carries SHA-256 of the
+     * embedded document manifest's exact bytes, as one 32-byte OCTET STRING. Its OID is under the
+     * UUID arc of ITU-T X.667 (2.25), which needs no registration. myCarlos refuses a signature
+     * with more than one such attribute or value, or a value that is not 32 bytes long.
+     */
+    static final ASN1ObjectIdentifier DOCUMENT_MANIFEST_SHA256 =
+            new ASN1ObjectIdentifier("2.25.132515939282652475535231260060469025505");
 
     private PDFSigningUtil() {
     }
@@ -154,10 +165,13 @@ public final class PDFSigningUtil {
         ensureBouncyCastleProvider();
 
         SigningMaterial signingMaterial = loadSigningMaterial(config);
+        // The exact bytes embedded below, and what the signed manifest-digest attribute names.
+        byte[] manifestJson = manifest == null
+                ? null : manifest.toCanonicalJson(keyId(signingMaterial.signingCertificate()));
         Path signedPDFPath = PathValidationUtils.createSecureTempFile(
                 PathValidationUtils.validateGeneratedFileName("signedPDF_" + System.currentTimeMillis()), ".pdf").toPath();
 
-        CmsDetachedSignature cms = new CmsDetachedSignature(signingMaterial);
+        CmsDetachedSignature cms = new CmsDetachedSignature(signingMaterial, manifestDigest(manifestJson));
         int[] byteRange;
         boolean encrypted;
         try (PDDocument document = loadPDF(pdfPath, ownerPassword);
@@ -178,8 +192,8 @@ public final class PDFSigningUtil {
             }
             signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now(ZoneId.systemDefault())));
 
-            if (manifest != null) {
-                embedManifest(document, manifest.toCanonicalJson(keyId(signingMaterial.signingCertificate())));
+            if (manifestJson != null) {
+                embedManifest(document, manifestJson);
             }
             document.addSignature(signature, cms, signatureOptions);
             document.saveIncremental(output);
@@ -239,6 +253,18 @@ public final class PDFSigningUtil {
             while (padding.hasRemaining()) {
                 channel.write(padding, firstPadding + padding.position());
             }
+        }
+    }
+
+    /** SHA-256 of the manifest bytes for the signed attribute, or {@code null} without a manifest. */
+    private static byte[] manifestDigest(byte[] manifestJson) throws IOException {
+        if (manifestJson == null) {
+            return null;
+        }
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(manifestJson);
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Failed to hash the document manifest", e);
         }
     }
 
@@ -478,10 +504,13 @@ public final class PDFSigningUtil {
 
     private static final class CmsDetachedSignature implements SignatureInterface {
         private final SigningMaterial signingMaterial;
+        private final byte[] manifestDigest;
         private int signatureLength = -1;
 
-        private CmsDetachedSignature(SigningMaterial signingMaterial) {
+        /** @param manifestDigest SHA-256 of the embedded manifest, or {@code null} without one */
+        private CmsDetachedSignature(SigningMaterial signingMaterial, byte[] manifestDigest) {
             this.signingMaterial = signingMaterial;
+            this.manifestDigest = manifestDigest == null ? null : manifestDigest.clone();
         }
 
         /** The length of the CMS this signer produced, or -1 before it has signed. */
@@ -500,7 +529,7 @@ public final class PDFSigningUtil {
                 CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
                 generator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(
                         new JcaDigestCalculatorProviderBuilder().setProvider(PROVIDER_NAME).build())
-                        .setSignedAttributeGenerator(new PadesSignedAttributes(signingCertificate))
+                        .setSignedAttributeGenerator(new PadesSignedAttributes(signingCertificate, manifestDigest))
                         .build(signer, signingCertificate));
                 generator.addCertificates(new JcaCertStore(Arrays.asList(signingMaterial.certificateChain())));
 
@@ -520,11 +549,18 @@ public final class PDFSigningUtil {
      * The signed attributes of a PAdES baseline B-B signature: Bouncy Castle's standard set (content
      * type, message digest, algorithm protection) plus an ESS signing-certificate-v2 that binds the
      * signer certificate, without the CMS signing-time attribute that PAdES baseline excludes.
+     *
+     * <p>A signature over a document with an embedded manifest also carries
+     * {@link #DOCUMENT_MANIFEST_SHA256}: one OCTET STRING holding SHA-256 of the exact manifest
+     * bytes. It ties the manifest to the signature even when the PDF's own encryption hides the
+     * embedded file, so myCarlos can check it without decrypting the PDF itself. Validators that
+     * do not know the attribute ignore it; being signed, it cannot be added or changed later.</p>
      */
     private static final class PadesSignedAttributes implements CMSAttributeTableGenerator {
         private final DefaultSignedAttributeTableGenerator standard;
 
-        private PadesSignedAttributes(X509Certificate signingCertificate) throws GeneralSecurityException {
+        private PadesSignedAttributes(X509Certificate signingCertificate, byte[] manifestDigest)
+                throws GeneralSecurityException {
             byte[] certificateHash = MessageDigest.getInstance("SHA-256").digest(signingCertificate.getEncoded());
             IssuerSerial issuerSerial = new IssuerSerial(
                     new GeneralNames(new GeneralName(X500Name.getInstance(signingCertificate.getIssuerX500Principal().getEncoded()))),
@@ -532,8 +568,12 @@ public final class PDFSigningUtil {
             // SHA-256 is ESSCertIDv2's default hash algorithm, so it is left out of the encoding.
             SigningCertificateV2 signingCertificateV2 =
                     new SigningCertificateV2(new ESSCertIDv2[]{new ESSCertIDv2(certificateHash, issuerSerial)});
-            this.standard = new DefaultSignedAttributeTableGenerator(new AttributeTable(
-                    new Attribute(PKCSObjectIdentifiers.id_aa_signingCertificateV2, new DERSet(signingCertificateV2))));
+            ASN1EncodableVector extra = new ASN1EncodableVector();
+            extra.add(new Attribute(PKCSObjectIdentifiers.id_aa_signingCertificateV2, new DERSet(signingCertificateV2)));
+            if (manifestDigest != null) {
+                extra.add(new Attribute(DOCUMENT_MANIFEST_SHA256, new DERSet(new DEROctetString(manifestDigest))));
+            }
+            this.standard = new DefaultSignedAttributeTableGenerator(new AttributeTable(extra));
         }
 
         @Override

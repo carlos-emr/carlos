@@ -55,6 +55,18 @@ public interface SmsTransactionService {
 
     List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit);
 
+    /**
+     * Settles a retired provider's waiting texts, one row per transaction, without dispatching anything or
+     * touching in-flight sends: a text that certainly never went out is queued again, as a new row, for the
+     * provider the clinic selects now, and its retired row is closed as moved; any other is failed for staff to
+     * review.
+     *
+     * @return how many retired rows were moved or failed, at most {@code limit}
+     */
+    default int moveOrFailRetiredOutboundQueue(SmsProviderType providerType, int limit) {
+        return 0;
+    }
+
     List<SmsTransaction> claimStaleSendingForRecovery(
             SmsProviderType providerType,
             Date staleBefore,

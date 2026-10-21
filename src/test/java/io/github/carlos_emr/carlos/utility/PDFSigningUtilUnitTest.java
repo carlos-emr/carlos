@@ -35,8 +35,11 @@ import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.AttributeTable;
 import org.bouncycastle.asn1.cms.CMSAttributes;
 import org.bouncycastle.asn1.ess.ESSCertIDv2;
@@ -340,7 +343,23 @@ class PDFSigningUtilUnitTest {
             assertThat(byteRange).hasSize(4);
             assertThat(byteRange[0]).isZero();
             assertThat((long) byteRange[2] + byteRange[3]).isEqualTo(Files.size(signed));
+            assertGapIsExactlyTheContentsString(Files.readAllBytes(signed), byteRange[1], byteRange[2]);
         }
+    }
+
+    // The one unsigned gap must be the whole /Contents hex string and nothing else:
+    // the /Contents key right before it, '<' and '>' at its ends, only hex digits between.
+    private static void assertGapIsExactlyTheContentsString(byte[] pdf, int gapStart, int gapEnd) {
+        assertThat(gapEnd - gapStart).isGreaterThan(2);
+        assertThat((char) pdf[gapStart]).isEqualTo('<');
+        assertThat((char) pdf[gapEnd - 1]).isEqualTo('>');
+        assertThat((gapEnd - gapStart - 2) % 2).as("hex digits come in pairs").isZero();
+        for (int i = gapStart + 1; i < gapEnd - 1; i++) {
+            assertThat(Character.digit(pdf[i], 16)).as("hex digit at byte %d", i).isNotNegative();
+        }
+        int keyStart = Math.max(0, gapStart - 32);
+        String beforeGap = new String(pdf, keyStart, gapStart - keyStart, StandardCharsets.US_ASCII);
+        assertThat(beforeGap.stripTrailing()).endsWith("/Contents");
     }
 
     @Test
@@ -482,6 +501,68 @@ class PDFSigningUtilUnitTest {
                     .containsOnlyKeys("FAKE-attachment.txt", DocumentManifest.FILE_NAME);
         }
         assertThat(PdfSigningTestSupport.verifyDetachedSignature(signed, null)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should bind the manifest with one signed SHA-256 attribute, in plain and encrypted PDFs")
+    void shouldBindTheManifest_withASignedDigestAttribute() throws Exception {
+        DocumentManifest manifest = DocumentManifestUnitTest.fakeManifest("FAKE CBC");
+        Path plain = PDFSigningUtil.signPDF(writeSinglePagePdf(), enabledConfig(), null, manifest);
+        generatedOutputs.add(plain);
+        Path encrypted = PDFEncryptionUtil.encryptPDF(writeSinglePagePdf(), "s3cret");
+        generatedOutputs.add(encrypted);
+        Path encryptedSigned = PDFSigningUtil.signPDF(encrypted, enabledConfig(), "s3cret", manifest);
+        generatedOutputs.add(encryptedSigned);
+
+        for (Path signed : List.of(plain, encryptedSigned)) {
+            String password = signed.equals(plain) ? null : "s3cret";
+            SignerInformation signer = signedData(signed, password).getSignerInfos().getSigners().iterator().next();
+            ASN1EncodableVector attributes = signer.getSignedAttributes().getAll(PDFSigningUtil.DOCUMENT_MANIFEST_SHA256);
+            assertThat(attributes.size()).isEqualTo(1);
+            Attribute attribute = Attribute.getInstance(attributes.get(0));
+            assertThat(attribute.getAttrValues().size()).isEqualTo(1);
+            byte[] digest = ASN1OctetString.getInstance(attribute.getAttrValues().getObjectAt(0)).getOctets();
+            // The SHA-256 of the exact embedded bytes, which the encrypted copy hides from a reader.
+            assertThat(digest).hasSize(32)
+                    .isEqualTo(MessageDigest.getInstance("SHA-256").digest(embeddedManifest(signed, password)));
+            // Signed, not unsigned: it cannot be added or changed after signing.
+            assertThat(signer.getUnsignedAttributes() == null
+                    || signer.getUnsignedAttributes().get(PDFSigningUtil.DOCUMENT_MANIFEST_SHA256) == null).isTrue();
+            // A verifier that does not know the attribute still accepts the signature.
+            assertThat(PdfSigningTestSupport.verifyDetachedSignature(signed, password)).isTrue();
+        }
+        assertThat(PDFSigningUtil.DOCUMENT_MANIFEST_SHA256.getId())
+                .isEqualTo("2.25.132515939282652475535231260060469025505");
+    }
+
+    @Test
+    @DisplayName("should carry no manifest digest when no manifest is given")
+    void shouldCarryNoManifestDigest_whenNoManifestIsGiven() throws Exception {
+        Path signed = PDFSigningUtil.signPDF(writeSinglePagePdf(), enabledConfig());
+        generatedOutputs.add(signed);
+
+        SignerInformation signer = signedData(signed, null).getSignerInfos().getSigners().iterator().next();
+        assertThat(signer.getSignedAttributes().get(PDFSigningUtil.DOCUMENT_MANIFEST_SHA256)).isNull();
+        assertThat(PdfSigningTestSupport.verifyDetachedSignature(signed, null)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should store the manifest uncompressed, verbatim once, in an unencrypted copy")
+    void shouldStoreTheManifestUncompressed_inAnUnencryptedCopy() throws Exception {
+        // myCarlos also finds a plain copy's manifest verbatim inside the signed byte ranges.
+        DocumentManifest manifest = DocumentManifestUnitTest.fakeManifest("FAKE CBC");
+        Path signed = PDFSigningUtil.signPDF(writeSinglePagePdf(), enabledConfig(), null, manifest);
+        generatedOutputs.add(signed);
+
+        try (PDDocument document = Loader.loadPDF(signed.toFile())) {
+            PDComplexFileSpecification specification = document.getDocumentCatalog().getNames().getEmbeddedFiles()
+                    .getNames().get(DocumentManifest.FILE_NAME);
+            assertThat(specification.getEmbeddedFile().getCOSObject().getItem(COSName.FILTER)).isNull();
+        }
+        String raw = new String(Files.readAllBytes(signed), StandardCharsets.ISO_8859_1);
+        String json = new String(embeddedManifest(signed, null), StandardCharsets.ISO_8859_1);
+        assertThat(raw.indexOf(json)).isNotNegative();
+        assertThat(raw.indexOf(json)).isEqualTo(raw.lastIndexOf(json));
     }
 
     @Test
