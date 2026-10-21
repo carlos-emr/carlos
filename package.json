@@ -325,6 +325,7 @@
     "test:billing-bc-simulation-encoding-playwright": "node scripts/billing-bc-simulation-encoding-playwright-checks.js",
     "test:billing-bc-report-center-playwright": "node scripts/billing-bc-report-center-playwright-checks.js",
     "test:billing-bc-reprocess-bill-playwright": "node scripts/billing-bc-reprocess-bill-playwright-checks.js",
+    "test:billing-bc-reprocess-bill-inactive-physician-playwright": "BC_REPROCESS_PIN=inactive node scripts/billing-bc-reprocess-bill-playwright-checks.js",
     "test:billing-bc-adjust-bill-code-search-playwright": "node scripts/billing-bc-adjust-bill-code-search-playwright-checks.js",
     "test:billing-bc-bill-create-save-playwright": "node scripts/billing-bc-bill-create-save-playwright-checks.js",
     "test:billing-bc-bill-form-popups-playwright": "node scripts/billing-bc-bill-form-popups-playwright-checks.js",

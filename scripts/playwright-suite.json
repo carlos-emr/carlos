@@ -4028,13 +4028,39 @@
         "BC"
       ],
       "timeoutSec": 300,
-      "env": [],
+      "env": [
+        "BC_REPROCESS_PIN"
+      ],
       "notes": "BC Bill Status and adjust bill page (#4373, #4346): Invoice List, Edit, Settle, billing history and note. Expected to FAIL at the note step while app-findings-log.md finding 145 stands (each save adds a backslash before an apostrophe). Finding 147 (TypeError on the adjust page's load) was fixed with #4551.",
       "expectedFailure": {
         "finding": 145,
         "step": "the save keeps the billing note exactly, apostrophe included"
       },
       "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
+    },
+    {
+      "name": "billing-bc-reprocess-bill-inactive-physician",
+      "script": "scripts/billing-bc-reprocess-bill-playwright-checks.js",
+      "envSet": {
+        "BC_REPROCESS_PIN": "inactive"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "BC_REPROCESS_PIN"
+      ],
+      "notes": "BC adjust bill page, the bill of a physician who has left (#4422): Master record ▸ Invoice List ▸ Edit on a claim whose physician is inactive, fix Dx 1, Reprocess Bill. The physician select lists active physicians only, so the save posts an empty physician; the step asserts the claim keeps billing.provider_no, billing.provider_ohip_no, billingmaster.payee_no and billingmaster.practitioner_no. Expected to FAIL there while app-findings-log.md finding 153 stands (the save writes '' to all four).",
+      "expectedFailure": {
+        "finding": 153,
+        "step": "Reprocess Bill on the bill of a physician who has left keeps its provider, payee and practitioner numbers"
+      },
+      "fixtures": "One owned inactive billing physician (a copy of the test login's provider row with FAKE BC numbers and the run marker, status 0) and one billing/billingmaster/billingnote row for the workflow's own FAKE patient billed by that physician; cleanup deletes the patient's bill rows and the physician and asserts them gone. BC installs only (billregion=BC)."
     },
     {
       "name": "billing-bc-adjust-bill-code-search",
