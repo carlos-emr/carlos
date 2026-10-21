@@ -401,6 +401,11 @@ class MutatorActionGetRejectionContractUnitTest {
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
         // PHCP provider settings: role mutations require POST; focused Alpha20RequestAuthorizationUnitTest.
         "io.github.carlos_emr.carlos.report.gate.ReportProviderRoles2Action",
+        // Provider preferences (setProviderStaleDate / setTicklerPreferences): the view dispatches permit
+        // GET; every other methodMap dispatch writes or removes a preference and must be a POST. Covered
+        // for every such dispatch by shouldRejectGetAndHead_forEveryMethodMapWriteDispatch and by
+        // ProviderProperty2ActionMethodGuardUnitTest.
+        "io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action",
         // Pregnancy lifecycle (#4557): list/new/edit are read-only; create/complete require POST.
         // Covered by Pregnancy2ActionUnitTest for both GET and HEAD.
         "io.github.carlos_emr.carlos.commn.web.Pregnancy2Action",
@@ -616,6 +621,9 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
         "io.github.carlos_emr.carlos.lab.pageUtil.FileLabsOnBehalf2Action",
+        // The provider.web package is not in IN_SCOPE_PACKAGE_PREFIXES; its methodMap dispatcher is
+        // registered explicitly (conditional mutator, see METHOD_MAP_DISPATCHERS).
+        "io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
         "io.github.carlos_emr.carlos.admin.web.AdminNewGroup2Action",
@@ -770,6 +778,73 @@ class MutatorActionGetRejectionContractUnitTest {
                     "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
                     "_rx", "w", httpMethod, Map.of("dispatch", dispatch));
         }
+    }
+
+    /**
+     * Actions that dispatch through a {@code methodMap} of named handlers, filled by a {@code @PostConstruct}
+     * {@code init()}. Every entry whose name does not start with {@code view} writes or removes something, so
+     * each must refuse GET and HEAD. {@link #methodMapWriteDispatches()} reads the entries from the action
+     * itself, so a new unguarded write fails here with no manifest edit, and
+     * {@link #methodMapDispatchersMustBeRegistered()} keeps this list complete.
+     */
+    private static final Set<String> METHOD_MAP_DISPATCHERS = Set.of(
+        "io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action");
+
+    @SuppressWarnings("unchecked")
+    static Stream<Arguments> methodMapWriteDispatches() throws Exception {
+        List<Arguments> out = new ArrayList<>();
+        for (String className : new TreeSet<>(METHOD_MAP_DISPATCHERS)) {
+            Class<?> actionClass = Class.forName(className);
+            Map<String, ?> methodMap;
+            try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
+                 MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class)) {
+                springUtils.when(() -> SpringUtils.getBean(any(Class.class)))
+                        .thenAnswer(inv -> Mockito.mock((Class<?>) inv.getArgument(0)));
+                servletCtx.when(ServletActionContext::getRequest).thenReturn(new MockHttpServletRequest());
+                servletCtx.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+                Object action = actionClass.getDeclaredConstructor().newInstance();
+                actionClass.getMethod("init").invoke(action);
+                java.lang.reflect.Field field = actionClass.getDeclaredField("methodMap");
+                field.setAccessible(true);
+                methodMap = (Map<String, ?>) field.get(action);
+            }
+            new TreeSet<>(methodMap.keySet()).stream()
+                    .filter(name -> !name.startsWith("view"))
+                    .forEach(name -> out.add(Arguments.of(className, name)));
+        }
+        return out.stream();
+    }
+
+    @ParameterizedTest(name = "{0} method={1} rejects GET and HEAD")
+    @MethodSource("methodMapWriteDispatches")
+    @DisplayName("every methodMap write dispatch should reject GET and HEAD without side-effects")
+    void shouldRejectGetAndHead_forEveryMethodMapWriteDispatch(String className, String dispatch) throws Exception {
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            // The privilege tuple is only consulted if authorization runs before the method guard.
+            assertRejectsUnsafeMethod(className, "_lab", "w", httpMethod, Map.of("method", dispatch));
+        }
+    }
+
+    @Test
+    @DisplayName("discovery: every *2Action dispatching through a methodMap must be in METHOD_MAP_DISPATCHERS")
+    void methodMapDispatchersMustBeRegistered() throws IOException {
+        Path sourceRoot = Paths.get("src", "main", "java");
+        assertThat(sourceRoot)
+            .as("Expected src/main/java relative to the test working directory")
+            .exists();
+        Set<String> found = new TreeSet<>();
+        try (Stream<Path> paths = Files.walk(sourceRoot)) {
+            for (Path source : paths.filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().endsWith("2Action.java")).toList()) {
+                if (Files.readString(source).contains("methodMap.put(")) {
+                    found.add(fileToClassName(sourceRoot, source));
+                }
+            }
+        }
+        assertThat(found)
+            .as("*2Action classes that dispatch through a methodMap; register each in METHOD_MAP_DISPATCHERS "
+              + "so its write dispatches are driven with GET and HEAD")
+            .isEqualTo(new TreeSet<>(METHOD_MAP_DISPATCHERS));
     }
 
     private static void assertRejectsUnsafeMethod(
@@ -930,6 +1005,12 @@ class MutatorActionGetRejectionContractUnitTest {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
             return new SecurityUpdate2Action(methodSecurity);
+        }
+        if (METHOD_MAP_DISPATCHERS.contains(actionClass.getName())) {
+            // Spring runs the @PostConstruct init() that fills methodMap; without it every dispatch falls back to view.
+            Object action = actionClass.getDeclaredConstructor().newInstance();
+            actionClass.getMethod("init").invoke(action);
+            return action;
         }
         return actionClass.getDeclaredConstructor().newInstance();
     }
