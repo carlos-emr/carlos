@@ -12612,7 +12612,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned FAKE- patient with two allergies seeded by SQL (a year-only and a year-and-month start date, each with its partial_date row) and the allergies the dialogue saves (two amendments and seven Custom Allergies); cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its last step on release/2026.08 and develop: a Start Date typed as 2019 or 2019-05, or a stored 2019-05 clicked into and out of on Modify, is posted as 2019-01-01 or 2019-05-01, because the box is a flatpickr field (calendar-setup.js shim) that parses typed text as a full date, so the precision is lost (pending finding 300, #4807; its release fix #4810 is a draft). Every earlier step passes. The check turns green on release when #4810 merges, and on develop when that reaches it in the forward merge; drop this note then."
+      "notes": "Allergies whose start is known only to the year or the year and month: stored ones are listed as typed (2019, 2019-05); Modify offers the stored partial date and an amendment of only the reaction keeps it; a full date typed, a cleared box and a day picked on the calendar (even the first of a typed month) are saved as such; and a typed 2019 or 2019-05, or a stored 2019-05 clicked into and out of on Modify, keeps its precision (#4807, fixed on release by #4810; on develop once the forward merge brings it)."
     },
     {
       "name": "admin-lot-number-delete",
