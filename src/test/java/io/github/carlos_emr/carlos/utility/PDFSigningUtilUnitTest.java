@@ -330,7 +330,23 @@ class PDFSigningUtilUnitTest {
             assertThat(byteRange).hasSize(4);
             assertThat(byteRange[0]).isZero();
             assertThat((long) byteRange[2] + byteRange[3]).isEqualTo(Files.size(signed));
+            assertGapIsExactlyTheContentsString(Files.readAllBytes(signed), byteRange[1], byteRange[2]);
         }
+    }
+
+    // The one unsigned gap must be the whole /Contents hex string and nothing else:
+    // the /Contents key right before it, '<' and '>' at its ends, only hex digits between.
+    private static void assertGapIsExactlyTheContentsString(byte[] pdf, int gapStart, int gapEnd) {
+        assertThat(gapEnd - gapStart).isGreaterThan(2);
+        assertThat((char) pdf[gapStart]).isEqualTo('<');
+        assertThat((char) pdf[gapEnd - 1]).isEqualTo('>');
+        assertThat((gapEnd - gapStart - 2) % 2).as("hex digits come in pairs").isZero();
+        for (int i = gapStart + 1; i < gapEnd - 1; i++) {
+            assertThat(Character.digit(pdf[i], 16)).as("hex digit at byte %d", i).isNotNegative();
+        }
+        int keyStart = Math.max(0, gapStart - 32);
+        String beforeGap = new String(pdf, keyStart, gapStart - keyStart, java.nio.charset.StandardCharsets.US_ASCII);
+        assertThat(beforeGap.stripTrailing()).endsWith("/Contents");
     }
 
     @Test
