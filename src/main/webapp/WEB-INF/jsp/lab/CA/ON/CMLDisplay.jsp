@@ -144,6 +144,9 @@
 </script>
 
 <body>
+<% if (!lab.versionChainReliable) { %>
+<div class="alert alert-warning" role="alert"><fmt:message key="cml.versionChain.unavailable"/></div>
+<% } %>
 <!-- form forwarding of the lab -->
 <form name="reassignForm" method="post" action="<%= request.getContextPath() %>/lab/CA/ON/Forward"><input
         type="hidden" name="flaggedLabs"

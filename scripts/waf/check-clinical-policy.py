@@ -57,6 +57,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
@@ -340,6 +341,17 @@ def build_cases(phrases, corpus):
                                   extra=form_id, expect="inbound", signatures=signatures))
     cases.append(request_case("eform-error-xss-other-route", 0, ERROR_LOG + "Evil", "error", XSS, extra=form_id,
                               expect="inbound", signatures=("941100", "941110")))
+
+    # Image placeholder transport was renamed together with browser and server.
+    # The RCE marker distinguishes argument-level rule 1030 from the broader
+    # data-URI-only exclusion 1040: stale/mismatched field names must fail here.
+    image_source = '{"id":"signature","value":"data:image/png;base64,AQID$(id)"}'
+    cases.append(request_case("carlos-image-link-save", 3352, LETTER, "carlos-image-link", image_source))
+    for field in ("openosp-image-link", "clinicalNote"):
+        cases.append(request_case(f"image-link-inspected-{field}", 3352, LETTER, field, image_source, **rce))
+    for method in ("GET", "PUT"):
+        cases.append(request_case(f"image-link-wrong-{method}", 3352, LETTER, "carlos-image-link", image_source, method, **rce))
+    cases.append(request_case("image-link-wrong-route", 3352, LETTER + "Evil", "carlos-image-link", image_source, **rce))
 
     if len({case.name for case in cases}) != len(cases):
         raise ValueError("duplicate case names")
@@ -633,6 +645,10 @@ def run_case(prefix, server, port, case, token, args):
     paths = {key: prefix / "logs" / name for key, name in
              (("audit", "modsec_audit.log"), ("error", "error.log"), ("access", "access.log"))}
     offsets = {key: path.stat().st_size if path.exists() else 0 for key, path in paths.items()}
+    # The connector may finish writing the previous JSON transaction after we
+    # snapshot its size. Starting mid-object can decode a string instead of a
+    # transaction. Parse the complete stream and keep the existing token filter.
+    offsets["audit"] = 0
     start = time.monotonic()
     status, body, marker, error = perform_request(port, case, token, args.request_timeout)
     deadline = time.monotonic() + args.evidence_timeout
@@ -827,6 +843,30 @@ class MechanicsTests(unittest.TestCase):
         self.assertEqual(relocated, source.replace('Include /etc/site/rules.conf', 'Include /tmp/snapshot/rules.conf').replace('SecUnicodeMapFile /etc/site/map', 'SecUnicodeMapFile /tmp/snapshot/map'))
         with self.assertRaises(ValueError):
             relocate("SecAuditLog /production/audit\n", [])
+
+    def test_run_case_reads_complete_audit_transactions_after_delayed_write(self):
+        case = Case("delayed-audit", 0, "GET", "/fixture")
+        token = "current-audit"
+        server = SimpleNamespace(fixtures={}, receipts={})
+        args = SimpleNamespace(request_timeout=1, evidence_timeout=0)
+        with tempfile.TemporaryDirectory() as directory:
+            prefix = Path(directory)
+            (prefix / "logs").mkdir()
+            audit = prefix / "logs/modsec_audit.log"
+            # The next read would start at a JSON string in the previous object.
+            audit.write_text('{"transaction":{')
+
+            def finish_request(*unused):
+                with audit.open("a") as stream:
+                    stream.write('"unique_id":"previous"}}\n')
+                    stream.write(json.dumps({"transaction": {"unique_id": token}}))
+                (prefix / "logs/access.log").write_text(token + " 200\n")
+                server.receipts[token] = [{"method": "GET", "target": case.target, "body": ""}]
+                return 200, response_body(case, token), token, ""
+
+            with patch(__name__ + ".perform_request", side_effect=finish_request):
+                result = run_case(prefix, server, 1, case, token, args)
+            self.assertEqual(result["audit_transactions"], [{"unique_id": token}])
 
     def test_audit_and_error_evidence_are_transaction_scoped(self):
         def tx(token, rule):

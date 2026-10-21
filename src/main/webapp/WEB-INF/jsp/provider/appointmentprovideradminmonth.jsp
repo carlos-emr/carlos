@@ -58,22 +58,12 @@
 
 <%!
     //multisite starts =====================
-    private List<Site> sites;
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-
-    private List<Site> curUserSites = new ArrayList<Site>();
-    private String[] curScheduleMultisite;
-    private List<String> siteProviderNos = new ArrayList<String>();
-    private List<String> siteGroups = new ArrayList<String>();
-    private String selectedSite = null;
-    private HashMap<String, String> siteBgColor = new HashMap<String, String>();
-    private HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
-
     private String getSiteHTML(String reason, List<Site> sites) {
         if (reason == null || reason.trim().length() == 0)
             return "";
         else
-            return "<span style='background-color:" + ApptUtil.getColorFromLocation(sites, reason) + "'>" + ApptUtil.getShortNameFromLocation(sites, reason) + "</span>";
+            return "<span style='background-color:" + SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(ApptUtil.getColorFromLocation(sites, reason), ""))
+                    + "'>" + SafeEncode.forHtmlContent(ApptUtil.getShortNameFromLocation(sites, reason)) + "</span>";
     }
 //multisite ends =====================
 %>
@@ -186,28 +176,42 @@
 </security:oscarSec>
 
 <%
+    // Multisite state belongs to this request only. These are locals of the page's service method: a JSP
+    // declaration would make them fields of the one servlet instance that every login shares.
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+    List<Site> sites = new ArrayList<Site>();
+    List<Site> curUserSites = new ArrayList<Site>();
+    List<String> siteProviderNos = new ArrayList<String>();
+    List<String> siteGroups = new ArrayList<String>();
+    String selectedSite = null;
+    HashMap<String, String> siteBgColor = new HashMap<String, String>();
+    HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
     if (bMultisites) {
         SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
         sites = siteDao.getAllActiveSites();
 
-        String requestSite = request.getParameter("site");
-        if (requestSite != null) {
-            requestSite = (requestSite.equals("none") ? null : requestSite);
-            session.setAttribute("site_selected", requestSite);
-        }
-        selectedSite = (requestSite == null ? (String) session.getAttribute("site_selected") : requestSite);
-
+        String siteManagerProviderNo = (String) session.getAttribute("user");
         if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
             //user has Access Privacy, set user providers and group list
-            String siteManagerProviderNo = (String) session.getAttribute("user");
             curUserSites = siteDao.getActiveSitesByProviderNo(siteManagerProviderNo);
-            if (selectedSite == null) {
-                siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
-                siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
-            }
         } else {
             //get all active site as user site list
             curUserSites = sites;
+        }
+
+        // A requested or remembered clinic counts only while it is one this login is offered; anything else is
+        // All Clinics, and only an offered clinic is remembered.
+        String requestSite = request.getParameter("site");
+        if (requestSite != null) {
+            requestSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(requestSite, curUserSites);
+            session.setAttribute("site_selected", requestSite);
+        }
+        selectedSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(
+                requestSite == null ? (String) session.getAttribute("site_selected") : requestSite, curUserSites);
+
+        if ((isSiteAccessPrivacy || isTeamAccessPrivacy) && selectedSite == null) {
+            siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
+            siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
         }
 
         for (Site s : curUserSites) {
@@ -578,9 +582,9 @@
                         var providerview = "<carlos:encode value='<%= providerview %>' context="javaScriptBlock"/>";
                         if (providerview.indexOf("_grp_") != -1) {
 
-                            window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + siteName + "&mygroup_no=" + newGroupNo, "_self");
+                            window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + encodeURIComponent(siteName) + "&mygroup_no=" + encodeURIComponent(newGroupNo), "_self");
                         } else {
-                            window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + siteName + "&providerview=" + providerview, "_self");
+                            window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + encodeURIComponent(siteName) + "&providerview=" + encodeURIComponent(providerview), "_self");
                         }
                     }
                 </script>
@@ -762,7 +766,7 @@
 
                                         <% if (!bMultisites) { %>
 
-                                        <span class='datepreason'><%=date.getReason() %></span>
+                                        <span class='datepreason'><carlos:encode value='<%= date.getReason() %>'/></span>
                                         <% } %>
                                         <% }
                                         }

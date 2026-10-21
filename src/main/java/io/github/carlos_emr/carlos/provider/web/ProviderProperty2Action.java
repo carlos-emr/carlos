@@ -157,12 +157,31 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     /**
+     * Answers 405 with {@code Allow: POST} unless the request is a POST. Every method in {@link #methodMap}
+     * that writes or removes a preference starts with this, because each one is reached only from its
+     * page's POST form or POST request; the view methods stay open to GET.
+     *
+     * @return {@code true} when the request was refused and the caller must return {@link #NONE}
+     */
+    private boolean refuseUnlessPost() {
+        if ("POST".equals(request.getMethod())) {
+            return false;
+        }
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return true;
+    }
+
+    /**
      * Removes the stale-note-date and stale-format user properties for the logged-in provider.
      *
      * @return {@link #SUCCESS} after deletion, with {@code status} request attribute set to {@code "success"}
      * @throws SecurityException if no valid session is found
      */
     public String remove() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
             throw new SecurityException("No valid session found");
@@ -239,6 +258,9 @@ public class ProviderProperty2Action extends ActionSupport {
      * @throws SecurityException if no valid session is found
      */
     public String save() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
             throw new SecurityException("No valid session found");
@@ -328,6 +350,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveDefaultSex() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -391,6 +416,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveHCType() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
 
         UserProperty prop = this.getDateProperty();
@@ -449,6 +477,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveRxPageSize() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -482,6 +513,9 @@ public class ProviderProperty2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveDefaultDocQueue() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -611,6 +645,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveRxProfileView() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         try {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -693,6 +730,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveShowPatientDOB() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("rxShowPatientDOBProperty.checked");
 
         UserProperty UShowPatientDOB = this.getRxShowPatientDOBProperty();
@@ -759,6 +799,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveDefaultQuantity() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -824,6 +867,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveOntarioMDId() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -911,6 +957,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveConsultationRequestCuffOffDate() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -992,6 +1041,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveConsultationRequestTeamWarning() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1074,6 +1126,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveWorkLoadManagement() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1142,6 +1197,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveConsultPasteFmt() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1292,6 +1350,9 @@ public class ProviderProperty2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveFavouriteEformGroup() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1365,6 +1426,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveUseCppSingleLine() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("cppSingleLineProperty.checked");
 
         UserProperty existingProp = this.getCppSingleLineProperty();
@@ -1440,6 +1504,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveEDocBrowserInDocumentReport() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("eDocBrowserInDocumentReportProperty.checked");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1514,6 +1581,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveEDocBrowserInMasterFile() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("eDocBrowserInMasterFileProperty.checked");
 
         UserProperty Uprop = this.geteDocBrowserInMasterFileProperty();
@@ -1589,6 +1659,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveCommentLab() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("labAckCommentProperty.checked");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1712,7 +1785,17 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genLabRecallPrefs";
     }
 
+    /**
+     * Saves the authenticated provider's lab recall preferences on POST; the preference form is the only caller.
+     *
+     * @return the preference form, or no view for a rejected method
+     */
     public String saveLabRecallPrefs() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
          if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_lab)");
@@ -1971,6 +2054,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveEncounterWindowSize() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("encounterWindowMaximize.checked");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2053,6 +2139,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveQuickChartSize() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2111,6 +2200,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String savePatientNameLength() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2170,6 +2262,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveDisplayDocumentAs() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -2233,6 +2328,9 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String saveHideOldEchartLinkInAppt() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         UserProperty Uprop = this.getHideOldEchartLinkInApptProperty();
@@ -2299,6 +2397,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveDashboardPrefs() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String checkboxValue = request.getParameter("dashboardShareProperty.checked");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2369,6 +2470,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String saveAppointmentCardPrefs() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         UserProperty n = this.getAppointmentCardName();
         UserProperty p = this.getAppointmentCardPhone();
         UserProperty f = this.getAppointmentCardFax();
@@ -2489,6 +2593,9 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String savePreventionPrefs() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -2610,6 +2717,9 @@ public class ProviderProperty2Action extends ActionSupport {
      * @since 2024-12-06 (JSON validation added 2026-02-17)
      */
     public String saveLabMacroPrefs() {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             throw new SecurityException("No valid session found");

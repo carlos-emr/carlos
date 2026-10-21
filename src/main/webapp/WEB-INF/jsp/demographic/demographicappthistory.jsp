@@ -87,12 +87,10 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%!
-    private List<Site> sites = new java.util.ArrayList<Site>();
-    private HashMap<String, String[]> siteBgColor = new HashMap<String, String[]>();
-%>
-
 <%
+    // Per-request site colours and labels; a JSP declaration would make them fields shared by every login.
+    List<Site> sites = new java.util.ArrayList<Site>();
+    HashMap<String, String[]> siteBgColor = new HashMap<String, String[]>();
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
     ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
