@@ -414,6 +414,19 @@ class PDFSigningUtilUnitTest {
     }
 
     @Test
+    @DisplayName("should report the signing key's ID as the signature carries it")
+    void shouldReportTheSigningKeyId_asTheSignatureCarriesIt() throws Exception {
+        PDFSigningConfig config = enabledConfig();
+        Path signed = PDFSigningUtil.signPDF(writeSinglePagePdf(), config);
+        generatedOutputs.add(signed);
+
+        assertThat(PDFSigningUtil.signingKeyId(config)).isEqualTo(keyIdOf(signed, null));
+        assertThatThrownBy(() -> PDFSigningUtil.signingKeyId(
+                new PDFSigningConfig(false, null, null, null, null, null, null, null, null, null)))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     @DisplayName("should keep the PDF's other embedded files")
     void shouldKeepOtherEmbeddedFiles_whenAddingTheManifest() throws Exception {
         Path source = tempDir.resolve("with-attachment-" + System.nanoTime() + ".pdf");

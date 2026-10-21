@@ -186,6 +186,23 @@ public final class PDFSigningUtil {
         }
     }
 
+    /**
+     * The configured signing key's ID, as myCarlos pins it and the audit log records it.
+     *
+     * @param config signing configuration; must be enabled and complete
+     * @return {@code b64url(SHA-256(SubjectPublicKeyInfo DER))} of the signing certificate's key
+     * @throws IOException when the keystore cannot be loaded or validated
+     * @throws IllegalStateException when signing is not enabled, or is enabled but incomplete
+     */
+    public static String signingKeyId(PDFSigningConfig config) throws IOException {
+        if (config == null || !config.isEnabled()) {
+            throw new IllegalStateException("PDF signing is not enabled");
+        }
+        config.validateEnabled();
+        ensureBouncyCastleProvider();
+        return keyId(loadSigningMaterial(config).signingCertificate());
+    }
+
     /** {@code b64url(SHA-256(SubjectPublicKeyInfo DER))}, the clinic key ID myCarlos pins. */
     static String keyId(X509Certificate certificate) throws IOException {
         try {

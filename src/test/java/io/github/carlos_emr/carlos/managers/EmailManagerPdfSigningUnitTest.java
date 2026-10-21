@@ -39,6 +39,7 @@ import org.mockito.MockedStatic;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
@@ -46,6 +47,7 @@ import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.test.util.PdfSigningTestSupport;
 import io.github.carlos_emr.carlos.utility.DocumentManifest;
@@ -348,6 +350,67 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
                         .containsOnlyKeys(DocumentManifest.FILE_NAME);
             }
             assertThat(PdfSigningTestSupport.verifyDetachedSignature(sent, "correct horse battery staple")).isTrue();
+        } finally {
+            closeWorkingDirectory(emailData);
+        }
+    }
+
+    @Test
+    @DisplayName("should audit each signed attachment with its record, key and document ID")
+    void shouldAuditEachSignedAttachment_whenSendPassesItsContext() throws Exception {
+        Path source = writeSinglePagePdf("source.pdf");
+        Path signed = writeSinglePagePdf("signed.pdf");
+        EmailData emailData = emailDataWith(source);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        EmailLog emailLog = new EmailLog();
+        ReflectionTestUtils.setField(emailLog, "id", 71);
+        Demographic patient = new Demographic();
+        patient.setDemographicNo(1001);
+        emailLog.setDemographic(patient);
+        DocumentManifest manifest = fakeManifest();
+        EmailManager emailManager = createEmailManager(loggedInInfo, emailLog, attachment -> manifest);
+
+        try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
+                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
+                MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
+            paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
+            signer.when(() -> PDFSigningUtil.signingKeyId(any(PDFSigningConfig.class))).thenReturn("FAKE-kid");
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
+                    .thenReturn(signed);
+
+            emailManager.signAttachments(emailData, loggedInInfo, emailLog);
+
+            // An opaque document ID is traced back to its record through this entry; no names or content.
+            // CarlosUnitTestBase's LogAction mock records the call.
+            logActionMock.verify(() -> LogAction.addLog(loggedInInfo, "EmailManager.signAttachment", "Email",
+                    "emailLogId=71&source=doc&recordId=1&kid=FAKE-kid&documentId=FAKE-document-id&version=1&encrypted=false",
+                    "1001", ""));
+        } finally {
+            closeWorkingDirectory(emailData);
+        }
+    }
+
+    @Test
+    @DisplayName("should not audit or read the key ID when signing without a send context")
+    void shouldNotAudit_withoutASendContext() throws Exception {
+        Path source = writeSinglePagePdf("source.pdf");
+        Path signed = writeSinglePagePdf("signed.pdf");
+        EmailData emailData = emailDataWith(source);
+
+        try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
+                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
+                MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
+            paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
+                    .thenReturn(signed);
+
+            createEmailManager().signAttachments(emailData);
+
+            logActionMock.verify(() -> LogAction.addLog(any(LoggedInInfo.class), any(), any(), any(), any(), any()),
+                    org.mockito.Mockito.never());
+            signer.verify(() -> PDFSigningUtil.signingKeyId(any()), org.mockito.Mockito.never());
         } finally {
             closeWorkingDirectory(emailData);
         }
