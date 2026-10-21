@@ -69,6 +69,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int FIRST_NAME_MAX_LENGTH = 30;
     public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
     public static final int ALIAS_MAX_LENGTH = 70;
+    /** The pref_name column ({@code varchar(30) NOT NULL}); see {@link #prefNameForNameUsed(String)}. */
+    public static final int PREF_NAME_MAX_LENGTH = 30;
     public static final int ADDRESS_MAX_LENGTH = 60;
     public static final int CITY_MAX_LENGTH = 50;
     public static final int PROVINCE_MAX_LENGTH = 20;
@@ -329,6 +331,30 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
         }
     }
+
+    /**
+     * The pref_name value for a Name Used typed on the Master Record (issue #5128).
+     *
+     * <p>Name Used is stored whole in the alias (70 characters, checked by
+     * {@link #validateFieldLengths()}) and copied into pref_name, which holds only 30. A longer
+     * copy failed the save under a strict sql_mode (HTTP 500, nothing saved) and was cut silently
+     * under an empty one. The copy is now cut to the column here, at whole characters, so a
+     * surrogate pair is never split; {@link #getPrefName()} shows the alias first, so the cut copy
+     * is not what the patient's name reads as. pref_name is NOT NULL, so no value becomes "".</p>
+     *
+     * @param nameUsed the submitted Name Used, or {@code null} when the form sent none
+     * @return at most {@link #PREF_NAME_MAX_LENGTH} characters of it, never {@code null}
+     */
+    public static String prefNameForNameUsed(String nameUsed) {
+        if (nameUsed == null) {
+            return "";
+        }
+        if (nameUsed.codePointCount(0, nameUsed.length()) <= PREF_NAME_MAX_LENGTH) {
+            return nameUsed;
+        }
+        return nameUsed.substring(0, nameUsed.offsetByCodePoints(0, PREF_NAME_MAX_LENGTH));
+    }
+
     @jakarta.persistence.Transient
 
     public String getDisplayName() {

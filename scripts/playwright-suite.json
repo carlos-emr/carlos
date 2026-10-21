@@ -8218,7 +8218,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Patients whose surname starts with the run tag, created through Search > Create Demographic; cleanup removes every row of those patients (relabels to the marker, then removeMarkedPatients) and asserts none remain. The append-only audit log is not touched.",
-      "notes": "Expected to FAIL at the last step 'preferred name, pronoun and gender past their columns are refused or stored whole' until the add/edit forms limit nameUsed to the 30-character pref_name column and validate pronoun and gender (25) like the other fields."
+      "notes": "Expected to FAIL at the step 'preferred name, pronoun and gender past their columns are refused or stored whole' until pronoun and gender (25) are validated like the other fields. Name Used is checked against the alias (70), not pref_name: it must be stored whole in the alias, with pref_name holding its first 30 characters by design (#5128, which needs #5127; before both, a Name Used over 30 characters fails the save under a strict sql_mode and is cut under an empty one)."
     },
     {
       "name": "boundary-demographic-search",
