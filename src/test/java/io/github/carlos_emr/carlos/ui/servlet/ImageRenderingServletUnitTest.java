@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockServletConfig;
 import org.springframework.mock.web.MockServletContext;
 
@@ -55,24 +56,46 @@ class ImageRenderingServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("returns exact uploaded PNG bytes for a temp signature preview")
     void shouldReturnExactPngBytes_forTempSignaturePreview() throws Exception {
-        String signatureRequestId = "999998123456789";
+        MockHttpServletRequest request = previewRequest();
+        String signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(request.getSession());
+        request.addParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureRequestId);
         tempSignaturePath = Path.of(DigitalSignatureUtils.getTempFilePath(signatureRequestId));
         Files.write(tempSignaturePath, PNG_BYTES);
-
-        ImageRenderingServlet servlet = new ImageRenderingServlet();
-        servlet.init(new MockServletConfig(new MockServletContext()));
-
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/imageRenderingServlet");
-        request.addParameter("source", ImageRenderingServlet.Source.signature_preview.name());
-        request.addParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureRequestId);
-        request.getSession().setAttribute(SessionConstants.LOGGED_IN_PROVIDER, new Provider());
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        servlet.doGet(request, response);
+        servlet().doGet(request, response);
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentType()).isEqualTo("image/png");
         assertThat(response.getContentAsByteArray()).containsExactly(PNG_BYTES);
+    }
+
+    @Test
+    @DisplayName("does not return a temp signature whose request id another session was issued")
+    void shouldNotReturnTempSignature_whenRequestIdBelongsToAnotherSession() throws Exception {
+        String otherSessionsId = DigitalSignatureUtils.generateSignatureRequestId(new MockHttpSession());
+        tempSignaturePath = Path.of(DigitalSignatureUtils.getTempFilePath(otherSessionsId));
+        Files.write(tempSignaturePath, PNG_BYTES);
+        MockHttpServletRequest request = previewRequest();
+        request.addParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, otherSessionsId);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        servlet().doGet(request, response);
+
+        assertThat(response.getContentAsByteArray()).isNotEqualTo(PNG_BYTES);
+    }
+
+    private static ImageRenderingServlet servlet() throws Exception {
+        ImageRenderingServlet servlet = new ImageRenderingServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+        return servlet;
+    }
+
+    private static MockHttpServletRequest previewRequest() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/imageRenderingServlet");
+        request.addParameter("source", ImageRenderingServlet.Source.signature_preview.name());
+        request.getSession().setAttribute(SessionConstants.LOGGED_IN_PROVIDER, new Provider());
+        return request;
     }
 
     @Test

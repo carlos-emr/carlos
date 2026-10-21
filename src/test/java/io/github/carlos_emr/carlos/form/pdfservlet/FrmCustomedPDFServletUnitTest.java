@@ -5,6 +5,9 @@
  */
 package io.github.carlos_emr.carlos.form.pdfservlet;
 
+import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.mock.web.MockHttpSession;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
@@ -288,10 +291,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    /** A 13-digit-suffix pad file name for the given provider, matching generateSignatureRequestId. */
-    private static Path padFileFor(String providerNo) {
-        // providerNo + a 13-digit timestamp, the exact shape the servlet accepts.
-        return Path.of(System.getProperty("java.io.tmpdir"), "signature_" + providerNo + System.currentTimeMillis() + ".jpg");
+    /** The pad capture path for a request id issued to {@code session}, as the prescription page gets it. */
+    private static Path padFileFor(HttpSession session) {
+        return Path.of(DigitalSignatureUtils.getTempFilePath(DigitalSignatureUtils.generateSignatureRequestId(session)));
     }
 
     /** A decodable PNG that is distinct from {@link #tinyPng()} so byte assertions can tell them apart. */
@@ -1564,11 +1566,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should prefer a valid pad capture image over the stored signature when it exists")
     void shouldPreferPadFile_whenPresentInTempDirectory() throws Exception {
-        Path padFile = padFileFor("999998"); // this provider's capture (13-digit millis suffix)
+        MockHttpServletRequest request = createFaxRequest();
+        Path padFile = padFileFor(request.getSession()); // a capture this session's page asked for
         try {
             byte[] padBytes = otherPng(); // distinct from the stored signature's tinyPng()
             Files.write(padFile, padBytes);
-            MockHttpServletRequest request = createFaxRequest();
             request.addParameter("imgFile", padFile.toString());
             stubStoredSignature();
             LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
@@ -1584,9 +1586,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject another provider's pad capture and use the stored signature")
-    void shouldRejectAnotherProvidersPadFile_andUseStoredSignature() throws Exception {
-        Path foreignPad = padFileFor("888888"); // a different provider's capture
+    @DisplayName("should reject a pad capture issued to another session and use the stored signature")
+    void shouldRejectAnotherSessionsPadFile_andUseStoredSignature() throws Exception {
+        Path foreignPad = padFileFor(new MockHttpSession()); // another login's capture
         try {
             byte[] foreignBytes = otherPng(); // a real, decodable image — distinct from the stored one
             Files.write(foreignPad, foreignBytes);
@@ -1615,11 +1617,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // script and draws on the pad. The document names the PERSISTED prescriber (the fax body is
         // bound to the record), so honouring this capture would put provider B's ink under provider
         // A's name. The stored signature — the one A actually left on the script — is used instead.
-        Path ownPad = padFileFor("999998");
+        MockHttpServletRequest request = createFaxRequest();
+        Path ownPad = padFileFor(request.getSession());
         try {
             byte[] ownBytes = otherPng(); // a real, decodable image, and this caller's own capture
             Files.write(ownPad, ownBytes);
-            MockHttpServletRequest request = createFaxRequest();
             request.addParameter("imgFile", ownPad.toString());
             stubStoredSignature("111111"); // the script was written by a DIFFERENT provider
             LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
@@ -1636,12 +1638,35 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject a pad file named in the old provider-number format and use the stored signature")
+    void shouldRejectOldFormatPadFile_andUseStoredSignature() throws Exception {
+        Path oldFormatPad = Path.of(System.getProperty("java.io.tmpdir"),
+                "signature_999998" + System.currentTimeMillis() + ".jpg");
+        try {
+            byte[] padBytes = otherPng();
+            Files.write(oldFormatPad, padBytes);
+            MockHttpServletRequest request = createFaxRequest();
+            request.addParameter("imgFile", oldFormatPad.toString());
+            stubStoredSignature();
+            LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+            byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+            assertThat(resolved).isEqualTo(tinyPng());
+            assertThat(resolved).isNotEqualTo(padBytes);
+        } finally {
+            Files.deleteIfExists(oldFormatPad);
+        }
+    }
+
+    @Test
     @DisplayName("should fall back to the stored signature when the pad file is not a decodable image")
     void shouldFallBackToStoredSignature_whenPadFileNotAnImage() throws Exception {
-        Path padFile = padFileFor("999998");
+        MockHttpServletRequest request = createFaxRequest();
+        Path padFile = padFileFor(request.getSession());
         try {
             Files.write(padFile, "not-an-image".getBytes(StandardCharsets.UTF_8));
-            MockHttpServletRequest request = createFaxRequest();
             request.addParameter("imgFile", padFile.toString());
             stubStoredSignature();
             LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
@@ -1680,8 +1705,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @DisplayName("should fall back to the stored signature when the named pad file does not exist")
     void shouldFallBackToStoredSignature_whenPadFileMissing() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
-        // A well-formed pad name for THIS provider that was never written.
-        request.addParameter("imgFile", padFileFor("999998").getFileName().toString());
+        // A well-formed pad name issued to THIS session that was never written.
+        request.addParameter("imgFile", padFileFor(request.getSession()).getFileName().toString());
         stubStoredSignature();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -1704,7 +1729,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
         // Real PathValidationUtils behaviour: validatePath reduces "../../etc/passwd" to its base
-        // name "passwd" (it does not throw), which then fails the signature_<provider><millis>.jpg
+        // name "passwd" (it does not throw), which then fails the signature_<requestId>.jpg
         // pad pattern, so the servlet falls back to the stored signature. The SecurityException
         // path is exercised separately below with a forced stub. Here we PROVE the raw traversal
         // value reached the validator rather than being used as a path directly.
