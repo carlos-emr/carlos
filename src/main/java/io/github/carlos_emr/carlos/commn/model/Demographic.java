@@ -188,6 +188,14 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private Integer pronounId;
     private String patientType;
 
+    /**
+     * The stored pref_name column, mapped by field (issue #4835). The entity uses property access,
+     * and {@link #getPrefName()} answers the alias when one is set, so a getter mapping made every
+     * loaded patient with a differing alias look changed: the next flush wrote the alias into
+     * pref_name, and an alias longer than the 30-character column failed the page.
+     */
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "pref_name", length = 30)
     private String prefName;
 
     private Provider mrp;
@@ -861,11 +869,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     /**
-     * Gets demographic's preferred name.
+     * Gets the name to show for the patient: the alias when one is set, otherwise the stored
+     * preferred name. Not mapped; Hibernate reads and writes the {@code prefName} field.
      *
-     * @return Returns the preferred name.
+     * @return the alias, or the stored preferred name when there is no alias
      */
-    @jakarta.persistence.Column(name = "pref_name")
+    @jakarta.persistence.Transient
     public String getPrefName() {
         if (getAlias() != null && !getAlias().isEmpty()) {
             return getAlias();
