@@ -344,6 +344,50 @@ class PDFSigningUtilUnitTest {
     }
 
     @Test
+    @DisplayName("should leave only zeros after the CMS in /Contents, in plain and encrypted PDFs")
+    void shouldPadTheSignatureWithZeros_inPlainAndEncryptedPdfs() throws Exception {
+        Path plain = PDFSigningUtil.signPDF(writeSinglePagePdf(), enabledConfig());
+        generatedOutputs.add(plain);
+        Path encrypted = PDFEncryptionUtil.encryptPDF(writeSinglePagePdf(), "s3cret");
+        generatedOutputs.add(encrypted);
+        Path encryptedSigned = PDFSigningUtil.signPDF(encrypted, enabledConfig(), "s3cret");
+        generatedOutputs.add(encryptedSigned);
+
+        for (Path signed : List.of(plain, encryptedSigned)) {
+            String password = signed.equals(plain) ? null : "s3cret";
+            byte[] pdfBytes = Files.readAllBytes(signed);
+            byte[] contents;
+            try (PDDocument document = password == null
+                    ? Loader.loadPDF(signed.toFile()) : Loader.loadPDF(signed.toFile(), password)) {
+                contents = document.getSignatureDictionaries().get(0).getContents(pdfBytes);
+            }
+            int cmsLength;
+            try (ASN1InputStream input = new ASN1InputStream(contents)) {
+                cmsLength = input.readObject().getEncoded().length;
+            }
+            // A signature's /Contents is never encrypted (ISO 32000-1 7.6.1): PDFBox's encrypted
+            // placeholder must not survive after the CMS, and the signature must still verify.
+            assertThat(Arrays.copyOfRange(contents, cmsLength, contents.length)).as(signed.getFileName().toString())
+                    .isNotEmpty().containsOnly((byte) 0);
+            assertThat(PdfSigningTestSupport.verifyDetachedSignature(signed, password)).isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse to patch a byte range that does not frame the /Contents string")
+    void shouldRefusePadding_whenTheByteRangeIsWrong() throws Exception {
+        Path signed = PDFSigningUtil.signPDF(writeSinglePagePdf(), enabledConfig());
+        generatedOutputs.add(signed);
+        byte[] before = Files.readAllBytes(signed);
+
+        assertThatThrownBy(() -> PDFSigningUtil.zeroSignaturePadding(signed, new int[] {0, 10, 20, 5}, 4))
+                .isInstanceOf(IOException.class);
+        assertThatThrownBy(() -> PDFSigningUtil.zeroSignaturePadding(signed, new int[] {1, 10, 20, 5}, 4))
+                .isInstanceOf(IOException.class);
+        assertThat(Files.readAllBytes(signed)).isEqualTo(before);
+    }
+
+    @Test
     @DisplayName("should sign and verify with an ECDSA P-256 key")
     void shouldSignAndVerify_withAP256Key() throws Exception {
         KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
