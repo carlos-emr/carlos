@@ -322,6 +322,33 @@ pdf.signing.keystore.password=...
 pdf.signing.key.alias=...
 ```
 
+**Embedded document manifest (optional).** With `pdf.signing.document_id.secret` set, each
+signed PDF also carries a small JSON file, `carlos-document-manifest.json`. It names:
+- the issuing clinic (and its portal clinic ID when the patient portal is on) and the sending
+  provider;
+- the patient, as on the chart;
+- the document's title, type and date of service, read from the document's own record;
+- a document ID.
+
+The email's own message, when it is sent as an encrypted `message.pdf`, gets no manifest: it
+is not a chart document.
+
+myCarlos reads it after checking the signature, to file the document under the right person
+(carlos-emr/carlos#4691, carlos-emr/mycarlos#55).
+
+The file is added in the same update as the signature. That has two effects:
+- the signature covers it;
+- in a password-protected PDF, it is encrypted with the rest of the file.
+
+The document ID is an HMAC of the record under that secret. It stays the same for a document
+across sends and does not reveal the record's number. The secret is set once:
+- generate it at setup, for example with `openssl rand -base64 32` (at least 32 bytes);
+- never change it after documents are issued, because a new secret gives every document a new
+  ID.
+
+Left unset, PDFs are signed exactly as before, without a manifest. A value that is set but is
+not valid base64 of at least 32 bytes stops sends, like any other signing error.
+
 `pdf.signing.key.password` defaults to the keystore password. The signer name,
 reason, location and contact shown in the reader are optional. Passwords are
 used exactly as written, so a trailing space after the value makes the keystore
