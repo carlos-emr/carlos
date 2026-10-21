@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -37,7 +38,10 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentNameDictionary;
 import org.apache.pdfbox.pdmodel.common.filespecification.PDComplexFileSpecification;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessableByteArray;
@@ -135,6 +139,13 @@ class MyCarlosSignedPdfFixturesUnitTest {
         // What every document but the refused ones claims: the manifest the entry lists, embedded as is.
         if (!"two_signatures".equals(expect)) {
             assertThat(pdfFacts.manifest()).isEqualTo(declaredManifest);
+            // And the signer binds exactly those bytes with its signed manifest-digest attribute.
+            byte[] boundDigest = signedManifestDigest(pdf, password);
+            if (declaredManifest == null) {
+                assertThat(boundDigest).isNull();
+            } else {
+                assertThat(boundDigest).isEqualTo(MessageDigest.getInstance("SHA-256").digest(declaredManifest));
+            }
         }
         Sig only = pdfFacts.signatures().get(0);
         switch (expect) {
@@ -237,6 +248,24 @@ class MyCarlosSignedPdfFixturesUnitTest {
     private static String tailAfter(Sig signature, byte[] pdf) {
         int end = (int) (signature.range().get(2) + signature.range().get(3));
         return new String(pdf, end, pdf.length - end, StandardCharsets.ISO_8859_1);
+    }
+
+    /** The signed manifest-digest attribute of the first signature, or {@code null} when absent. */
+    private static byte[] signedManifestDigest(byte[] pdf, String password) throws Exception {
+        try (PDDocument document = password == null ? Loader.loadPDF(pdf) : Loader.loadPDF(pdf, password)) {
+            PDSignature signature = document.getSignatureDictionaries().get(0);
+            CMSSignedData cms = new CMSSignedData(new CMSProcessableByteArray(signature.getSignedContent(pdf)),
+                    new ByteArrayInputStream(signature.getContents(pdf)));
+            SignerInformation signer = cms.getSignerInfos().getSigners().iterator().next();
+            ASN1EncodableVector found = signer.getSignedAttributes().getAll(PDFSigningUtil.DOCUMENT_MANIFEST_SHA256);
+            if (found.size() == 0) {
+                return null;
+            }
+            assertThat(found.size()).isEqualTo(1);
+            Attribute attribute = Attribute.getInstance(found.get(0));
+            assertThat(attribute.getAttrValues().size()).isEqualTo(1);
+            return ASN1OctetString.getInstance(attribute.getAttrValues().getObjectAt(0)).getOctets();
+        }
     }
 
     record Sig(List<Long> range, boolean cmsValid, String subFilter, String signerSpki, String keyAlgorithm,
