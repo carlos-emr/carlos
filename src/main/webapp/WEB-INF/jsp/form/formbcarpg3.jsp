@@ -1197,7 +1197,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                     <tr>
                                         <td><span class="small9">OTHER TESTS<br>
           <textarea name="ar2_labOtherTest" style="width:100%" cols="50"
-                    rows="3"><%= props.getProperty("ar2_labOtherTest", "") %></textarea></td>
+                    rows="3"><carlos:encode value='<%= props.getProperty("ar2_labOtherTest", "") %>'/></textarea></td>
                             </td>
                         </tr>
                     </table>
@@ -2287,11 +2287,11 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             </td>
                             <td><span class="small9">COMMENTS</span><br>
                                 <textarea name="ar2_probComment" style="width:100%" cols="40"
-                                          rows="1"><%= props.getProperty("ar2_probComment", "") %></textarea></td>
+                                          rows="1"><carlos:encode value='<%= props.getProperty("ar2_probComment", "") %>'/></textarea></td>
                         </tr>
                         <tr>
                             <td colspan="3"><textarea name="ar2_investigation" style="width:100%" cols="50"
-                                                      rows="5"><%= props.getProperty("ar2_investigation", "") %></textarea>
+                                                      rows="5"><carlos:encode value='<%= props.getProperty("ar2_investigation", "") %>'/></textarea>
                             </td>
                         </tr>
                     </table>

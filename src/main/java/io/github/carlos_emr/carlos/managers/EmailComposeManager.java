@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -73,7 +74,13 @@ public class EmailComposeManager {
     @Autowired
     private PatientConsentManager patientConsentManager;
     @Autowired
-    private SecurityInfoManager securityInfoManager;
+    private NioFileManager nioFileManager;
+    private final SecurityInfoManager securityInfoManager;
+
+    @Autowired
+    public EmailComposeManager(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = java.util.Objects.requireNonNull(securityInfoManager);
+    }
 
     /**
      * Prepares an existing email for resending by retrieving its log entry.
@@ -151,13 +158,40 @@ public class EmailComposeManager {
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String eDocId : attachedEDocIds) {
-            Path eDocPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, Integer.parseInt(eDocId));
+            Path eDocPDFPath = applicationTempFile(
+                    documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, Integer.parseInt(eDocId)));
             if (eDocPDFPath != null) {
                 emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, Integer.parseInt(eDocId), getFileSize(eDocPDFPath)));
             }
         }
 
         return emailAttachments;
+    }
+
+    /**
+     * The file an email attachment is prepared from, inside the CARLOS application temp tree.
+     *
+     * <p>A PDF document renders in place: {@code renderDocument} hands back the stored file itself.
+     * The compose window's attachment preview serves only application temp files, so before this a
+     * PDF document could never be emailed ("PDF preview is outside the CARLOS temp directory"). It is
+     * copied into the temp tree instead, so the preview and the send read the copy and the stored
+     * document is never handed on. A rendered file already in the temp tree is used as it is.</p>
+     *
+     * @param rendered a rendered attachment PDF, or {@code null}
+     * @return {@code rendered} if it is already an application temp file (or {@code null}), else a copy
+     *         of it in the application temp tree
+     * @throws PDFGenerationException if the copy cannot be made
+     */
+    public Path applicationTempFile(Path rendered) throws PDFGenerationException {
+        if (rendered == null || PathValidationUtils.isInApplicationTempDirectory(rendered.toFile())) {
+            return rendered;
+        }
+        try {
+            return nioFileManager.createTempFileFrom(rendered.getFileName().toString(), rendered);
+        } catch (IOException | RuntimeException e) {
+            // No file name or path in the message.
+            throw new PDFGenerationException("A document could not be copied for the email", e);
+        }
     }
 
     /**

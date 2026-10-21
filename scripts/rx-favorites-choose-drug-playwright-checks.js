@@ -47,6 +47,7 @@ const h = require('./lib/playwright-harness');
 const { randomBytes } = require('node:crypto');
 const { runWorkflow } = require('./lib/workflow-session');
 const { stageCustomDrug, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
+const { waitUntil } = require('./lib/concurrency-support');
 
 /** A provider number no real login owns: the favourites table takes six characters. */
 const FOREIGN_PROVIDER = 'FAKEPW';
@@ -112,7 +113,7 @@ async function workflow(session) {
     h.assert(new URL(await link.getAttribute('href'), config.baseUrl).searchParams.get('demographicNo') === patient,
       'the Edit favourites link does not carry the open patient');
     await Promise.all([
-      rx.waitForURL(/\/rx\/ViewEditFavorites2\?/, { timeout: 30000 }),
+      rx.waitForURL(/\/rx\/ViewEditFavorites2\?/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
       link.click(),
     ]);
     await rx.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -141,7 +142,7 @@ async function workflow(session) {
     const other = await openRx(session, otherPatient);
     await h.withExpectedDialogs(editor, async () => {
       await Promise.all([
-        editor.waitForURL(/\/rx\/deleteFavorite2/),
+        editor.waitForURL(/\/rx\/deleteFavorite2/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
         editor.locator(`a[href="javascript:deleteRow(${row});"]`).click(),
       ]);
     }, {accept: true});
@@ -149,13 +150,21 @@ async function workflow(session) {
       'the owned favorite was not deleted');
     // Trigger the real provider-selection refresh without copying another provider's data.
     await Promise.all([
-      copy.waitForURL(/\/rx\/copyFavorite2/),
+      copy.waitForURL(/\/rx\/copyFavorite2/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
       copy.locator('select[name="ddl_provider"]').selectOption(''),
     ]);
     for (const page of [editor, copy]) {
       await h.assertNotErrorPage(page, 'favorite postback');
       const back = page.locator('input[value="Back to Search For Drug"]').first();
-      await Promise.all([page.waitForURL(/\/rx\/searchDrug\?/), back.click()]);
+      // The search destination can be committed while secondary page resources
+      // are still loading. Assert the usable Rx controls and patient instead
+      // of waiting for the unrelated window load event.
+      await Promise.all([
+        page.waitForURL(/\/rx\/searchDrug\?/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
+        back.click(),
+      ]);
+      await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
+      await h.assertNotErrorPage(page, 'drug search after favorites');
       h.assert(new URL(page.url()).searchParams.get('demographicNo') === patient,
         'favorite postback switched its Back link to the other tab patient');
       await page.close();
@@ -517,6 +526,22 @@ async function workflow(session) {
       const isFavorite = request => /\/rx\/useFavorite$/.test(new URL(request.url()).pathname)
         && new URLSearchParams(request.postData() || '').get('favoriteId') === favoriteId;
       page.on('request', request => { if (isFavorite(request)) favoriteRequests += 1; });
+      // Staging a card re-runs the page's drug-interaction check (debounced 100 ms) on its own fetch.
+      // Closing the page while that fetch is in flight aborts it, which the strict harness reports, so
+      // the step waits for the check to settle before closing. networkidle does not cover it: it
+      // resolves at once on a page that was already idle before the favourite was staged.
+      const isInteractionCheck = request => /\/rx\/interactionWarnings$/.test(new URL(request.url()).pathname);
+      let interactionChecks = 0;
+      let interactionChange = Date.now();
+      const interactionStarted = request => {
+        if (isInteractionCheck(request)) { interactionChecks += 1; interactionChange = Date.now(); }
+      };
+      const interactionSettled = request => {
+        if (isInteractionCheck(request)) { interactionChecks -= 1; interactionChange = Date.now(); }
+      };
+      page.on('request', interactionStarted);
+      page.on('requestfinished', interactionSettled);
+      page.on('requestfailed', interactionSettled);
       const routePattern = '**/rx/WriteScript*';
       await page.route(routePattern, async route => {
         const request = route.request();
@@ -547,10 +572,23 @@ async function workflow(session) {
           'the initial draft response duplicated favorite card identifiers');
         h.assert(cards.some(card => card.id === `drugName_${priorKey}` && card.name === priorName),
           'favorite handoff discarded or changed its previously staged custom drug');
+        await waitUntil(() => interactionChecks === 0 && Date.now() - interactionChange > 400,
+          'the interaction check started by staging to finish');
       } finally {
         releaseStash();
         await page.unroute(routePattern);
         await page.close();
+        // The step navigates this page right after staging (to the sidebar page, then through the
+        // favourite link) and finally closes it. An interaction check still in flight then is
+        // cancelled by the browser because its document went away, which the harness proves
+        // (navigatedAway); drop only those. Any other failure of that request stays a finding.
+        for (let i = session.recorder.requestFailures.length - 1; i >= 0; i--) {
+          const entry = session.recorder.requestFailures[i];
+          if (/\/rx\/interactionWarnings$/.test(new URL(entry.url).pathname) && /ERR_ABORTED/.test(entry.errorText || '')
+            && typeof entry.navigatedAway === 'function' && entry.navigatedAway()) {
+            session.recorder.requestFailures.splice(i, 1);
+          }
+        }
       }
     });
   }

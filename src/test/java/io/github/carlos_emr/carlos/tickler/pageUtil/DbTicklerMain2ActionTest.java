@@ -17,12 +17,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -89,4 +94,24 @@ class DbTicklerMain2ActionTest extends CarlosWebTestBase {
         assertThat(mockResponse.getRedirectedUrl()).isEqualTo(
                 "/carlos/tickler/ViewTicklerMain?sort_column=service_date&sort_order=ASC&scheduleNav=1");
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Delete", "delete", "Erase Completely", "erase completely", "E", "e"})
+    @DisplayName("should only mark tasks deleted for Delete and legacy erase submissions")
+    void shouldMarkDeleted_whenDeleteOrLegacyEraseSubmitted(String submitForm) throws Exception {
+        Tickler tickler = mock(Tickler.class);
+        when(tickler.getId()).thenReturn(123);
+        when(ticklerManager.getTickler(any(LoggedInInfo.class), anyInt())).thenReturn(tickler);
+        mockRequest.addParameter("checkbox", "123");
+        mockRequest.addParameter("submit_form", submitForm);
+
+        String result = new DbTicklerMain2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(ticklerManager).getTickler(any(LoggedInInfo.class), eq(123));
+        verify(ticklerManager).updateStatus(any(LoggedInInfo.class), eq(123), any(), eq(Tickler.STATUS.D));
+        verifyNoMoreInteractions(ticklerManager);
+        assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/carlos/tickler/ViewTicklerMain");
+    }
+
 }

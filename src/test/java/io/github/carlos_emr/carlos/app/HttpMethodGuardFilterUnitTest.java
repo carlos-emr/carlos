@@ -36,9 +36,12 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Collections;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -429,6 +432,140 @@ class HttpMethodGuardFilterUnitTest {
 
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
+        }
+    }
+
+    /**
+     * Mixed-method actions name most of their writes with a compound value (the provider preference
+     * saves, the program and staff editors, the HRM report changes): each counts as the verb it starts
+     * with. Every page that sends one of these sends it by POST, so only GET and HEAD are refused.
+     */
+    @Nested
+    @DisplayName("GET requests with a compound mutator method parameter")
+    class CompoundMutatorMethodParams {
+
+        @ParameterizedTest
+        @ValueSource(strings = {"saveRxPageSize", "deleteComment", "removeTarget", "updateCategory",
+                "assign_role", "cancelStagedEFormFax", "SaveRxPageSize"})
+        @DisplayName("should block GET with a method value that starts with a mutator verb")
+        void shouldBlock_forGetWithCompoundMutatorMethod(String method) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/setProviderStaleDate");
+            when(request.getParameter("method")).thenReturn(method);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).setHeader("Allow", "POST");
+            verify(response).sendError(eq(405), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block HEAD with a compound mutator method")
+        void shouldBlock_forHeadWithCompoundMutatorMethod() throws Exception {
+            when(request.getMethod()).thenReturn("HEAD");
+            when(request.getRequestURI()).thenReturn("/carlos/hospitalReportManager/Modify");
+            when(request.getParameter("method")).thenReturn("updateCategory");
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(405), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"viewRxPageSize", "editRemove", "ticklerGetNote", "list", "fetch"})
+        @DisplayName("should pass through GET with a method value that does not start with a mutator verb")
+        void shouldPassThrough_forGetWithReadMethod(String method) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/setProviderStaleDate");
+            when(request.getParameter("method")).thenReturn(method);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should pass through POST with a compound mutator method")
+        void shouldPassThrough_forPostWithCompoundMutatorMethod() throws Exception {
+            when(request.getMethod()).thenReturn("POST");
+            when(request.getRequestURI()).thenReturn("/carlos/setProviderStaleDate");
+            when(request.getParameter("method")).thenReturn("saveRxPageSize");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should label the refusal of a compound method name in its one log line")
+        void shouldLabelRefusal_forCompoundMutatorMethod() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/setProviderStaleDate");
+            when(request.getParameter("method")).thenReturn("saveRxPageSize");
+
+            try (LogCapture logs = LogCapture.forLogger(HttpMethodGuardFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(logs.messages()).hasSize(1);
+                assertThat(logs.messages().get(0))
+                        .contains("/setProviderStaleDate?method=saveRxPageSize")
+                        .contains("(compound method name)");
+            }
+        }
+
+        @Test
+        @DisplayName("should not label the refusal of an exact method name")
+        void shouldNotLabelRefusal_forExactMutatorMethod() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/SystemMessage");
+            when(request.getParameter("method")).thenReturn("save");
+
+            try (LogCapture logs = LogCapture.forLogger(HttpMethodGuardFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(logs.messages()).hasSize(1);
+                assertThat(logs.messages().get(0)).doesNotContain("compound");
+            }
+        }
+    }
+
+    /**
+     * Satellite-sites Admin (issue #4700): the site list opens a site with a GET link, so that link uses the
+     * read-only method=edit; method=update and method=save stay refused on GET.
+     */
+    @Nested
+    @DisplayName("Satellite-sites Admin (admin/ManageSites)")
+    class ManageSites {
+
+        @Test
+        @DisplayName("should pass through the list's GET link with method=edit")
+        void shouldPassThrough_forGetWithEditMethodOnManageSites() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/ManageSites");
+            when(request.getParameter("method")).thenReturn("edit");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"update", "save"})
+        @DisplayName("should block GET with method=update or method=save")
+        void shouldBlock_forGetWithWriteMethodOnManageSites(String method) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/ManageSites");
+            when(request.getParameter("method")).thenReturn(method);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
         }
     }
 

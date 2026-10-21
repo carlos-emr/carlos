@@ -10,7 +10,7 @@
 	<property name="com.jaspersoft.studio.unit.rightMargin" value="pixel" />
 	<property name="com.jaspersoft.studio.unit.columnWidth" value="pixel" />
 	<property name="com.jaspersoft.studio.unit.columnSpacing" value="pixel" />
-	<style name="defaultStyle" default="true" fontSize="16" />
+	<style name="defaultStyle" default="true" fontName="DejaVu Sans" fontSize="16" />
 	<parameter name="background_image" class="net.sf.jasperreports.renderers.Renderable" />
 	<parameter name="check_image" />
 	<parameter name="cross_image" />

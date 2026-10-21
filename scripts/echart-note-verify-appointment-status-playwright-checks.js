@@ -23,7 +23,7 @@
  * the first letter>" (Sstarbill.gif, Vhere.gif) titled "<description>/Signed" or "<description>/Verified".
  * Notes carry the Encounter Date the clinician picked; the chart lists notes by it, oldest first. A date in
  * the future is stopped by the browser (alert "Observation date must be in the past" for a day after today)
- * and, if one still reaches the server, rolled back to the current time with encounter.futureDate.Msg.
+ * and, if one still reaches the server, refused before saving with a visible message and the draft retained.
  *
  * Asserted, in order, on an owned FAKE patient with two owned appointments on today's day sheet (To Do and
  * Here, the provider's own column, free slots inside the provider's hours):
@@ -48,14 +48,11 @@
  *  13. A future day picked in the calendar is stopped in the browser with the past-date message, posts
  *      no save and writes no note.
  *  14. A future Encounter Date that reaches the server (the browser's check is stepped around by rewriting the
- *      posted date in flight, because it only refuses days after today) is stored as the current time, not the
- *      future date.
+ *      posted date in flight, because it only refuses days after today) is refused before persistence and
+ *      the editor retains the draft.
  *  15. The encounter type picked in the chart's combo box is stored with the note (Save) and shown when the
  *      chart is reopened.
- *  16. LAST, pinned to finding 223: the clinician is told with encounter.futureDate.Msg ("Observation Date set
- *      in future, rolled back to current time") when Save rolls the date back. Today Save says nothing; the
- *      message only appears after Sign & Save has saved and signed the note. A script stops at its first failing
- *      step, so the pinned step is the last one.
+ *  16. The refusal shows the localized encounter-date validation message and leaves the draft available.
  *
  * ECHART_VERIFY_PIN selects a variant that pins a different finding (a script stops at its first failing step):
  *   - archive (entry echart-note-verify-appointment-status-archive) runs step 1 and step 4, then asserts that an
@@ -100,7 +97,7 @@ const LEGACY_ICONS = { tS: 'lts.gif', tV: 'ltv.gif', HV: 'hv.gif' };
 
 /** The step labels the manifest's expectedFailure entries name; one place, so the script and the manifest agree. */
 const STEP = {
-  told: 'the clinician is told with encounter.futureDate.Msg when Save rolls a future Encounter Date back',
+  told: 'the clinician is told the future encounter date was refused and the draft is retained',
   archive: 'the appointment archive row Sign & Save writes holds the status the appointment had before, not the one it was given',
   billing: 'the appointment archive keeps the status the Ontario bill save replaced',
 };
@@ -137,9 +134,9 @@ const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * The E link stores the appointment number in the session with a fire-and-forget fetch
- * (schedulePage.js.jsp storeApptNo, POST /provider/ViewStoreApptInSession) whose body nothing reads, and
- * Chromium reports that request as ERR_ABORTED when the day sheet is reloaded, which this check does after
- * every chart. That is the browser abandoning an unread response, not an application failure. This check does
+ * (schedulePage.js.jsp storeApptNo, POST /provider/ViewStoreApptInSession), and Chromium reports that
+ * request as ERR_ABORTED when the day sheet is reloaded before it completes, which this check does after
+ * every chart. That is the browser abandoning the request, not an application failure. This check does
  * not depend on the session copy of the appointment number (the E link's own URL carries appointmentNo=, which
  * is what the chart reads), so the aborted request is excused here, not asserted. Excuse exactly those entries
  * (fetch, ERR_ABORTED, that path) and nothing else.
@@ -164,7 +161,7 @@ async function workflow(s) {
   // Only the full flow judges these texts; the archive variant does not read them.
   const verifiedLabel = full || PIN === 'archive' ? bundleMessage('encounter.class.EctSaveEncounterAction.msgVerAndSig') : null;
   const pastDateMessage = full ? bundleMessage('encounter.pastObservationDateError.msg') : null;
-  const futureDateMessage = full ? bundleMessage('encounter.futureDate.Msg') : null;
+  const futureDateMessage = full ? bundleMessage('encounter.observationDateInvalid.msg') : null;
 
   // ---- Fixtures --------------------------------------------------------------------------------
   const appointments = {};
@@ -639,11 +636,12 @@ async function workflow(s) {
     await leaveChart(chart);
   });
 
-  const rolledBackText = `${marker} date rolled back`;
+  const rolledBackText = `${marker} future date draft retained`;
   const toldAbout = { dialogs: [], page: '', response: '' };
-  await s.step('a future Encounter Date that reaches the server is stored as the current time, not the future date', async () => {
+  await s.step('a future Encounter Date that reaches the server is refused before persistence and the editor retains the draft', async () => {
     const chart = await s.chart();
     await noteField(chart).fill(rolledBackText);
+    const marks = { bad: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length };
     // The browser refuses a day after today, so the posted date is rewritten in flight to tomorrow. The
     // same request is what the browser sends for a time later today (the calendar's default time is 12:00).
     const tomorrow = sql.value(`SELECT DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL 1 DAY), '%d-%b-%Y 09:00')`);
@@ -657,16 +655,31 @@ async function workflow(s) {
       }
     });
     toldAbout.dialogs = (await h.withExpectedDialogs(chart, async () => {
-      const response = await pressSave(chart);
+      const [response] = await Promise.all([
+        chart.waitForResponse(response => chartSaveRequest('save')(response.request()), { timeout: TIMEOUT }),
+        chart.locator(SAVE).first().click({ timeout: TIMEOUT }),
+      ]);
+      h.assert(response.status() === 400, `Future-date Save answered HTTP ${response.status()}, expected 400`);
       toldAbout.response = await response.text();
       await chart.waitForTimeout(2000);
     })).map(dialog => dialog.text);
     toldAbout.page = await chart.locator('body').innerText();
     await chart.unroute('**/CaseManagementEntry*');
-    const note = await waitForNote(rolledBackText, 'Save did not write the note whose date reached the server in the future');
-    h.assert(note.secondsAgo >= 0 && note.secondsAgo < 300,
-      `The note's observation_date is ${note.observed} (${note.secondsAgo}s before now), not the current time`);
-    await leaveChart(chart, note.id);
+    h.assert(noteWith(rolledBackText) === null, 'The refused future-date draft was persisted');
+    h.assert(await noteField(chart).inputValue() === rolledBackText, 'The editor lost the refused draft');
+    const refusals = s.recorder.badResponses.slice(marks.bad);
+    h.assert(refusals.length === 1 && refusals[0].status === 400
+      && new URL(refusals[0].url).pathname.endsWith('/CaseManagementEntry'),
+    'The future-date refusal was not the only bad response');
+    s.recorder.badResponses.splice(marks.bad, 1);
+    for (let i = s.recorder.consoleIssues.length - 1; i >= marks.console; i--) {
+      const entry = s.recorder.consoleIssues[i];
+      if (entry.type === 'error' && /status of 400\b/.test(entry.text) && entry.location
+          && new URL(entry.location.url).pathname.endsWith('/CaseManagementEntry')) {
+        s.recorder.consoleIssues.splice(i, 1);
+      }
+    }
+    await leaveChart(chart);
   });
 
   // ---- Encounter type --------------------------------------------------------------------------
@@ -703,7 +716,7 @@ async function workflow(s) {
   await s.step(STEP.told, async () => {
     const told = toldAbout.dialogs.some(text => text.includes(futureDateMessage))
       || toldAbout.page.includes(futureDateMessage) || toldAbout.response.includes(futureDateMessage);
-    h.assert(told, `Save rolled the date back without showing "${futureDateMessage}" (alerts: ${JSON.stringify(toldAbout.dialogs)}; `
+    h.assert(told, `Save refused the date without showing "${futureDateMessage}" (alerts: ${JSON.stringify(toldAbout.dialogs)}; `
       + 'neither the chart page nor the save response contains it)');
   });
 }

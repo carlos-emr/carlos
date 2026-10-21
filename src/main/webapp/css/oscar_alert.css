@@ -25,13 +25,32 @@
 */
 -->
 
-/* Initial hidden state with opacity and position off-screen */
-.oscar-alert {
+/*
+ * A floating toast at the bottom centre of the window.
+ *
+ * The selector outranks Bootstrap's .alert rule, which also sets position, in the scoped copy the
+ * alert is styled by (.carlos-eform-ui .alert, specificity 0,2,0). With the plain stylesheet loaded
+ * after this file, .alert used to win the tie, so the alert sat in normal flow at the very end of
+ * the page, under the toolbar and usually below the fold where the clinician never saw it (#3944).
+ */
+.oscar-alert-host > .alert.oscar-alert {
     position: fixed;
     bottom: 50px;
     left: 50%;
+    /* Bootstrap's 1rem flow margin would lift the toast above the 50px it is pinned at. */
+    margin: 0;
     transform: translateX(-50%);
     transition: all 0.3s ease;
     z-index: 99999;
     box-shadow: 0 8px 16px rgb(0 0 0 / 0.3);
+}
+
+/*
+ * The alert's Bootstrap scope (.carlos-eform-ui) without a box of its own: the scope only has to be
+ * an ancestor for the scoped rules to match, and custom properties and fonts still inherit through
+ * it. A box would be appended below the eForm toolbar and count as page content when the toolbar
+ * measures where the form ends, pushing the toolbar down every time an alert is shown.
+ */
+.oscar-alert-host {
+    display: contents;
 }

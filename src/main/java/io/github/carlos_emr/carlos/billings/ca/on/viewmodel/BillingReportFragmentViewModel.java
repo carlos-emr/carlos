@@ -46,7 +46,7 @@ import java.util.List;
  */
 public final class BillingReportFragmentViewModel {
 
-    /** Row in billingReport_billed.jspf — a Billing entry filtered by date range. */
+    /** Row in billingReport_billed.jspf — an open Ontario claim in the date range; billingId is the claim's id. */
     public record BilledRow(
             String apptDate,
             String apptTime,
@@ -57,7 +57,7 @@ public final class BillingReportFragmentViewModel {
             String reasonCode,
             String rowBgColor) { }
 
-    /** Row in billingReport_unsettled.jspf — a Billing entry filtered to unsettled status. */
+    /** Row in billingReport_unsettled.jspf — an Ontario claim submitted and not yet settled; billingId is its id. */
     public record UnsettledRow(
             String apptDate,
             String apptTime,
@@ -67,14 +67,14 @@ public final class BillingReportFragmentViewModel {
             String reasonCode,
             String rowBgColor) { }
 
-    /** Row in billingReport_billob.jspf — search_billob row joined with service codes. */
+    /** Row in billingReport_billob.jspf — an Ontario claim with an obstetric service code, and its items' codes. */
     public record BillobRow(
             int billingId,
             String demoName,
             String apptDate,
             List<String> serviceCodes,   // up to 10 entries (legacy param2[0..9])
             String total,                // formatted with decimal point
-            String reasonCode,           // bill status (S/B/X/...)
+            String reasonCode,           // claim status (S/B/X/...)
             String rowBgColor) { }
 
     /** Row in billingReport_flu.jspf for the clinic-count side (specialty != "flu"). */

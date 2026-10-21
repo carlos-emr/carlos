@@ -1,8 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
-const { pdfText, assertEmbeddedFonts, squash } = require('./lib/export-content-helpers');
+const { pdfText, pdfTextBuffer, assertEmbeddedFonts, squash } = require('./lib/export-content-helpers');
 const lab = path.join(__dirname, '../src/test/resources/pdf/unicode-lab-print.pdf');
 
 test('content order preserves wrapped accession hyphens without interleaving adjacent columns', () => {
@@ -16,6 +17,12 @@ test('content order preserves wrapped accession hyphens without interleaving adj
 
 test('layout order keeps result values and abnormal flags on their rows', () => {
   const text = pdfText(lab, { layout: true });
+  assert.match(text, /Hemoglobin\s+98\s+L\s+120-160\s+g\/L/);
+  assert.match(text, /Platelets\s+450\s+H\s+150-400/);
+});
+
+test('layout extraction from downloaded PDF bytes keeps values in their columns', () => {
+  const text = pdfTextBuffer(fs.readFileSync(lab), { layout: true });
   assert.match(text, /Hemoglobin\s+98\s+L\s+120-160\s+g\/L/);
   assert.match(text, /Platelets\s+450\s+H\s+150-400/);
 });

@@ -55,13 +55,7 @@
 
 <%!
     //multisite starts =====================
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-    private JdbcApptImpl jdbc = new JdbcApptImpl();
-    private List<Site> sites;
-    private String[] curScheduleMultisite;
-
-    private String getSiteHTML(String scDate, String provider_no, List<Site> sites) {
-        if (!bMultisites) return "";
+    private String getSiteHTML(JdbcApptImpl jdbc, String scDate, String provider_no, List<Site> sites) {
         String _loc = jdbc.getLocationFromSchedule(scDate, provider_no);
         String color = ApptUtil.getColorFromLocation(sites, _loc);
         // Validate color against safe CSS characters to prevent CSS injection via style attribute
@@ -69,7 +63,12 @@
         return "<span style='background-color:" + color + "'>" + SafeEncode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
     }
 %>
-<% if (bMultisites) {
+<%
+    // Multisite state belongs to this request only; a JSP declaration would make it fields shared by every login.
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+    JdbcApptImpl jdbc = new JdbcApptImpl();
+    List<Site> sites = new java.util.ArrayList<Site>();
+    if (bMultisites) {
     SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
     sites = siteDao.getAllSites();
 }
@@ -325,7 +324,7 @@
         <tr align="center" bgcolor="<%=bgcolor%>">
             <%
                 if (bMultisites)
-                    out.print("<td align='right'>" + getSiteHTML(strTempDate, curProvider_no, sites) + "</td>");
+                    out.print("<td align='right'>" + getSiteHTML(jdbc, strTempDate, curProvider_no, sites) + "</td>");
             %>
             <td align="right" nowrap><a
                     href="<%=originalPagePath%>?year=<%=cal.get(Calendar.YEAR)%>&month=<%=cal.get(Calendar.MONTH)+1%>&day=<%=cal.get(Calendar.DATE)%>&view=0&displaymode=day&dboperation=searchappointmentday"><%=outform.format(inform.parse(strTempDate))%>&nbsp;</a>

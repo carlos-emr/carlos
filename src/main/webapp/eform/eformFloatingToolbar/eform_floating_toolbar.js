@@ -576,6 +576,24 @@ function remoteSave() {
 }
 
 /**
+ * The element jQuery UI dialogs opened from the toolbar are appended to: a box-less container at the
+ * end of <body> carrying carlos-eform-ui, the scope of the page's Bootstrap copy (#3944). The
+ * attachment picker shows and hides its rows with Bootstrap's .d-none, so it needs the scope; and
+ * putting the scope above the dialog, where <body> used to be, keeps the dialog's jQuery UI font and
+ * colours instead of restyling its content element as if it were the page body.
+ */
+function eformDialogHost() {
+    let host = document.getElementById("carlosEformDialogHost");
+    if (!host) {
+        host = document.createElement("div");
+        host.id = "carlosEformDialogHost";
+        host.className = "carlos-eform-ui carlos-eform-dialog-host";
+        document.body.appendChild(host);
+    }
+    return host;
+}
+
+/**
  * Triggers the eForm attach function
  */
 jQuery(document).on('click', '*[data-poload]', function () {
@@ -622,6 +640,7 @@ jQuery(document).on('click', '*[data-poload]', function () {
         }
     }).dialog({
         title: title,
+        appendTo: eformDialogHost(),
         modal: true,
         closeText: "Save and Close",
         height: 'auto',
@@ -1242,7 +1261,9 @@ function includeHTML(elmnt) {
             if (this.status === 200) {
                 let toolbarWrapper = document.createElement("div");
                 toolbarWrapper.setAttribute("id", "toolbarWrapper");
-                toolbarWrapper.setAttribute("class", "hidden-print DoNotPrint no-print");
+                // carlos-eform-ui scopes the page's Bootstrap copy to the toolbar, so the eForm
+                // around it keeps its own styling (#3944).
+                toolbarWrapper.setAttribute("class", "carlos-eform-ui hidden-print DoNotPrint no-print");
                 // Same-origin JSP fragment (eform_floating_toolbar) with server-defined
                 // event handlers — innerHTML is required for toolbar functionality.
                 toolbarWrapper.innerHTML = this.responseText; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
@@ -1517,7 +1538,7 @@ function HideSpin() {
 				return true;
 			}
 
-			const inputId = 'openosp-img-' + id;
+			const inputId = 'carlos-img-' + id;
 
 			// Remove any existing hidden input for this image
 			jQuery("input[type='hidden'][id='" + inputId + "']").remove();
@@ -1525,7 +1546,7 @@ function HideSpin() {
 			// Add a fresh hidden input
 			jQuery('<input>', {
 				id: inputId,
-				name: 'openosp-image-link',
+				name: 'carlos-image-link',
 				value: JSON.stringify({ id: id, value: src }),
 				type: 'hidden'
 			}).appendTo("form[method='POST']");
