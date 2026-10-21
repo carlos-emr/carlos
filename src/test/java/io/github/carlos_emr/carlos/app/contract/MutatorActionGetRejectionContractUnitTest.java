@@ -593,7 +593,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.documentManager.actions.DocumentTextBoxes2Action",
         "io.github.carlos_emr.carlos.report.gate.ViewReport2Action",
         // CDS 4 report results: the shared report gate plus a functional centre in use. Read-only.
-        "io.github.carlos_emr.carlos.report.gate.ViewCds4ReportResults2Action"
+        "io.github.carlos_emr.carlos.report.gate.ViewCds4ReportResults2Action",
+        // ECHART HISTORY: the shared report gate plus the patient's record restrictions. Read-only.
+        "io.github.carlos_emr.carlos.report.gate.ViewReportEChartHistory2Action"
     );
 
     /**
