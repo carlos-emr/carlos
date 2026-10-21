@@ -559,7 +559,10 @@ class MutatorActionGetRejectionContractUnitTest {
         // parameters renders the page (and its Search); identifier+loinc_code (a mapping) or id
         // (a removal/remap) is POST-only (issue #3335). Covered by EctMeasurementMapWrite2ActionsUnitTest.
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action",
-        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action"
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action",
+        // BPMH form: method=save and method=print store the form and must be POST; opening it permits GET.
+        // Focused GET/HEAD cases in BpmhFormRetrieve2ActionUnitTest.
+        "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action"
     );
 
     /**
@@ -737,7 +740,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action",
-        "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action"
+        "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
+        // The form package is not in IN_SCOPE_PACKAGE_PREFIXES; the BPMH form's dispatcher registers here.
+        "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
