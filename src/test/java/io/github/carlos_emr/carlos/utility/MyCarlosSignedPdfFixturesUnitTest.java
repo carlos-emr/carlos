@@ -37,6 +37,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentNameDictionary;
 import org.apache.pdfbox.pdmodel.common.filespecification.PDComplexFileSpecification;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessableByteArray;
@@ -126,6 +127,8 @@ class MyCarlosSignedPdfFixturesUnitTest {
 
         assertThat(new String(pdf, 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
         assertThat(pdfFacts.ranges()).isEqualTo(declaredRanges(entry));
+        // Strict, as myCarlos checks: only zeros follow the CMS in /Contents, never ciphertext.
+        assertThat(pdfFacts.signatures()).allMatch(Sig::zeroPadded);
         if (!"two_signatures".equals(expect)) {
             assertThat(pdfFacts.signatures()).hasSize(1);
         }
@@ -236,7 +239,8 @@ class MyCarlosSignedPdfFixturesUnitTest {
         return new String(pdf, end, pdf.length - end, StandardCharsets.ISO_8859_1);
     }
 
-    record Sig(List<Long> range, boolean cmsValid, String subFilter, String signerSpki, String keyAlgorithm) {
+    record Sig(List<Long> range, boolean cmsValid, String subFilter, String signerSpki, String keyAlgorithm,
+            boolean zeroPadded) {
         boolean coversWholeFile(long length) {
             return range.get(0) == 0 && range.get(2) + range.get(3) == length;
         }
@@ -270,10 +274,19 @@ class MyCarlosSignedPdfFixturesUnitTest {
                 } catch (CMSException e) {
                     valid = false;
                 }
+                byte[] contents = signature.getContents(pdf);
+                int cmsLength;
+                try (ASN1InputStream input = new ASN1InputStream(contents)) {
+                    cmsLength = input.readObject().getEncoded().length;
+                }
+                boolean zeroPadded = true;
+                for (int i = cmsLength; i < contents.length; i++) {
+                    zeroPadded &= contents[i] == 0;
+                }
                 signatures.add(new Sig(range, valid, signature.getSubFilter(),
                         Base64.getEncoder().encodeToString(certificate.getSubjectPublicKeyInfo().getEncoded()),
                         new org.bouncycastle.cert.jcajce.JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)
-                                .getCertificate(certificate).getPublicKey().getAlgorithm()));
+                                .getCertificate(certificate).getPublicKey().getAlgorithm(), zeroPadded));
             }
             PDDocumentNameDictionary names = document.getDocumentCatalog().getNames();
             if (names != null && names.getEmbeddedFiles() != null && names.getEmbeddedFiles().getNames() != null) {
