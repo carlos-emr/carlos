@@ -461,6 +461,13 @@ behind the portal's own switch, `PATIENT_PORTAL_MYCARLOS_DELIVERY_ENABLED`.
   added in the same update as the PAdES signature. Its format is defined in
   `src/main/java/io/github/carlos_emr/carlos/utility/DocumentManifest.java`, which arrives
   with #4691's second PR.
+
+  The signature binds that manifest directly too. Its CMS signed attributes carry
+  `id-aa-carlos-documentManifestSha256` (OID `2.25.132515939282652475535231260060469025505`):
+  one 32-byte OCTET STRING holding SHA-256 of the exact embedded bytes
+  (`PDFSigningUtil.DOCUMENT_MANIFEST_SHA256`). myCarlos checks the manifest against it, so the
+  binding also holds in a password-protected email copy, whose embedded file is encrypted. In a
+  copy without a password, the embedded file is stored uncompressed.
 - **The manifest** is RFC 8785 (JCS) JSON with exactly the claims the spec lists. That
   includes the patient's name and birth date as on the chart, for filing on the device. Only
   the device ever sees them, inside the seal.
