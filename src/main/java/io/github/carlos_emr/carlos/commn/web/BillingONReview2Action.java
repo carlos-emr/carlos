@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.commn.web;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -83,7 +84,16 @@ public class BillingONReview2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        Demographic demographic = demographicDao.getDemographic(demographicNo);
+        final int patient;
+        try {
+            patient = PatientReadAccess.requestedPatient(request, true);
+        } catch (IllegalArgumentException invalid) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        PatientReadAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                patient, "_demographic", SecurityInfoManager.READ);
+        Demographic demographic = demographicDao.getDemographic(Integer.toString(patient));
 
         String json = objectMapper.writeValueAsString(demographic);
         response.setContentType("application/json;charset=UTF-8");

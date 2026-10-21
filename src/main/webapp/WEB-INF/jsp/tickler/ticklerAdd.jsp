@@ -72,6 +72,8 @@
 --%>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.PatientReadAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -135,14 +137,26 @@
     // A document forward whose document is not this patient's drops the patient (#4839).
     boolean patientDroppedForDocument = Boolean.TRUE.equals(
             request.getAttribute(ForwardDemographicTickler2Action.PATIENT_DROPPED_FOR_DOCUMENT));
-    String requestDemographicNo = patientDroppedForDocument ? null : request.getParameter("demographic_no");
+    String requestDemographicNo = null;
+    if (!patientDroppedForDocument) {
+        // The legacy forward action also reaches this JSP. Resolve the same actual patient
+        // before any demographic lookup; blank/0 forms have no patient to authorize or load.
+        try {
+            requestDemographicNo = PatientReadAccess.authorizedOptionalPatient(request,
+                    SpringUtils.getBean(SecurityInfoManager.class), LoggedInInfo.getLoggedInInfoFromSession(request),
+                    "_tickler", SecurityInfoManager.WRITE);
+        } catch (IllegalArgumentException invalid) {
+            response.setStatus(400);
+            return;
+        }
+    }
 
     // Text the opener suggests for the task. It only seeds the Reminder Message box, where it is
     // HTML-encoded, and the clinician reviews it before Save.
     String suggestedMessage = Objects.toString(request.getParameter("ticklerMessage"), "");
 
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    Demographic demographic = demographicDao.getDemographic(requestDemographicNo);
+    Demographic demographic = requestDemographicNo == null ? null : demographicDao.getDemographic(requestDemographicNo);
     if (demographic != null) {
         demoName = demographic.getFormattedName();
         demoMRP = demographic.getProviderNo();

@@ -125,7 +125,8 @@
         String first_name = "", last_name = "", chart_no = "", address = "", city = "", province = "", postal = "", phone = "", phone2 = "", dob = "", sex = "", hin = "";
         String refDoc = "";
         String providername = "";
-        String demoNo = request.getParameter("demographic_no");
+        String demoNo = request.getAttribute("authorizedPatientReadNo") instanceof String authorizedPatientReadNo
+            ? authorizedPatientReadNo : request.getParameter("demographic_no");
 
         Demographic demo = demographicDao.getDemographic(demoNo);
         if (demo == null) {

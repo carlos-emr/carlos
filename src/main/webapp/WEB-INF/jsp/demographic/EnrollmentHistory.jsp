@@ -72,7 +72,8 @@
     DemographicArchiveDao demoArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
 
     // Read request parameters
-    String demographicNo = request.getParameter("demographicNo");
+    String demographicNo = request.getAttribute("authorizedPatientReadNo") instanceof String authorizedPatientReadNo
+            ? authorizedPatientReadNo : request.getParameter("demographicNo");
 
     int demographicId = NumberUtils.toInt(demographicNo, -1);
     Demographic demographic = demographicId > 0

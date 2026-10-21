@@ -174,6 +174,12 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
                                                                  int itemsToReturn) {
+        return getRecentDemographicsAccessedByProvider(providerNo, startPosition, itemsToReturn, java.util.Set.of());
+    }
+
+    @Override
+    public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
+            int itemsToReturn, java.util.Set<Integer> deniedPatients) {
         // Audit history outlives deleted/merged patient rows. Exclude missing
         // and soft-deleted patients before pagination so a stale ID neither breaks
         // the picker nor hides the next available patient. Group by latest access.
@@ -182,8 +188,10 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
                 + " and exists (select d.demographicNo from Demographic d where d.demographicNo = l.demographicId"
                 + " and (d.patientStatus is null or d.patientStatus <> 'DE'))"
                 + " and not exists (select m.id from DemographicMerged m where m.demographicNo = l.demographicId and m.deleted = 0)"
+                + (deniedPatients.isEmpty() ? "" : " and l.demographicId not in (?2)")
                 + " group by l.demographicId order by max(l.created) desc, l.demographicId", Integer.class);
         query.setParameter(1, providerNo);
+        if (!deniedPatients.isEmpty()) query.setParameter(2, deniedPatients);
         query.setFirstResult(startPosition);
         setLimit(query, itemsToReturn);
         return query.getResultList();
