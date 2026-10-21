@@ -134,6 +134,13 @@ Ontario, Canada
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="Appointment.textTooLong" var="appointmentTextTooLong"/>
+<fmt:message key="Appointment.textInvalidUnicode" var="appointmentTextInvalidUnicode"/>
+<fmt:message key="Appointment.formName" var="appointmentTextName"/>
+<fmt:message key="Appointment.formReason" var="appointmentTextReason"/>
+<fmt:message key="Appointment.formNotes" var="appointmentTextNotes"/>
+<fmt:message key="Appointment.formResources" var="appointmentTextResources"/>
+
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -156,10 +163,12 @@ Ontario, Canada
     ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
     int everyMin = providerPreference.getEveryMin();
 
+    boolean appointmentTextRetry = Boolean.TRUE.equals(request.getAttribute("appointmentTextRetry"));
     boolean bFirstDisp = true; //this is the first time to display the window
     boolean bFromWL = false; //this is from waiting list page
 
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = (request.getParameter("bFirstDisp")).equals("true");
+    if (appointmentTextRetry) bFirstDisp = false;
     if (request.getParameter("demographic_no") != null) bFromWL = true;
 
     String duration = request.getParameter("duration") != null ? (request.getParameter("duration").equals(" ") || request.getParameter("duration").equals("") || request.getParameter("duration").equals("null") ? ("" + everyMin) : request.getParameter("duration")) : ("" + everyMin);
@@ -230,6 +239,7 @@ Ontario, Canada
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
         <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
+        <script src="${pageContext.request.contextPath}/js/appointmentTextBounds.js"></script>
         <title><fmt:message key="appointment.addappointment.title"/></title>
 
         <style>
@@ -313,6 +323,9 @@ Ontario, Canada
             }
 
             function onAdd() {
+                const form = document.ADDAPPT;
+                if (form.displaymode.value !== 'Search ' && form.displaymode.value !== 'Group Appt'
+                        && !CarlosAppointmentTextBounds.validate(form, showJSAlert)) return false;
                 return calculateEndTime();
             }
 
@@ -1044,8 +1057,15 @@ Ontario, Canada
                 }
             }
         %>
-        <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
-            <span id="jsAlertText"></span>
+        <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="<%= appointmentTextRetry ? "" : "display:none" %>" role="alert">
+            <span id="jsAlertText"><c:if test="${appointmentTextRetry}">
+                <fmt:message key="${appointmentTextLabelKey}" var="appointmentTextLabel"/>
+                <fmt:message key="${appointmentTextMessageKey}" var="appointmentTextMessage">
+                    <fmt:param value="${appointmentTextLabel}"/>
+                    <fmt:param value="${appointmentTextMaximum}"/>
+                </fmt:message>
+                <c:out value="${appointmentTextMessage}"/>
+            </c:if></span>
             <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
         </div>
         <div id="tooManySameDayGroupApptWarning" style="<%=displayStyle%>">
@@ -1139,7 +1159,13 @@ Ontario, Canada
 
         <form name="ADDAPPT" id="addappt" method="post"
               action="<%=request.getContextPath()%>/appointment/AddRecord"
-              onsubmit="return(onAdd())">
+              onsubmit="return(onAdd())"
+              data-appointment-too-long="${carlos:forHtmlAttribute(appointmentTextTooLong)}"
+              data-appointment-invalid="${carlos:forHtmlAttribute(appointmentTextInvalidUnicode)}"
+              data-appointment-name="${carlos:forHtmlAttribute(appointmentTextName)}"
+              data-appointment-reason="${carlos:forHtmlAttribute(appointmentTextReason)}"
+              data-appointment-notes="${carlos:forHtmlAttribute(appointmentTextNotes)}"
+              data-appointment-resources="${carlos:forHtmlAttribute(appointmentTextResources)}">
             <input type="hidden" name="displaymode" value="">
             <input type="hidden" name="year" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="month" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month")) %>' context="htmlAttribute"/>">
@@ -1147,7 +1173,7 @@ Ontario, Canada
             <input type="hidden" name="fromAppt" value="1">
             <%-- One booking per rendering (issue #4225): a repeat of this form ends as its first save did. --%>
             <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
-                   value="<carlos:encode value='<%= FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.APPOINTMENT_ADD, null) %>' context="htmlAttribute"/>">
+                   value="<carlos:encode value='<%= (appointmentTextRetry && request.getParameter(FormSubmissionGuard.PARAMETER) != null) ? request.getParameter(FormSubmissionGuard.PARAMETER) : FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.APPOINTMENT_ADD, null) %>' context="htmlAttribute"/>">
 
 
             <div class="page-header-bar time" id="header">
@@ -1199,7 +1225,9 @@ Ontario, Canada
                                 <div class="input-group input-group-sm">
                                 <%
                                     String name = "";
-                                    if (!bFirstDisp || bFromWL) {
+                                    if (appointmentTextRetry) {
+                                        name = StringUtils.defaultString(request.getParameter("keyword"));
+                                    } else if (!bFirstDisp || bFromWL) {
                                         // Prefer server-side DB lookup over any name transmitted via URL to avoid PHI exposure.
                                         // When demographic_no is present, resolve the patient name directly from the database.
                                         String demoNoForName = StringUtils.trimToNull(request.getParameter("demographic_no"));

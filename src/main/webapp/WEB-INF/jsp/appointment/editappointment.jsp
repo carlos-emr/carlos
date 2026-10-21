@@ -102,6 +102,13 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="Appointment.textTooLong" var="appointmentTextTooLong"/>
+<fmt:message key="Appointment.textInvalidUnicode" var="appointmentTextInvalidUnicode"/>
+<fmt:message key="Appointment.formName" var="appointmentTextName"/>
+<fmt:message key="Appointment.formReason" var="appointmentTextReason"/>
+<fmt:message key="Appointment.formNotes" var="appointmentTextNotes"/>
+<fmt:message key="Appointment.formResources" var="appointmentTextResources"/>
+
 <fmt:message key="report.appointmentReceipt.title" var="appointmentReceiptTitle"/>
 <fmt:message key="appointment.editappointment.msgReceiptPending" var="appointmentReceiptPending"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -119,8 +126,10 @@
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
     String origDate = null;
 
+    boolean appointmentTextRetry = Boolean.TRUE.equals(request.getAttribute("appointmentTextRetry"));
     boolean bFirstDisp = true; //this is the first time to display the window
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = ("true".equals(request.getParameter("bFirstDisp")));
+    if (appointmentTextRetry) bFirstDisp = false;
 
     String mrpName = "";
     DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
@@ -268,6 +277,7 @@
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
         <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
+        <script src="${pageContext.request.contextPath}/js/appointmentTextBounds.js"></script>
 
         <style>
 
@@ -465,6 +475,10 @@
                     }
                 }
                 if (saveTemp === 2) {
+                    if (!CarlosAppointmentTextBounds.validate(document.EDITAPPT, showJSAlert)) {
+                        document.EDITAPPT.printReceipt.value = '';
+                        return false;
+                    }
                     if (!calculateEndTime()) {
                         document.EDITAPPT.printReceipt.value = '';
                         return false;
@@ -860,12 +874,25 @@
 
 <div id="editAppointment" >
     <div class="container" >
-<form name="EDITAPPT" METHOD="post" ACTION="<%=request.getContextPath() %>/appointment/UpdateRecord" onSubmit="return(onSub())">
+<form name="EDITAPPT" METHOD="post" ACTION="<%=request.getContextPath() %>/appointment/UpdateRecord" onSubmit="return(onSub())"
+              data-appointment-too-long="${carlos:forHtmlAttribute(appointmentTextTooLong)}"
+              data-appointment-invalid="${carlos:forHtmlAttribute(appointmentTextInvalidUnicode)}"
+              data-appointment-name="${carlos:forHtmlAttribute(appointmentTextName)}"
+              data-appointment-reason="${carlos:forHtmlAttribute(appointmentTextReason)}"
+              data-appointment-notes="${carlos:forHtmlAttribute(appointmentTextNotes)}"
+              data-appointment-resources="${carlos:forHtmlAttribute(appointmentTextResources)}">
     <input type="hidden" name="displaymode" value="">
     <input type="hidden" name="buttoncancel" value="">
     <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
-    <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
-        <span id="jsAlertText"></span>
+    <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="<%= appointmentTextRetry ? "" : "display:none" %>" role="alert">
+        <span id="jsAlertText"><c:if test="${appointmentTextRetry}">
+                <fmt:message key="${appointmentTextLabelKey}" var="appointmentTextLabel"/>
+                <fmt:message key="${appointmentTextMessageKey}" var="appointmentTextMessage">
+                    <fmt:param value="${appointmentTextLabel}"/>
+                    <fmt:param value="${appointmentTextMaximum}"/>
+                </fmt:message>
+                <c:out value="${appointmentTextMessage}"/>
+            </c:if></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>
     <%-- patientStatusBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
@@ -940,7 +967,8 @@
 
                 List<Appointment> aa = appointmentDao.search_group_day_appt(myGroupNo, Integer.parseInt(demono), ConversionUtils.fromDateString(strApptDate));
 
-                long numSameDayGroupAppts = aa.size() > 0 ? new Long(aa.size()) : 0;
+                long numSameDayGroupAppts = aa.stream().filter(candidate -> !appointmentTextRetry
+                        || apptFromRequest == null || !Objects.equals(candidate.getId(), apptFromRequest.getId())).count();
                 bMultipleSameDayGroupAppt = (numSameDayGroupAppts > 0);
             }
 
@@ -966,7 +994,7 @@
             DemographicData dd = new DemographicData();
             Demographic demo = dd.getDemographic(loggedInInfo, String.valueOf(appt.getDemographicNo()));
             doctorNo = demo != null ? (demo.getProviderNo()) : "";
-        } else if (!request.getParameter("doctor_no").equals("")) {
+        } else if (request.getParameter("doctor_no") != null && !request.getParameter("doctor_no").equals("")) {
             doctorNo = request.getParameter("doctor_no");
         }
 
@@ -1058,8 +1086,8 @@
                                value="<fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>
                     <td>
-            	<input type="text" name="keyword" id="keyword" class="form-control"
-                               value="<carlos:encode value='<%= bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "") %>' context="htmlAttribute"/>"
+                <input type="text" name="keyword" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getName()) %>' context="htmlAttribute"/>" id="keyword" class="form-control"
+                               value="<carlos:encode value='<%= appointmentTextRetry ? StringUtils.defaultString(request.getParameter("keyword")) : (bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "")) %>' context="htmlAttribute"/>"
                                placeholder="<fmt:message key="Appointment.formName"/>">
                     </td>
                 </tr>
@@ -1094,7 +1122,7 @@
                 </tr>
                 <tr>
             <td></td><td>
-				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
+				<textarea id="reason" class="form-control" name="reason" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getReason()) %>' context="htmlAttribute"/>" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
 
                     </td>
                 </tr>
@@ -1317,7 +1345,7 @@
                         <label><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
-				<textarea name="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
+				<textarea name="notes" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getNotes()) %>' context="htmlAttribute"/>" class="form-control" maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
                     </td>
                 </tr>
                 <tr>
@@ -1325,7 +1353,7 @@
                         <label><fmt:message key="Appointment.formResources"/>:</label>
                     </td>
                     <td>
-                <input type="text" name="resources" tabindex="5" class="form-control"
+                <input type="text" name="resources" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getResources()) %>' context="htmlAttribute"/>" tabindex="5" class="form-control"
                                value="<carlos:encode value='<%= bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : "") %>' context="htmlAttribute"/>">
                     </td>
                 </tr>
