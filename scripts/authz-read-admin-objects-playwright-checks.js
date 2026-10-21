@@ -34,7 +34,7 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { probe, classify, refusedByApp, refusedHead, urlFor, signIn, ledger } = require('./lib/authz-read-probe');
 
-const FIELD_NOTE = ['eform/fieldNoteReport/fieldnotereport', 'eform/fieldNoteReport/fieldnotereportdetail?residentId=0&residentName=x',
+const FIELD_NOTE = ['eform/fieldNoteReport/fieldnotereport', 'eform/fieldNoteReport/fieldnotereportdetail?residentId=0&residentName=x&date_start=2026-01-01&date_end=2026-12-31',
   'eform/fieldNoteReport/fieldnoteselect'];
 const MEASUREMENT_DOORS = ['encounter/oscarMeasurements/ViewViewMeasurementMap', 'encounter/oscarMeasurements/ViewCustomization',
   'encounter/oscarMeasurements/ViewDisplayMeasurementTypes', 'encounter/oscarMeasurements/ViewDisplayMeasurementStyleSheet',
