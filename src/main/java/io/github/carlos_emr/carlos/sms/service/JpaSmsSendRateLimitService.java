@@ -14,40 +14,56 @@ import java.time.Duration;
 import java.util.Date;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 @Primary
 @Service
 public class JpaSmsSendRateLimitService implements SmsSendRateLimitService {
-    // Initial fixed-window cap; tune once selected SMS provider limits and rollout volume are confirmed.
-    private static final int DEFAULT_MAX_SENDS_PER_WINDOW = 5;
-    private static final Duration DEFAULT_WINDOW = Duration.ofSeconds(5);
-
     private final SmsProviderRateLimitDao rateLimitDao;
-    private final int maxSendsPerWindow;
-    private final Duration window;
+    private final Function<SmsProviderType, SmsSendRateLimit> limits;
     private final Clock clock;
 
+    /** Each provider is held to the limit its client states; a provider with no client gets the default. */
     @Autowired
-    public JpaSmsSendRateLimitService(SmsProviderRateLimitDao rateLimitDao) {
-        this(rateLimitDao, DEFAULT_MAX_SENDS_PER_WINDOW, DEFAULT_WINDOW, Clock.systemUTC());
+    public JpaSmsSendRateLimitService(SmsProviderRateLimitDao rateLimitDao, SmsProviderClientResolver providerClients) {
+        this(rateLimitDao, providerType -> providerClients.registeredProviderTypes().contains(providerType)
+                ? providerClients.resolve(providerType).sendRateLimit()
+                : SmsSendRateLimit.DEFAULT, Clock.systemUTC());
     }
 
+    /**
+     * For tests: one limit for every provider. A count below 1 means 1; a missing, zero or negative window means
+     * the default window, and a positive one under a millisecond means one millisecond.
+     */
     JpaSmsSendRateLimitService(
             SmsProviderRateLimitDao rateLimitDao,
             int maxSendsPerWindow,
             Duration window,
             Clock clock
     ) {
+        this(rateLimitDao, fixed(maxSendsPerWindow, window), clock);
+    }
+
+    JpaSmsSendRateLimitService(
+            SmsProviderRateLimitDao rateLimitDao,
+            Function<SmsProviderType, SmsSendRateLimit> limits,
+            Clock clock
+    ) {
         this.rateLimitDao = Objects.requireNonNull(rateLimitDao, "rateLimitDao is required");
-        this.maxSendsPerWindow = Math.max(1, maxSendsPerWindow);
-        this.window = safeWindow(window);
+        this.limits = Objects.requireNonNull(limits, "SMS send rate limits are required");
         this.clock = clock == null ? Clock.systemUTC() : clock;
+    }
+
+    private static Function<SmsProviderType, SmsSendRateLimit> fixed(int maxSendsPerWindow, Duration window) {
+        SmsSendRateLimit limit = new SmsSendRateLimit(Math.max(1, maxSendsPerWindow), safeWindow(window));
+        return providerType -> limit;
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean tryAcquire(SmsProviderType providerType) {
         SmsProviderType safeProviderType = providerType == null ? SmsProviderType.STUB : providerType;
+        SmsSendRateLimit limit = Objects.requireNonNull(limits.apply(safeProviderType), "SMS send rate limit is required");
         // Materialize the key with one atomic upsert before locking it. A locking read of a missing key
         // takes a gap lock under MariaDB repeatable read; concurrent inserts then deadlock while upgrading
         // those gap locks. The upsert also takes an exclusive lock for an existing key, so it avoids the
@@ -60,7 +76,7 @@ public class JpaSmsSendRateLimitService implements SmsSendRateLimitService {
         }
         // A caller may have waited through a window rollover. Use the time after locking so an old
         // timestamp cannot be mistaken for a backward clock change and reset the committed count.
-        boolean acquired = rateLimit.tryAcquire(Date.from(clock.instant()), maxSendsPerWindow, window);
+        boolean acquired = rateLimit.tryAcquire(Date.from(clock.instant()), limit.maxSends(), limit.window());
         if (acquired) {
             rateLimitDao.merge(rateLimit);
             rateLimitDao.flush();
@@ -70,7 +86,7 @@ public class JpaSmsSendRateLimitService implements SmsSendRateLimitService {
 
     private static Duration safeWindow(Duration window) {
         if (window == null || window.isNegative() || window.isZero()) {
-            return DEFAULT_WINDOW;
+            return SmsSendRateLimit.DEFAULT.window();
         }
         return window.toMillis() < 1 ? Duration.ofMillis(1) : window;
     }

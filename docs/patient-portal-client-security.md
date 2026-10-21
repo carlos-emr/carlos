@@ -430,3 +430,87 @@ the polling system principal, and decline/expiry ticklers belong to #3850.
 (#4136) replaces the `_portal.account` check, `receptionist` can list and withdraw prompts but not
 create one, because that role has no `_portal.account` read. Every request also needs `_demographic`
 read, which the baseline does not give `admin`, so a user whose only role is `admin` is refused.
+
+## Send to myCarlos draft (carlos-portal#41)
+
+Nothing here is built yet. This section records what CARLOS must do as the sender, so the
+build PRs (#4691 first) can be checked against it. The format itself is defined once, in the
+portal repository:
+[`docs/architecture/mycarlos-delivery.md`](https://github.com/carlos-emr/carlos-portal/blob/main/docs/architecture/mycarlos-delivery.md).
+It is under review in carlos-portal#42, and the link works once that merges. CARLOS doesn't keep
+its own copy of the spec.
+
+**What it is:** staff send a document to the patient's myCarlos app instead of by email.
+CARLOS signs the document and seals one copy to each of the patient's accepted myCarlos
+devices. The portal holds the sealed copies but can't open them. Each copy is deleted when the
+device picks it up, or after 7 days if nobody picks it up.
+
+**Off switch:** everything sits behind `patient_portal.mycarlos_delivery.enabled=false`, and
+behind the portal's own switch, `PATIENT_PORTAL_MYCARLOS_DELIVERY_ENABLED`.
+
+**What CARLOS does as the sender:**
+- **The clinic key (#4691):** one ECDSA P-256 key per clinic, in the PKCS#12 file named by
+  `pdf.signing.*`, signs two things:
+  - the PDF itself, with an embedded PAdES signature;
+  - the delivery manifest, as ES256 (64 bytes `r ‖ s`, not DER).
+
+  Use deterministic ECDSA (RFC 6979; Bouncy Castle's `HMacDSAKCalculator`), so the
+  manifest can be compared byte for byte with the shared vectors.
+
+  The signed PDF also carries an embedded document manifest, `carlos-document-manifest.json`,
+  added in the same update as the PAdES signature. Its format is defined in
+  `src/main/java/io/github/carlos_emr/carlos/utility/DocumentManifest.java`, which arrives
+  with #4691's second PR.
+
+  The signature binds that manifest directly too. Its CMS signed attributes carry
+  `id-aa-carlos-documentManifestSha256` (OID `2.25.132515939282652475535231260060469025505`):
+  one 32-byte OCTET STRING holding SHA-256 of the exact embedded bytes
+  (`PDFSigningUtil.DOCUMENT_MANIFEST_SHA256`). myCarlos checks the manifest against it, so the
+  binding also holds in a password-protected email copy, whose embedded file is encrypted. In a
+  copy without a password, the embedded file is stored uncompressed.
+- **The manifest** is RFC 8785 (JCS) JSON with exactly the claims the spec lists. That
+  includes the patient's name and birth date as on the chart, for filing on the device. Only
+  the device ever sees them, inside the seal.
+- **The seal:** one sealed copy per **accepted** device, using HPKE base mode
+  (X25519, HKDF-SHA256, ChaCha20-Poly1305) and a fresh random ephemeral key per copy.
+  - The AAD binds the delivery ID, the recipient ID and the device key ID.
+  - A device the portal lists, but CARLOS hasn't accepted, gets nothing. Ben's decision B: a
+    new device is trusted only once it is confirmed outside the portal, for example by staff.
+  - The recipient ID comes from the patient's portal link and is never typed in.
+- **What the portal receives:** only the outer record and the sealed bytes. The outer record
+  holds the delivery ID, recipient ID, device key ID, size, ciphertext SHA-256, and created and
+  expiry times. It never holds a title, a name or any content.
+- **Size:** a sealed copy is at most 20 MiB. This is below the 50 MiB email limit
+  (`SMTPEmailSender.MAX_PREPARED_MESSAGE_BYTES`). CARLOS refuses to build a larger copy, so
+  staff send that document another way.
+- **Receipts:** CARLOS checks each pickup receipt itself, not trusting the portal. The receipt
+  must be signed with the accepted device's Ed25519 key. Its delivery ID, the ciphertext hash of
+  the uploaded copy and the SHA-256 of the signed PDF must all match. CARLOS keeps the
+  receipt's `vault_head_link`, a per-link anchor of the patient's vault history. That is Ben's
+  decision L: a later rewrite of the patient's own history on the device then shows up. The
+  anchor is per link, so two clinics can't match a device by it. CARLOS can't recompute an
+  anchor: it only stores them and hands them back, for the device or an auditor to check.
+  - **De-duplication:** CARLOS records the first valid receipt for each delivery ID and device. A
+    re-sent receipt is byte-identical, with the same `jti`, and changes nothing.
+  - **Removing a device:** staff (through CARLOS) or the patient can remove a device. The
+    portal then deletes that link's waiting copies at once. CARLOS shows those copies as
+    "removed" and stops sending to that device; an upload for it would be refused with
+    `device_removed`.
+  - **Device keys:** they are per link. myCarlos makes a fresh pair for each portal link, so
+    a device key ID is never shared across devices or links. CARLOS's accepted-device list holds
+    one entry per device key ID.
+
+**Shared vectors:** `src/test/resources/patientportal/delivery-contract.json` is a byte-identical
+copy of the portal's `tests/fixtures/delivery-contract.json` at portal commit
+`c35649b6ba3244bd5bd01c42e55bc7706ea30dbe`. Every key in it is FAKE and derived from readable
+seed text, so the file holds no key material. Senders can't reproduce its seals, because the
+ephemeral key is random, so the CARLOS tests check by round trip:
+1. Build the manifest for `sender.manifest_claims` with the `clinic_a` test key, and compare it
+   byte for byte with `sender.manifest`.
+2. Check `sender.aad_hex` and `sender.plaintext_sha256`.
+3. Seal with a fresh ephemeral key, open the result with the `keys.device` test key, and
+   compare the plaintext.
+4. Reproduce RFC 9180 Appendix A.2.1, sequence 0, which is also in the fixture.
+
+When the format changes, the portal file changes first, then this copy is replaced whole and
+the commit above is updated. It is never edited here.

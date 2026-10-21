@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import java.util.Base64;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
@@ -113,8 +114,9 @@ class DocumentIdCalculatorUnitTest {
     @Test
     @DisplayName("should read a base64 secret from the setting")
     void shouldReadTheSecret_fromTheSetting() {
+        // The setting holds standard base64, built here from the FAKE bytes rather than written out.
         CarlosProperties.getInstance().setProperty(DocumentIdCalculator.SECRET_PROPERTY,
-                "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=");
+                Base64.getEncoder().encodeToString(FAKE_SECRET));
 
         Optional<DocumentIdCalculator> calculator = DocumentIdCalculator.fromCarlosProperties();
 
