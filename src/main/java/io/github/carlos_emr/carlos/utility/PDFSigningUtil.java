@@ -10,9 +10,12 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyStore;
@@ -154,6 +157,9 @@ public final class PDFSigningUtil {
         Path signedPDFPath = PathValidationUtils.createSecureTempFile(
                 PathValidationUtils.validateGeneratedFileName("signedPDF_" + System.currentTimeMillis()), ".pdf").toPath();
 
+        CmsDetachedSignature cms = new CmsDetachedSignature(signingMaterial);
+        int[] byteRange;
+        boolean encrypted;
         try (PDDocument document = loadPDF(pdfPath, ownerPassword);
              SignatureOptions signatureOptions = new SignatureOptions();
              OutputStream output = Files.newOutputStream(signedPDFPath)) {
@@ -175,14 +181,64 @@ public final class PDFSigningUtil {
             if (manifest != null) {
                 embedManifest(document, manifest.toCanonicalJson(keyId(signingMaterial.signingCertificate())));
             }
-            document.addSignature(signature, new CmsDetachedSignature(signingMaterial), signatureOptions);
+            document.addSignature(signature, cms, signatureOptions);
             document.saveIncremental(output);
-            return signedPDFPath;
+            encrypted = document.isEncrypted();
+            byteRange = signature.getByteRange();
         } catch (IOException | RuntimeException e) {
             // RuntimeException too: PDFBox refuses an empty document with IllegalStateException,
             // and an output left behind here is never adopted by a working directory.
             deletePartialSignedPDF(signedPDFPath, e);
             throw new IOException("Failed to sign PDF document", e);
+        }
+        if (encrypted) {
+            try {
+                zeroSignaturePadding(signedPDFPath, byteRange, cms.signatureLength());
+            } catch (IOException | RuntimeException e) {
+                deletePartialSignedPDF(signedPDFPath, e);
+                throw new IOException("Failed to sign PDF document", e);
+            }
+        }
+        return signedPDFPath;
+    }
+
+    /**
+     * Rewrites the reserved space after the CMS signature in {@code /Contents} as zeros.
+     *
+     * <p>In an encrypted document's incremental save, PDFBox 3 encrypts the zero placeholder it
+     * reserves for {@code /Contents} and then writes the plain CMS over its start, so ciphertext
+     * follows the signature. ISO 32000-1 7.6.1 never encrypts a signature's {@code /Contents}, and
+     * strict verifiers such as myCarlos's require zeros after the CMS. The hex string lies between
+     * the two signed byte ranges, so rewriting it leaves the signature as it was.</p>
+     *
+     * @param byteRange the signature's {@code [0, gapStart, gapEnd, length]}; the gap holds
+     *        {@code <hex>} from {@code gapStart} to {@code gapEnd - 1}
+     * @param cmsLength the length of the CMS written at the start of the gap, in bytes
+     * @throws IOException when the byte range does not frame a {@code <...>} string large enough
+     *         for the CMS, so the signed file is refused rather than patched blindly
+     */
+    static void zeroSignaturePadding(Path signedPdf, int[] byteRange, int cmsLength) throws IOException {
+        if (byteRange == null || byteRange.length != 4 || byteRange[0] != 0 || cmsLength <= 0) {
+            throw new IOException("Unexpected signature byte range");
+        }
+        long open = byteRange[1];
+        long close = byteRange[2] - 1L;
+        long firstPadding = open + 1 + 2L * cmsLength;
+        try (FileChannel channel = FileChannel.open(signedPdf, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            ByteBuffer delimiter = ByteBuffer.allocate(1);
+            channel.read(delimiter, open);
+            boolean opens = delimiter.get(0) == '<';
+            delimiter.clear();
+            channel.read(delimiter, close);
+            if (!opens || delimiter.get(0) != '>' || firstPadding > close) {
+                throw new IOException("Signature byte range does not frame the /Contents string");
+            }
+            byte[] zeros = new byte[(int) (close - firstPadding)];
+            Arrays.fill(zeros, (byte) '0');
+            ByteBuffer padding = ByteBuffer.wrap(zeros);
+            while (padding.hasRemaining()) {
+                channel.write(padding, firstPadding + padding.position());
+            }
         }
     }
 
@@ -422,9 +478,15 @@ public final class PDFSigningUtil {
 
     private static final class CmsDetachedSignature implements SignatureInterface {
         private final SigningMaterial signingMaterial;
+        private int signatureLength = -1;
 
         private CmsDetachedSignature(SigningMaterial signingMaterial) {
             this.signingMaterial = signingMaterial;
+        }
+
+        /** The length of the CMS this signer produced, or -1 before it has signed. */
+        int signatureLength() {
+            return signatureLength;
         }
 
         @Override
@@ -445,7 +507,9 @@ public final class PDFSigningUtil {
                 CMSSignedData signedData = generator.generate(new InputStreamTypedData(content), false);
                 // DER, as ISO 32000-1 12.8.3.3.1 requires. The default is indefinite-length BER,
                 // which lenient readers accept and strict validators reject.
-                return signedData.getEncoded("DER");
+                byte[] encoded = signedData.getEncoded("DER");
+                signatureLength = encoded.length;
+                return encoded;
             } catch (CMSException | GeneralSecurityException | IllegalArgumentException | OperatorCreationException e) {
                 throw new IOException("Failed to create detached PDF signature", e);
             }
