@@ -408,7 +408,7 @@ the certificate:
 ```
 keytool -exportcert -rfc -alias carlos-pdf-signing -keystore /etc/carlos-emr/pdf-signing.p12 \
   | openssl x509 -pubkey -noout | openssl pkey -pubin -outform DER \
-  | openssl dgst -sha256 -binary | basenc --base64url | tr -d '='
+  | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '='
 ```
 
 **Rotate** before the certificate expires, or whenever the key should change:
