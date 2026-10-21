@@ -358,7 +358,7 @@ class PDFSigningUtilUnitTest {
             assertThat(Character.digit(pdf[i], 16)).as("hex digit at byte %d", i).isNotNegative();
         }
         int keyStart = Math.max(0, gapStart - 32);
-        String beforeGap = new String(pdf, keyStart, gapStart - keyStart, java.nio.charset.StandardCharsets.US_ASCII);
+        String beforeGap = new String(pdf, keyStart, gapStart - keyStart, StandardCharsets.US_ASCII);
         assertThat(beforeGap.stripTrailing()).endsWith("/Contents");
     }
 
