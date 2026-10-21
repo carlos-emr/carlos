@@ -456,6 +456,11 @@ behind the portal's own switch, `PATIENT_PORTAL_MYCARLOS_DELIVERY_ENABLED`.
 
   Use deterministic ECDSA (RFC 6979; Bouncy Castle's `HMacDSAKCalculator`), so the
   manifest can be compared byte for byte with the shared vectors.
+
+  The signed PDF also carries an embedded document manifest, `carlos-document-manifest.json`,
+  added in the same update as the PAdES signature. Its format is defined in
+  `src/main/java/io/github/carlos_emr/carlos/utility/DocumentManifest.java`, which arrives
+  with #4691's second PR.
 - **The manifest** is RFC 8785 (JCS) JSON with exactly the claims the spec lists. That
   includes the patient's name and birth date as on the chart, for filing on the device. Only
   the device ever sees them, inside the seal.
