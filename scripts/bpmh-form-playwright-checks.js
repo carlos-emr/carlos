@@ -108,13 +108,43 @@ function assertBpmhPdf(pdf, { note, instruction }) {
   h.assert(pdf.status === 200 && /^application\/pdf(?:\s*;|$)/i.test(pdf.headers['content-type'] || ''),
     `Print answered HTTP ${pdf.status} ${pdf.headers['content-type']}`);
   // pdfTextBuffer requires the PDF signature and complete EOF trailer before extracting every page.
-  const text = x.squash(x.pdfTextBuffer(pdf.bytes));
+  // Raw extraction preserves a literal hyphen at a wrapped line ending; never discard clinical characters.
+  const text = x.squash(x.pdfTextBuffer(pdf.bytes, { raw: true }));
   h.assert(text.includes(x.squash(note)), 'The printed PDF lost part or all of the saved note');
   h.assert(text.includes(x.squash(instruction)), 'The printed PDF lost part or all of the saved drug instruction');
+  // Poppler can extract text outside a clipped AcroForm appearance. This fixture's long instruction
+  // must instead appear on a readable continuation, wholly inside its page bounds.
+  const xml = require('node:child_process').execFileSync('pdftotext', ['-bbox', '-enc', 'UTF-8', '-', '-'],
+    { input: pdf.bytes, encoding: 'utf8', timeout: 20000, maxBuffer: 8 * 1024 * 1024 });
+  const pages = [...xml.matchAll(/<page width="([\d.]+)" height="([\d.]+)">([\s\S]*?)<\/page>/g)];
+  const decode = value => value.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  const continuations = pages.slice(1).filter(page => x.squash(decode(page[3].replace(/<[^>]+>/g, ' '))).includes(x.squash(instruction)));
+  h.assert(continuations.length > 0, 'The long saved instruction has no readable instruction continuation');
+  for (const page of continuations) {
+    h.assert(decode(page[3]).includes('instruction'), 'The continuation has no instruction heading');
+    const words = [...page[3].matchAll(/<word xMin="([\d.-]+)" yMin="([\d.-]+)" xMax="([\d.-]+)" yMax="([\d.-]+)">/g)];
+    h.assert(words.length > 0 && words.every(word => Number(word[1]) >= 35 && Number(word[3]) <= Number(page[1]) - 35
+      && Number(word[2]) >= 20 && Number(word[4]) <= Number(page[2]) - 30 && Number(word[4]) - Number(word[2]) >= 7),
+    'The instruction continuation is outside its visible margins or smaller than readable 7pt text');
+  }
+}
+
+function retainBpmhPdf(pdf, directory) {
+  const fs = require('node:fs');
+  const { execFileSync } = require('node:child_process');
+  const file = h.buildArtifactPath(directory, 'bpmh-native-print', '.pdf');
+  fs.writeFileSync(file, pdf.bytes);
+  fs.writeFileSync(h.buildArtifactPath(directory, 'bpmh-native-print', '.json'), JSON.stringify({
+    status: pdf.status, headers: pdf.headers, bytes: pdf.bytes.length,
+    sha256: require('node:crypto').createHash('sha256').update(pdf.bytes).digest('hex'),
+  }, null, 2));
+  execFileSync('pdftoppm', ['-png', '-r', '110', file, file.slice(0, -4)], { timeout: 20000, stdio: 'pipe' });
+  fs.writeFileSync(h.buildArtifactPath(directory, 'bpmh-native-print', '.xml'), execFileSync('pdftotext', ['-bbox', file, '-'], { timeout: 20000 }));
+  return file;
 }
 
 async function workflow(s) {
-  x.requirePoppler('pdftotext');
+  x.requirePoppler('pdftotext', 'pdftoppm');
   const { sql, patient, provider, marker, context, recorder } = s;
   const q = h.sqlString;
   const tag = marker.slice(-8);
@@ -239,7 +269,12 @@ async function workflow(s) {
 
   await s.step('Print answers a PDF of the saved form', async () => {
     const pdf = await captureBpmhPrint(form, { patient, saved });
-    assertBpmhPdf(pdf, { note, instruction });
+    try { assertBpmhPdf(pdf, { note, instruction }); }
+    catch (error) {
+      try { retainBpmhPdf(pdf, s.config.screenshotDir); }
+      catch (artifactError) { throw new AggregateError([error, artifactError], 'BPMH PDF assertion and artifact retention failed'); }
+      throw error;
+    }
     h.assert(sql.value(`SELECT COUNT(*) FROM formBPMH WHERE demographic_no=${patient}`) === '1', 'Printing the saved form stored another form');
     // The PDF is stamped to a file in the document store only to be streamed; none may be left behind.
     const store = process.env.DOCUMENT_DIR || process.env.RX_FAX_DOCUMENT_DIR;
@@ -265,4 +300,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('bpmh-form', workflow);
-module.exports = { workflow, captureBpmhPrint, assertBpmhPdf };
+module.exports = { workflow, captureBpmhPrint, assertBpmhPdf, retainBpmhPdf };

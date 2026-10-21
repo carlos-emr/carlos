@@ -55,8 +55,7 @@ import static org.mockito.Mockito.when;
  * {@link FrmRecordFactory#ALLOWED_FORM_CLASSES}. Every later use of that record dereferences it,
  * so a refused class raised a {@code NullPointerException} which the action's own catch
  * downgraded to the {@code failure} forward, reaching the clinician as "CARLOS Error: 500".
- * The chart can reach this: the form selector offers ALPHA and {@code formAlpha} carries rows,
- * but no {@code FrmAlphaRecord} exists. See issue #3735.
+ * A caller can name an unavailable legacy form class. See issue #3735.
  */
 @DisplayName("Frm2Action unsupported form class Tests")
 @Tag("unit")
@@ -78,7 +77,7 @@ class Frm2ActionUnsupportedFormUnitTest extends CarlosUnitTestBase {
         mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
-        mockRequest.setMethod("GET");
+        mockRequest.setMethod("POST");
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -103,8 +102,8 @@ class Frm2ActionUnsupportedFormUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should answer 400 when the form class is not on the allow-list")
     void shouldAnswerBadRequest_whenFormClassNotAllowed() {
-        // "Alpha" is offered by the form selector and has rows, but has no FrmAlphaRecord.
-        mockRequest.setParameter("form_class", "Alpha");
+        // Keep an actually unsupported name after restoring the registered ALPHA form.
+        mockRequest.setParameter("form_class", "UnsupportedLegacyRecord");
         mockRequest.setParameter("demographic_no", "1");
         mockRequest.setParameter("formId", "1");
 
@@ -126,7 +125,7 @@ class Frm2ActionUnsupportedFormUnitTest extends CarlosUnitTestBase {
     @DisplayName("should answer 400 when the form class is refused and other parameters are malformed")
     void shouldAnswerBadRequest_whenOtherParametersMalformed() {
         // The class is refused before formId / demographic_no are parsed, so these cannot turn it into a 500.
-        mockRequest.setParameter("form_class", "Alpha");
+        mockRequest.setParameter("form_class", "UnsupportedLegacyRecord");
         mockRequest.setParameter("formId", "not-a-number");
 
         assertThat(new Frm2Action().execute()).isEqualTo(ActionSupport.NONE);
@@ -163,7 +162,7 @@ class Frm2ActionUnsupportedFormUnitTest extends CarlosUnitTestBase {
     void shouldRejectRequest_whenFormWriteDenied() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("w"), isNull()))
                 .thenReturn(false);
-        mockRequest.setParameter("form_class", "Alpha");
+        mockRequest.setParameter("form_class", "UnsupportedLegacyRecord");
         mockRequest.setParameter("demographic_no", "1");
 
         assertThatThrownBy(() -> new Frm2Action().execute())

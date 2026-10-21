@@ -107,20 +107,26 @@
 
             function getMainAction() {
                 mainAction = document.forms[0].action;
-                mainTarget = docuemtn.forms[0].target;
+                mainTarget = document.forms[0].target;
             }
 
             function onPrint() {
-                document.forms[0].submit.value = "print"; //printReferral
-                var ret = numvalidate();
-                //if(ret==true) {
-                //ret = confirm("Do you wish to save this form and view the print preview?");
-                popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
-                document.forms[0].action = "<%= request.getContextPath() %>/form/formmhassessmentprint";
-                document.forms[0].target = "planner";
-                document.forms[0].submit();
-                document.forms[0].target = "apptProviderSearch";
-                //}
+                var form = document.forms[0];
+                if (numvalidate() === false) return false;
+                var previousAction = form.action;
+                var previousTarget = form.target;
+                var previousSubmit = form.submit.value;
+                try {
+                    form.submit.value = "print";
+                    popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
+                    form.action = "<%= request.getContextPath() %>/form/formmhassessmentprint";
+                    form.target = "planner";
+                    HTMLFormElement.prototype.submit.call(form);
+                } finally {
+                    form.action = previousAction;
+                    form.target = previousTarget;
+                    form.submit.value = previousSubmit;
+                }
                 return false;
             }
 
@@ -137,12 +143,11 @@
 
 
             function onSaveExit() {
-                //var ret = checkAllDates();
+                if (numvalidate() === false) return false;
+                if (!confirm("<fmt:message key='form.mhAssessment.saveExitConfirm'/>")) return false;
                 document.forms[0].action = mainAction;
                 document.forms[0].target = mainTarget;
-                if (ret == true) {
-                ret = confirm("<fmt:message key='form.mhAssessment.saveExitConfirm'/>");
-                }
+                document.forms[0].submit.value = "exit";
                 return true;
             }
 

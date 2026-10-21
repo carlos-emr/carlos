@@ -103,6 +103,11 @@ import org.openpdf.text.pdf.PdfWriter;
  *   Checkboxes:    paramName : alignment, X, Y, 0, font, fontSize, textToPrint
  *   Single-line:   paramName : alignment, X, Y, 0, font, fontSize
  *   Multi-line:    paramName : alignment, X1, Y1, 0, font, fontSize, _, X2, Y2, lineSpacing
+ *   Continued:     paramName : left, X, Y, 0, font, fontSize, _continued, inlineRight,
+ *                  continuationLeft, continuationTop, continuationRight, continuationBottom,
+ *                  lineSpacing, continuationLabel, inlineReference
+ *   Continued fields retain a fitting value inline; otherwise a labelled same-page continuation
+ *   is preflighted at the configured size. Unrenderable text or an exhausted rectangle is an error.
  * </pre>
  * Coordinates refer to the bottom-left corner, measured in PDF points (1/72 inch).
  *
@@ -605,6 +610,12 @@ public class FrmPDFServlet extends HttpServlet {
                         //if not in regular config then check measurements
                         if (propValue == null) {
                             propValue = measurements.getProperty(tempName.toString(), "");
+                        }
+
+                        // Explicit opt-in only: preserve a complete fixed-field value on this same page.
+                        if (cfgVal.length >= 7 && "_continued".equals(cfgVal[6].trim())) {
+                            FrmPdfTextContinuation.render(cb, bf, fontFlags, propValue, cfgVal, pSize);
+                            continue;
                         }
 
                         // write in a rectangle area

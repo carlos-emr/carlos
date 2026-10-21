@@ -296,9 +296,16 @@ public class MeasurementData2Action extends ActionSupport {
      */
     public String saveMeasurement() throws NumberFormatException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
         String demographicNo = request.getParameter("demographicNo");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
         String appointmentNoString = request.getParameter("appointmentNo");
         String measurementType = request.getParameter("type");
         String measurementValue = request.getParameter("value");
@@ -317,10 +324,6 @@ public class MeasurementData2Action extends ActionSupport {
             dateObserved = sdf.parse(dateObservedString);
         } catch (ParseException e) {
             MiscUtils.getLogger().error("Failed to save measurement - invalid date observed", e);
-        }
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         if (!StringUtils.isNullOrEmpty(measurementType) && !StringUtils.isNullOrEmpty(measurementValue) && !StringUtils.isNullOrEmpty(demographicNo)) {
@@ -351,17 +354,20 @@ public class MeasurementData2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveValues() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
         String demographicNo = request.getParameter("demographicNo");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
         String strAppointmentNo = request.getParameter("appointmentNo");
         int appointmentNo = Integer.parseInt(strAppointmentNo);
 
         boolean isJsonRequest = request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
 
         try {
 

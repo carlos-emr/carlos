@@ -59,7 +59,7 @@
             FrmRecord rec = (new FrmRecordFactory()).factory("Rourke2006");
             java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
-            String pageNum = props.getProperty("c_lastVisited", "p1"); //'p1'
+            String pageNum = FrmRourke2006Record.resolveLastVisitedPage(props.getProperty("c_lastVisited")); //'p1'
             request.getRequestDispatcher("/WEB-INF/jsp/form/formrourke2006" + pageNum
                     + ".jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
         }

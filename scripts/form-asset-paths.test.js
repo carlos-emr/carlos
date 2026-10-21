@@ -39,15 +39,13 @@ const CONTEXT_ROOTED_REF =
   /(?:src|href)\s*=\s*"(?:<%=\s*request\.getContextPath\(\)\s*%>|\$\{pageContext\.request\.contextPath\})(\/[A-Za-z0-9_./-]*\.(?:js|css|gif|png|jpe?g|bmp))"/gi;
 
 /*
- * Three stylesheets are referenced by forms but ship nowhere in the webapp:
- * formalpha's alphaStyle.css (the Alpha form is not in FrmRecordFactory's
- * allow-list either, so the page is unreachable), the Style1.css that the
- * counsellor and reception assessments ask for, and formPositionHazard's
+ * Two stylesheets are referenced by forms but ship nowhere in the webapp:
+ * the Style1.css that the counsellor and reception assessments ask for, and formPositionHazard's
  * positionHazardStyle.css, which exists nowhere in the repository.
  * Context-rooting a reference to a file that does not exist would only move the
  * 404, so they are recorded here rather than silently skipped.
  */
-const KNOWN_ABSENT_ASSETS = new Set(['alphaStyle.css', 'Style1.css', 'positionHazardStyle.css']);
+const KNOWN_ABSENT_ASSETS = new Set(['Style1.css', 'positionHazardStyle.css']);
 
 function formJsps() {
   return fs.readdirSync(FORM_JSP_DIR).filter((name) => name.endsWith('.jsp')).sort();

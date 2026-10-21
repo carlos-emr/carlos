@@ -74,6 +74,16 @@ public final class Frm2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_form)");
         }
 
+        String submitType = request.getParameter("submit");
+        // Graphs and saved-record printing are read-only. Every other branch saves or audits a write.
+        boolean readOnly = "graph".equals(submitType) || "printAll".equals(submitType)
+                || "printAllJasperReport".equals(submitType);
+        if (!readOnly && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         int newID = -1;
         FrmRecord rec = null;
@@ -100,9 +110,8 @@ public final class Frm2Action extends ActionSupport {
         // instantiate. Every use of rec below dereferences it, so a refused class raised a
         // NullPointerException that the catch at the end of this method downgraded to the
         // "failure" forward — surfacing to the clinician as "CARLOS Error: 500" for what is
-        // really a request naming a form this build cannot service. The chart can reach this:
-        // the form selector offers ALPHA and formAlpha carries rows, but no FrmAlphaRecord
-        // exists. Answer it as a client error and stop, rather than resolving a named result
+        // really a request naming a form this build cannot service. Answer it as a client
+        // error and stop, rather than resolving a named result
         // after the response is written (see the direct-response contract in CLAUDE.md).
         // Issue #3735. This runs before formId / demographic_no are parsed so a malformed
         // request naming an unsupported class is still refused with 400 rather than a 500.
@@ -118,7 +127,6 @@ public final class Frm2Action extends ActionSupport {
             return NONE;
         }
 
-        String submitType = request.getParameter("submit");
         String id = request.getParameter("formId");
         Integer formId = null;
 

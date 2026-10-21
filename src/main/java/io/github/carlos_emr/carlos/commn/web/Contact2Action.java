@@ -653,6 +653,12 @@ public class Contact2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if ("ajax".equalsIgnoreCase(postMethod)) {
             forward = postMethod;
         }

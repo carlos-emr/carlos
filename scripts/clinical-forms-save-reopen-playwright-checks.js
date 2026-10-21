@@ -57,12 +57,15 @@ const FORMS = [
       { name: 'todayDate', value: '2026-10-01', stored: '2026-10-01' }], print: { button: 'Print Pdf', kind: 'pdf' } },
   { key: 'MH14', title: 'Mental Health Form 14', path: '../form/formMentalHealthForm14.jsp',
     table: 'formMentalHealthForm14', idColumn: 'id', provider: false, confirm: false, prose: 'physicianName',
-    fields: [{ name: 'relationship', value: 'Spouse', stored: 'Spouse' }], print: { button: 'Print Pdf', kind: 'pdf' },
-    known: { problems: /Cannot read properties of undefined \(reading 'name'\)/ } },
+    fields: [{ name: 'relationship', value: 'Spouse', stored: 'Spouse' },
+      { name: 'signatureDate', value: '30/09/2026', stored: '30/09/2026' }], print: { button: 'Print Pdf', kind: 'pdf' } },
   { key: 'MH42', title: 'Mental Health Form 42', path: '../form/formMentalHealthForm42.jsp',
     table: 'formMentalHealthForm42', idColumn: 'id', provider: false, confirm: false, prose: 'name',
-    fields: [check('chkThreatenedA'), { name: 'dateOfExamination', value: '2026/09/30', stored: '2026/09/30' }],
-    print: { button: 'Print Pdf', kind: 'pdf' }, known: { problems: /Cannot read properties of undefined \(reading 'name'\)/ } },
+    fields: [check('chkThreatenedA'), { name: 'dateOfExamination', value: '2026/09/30', stored: '2026/09/30' },
+      { name: 'dateOfSign', value: '30/09/2026', stored: '30/09/2026' },
+      { name: 'dateOfOrder', value: '2026-09-29', stored: '2026-09-29' },
+      { name: 'dateOfSign2', value: '01/10/2026', stored: '01/10/2026' }],
+    print: { button: 'Print Pdf', kind: 'pdf' } },
   { key: 'DS', title: 'Discharge Summary', path: '../form/formDischargeSummary.jsp', table: 'formDischargeSummary',
     idColumn: 'id', provider: true, confirm: true, prose: 'briefSummary', fields: [date('dischargeDate')] },
   { key: 'PC', title: 'Palliative Care', path: '../form/formpalliativecare.jsp', table: 'formPalliativeCare',
@@ -87,9 +90,9 @@ const FORMS = [
     idColumn: 'ID', provider: true, confirm: true, prose: 'r_refComments', fields: [], printOn: 'saved',
     chain: [{ link: 'Assessment', prose: 'a_assComments' }, { link: 'Outcome', prose: 'o_outComments' }],
     print: { button: 'Print', kind: 'popup', pathname: '/form/formmhoutcomeprint' },
-    // problems: the typo that every page of the form throws (237). opener: the note-lock beacon the chart sends as it is
-    // reloaded by an Assessment Save (242), so a different E-Chart problem after that is fixed does not read as pinned.
-    known: { problems: /docuemtn is not defined/, opener: /CaseManagementEntry failed \(net::ERR_ABORTED\)/ } },
+    // The note-lock beacon the chart sends as it is reloaded by an Assessment Save (242), so a different
+    // E-Chart problem after that is fixed does not read as pinned.
+    known: { opener: /CaseManagementEntry failed \(net::ERR_ABORTED\)/ } },
   // The shipped registration points at the Struts 1 route SetupForm.do. The chart opened it as a raw URL and the
   // application answered 404 (finding 103, fixed in #4667: the route now resolves to SetupForm). That row only opens,
   // so nothing downstream of the open can hold it up; the form behind it is VT2.
@@ -137,8 +140,6 @@ function validatePin(env = process.env) {
  * scripts/form-claims.test.js proves each pinned literal equals the label the run generates.
  */
 const PINNED = Object.freeze({
-  'mh14.problems': 'Mental Health Form 14: raised no JavaScript-layer problems',
-  'mhc.problems': 'Mental Health: raised no JavaScript-layer problems',
   'mhc.opener': 'Mental Health: Saving a page leaves the E-Chart that opened the form alone',
   'mhc.reopen': 'Mental Health: reopening from the E-Chart restores the saved values',
   'mhc.print': 'Mental Health: Print renders the saved page for the owned patient',
@@ -549,6 +550,15 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
   /** Referral is saved; open Assessment and then Outcome from the page's own links and Save each. */
   async function mentalHealthChain(entry) {
     const { form } = entry;
+    const nativeHandlers = wanted.has(claims.claimKey(form.claim, 'problems'));
+    const checkNativeHandler = async body => {
+      try { await body(); } catch (error) {
+        // The script regression must assert its native button checks even when
+        // the resulting chain failure is not this catalog entry's claimed pair.
+        entry.nativeHandlerError = error;
+        throw error;
+      }
+    };
     // The Assessment page reloads its opener on Save (window.opener.location.reload()), which is the E-Chart. Whether the
     // chart stayed put is the `opener` concern, judged from what the chart did while the pages were saved.
     entry.chartReloads = 0;
@@ -559,6 +569,8 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       const { page } = entry;
       let expected = entry.before + 1;
       const carried = [[form.prose, entry.text]];
+      if (nativeHandlers) await checkNativeHandler(() => printMentalHealthPage(entry, page,
+        '/form/formmhreferralprint', entry.text));
       for (const next of form.chain) {
         await claims.asPrecondition(() => page.getByRole('link', { name: next.link, exact: true }).first().click(), `the ${next.link} link`);
         await page.waitForURL(url => url.pathname.endsWith(`/form/formmh${next.link.toLowerCase()}`), { waitUntil: 'domcontentloaded' });
@@ -567,6 +579,9 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
           await page.locator(`[name="${next.prose}"]`).first().waitFor({ state: 'visible' });
           await page.locator(`[name="${next.prose}"]`).first().fill(text);
         }, `typing into the ${next.link} page`);
+        if (nativeHandlers && next.link === 'Assessment') {
+          await checkNativeHandler(() => cancelMentalHealthSaveExit(entry, page, next.prose, text));
+        }
         const posted = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/form/formname'));
         const landed = page.waitForURL(url => url.pathname.endsWith('/form/forwardname'), { waitUntil: 'domcontentloaded' });
         posted.catch(() => {});
@@ -586,6 +601,9 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
         h.assert(new URL(page.url()).searchParams.get('formId') === entry.id, `Saving the ${next.link} page redisplayed another record`);
         h.assert(await page.locator(`[name="${next.prose}"]`).first().inputValue() === text,
           `The redisplayed ${next.link} page does not show the saved ${next.prose}`);
+        if (nativeHandlers && next.link === 'Assessment') {
+          await checkNativeHandler(() => printMentalHealthPage(entry, page, '/form/formmhassessmentprint', text));
+        }
       }
       entry.text = carried[carried.length - 1][1];
     }, ['redisplay']);
@@ -600,6 +618,48 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       }, 'the E-Chart settling after the Saves');
       h.assert(!entry.chartReloads, `Saving a page reloaded the E-Chart that opened the form (${entry.chartReloads} reload${entry.chartReloads === 1 ? '' : 's'} during the three Saves)`);
     }, ['redisplay'], ['echart'], entry.chartMark);
+  }
+
+  async function mentalHealthFormState(page) {
+    return page.locator('form').first().evaluate(form => ({
+      action: form.action, target: form.target, intent: form.elements.namedItem('submit').value,
+    }));
+  }
+  function mentalHealthRecords(entry) {
+    return JSON.stringify(sql.rows(`SELECT * FROM ${entry.form.table}
+      WHERE demographic_no=${patient} ORDER BY ${entry.form.idColumn}`));
+  }
+
+  async function printMentalHealthPage(entry, page, pathname, text) {
+    const state = JSON.stringify(await mentalHealthFormState(page));
+    const records = mentalHealthRecords(entry);
+    await pressPrint({ ...entry, text }, page, {button: 'Print', kind: 'popup', pathname});
+    h.assert(JSON.stringify(await mentalHealthFormState(page)) === state,
+      'Mental Health Print changed its source form action, target or submit intent');
+    h.assert(mentalHealthRecords(entry) === records, 'Mental Health Print changed the saved form records');
+  }
+
+  async function cancelMentalHealthSaveExit(entry, page, prose, text) {
+    const state = JSON.stringify(await mentalHealthFormState(page));
+    const records = mentalHealthRecords(entry), url = page.url();
+    let posts = 0;
+    const countPost = request => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/form/formname')) posts++;
+    };
+    page.on('request', countPost);
+    try {
+      const dialogs = await h.withExpectedDialogs(page,
+        () => page.getByRole('button', {name: 'Save and Exit', exact: true}).first().click(), {accept: false});
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm',
+        'Mental Health Assessment Save and Exit must ask one cancellable confirmation');
+      h.assert(!page.isClosed() && page.url() === url && posts === 0,
+        'Cancelling Mental Health Assessment Save and Exit submitted or closed the form');
+      h.assert(JSON.stringify(await mentalHealthFormState(page)) === state
+        && await page.locator(`[name="${prose}"]`).first().inputValue() === text,
+      'Cancelling Mental Health Assessment Save and Exit discarded input or form state');
+      h.assert(mentalHealthRecords(entry) === records,
+        'Cancelling Mental Health Assessment Save and Exit changed saved records');
+    } finally { page.off('request', countPost); }
   }
 
   /**
@@ -700,9 +760,8 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
   }
 
   /** Press Print on the form and judge what comes back; see FORMS for the four kinds. */
-  async function pressPrint(entry, page) {
+  async function pressPrint(entry, page, spec = entry.form.print) {
     const { form } = entry;
-    const spec = form.print;
     const button = await claims.asPrecondition(async () => {
       const found = page.getByRole('button', { name: spec.button, exact: true }).first();
       await found.waitFor({ state: 'visible', timeout: 10000 });
@@ -855,7 +914,8 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
     // The problems the form's pages raised belong to the form, so they are taken out of the recorder here and
     // reported with it; what remains (the chart's own pages) is judged by runWorkflow at the end.
     const problems = [...new Set(takeProblems(s.recorder, labels(entry.form)))];
-    const outcome = problems.length ? { ...claims.outcomeOf(null, problems), message: `The browser reported ${problems.length} JavaScript-layer problem(s): ${problems.join(' | ')}` } : { ok: true };
+    const outcome = entry.nativeHandlerError ? claims.outcomeOf(entry.nativeHandlerError, problems)
+      : problems.length ? { ...claims.outcomeOf(null, problems), message: `The browser reported ${problems.length} JavaScript-layer problem(s): ${problems.join(' | ')}` } : { ok: true };
     entry.results.problems = outcome;
     console.log(`  ${outcome.ok ? 'PASS' : 'FAIL'} ${NAME}: ${stepLabel(entry.form, 'problems', 'raised no JavaScript-layer problems')}${outcome.ok ? '' : ` -- ${outcome.message}`}`);
   }

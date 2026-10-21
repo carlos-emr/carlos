@@ -103,7 +103,10 @@
         request.removeAttribute("submit");
     %>
 
+    <fmt:message key="global.msgInvalidDatePrefix" var="mentalHealthInvalidDateMessage"/>
     <script type="text/javascript" language="Javascript">
+
+        var mentalHealthInvalidDateMessage = "${carlos:forJavaScript(mentalHealthInvalidDateMessage)}";
 
         var temp;
         temp = "";
@@ -247,6 +250,10 @@
         }
 
         function valDate(dateBox) {
+            if (!dateBox) {
+                alert(mentalHealthInvalidDateMessage);
+                return false;
+            }
             try {
                 var dateString = dateBox.value;
                 if (dateString == "") {
@@ -256,20 +263,23 @@
                 var dt = dateString.split('/');
                 if (dt[1] == null)
                     dt = dateString.split('-');
-                var y = dt[0];
+                // The printed form labels day/month/year; retain support for
+                // existing year-first values without rewriting the entered date.
+                var yearFirst = dt[0].length === 4;
+                var y = yearFirst ? dt[0] : dt[2];
                 var m = dt[1];
-                var d = dt[2];
+                var d = yearFirst ? dt[2] : dt[0];
                 var orderString = m + '/' + d + '/' + y;
-                var pass = isDate(orderString);
+                var pass = dt.length === 3 && dt.every(function (part) { return /^\d+$/.test(part); })
+                    && isDate(orderString);
 
                 if (pass != true) {
-                    var s = dateBox.name;
-                    //alert('Invalid '+pass+' in field ' + s.substring(3));
+                    alert(mentalHealthInvalidDateMessage + dateBox.name);
                     dateBox.focus();
                     return false;
                 }
             } catch (ex) {
-                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
+                alert(mentalHealthInvalidDateMessage + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -277,17 +287,10 @@
         }
 
         function checkAllDates() {
-            var b = true;
-            if (valDate(document.forms[0].b_dateSigned) == false) {
-                alert("The 'Signature Date' field is not valid");
-                b = false;
-            }
-            if (valDate(document.forms[0].o_specimenCollectionDate) == false) {
-                alert("The 'Specimen Collection Date' field is not valid");
-                b = false;
-            }
-            return b;
-
+            return valDate(document.forms[0].dateOfExamination) &&
+                valDate(document.forms[0].dateOfSign) &&
+                valDate(document.forms[0].dateOfOrder) &&
+                valDate(document.forms[0].dateOfSign2);
         }
 
         function popup(link) {

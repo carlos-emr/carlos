@@ -228,6 +228,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         bpmhFormHandler.populateFormBean();
 
         PDFController pdfController = new PDFController(ServletActionContext.getServletContext().getRealPath(BPMH_PDF_TEMPLATE));
+        pdfController.setContinueInstructions(true);
         pdfController.setOutputPath(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
             // The filled copy, not the posted form: the PDF needs the patient, provider and medication data.

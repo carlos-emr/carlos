@@ -7,7 +7,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 const h = require('./lib/playwright-harness');
 const x = require('./lib/export-content-helpers');
-const { captureBpmhPrint, assertBpmhPdf } = require('./bpmh-form-playwright-checks');
+const { captureBpmhPrint, assertBpmhPdf, retainBpmhPdf } = require('./bpmh-form-playwright-checks');
 
 const endpoint = 'https://carlos.test/carlos/formBPMH';
 const patient = '123', saved = '37';
@@ -15,12 +15,17 @@ const note = 'FAKE-PW1234567890abcdef reconciled with the patient';
 const instruction = 'FAKE-PW1234567890abcdef continue at discharge';
 
 // A complete, generated PDF lets the controls exercise actual Poppler extraction without external fixtures.
-function pdf(lines = [note, instruction]) {
+function pdf(lines = [note, instruction], { continuation = true, fontSize = 10, xPosition = 40 } = {}) {
   const escaped = value => value.replace(/([\\()])/g, '\\$1');
-  const stream = `BT /F1 10 Tf 40 740 Td ${lines.map(line => `(${escaped(line)}) Tj 0 -18 Td`).join('\n')} ET`;
-  const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>', `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`];
+  const pageLines = [lines, ...(continuation ? [['BPMH medication instruction notes', ...lines]] : [])];
+  const objects = ['<< /Type /Catalog /Pages 2 0 R >>',
+    `<< /Type /Pages /Kids [${pageLines.map((_, i) => `${4 + i * 2} 0 R`).join(' ')}] /Count ${pageLines.length} >>`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
+  for (const [i, content] of pageLines.entries()) {
+    const stream = `BT /F1 ${fontSize} Tf ${xPosition} 740 Td ${content.map(line => `(${escaped(line)}) Tj 0 -18 Td`).join('\n')} ET`;
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${5 + i * 2} 0 R >>`,
+      `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`);
+  }
   let text = '%PDF-1.4\n'; const offsets = [0];
   for (const [i, object] of objects.entries()) { offsets.push(Buffer.byteLength(text)); text += `${i + 1} 0 obj\n${object}\nendobj\n`; }
   const at = Buffer.byteLength(text);
@@ -173,6 +178,21 @@ test('Poppler must extract every character of both saved fields, including their
   assertBpmhPdf({ status: 200, headers: { 'content-type': 'application/pdf; charset=binary' }, bytes: pdf([note.slice(0, 25), note.slice(25), instruction]) }, { note, instruction });
 });
 
+test('extractable text in the old fixed field is not proof of a readable continuation', () => {
+  const bytes = pdf([note, instruction], { continuation: false });
+  assert.throws(() => assertBpmhPdf({ status: 200, headers: { 'content-type': 'application/pdf' }, bytes }, { note, instruction }), /no readable instruction continuation/);
+});
+
+test('a complete instruction drawn in tiny continuation text remains a failure', () => {
+  const bytes = pdf([note, instruction], { fontSize: 6 });
+  assert.throws(() => assertBpmhPdf({ status: 200, headers: { 'content-type': 'application/pdf' }, bytes }, { note, instruction }), /smaller than readable/);
+});
+
+test('a continuation outside its visible margins is refused', () => {
+  const bytes = pdf([note, instruction], { xPosition: 34 });
+  assert.throws(() => assertBpmhPdf({ status: 200, headers: { 'content-type': 'application/pdf' }, bytes }, { note, instruction }), /outside its visible margins/);
+});
+
 test('actual Print step accepts a native inline response and checks both saved PDF fields', async () => {
   const source = fs.readFileSync(process.env.BPMH_CHECK_SOURCE || path.join(__dirname, 'bpmh-form-playwright-checks.js'), 'utf8');
   const start = source.indexOf("  await s.step('Print answers a PDF of the saved form', async () => {");
@@ -180,13 +200,31 @@ test('actual Print step accepts a native inline response and checks both saved P
   assert(start > 0 && end > start);
   for (const bytes of [pdf(), pdf([note]), pdf([instruction])]) {
     const f = fixture({ bytes }), cleanups = [];
-    const sandbox = { h, x, form: f.page, patient, saved, note, instruction, captureBpmhPrint, assertBpmhPdf, require,
+    const directory = x.scratchDir(); cleanups.push(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const sandbox = { h, x, form: f.page, patient, saved, note, instruction, captureBpmhPrint, assertBpmhPdf, retainBpmhPdf, require,
       process: { env: {} }, console: { log() {} },
-      sql: { value: () => '1' }, s: { step: async (_, body) => body(), cleanup: cleanup => cleanups.push(cleanup) } };
+      sql: { value: () => '1' }, s: { config: { screenshotDir: directory }, step: async (_, body) => body(), cleanup: cleanup => cleanups.push(cleanup) } };
     try {
       const work = vm.runInNewContext(`(async () => { ${source.slice(start, end)} })()`, sandbox);
       if (bytes.equals(pdf())) { await work; assert.equal(f.state.clicks, 1); assert.equal(f.state.fetches, 1); }
-      else await assert.rejects(work, /printed PDF lost/);
+      else {
+        await assert.rejects(work, /printed PDF lost/);
+        assert.deepEqual(fs.readFileSync(path.join(directory, 'bpmh-native-print.pdf')), bytes);
+        assert(fs.readdirSync(directory).some(name => name.endsWith('.png')));
+        assert(fs.existsSync(path.join(directory, 'bpmh-native-print.xml')));
+      }
     } finally { for (const cleanup of cleanups.reverse()) cleanup(); }
   }
+});
+
+test('artifact retention failure cannot replace the original missing-instruction failure', async () => {
+  const source = fs.readFileSync(path.join(__dirname, 'bpmh-form-playwright-checks.js'), 'utf8');
+  const start = source.indexOf("  await s.step('Print answers a PDF of the saved form', async () => {");
+  const end = source.indexOf("\n  await s.step('GET and HEAD carrying the save", start);
+  const f = fixture({ bytes: pdf([note]) }), artifactFailure = new Error('renderer failed');
+  const sandbox = { h, x, form: f.page, patient, saved, note, instruction, captureBpmhPrint, assertBpmhPdf,
+    retainBpmhPdf: () => { throw artifactFailure; }, require, process: { env: {} },
+    sql: { value: () => '1' }, s: { config: { screenshotDir: '/tmp' }, step: async (_, body) => body() } };
+  const work = vm.runInNewContext(`(async () => { ${source.slice(start, end)} })()`, sandbox);
+  await assert.rejects(work, error => error.errors?.[0].message.includes('saved drug instruction') && error.errors[1] === artifactFailure);
 });

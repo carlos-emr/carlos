@@ -45,6 +45,14 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRourke2006Record extends FrmRecord {
+    /** Resolve only the four shipped pages, including the slash old unquoted inputs saved. */
+    public static String resolveLastVisitedPage(String storedPage) {
+        if (storedPage != null && storedPage.matches("p[1-4]/?")) {
+            return storedPage.substring(0, 2);
+        }
+        return "p1";
+    }
+
     public Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID)
             throws SQLException {
         Properties props = new Properties();
