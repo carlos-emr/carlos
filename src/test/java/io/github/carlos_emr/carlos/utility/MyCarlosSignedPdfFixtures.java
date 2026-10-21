@@ -29,9 +29,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyFactory;
 import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
@@ -83,13 +85,12 @@ final class MyCarlosSignedPdfFixtures {
             + " mod (n - 1) + 1. As in carlos-portal tests/fixtures/delivery-contract.json.";
     static final String CLINIC_A_SEED = "FAKE delivery contract test key: clinic-a signing key 1";
     static final String CLINIC_B_SEED = "FAKE delivery contract test key: clinic-b signing key 1";
-    /** The portal fixture's kid for {@link #CLINIC_A_SEED}. */
-    static final String CLINIC_A_KID = "opVXT3byX9TTRh_4R8FJ3TxeWzT0itR6IbwRyRrhlCY";
-    /** The portal fixture's kid for {@link #CLINIC_B_SEED}. */
-    static final String CLINIC_B_KID = "MKZM9qtcs9ApKsIMo23woDPeM3eiD8Ndqg6CGRJChgw";
+    /** Seed of the RSA key used only by the {@code not_p256} case. */
+    static final String RSA_SEED = "FAKE myCarlos fixture test key: RSA signer 1";
     static final String CLINIC_ID = "clinic-a";
     static final String RECIPIENT_ID = "rcp-FAKE0001aaaaaaaaaaaa";
-    static final String PASSWORD = "FAKE-fixture-password-1";
+    /** The FAKE password of the encrypted email copy: deliberately plain, not a secret. */
+    static final String PASSWORD = "fake";
     static final String EXTRA_UPDATE_TITLE = "FAKE changed after signing";
     /** Bytes reserved for each CMS signature: room for an RSA-2048 one, a quarter of production's slot. */
     static final int SIGNATURE_SIZE = 8192;
@@ -114,12 +115,13 @@ final class MyCarlosSignedPdfFixtures {
         KeyPair clinicA = p256FromSeed(CLINIC_A_SEED);
         X509Certificate clinicACertificate = certificate(clinicA, "SHA256withECDSA", "CN=FAKE clinic-a signing key 1,O=FAKE Demo Clinic");
         PDFSigningConfig signer = PdfSigningTestSupport.enabledConfig(work.resolve("clinic-a.p12"), clinicA.getPrivate(), clinicACertificate);
-        KeyPair rsa = PdfSigningTestSupport.createKeyPair("RSA", 2048);
+        KeyPair rsa = rsaFromSeed(RSA_SEED);
         X509Certificate rsaCertificate = certificate(rsa, "SHA256withRSA", "CN=FAKE RSA signer,O=FAKE Demo Clinic");
         PDFSigningConfig rsaSigner = PdfSigningTestSupport.enabledConfig(work.resolve("rsa.p12"), rsa.getPrivate(), rsaCertificate);
         Path blank = PdfSigningTestSupport.writeSinglePagePdf(work.resolve("blank.pdf"));
         Path encrypted = PDFEncryptionUtil.encryptPDF(blank, PASSWORD);
 
+        String clinicBKid = kidFromSeed(CLINIC_B_SEED);
         List<Document> documents = new ArrayList<>();
         Signed send = sign(blank, signer, null, kid -> manifest(RECIPIENT_ID).toCanonicalJson(kid));
         documents.add(new Document("signed-send-to-mycarlos.pdf", "verified", send.pdf(), send.manifest(), null,
@@ -140,7 +142,7 @@ final class MyCarlosSignedPdfFixtures {
         documents.add(new Document("refuse-incomplete-range.pdf", "incomplete_range",
                 concat(send.pdf(), "\n% FAKE bytes after the signed range\n".getBytes(StandardCharsets.US_ASCII)),
                 send.manifest(), null, "Bytes follow the signed range, but no update."));
-        Signed kidMismatch = sign(blank, signer, null, kid -> manifest(RECIPIENT_ID).toCanonicalJson(CLINIC_B_KID));
+        Signed kidMismatch = sign(blank, signer, null, kid -> manifest(RECIPIENT_ID).toCanonicalJson(clinicBKid));
         documents.add(new Document("refuse-kid-mismatch.pdf", "kid_mismatch", kidMismatch.pdf(), kidMismatch.manifest(), null,
                 "Signed with clinic-a's key, but the manifest names clinic-b's key."));
         Signed rsaSigned = sign(blank, rsaSigner, null, kid -> manifest(RECIPIENT_ID).toCanonicalJson(kid));
@@ -163,17 +165,18 @@ final class MyCarlosSignedPdfFixtures {
         root.put("v", 1);
         root.put("description", "FAKE signed PDFs for myCarlos's PDF verifier (carlos-emr/mycarlos#55), made by CARLOS's"
                 + " MyCarlosSignedPdfFixtures. Every key is FAKE. Fields ending _b64 are standard base64.");
-        root.put("link", Map.of("clinic_id", CLINIC_ID, "recipient_id", RECIPIENT_ID, "signer_kid", CLINIC_A_KID));
+        root.put("link", Map.of("clinic_id", CLINIC_ID, "recipient_id", RECIPIENT_ID, "signer_kid", kidFromSeed(CLINIC_A_SEED)));
         Map<String, Object> keys = new LinkedHashMap<>();
         keys.put("derivation", DERIVATION);
         keys.put("signer", ordered("clinic_id", CLINIC_ID, "seed_text", CLINIC_A_SEED,
                 "kid", PDFSigningUtil.keyId(clinicACertificate),
                 "spki_der_b64", b64(clinicA.getPublic().getEncoded()),
                 "cert_der_b64", b64(clinicACertificate.getEncoded())));
-        keys.put("other_clinic", ordered("clinic_id", "clinic-b", "seed_text", CLINIC_B_SEED, "kid", CLINIC_B_KID));
-        keys.put("rsa_signer", ordered("kid", PDFSigningUtil.keyId(rsaCertificate),
+        keys.put("other_clinic", ordered("clinic_id", "clinic-b", "seed_text", CLINIC_B_SEED, "kid", kidFromSeed(CLINIC_B_SEED)));
+        keys.put("rsa_signer", ordered("seed_text", RSA_SEED, "kid", PDFSigningUtil.keyId(rsaCertificate),
                 "cert_der_b64", b64(rsaCertificate.getEncoded()),
-                "note", "A random RSA-2048 key, used only by refuse-rsa-signer.pdf."));
+                "note", "RSA-2048, used only by refuse-rsa-signer.pdf: generated by the JDK from SHA1PRNG seeded"
+                        + " with SHA-256(seed_text), so it needs no stored key."));
         root.put("keys", keys);
         List<Map<String, Object>> entries = new ArrayList<>();
         for (Document document : documents) {
@@ -217,6 +220,21 @@ final class MyCarlosSignedPdfFixtures {
         return new DocumentManifest(new DocumentIdCalculator(secret).documentId("document", "1001"), 1, 1_792_450_800L,
                 CLINIC_ID, "FAKE Demo Clinic", "FAKE-Provider, Demo", recipientId, "FAKE-Jones, FAKE-Jacky", "1985-06-15",
                 "FAKE CBC", "lab_report", "2026-10-21");
+    }
+
+    /** {@code b64url(SHA-256(SubjectPublicKeyInfo DER))} of the P-256 key derived from {@code seed}. */
+    static String kidFromSeed(String seed) throws Exception {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(
+                MessageDigest.getInstance("SHA-256").digest(p256FromSeed(seed).getPublic().getEncoded()));
+    }
+
+    /** An RSA-2048 key generated from a seeded SHA1PRNG, so no key is ever stored. */
+    static KeyPair rsaFromSeed(String seed) throws Exception {
+        SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+        random.setSeed(MessageDigest.getInstance("SHA-256").digest(seed.getBytes(StandardCharsets.UTF_8)));
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048, random);
+        return generator.generateKeyPair();
     }
 
     /** The P-256 key carlos-portal's fixture derives from {@code seed}. */

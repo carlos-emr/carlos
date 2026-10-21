@@ -93,12 +93,12 @@ class MyCarlosSignedPdfFixturesUnitTest {
 
         assertThat(signer.get("seed_text").asText()).isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_A_SEED);
         assertThat(Base64.getDecoder().decode(signer.get("spki_der_b64").asText())).isEqualTo(spki);
-        assertThat(signer.get("kid").asText()).isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_A_KID).isEqualTo(kid(spki));
+        // The same seed text as carlos-portal's delivery-contract.json, so the same key and kid.
+        assertThat(signer.get("kid").asText()).isEqualTo(kid(spki));
         assertThat(certificateSpki(signer.get("cert_der_b64").asText())).isEqualTo(spki);
         assertThat(kid(MyCarlosSignedPdfFixtures.p256FromSeed(MyCarlosSignedPdfFixtures.CLINIC_B_SEED).getPublic().getEncoded()))
-                .isEqualTo(fixture.get("keys").get("other_clinic").get("kid").asText())
-                .isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_B_KID);
-        assertThat(fixture.get("link").get("signer_kid").asText()).isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_A_KID);
+                .isEqualTo(fixture.get("keys").get("other_clinic").get("kid").asText());
+        assertThat(fixture.get("link").get("signer_kid").asText()).isEqualTo(kid(spki));
     }
 
     @Test
@@ -140,7 +140,7 @@ class MyCarlosSignedPdfFixturesUnitTest {
                 assertThat(only.subFilter()).isEqualTo(PDSignature.SUBFILTER_ETSI_CADES_DETACHED.getName());
                 assertThat(only.signerSpki()).isEqualTo(signerSpki);
                 JsonNode manifest = new ObjectMapper().readTree(declaredManifest);
-                assertThat(manifest.get("kid").asText()).isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_A_KID);
+                assertThat(manifest.get("kid").asText()).isEqualTo(MyCarlosSignedPdfFixtures.kidFromSeed(MyCarlosSignedPdfFixtures.CLINIC_A_SEED));
                 assertThat(manifest.get("recipient_id").asText()).isEqualTo(MyCarlosSignedPdfFixtures.RECIPIENT_ID);
                 assertThat(manifest.get("clinic_id").asText()).isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_ID);
             }
@@ -168,7 +168,7 @@ class MyCarlosSignedPdfFixturesUnitTest {
                 assertWholeFileAndValid(only, pdf);
                 assertThat(only.signerSpki()).isEqualTo(signerSpki);
                 assertThat(new ObjectMapper().readTree(declaredManifest).get("kid").asText())
-                        .isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_B_KID);
+                        .isEqualTo(MyCarlosSignedPdfFixtures.kidFromSeed(MyCarlosSignedPdfFixtures.CLINIC_B_SEED));
             }
             case "not_p256" -> {
                 assertWholeFileAndValid(only, pdf);
