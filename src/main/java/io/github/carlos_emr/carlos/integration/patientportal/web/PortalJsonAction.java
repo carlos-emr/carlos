@@ -415,6 +415,11 @@ public abstract class PortalJsonAction extends ActionSupport {
         return failure(response, HttpServletResponse.SC_NOT_FOUND, reason, message);
     }
 
+    /** A refusal the staff member can act on, such as no bookable times in the chosen window. */
+    String conflict(HttpServletResponse response, String reason, String message) throws IOException {
+        return failure(response, HttpServletResponse.SC_CONFLICT, reason, message);
+    }
+
     String badRequest(HttpServletResponse response, String message) throws IOException {
         return failure(response, HttpServletResponse.SC_BAD_REQUEST, "bad_request", message);
     }
