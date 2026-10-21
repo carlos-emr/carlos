@@ -437,6 +437,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Report by Template editor (#4133): the bare page permits GET; action=add|edit|delete
         // must be a POST. Covered by ManageTemplates2ActionUnitTest.
         "io.github.carlos_emr.carlos.report.reportByTemplate.actions.ManageTemplates2Action",
+        // OBEC report: the bare page permits GET; Create Report (a Begin Date) writes the OBEC file and must be
+        // a POST. Covered by Obec2ActionMethodGuardUnitTest.
+        "io.github.carlos_emr.carlos.report.pageUtil.Obec2Action",
         // Message view (#4133): viewing permits GET; linkMsgDemo=true writes a msgDemoMap row and
         // must be a POST. Covered by MsgViewMessage2ActionUnitTest.
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action",
