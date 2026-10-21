@@ -25,10 +25,45 @@ const { clickAndAwaitReload, markOpener } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { documentChain, pickInPopup, lostOpenerMessage, assertId } = require('./lib/popup-opener-helpers');
 const { masterRecordLink } = require('./lib/master-record-link');
+const { registerSwipeSupportCleanup } = require('./patient-swipe-card-search-playwright-checks');
 
 const TIMEOUT = 20000;
 
+// This scenario submits the master-record form, so seed a valid postal value in
+// its own patient only and reload the already-opened record before any picker.
+function ownedPostalClause(s) {
+  const patient = String(s.patient);
+  h.assert(/^[1-9]\d*$/.test(patient) && patient.length <= 10 && BigInt(patient) <= 2147483647n,
+    'The owned patient identity is invalid');
+  h.assert(/^FAKE-PW[0-9a-f]{16}$/.test(s.marker), 'The fixture marker is invalid');
+  return `demographic_no=${patient} AND last_name=${h.sqlString(s.marker)}`;
+}
+
+async function assertOwnedPostal(s) {
+  const owner = ownedPostalClause(s);
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner} AND postal='K1A0B1'`) === '1',
+    'The owned patient postal fixture changed');
+  h.assert(await s.master.locator('input[name="postal"]').inputValue() === 'K1A0B1',
+    'A picker changed the owned patient postal field');
+}
+
+async function prepareOwnedPostal(s) {
+  const patient = String(s.patient);
+  const owner = ownedPostalClause(s);
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner}`) === '1',
+    'Patient fixture ownership changed');
+  s.sql.execute(`UPDATE demographic SET postal='K1A0B1' WHERE ${owner}`);
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner} AND postal='K1A0B1'`) === '1',
+    'The owned patient postal fixture was not stored');
+  await s.master.reload({ waitUntil: 'domcontentloaded' });
+  h.assert(new URL(s.master.url()).searchParams.get('demographic_no') === patient,
+    'The reloaded Master Record belongs to another patient');
+  await assertOwnedPostal(s);
+}
+
 async function workflow(s) {
+  registerSwipeSupportCleanup(s);
+  await prepareOwnedPostal(s);
   const { sql, marker } = s;
   const q = h.sqlString;
   const referrerFirstName = `R O'Neil "Q" & Co`;
@@ -105,6 +140,7 @@ async function workflow(s) {
         : await lostOpenerMessage(label, popup, chain);
     } else if (!closed) failure = `${label}: the picker filled the row but did not close itself`;
     if (!popup.isClosed()) await popup.close();
+    await assertOwnedPostal(s);
     return failure;
   };
   const pickers = async (...args) => {
@@ -167,6 +203,7 @@ async function workflow(s) {
       'Manage Contacts closed without reloading the Master Record (its window.opener.location.reload() was lost)');
     const listed = (await master.locator('body').innerText()).toLowerCase();
     h.assert(listed.split(marker.toLowerCase()).length - 1 >= 2, 'The reloaded Master Record does not list the saved contacts');
+    await assertOwnedPostal(s);
   });
 
   // Last, and collected: the pickers a defect breaks. Every working path above is proven
@@ -204,6 +241,7 @@ async function workflow(s) {
     const closed = await pickInPopup(popup, popup.locator('#tblDocs tbody tr', { hasText: marker }));
     const ohip = await master.locator('[name="r_doctor_ohip"]').inputValue();
     const name = await master.locator('[name="r_doctor"]').inputValue();
+    await assertOwnedPostal(s);
     if (ohip !== referralNo || name !== referralName) {
       failures.push(closed ? 'Referral Doctor search: the picker closed but the referral fields do not hold the picked specialist'
         : await lostOpenerMessage('Referral Doctor search (billing/CA/ON/ViewSearchRefDoc)', popup, chain));
@@ -226,4 +264,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('popup-opener-master-record', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, prepareOwnedPostal, assertOwnedPostal };
