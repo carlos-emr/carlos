@@ -143,11 +143,13 @@ class MyCarlosSignedPdfFixturesUnitTest {
                 assertThat(manifest.get("kid").asText()).isEqualTo(MyCarlosSignedPdfFixtures.kidFromSeed(MyCarlosSignedPdfFixtures.CLINIC_A_SEED));
                 assertThat(manifest.get("recipient_id").asText()).isEqualTo(MyCarlosSignedPdfFixtures.RECIPIENT_ID);
                 assertThat(manifest.get("clinic_id").asText()).isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_ID);
+                assertThat(isExactManifest(declaredManifest)).as("accepted as a manifest").isTrue();
             }
             case "signed_not_matched" -> {
                 assertWholeFileAndValid(only, pdf);
                 assertThat(declaredManifest == null || new ObjectMapper().readTree(declaredManifest).get("recipient_id").isNull())
                         .as("no manifest, or a manifest with no recipient").isTrue();
+                assertThat(declaredManifest == null || isExactManifest(declaredManifest)).as("accepted as a manifest").isTrue();
             }
             case "bad_signature" -> {
                 assertThat(only.coversWholeFile(pdf.length)).isTrue();
@@ -169,6 +171,8 @@ class MyCarlosSignedPdfFixturesUnitTest {
                 assertThat(only.signerSpki()).isEqualTo(signerSpki);
                 assertThat(new ObjectMapper().readTree(declaredManifest).get("kid").asText())
                         .isEqualTo(MyCarlosSignedPdfFixtures.kidFromSeed(MyCarlosSignedPdfFixtures.CLINIC_B_SEED));
+                // Well formed: only the key ID is wrong.
+                assertThat(isExactManifest(declaredManifest)).as("accepted as a manifest").isTrue();
             }
             case "not_p256" -> {
                 assertWholeFileAndValid(only, pdf);
