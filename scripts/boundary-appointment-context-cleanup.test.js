@@ -13,7 +13,8 @@ const PAGE='888888|2026-10-21|08:55|09:09';
 function fixture(body){
  const db=new DatabaseSync(':memory:');
  db.function('SHA2',(value,size)=>{assert.equal(size,256);return createHash('sha256').update(value).digest('hex');});
- db.exec(`CREATE TABLE demographic(demographic_no INTEGER PRIMARY KEY,last_name TEXT,provider_no TEXT);
+ db.exec(`CREATE TABLE demographic(demographic_no INTEGER PRIMARY KEY,last_name TEXT,first_name TEXT,provider_no TEXT,
+   year_of_birth TEXT,month_of_birth TEXT,date_of_birth TEXT,sex TEXT,patient_status TEXT,hc_type TEXT,province TEXT,roster_status TEXT,lastUpdateDate TEXT);
   CREATE TABLE provider(provider_no TEXT PRIMARY KEY,last_name TEXT);
   CREATE TABLE security(security_no INTEGER PRIMARY KEY,provider_no TEXT,user_name TEXT);
   CREATE TABLE providersite(provider_no TEXT,site_id INTEGER,PRIMARY KEY(provider_no,site_id));
@@ -23,12 +24,12 @@ function fixture(body){
    start_time TEXT,end_time TEXT,name TEXT,location TEXT,reason TEXT,notes TEXT,resources TEXT);
   CREATE TABLE appointmentArchive(id INTEGER PRIMARY KEY,appointment_no INTEGER,provider_no TEXT,demographic_no INTEGER,
    appointment_date TEXT,start_time TEXT,end_time TEXT,name TEXT,location TEXT,reason TEXT,notes TEXT,resources TEXT);
-  INSERT INTO demographic VALUES(41,'${MARKER}','999998'),(42,'FOREIGN','999999');
+  INSERT INTO demographic(demographic_no,last_name,first_name,provider_no) VALUES(41,'${MARKER}','Workflow','999998'),(42,'FOREIGN','Foreign','999999');
   INSERT INTO provider VALUES('888888','${MARKER}'),('999998','SHARED');
   INSERT INTO security VALUES(9,'888888','FAKEPW0123456789abcdef');
   INSERT INTO providersite VALUES('999998',7);`);
  db.prepare('INSERT INTO site VALUES(?,?,1)').run(7,SITE);
- for(const [table,column] of [['casemgmt_note_lock','demographic_no'],['casemgmt_tmpsave','demographic_no'],['measurementsDeleted','demographicNo'],['demographicExt','demographic_no'],['demographicArchive','demographic_no']])db.exec(`CREATE TABLE ${table}(${column} INTEGER)`);
+ for(const [table,column] of [['casemgmt_note_lock','demographic_no'],['casemgmt_tmpsave','demographic_no'],['measurementsDeleted','demographicNo'],['demographicExt','demographic_no'],['demographicArchive','demographic_no'],['demographicExtArchive','demographic_no'],['demographiccust','demographic_no']])db.exec(`CREATE TABLE ${table}(${column} INTEGER)`);
  const state={connected:false,callbacks:[],queries:[],events:[],logs:[]};
  const sql={rows(query){state.queries.push(query);state.events.push(query.startsWith('SELECT id FROM PageMonitor')?'monitor-read':'read');
    const statement=db.prepare(query);statement.setReturnArrays(true);
@@ -203,4 +204,53 @@ test('a lost site INSERT reply is cleaned only through its captured exact provid
  f.begin();f.state.beforeWrite=query=>{if(query.startsWith('INSERT INTO providersite')){f.db.exec(query);throw Error('lost INSERT reply');}};
  assert.throws(()=>f.owned.provisionSite({multisites:true,location:SITE}),/lost INSERT reply/);f.state.beforeWrite=null;f.cleanup();
  assert.equal(f.db.prepare("SELECT COUNT(*) n FROM providersite WHERE provider_no='888888'").get().n,0);assert(f.owned.canRelease());
+}));
+
+
+test('exact30/30 additional patient leaves the generic patient untouched and releases only after all native children and monitors',()=>fixture(async f=>{
+ await f.bind();const linked=f.owned.createLongNamePatient();
+ assert.equal(linked.lastName.length,30);assert.equal(linked.firstName.length,30);assert.equal(linked.name.length,61);
+ assert.equal(f.db.prepare('SELECT last_name,first_name FROM demographic WHERE demographic_no=41').get().last_name,MARKER);
+ f.appointment(61,{patient:Number(linked.patient),name:linked.name});f.archive();f.monitor(11);f.owned.rememberAppointment('61');
+ f.guardProvider();await f.workflowCleanup();assert.equal(f.count('demographic'),1);assert.equal(f.count('provider'),1);
+ assert.equal(f.count('appointment'),0);assert.equal(f.count('appointmentArchive'),0);assert.deepEqual(f.ids(),[]);
+ const parentDelete=f.state.queries.findIndex(q=>q.startsWith('DELETE FROM demographic WHERE demographic_no='+linked.patient));
+ assert(parentDelete>f.state.queries.findIndex(q=>q.startsWith('DELETE FROM appointment ')));
+}));
+test('pre-existing exact long-name pair is refused without adopting or deleting its patient',()=>fixture(async f=>{
+ await f.bind();f.db.prepare('INSERT INTO demographic(demographic_no,last_name,first_name,provider_no) VALUES(?,?,?,?)')
+  .run(43,MARKER+'-Longxx','Linked-'+MARKER.slice(-16)+'xxxxxxx','999999');
+ assert.throws(()=>f.owned.createLongNamePatient(),/already exists/);f.cleanup();assert.equal(f.count('demographic'),3);
+}));
+test('a lost linked-patient INSERT reply retains intent and resolves only the exact new owned identity for cleanup',()=>fixture(async f=>{
+ await f.bind();f.state.beforeWrite=q=>{if(q.startsWith('INSERT INTO demographic')){f.db.exec(q);throw Error('lost linked INSERT reply');}};
+ assert.throws(()=>f.owned.createLongNamePatient(),/lost linked INSERT/);assert.equal(f.count('demographic'),3);
+ f.state.beforeWrite=null;f.cleanup();assert.equal(f.count('demographic'),2);assert(f.owned.canRelease());
+}));
+for(const change of ['last_name','first_name','provider_no'])test(`changed additional patient ${change} retains original and throwaway parents`,()=>fixture(async f=>{
+ await f.bind();const linked=f.owned.createLongNamePatient();f.appointment(61,{patient:Number(linked.patient),name:linked.name});f.owned.rememberAppointment('61');f.guardProvider();
+ f.db.prepare(`UPDATE demographic SET ${change}=? WHERE demographic_no=?`).run('FOREIGN',Number(linked.patient));
+ await assert.rejects(f.workflowCleanup(),/ownership changed|disappeared/);assert.equal(f.count('appointment'),1);assert.equal(f.count('demographic'),3);assert.equal(f.count('provider'),2);
+}));
+test('a silently retained linked appointment prevents removal of either patient and the provider',()=>fixture(async f=>{
+ await f.bind();const linked=f.owned.createLongNamePatient();f.appointment(61,{patient:Number(linked.patient),name:linked.name});f.archive();f.owned.rememberAppointment('61');f.guardProvider();
+ f.state.beforeWrite=q=>!q.startsWith('DELETE FROM appointment ');await assert.rejects(f.workflowCleanup(),/Captured boundary/);
+ assert.equal(f.count('demographic'),3);assert.equal(f.count('provider'),2);assert.equal(f.count('appointment'),1);
+}));
+test('an unregistered linked child under another provider is retained and blocks its extra parent release',()=>fixture(async f=>{
+ await f.bind();const linked=f.owned.createLongNamePatient();f.appointment(61,{provider:'999999',patient:Number(linked.patient),name:linked.name});f.guardProvider();
+ await assert.rejects(f.workflowCleanup(),/still has clinical or appointment children/);assert.equal(f.count('demographic'),3);assert.equal(f.count('provider'),2);assert.equal(f.count('appointment'),1);
+}));
+test('unexpected support children prevent extra parent deletion rather than broad support cleanup',()=>fixture(async f=>{
+ await f.bind();const linked=f.owned.createLongNamePatient();f.db.prepare('INSERT INTO demographiccust VALUES(?)').run(Number(linked.patient));f.guardProvider();
+ await assert.rejects(f.workflowCleanup(),/clinical or appointment children/);assert.equal(f.count('demographiccust'),1);assert.equal(f.count('demographic'),3);assert.equal(f.count('provider'),2);
+}));
+test('a child arriving between reference verification and parent DELETE cannot become an orphan',()=>fixture(async f=>{
+ await f.bind();const linked=f.owned.createLongNamePatient();f.guardProvider();
+ f.state.beforeWrite=q=>{if(q.startsWith('DELETE FROM demographic WHERE demographic_no='+linked.patient))f.db.prepare('INSERT INTO demographiccust VALUES(?)').run(Number(linked.patient));};
+ await assert.rejects(f.workflowCleanup(),/not removed or changed ownership/);assert.equal(f.count('demographiccust'),1);assert.equal(f.count('demographic'),3);assert.equal(f.count('provider'),2);
+}));
+test('a same-prefix linked appointment with a different full name is foreign and never swept',()=>fixture(async f=>{
+ await f.bind();const linked=f.owned.createLongNamePatient();f.appointment(61,{patient:Number(linked.patient),name:linked.name+'X'});f.owned.rememberAppointment('61');
+ assert.throws(()=>f.cleanup(),/unowned boundary/);assert.equal(f.count('demographic'),3);assert.equal(f.count('appointment'),1);
 }));

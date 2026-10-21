@@ -70,12 +70,31 @@ function installOwnedBoundaryCleanup(s, fixture) {
     'The boundary fixture marker or username is invalid');
   const ownerSql = `SELECT 1 FROM demographic d JOIN provider p ON p.provider_no=${h.sqlString(provider)}
     JOIN security u ON u.security_no=${security} AND u.provider_no=p.provider_no
-    WHERE d.demographic_no=${patient} AND d.last_name=${h.sqlString(marker)} AND d.provider_no=${h.sqlString(actor)}
+    WHERE d.demographic_no=${patient} AND d.last_name=${h.sqlString(marker)} AND d.first_name='Workflow'
+    AND HEX(d.last_name)=${h.sqlString(b.hex(marker))} AND HEX(d.first_name)=${h.sqlString(b.hex('Workflow'))} AND d.provider_no=${h.sqlString(actor)}
     AND p.last_name=${h.sqlString(marker)} AND u.user_name=${h.sqlString(fixture.username)}`;
   const owner = () => h.assert(sql.value(`SELECT COUNT(*) FROM (${ownerSql}) owned`) === '1',
     'The boundary patient or throwaway ownership changed');
   const slots = new Map(), captured = new Set(), observedMonitors = new Set();
   const names = new Set();
+  const longLast = `${marker}-Longxx`, longFirst = `Linked-${marker.slice(-16)}xxxxxxx`;
+  h.assert(longLast.length === 30 && longFirst.length === 30, 'The linked-name fixture does not fill both legal patient columns');
+  const linkedName = `${longLast},${longFirst}`;
+  let linkedIntent = false, linkedPatient;
+  const linkedRows = () => sql.rows(`SELECT demographic_no,provider_no,HEX(last_name),HEX(first_name) FROM demographic
+    WHERE last_name=${h.sqlString(longLast)} AND first_name=${h.sqlString(longFirst)}`);
+  const resolveLinkedPatient = () => {
+    if (!linkedIntent) return;
+    const rows = linkedRows();
+    h.assert(rows.length <= 1 && rows.every(row => row.length === 4 && row[1] === actor && row[2] === b.hex(longLast) && row[3] === b.hex(longFirst)), 'The additional linked patient ownership changed');
+    if (!rows.length) { h.assert(!linkedPatient, 'The additional linked patient disappeared'); return; }
+    const id = positiveId(rows[0][0], 'long-name patient');
+    h.assert(!linkedPatient || linkedPatient === id, 'The additional linked patient identity changed');
+    linkedPatient = id;
+  };
+  const linkedOwnerSql = () => `SELECT 1 FROM demographic WHERE demographic_no=${linkedPatient}
+    AND last_name=${h.sqlString(longLast)} AND first_name=${h.sqlString(longFirst)}
+    AND HEX(last_name)=${h.sqlString(b.hex(longLast))} AND HEX(first_name)=${h.sqlString(b.hex(longFirst))} AND provider_no=${h.sqlString(actor)}`;
   let context, native, siteId, ready = false, released = false;
   const remaining = () => sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE provider_no=${h.sqlString(provider)})
     + (SELECT COUNT(*) FROM appointmentArchive WHERE provider_no=${h.sqlString(provider)})
@@ -93,6 +112,7 @@ function installOwnedBoundaryCleanup(s, fixture) {
       'Boundary fixtures retained: browser closure is unconfirmed');
     owner();
     h.assert(ready, 'Boundary fixtures retained: the initial child baseline is unconfirmed');
+    resolveLinkedPatient();
     for (const value of slots.values()) value.monitors.cleanup();
     if (observedMonitors.size) h.assert(sql.value(`SELECT COUNT(*) FROM PageMonitor WHERE id IN (${[...observedMonitors].join(',')})`) === '0',
       'A captured boundary appointment monitor remains or changed ownership');
@@ -108,7 +128,8 @@ function installOwnedBoundaryCleanup(s, fixture) {
       const slot = slots.get(`${provider}|${date}|${String(start).slice(0,5)}|${String(end).slice(0,5)}`);
       h.assert(bookedProvider === provider && /^(?:[01]\d|2[0-3]):[0-5]\d:00$/.test(start)
         && /^(?:[01]\d|2[0-3]):[0-5]\d:00$/.test(end) && slot && native
-        && location === native.location && ((demographic === patient && name.startsWith(`${marker},`))
+        && location === native.location && ((demographic === patient && name === `${marker},Workflow`)
+          || (demographic === linkedPatient && name === linkedName)
           || (demographic === '0' && names.has(name))),
       'An unowned boundary appointment/archive was retained');
     };
@@ -120,7 +141,8 @@ function installOwnedBoundaryCleanup(s, fixture) {
         sql.execute(`DELETE FROM ${table} WHERE ${key}=${id} AND appointment_no=${appt}
           AND provider_no=${h.sqlString(bookedProvider)} AND demographic_no=${demographic}
           AND appointment_date=${h.sqlString(date)} AND start_time=${h.sqlString(start)} AND end_time=${h.sqlString(end)}
-          AND name=${h.sqlString(name)} AND location=${h.sqlString(location)} AND EXISTS (${ownerSql})`);
+          AND name=${h.sqlString(name)} AND location=${h.sqlString(location)} AND EXISTS (${ownerSql})
+          ${demographic === linkedPatient ? `AND EXISTS (${linkedOwnerSql()})` : ''}`);
       }
     }
     const allIds = [...new Set([...captured,...live.map(row=>row[1]),...archived.map(row=>row[1])])];
@@ -133,6 +155,22 @@ function installOwnedBoundaryCleanup(s, fixture) {
     h.assert(remaining() === '0' && sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM appointmentArchive WHERE demographic_no=${patient})`) === '0',
     'Foreign or uncertain boundary fixture rows were retained');
+    if (linkedPatient) {
+      resolveLinkedPatient();
+      const references = [['appointment','demographic_no'],['appointmentArchive','demographic_no'],
+        ['casemgmt_note_lock','demographic_no'],['casemgmt_tmpsave','demographic_no'],['measurementsDeleted','demographicNo'],
+        ['demographicExt','demographic_no'],['demographicArchive','demographic_no'],
+        ['demographicExtArchive','demographic_no'],['demographiccust','demographic_no']];
+      h.assert(sql.value(`SELECT ${references.map(([table,column]) => `(SELECT COUNT(*) FROM ${table} WHERE ${column}=${linkedPatient})`).join('+')}`) === '0',
+        'The additional linked patient still has clinical or appointment children; it was retained');
+      sql.execute(`DELETE FROM demographic WHERE demographic_no=${linkedPatient}
+        AND last_name=${h.sqlString(longLast)} AND first_name=${h.sqlString(longFirst)} AND provider_no=${h.sqlString(actor)}
+        AND HEX(last_name)=${h.sqlString(b.hex(longLast))} AND HEX(first_name)=${h.sqlString(b.hex(longFirst))}
+        AND EXISTS (SELECT 1 FROM (${ownerSql} GROUP BY d.demographic_no) original_owner)
+        ${references.map(([table,column]) => `AND NOT EXISTS (SELECT 1 FROM ${table} WHERE ${column}=${linkedPatient})`).join(' ')}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${linkedPatient}`) === '0',
+        'The additional linked patient was not removed or changed ownership');
+    }
     released = true;
   });
   owner();
@@ -140,6 +178,18 @@ function installOwnedBoundaryCleanup(s, fixture) {
   ready = true;
   return {
     canRelease: () => released,
+    createLongNamePatient() {
+      owner(); h.assert(!linkedIntent && linkedRows().length === 0, 'The long-name patient fixture already exists');
+      linkedIntent = true; // cleanup intent exists before the first insert, including a lost reply
+      sql.execute(`INSERT INTO demographic (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
+          provider_no,hc_type,province,roster_status,lastUpdateDate)
+        SELECT ${h.sqlString(longLast)},${h.sqlString(longFirst)},year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
+          provider_no,hc_type,province,roster_status,lastUpdateDate FROM demographic
+        WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)} AND first_name='Workflow'
+          AND provider_no=${h.sqlString(actor)} AND EXISTS (${ownerSql})`);
+      resolveLinkedPatient(); h.assert(linkedPatient, 'The owned long-name patient was not created');
+      return {patient:linkedPatient,lastName:longLast,firstName:longFirst,name:linkedName};
+    },
     provisionSite(source) {
       h.assert(!native && !siteId, 'The boundary site was already provisioned');
       if (!source.multisites) return;
@@ -287,15 +337,15 @@ async function workflow(s) {
     await owned.checkBooking(popup, slot);
     return popup;
   }
-  async function pickPatient(popup) {
-    await popup.locator('#keyword').fill(marker);
+  async function pickPatient(popup, selected = {patient, lastName:marker}) {
+    await popup.locator('#keyword').fill(selected.lastName);
     await ui.clickAndAwaitReload(popup, popup.locator('#searchBtn'), { required: false });
     await popup.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
-    const pick = popup.locator(`table tr input[type="button"][name="pick_demographic"][value="${patient}"]`).first();
+    const pick = popup.locator(`table tr input[type="button"][name="pick_demographic"][value="${selected.patient}"]`).first();
     await pick.waitFor({ state: 'visible' });
     await ui.clickAndAwaitReload(popup, pick, { required: false });
     await popup.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
-    h.assert(await popup.locator('#demographic_no').inputValue() === patient, 'The booking form did not take the owned patient');
+    h.assert(await popup.locator('#demographic_no').inputValue() === selected.patient, 'The booking form did not take the owned patient');
   }
   async function openEdit(apptNo) {
     await assertScheduleContext(nativeSession, scheduleContext);
@@ -346,6 +396,49 @@ async function workflow(s) {
     await pollFor(sql, `SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${apptNo}`, v => Number(v) >= 1, 'The unchanged Update was not recorded');
     h.assert(snapshot() === before, 'An Update with no edits altered the stored name, reason, notes or resources (re-encoding on save)');
     await reloadDaySheet();
+  });
+
+  async function roundTripName(expected, linked) {
+    const popup = await openBooking();
+    if (linked) await pickPatient(popup, linked);
+    else {
+      owned.allowFreeName(expected, b.columnLength(sql, 'appointment', 'name'));
+      await popup.locator('#keyword').fill(expected);
+      h.assert(['', '0'].includes(await popup.locator('#demographic_no').inputValue()), 'The free-text name unexpectedly links a patient');
+    }
+    h.assert(await popup.locator('#keyword').inputValue() === expected, 'The legal appointment name was silently limited before Add');
+    const highWater = Number(sql.value(`SELECT COALESCE(MAX(appointment_no),0) FROM appointment WHERE provider_no=${owner}`));
+    await ui.clickAndAwaitReload(popup, popup.locator('#addButton'), {required:false});
+    const id = await pollFor(sql, `SELECT appointment_no FROM appointment WHERE provider_no=${owner} AND appointment_no>${highWater} ORDER BY appointment_no DESC LIMIT 1`,
+      value => /^[1-9]\d*$/.test(value), 'The legal appointment name was not saved');
+    owned.rememberAppointment(id);
+    b.assertStored(sql, 'appointment', 'name', `${byApptNo()}${id}`, expected, 'Created full appointment name');
+    h.assert(sql.value(`SELECT demographic_no FROM appointment WHERE ${byApptNo()}${id}`) === (linked ? linked.patient : '0'),
+      'The saved appointment did not preserve its linked/free-text identity');
+    await popup.close().catch(() => {}); await reloadDaySheet();
+    const edit = await openEdit(id);
+    h.assert(await edit.locator('form [name="keyword"]').first().inputValue() === expected, 'The edit popup omitted legal appointment-name text');
+    await edit.locator('#updateButton').click(); await edit.waitForEvent('close',{timeout:15000}).catch(() => {});
+    await pollFor(sql, `SELECT COUNT(*) FROM appointmentArchive WHERE provider_no=${owner} AND appointment_no=${id}`,
+      value => Number(value) >= 1, 'The unchanged name Update has no archive');
+    b.assertStored(sql, 'appointment', 'name', `${byApptNo()}${id}`, expected, 'Updated full appointment name');
+    const archived = sql.rows(`SELECT HEX(name) FROM appointmentArchive WHERE provider_no=${owner} AND appointment_no=${id}`);
+    h.assert(archived.length > 0 && archived.every(row => row.length === 1 && row[0] === b.hex(expected)),
+      'An appointment archive omitted part of the legal name');
+    await reloadDaySheet();
+  }
+
+  await s.step('a legal 61-character linked patient name survives create, reopen, unchanged Update and archive', async () => {
+    h.assert(b.columnLength(sql,'appointment','name') >= 255 && b.columnLength(sql,'appointmentArchive','name') >= 255,
+      'Both live and archived appointment names must support 255 characters');
+    const linked = owned.createLongNamePatient();
+    h.assert(linked.lastName.length === 30 && linked.firstName.length === 30 && linked.name.length === 61,
+      'The linked-name boundary does not exercise 61 characters');
+    await roundTripName(linked.name, linked);
+  });
+
+  await s.step('a legal 255-character free-text name survives create, reopen, unchanged Update and archive', async () => {
+    await roundTripName(b.exactly(255, `N${marker.slice(-6)}-legal-`));
   });
 
   await s.step('line breaks inside a full box, and a long free-text name and resources entry, are stored whole or refused', async () => {
