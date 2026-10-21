@@ -244,6 +244,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementStyle2Action",
                     "_admin.measurements", "w"),
+            // A group's decision support add/remove (the Add and Remove pages' POST forms).
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurementGroupDecisionSupport2Action",
+                    "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2Action",
                     "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasuringInstruction2Action",
@@ -399,6 +402,12 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Legacy encounter forms: every save must be POST; only submit=graph/printAll/printAllJasperReport read
+        // and permit GET. Focused GET/HEAD cases in Frm2ActionMethodGuardUnitTest.
+        "io.github.carlos_emr.carlos.form.Frm2Action",
+        // Measurement data: action=saveMeasurement/saveValues must be POST; its reads permit GET.
+        // Focused GET/HEAD cases in MeasurementData2ActionMethodGuardUnitTest.
+        "io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action",
         // PHCP provider settings: role mutations require POST; focused Alpha20RequestAuthorizationUnitTest.
         "io.github.carlos_emr.carlos.report.gate.ReportProviderRoles2Action",
         // Provider preferences (setProviderStaleDate / setTicklerPreferences): the view dispatches permit
@@ -620,6 +629,10 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        // The form package is not in IN_SCOPE_PACKAGE_PREFIXES; its legacy form dispatcher registers here.
+        "io.github.carlos_emr.carlos.form.Frm2Action",
+        // measurements.web is not in IN_SCOPE_PACKAGE_PREFIXES; its data dispatcher registers here.
+        "io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action",
         "io.github.carlos_emr.carlos.lab.pageUtil.FileLabsOnBehalf2Action",
         // The provider.web package is not in IN_SCOPE_PACKAGE_PREFIXES; its methodMap dispatcher is
         // registered explicitly (conditional mutator, see METHOD_MAP_DISPATCHERS).
