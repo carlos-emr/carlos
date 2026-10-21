@@ -850,10 +850,20 @@ Ontario, Canada
 
                             });
 
-                            var lockedMsg = locked ? '<span style="color:red" title="' + lockedProviderName + '">&nbsp(locked)</span>' : '';
-                            document.getElementById('lock_notification').innerHTML =
-                                '<span title="' + providerNames + '">Viewers:' + data.length + lockedMsg + '</span>'
-                            ;
+                            // Provider names come from the server: build the notice as text nodes and
+                            // attributes, never as HTML.
+                            var notice = document.getElementById('lock_notification');
+                            var viewers = document.createElement('span');
+                            viewers.setAttribute('title', providerNames);
+                            viewers.textContent = 'Viewers:' + data.length;
+                            if (locked) {
+                                var lockedMark = document.createElement('span');
+                                lockedMark.style.color = 'red';
+                                lockedMark.setAttribute('title', lockedProviderName);
+                                lockedMark.textContent = '\u00a0(locked)';
+                                viewers.appendChild(lockedMark);
+                            }
+                            notice.replaceChildren(viewers);
 
 
                             updateBookingButtonVisibility(locked);
