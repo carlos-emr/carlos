@@ -76,6 +76,20 @@ class DocumentManifestUnitTest {
     }
 
     @Test
+    @DisplayName("should keep a surrogate pair and refuse an unpaired surrogate")
+    void shouldRefuseUnpairedSurrogates_inStrings() {
+        String pair = new String(Character.toChars(0x1F600));
+
+        String json = new String(fakeManifest("a" + pair).toCanonicalJson("k"), StandardCharsets.UTF_8);
+
+        assertThat(json).contains("\"title\":\"a" + pair + "\"");
+        assertThatThrownBy(() -> fakeManifest("a\uD83D").toCanonicalJson("k"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> fakeManifest("\uDE00b").toCanonicalJson("k"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @DisplayName("should refuse a blank document ID or a version below 1")
     void shouldRefuseInvalidValues_forTheDocumentIdentity() {
         assertThatThrownBy(() -> new DocumentManifest(" ", 1, 0, null, null, null, null, null, null, null, null, null))

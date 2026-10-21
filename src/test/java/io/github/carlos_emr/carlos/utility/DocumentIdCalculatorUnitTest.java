@@ -93,6 +93,16 @@ class DocumentIdCalculatorUnitTest {
     }
 
     @Test
+    @DisplayName("should refuse a source with a colon, so no two pairs share an input")
+    void shouldRefuseColon_inTheSource() {
+        DocumentIdCalculator calculator = new DocumentIdCalculator(FAKE_SECRET);
+
+        // ("a:b", "c") and ("a", "b:c") would both hash "a:b:c".
+        assertThatThrownBy(() -> calculator.documentId("a:b", "c")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(calculator.documentId("a", "b:c")).hasSize(43);
+    }
+
+    @Test
     @DisplayName("should be absent when the secret setting is not set")
     void shouldBeEmpty_whenTheSecretIsNotSet() {
         CarlosProperties.getInstance().remove(DocumentIdCalculator.SECRET_PROPERTY);

@@ -93,13 +93,18 @@ public final class DocumentIdCalculator {
     }
 
     /**
-     * @param source the kind of record, such as {@code eform} or {@code document}
+     * @param source the kind of record, such as {@code eform} or {@code document}; it may not
+     *        contain {@code :}, so the first {@code :} always ends it and no two pairs give the
+     *        same input
      * @param internalId the record's ID within that kind
      * @return the document ID, base64url without padding (43 characters)
      */
     public String documentId(String source, String internalId) {
         if (source == null || source.isBlank() || internalId == null || internalId.isBlank()) {
             throw new IllegalArgumentException("A document ID needs a source and an internal ID");
+        }
+        if (source.indexOf(':') >= 0) {
+            throw new IllegalArgumentException("A document ID source may not contain ':'");
         }
         try {
             Mac mac = Mac.getInstance(HMAC);

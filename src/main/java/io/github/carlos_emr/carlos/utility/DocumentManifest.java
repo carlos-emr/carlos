@@ -154,6 +154,16 @@ public record DocumentManifest(
         out.append('"');
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
+            if (Character.isSurrogate(c)) {
+                // RFC 8785 takes I-JSON input, which has no unpaired surrogates; UTF-8 encoding
+                // would silently turn one into '?'. A valid pair is copied as it is.
+                if (Character.isHighSurrogate(c) && i + 1 < text.length()
+                        && Character.isLowSurrogate(text.charAt(i + 1))) {
+                    out.append(c).append(text.charAt(++i));
+                    continue;
+                }
+                throw new IllegalArgumentException("Manifest text holds an unpaired surrogate");
+            }
             switch (c) {
                 case '"' -> out.append("\\\"");
                 case '\\' -> out.append("\\\\");
