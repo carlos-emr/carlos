@@ -67,8 +67,8 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("fast")
 @Tag("email")
-@DisplayName("EmailSend2Action")
-class EmailSend2ActionTest extends CarlosUnitTestBase {
+@DisplayName("EmailSend2Action compose windows and staged attachments")
+class EmailSend2ActionComposeWindowUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private EmailManager emailManager;
