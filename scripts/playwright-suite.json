@@ -7934,11 +7934,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Preferences > Appointment Card (clinic name, phone, fax) followed to Edit Appointment > Print Card. Expected to FAIL at the last step while app-findings-log.md finding 315 stands: the card reads APPT_CARD_NAME/PHONE/FAX, which nothing writes, while Preferences saves appointmentCardName/Phone/Fax, so the card shows the provider's name and the clinic's own phone and fax.",
-      "expectedFailure": {
-        "finding": 315,
-        "step": "the appointment card shows the clinic name, phone and fax saved in Preferences"
-      },
+      "notes": "Preferences > Appointment Card (clinic name, phone, fax) followed to Edit Appointment > Print Card. Finding 315 (the card read APPT_CARD_NAME/PHONE/FAX, which nothing wrote) was fixed by #5137; the check passes on release since.",
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js), the session's owned FAKE- patient and one appointment today on the throwaway's own schedule. Cleanup removes the appointment, then the throwaway with its property rows; both are asserted gone."
     },
     {
