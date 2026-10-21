@@ -57,3 +57,4 @@ common/V1.0.54__allow_dashboard_exclusion_history.sql
 common/V1.0.55__preserve_remittance_health_number_version.sql
 on/V1.0.56__preserve_claim_item_explanations.sql
 common/V1.0.57__preserve_rourke2020_immunization_notes.sql
+common/V1.0.58__preserve_full_appointment_names.sql
