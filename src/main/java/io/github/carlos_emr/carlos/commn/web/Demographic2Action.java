@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 public class Demographic2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -204,29 +205,21 @@ public class Demographic2Action extends ActionSupport {
         if (demographicNo != null) {
             List<DemographicArchive> archives = demographicArchiveDao.findByDemographicNoChronologically(Integer.parseInt(demographicNo));
 
-            String address;
-            String city;
-            String province;
-            String postal;
-            String phone;
-            String phone2;
-            String cell;
-            String hPhoneExt;
-            String wPhoneExt;
+            // The values last listed, carried from one archived version to the next, so that a version whose
+            // address or phone did not change is not listed again.
+            String address = "";
+            String city = "";
+            String province = "";
+            String postal = "";
+            String phone = "";
+            String phone2 = "";
+            String cell = "";
+            String hPhoneExt = "";
+            String wPhoneExt = "";
 
             List<DemographicHistoryItem> items = new ArrayList<DemographicHistoryItem>();
 
             for (DemographicArchive archive : archives) {
-
-                address = "";
-                city = "";
-                province = "";
-                postal = "";
-                phone = "";
-                phone2 = "";
-                cell = "";
-                hPhoneExt = "";
-                wPhoneExt = "";
 
                 List<DemographicExtArchive> exts = demographicExtArchiveDao.getDemographicExtArchiveByArchiveId(archive.getId());
                 java.util.Map<String, DemographicExtArchive> extMap = new java.util.HashMap<String, DemographicExtArchive>();
@@ -234,8 +227,8 @@ public class Demographic2Action extends ActionSupport {
                     extMap.put(ext.getKey(), ext);
                 }
 
-                if (!address.equals(archive.getAddress()) || !city.equals(archive.getCity())
-                        || !province.equals(archive.getProvince()) || !postal.equals(archive.getPostal())) {
+                if (!Objects.equals(address, archive.getAddress()) || !Objects.equals(city, archive.getCity())
+                        || !Objects.equals(province, archive.getProvince()) || !Objects.equals(postal, archive.getPostal())) {
 
                     items.add(new DemographicHistoryItem(new String(archive.getAddress() + ", " + archive.getCity() + "," + archive.getProvince() + "," + archive.getPostal()), "address", archive.getLastUpdateDate()));
                     address = archive.getAddress();
@@ -244,16 +237,16 @@ public class Demographic2Action extends ActionSupport {
                     postal = archive.getPostal();
                 }
 
-                if (!phone.equals(archive.getPhone()) || (extMap.get("hPhoneExt") != null && !extMap.get("hPhoneExt").getValue().equals(hPhoneExt))) {
+                if (!Objects.equals(phone, archive.getPhone()) || (extMap.get("hPhoneExt") != null && !Objects.equals(extMap.get("hPhoneExt").getValue(), hPhoneExt))) {
                     //new home phone
-                    items.add(new DemographicHistoryItem(archive.getPhone() + (extMap.get("hPhoneExt") != null ? "x" + extMap.get("hPhoneExt").getValue() : ""), "phone", archive.getLastUpdateDate()));
+                    items.add(new DemographicHistoryItem(archive.getPhone() + extensionSuffix(extMap.get("hPhoneExt")), "phone", archive.getLastUpdateDate()));
                     phone = archive.getPhone();
                     hPhoneExt = extMap.get("hPhoneExt") != null ? extMap.get("hPhoneExt").getValue() : "";
                 }
 
-                if (!phone2.equals(archive.getPhone2()) || (extMap.get("wPhoneExt") != null && !extMap.get("wPhoneExt").getValue().equals(wPhoneExt))) {
+                if (!Objects.equals(phone2, archive.getPhone2()) || (extMap.get("wPhoneExt") != null && !Objects.equals(extMap.get("wPhoneExt").getValue(), wPhoneExt))) {
                     //new work phone
-                    items.add(new DemographicHistoryItem(archive.getPhone2() + (extMap.get("wPhoneExt") != null ? "x" + extMap.get("wPhoneExt").getValue() : ""), "phone2", archive.getLastUpdateDate()));
+                    items.add(new DemographicHistoryItem(archive.getPhone2() + extensionSuffix(extMap.get("wPhoneExt")), "phone2", archive.getLastUpdateDate()));
                     phone2 = archive.getPhone2();
                     wPhoneExt = extMap.get("wPhoneExt") != null ? extMap.get("wPhoneExt").getValue() : "";
                 }
@@ -275,6 +268,11 @@ public class Demographic2Action extends ActionSupport {
 
 
         return null;
+    }
+
+    /** "x" and the extension, to follow a phone number in the history, or nothing when the extension is blank. */
+    private static String extensionSuffix(DemographicExtArchive ext) {
+        return ext != null && ext.getValue() != null && !ext.getValue().isBlank() ? "x" + ext.getValue() : "";
     }
 
     public String checkForDuplicates() {

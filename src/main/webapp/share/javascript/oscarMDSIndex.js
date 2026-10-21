@@ -786,6 +786,20 @@ function popupStart(vheight, vwidth, varpage, windowname) {
     const popup = window.open(varpage, windowname, windowprops);
 }
 
+/**
+ * Makes a report URL safe to open without re-encoding it. The inbox links pass {@code this.href}, which
+ * already carries escapes such as %27 or %25; {@code encodeURI} would turn those into %2527 and %2525, so
+ * the servlet would receive the escape text instead of the stored character. URL parsing keeps existing
+ * escapes and still encodes raw characters (spaces, quotes) from callers that build the URL by hand.
+ */
+function normalizeReportUrl(page) {
+    try {
+        return new URL(page, document.baseURI).href;
+    } catch (e) {
+        return page;
+    }
+}
+
 function reportWindow(page, height, width) {
     //console.log(page);
     let windowprops;
@@ -794,7 +808,7 @@ function reportWindow(page, height, width) {
     } else {
         windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
     }
-    const popup = window.open(encodeURI(page), "labreport", windowprops);
+    const popup = window.open(normalizeReportUrl(page), "labreport", windowprops);
     if (popup != null) {
         if (popup.opener == null) {
             popup.opener = self;
@@ -1578,7 +1592,8 @@ function showThisPatientDocs(patientId, keepPrevious) {
 function popupConsultation(segmentId) {
     const page = contextpath + '/encounter/ViewRequest?segmentId=' + segmentId;
     const windowprops = "height=960,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    const popup = window.open(page, msgConsReq, windowprops);
+    // msgConsReq was never defined here, so this threw before the window opened.
+    const popup = window.open(page, 'consultationRequest', windowprops);
     if (popup != null) {
         if (popup.opener == null) {
             popup.opener = self;
@@ -2204,7 +2219,16 @@ function serverClearedCount(responseBody) {
     }
 }
 
-function updateStatus(formid) {//acknowledge
+function confirmedLabAcknowledgement(responseBody) {
+    try {
+        const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
+        return !!parsed && Number.isInteger(parsed.clearedCount) && parsed.clearedCount >= 0;
+    } catch (error) {
+        return false;
+    }
+}
+
+function updateStatus(formid, requireConfirmation) {//acknowledge
     const num = formid.split("_");
     const doclabid = num[1];
     if (doclabid) {
@@ -2264,8 +2288,17 @@ function updateStatus(formid) {//acknowledge
                     updateGlobalDataAndSideNav(doclabid, null);
                 }
             }
-            if (data.labType === 'DOC') window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);
-            else jQuery.post(url, data).done(acknowledged);
+            if (data.labType === 'DOC') return window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);
+            return jQuery.post(url, data).then(function (responseBody) {
+                // Combined filing must not advertise success for an error page or the legacy
+                // HTTP-200 failure response. Other callers retain the older count fallback.
+                if ((requireConfirmation === true && !confirmedLabAcknowledgement(responseBody))
+                        || (typeof responseBody === 'string' && responseBody.trim() === 'failure')) {
+                    throw new Error('Lab acknowledgement was not confirmed');
+                }
+                acknowledged(responseBody);
+                return true;
+            });
         }
     }
 }
@@ -2639,17 +2672,21 @@ function handleDocSave(docid, action) {
 }
 
 
+/**
+ * The reviewing provider's own saved comment on a document, from the acknowledge form's hidden field
+ * (showDocument.jsp fills it from that provider's routing row). The visible comment is not used: for a
+ * document with no comment it shows the translated "No comment" placeholder, which would otherwise
+ * become the prompt's text and, on OK, the saved comment.
+ */
+function storedDocComment(docId) {
+    const input = document.getElementById("comment_" + docId);
+    return input ? input.value : "";
+}
+
 function addDocComment(docId, providerNo) {
 
     let ret = true;
-    let comment = "";
-    const text = jQuery("#comment_" + docId + "_" + providerNo);
-    if (text.length > 0) {
-        comment = jQuery("#comment_" + docId + "_" + providerNo).text();
-        if (comment == null || comment == "no comment") {
-            comment = "";
-        }
-    }
+    const comment = storedDocComment(docId);
     const commentVal = prompt("Please enter a comment (max. 255 characters)", comment);
 
     if (commentVal == null) {
@@ -2679,9 +2716,9 @@ function addDocComment(docId, providerNo) {
             if (statusEl2) statusEl2.value = "A";
             const commentDisplayEl = document.getElementById("comment_" + docId + "_" + providerNo);
             const commentInputEl = document.getElementById("comment_" + docId);
+            // The hidden field keeps the saved comment: it is what the next Comment or Acknowledge offers.
             if (commentDisplayEl && commentInputEl) {
                 commentDisplayEl.textContent = commentInputEl.value;
-                commentInputEl.value = "";
             }
         })
         .catch(error => console.error('Error:', error));
@@ -2691,14 +2728,7 @@ function addDocComment(docId, providerNo) {
 function getDocComment(docId, providerNo, inQueueB) {
 
     let ret = true;
-    let comment = "";
-    const text = jQuery("#comment_" + docId + "_" + providerNo);
-    if (text.length > 0) {
-        comment = jQuery("#comment_" + docId + "_" + providerNo).text();
-        if (comment == null || comment == "no comment") {
-            comment = "";
-        }
-    }
+    const comment = storedDocComment(docId);
     const commentVal = prompt("Please enter a comment (max. 255 characters)", comment);
 
     if (commentVal == null) {

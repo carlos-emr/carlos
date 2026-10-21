@@ -40,15 +40,23 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * BC-only billing setup chained behind {@link
  * io.github.carlos_emr.carlos.billings.ca.pageUtil.Billing2Action} on the
- * {@code "BC"} result. Populates {@link BillingSessionBean} on the session,
- * runs the BC decision-support {@link BillingGuidelines}, and forwards to
- * {@code billingBC.jsp}. Lives in the BC subpackage on purpose — every
+ * {@code "BC"} result. Opens a new bill ({@link BillingSessionBean}) for the
+ * requested patient and appointment, or resumes the bill the request names by
+ * its key, runs the BC decision-support {@link BillingGuidelines}, and forwards
+ * to {@code billingBC.jsp}. Lives in the BC subpackage on purpose — every
  * symbol it touches is BC-specific.
+ *
+ * <p>Each bill is staged under its own key ({@link BcBillStaging}). It used to be
+ * the single session attribute {@code billingSessionBean}, so a bill opened in a
+ * second window replaced the first window's, and a request that opened no bill
+ * showed whichever bill was opened last (issue #4673). An XMLHttpRequest, the
+ * bill form reloading part of itself in place, is rendered without being staged.</p>
  *
  * <p>Lifted out of the former {@code ca.bc.pageUtil.Billing2Action}, which
  * conflated cross-province routing with BC bean fill. The cross-province
@@ -127,7 +135,16 @@ public final class BillingBCSetup2Action extends ActionSupport {
                 bean.setApptDate((String) request.getAttribute("serviceDate"));
             }
 
-            request.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep, java.lang.security.audit.tainted-session-from-http-request
+            if (RequestNegotiation.isAjax(request)) {
+                // The open bill form reloading its patient bar or code table in place after a
+                // provider, bill type or form change. It keeps posting the bill it opened with, so
+                // this one is only rendered: staging every reload would push that bill, and other
+                // windows' bills, out of the session.
+                BcBillStaging.render(request, bean);
+            } else {
+                // This window's own bill; its pages carry the key through review and save.
+                BcBillStaging.open(request, bean);
+            }
 
             try {
                 _log.debug("Start of billing rules");
@@ -135,7 +152,7 @@ public final class BillingBCSetup2Action extends ActionSupport {
                         loggedInInfo, demoNo, loggedInInfo.getLoggedInProviderNo());
 
                 for (DSConsequence dscon : list) {
-                    _log.debug("DSTEXT " + dscon.getText());
+                    _log.debug("DSTEXT {}", LogSafe.sanitize(dscon.getText()));
                     addActionError(getText("message.custom", new String[]{dscon.getText()}));
                 }
             } catch (Exception e) {
@@ -145,8 +162,36 @@ public final class BillingBCSetup2Action extends ActionSupport {
                 MiscUtils.getLogger().error("BC billing-guideline rules failed for demoNo {}: setup will continue without consequences",
                         LogSafe.sanitize(demoNo), e);
             }
+        } else {
+            BillingSessionBean resumed = BcBillStaging.resume(request);
+            if (resumed == null) {
+                // No new bill and no open bill named by this request (a validation return, Go Back, or
+                // the encounter's save-and-bill forward name theirs). Never another window's bill: the
+                // window is told its billing session expired, as the save step tells it.
+                BillingSaveBilling2Action.rejectExpiredBillingSession(request, response);
+                return NONE;
+            }
+            showHeldRefusal(request, resumed);
         }
         return SUCCESS;
+    }
+
+    /**
+     * A refused Continue comes back here by redirect, its reasons held on the bill (issue #4864
+     * item 10, finding 432). They are shown on this render and cleared, so a reload or a later Go
+     * Back does not show them again.
+     */
+    private void showHeldRefusal(HttpServletRequest request, BillingSessionBean bill) {
+        List<String> messages = bill.takeRefusalMessages();
+        List<String> wcbFormNeeds = bill.takeWcbFormNeeds();
+        if (messages.isEmpty() && wcbFormNeeds.isEmpty()) {
+            return;
+        }
+        messages.forEach(this::addActionError);
+        if (!wcbFormNeeds.isEmpty()) {
+            request.setAttribute("WCBFormNeeds", wcbFormNeeds);
+        }
+        BcBillStaging.save(request, bill);
     }
 
     private void fillBean(HttpServletRequest request, BillingSessionBean bean) {

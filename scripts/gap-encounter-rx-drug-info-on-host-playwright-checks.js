@@ -20,11 +20,14 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
+const { splitLogEvents } = require('./lib/server-log');
+const { requiredRxServerLog, verifyActiveRxServerLog } = require('./lib/rx-server-log-prerequisite');
 
 const DRUG_TERM = process.env.RX_INFO_DRUG_TERM || 'LIPITOR 20';
 const DRUG_NAME = process.env.RX_INFO_DRUG_NAME || 'LIPITOR 20MG';
 
 async function workflow(s) {
+  const log = requiredRxServerLog();
   const { patient, config, sql } = s;
   const appHost = new URL(config.baseUrl).host;
   s.cleanup(() => {
@@ -48,6 +51,7 @@ async function workflow(s) {
     rx = await s.popup(chart, chart.locator('#menuTitleRx a').first(), 'rx-page');
     await rx.locator('#searchString').waitFor({ state: 'visible' });
     await rx.waitForLoadState('networkidle').catch(() => {});
+    await verifyActiveRxServerLog(log, s, rx);
     const card = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME);
     await rx.locator(`#instructions_${card}`).fill('1 tab PO BID x 14 days');
     await rx.locator(`label[for="jsonDxSearch_${card}"]`).click();
@@ -70,7 +74,7 @@ async function workflow(s) {
     // Location's host is looked at (the address carries the drug text).
     await clickAndAwaitReload(rx, rx.locator(`#prescrip_${drug}`), { label: 'drug row' });
     h.assert(h.pathOnly(rx.url()).endsWith('/rx/ViewStaticScript2'), 'The drug row did not open the static script page');
-    const info = rx.locator('a[href^="javascript:ShowDrugInfo("]').first();
+    const info = rx.locator('a[href*="/rx/drugInfo?"][onclick^="ShowDrugInfo("]').first();
     await info.waitFor({ state: 'visible', timeout: 20000 });
     await rx.evaluate(() => {
       window.__originalOpen = window.open;
@@ -78,7 +82,7 @@ async function workflow(s) {
       window.open = address => { window.__opened.push(String(address)); return null; };
     });
     await info.click();
-    // A javascript: link runs after the click returns, so wait for the recorder rather than reading it at once.
+    // Wait for the recorder rather than reading it at once.
     await rx.waitForFunction(() => window.__opened && window.__opened.length > 0, null, { timeout: 10000 }).catch(() => {});
     const opened = await rx.evaluate(() => window.__opened);
     h.assert(opened.length === 1, `Clicking Info opened ${opened.length} window(s), not exactly one`);
@@ -140,6 +144,26 @@ async function workflow(s) {
     h.assert(response.status() === 200, `rx/drugInfo answered HTTP ${response.status()} for an unknown DIN`);
     h.assert(!html.includes('id="drug-reference-details"'), 'An unknown DIN showed a product monograph');
     h.assert(/id="drug-info-matches"[\s\S]*?<a /.test(html), 'An unknown DIN did not offer name-search results');
+  });
+
+  await s.step('missing DIN fallback does not log a DrugRef server exception', async () => {
+    // #5006: DrugRef resolved the DIN with getSingleResult, so an absent DIN was logged as an ERROR
+    // (NoResultException from TablesDao.getDrugIdFromDIN) on every such Info open, although the
+    // page went on to a correct name search. The log read is bracketed by a mark taken right before
+    // the request, so only what this lookup caused is judged. The log source is required up front.
+    const mark = log.mark();
+    const target = new URL(`${config.baseUrl}/rx/drugInfo`);
+    target.searchParams.set('GN', generic);
+    target.searchParams.set('DIN', '00000000');
+    const response = await s.context.request.get(target.toString(), { maxRedirects: 0 });
+    await response.dispose();
+    h.assert(response.status() === 200, `rx/drugInfo answered HTTP ${response.status()} for an unknown DIN`);
+    // The log is written asynchronously; give the lookup's events time to arrive before judging.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const logged = splitLogEvents(log.since(mark))
+      .filter(event => /NoResultException|getDrugIdFromDIN|getDrugpKeyFromDIN/.test(event.text));
+    h.assert(logged.length === 0, `An unknown DIN logged ${logged.length} DrugRef exception event(s) in ${log.source}: `
+      + logged.map(event => `${event.level} ${event.logger}`).join('; '));
   });
 }
 

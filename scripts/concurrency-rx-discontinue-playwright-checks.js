@@ -21,6 +21,7 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openSecondSession, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { clickOpensPopup } = require('./lib/playwright-ui');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const isDiscontinue = response => response.request().method() === 'POST' && h.pathOnly(response.url()).endsWith('/rx/deleteRx')
   && new URL(response.url()).searchParams.get('parameterValue') === 'Discontinue';
@@ -63,7 +64,7 @@ async function workflow(s) {
 
   const b = await openSecondSession(s, { label: 'second-session' });
   const openRx = async (context, master, label) => {
-    const rx = await clickOpensPopup(master, master.locator('a[onclick*="/rx/choosePatient"]').first(), { context, recorder: s.recorder, label, timeout: 20000 });
+    const rx = await clickOpensPopup(master, masterRecordLink(master, '/rx/choosePatient').first(), { context, recorder: s.recorder, label, timeout: 20000 });
     h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
     await rx.locator('#searchString').waitFor({ state: 'visible' });
     await rx.waitForLoadState('networkidle');

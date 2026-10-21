@@ -483,4 +483,4 @@ async function workflow(session) {
 }
 
 if (require.main === module) runWorkflow('rx-stash-patient-isolation', workflow);
-module.exports = { workflow, openRx, stageCustomDrug, consumeExpectedConflict, clearOwnedPrescriptionRows };
+module.exports = { workflow, openRx, stageCustomDrug, saveOnly, consumeExpectedConflict, clearOwnedPrescriptionRows };

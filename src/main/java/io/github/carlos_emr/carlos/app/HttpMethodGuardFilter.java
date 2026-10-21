@@ -54,7 +54,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li><strong>Action URLs</strong>: Action name is extracted from the URL and checked against
  *       mutator prefixes (Add, Delete, Save, Submit, Create, etc.). The {@code method} request
  *       parameter is also checked for mutator values (save, delete, update, etc.) to catch
- *       mixed-method actions that route via parameter.</li>
+ *       mixed-method actions that route via parameter. A compound value counts as the verb it
+ *       starts with ({@code saveRxPageSize}, {@code delete_team}, {@code updateCategory}).</li>
  *   <li><strong>.jsp pages</strong>: The JSP filename is checked against an explicit set of
  *       known mutator JSPs identified by auditing form POST targets in the codebase.</li>
  * </ul>
@@ -124,7 +125,8 @@ public class HttpMethodGuardFilter implements Filter {
     /**
      * Values of the {@code method} request parameter that indicate mutator operations.
      * This catches mixed-method actions (e.g., SystemMessage2Action) where
-     * {@code ?method=save} routes to a save method within a read/write action.
+     * {@code ?method=save} routes to a save method within a read/write action. A value that
+     * starts with one of these counts too ({@code saveRxPageSize}); see {@link #isMutatorMethod}.
      *
      * <p>Note: "add" is intentionally excluded. Many actions use {@code method=add} to
      * load an "add new" form (e.g., FacilityManager?method=add), not to perform a
@@ -138,6 +140,8 @@ public class HttpMethodGuardFilter implements Filter {
             "cancel", "close",
             // MfaActions2Action dispatches its privileged MFA-secret reset via ?method=resetMfa;
             // classify it as a mutation so GET/HEAD are rejected before the action runs.
+            "makeissue", "issueadd", "issuedelete", "issuechange",
+            "submitchangediagnosis", "ajaxchangediagnosis",
             "resetmfa"
     );
 
@@ -459,10 +463,35 @@ public class HttpMethodGuardFilter implements Filter {
         // Check the 'method' request parameter for mixed-method actions
         String methodParam = request.getParameter("method");
         if (methodParam != null && !methodParam.isEmpty()) {
-            return MUTATOR_METHOD_PARAMS.contains(methodParam.toLowerCase(Locale.ROOT));
+            return isMutatorMethod(methodParam);
         }
 
         return false;
+    }
+
+    /**
+     * Whether a {@code method} parameter value names a mutation: one of {@link #MUTATOR_METHOD_PARAMS},
+     * or a compound value that starts with one ({@code saveRxPageSize}, {@code delete_team},
+     * {@code updateCategory}). Mixed-method actions name most of their writes this way, so an exact
+     * match alone let those writes run on GET. Case-insensitive.
+     *
+     * @param methodParam the {@code method} request parameter, non-null
+     * @return {@code true} if a GET or HEAD carrying it must be refused
+     */
+    static boolean isMutatorMethod(String methodParam) {
+        String methodLower = methodParam.toLowerCase(Locale.ROOT);
+        for (String mutator : MUTATOR_METHOD_PARAMS) {
+            if (methodLower.startsWith(mutator)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A mutator {@code method} value that is not one of the exact names, e.g. {@code saveRxPageSize}. */
+    static boolean isCompoundMutatorMethod(String methodParam) {
+        return isMutatorMethod(methodParam)
+                && !MUTATOR_METHOD_PARAMS.contains(methodParam.toLowerCase(Locale.ROOT));
     }
 
     /**
@@ -588,10 +617,14 @@ public class HttpMethodGuardFilter implements Filter {
             throws IOException {
         String methodParam = request.getParameter("method");
         String detail = methodParam != null ? path + "?method=" + methodParam : path;
+        // Compound method names are refused since the guard matched them by their verb; the label lets a
+        // page that still sends one by GET be found in the log.
+        String kind = methodParam != null && isCompoundMutatorMethod(methodParam) ? " (compound method name)" : "";
 
-        LOGGER.warn("Blocked {} request on mutator endpoint: {} (remote: {}, session: {})", // NOSONAR javasecurity:S5145 — all user-controlled args sanitized below
+        LOGGER.warn("Blocked {} request on mutator endpoint: {}{} (remote: {}, session: {})", // NOSONAR javasecurity:S5145 — all user-controlled args sanitized below
                 LogSafe.sanitize(request.getMethod()),
                 LogSafe.sanitize(detail),
+                kind,
                 LogSafe.sanitize(request.getRemoteAddr()),
                 request.getRequestedSessionId() != null ? "present" : "none"); // NOSONAR java:S2254 — session ID value is never exposed; only null/non-null checked for logging
 

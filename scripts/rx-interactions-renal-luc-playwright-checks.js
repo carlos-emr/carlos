@@ -27,6 +27,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const RENAL = { term: 'CIPRO 500', name: 'CIPRO 500MG', atc: 'J01MA02' };
 const INTERACTING = { term: 'UNIPHYL 4', name: 'UNIPHYL 400MG', atc: 'R03DA04' };
@@ -98,7 +99,7 @@ async function workflow(s) {
     await reopened.prefs.close();
   });
 
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+  const rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
   h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
   await rx.locator('#searchString').waitFor({ state: 'visible' });
   await rx.waitForLoadState('networkidle');

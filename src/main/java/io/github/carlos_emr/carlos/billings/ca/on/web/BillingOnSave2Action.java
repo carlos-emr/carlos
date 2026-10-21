@@ -168,8 +168,9 @@ public class BillingOnSave2Action extends ActionSupport {
     }
 
     /**
-     * Saves the reviewed claim, then runs the post-save steps and routing. Header, items,
-     * third-party/OHIP transaction and payee extension commit in one transaction that the claim
+     * Saves the reviewed claim and dependent writes atomically, then routes. Header, items,
+     * third-party/OHIP transaction, payee extension, appointment and corrected-bill cleanup commit
+     * in one transaction that the claim
      * observes, so a rolled-back save leaves the review submittable again and a committed one is
      * never written twice.
      */
@@ -194,6 +195,24 @@ public class BillingOnSave2Action extends ActionSupport {
                             // Nothing usable was stored: end the transaction as a rollback so the
                             // claim leaves this review page submittable again.
                             status.setRollbackOnly();
+                            return result;
+                        }
+                        // The saved token describes the whole operation. Appointment/archive and
+                        // corrected-bill writes must commit with the claim, or all roll back.
+                        if (apptNo != null && apptNo.length() > 0 && !apptNo.equals("0")) {
+                            String apptCurStatus = claimSubmissionService.getApptStatus(apptNo);
+                            ApptStatusData as = new ApptStatusData();
+                            String billStatus = as.billStatus(apptCurStatus);
+                            if (!claimSubmissionService.updateApptStatus(apptNo, billStatus, loggedInInfo.getLoggedInProviderNo())) {
+                                throw new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException("The appointment could not be updated. The bill was not saved.");
+                            }
+                        }
+
+                        // Replace the old <jsp:include page="billingDeleteWithBillNo.jsp"/> with a direct call
+                        String cleanup = BillingDeleteWithBillNo2Action.deleteBillingByBillNo(
+                                request, loggedInInfo, securityInfoManager, billingDao, correctionPrep);
+                        if (!SUCCESS.equals(cleanup)) {
+                            throw new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException("The original bill could not be replaced. The new bill was not saved.");
                         }
                         return result;
                     });
@@ -214,17 +233,6 @@ public class BillingOnSave2Action extends ActionSupport {
             if (claim != null) {
                 claim.saved(String.valueOf(billingNo));
             }
-            if (apptNo != null && apptNo.length() > 0 && !apptNo.equals("0")) {
-                String apptCurStatus = claimSubmissionService.getApptStatus(apptNo);
-                ApptStatusData as = new ApptStatusData();
-                String billStatus = as.billStatus(apptCurStatus);
-                claimSubmissionService.updateApptStatus(apptNo, billStatus, loggedInInfo.getLoggedInProviderNo());
-            }
-
-            // Replace the old <jsp:include page="billingDeleteWithBillNo.jsp"/> with a direct call
-            BillingDeleteWithBillNo2Action.deleteBillingByBillNo(
-                    request, loggedInInfo, securityInfoManager, billingDao, correctionPrep);
-
             request.setAttribute("billingNo", billingNo);
             return routeSavedBill(request, loggedInInfo, billingAction, safeUrlBack);
         }

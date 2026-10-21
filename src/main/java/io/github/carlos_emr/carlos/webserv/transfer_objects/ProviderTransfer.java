@@ -34,6 +34,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -208,6 +210,8 @@ public final class ProviderTransfer {
         this.rmaNo = rmaNo;
     }
 
+    // On the getter: the field is named SignedConfidentiality and would not bind to this property.
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     public Date getSignedConfidentiality() {
         return (SignedConfidentiality);
     }

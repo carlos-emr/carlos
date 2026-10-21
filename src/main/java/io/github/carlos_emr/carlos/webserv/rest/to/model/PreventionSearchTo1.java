@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 public class PreventionSearchTo1 {
@@ -43,8 +45,10 @@ public class PreventionSearchTo1 {
     private String age2;
 
     private String ageCalc;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date ageAsOf;
     private String rosterStat;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date rosterAsOf;
     private String measurementTrackingType;
 
@@ -59,10 +63,14 @@ public class PreventionSearchTo1 {
     private List<String> exclusionCodes;
     private List<String> trackingCodes;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date billingCodeStart;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date billingCodeEnd;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date billingTrackingCodeStart;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date billingTrackingCodeEnd;
 
     private String providerNo;

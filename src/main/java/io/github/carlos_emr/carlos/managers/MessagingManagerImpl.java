@@ -326,6 +326,10 @@ public class MessagingManagerImpl implements MessagingManager {
 
         UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop = userPropertyDao.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT);
+        if (prop == null) {
+            // A subject saved by Lab Recall Settings before #4720 is under the old name.
+            prop = userPropertyDao.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT_LEGACY);
+        }
 
         if (prop != null) {
             subject = prop.getValue();

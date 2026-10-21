@@ -488,4 +488,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('schedule-admin-settings', workflow, {openPatient: false});
-module.exports = {workflow};
+module.exports = {workflow, openAdminSection, frameNavigation, navigates};

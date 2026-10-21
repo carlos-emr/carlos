@@ -1,0 +1,60 @@
+# Flyway migrations of this branch, in the order they merged, one path per line (under database/mysql/migration/).
+# Read by scripts/flyway-migration-order.test.js.
+#
+# When a pull request adds a migration, append its path at the END of this file. Each line must use a
+# version above every line before it in its set (common+on, common+bc), because databases already at
+# that version would refuse a lower one at startup. Never reorder, rename or remove existing lines.
+#
+# A released migration that arrives later from a release branch (a forward merge) may sit below:
+# append it with " forward-merge" after the path. Existing development databases then need a rebuild.
+#
+# Baseline: release/2026.08 as of 2026-10-17 (a83486da3c), listed in version order.
+common/V1__baseline_schema.sql
+bc/V1.0.1__bc_schema.sql
+on/V1.0.1__on_schema.sql
+bc/V1.0.2__bc_data.sql
+on/V1.0.2__on_data.sql
+common/V1.0.3__performance_indexes.sql
+on/V1.0.4__on_performance_indexes.sql
+common/V1.0.5__restore_live_legacy_common_tables.sql
+bc/V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
+on/V1.0.6__restore_reporting_privilege.sql
+common/V1.0.7__restore_phcp_diagnosis_groups.sql
+common/V1.0.8__expand_appointment_type_location.sql
+common/V1.0.9__remove_carlosdoc_schedule_group_denial.sql
+common/V1.0.10__seed_default_measurement_groups.sql
+on/V1.0.11__billing_filename_unique_indexes.sql
+on/V1.0.12__portable_billing_filename_unique_indexes.sql
+common/V1.0.13__fix_phcp_diagnosis_group_backfill_collation.sql
+common/V1.0.14__widen_faxes_jobid_to_bigint.sql
+common/V1.0.15__add_faxes_direction.sql
+common/V1.0.16__add_faxes_jobid_index.sql
+common/V1.0.17__enable_digital_signatures_by_default.sql
+common/V1.0.18__performance_indexes_2.sql
+bc/V1.0.19__bc_billingmaster_indexes.sql
+common/V1.0.20__widen_fax_destination_for_international_numbers.sql
+common/V1.0.21__serialize_missing_lab_routing_creation.sql
+common/V1.0.22__add_lab_routing_lock_audit_columns.sql
+on/V1.0.23__activate_legacy_consultation_services.sql
+common/V1.0.23.1__widen_email_config.sql
+common/V1.0.29__rename_placeholder_demo_clinic.sql
+common/V1.0.30__add_ocean_setting.sql
+common/V1.0.32__add_nrtf_tuning_fork_measurement_type.sql
+common/V1.0.33__aacp_provided_revised_reviewed_validation.sql
+on/V1.0.34__add_oma_uninsured_service_fees.sql
+common/V1.0.36__serialize_messenger_membership_changes.sql
+common/V1.0.39__track_automatic_mrp_routing.sql
+common/V1.0.40__widen_lab_labels.sql
+common/V1.0.41__rtl_provider_stamp_fields.sql
+common/V1.0.42__tickler_docs.sql
+common/V1.0.43__consultation_eform_lab_sources.sql
+common/V1.0.45__consultation_request_indexes.sql
+common/V1.0.46__field_note_report_privilege.sql
+common/V1.0.47__align_measurements_deleted_columns.sql
+common/V1.0.52__enforce_provider_signature_identity.sql
+common/V1.0.53__decode_diagnostic_description_apostrophes.sql
+common/V1.0.54__allow_dashboard_exclusion_history.sql
+common/V1.0.55__preserve_remittance_health_number_version.sql
+on/V1.0.56__preserve_claim_item_explanations.sql
+common/V1.0.57__preserve_rourke2020_immunization_notes.sql
+common/V1.0.58__preserve_on_behalf_lab_filing_comments.sql

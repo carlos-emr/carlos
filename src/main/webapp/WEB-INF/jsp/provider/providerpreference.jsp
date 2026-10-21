@@ -1090,6 +1090,10 @@
     <div id="secLab" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
 
+            <div class="pref-row">
+                <a href="${pageContext.request.contextPath}/setProviderStaleDate?method=viewHl7LabResultPrefs"
+                   target="_blank" rel="noopener"><fmt:message key="provider.setHl7LabResultPrefs.title"/></a>
+            </div>
             <%-- Lab acknowledgement --%>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.disableLabAckComment"/></div>

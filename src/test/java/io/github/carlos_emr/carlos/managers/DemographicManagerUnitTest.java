@@ -1329,6 +1329,23 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getLastName()).isEqualTo("ADAMS");
         }
+
+        @Test
+        void shouldMatchInclusiveLetterBounds_withLowercaseRangesAndUnicodeNames() {
+            Provider provider = createTestProvider();
+            List<Demographic> patients = new java.util.ArrayList<>();
+            for (String name : java.util.Arrays.asList("adams", "Murray", "Smith", "", null, "éclair", "ßmith", "ıpek")) {
+                Demographic patient = createTestDemographic();
+                patient.setLastName(name);
+                patients.add(patient);
+            }
+            when(mockDemographicDao.getDemographicByProvider(TEST_PROVIDER)).thenReturn(patients);
+
+            assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^[a-m]"))
+                    .extracting(Demographic::getLastName).containsExactly("adams", "Murray", "ıpek");
+            assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^[s-s]"))
+                    .extracting(Demographic::getLastName).containsExactly("Smith", "ßmith");
+        }
     }
 
     // ==================== MERGE OPERATIONS ====================
@@ -1360,6 +1377,31 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             manager.mergeDemographics(mockLoggedInInfo, parentId, children);
 
             verify(mockDemographicMergedDao, times(3)).persist(any(DemographicMerged.class));
+        }
+
+        @Test
+        @DisplayName("should refuse a merge that would create a cycle")
+        void shouldRefuseMerge_whenItWouldCreateACycle() {
+            DemographicMerged alreadyMerged = new DemographicMerged();
+            alreadyMerged.setDemographicNo(1001);
+            alreadyMerged.setMergedTo(1000);
+            when(mockDemographicMergedDao.findCurrentByDemographicNo(1001)).thenReturn(List.of(alreadyMerged));
+
+            List<Integer> plainSource = List.of(1002);
+            List<Integer> sourcesWithMerged = List.of(1002, 1001);
+            List<Integer> selfSource = List.of(1000);
+
+            // the target is itself merged into another record
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1001, plainSource))
+                .isInstanceOf(IllegalArgumentException.class);
+            // a source that is already merged
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, sourcesWithMerged))
+                .isInstanceOf(IllegalArgumentException.class);
+            // a record merged into itself
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, selfSource))
+                .isInstanceOf(IllegalArgumentException.class);
+
+            verify(mockDemographicMergedDao, never()).persist(any(DemographicMerged.class));
         }
 
         @Test
