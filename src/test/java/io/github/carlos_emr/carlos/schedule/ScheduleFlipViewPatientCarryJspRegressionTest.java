@@ -68,7 +68,9 @@ class ScheduleFlipViewPatientCarryJspRegressionTest {
 
         assertThat(body).contains("/schedule/FlipView?originalpage=")
                 .contains("curDemoNo.isEmpty() ? \"\" : \"&demographic_no=\"")
-                .contains("\"&demographic_name=\" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))");
+                .contains("\"&demographic_name=\" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))")
+                // Building the URL is not enough: the provider change must go there.
+                .contains("self.location.href = destination;");
     }
 
     @Test
@@ -79,6 +81,11 @@ class ScheduleFlipViewPatientCarryJspRegressionTest {
         // Only what release and develop share is asserted, so the forward merge keeps this green.
         assertThat(body).doesNotContain(":\"\\\"\"%>")
                 .contains("&startDate=");
+        // Wherever startDate is written, its value is an encoded expression, never an empty
+        // literal that Flip View would then fail to parse: release appends the whole parameter
+        // only when one was given, develop always writes its defaulted value.
+        assertThat(body).containsPattern("&startDate=(\" \\+ SafeEncode\\.|<%=SafeEncode\\.)")
+                .doesNotContainPattern("&startDate=\"\\s*(;|\\+\\s*\")");
     }
 
     @Test
