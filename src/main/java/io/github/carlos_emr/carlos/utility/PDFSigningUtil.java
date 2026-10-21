@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,13 +26,27 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.GregorianCalendar;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.cos.COSArray;
+import org.apache.pdfbox.cos.COSBase;
+import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
+import org.apache.pdfbox.pdmodel.PDDocumentNameDictionary;
+import org.apache.pdfbox.pdmodel.PDEmbeddedFilesNameTreeNode;
+import org.apache.pdfbox.pdmodel.common.PDNameTreeNode;
+import org.apache.pdfbox.pdmodel.common.filespecification.PDComplexFileSpecification;
+import org.apache.pdfbox.pdmodel.common.filespecification.PDEmbeddedFile;
 import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureInterface;
@@ -109,6 +124,23 @@ public final class PDFSigningUtil {
      * @throws IllegalStateException when signing is not enabled, or is enabled but incomplete
      */
     public static Path signPDF(Path pdfPath, PDFSigningConfig config, String ownerPassword) throws IOException {
+        return signPDF(pdfPath, config, ownerPassword, null);
+    }
+
+    /**
+     * Like {@link #signPDF(Path, PDFSigningConfig, String)}, and also embeds {@code manifest} as
+     * {@value DocumentManifest#FILE_NAME}, with {@code kid} set from the signing certificate.
+     *
+     * <p>The manifest goes into the same incremental update as the signature. An encrypted PDF is
+     * opened with its owner password, so PDFBox encrypts the new objects like the rest of the file,
+     * and the signature, whose byte range runs from byte 0 to the end, covers the manifest. The file
+     * is listed in the {@code EmbeddedFiles} name tree and in the catalog's {@code /AF} array with
+     * {@code /AFRelationship /Data}.</p>
+     *
+     * @param manifest the manifest to embed, or {@code null} to sign without one
+     */
+    public static Path signPDF(Path pdfPath, PDFSigningConfig config, String ownerPassword, DocumentManifest manifest)
+            throws IOException {
         if (pdfPath == null) {
             throw new IOException("PDF path is required for signing");
         }
@@ -140,6 +172,9 @@ public final class PDFSigningUtil {
             }
             signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now(ZoneId.systemDefault())));
 
+            if (manifest != null) {
+                embedManifest(document, manifest.toCanonicalJson(keyId(signingMaterial.signingCertificate())));
+            }
             document.addSignature(signature, new CmsDetachedSignature(signingMaterial), signatureOptions);
             document.saveIncremental(output);
             return signedPDFPath;
@@ -148,6 +183,78 @@ public final class PDFSigningUtil {
             // and an output left behind here is never adopted by a working directory.
             deletePartialSignedPDF(signedPDFPath, e);
             throw new IOException("Failed to sign PDF document", e);
+        }
+    }
+
+    /** {@code b64url(SHA-256(SubjectPublicKeyInfo DER))}, the clinic key ID myCarlos pins. */
+    static String keyId(X509Certificate certificate) throws IOException {
+        try {
+            byte[] spki = certificate.getPublicKey().getEncoded();
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(MessageDigest.getInstance("SHA-256").digest(spki));
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Failed to compute the signing key ID", e);
+        }
+    }
+
+    /**
+     * Adds the manifest as an embedded file, replacing an earlier one of the same name, and keeps
+     * every other embedded file. A name tree split into kids is flattened into one leaf.
+     */
+    private static void embedManifest(PDDocument document, byte[] json) throws IOException {
+        PDEmbeddedFile embedded = new PDEmbeddedFile(document, new ByteArrayInputStream(json));
+        embedded.setSubtype("application/json");
+        embedded.setSize(json.length);
+        PDComplexFileSpecification specification = new PDComplexFileSpecification();
+        specification.setFile(DocumentManifest.FILE_NAME);
+        specification.setFileUnicode(DocumentManifest.FILE_NAME);
+        specification.setEmbeddedFile(embedded);
+        specification.setEmbeddedFileUnicode(embedded);
+        specification.setFileDescription("CARLOS document manifest");
+        specification.getCOSObject().setItem(COSName.AF_RELATIONSHIP, COSName.getPDFName("Data"));
+
+        PDDocumentCatalog catalog = document.getDocumentCatalog();
+        PDDocumentNameDictionary names = catalog.getNames();
+        if (names == null) {
+            names = new PDDocumentNameDictionary(catalog);
+            catalog.setNames(names);
+        }
+        Map<String, PDComplexFileSpecification> entries = new TreeMap<>();
+        PDEmbeddedFilesNameTreeNode existing = names.getEmbeddedFiles();
+        if (existing != null) {
+            collectEmbeddedFiles(existing, entries);
+        }
+        entries.put(DocumentManifest.FILE_NAME, specification);
+        PDEmbeddedFilesNameTreeNode tree = new PDEmbeddedFilesNameTreeNode();
+        tree.setNames(entries);
+        names.setEmbeddedFiles(tree);
+
+        COSArray associatedFiles = new COSArray();
+        COSArray previous = catalog.getCOSObject().getCOSArray(COSName.AF);
+        if (previous != null) {
+            for (int i = 0; i < previous.size(); i++) {
+                COSBase entry = previous.getObject(i);
+                boolean earlierManifest = entry instanceof COSDictionary dictionary
+                        && DocumentManifest.FILE_NAME.equals(dictionary.getString(COSName.F));
+                if (!earlierManifest) {
+                    associatedFiles.add(previous.get(i));
+                }
+            }
+        }
+        associatedFiles.add(specification);
+        catalog.getCOSObject().setItem(COSName.AF, associatedFiles);
+    }
+
+    private static void collectEmbeddedFiles(PDNameTreeNode<PDComplexFileSpecification> node,
+            Map<String, PDComplexFileSpecification> entries) throws IOException {
+        Map<String, PDComplexFileSpecification> leaf = node.getNames();
+        if (leaf != null) {
+            entries.putAll(leaf);
+        }
+        List<PDNameTreeNode<PDComplexFileSpecification>> kids = node.getKids();
+        if (kids != null) {
+            for (PDNameTreeNode<PDComplexFileSpecification> kid : new ArrayList<>(kids)) {
+                collectEmbeddedFiles(kid, entries);
+            }
         }
     }
 
