@@ -5866,6 +5866,21 @@
       "fixtures": "Owned billing form (seeded, because its Add is broken), two marked service codes, two unused dx codes and an owned bill; the private code, location and favourite are created through the UI; all removed."
     },
     {
+      "name": "translated-button-values",
+      "script": "scripts/translated-button-values-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue #5140: in a French browser (fr-CA), Add A Role's Rechercher offers an unused role name as new and its Enregistrer stores exactly one role, and Manage Private Billing Code's Enregistrer stores the private code with the typed description and fee. Each page is first shown to carry the French label and not the English one.",
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js), a role and a private code named by the run marker. Neither page can delete what it made, so cleanup removes the role with its audit rows and the private code, then the throwaway; all are asserted gone."
+    },
+    {
       "name": "billing-on-reports-inr-eoy",
       "script": "scripts/billing-on-reports-inr-eoy-playwright-checks.js",
       "tiers": [
