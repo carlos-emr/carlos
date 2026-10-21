@@ -99,6 +99,38 @@ test('shouldLeaveAProblemInTheRecorder_whenAnotherConcernOwnsIt', () => {
   assert.deepEqual(recorder.pageErrors.map((entry) => entry.text), ['ReferenceError: docuemtn is not defined']);
 });
 
+test('shouldRejectTheMentalHealthTypo_whenItOccursDuringReopen', () => {
+  // Given
+  const formChecks = require('./clinical-forms-save-reopen-playwright-checks');
+  let mentalHealthForm;
+  for (const form of formChecks.FORMS) {
+    if (form.key === 'MHC') {
+      mentalHealthForm = form;
+      break;
+    }
+  }
+  const errorMessage = 'ReferenceError: docuemtn is not defined';
+  const recorder = recorderWith([]);
+  recorder.pageErrors.push({ label: 'reopen-MHC', text: errorMessage });
+
+  let leaveKnownProblem;
+  if (mentalHealthForm.known && mentalHealthForm.known.problems) {
+    leaveKnownProblem = function (message) {
+      return mentalHealthForm.known.problems.test(message);
+    };
+  }
+
+  // When
+  const problems = takeProblems(recorder, ['reopen-MHC'], undefined, leaveKnownProblem);
+  const result = claims.outcomeOf(null, problems);
+  const failure = claims.claimFailure(result, 'Mental Health: reopen', mentalHealthForm.known.reopen);
+
+  // Then
+  assert.notEqual(failure, null, 'The error must cause a failure.');
+  assert.equal(failure.label, 'Mental Health: reopen');
+  assert.equal(failure.message.includes(errorMessage), true);
+});
+
 test('shouldKeepTheProblemsOfAnAssertionOnlyConcernAwayFromTheConcernThatOwnsThem', () => {
   // Finding 241's `bare` run opens Position Hazard before the fixture is completed. Once 241 is fixed the form opens and
   // its missing stylesheet (finding 235) is raised there too; the `open` concern that runs later must still meet it.

@@ -101,8 +101,9 @@
             String value = (String) assocCodeMap.get(key);
             String rowName = assocArrayName + "row";
             out.append("var " + rowName + index + " = new Array(2);\n");
-            out.append(rowName + index + "[0]='" + key + "'; ");
-            out.append(rowName + index + "[1]='" + value + "';\n");
+            // Codes come from the association tables, which an administrator edits: write them as JS strings.
+            out.append(rowName + index + "[0]='" + SafeEncode.forJavaScript(key) + "'; ");
+            out.append(rowName + index + "[1]='" + SafeEncode.forJavaScript(value) + "';\n");
             out.append(assocArrayName + "[" + index + "]=" + rowName + index + ";\n");
             index++;
         }

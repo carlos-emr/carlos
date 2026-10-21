@@ -519,6 +519,21 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
             assertThat(row[1]).isEqualTo(DEMO_NO);
             assertThat(row[4]).isEqualTo(PROVIDER_NO);
         }
+
+        @Test
+        @DisplayName("should leave out instances deleted from the chart (issue #4823)")
+        void shouldLeaveOutDeletedInstances_forReportTool() {
+            // Given: a deleted instance, newer than the current one, as the report tool's Mark Latest would see it.
+            EFormData current = createAndPersist(DEMO_NO, FORM_ID, true, lastWeek);
+            EFormData deleted = createAndPersist(DEMO_NO, FORM_ID, false, today);
+
+            // When
+            List<Object[]> result = eFormDataDao.findMetaFieldsByFormId(FORM_ID);
+
+            // Then
+            assertThat(result).extracting(row -> row[0]).containsExactly(current.getId())
+                    .doesNotContain(deleted.getId());
+        }
     }
 
     // ========================================================================

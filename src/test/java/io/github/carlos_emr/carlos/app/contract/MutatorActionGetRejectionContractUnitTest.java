@@ -274,6 +274,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action",
                     "_report", "r"),
+            // Manage Letters' Delete archives a template for every user: _report w, POST-only.
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DeletePatientLetters2Action",
+                    "_report", "w"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
@@ -284,6 +287,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- signature ---
             Arguments.of("io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action",
                     "_con", "w"),
+            // --- email ---
+            // EmailSend2Action delivers mail and persists an EmailLog on its send dispatches
+            // (sendDirectEmail and the default sendEFormEmail); cancel only arrives by form POST.
+            Arguments.of("io.github.carlos_emr.carlos.email.action.EmailSend2Action",
+                    "_email", "w"),
             // --- messenger ---
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgTransferPostItems2Action",
                     "_msg", "w"),
@@ -434,6 +442,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Report by Template editor (#4133): the bare page permits GET; action=add|edit|delete
         // must be a POST. Covered by ManageTemplates2ActionUnitTest.
         "io.github.carlos_emr.carlos.report.reportByTemplate.actions.ManageTemplates2Action",
+        // OBEC report: the bare page permits GET; Create Report (a Begin Date) writes the OBEC file and must be
+        // a POST. Covered by Obec2ActionMethodGuardUnitTest.
+        "io.github.carlos_emr.carlos.report.pageUtil.Obec2Action",
         // Message view (#4133): viewing permits GET; linkMsgDemo=true writes a msgDemoMap row and
         // must be a POST. Covered by MsgViewMessage2ActionUnitTest.
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action",
@@ -714,6 +725,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // demographic slice: AddDemographicRelationship2Action is the only migrated mutator gated so
         // far; the demographic package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
         "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
+        // email slice: EmailSend2Action is the only gated mutator so far; the email package is
+        // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+        "io.github.carlos_emr.carlos.email.action.EmailSend2Action",
         // prescript slice: RxStash2Action's stash removal is POST-only; the prescript package is not
         // in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator). Issue #3871.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",

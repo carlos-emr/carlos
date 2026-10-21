@@ -748,12 +748,19 @@
             var workPhoneHistory = "";
             var cellPhoneHistory = "";
 
+            // The history values are the patient's own text: the popup shows them as text, not as markup.
+            function historyText(value) {
+                return String(value).replace(/[&<>"']/g, function (c) {
+                    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+                });
+            }
+
             function generateMarkup(addresses, type, header) {
                 var markup = '<table border="0" cellpadding="2" cellspacing="2" width="200px">';
                 markup += '<tr><th><b>Date Entered</b></th><th><b>' + header + '</b></th></tr>';
                 for (var x = 0; x < addresses.length; x++) {
                     if (addresses[x].type == type) {
-                        markup += '<tr><td>' + addresses[x].dateSeen + '</td><td>' + addresses[x].name + '</td></tr>';
+                        markup += '<tr><td>' + historyText(addresses[x].dateSeen) + '</td><td>' + historyText(addresses[x].name) + '</td></tr>';
                     }
                 }
                 markup += "</table>";
