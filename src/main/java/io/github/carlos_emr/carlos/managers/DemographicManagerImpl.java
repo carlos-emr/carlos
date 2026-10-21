@@ -69,6 +69,12 @@ public class DemographicManagerImpl implements DemographicManager {
 
     private static Logger logger = MiscUtils.getLogger();
 
+    /**
+     * The only extension key allowed to repeat for one patient; see the
+     * uk_demo_ext_single_value index (migration V1.0.54).
+     */
+    private static final String REPEATABLE_EXTENSION_KEY = "excludeIndicator";
+
     @Autowired
     private DemographicDao demographicDao;
     @Autowired
@@ -439,6 +445,8 @@ public class DemographicManagerImpl implements DemographicManager {
                     + demographic.getBirthDayAsString());
         }
 
+        rejectDuplicateExtensionKeys(demographic.getExtras());
+
         demographic.setPatientStatus(PatientStatus.AC.name());
         demographic.setFamilyDoctor("<rdohip></rdohip><rd></rd>");
         demographic.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
@@ -465,6 +473,30 @@ public class DemographicManagerImpl implements DemographicManager {
         LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.createDemographic",
                 "new id is =" + demographic.getDemographicNo());
 
+    }
+
+    /**
+     * Rejects extras that would collide on the per-patient unique key, before anything is
+     * written, so a failed create cannot leave a partial patient. Keys are compared the way
+     * the key_val column does (case-insensitive, trailing spaces ignored).
+     */
+    private void rejectDuplicateExtensionKeys(DemographicExt[] extras) {
+        if (extras == null) {
+            return;
+        }
+        Set<String> seenKeys = new HashSet<>();
+        for (DemographicExt ext : extras) {
+            if (ext.getKey() == null) {
+                continue;
+            }
+            String normalizedKey = ext.getKey().stripTrailing().toLowerCase(Locale.ROOT);
+            if (normalizedKey.equalsIgnoreCase(REPEATABLE_EXTENSION_KEY)) {
+                continue;
+            }
+            if (!seenKeys.add(normalizedKey)) {
+                throw new IllegalArgumentException("Duplicate extension key: " + ext.getKey());
+            }
+        }
     }
 
     @Override
