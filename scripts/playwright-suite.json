@@ -13383,7 +13383,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned FAKE- patient with three Inf preventions seeded by SQL (a year-only and a year-and-month date, each with its partial_date row, and a full date) and the replacements the edit form saves; cleanup deletes the patient's preventions, their ext rows and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its fourth step on release/2026.08 and develop: the edit form's Date is an input type=date, so a year-only prevention opens with an empty Date box and the required field refuses the save until a full date is typed (pending finding 302, #4814; its release fix #4815 is a draft). Steps 1-3 pass; steps 5 and 6 need the year-only box and do not run (step 6, an impossible day refused and the corrected day saved, also needs #4815's calendar check). The check turns green on release when #4815 merges, and on develop when that reaches it in the forward merge; drop this note then."
+      "notes": "Preventions whose date is known only to the year or the year and month (as a CDS import stores them): they are listed with their partial dates; a full-date prevention still opens with its date picker; a full date typed over a year-and-month one is saved as that day; changing only the comment of a year-only one keeps its year-only date; and the Date box refuses an impossible month or day before posting, then saves the corrected day (#4814, fixed on release by #4815; on develop once the forward merge brings it)."
     },
     {
       "name": "prevention-print-selection",
