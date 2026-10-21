@@ -224,6 +224,39 @@ public class SmsTransaction extends AbstractModel<Long> {
         return transaction;
     }
 
+    /**
+     * A new queued row that sends this waiting text through {@code providerType}, for a retired provider's text
+     * moved to the provider the clinic selects now. It names the same patient, requester, appointment, recipient,
+     * text and purpose, and keeps the consent snapshot the text was queued on, as a freshly queued row carries
+     * the decision that admitted it; the worker checks consent again before sending, as for any row. It starts
+     * due now, with no attempts, no provider message id, and no client reference until it has an id of its own.
+     * This row is left as it is; the caller closes it.
+     *
+     * @param providerType the provider that sends the text now
+     * @return the unsaved new row
+     */
+    public SmsTransaction queuedCopyFor(SmsProviderType providerType) {
+        Objects.requireNonNull(providerType, "providerType is required");
+        SmsTransaction copy = new SmsTransaction();
+        copy.direction = SmsDirection.OUTBOUND;
+        copy.providerType = providerType;
+        copy.status = SmsStatus.QUEUED;
+        copy.messagePurpose = messagePurpose;
+        copy.demographicNo = demographicNo;
+        copy.requestedByHealthcareProviderNo = requestedByHealthcareProviderNo;
+        copy.requestedBySecurityNo = requestedBySecurityNo;
+        copy.appointmentNo = appointmentNo;
+        copy.toPhoneNumber = toPhoneNumber;
+        copy.recipientPhoneType = recipientPhoneType;
+        copy.messageBody = messageBody;
+        copy.consentStatus = consentStatus;
+        copy.consentId = consentId;
+        copy.consentLastUpdateDate = copyOf(consentLastUpdateDate);
+        copy.nextAttemptAt = new Date();
+        copy.refreshBodyAudit();
+        return copy;
+    }
+
     public static SmsTransaction inboundMessage(SmsInboundWebhookDto webhook) {
         Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
         SmsTransaction transaction = new SmsTransaction();

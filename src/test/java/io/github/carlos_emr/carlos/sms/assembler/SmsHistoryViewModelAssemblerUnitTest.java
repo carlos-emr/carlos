@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
+import io.github.carlos_emr.carlos.sms.service.SmsProviderRetirementService;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsHistoryViewModel;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.DisplayName;
@@ -108,6 +109,24 @@ class SmsHistoryViewModelAssemblerUnitTest {
                         SmsHistoryViewModel::hasPreviousPage, SmsHistoryViewModel::hasNextPage)
                 .containsExactly(1, 1, false, false);
         assertThat(model.rows()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a text queued again for another provider shows as moved with its note, not as failed")
+    void shouldShowMovedNote_forTextQueuedAgainForAnotherProvider() {
+        SmsTransaction moved = outbound(13L);
+        moved.markProviderResult(SmsProviderSendResultDto.failed(
+                SmsProviderRetirementService.QUEUE_PROVIDER_MOVED_CODE, "Moved to STUB as text 14."));
+        SmsTransaction failed = outbound(15L);
+        failed.markProviderResult(SmsProviderSendResultDto.failed("QUEUE_PROVIDER_NOT_ACTIVE", "FAKE note"));
+        when(smsTransactionDao.countByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(2L);
+        when(smsTransactionDao.findByDemographicNo(DEMOGRAPHIC_NO, 0, 25)).thenReturn(List.of(moved, failed));
+
+        SmsHistoryViewModel model = assembler().assemble(loggedInInfo, DEMOGRAPHIC_NO, 1);
+
+        assertThat(model.rows()).extracting(SmsHistoryViewModel.Row::status, SmsHistoryViewModel.Row::errorCode)
+                .containsExactly(tuple("MOVED", "Moved to STUB as text 14."),
+                        tuple("FAILED", "QUEUE_PROVIDER_NOT_ACTIVE"));
     }
 
     @Test

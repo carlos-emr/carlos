@@ -1,7 +1,9 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
@@ -13,6 +15,7 @@ import io.github.carlos_emr.carlos.sms.event.SmsSendFailedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +32,7 @@ import java.lang.reflect.Field;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +40,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -945,6 +952,290 @@ class JpaSmsTransactionServiceUnitTest {
                 recoveryAt,
                 25
         );
+    }
+
+    /**
+     * The durable cleanup of a retired provider's waiting texts: a text that certainly never went out is queued
+     * again, as a new row, for the provider selected now; anything else is failed for staff to review.
+     */
+    @Nested
+    @DisplayName("settling a retired provider's waiting texts")
+    class RetiredQueueCleanup {
+        private static final long CUTOFF = 50L;
+        private static final Instant CONSENT_EDITED_AT = Instant.parse("2026-09-01T14:30:00Z");
+
+        @Mock
+        private SmsProviderRetirementService retirementService;
+
+        private final List<SmsTransaction> inserted = new ArrayList<>();
+
+        @Test
+        @DisplayName("a never-tried text is queued again for the selected provider and its retired row names the new one")
+        void shouldQueueNewRow_whenRetiredTextWasNeverTried() {
+            SmsTransaction retired = retiredRow(41L);
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+
+            assertThat(recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10)).isEqualTo(1);
+
+            SmsTransaction moved = singleInsertedRow();
+            assertThat(moved).extracting(SmsTransaction::getProviderType, SmsTransaction::getStatus,
+                            SmsTransaction::getAttemptCount, SmsTransaction::getProviderMessageId,
+                            SmsTransaction::getClientReferenceId)
+                    .containsExactly(SmsProviderType.CLOUDLI, SmsStatus.QUEUED, 0, null, "sms-transaction-101");
+            assertThat(moved).extracting(SmsTransaction::getDemographicNo,
+                            SmsTransaction::getRequestedByHealthcareProviderNo, SmsTransaction::getRequestedBySecurityNo,
+                            SmsTransaction::getAppointmentNo, SmsTransaction::getToPhoneNumber,
+                            SmsTransaction::getRecipientPhoneType, SmsTransaction::getMessagePurpose,
+                            SmsTransaction::getMessageBodyLength, SmsTransaction::getMessageBodySha256)
+                    .containsExactly(retired.getDemographicNo(), "999998", 7, 8801, "+14165551212",
+                            SmsRecipientPhoneType.CELL, SmsMessagePurpose.APPOINTMENT_REMINDER,
+                            retired.getMessageBodyLength(), retired.getMessageBodySha256());
+            assertThat(moved.toSendCommand().body()).isEqualTo("FAKE reminder for tomorrow");
+            assertThat(moved).as("the consent snapshot the text was queued on; the worker checks it again")
+                    .extracting(SmsTransaction::getConsentStatus, SmsTransaction::getConsentId)
+                    .containsExactly(SmsConsentStatus.OPT_IN, 5);
+            assertThat(moved.getConsentLastUpdateDate()).isEqualTo(Date.from(CONSENT_EDITED_AT));
+            assertThat(moved.getNextAttemptAt()).as("due now").isBeforeOrEqualTo(new Date());
+            assertThat(moved.getErrorCode()).isNull();
+
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode,
+                            SmsTransaction::getErrorMessage, SmsTransaction::getProviderType,
+                            SmsTransaction::getNextAttemptAt)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED", "Moved to CLOUDLI as text 101.",
+                            SmsProviderType.STUB, null);
+            assertThat(retired.getClientReferenceId()).isEqualTo("sms-transaction-41");
+            verify(eventPublisher, never()).publishEvent(any(Object.class));
+        }
+
+        @Test
+        @DisplayName("a text the provider definitely refused, waiting for its retry, is moved and keeps its attempts")
+        void shouldMoveRow_whenRetiredTextWaitsAfterDefiniteRefusal() {
+            SmsTransaction retired = retiredRow(42L);
+            retired.markSending(new Date());
+            retired.markRetryScheduled(SmsProviderSendResultDto.failed("QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED",
+                    "SMS queued provider failure recorded; retry scheduled."), Date.from(Instant.now().plusSeconds(600)));
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(singleInsertedRow()).extracting(SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                    .containsExactly(0, null);
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode,
+                            SmsTransaction::getAttemptCount)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED", 1);
+        }
+
+        @Test
+        @DisplayName("a text whose consent check failed before any provider call is moved")
+        void shouldMoveRow_whenRetiredTextWaitsAfterConsentCheckFailure() {
+            SmsTransaction retired = retiredRow(43L);
+            retired.markSending(new Date());
+            retired.markRetryScheduled(SmsProviderSendResultDto.failed("QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED",
+                    "SMS consent could not be checked before sending; retry scheduled."), new Date());
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(inserted).hasSize(1);
+            assertThat(retired.getErrorCode()).isEqualTo("QUEUE_PROVIDER_MOVED");
+        }
+
+        @Test
+        @DisplayName("a text rescheduled after a stale send the provider did not find is failed for review, not moved")
+        void shouldFailRow_whenRetiredTextWasRescheduledAfterNotFoundLookup() {
+            SmsTransaction retired = retiredRow(44L);
+            retired.markSending(new Date());
+            retired.markStaleRecoveryStarted(new Date());
+            retired.markRetryScheduled(SmsProviderSendResultDto.failed("QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED",
+                    "SMS stale send was not found by SMS provider status lookup; retry scheduled."), new Date());
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(inserted).isEmpty();
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
+            verify(eventPublisher).publishEvent(any(Object.class));
+        }
+
+        @Test
+        @DisplayName("a text that went unanswered and was then refused stays marked, and is failed for review, not moved")
+        void shouldFailRow_whenNotFoundTextWasRefusedLater() {
+            SmsTransaction retired = retiredRow(45L);
+            retired.markSending(new Date());
+            retired.markStaleRecoveryStarted(new Date());
+            retired.markRetryScheduled(SmsProviderSendResultDto.failed("QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED",
+                    "SMS stale send was not found by SMS provider status lookup; retry scheduled."), new Date());
+            retired.markSending(new Date());
+            when(smsTransactionDao.find(45L)).thenReturn(retired);
+            Date nextAttemptAt = Date.from(Instant.now().plusSeconds(600));
+
+            recorder().markRetryScheduled(retired, SmsProviderSendResultDto.failed(
+                    "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED",
+                    "SMS queued provider failure recorded; retry scheduled."), nextAttemptAt);
+
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode,
+                            SmsTransaction::getErrorMessage, SmsTransaction::getNextAttemptAt)
+                    .containsExactly(SmsStatus.QUEUED, "QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED",
+                            "SMS stale send was not found by SMS provider status lookup; retry scheduled.",
+                            nextAttemptAt);
+
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(inserted).isEmpty();
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
+        }
+
+        @Test
+        @DisplayName("a text that was only ever refused is moved after the refusal is recorded")
+        void shouldMoveRow_whenRefusalIsRecordedWithoutNotFoundTry() {
+            SmsTransaction retired = retiredRow(46L);
+            retired.markSending(new Date());
+            when(smsTransactionDao.find(46L)).thenReturn(retired);
+
+            recorder().markRetryScheduled(retired, SmsProviderSendResultDto.failed(
+                    "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED",
+                    "SMS queued provider failure recorded; retry scheduled."), new Date());
+            assertThat(retired.getErrorCode()).isEqualTo("QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED");
+
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(inserted).hasSize(1);
+            assertThat(retired.getErrorCode()).isEqualTo("QUEUE_PROVIDER_MOVED");
+        }
+
+        @Test
+        @DisplayName("a held system test of the retired provider keeps its own failure and is never moved")
+        void shouldFailSystemTest_whenItsProviderWasRetired() {
+            SmsTransaction systemTest = SmsTransaction.outboundAttempt(new SmsSendCommand(null, "416-555-1212",
+                    SmsRecipientPhoneType.CELL, SmsSendService.SYSTEM_TEST_BODY, SmsMessagePurpose.SYSTEM_TEST,
+                    "999998", 1, null), SmsProviderType.STUB);
+            assignId(systemTest, 45L);
+            retiredQueue(SmsProviderType.CLOUDLI, systemTest);
+
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(inserted).isEmpty();
+            assertThat(systemTest).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_SYSTEM_TEST_PROVIDER_CHANGED");
+        }
+
+        @Test
+        @DisplayName("a text of a provider reselected before cleanup ran still gets a new row above the boundary")
+        void shouldQueueNewRow_whenRetiredProviderIsSelectedAgain() {
+            SmsTransaction retired = retiredRow(46L);
+            retiredQueue(SmsProviderType.STUB, retired);
+
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            SmsTransaction moved = singleInsertedRow();
+            assertThat(moved.getProviderType()).isEqualTo(SmsProviderType.STUB);
+            assertThat(moved.getId()).isGreaterThan(CUTOFF);
+            assertThat(retired.getErrorMessage()).isEqualTo("Moved to STUB as text 101.");
+        }
+
+        @Test
+        @DisplayName("a run settles no more retired rows than its limit")
+        void shouldSettleAtMostLimit_whenBacklogIsLarger() {
+            SmsTransaction first = retiredRow(47L);
+            SmsTransaction second = retiredRow(48L);
+            SmsTransaction third = retiredRow(49L);
+            retiredQueue(SmsProviderType.CLOUDLI, first, second, third);
+
+            assertThat(recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 2)).isEqualTo(2);
+
+            assertThat(inserted).hasSize(2);
+            assertThat(List.of(first, second)).extracting(SmsTransaction::getErrorCode)
+                    .containsOnly("QUEUE_PROVIDER_MOVED");
+            assertThat(third.getStatus()).isEqualTo(SmsStatus.QUEUED);
+        }
+
+        @Test
+        @DisplayName("a failed insert leaves the retired row waiting, and the next row is still moved")
+        void shouldLeaveRowQueued_whenNewRowCannotBeWritten() {
+            SmsTransaction faulty = retiredRow(47L);
+            SmsTransaction healthy = retiredRow(48L);
+            retiredQueue(SmsProviderType.CLOUDLI, faulty, healthy);
+            doThrow(new IllegalStateException("FAKE insert failure")).doAnswer(invocation -> {
+                insert(invocation.getArgument(0));
+                return null;
+            }).when(smsTransactionDao).persist(any());
+
+            assertThat(recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10)).isEqualTo(1);
+
+            assertThat(faulty).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.QUEUED, null);
+            assertThat(healthy.getErrorCode()).isEqualTo("QUEUE_PROVIDER_MOVED");
+        }
+
+        @Test
+        @DisplayName("a text that may already have gone out is never moved")
+        void shouldNotMoveRow_whenTextMayHaveGoneOut() {
+            SmsTransaction sending = retiredRow(60L);
+            sending.markSending(new Date());
+            SmsTransaction accepted = retiredRow(61L);
+            accepted.markSending(new Date());
+            accepted.markRetryScheduled(new SmsProviderSendResultDto(false, "FAKE-provider-id", SmsStatus.FAILED,
+                    "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED", "FAKE"), new Date());
+            SmsTransaction reported = retiredRow(62L);
+            // A provider callback was applied to it, so the provider has seen the text.
+            ReflectionTestUtils.setField(reported, "providerEventAt", Date.from(Instant.parse("2026-10-01T12:00:00Z")));
+            SmsTransaction unrecognized = retiredRow(63L);
+            unrecognized.markSending(new Date());
+            unrecognized.markRetryScheduled(SmsProviderSendResultDto.failed("FAKE_UNKNOWN_RETRY", "FAKE"), new Date());
+            SmsTransaction noCode = retiredRow(64L);
+            ReflectionTestUtils.setField(noCode, "attemptCount", 1);
+
+            assertThat(List.of(sending, accepted, reported, unrecognized, noCode))
+                    .noneMatch(SmsProviderRetirementService::movable);
+            assertThat(SmsProviderRetirementService.movable(retiredRow(65L))).as("a never-tried text").isTrue();
+        }
+
+        private JpaSmsTransactionService recorder() {
+            return new JpaSmsTransactionService(smsTransactionDao, eventPublisher, NOOP_TRANSACTION_MANAGER,
+                    retirementService);
+        }
+
+        /** The retired STUB queue, in id order, as the locked DAO query returns it: one waiting row at a time. */
+        private void retiredQueue(SmsProviderType selected, SmsTransaction... rows) {
+            when(retirementService.lockSelection()).thenReturn(Optional.empty());
+            when(retirementService.retiredThrough(SmsProviderType.STUB)).thenReturn(CUTOFF);
+            when(retirementService.selectedProvider(any())).thenReturn(selected);
+            when(smsTransactionDao.findRetiredQueuedForUpdate(eq(SmsProviderType.STUB), eq(CUTOFF), anyBoolean(),
+                    any(), any())).thenAnswer(invocation -> {
+                        List<Long> excluded = invocation.getArgument(4);
+                        return java.util.Arrays.stream(rows)
+                                .filter(row -> row.getStatus() == SmsStatus.QUEUED && !excluded.contains(row.getId()))
+                                .limit(1).toList();
+                    });
+            org.mockito.Mockito.lenient().doAnswer(invocation -> {
+                insert(invocation.getArgument(0));
+                return null;
+            }).when(smsTransactionDao).persist(any());
+        }
+
+        /** As the IDENTITY insert does: the new row gets the next id, above every boundary. */
+        private void insert(SmsTransaction row) {
+            ReflectionTestUtils.setField(row, "id", 101L + inserted.size());
+            inserted.add(row);
+        }
+
+        private SmsTransaction singleInsertedRow() {
+            assertThat(inserted).hasSize(1);
+            return inserted.get(0);
+        }
+
+        private SmsTransaction retiredRow(long id) {
+            SmsTransaction row = SmsTransaction.outboundAttempt(new SmsSendCommand(123, "416-555-1212",
+                    SmsRecipientPhoneType.CELL, "FAKE reminder for tomorrow", SmsMessagePurpose.APPOINTMENT_REMINDER,
+                    "999998", 7, 8801), SmsProviderType.STUB);
+            row.recordConsentDecision(SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 5, CONSENT_EDITED_AT));
+            assignId(row, id);
+            return row;
+        }
     }
 
     private static SmsTransaction claimedRowWithConsentSnapshot(long id, long version) {
