@@ -67,9 +67,9 @@ public class CustomFilterDaoIntegrationTest extends CarlosTestBase {
         @Tag("create")
         @DisplayName("should persist custom filter with program and assignees")
         void shouldPersistCustomFilter_withProgramAndAssignees() throws Exception {
-            // Create a provider first (legacy test relied on pre-loaded data)
+            // Use a dedicated provider rather than the seeded administrator.
             Provider p = new Provider();
-            p.setProviderNo("999998");
+            p.setProviderNo("900123");
             p.setFirstName("Test");
             p.setLastName("Provider");
             p.setProviderType("doctor");
@@ -81,7 +81,7 @@ public class CustomFilterDaoIntegrationTest extends CarlosTestBase {
 
             CustomFilter entity = new CustomFilter();
             EntityDataGenerator.generateTestDataForModelClass(entity);
-            entity.setProviderNo("999998");
+            entity.setProviderNo("900123");
             entity.setProgramId("10015");
 
             entity.getAssignees().add(p);

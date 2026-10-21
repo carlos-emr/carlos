@@ -3,6 +3,8 @@
 /build/
 /carlos-emr/
 /carlos-emr-drugref/
+# no longer built; a checkout that built alpha14-alpha17 may still hold it
+/carlos-emr-eform-renderer/
 /tmp/
 /files
 /*.substvars

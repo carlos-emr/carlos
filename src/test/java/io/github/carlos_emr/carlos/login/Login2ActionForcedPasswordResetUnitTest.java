@@ -205,6 +205,9 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         }
         pendingMfaTokens.forEach(token -> PendingMfaChallengeCache.getInstance().invalidate(token));
         pendingMfaTokens.clear();
+        // Used-code tracking is a process-wide singleton; reset it so deterministic test codes do
+        // not leak between tests and trip replay protection.
+        MfaUsedCodeCache.getInstance().invalidateAll();
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
@@ -1052,6 +1055,42 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(request.getSession(false).getAttribute(Login2Action.PENDING_MFA_AUTH_ATTR)).isNull();
             assertThat(request.getSession(false).getAttribute("user")).isEqualTo("999998");
             assertThat(PendingMfaChallengeCache.getInstance().peek(token)).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a TOTP code replayed for a second pending challenge within the validity window")
+    void shouldRejectTotpCode_replayedForSecondPendingChallenge() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action firstAttempt = newAction(null, null, null);
+            firstAttempt.setCode("123456");
+
+            assertThat(firstAttempt.execute()).isEqualTo(ActionSupport.NONE);
+
+            // A second, independent pending-MFA challenge replays the same observed code while it is
+            // still within the TOTP validity window; it must be rejected as already used.
+            stagePendingMfa(security);
+            // The first login committed a redirect on the shared response. A fresh one keeps a
+            // replay-protection regression failing on the assertions below rather than on an
+            // "already committed" error from the second login's redirect.
+            response = new MockHttpServletResponse();
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+            Login2Action replayAttempt = newAction(null, null, null);
+            replayAttempt.setCode("123456");
+
+            String result = replayAttempt.execute();
+
+            assertThat(result).isEqualTo("mfaHandler");
+            assertThat(request.getAttribute("mfaValidateCodeErr")).isEqualTo("Invalid MFA Code");
+            assertThat(response.getRedirectedUrl()).isNull();
+            logActionMock.verify(() -> LogAction.addLog("999998", "login", "mfa_failed", "mfa",
+                    request.getRemoteAddr()));
         }
     }
 
@@ -2027,12 +2066,46 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                     .contains("\"success\":false")
                     .contains("\"error\":\"Invalid credentials.\"");
             assertThat(mockedLoginChecks.constructed()).hasSize(1);
+            // LoginCheckLoginBean.cleanNullObj() already persisted the durable "failed" login row
+            // before auth() returned, so the action must not add a second row for the same attempt.
+            logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(),
+                    anyString(), anyString()), never());
         }
     }
 
     @Test
-    @DisplayName("should count failed login when authentication provider throws")
-    void shouldCountFailedLogin_whenAuthenticationProviderThrows() throws Exception {
+    @DisplayName("should not write a duplicate audit row when password is expired")
+    void shouldNotWriteDuplicateAuditRow_whenPasswordIsExpired() throws Exception {
+        request.setParameter("forcedpasswordchange", "false");
+        String password = VALID_PASSWORD;
+
+        try (MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+                (mock, context) -> {
+                    when(mock.isBlock(request.getRemoteAddr(), USERNAME)).thenReturn(false);
+                    when(mock.auth(USERNAME, password, "2026", request.getRemoteAddr()))
+                            .thenReturn(new String[]{"expired"});
+                })) {
+            Login2Action action = newAction(null, null, null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+            verify(mockedLoginChecks.constructed().get(0)).updateLoginList(request.getRemoteAddr(), USERNAME);
+            // LoginCheckLoginBean.cleanNullObjExpire() owns the durable row for this verdict, and it
+            // records it as "expired". A row written here would both double-count the attempt and
+            // misclassify an expiry as a credential failure.
+            logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(),
+                    anyString(), anyString()), never());
+        }
+    }
+
+    @Test
+    @DisplayName("should count and audit failed login when authentication provider throws")
+    void shouldCountAndAuditFailedLogin_whenAuthenticationProviderThrows() throws Exception {
         request.setParameter("forcedpasswordchange", "false");
         String password = VALID_PASSWORD;
 
@@ -2052,6 +2125,12 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getRedirectedUrl()).contains("/loginfailed");
             verify(mockedLoginChecks.constructed().get(0)).updateLoginList(request.getRemoteAddr(), USERNAME);
+            // The provider threw before any credential verdict, so this is the one failed-login
+            // path LoginCheckLoginBean never audits - and it must not be filed as a bad password.
+            logActionMock.verify(() -> LogAction.addLog(USERNAME, "login", "failed",
+                    "auth_provider_error", request.getRemoteAddr()));
+            logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(),
+                    eq("bad_credentials"), anyString()), never());
         }
     }
 

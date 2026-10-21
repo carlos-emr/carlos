@@ -1,0 +1,489 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.email.helpers;
+
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.mail.BodyPart;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.mail.MailException;
+import org.springframework.mail.MailSendException;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Properties;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+
+@DisplayName("SMTPEmailSender")
+@Tag("unit")
+class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
+
+    @TempDir
+    private Path tempDir;
+
+    private SecurityInfoManager securityInfoManager;
+    private NioFileManager nioFileManager;
+    private LoggedInInfo loggedInInfo;
+
+    @BeforeEach
+    void setUp() throws IOException {
+        securityInfoManager = mock(SecurityInfoManager.class);
+        nioFileManager = mock(NioFileManager.class);
+        loggedInInfo = mock(LoggedInInfo.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(NioFileManager.class, nioFileManager);
+        registerMock(JavaMailSender.class, mock(JavaMailSender.class));
+        when(nioFileManager.createManagedTempFile(anyString(), anyString()))
+                .thenAnswer(invocation -> Files.createTempFile(
+                        tempDir, invocation.getArgument(0), invocation.getArgument(1)));
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
+    }
+
+    @Test
+    void shouldPreservePrivateSnapshotPermissions_whenSourceIsWorldReadable() throws Exception {
+        Path source = tempDir.resolve("source.txt");
+        Files.writeString(source, "synthetic attachment");
+        Files.setPosixFilePermissions(source,
+                java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--"));
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "Permissions", "Body",
+                List.of(new EmailAttachment("source.txt", source.toString(), DocumentType.DOC, 101)),
+                new CapturingJavaMailSender());
+        try {
+            sender.prepareArtifactBytes();
+            try (var paths = Files.list(tempDir)) {
+                List<Path> snapshots = paths.filter(path -> path.toString().endsWith(".snapshot")).toList();
+                assertThat(snapshots).hasSize(1);
+                assertThat(Files.getPosixFilePermissions(snapshots.get(0))).isEqualTo(
+                        java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+            }
+        } finally {
+            sender.discardPrepared();
+        }
+    }
+
+    /**
+     * The patient portal invitation's archived copy is redacted by finding its code verbatim in these
+     * bytes (EmailManager.redactArchive), and the send is refused if it cannot be found. So the real
+     * MIME builder must keep the code on one line, unencoded: plain ASCII (7bit), and with non-ASCII
+     * text elsewhere in the body, which switches the part to quoted-printable.
+     */
+    @ParameterizedTest
+    @CsvSource({"Your clinic, 7bit", "Clinique Sainte-\u00c9lise \u2014 Montr\u00e9al, quoted-printable"})
+    @DisplayName("should keep an invitation code verbatim in the prepared message, whatever the body's encoding")
+    void shouldKeepInvitationCodeVerbatim_forRedaction(String clinicName, String encoding) throws Exception {
+        String code = "Xy7kQ2mN9pR4tV8wZ1bC5dF0gH3jK6lM-_aBcDeFgHi";
+        String body = "Hello,\n\nYou have been invited to create an account on " + clinicName + "'s patient portal.\n\n"
+                + "1. Open https://portal.clinic.example/auth/activate\n"
+                + "2. Enter this invitation code: " + code + "\n"
+                + "3. Confirm your email address, date of birth and health card number.\n";
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "Your patient portal invitation", body, List.of(),
+                new CapturingJavaMailSender());
+        try {
+            String prepared = new String(sender.prepareArtifactBytes(), StandardCharsets.ISO_8859_1);
+
+            assertThat(prepared).contains("Content-Transfer-Encoding: " + encoding);
+            assertThat(prepared).contains("invitation code: " + code);
+        } finally {
+            sender.discardPrepared();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {40L * 1024 * 1024, SMTPEmailSender.MAX_PREPARED_MESSAGE_BYTES + 1})
+    void shouldRejectOversizedMessage_whenPreparingSnapshot(long attachmentBytes) throws Exception {
+        Path source = tempDir.resolve("large.bin");
+        try (var channel = java.nio.channels.FileChannel.open(source,
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE)) {
+            // 40 MiB fits the snapshot budget but exceeds the MIME budget after base64 encoding.
+            channel.position(attachmentBytes - 1);
+            channel.write(java.nio.ByteBuffer.wrap(new byte[]{1}));
+        }
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "Limit", "Body",
+                List.of(new EmailAttachment("large.bin", source.toString(), DocumentType.DOC, 101)), mailSender);
+
+        assertThatThrownBy(sender::prepareArtifactBytes).isInstanceOf(EmailSendingException.class)
+                .hasRootCauseMessage("Prepared email exceeds the archive size limit");
+
+        assertThat(mailSender.getSentMessageBytes()).isNull();
+        assertThat(sender.getPreparedAttachments()).isEmpty();
+        try (var paths = Files.list(tempDir)) {
+            assertThat(paths.filter(path -> path.toString().endsWith(".snapshot"))).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should send prepared message using attachment snapshot when source file changes")
+    void shouldSendPreparedMessageUsingAttachmentSnapshot_whenSourceFileChanges() throws Exception {
+        byte[] originalAttachmentBytes = "original attachment".getBytes(StandardCharsets.UTF_8);
+        byte[] changedAttachmentBytes = "changed attachment".getBytes(StandardCharsets.UTF_8);
+        Path attachmentPath = tempDir.resolve("attachment.txt");
+        Files.write(attachmentPath, originalAttachmentBytes);
+        EmailAttachment attachment = new EmailAttachment("attachment.txt", attachmentPath.toString(), DocumentType.DOC, 101);
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(
+                loggedInInfo,
+                smtpEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Snapshot test",
+                "Body text",
+                List.of(attachment),
+                mailSender);
+
+        byte[] archivedMessageBytes = sender.prepareArtifactBytes();
+        assertThat(sender.getPreparedAttachments()).hasSize(1);
+        long preparedByteSize = sender.getPreparedAttachments().get(0).getByteSize();
+        String preparedSha256Hash = sender.getPreparedAttachments().get(0).getSha256Hash();
+        Files.write(attachmentPath, changedAttachmentBytes);
+        sender.sendPrepared();
+
+        assertThat(preparedByteSize).isEqualTo((long) originalAttachmentBytes.length);
+        assertThat(preparedSha256Hash).isEqualTo(sha256Hex(originalAttachmentBytes));
+        assertThat(firstAttachmentBytes(archivedMessageBytes)).isEqualTo(originalAttachmentBytes);
+        assertThat(firstAttachmentBytes(mailSender.getSentMessageBytes())).isEqualTo(originalAttachmentBytes);
+    }
+
+    @Test
+    @DisplayName("should reject prepared send when email privilege is missing")
+    void shouldRejectPreparedSend_whenEmailPrivilegeMissing() throws Exception {
+        Path attachmentPath = tempDir.resolve("privilege-check.txt");
+        Files.writeString(attachmentPath, "attachment content");
+        EmailAttachment attachment = new EmailAttachment(
+                "privilege-check.txt", attachmentPath.toString(), DocumentType.DOC, 102);
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(
+                loggedInInfo,
+                smtpEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Snapshot test",
+                "Body text",
+                List.of(attachment),
+                mailSender);
+        sender.prepareArtifactBytes();
+        assertThat(sender.getPreparedAttachments()).hasSize(1);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);
+
+        assertThatThrownBy(sender::sendPrepared)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_email)");
+        assertThat(mailSender.getSentMessageBytes()).isNull();
+        assertThat(sender.getPreparedAttachments()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject prepared send when message was not prepared")
+    void shouldRejectPreparedSend_whenMessageWasNotPrepared() {
+        SMTPEmailSender sender = new TestSMTPEmailSender(
+                loggedInInfo,
+                smtpEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Snapshot test",
+                "Body text",
+                List.of(),
+                new CapturingJavaMailSender());
+
+        assertThatThrownBy(sender::sendPrepared)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("SMTP message must be prepared before sending");
+    }
+
+    @Test
+    @DisplayName("should archive and send the same plain-text body with the footer below it")
+    void shouldArchiveAndSendFooter_inPlainTextBody() throws Exception {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Body text");
+        emailData.setFooter("<b>Riverside Clinic</b><br>Not monitored for urgent issues.");
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "Footer test", emailData.getTransmittedBody(),
+                List.of(), mailSender);
+
+        byte[] archivedMessageBytes = sender.prepareArtifactBytes();
+        sender.sendPrepared();
+
+        String expected = "Body text\n\nRiverside Clinic\nNot monitored for urgent issues.";
+        assertThat(plainText(archivedMessageBytes)).isEqualTo(expected);
+        assertThat(plainText(mailSender.getSentMessageBytes())).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("should send a footer email as text plus HTML, with the clinic logo carried inline")
+    void shouldSendAlternativeWithInlineLogo_whenFooterAndLogoSet() throws Exception {
+        EmailData emailData = new EmailData();
+        // Accented text in both parts: each must arrive as UTF-8, not garbled.
+        emailData.setBody("Body <text> \u00e9t\u00e9 \u2013 caf\u00e9");
+        emailData.setFooter("<b>Clinique Sainte-Th\u00e9r\u00e8se</b>");
+        byte[] logo = {(byte) 0x89, 'P', 'N', 'G', 1, 2, 3};
+        emailData.setFooterLogo(new EmailInlineImage("clinic-logo-0123456789abcdef@carlos-emr", "image/png", logo));
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "Footer test", emailData.getTransmittedBody(),
+                List.of(), mailSender);
+        sender.setFormattedVersion(emailData.getTransmittedHtml(), emailData.getFooterLogo());
+
+        byte[] archivedMessageBytes = sender.prepareArtifactBytes();
+        sender.sendPrepared();
+
+        for (byte[] bytes : List.of(archivedMessageBytes, mailSender.getSentMessageBytes())) {
+            MimeMessage message = new MimeMessage(Session.getInstance(new Properties()), new ByteArrayInputStream(bytes));
+            assertThat(plainText(bytes)).isEqualTo("Body <text> \u00e9t\u00e9 \u2013 caf\u00e9\n\nClinique Sainte-Th\u00e9r\u00e8se");
+            Part alternative = findPart(message, part -> part.isMimeType("multipart/alternative"));
+            assertThat(alternative).as("multipart/alternative").isNotNull();
+            Part html = findPart(message, part -> part.isMimeType("text/html"));
+            assertThat(html.getContentType()).containsIgnoringCase("charset=UTF-8");
+            assertThat((String) html.getContent())
+                    .contains("Body &lt;text&gt; \u00e9t\u00e9 \u2013 caf\u00e9")
+                    .contains("<img src=\"cid:clinic-logo-0123456789abcdef@carlos-emr\"")
+                    .contains("<b>Clinique Sainte-Th\u00e9r\u00e8se</b>");
+            Part image = findPart(message, part -> part.isMimeType("image/png"));
+            assertThat(image.getHeader("Content-ID")).containsExactly("<clinic-logo-0123456789abcdef@carlos-emr>");
+            assertThat(image.getDisposition()).isEqualToIgnoringCase(Part.INLINE);
+            assertThat(image.getFileName()).isEqualTo("clinic-logo-0123456789abcdef.png");
+            assertThat(image.getInputStream().readAllBytes()).isEqualTo(logo);
+        }
+    }
+
+    @Test
+    @DisplayName("should send plain text only, without the logo, when there is no formatted version")
+    void shouldSendPlainTextOnly_whenNoFormattedVersion() throws Exception {
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "No footer", "Body text", List.of(), mailSender);
+        sender.setFormattedVersion(null, new EmailInlineImage("clinic-logo-1@carlos-emr", "image/png", new byte[] {1}));
+
+        sender.prepareArtifactBytes();
+        sender.sendPrepared();
+
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()),
+                new ByteArrayInputStream(mailSender.getSentMessageBytes()));
+        assertThat(plainText(mailSender.getSentMessageBytes())).isEqualTo("Body text");
+        assertThat(findPart(message, part -> part.isMimeType("text/html"))).isNull();
+        assertThat(findPart(message, part -> part.isMimeType("image/*"))).isNull();
+    }
+
+    private interface PartTest {
+        boolean matches(Part part) throws Exception;
+    }
+
+    private Part findPart(Part part, PartTest test) throws Exception {
+        if (test.matches(part)) {
+            return part;
+        }
+        if (part.getContent() instanceof Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                Part found = findPart(multipart.getBodyPart(i), test);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    private String plainText(byte[] messageBytes) throws Exception {
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()), new ByteArrayInputStream(messageBytes));
+        String text = findPlainText(message);
+        assertThat(text).as("MIME message plain-text body").isNotNull();
+        return text.replace("\r\n", "\n");
+    }
+
+    private String findPlainText(Part part) throws Exception {
+        Object content = part.getContent();
+        if (content instanceof String text && part.isMimeType("text/plain")) {
+            return text;
+        }
+        if (content instanceof Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                String text = findPlainText(multipart.getBodyPart(i));
+                if (text != null) {
+                    return text;
+                }
+            }
+        }
+        return null;
+    }
+
+    private byte[] firstAttachmentBytes(byte[] messageBytes) throws Exception {
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()), new ByteArrayInputStream(messageBytes));
+        Object content = message.getContent();
+        assertThat(content).isInstanceOf(Multipart.class);
+        byte[] attachmentBytes = findFirstAttachmentBytes((Multipart) content);
+        assertThat(attachmentBytes).as("MIME message attachment bytes").isNotNull();
+        return attachmentBytes;
+    }
+
+    private byte[] findFirstAttachmentBytes(Multipart multipart) throws Exception {
+        for (int i = 0; i < multipart.getCount(); i++) {
+            BodyPart bodyPart = multipart.getBodyPart(i);
+            Object content = bodyPart.getContent();
+            if (Part.ATTACHMENT.equalsIgnoreCase(bodyPart.getDisposition()) || bodyPart.getFileName() != null) {
+                return bodyPart.getInputStream().readAllBytes();
+            }
+            if (content instanceof Multipart nestedMultipart) {
+                byte[] nestedAttachmentBytes = findFirstAttachmentBytes(nestedMultipart);
+                if (nestedAttachmentBytes != null) {
+                    return nestedAttachmentBytes;
+                }
+            }
+        }
+        return null;
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}",
+            "{\"host\":\"  \",\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}",
+            "{\"host\":\"smtp.example.test\",\"port\":\"not-a-port\",\"username\":\"user\",\"password\":\"secret\"}",
+            "{\"host\":\"smtp.example.test\",\"port\":\"70000\",\"username\":\"user\",\"password\":\"secret\"}"
+    })
+    void shouldRejectPreparation_whenSmtpConfigurationIsInvalid(String json) {
+        SMTPEmailSender sender = senderWithConfigJson(json);
+
+        assertThatThrownBy(sender::prepareArtifactBytes)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("Invalid credentials configured for");
+    }
+
+    @Test
+    @DisplayName("should preserve surrounding whitespace in SMTP passwords")
+    void shouldPreserveSurroundingWhitespace_inSmtpPassword() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        emailConfig.setConfigDetailsJson("""
+                {"host":" smtp.example.test ","port":" 587 ","username":" user ","password":" secret "}
+                """);
+        SMTPEmailSender sender = new SMTPEmailSender(
+                loggedInInfo, emailConfig, new String[]{"patient@example.test"}, "Subject", "Body", List.of());
+
+        JavaMailSenderImpl mailSender = (JavaMailSenderImpl) sender.createTLSMailSender(emailConfig);
+
+        assertThat(mailSender.getHost()).isEqualTo("smtp.example.test");
+        assertThat(mailSender.getPort()).isEqualTo(587);
+        assertThat(mailSender.getUsername()).isEqualTo("user");
+        assertThat(mailSender.getPassword()).isEqualTo(" secret ");
+    }
+
+    private SMTPEmailSender senderWithConfigJson(String configDetailsJson) {
+        EmailConfig emailConfig = smtpEmailConfig();
+        emailConfig.setConfigDetailsJson(configDetailsJson);
+        return new SMTPEmailSender(
+                loggedInInfo,
+                emailConfig,
+                new String[]{"patient@example.test"},
+                "Subject",
+                "Body text",
+                List.of());
+    }
+
+    private EmailConfig smtpEmailConfig() {
+        EmailConfig emailConfig = new EmailConfig(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL, "provider@example.test");
+        emailConfig.setSenderFirstName("Provider");
+        emailConfig.setSenderLastName("One");
+        emailConfig.setConfigDetailsJson("{\"host\":\"smtp.example.test\",\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}");
+        return emailConfig;
+    }
+
+    private String sha256Hex(byte[] bytes) throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    }
+
+    private static final class TestSMTPEmailSender extends SMTPEmailSender {
+        private final JavaMailSender mailSender;
+
+        private TestSMTPEmailSender(
+                LoggedInInfo loggedInInfo,
+                EmailConfig emailConfig,
+                String[] recipients,
+                String subject,
+                String body,
+                List<EmailAttachment> attachments,
+                JavaMailSender mailSender) {
+            super(loggedInInfo, emailConfig, recipients, subject, body, attachments);
+            this.mailSender = mailSender;
+        }
+
+        @Override
+        protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) {
+            return mailSender;
+        }
+    }
+
+    private static final class CapturingJavaMailSender extends JavaMailSenderImpl {
+        private byte[] sentMessageBytes;
+
+        @Override
+        public void send(MimeMessage... mimeMessages) throws MailException {
+            try {
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                MimeMessage mimeMessage = mimeMessages[0];
+                String messageId = mimeMessage.getMessageID();
+                mimeMessage.saveChanges();
+                if (messageId != null) {
+                    mimeMessage.setHeader("Message-ID", messageId);
+                }
+                mimeMessage.writeTo(outputStream);
+                sentMessageBytes = outputStream.toByteArray();
+            } catch (Exception e) {
+                throw new MailSendException("Failed to capture message", e);
+            }
+        }
+
+        private byte[] getSentMessageBytes() {
+            return sentMessageBytes;
+        }
+    }
+}

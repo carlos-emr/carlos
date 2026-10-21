@@ -42,7 +42,7 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only for an intentional non-local test target
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  *
@@ -60,6 +60,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
 // Hosts reachable enough to browse against. 'carlos' and 'db' are the
 // devcontainer compose service names for the app and the MariaDB container, and
@@ -165,7 +166,7 @@ const testPin = process.env.TEST_PIN || '2026';
 const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'db');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 
 const seededDemographicIds = [];
 const seededHeaderIds = [];
@@ -597,6 +598,7 @@ async function run() {
     const launchOptions = {
       headless: true,
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
+      ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
     };
     if (chromePath) {
       launchOptions.executablePath = chromePath;
@@ -783,21 +785,12 @@ async function run() {
 // A run takes minutes, so Ctrl-C part way through is entirely likely. Without
 // this, Node exits without unwinding the finally block and leaves synthetic 65+
 // patients sitting in the schema -- exactly what the cleanup guarantee exists to
-// prevent. The browser is left to the OS; only the database and the cleartext
-// password file matter here.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`\n${signal} received; removing seeded rows before exiting.`);
-    let interrupted = [];
-    try {
-      interrupted = runCleanupOnce();
-    } catch (error) {
-      console.error(`WARN cleanup after ${signal} failed: ${error.message}`);
-    }
-    interrupted.forEach((failure) => console.error(`WARN ${failure}`));
-    process.exit(130);
-  });
-}
+// prevent (issue #3600). runCleanupOnce() is latched, so whichever of the finally
+// block and the handler arrives first does the work. The browser is left to the OS;
+// only the database and the cleartext password file matter here.
+installCleanupSignalHandlers(() => {
+  runCleanupOnce().forEach((failure) => console.error(`WARN ${failure}`));
+});
 
 run().catch((error) => {
   console.error('FAIL CARLOS EMR Flu Billing Report Playwright check');

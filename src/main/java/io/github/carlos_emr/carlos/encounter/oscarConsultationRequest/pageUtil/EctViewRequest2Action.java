@@ -136,9 +136,9 @@ public class EctViewRequest2Action extends ActionSupport {
         thisForm.setClinicalInformation(consult.getClinicalInfo());
         thisForm.setCurrentMedications(consult.getCurrentMeds());
         Date date = consult.getReferralDate();
-        thisForm.setReferalDate(DateFormatUtils.ISO_DATE_FORMAT.format(date));
+        thisForm.setReferalDate(date == null ? "" : DateFormatUtils.ISO_DATE_FORMAT.format(date));
         thisForm.setSendTo(consult.getSendTo());
-        thisForm.setService(consult.getServiceId().toString());
+        thisForm.setService(consult.getServiceId() == null ? "" : consult.getServiceId().toString());
         thisForm.setStatus(consult.getStatus());
 
         setAppointmentDateTime(thisForm, consult);
@@ -184,8 +184,12 @@ public class EctViewRequest2Action extends ActionSupport {
         thisForm.setPatientAge(demo.getAge());
 
         ProviderDao provDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-        Provider prov = provDao.getProvider(consult.getProviderNo());
-        thisForm.setProviderName(prov.getFormattedName());
+        // providerNo is nullable on consultationRequests (legacy/imported rows, and
+        // integration-created requests) and can also reference a since-removed
+        // provider. A missing referring provider must render as blank, not NPE the
+        // whole consultation view into a 500.
+        Provider prov = consult.getProviderNo() != null ? provDao.getProvider(consult.getProviderNo()) : null;
+        thisForm.setProviderName(prov != null ? prov.getFormattedName() : "");
 
         boolean isEReferral = extraMap.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey());
         thisForm.seteReferral(isEReferral);

@@ -80,7 +80,7 @@
         <div style="width: 99%; background-color: #EFEFEF; font-size: 12px; border-left: thin groove #000000; border-bottom: thin groove #000000; border-right: thin groove #000000;">
             <div>
                 <p>
-                ${note.note}
+                ${carlos:forHtmlContentWithBreaks(note.note)}
                 </p>
             </div>
             <div style="color: #0000FF;">
@@ -105,6 +105,16 @@
     
                 <fmt:formatDate value="${note.update_date}" pattern="dd-MMM-yyyy H:mm" />
             </div>
+            <%-- In-place edits retain earlier versions in history, not separate note rows.
+                 Only expand the latest row: older rows may contain cumulative copies.
+                 Keep that stored prose intact and encoded. The metadata above describes
+                 this saved row; do not invent dates or authors for embedded versions. --%>
+            <c:if test="${showStoredNoteHistory and idx.last and not empty note.history and note.history ne note.note}">
+                <details class="note-text-history" open>
+                    <summary><fmt:message key="casemgmt.showHistory.textHistory"/></summary>
+                    <div class="note-text-history-content">${carlos:forHtmlContentWithBreaks(note.history)}</div>
+                </details>
+            </c:if>
         </div>
     </c:forEach>    
 </body>

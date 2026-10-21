@@ -20,6 +20,8 @@ import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletContext;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+
 /**
  * Resolves legacy form JSP paths to the new action routes and internal
  * WEB-INF locations.
@@ -277,10 +279,17 @@ public final class FormViewRoutes {
      * WEB-INF target.
      */
     public static String resolveInternalViewFromFormLink(String formLink) {
+        if (ALLOWED_WILDCARD_FORM_VIEWS.contains(formLink)) {
+            formLink += ".jsp";
+        }
         if (formLink == null || !SAFE_FORM_LINK_PATTERN.matcher(formLink).matches()) {
             return null;
         }
-        return INTERNAL_FORM_PREFIX + formLink;
+        // The pattern already limits form_link to one file name directly under the
+        // form folder, so this never throws. Callers forward to the result, and
+        // validatePathComponent is the sanitizer static analysis recognizes for a
+        // single request-supplied path segment.
+        return INTERNAL_FORM_PREFIX + PathValidationUtils.validatePathComponent(formLink, "form_link");
     }
 
     static boolean isAllowedWildcardFormView(String relativeView) {

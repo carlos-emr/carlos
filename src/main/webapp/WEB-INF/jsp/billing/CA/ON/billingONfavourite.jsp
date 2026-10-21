@@ -186,20 +186,20 @@
                     <div class="d-flex align-items-center gap-1 flex-wrap">
                         <input class="form-control form-control-sm fav-dx" type="text" name="dx"
                                value="<carlos:encode value='${favouriteModel.formFields[\"dx\"]}' context='htmlAttribute'/>"
-                               maxlength="4"/>
+                               maxlength="40"/>
                         <span class="text-muted small"><fmt:message key="billing.billingOnFavourite.dxHint"/></span>
                         <label class="fw-semibold mb-0 ms-2">
                             <fmt:message key="billing.billingOnFavourite.labelDx1"/>
                         </label>
                         <input class="form-control form-control-sm fav-dx" type="text" name="dx1"
                                value="<carlos:encode value='${favouriteModel.formFields[\"dx1\"]}' context='htmlAttribute'/>"
-                               maxlength="4"/>
+                               maxlength="40"/>
                         <label class="fw-semibold mb-0 ms-2">
                             <fmt:message key="billing.billingOnFavourite.labelDx2"/>
                         </label>
                         <input class="form-control form-control-sm fav-dx" type="text" name="dx2"
                                value="<carlos:encode value='${favouriteModel.formFields[\"dx2\"]}' context='htmlAttribute'/>"
-                               maxlength="4"/>
+                               maxlength="40"/>
                     </div>
                 </div>
             </div>
@@ -310,7 +310,11 @@
             return li;
         }
 
-        function initCodeAutocomplete($inputs, ajaxUrl) {
+        // maxCodeLength (optional): the dx inputs double as the saved favourite value, whose
+        // maxlength is widened so description searches (e.g. "hypertension") fit; a term left
+        // behind without picking a suggestion must never be saved as a code, so anything
+        // longer than a real code is cleared on blur.
+        function initCodeAutocomplete($inputs, ajaxUrl, maxCodeLength) {
             $inputs.each(function () {
                 var $input = jQuery(this);
                 var inst = $input.autocomplete({
@@ -322,6 +326,11 @@
                     select: function (event, ui) {
                         this.value = ui.item.code.toUpperCase();
                         return false;
+                    },
+                    change: function (event, ui) {
+                        if (maxCodeLength && !ui.item && this.value.length > maxCodeLength) {
+                            this.value = '';
+                        }
                     }
                 }).data('ui-autocomplete');
                 if (inst) { inst._renderItem = renderCodeItem; }
@@ -332,9 +341,11 @@
             jQuery("input[name^='serviceCode']"),
             '/billing/CA/ON/ViewBillingCodeSearchAjax'
         );
+        // Favourite dx codes remain capped at 4 characters when saved
         initCodeAutocomplete(
             jQuery("input[name='dx'], input[name='dx1'], input[name='dx2']"),
-            '/billing/CA/ON/ViewBillingDigSearchAjax'
+            '/billing/CA/ON/ViewBillingDigSearchAjax',
+            4
         );
     });
 </script>

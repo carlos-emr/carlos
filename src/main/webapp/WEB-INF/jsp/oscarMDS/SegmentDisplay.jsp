@@ -28,6 +28,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays a legacy MDS laboratory report, its patient link, results, and acknowledgments.
+    Parameters: segmentID identifies the MDS report; providerNo/searchProviderNo preserve inbox context.
+    Requires _lab read privilege. Successful patient matches reload this report even when COOP
+    separates the matching popup from its opener.
+    @since 2026-10-02 (patient-match refresh notifications)
+--%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -116,6 +123,23 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
 
 </script>
 <script language="JavaScript">
+    // Refresh only this MDS report after the matching popup confirms persistence.
+    if (typeof BroadcastChannel !== 'undefined') {
+        try {
+            const matchChannel = new BroadcastChannel('lab-patient-match-${carlos:forJavaScript(pageContext.request.contextPath)}');
+            matchChannel.onmessage = function(event) {
+                const match = event.data;
+                if (match && match.type === 'patient-matched' && match.labType === 'MDS'
+                        && match.labNo === '${carlos:forJavaScript(param.segmentID)}') {
+                    matchChannel.close();
+                    window.location.reload();
+                }
+            };
+        } catch (e) {
+            console.warn('Live lab refresh notifications are unavailable; reload the lab view after matching.');
+        }
+    }
+
     function getComment() {
         var ret = true;
         var commentval = prompt("<fmt:message key="oscarMDS.segmentDisplay.msgComment"/>", "");
@@ -195,7 +219,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>'                                
 , 'searchPatientWindow')">
                             <% } %> &nbsp; <a
-                                href="javascript:popupStart(400,850,'${pageContext.request.contextPath}/demographic/DemographicApptHistory?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+                                href="${pageContext.request.contextPath}/demographic/DemographicApptHistory?demographic_no=<carlos:encode value='${__enc_1}' context="htmlAttribute"/>&amp;orderby=appointment_date&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25" onclick="popupStart(400,850,this.href,'ApptHist'); return false;"
                                 style="font-size: 12px;" title="Click to see appointment history"><span
                                 class="Field2"><i>Next Appointment: <oscar:nextAppt
                                 demographicNo="<%=demoNo%>"/></i></span></a></td>
@@ -267,7 +291,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                                     <a href="javascript:window.close()"> <% } else { // we were called from lab module %>
 
                                                                         <a
-                                                                                href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>', 'searchPatientWindow')">
+                                                                                href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&amp;segmentID=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/>&amp;name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
                                                                             <% } %> <carlos:encode value='<%= pd.getPatientName() %>' context="html"/>
                                                                         </a></div>
                                                             </td>

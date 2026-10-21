@@ -29,7 +29,10 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
-<form name="servicetypeform" method="post">
+<%-- A real action is required: CSRFGuard injects its token only into forms
+     that have one, and without it the Add posted with no token and was
+     refused (#4130). valid() in manageBillingform.jsp submits the same URL. --%>
+<form name="servicetypeform" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/billing/CA/ON/DbManageBillingformAdd" onsubmit="return validateServiceType();">
 <table width="92%" border="0" height="285">
 	<tr>
 		<td width="5%">&nbsp;</td>

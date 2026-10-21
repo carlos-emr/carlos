@@ -6,6 +6,7 @@
     "shutdownAction": "stopCompose",
     "dockerComposeOptions": ["--project-name", "carlos-emr"],
     "postCreateCommand": "cd /workspace && sh .devcontainer/development/setup/seed_data.sh && mvn -B dependency:go-offline dependency:sources dependency:resolve -Dclassifier=javadoc",
+    "postStartCommand": "sh /workspace/.devcontainer/development/scripts/setup-commit-signing",
 
     "customizations": {
         "vscode": {
@@ -36,8 +37,11 @@
         }
     },
 
-    "forwardPorts": [8080, 8000, 3306, 3000, 13579],
+    "forwardPorts": [8080, 8443, 8000, 3306, 3000, 13579],
     "portsAttributes": {
+        "8443": {
+            "label": "CARLOS Monitoring (Development TLS)"
+        },
         "13579": {
             "label": "Gemini OAuth Callback",
             "onAutoForward": "silent"

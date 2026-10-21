@@ -58,7 +58,6 @@ import io.github.carlos_emr.CarlosProperties;
  *
  * <p>System-provided properties (from CarlosProperties):
  * <ul>
- *   <li>buildTag - Software build version and date</li>
  *   <li>econsultURL - Ontario eConsult integration URL (if configured)</li>
  * </ul>
  *
@@ -114,9 +113,6 @@ public class LoginResourceBean {
     /** Browser tab title for login page (loaded from .env file) */
     private String tabName;
 
-    /** Software build version and date (from CarlosProperties) */
-    private String buildTag;
-
     /** Ontario eConsult integration URL (from CarlosProperties, legacy feature) */
     private String econsultURL;
 
@@ -130,7 +126,6 @@ public class LoginResourceBean {
      * <ol>
      *   <li>Loads custom properties from {BASE_DOCUMENT_DIR}/login/.env</li>
      *   <li>Populates clinic and support fields from .env properties</li>
-     *   <li>Sets buildTag from CarlosProperties build date and tag</li>
      *   <li>Loads eConsult URL from backendEconsultUrl property</li>
      *   <li>Initializes AcceptableUseAgreementManager</li>
      * </ol>
@@ -186,9 +181,6 @@ public class LoginResourceBean {
         if (loginProperties.containsKey("tabName")) {
             this.tabName = loginProperties.getProperty("tabName");
         }
-
-        // Set build version information from system properties
-        this.buildTag = CarlosProperties.getBuildDate() + " " + CarlosProperties.getBuildTag();
 
         // Load eConsult URL (legacy Ontario eConsult integration)
         // NOTE: Ontario eConsult service status is uncertain, verify before use
@@ -286,24 +278,6 @@ public class LoginResourceBean {
      */
     public void setClinicName(@SuppressWarnings("unused") String clinicName) {
         this.clinicName = null;
-    }
-
-    /**
-     * Gets the software build version and date.
-     *
-     * @return String build version and date (e.g., "2026-02-10 v1.2.3")
-     */
-    public String getBuildTag() {
-        return buildTag;
-    }
-
-    /**
-     * Setter that ignores parameter and sets field to null (defensive pattern).
-     *
-     * @param buildTag String parameter is ignored
-     */
-    public void setBuildTag(@SuppressWarnings("unused") String buildTag) {
-        this.buildTag = null;
     }
 
     /**

@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.hospitalReportManager.v2018;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.List;
@@ -47,12 +48,10 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMCategoryDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
-import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMProviderConfidentialityStatementDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubClass;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
-import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMProviderConfidentialityStatement;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -70,8 +69,11 @@ import org.apache.struts2.ServletActionContext;
  * <ul>
  * <li>DataTables-based report listing with filtering and pagination</li>
  * <li>Report categorization and search (searchCategory, saveCategory)</li>
- * <li>Provider confidentiality statement management (read and write)</li>
  * </ul>
+ * <p>
+ * Provider-specific HRM confidentiality statement management was retired; the
+ * {@code getConfidentialityStatement}/{@code saveConfidentialityStatement} method names are
+ * rejected with {@code HTTP 410 Gone} rather than falling through to another operation.
  * <p>
  * The SFTP integration for fetching new reports from Ontario MD has been removed.
  * Existing HRM documents remain accessible for viewing, printing, and export.
@@ -100,51 +102,16 @@ public class HRM2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private HRMDocumentToDemographicDao hrmDocumentToDemographicDao = SpringUtils.getBean(HRMDocumentToDemographicDao.class);
 
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
-    public String getConfidentialityStatement() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
-            return null;
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
-            throw new SecurityException("missing required security object _hrm");
-        }
-        HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
-
-        String data = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
-        ObjectNode res = objectMapper.createObjectNode();
-        res.put("value", data != null ? data : "");
-
-        response.setContentType("application/json");
-        response.getWriter().write(res.toString());
-
-        return null;
-    }
-
-    public String saveConfidentialityStatement() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
-            return null;
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "w", null)) {
-            throw new SecurityException("missing required security object _hrm");
-        }
-        HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
-
-        String value = StringUtils.trimToEmpty(request.getParameter("value"));
-
-        HRMProviderConfidentialityStatement stmt = hrmProviderConfidentialityStatementDao.findByProvider(loggedInInfo.getLoggedInProviderNo());
-
-        if (stmt == null) {
-            stmt = new HRMProviderConfidentialityStatement();
-            stmt.setId(loggedInInfo.getLoggedInProviderNo());
-        }
-        stmt.setStatement(value);
-        hrmProviderConfidentialityStatementDao.merge(stmt);
-
+    /**
+     * Rejects the retired provider confidentiality statement operations.
+     *
+     * <p>The {@code getConfidentialityStatement}/{@code saveConfidentialityStatement} method
+     * names were removed along with {@code HRMProviderConfidentialityStatement} and its DAO.
+     * Callers still posting these method names get an explicit {@code 410 Gone} instead of
+     * falling through into the report-listing branch below with a misleading 200 response.</p>
+     */
+    private String rejectRetiredConfidentialityStatementOperation() throws IOException {
+        response.sendError(HttpServletResponse.SC_GONE, "Provider confidentiality statement management has been removed");
         return null;
     }
 
@@ -235,10 +202,8 @@ public class HRM2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         String method = request.getParameter("method");
-        if ("getConfidentialityStatement".equals(method)) {
-            return getConfidentialityStatement();
-        } else if ("saveConfidentialityStatement".equals(method)) {
-            return saveConfidentialityStatement();
+        if ("getConfidentialityStatement".equals(method) || "saveConfidentialityStatement".equals(method)) {
+            return rejectRetiredConfidentialityStatementOperation();
         } else if ("searchCategory".equals(method)) {
             return searchCategory();
         } else if ("saveCategory".equals(method)) {

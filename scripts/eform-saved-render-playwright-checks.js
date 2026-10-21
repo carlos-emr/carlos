@@ -38,9 +38,15 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   SAVED_RENDER_DEMOGRAPHIC_NO=1
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
  *   SAVED_RENDER_SCREENSHOT_DIR=/tmp
+ *   EFORM_FAX_PREVIEW_CHECK=true to test owned-preview cancellation (requires an active fax account)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * FIXTURE. The eForm is saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker). It
+ * used to save it for DEMO patient 1 and never removed the imported template, so every run left an active template, an instance
+ * and eight values behind. The instance, its values and the patient are now deleted by the patient's key, and the template by its
+ * unique name, and each is asserted gone.
  */
 
 const fs = require('fs');
@@ -48,13 +54,17 @@ const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { checkPreviewCapacity } = require('./eform-preview-capacity-playwright');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const demographicNo = process.env.SAVED_RENDER_DEMOGRAPHIC_NO || '1';
+// The owned patient the eForm is saved for, created in main (never a demo patient).
+let demographicNo = null;
 const screenshotDir = process.env.SAVED_RENDER_SCREENSHOT_DIR || '/tmp';
 
 const bgImageName = 'playwright_saved_render_bg.png';
@@ -72,6 +82,9 @@ function assert(condition, message) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
@@ -201,11 +214,17 @@ async function login(context) {
   const page = await context.newPage();
   wirePage(page, 'login');
   await gotoApp(page, '/');
+  await page.waitForLoadState('load', { timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
-  if (await page.locator('#pin').count()) {
-    await page.locator('#pin').fill(testPin);
+  const pinInput = page.locator('#pin');
+  const hasPin = await pinInput.count() > 0;
+  if (hasPin) {
+    await pinInput.fill(testPin);
+    assert(await pinInput.inputValue() === testPin, 'login PIN field changed before submit');
   }
+  assert(await page.locator('#username').inputValue() === testUser, 'login username field changed before submit');
+  assert(await page.locator('#password').inputValue() === testPassword, 'login password field changed before submit');
   await Promise.all([
     page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
@@ -374,6 +393,129 @@ async function assertSavedFormState(page, expectedValue, expectedFdid, screensho
   await screenshot(page, screenshotName);
 }
 
+async function checkOwnedFaxPreview(browser, context, fdid) {
+  const page = await context.newPage();
+  const pageErrors = [];
+  page.on('pageerror', () => pageErrors.push('browser-script-error'));
+  let otherContext;
+  let faxFilePath;
+  let previewTransactionId;
+  let csrfToken;
+  let cancelled = false;
+  let handoffHtml;
+  const endpoint = appUrl('/fax/faxAction');
+  const form = overrides => ({ 'CSRF-TOKEN': csrfToken, method: 'cancel', transactionType: 'EFORM',
+    transactionId: String(previewTransactionId), demographicNo: String(demographicNo), faxFilePath, ...overrides });
+  const readCsrfToken = async tokenPage => {
+    await tokenPage.waitForFunction(() => Boolean(document.querySelector('input[name="CSRF-TOKEN"]')?.value));
+    return tokenPage.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+  };
+  try {
+    const parameters = new URLSearchParams({ method: 'prepareFax', transactionType: 'EFORM',
+      transactionId: String(fdid), demographicNo: String(demographicNo) });
+    await gotoApp(page, `/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}&parentAjaxId=eforms`);
+    csrfToken = await readCsrfToken(page);
+    for (const method of ['GET', 'HEAD']) {
+      const rejected = await context.request.fetch(`${endpoint}?${parameters}`, { method });
+      assert(rejected.status() === 405 && rejected.headers().allow === 'POST',
+        'fax preparation must reject GET/HEAD before staging');
+      await rejected.dispose();
+    }
+    // Capture the actual response before its auto-submit navigates away. Chromium may
+    // discard the handoff document's body by the time the preview has finished loading.
+    await page.route(url => url.pathname === new URL(appUrl('/eform/addEForm')).pathname, async route => {
+      const response = await route.fetch({ maxRedirects: 0 });
+      const body = await response.body();
+      handoffHtml = body.toString('utf8');
+      await route.fulfill({ response, body });
+    });
+    const handoffPromise = page.waitForResponse(response => response.status() === 200
+      && new URL(response.url()).pathname.endsWith('/eform/addEForm')
+      && response.request().method() === 'POST', { timeout: 180000 });
+    const preparedPromise = page.waitForResponse(response => response.url().startsWith(endpoint)
+      && new URL(response.url()).searchParams.get('method') === 'prepareFax'
+      && response.request().method() === 'POST', { timeout: 180000 });
+    const [, prepared] = await Promise.all([
+      handoffPromise, preparedPromise, page.locator('#remoteFaxButton').click(),
+    ]);
+    assert(handoffHtml && handoffHtml.includes('id="eform-fax-preparation"'),
+      'protected eForm save must return the narrow fax handoff');
+    const preparationBody = new URLSearchParams(prepared.request().postData() || '');
+    assert([...preparationBody.keys()].every(key => key === 'CSRF-TOKEN')
+      && Boolean(preparationBody.get('CSRF-TOKEN')),
+    'fax preparation must carry its CSRF token without replaying saved form fields or signature data');
+    assert(prepared && prepared.status() === 200, 'eForm fax preview preparation must succeed');
+    await page.locator('#btnCancel').waitFor({ state: 'visible' });
+    // The toolbar saves a new revision before staging: cancellation/replay/cleanup
+    // must target that revision, not the fdid originally opened by this check.
+    previewTransactionId = await page.locator('input[name="transactionId"]').inputValue();
+    assert(/^\d+$/.test(previewTransactionId)
+      && previewTransactionId === new URL(prepared.url()).searchParams.get('transactionId'),
+    'fax ownership probes must use the exact newly prepared eForm revision');
+    faxFilePath = await page.locator('input[name="faxFilePath"]').inputValue();
+    assert(faxFilePath.length > 0, 'preview must contain its server-issued path');
+    csrfToken = await readCsrfToken(page);
+    const preview = async () => {
+      const response = await context.request.get(endpoint, { params: { method: 'getPreview', faxFilePath } });
+      assert(response.status() === 200, 'owned preview must remain available');
+      assert((await response.body()).subarray(0, 5).toString() === '%PDF-', 'owned preview must remain a PDF');
+      await response.dispose();
+    };
+    await preview();
+    const wrongPatient = await context.request.post(endpoint, { form: form({ demographicNo: String(Number(demographicNo) + 1) }), maxRedirects: 0 });
+    assert(wrongPatient.status() === 403, 'mismatched patient must not cancel a preview');
+    await wrongPatient.dispose();
+    await preview();
+
+    otherContext = await browser.newContext({ ignoreHTTPSErrors: true });
+    const otherLogin = await login(otherContext);
+    // Use this session's own valid token, so a CSRF refusal cannot satisfy the ownership assertion.
+    await gotoApp(otherLogin, `/encounter/oscarConsultationRequest/ViewConsultationFormRequest?de=${encodeURIComponent(demographicNo)}`);
+    const otherToken = await readCsrfToken(otherLogin);
+    await otherLogin.close();
+    const otherSession = await otherContext.request.post(endpoint, { form: form({ 'CSRF-TOKEN': otherToken }), maxRedirects: 0 });
+    assert(otherSession.status() === 403, 'a second authenticated session must not cancel another session preview');
+    await otherSession.dispose();
+    for (const method of ['getPreview', 'getPageCount']) {
+      const deniedRead = await otherContext.request.get(endpoint, { params: { method, faxFilePath } });
+      assert(deniedRead.status() === 403, 'another session must not read a claimed PDF or its page count');
+      await deniedRead.dispose();
+    }
+    const ownedCount = await context.request.get(endpoint, { params: { method: 'getPageCount', faxFilePath } });
+    assert(ownedCount.status() === 200 && (await ownedCount.json()).pageCount > 0,
+      'the owning session must be able to read its page count without consuming the claim');
+    await ownedCount.dispose();
+    await preview();
+
+    await Promise.all([
+      page.waitForURL(/\/eform\/efmshowform_data/, { timeout: 30000 }),
+      page.locator('#btnCancel').click(),
+    ]);
+    cancelled = true;
+    const replay = await context.request.post(endpoint, { form: form({}), maxRedirects: 0 });
+    assert(replay.status() === 403, 'successful cancellation must consume the owned claim');
+    await replay.dispose();
+    const cancelledRead = await context.request.get(endpoint, { params: { method: 'getPreview', faxFilePath } });
+    assert(cancelledRead.status() === 403, 'a cancelled claim must not authorize a preview read');
+    await cancelledRead.dispose();
+    assert(pageErrors.length === 0, 'fax preview cancellation must not produce browser script errors');
+    console.log('PASS eForm fax uses a protected POST handoff, limits PDF/count reads to its session, and cancels only its owned preview');
+  } finally {
+    // Only the exact preview created by this check is eligible for cleanup; never queue a fax.
+    try {
+      if (faxFilePath && !cancelled) {
+        const cleanup = await context.request.post(endpoint, { form: form({}), maxRedirects: 0 });
+        const status = cleanup.status();
+        await cleanup.dispose();
+        assert([302, 303].includes(status), 'owned test preview cleanup must succeed');
+      }
+    } finally {
+      if (otherContext) await otherContext.close();
+      await page.close();
+    }
+  }
+}
+
 (async () => {
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
@@ -382,6 +524,10 @@ async function assertSavedFormState(page, expectedValue, expectedFdid, screensho
   const savedValue = `Playwright Saved ${timestamp}`;
   let importedFid = null;
   let managerPage = null;
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+  const ownedRows = eformRows(sql);
 
   const launchOptions = {
     headless: true,
@@ -391,8 +537,12 @@ async function assertSavedFormState(page, expectedValue, expectedFdid, screensho
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  let browser = null;
   try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1280, height: 1400 } });
     const landingPage = await login(context);
     await landingPage.close();
@@ -411,10 +561,18 @@ async function assertSavedFormState(page, expectedValue, expectedFdid, screensho
     await assertSavedFormState(directPage, savedValue, fdid, 'saved-render-direct-route');
     await directPage.close();
 
+    await checkPreviewCapacity(context, { appUrl, fdid, demographicNo });
+
     const patientListPopup = await openSavedEformFromPatientList(context, formName);
     assert(patientListPopup.url().includes(`fdid=${fdid}`), `Patient list popup did not open the expected saved-form route: ${patientListPopup.url()}`);
     await assertSavedFormState(patientListPopup, savedValue, fdid, 'saved-render-patient-list');
     await patientListPopup.close();
+
+    if (process.env.EFORM_FAX_PREVIEW_CHECK === 'true') {
+      await checkOwnedFaxPreview(browser, context, fdid);
+    } else {
+      console.log('SKIP owned fax preview cancellation (set EFORM_FAX_PREVIEW_CHECK=true with an active fax account)');
+    }
 
     assertDisplayImageFetchesSucceeded(bgImageName);
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
@@ -433,7 +591,36 @@ async function assertSavedFormState(page, expectedValue, expectedFdid, screensho
     if (managerPage && !managerPage.isClosed()) {
       await managerPage.close().catch(() => {});
     }
-    await browser.close();
+    // Every step runs whatever the one before it did, and a failure is reported, not thrown: a throw out of this
+    // `finally` would replace the failure of the check itself.
+    const cleanupErrors = [];
+    try {
+      if (browser) await browser.close();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    try {
+      // The imported template by its unique name, then the instance, its values and the patient by the patient's key.
+      try {
+        sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
+        if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) !== '0') {
+          throw new Error('The imported eForm template was not removed');
+        }
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+      try {
+        if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker, ownedRows);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    } finally {
+      sql.dispose();
+    }
+    if (cleanupErrors.length) {
+      console.error(`cleanup problems: ${cleanupErrors.map((error) => String(error.message).split('\n')[0]).join('; ')}`);
+      process.exitCode = 1;
+    }
   }
 })().catch((error) => {
   console.error('FAIL saved eForm render Playwright check');

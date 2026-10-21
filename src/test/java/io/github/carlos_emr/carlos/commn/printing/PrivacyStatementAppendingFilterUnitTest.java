@@ -15,8 +15,11 @@ package io.github.carlos_emr.carlos.commn.printing;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -73,6 +76,38 @@ class PrivacyStatementAppendingFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should mark the appended statement as print decoration")
+    void shouldMarkAppendedStatement_asPrintDecoration() throws Exception {
+        // The statement is appended to the eForm render page too, where the render browser
+        // measures under print-media emulation (yesprint is display:block there). The
+        // completeness gate withholds a document over UNMARKED off-page content, so without
+        // carlos-print-decoration a configured confidentiality statement blocked every eForm
+        // download on a packaged install. The marker is the gate's opt-in for platform
+        // boilerplate: disclosed as decoration, never withheld over.
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/eform/efmshowform_data");
+            request.setServletPath("/eform/efmshowform_data");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<html><body>form</body></html>";
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write(body);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString())
+                    .contains("Test confidentiality statement.")
+                    .contains("class=\"yesprint carlos-print-decoration\"");
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    @Test
     @DisplayName("should flush non-HTML writer response when statement is skipped")
     void shouldFlushNonHtmlWriterResponse_whenStatementSkipped() throws Exception {
         PrivacyStatementAppendingFilter localFilter = new PrivacyStatementAppendingFilter();
@@ -91,6 +126,182 @@ class PrivacyStatementAppendingFilterUnitTest {
 
         assertThat(response.getContentAsString()).isEqualTo(body);
         assertThat(response.getLastRequestedBufferSize()).isEqualTo(APPEND_BUFFER_SIZE_BYTES);
+    }
+
+    @Test
+    @DisplayName("should skip the statement when CSRFGuard combined its marker into the AJAX header")
+    void shouldSkipStatement_whenCsrfGuardCombinedItsMarker() throws Exception {
+        // jQuery sets X-Requested-With before send(); CSRFGuard's XHR hijack then calls
+        // setRequestHeader again, and the XHR spec COMBINES repeated values with ", ". The
+        // old exact-match check read that as a browser page request and appended the
+        // confidentiality statement into the AJAX body, which the caller renders verbatim.
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/casemgmt/viewNotes");
+            request.setServletPath("/casemgmt/viewNotes");
+            request.addHeader("X-Requested-With", "XMLHttpRequest, OWASP CSRFGuard Project");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<div>note</div>";
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write(body);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).isEqualTo(body);
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    @Test
+    @DisplayName("should skip the statement when only the CSRFGuard marker is present")
+    void shouldSkipStatement_whenOnlyCsrfGuardMarkerIsPresent() throws Exception {
+        // carlos-ajax.js leaves the header to CSRFGuard to avoid a duplicated CSRF-TOKEN, so
+        // its requests carry the marker on its own and never matched the old check at all.
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/casemgmt/viewNotes");
+            request.setServletPath("/casemgmt/viewNotes");
+            request.addHeader("X-Requested-With", "OWASP CSRFGuard Project");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<div>note</div>";
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write(body);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).isEqualTo(body);
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    @Test
+    @DisplayName("should still append the statement for an ordinary page request")
+    void shouldStillAppendStatement_forOrdinaryPageRequest() throws Exception {
+        // The widened AJAX test must not swallow the page case the filter exists for.
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/casemgmt/viewNotes");
+            request.setServletPath("/casemgmt/viewNotes");
+            request.addHeader("X-Requested-With", "ShockwaveFlash/32.0");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write("<html><body>notes</body></html>");
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).contains("Test confidentiality statement.");
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    @Test
+    @DisplayName("should append through the writer when a caller probes the stream after the writer")
+    void shouldAppendThroughWriter_whenCallerProbesStreamAfterWriter() throws Exception {
+        // Issue #3446: GET /ws/oauth/authorize forwards to a JSP (writer), then CXF closes the
+        // void JAX-RS response with getOutputStream().close() and swallows the container's
+        // IllegalStateException. The wrapper used to record the stream as obtained before
+        // that call failed, so the filter appended through the stream and the consent page
+        // answered 500.
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/oauth/authorize");
+            request.setServletPath("/ws");
+            ExclusiveChannelResponse response = new ExclusiveChannelResponse();
+            String body = "<html><body>consent</body></html>";
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write(body);
+                try {
+                    servletResponse.getOutputStream().close();
+                } catch (IllegalStateException expected) {
+                    // What CXF's AbstractHTTPDestination.closeResponseOutputStream does.
+                }
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString())
+                    .startsWith(body)
+                    .contains("Test confidentiality statement.");
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    @Test
+    @DisplayName("should append through the stream when a caller probes the writer after the stream")
+    void shouldAppendThroughStream_whenCallerProbesWriterAfterStream() throws Exception {
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/casemgmt/viewNotes");
+            request.setServletPath("/casemgmt/viewNotes");
+            ExclusiveChannelResponse response = new ExclusiveChannelResponse();
+            String body = "<html><body>notes</body></html>";
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+                try {
+                    servletResponse.getWriter();
+                } catch (IllegalStateException expected) {
+                    // A caller that tries the other channel and tolerates the refusal.
+                }
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString())
+                    .startsWith(body)
+                    .contains("Test confidentiality statement.");
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    /**
+     * Enforces the servlet rule a real container applies and MockHttpServletResponse does not:
+     * once the writer or the output stream is obtained, asking for the other one throws.
+     */
+    private static class ExclusiveChannelResponse extends MockHttpServletResponse {
+
+        private boolean writerObtained;
+        private boolean streamObtained;
+
+        @Override
+        public PrintWriter getWriter() throws UnsupportedEncodingException {
+            if (streamObtained) {
+                throw new IllegalStateException("getOutputStream() has already been called for this response");
+            }
+            writerObtained = true;
+            return super.getWriter();
+        }
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            if (writerObtained) {
+                throw new IllegalStateException("getWriter() has already been called for this response");
+            }
+            streamObtained = true;
+            return super.getOutputStream();
+        }
     }
 
     private static class TrackingMockHttpServletResponse extends MockHttpServletResponse {

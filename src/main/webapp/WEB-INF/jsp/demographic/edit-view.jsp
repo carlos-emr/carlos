@@ -1,5 +1,38 @@
-<%-- edit-view.jsp: Read-only demographic display (extracted from demographiceditdemographic.jsp lines 1513-2609) --%>
+<%--
+    edit-view.jsp: read-only demographic display.
+
+    Purpose: renders the patient master record as read-only text. It is a fragment, included by
+    edit.jsp through <jsp:include>, and is never a routable page of its own; edit.jsp shows it until the
+    user switches the record into edit mode (edit-form-personal.jsp and edit-form-clinical.jsp).
+    Extracted from demographiceditdemographic.jsp (lines 1513-2609) when that page was split.
+
+    Features (sections, in page order): demographic identity (title, age, language, country of origin,
+    spoken language, SIN), other contacts and relationships (legacy list, or the NEW_CONTACTS_UI
+    variant), clinic status with the enrollment-history link, alerts, Rx interaction warning level,
+    paper chart indicator, privacy consents (only when privateConsentEnabled=true; recorded patient
+    consents are listed only with USE_NEW_PATIENT_CONSENT_MODULE=true and only for active consent
+    types), custom fields, contact information with phone and address history popups, health insurance,
+    internal providers with their next available appointment slots, patient clinic status, notes and
+    programs.
+
+    Parameters: reads no request parameters itself. It depends on request attributes that
+    DemographicEdit2Action publishes before edit.jsp includes it, chiefly "demographic",
+    "demographic_no", "demoExt", "demographicCust", "extArchives", "patientConsents", "providers",
+    "doctors", "nurses", "midwifes", "countryList", "pNames", "prov", "oscarProps" and the DAO/manager
+    beans the legacy scriptlets still look up by name. Session attributes "user" and "userrole"
+    identify the viewer. Property switches it honours include privateConsentEnabled,
+    privateConsentPrograms, USE_NEW_PATIENT_CONSENT_MODULE, NEW_CONTACTS_UI, EXTRA_DEMO_FIELDS,
+    showEmploymentStatus, showPrimaryCarePhysicianCheck, meditech_id and phu.hide.
+
+    Security: authorization is enforced by DemographicEdit2Action (_demographic read) before this
+    fragment renders. Everything shown here is PHI: encode every value for its output context with the
+    carlos encoder. nhpup.popup() assigns its argument to innerHTML, so text passed to it must be
+    HTML-encoded and then JavaScript-attribute-encoded (see the consent description popup).
+
+    @since 2026-04-04
+--%>
 <%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ page import="java.net.*" %>
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
@@ -70,6 +103,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -245,7 +279,7 @@
                                                                     for (String key : demoExt.keySet()) {
                                                                         if (key.endsWith("_id")) {
                                                                 %>
-                                                                <input type="hidden" name="<%= key %>"
+                                                                <input type="hidden" name="<%=SafeEncode.forHtmlAttribute(key)%>"
                                                                        value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get(key)) %>' context="htmlAttribute"/>"/>
                                                                 <%
                                                                         }
@@ -432,7 +466,7 @@
                                                                 </h3>
                                                                 <ul>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>
-                                                                        <span class="info"><carlos:encode value='<%= demographic.getRosterStatusDisplay() %>' context="html"/></span>
+                                                                        <span class="info"><carlos:encode value='<%= demographic.getRosterStatusDisplay(LocaleUtils.resolveBundleLocale(request)) %>' context="html"/></span>
                                                                     </li>
                                                                     <%if ("RO".equals(demographic.getRosterStatus()) || "TE".equals(demographic.getRosterStatus())) { %>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>:</span>
@@ -451,7 +485,7 @@
                                                                 }
                                                             }
                                                         %>
-                                                        <%=enrolledTo %>
+                                                        <%=SafeEncode.forHtmlContent(enrolledTo)%>
                                                         </span>
                                                                     </li>
                                                                     <% } %>
@@ -580,10 +614,10 @@
                                                                         <span class="info"><%=archivedStr %></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.dateArchived"/>:</span>
-                                                                        <span class="info"><%=archivedDate %></span>
+                                                                        <span class="info"><carlos:encode value='<%= archivedDate %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.programArchived"/>:</span>
-                                                                        <span class="info"><%=archivedProgram %></span>
+                                                                        <span class="info"><carlos:encode value='<%= archivedProgram %>' context="html"/></span>
                                                                     </li>
                                                                 </ul>
                                                             </div>
@@ -612,13 +646,13 @@
                                                                             if (showConsentsThisTime) { %>
 
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.privacyConsent"/>:</span>
-                                                                            <span class="info"><%=privacyConsent %></span>
+                                                                            <span class="info"><carlos:encode value='<%= privacyConsent %>' context="html"/></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.informedConsent"/>:</span>
-                                                                            <span class="info"><%=informedConsent %></span>
+                                                                            <span class="info"><carlos:encode value='<%= informedConsent %>' context="html"/></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.usConsent"/>:</span>
-                                                                            <span class="info"><%=usSigned %></span>
+                                                                            <span class="info"><carlos:encode value='<%= usSigned %>' context="html"/></span>
                                                                         </li>
 
 
@@ -634,20 +668,21 @@
                                                                                 <c:if test="${ not empty patientConsent.optout}">
                                                                                     <li>
                                                                                         <c:if test="${ patientConsent.consentType.active }">
+                          			<%-- Admin-entered text, spliced in as bare script before. nhpup sets innerHTML, so encode for HTML, then for a JS string in an attribute. --%>
                           			<span class="popup label"
-                                          onmouseover="nhpup.popup(${ patientConsent.consentType.description },{'width':350} );">
+                                          onmouseover="nhpup.popup('${carlos:forJavaScriptAttribute(carlos:forHtmlContent(patientConsent.consentType.description))}',{'width':350} );">
 										${carlos:forHtml(patientConsent.consentType.name)}
 									</span>
 
                                                                                             <c:choose>
                                                                                                 <c:when test="${ patientConsent.optout }">
                                                                                                     <span class="info"
-                                                                                                          style="color:red;"> Opted Out:${carlos:forHtml(patientConsent.optoutDate)}</span>
+                                                                                                          style="color:red;"> <fmt:message key="demographic.demographiceditdemographic.consentStatusOptedOut"><fmt:param value="${carlos:forHtml(patientConsent.optoutDate)}"/></fmt:message></span>
                                                                                                 </c:when>
 
                                                                                                 <c:otherwise>
                                                                                                     <span class="info"
-                                                                                                          style="color:green;">Consented:${carlos:forHtml(patientConsent.consentDate)}</span>
+                                                                                                          style="color:green;"><fmt:message key="demographic.demographiceditdemographic.consentStatusConsented"><fmt:param value="${carlos:forHtml(patientConsent.consentDate)}"/></fmt:message><c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if></span>
                                                                                                 </c:otherwise>
                                                                                             </c:choose>
 
@@ -705,14 +740,14 @@
                                                                     %>
                                                                     <li>
                                                                         <%=hasPrimary%>:
-                                                                        <strong><%=hasPrimaryCarePhysician%>
+                                                                        <strong><%=SafeEncode.forHtmlContent(hasPrimaryCarePhysician)%>
                                                                         </strong>
                                                                     </li>
                                                                     <% }
                                                                         if (hasEmpStatus) {
                                                                     %>
                                                                     <li>
-                                                                        <%=empStatus%>: <strong><%=employmentStatus%>
+                                                                        <%=empStatus%>: <strong><%=SafeEncode.forHtmlContent(employmentStatus)%>
                                                                     </strong>
                                                                     </li>
                                                                     <% }
@@ -995,7 +1030,7 @@
                                                                                 } else { %>
                                                                                 <fmt:message key="demographic.demographiceditdemographic.formDoctor"/>
                                                                                 <% } %>:
-                                                                                <b><%=providerBean.getProperty(demographic.getProviderNo(), "")%>
+                                                                                <b><%=SafeEncode.forHtmlContent(providerBean.getProperty(demographic.getProviderNo(), ""))%>
                                                                                 </b>
                                                                                 <% // ===== quick appointment booking for doctor =====
                                                                                     if (provMap.get("doctor") != null) {
@@ -1045,7 +1080,7 @@
                                                                             <% }
                                                                                 if (StringUtils.isNotEmpty(providerBean.getProperty(resident, ""))) { %>
                                                                             <li>Alt. Provider 1:
-                                                                                <b><%=providerBean.getProperty(resident, "")%>
+                                                                                <b><%=SafeEncode.forHtmlContent(providerBean.getProperty(resident, ""))%>
                                                                                 </b>
                                                                                 <% // ===== quick appointment booking for prov1 =====
                                                                                     if (provMap.get("prov1") != null) {
@@ -1096,7 +1131,7 @@
                                                                             <% }
                                                                                 if (StringUtils.isNotEmpty(providerBean.getProperty(midwife, ""))) { %>
                                                                             <li>Alt. Provider 2:
-                                                                                <b><%=providerBean.getProperty(midwife, "")%>
+                                                                                <b><%=SafeEncode.forHtmlContent(providerBean.getProperty(midwife, ""))%>
                                                                                 </b>
                                                                                 <% // ===== quick appointment booking for prov2 =====
                                                                                     if (provMap.get("prov2") != null) {
@@ -1147,7 +1182,7 @@
                                                                             <% }
                                                                                 if (StringUtils.isNotEmpty(providerBean.getProperty(nurse, ""))) { %>
                                                                             <li>Alt. Provider 3:
-                                                                                <b><%=providerBean.getProperty(nurse, "")%>
+                                                                                <b><%=SafeEncode.forHtmlContent(providerBean.getProperty(nurse, ""))%>
                                                                                 </b>
                                                                                 <% // ===== quick appointment booking for prov3 =====
                                                                                     if (provMap.get("prov3") != null) {
@@ -1229,24 +1264,24 @@
 							<fmt:message key="demographic.demographiceditdemographic.formMRP"/>
                                                     <% } %>:</span><span class="info">
                                                     <%if (demographic != null && demographic.getProviderNo() != null) {%>
-                                                           <%=providerBean.getProperty(demographic.getProviderNo(), "")%>
+                                                           <%=SafeEncode.forHtmlContent(providerBean.getProperty(demographic.getProviderNo(), ""))%>
                                                     <%}%>
                                                     </span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formNurse"/>:</span><span
-                                                                                class="info"><%=providerBean.getProperty(nurse == null ? "" : nurse, "")%></span>
+                                                                                class="info"><%=SafeEncode.forHtmlContent(providerBean.getProperty(nurse == null ? "" : nurse, ""))%></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formMidwife"/>:</span><span
-                                                                                class="info"><%=providerBean.getProperty(midwife == null ? "" : midwife, "")%></span>
+                                                                                class="info"><%=SafeEncode.forHtmlContent(providerBean.getProperty(midwife == null ? "" : midwife, ""))%></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formResident"/>:</span>
-                                                                            <span class="info"><%=providerBean.getProperty(resident == null ? "" : resident, "")%></span>
+                                                                            <span class="info"><%=SafeEncode.forHtmlContent(providerBean.getProperty(resident == null ? "" : resident, ""))%></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>:</span><span
-                                                                                class="info"><%=rd%></span>
+                                                                                class="info"><carlos:encode value='<%= rd %>' context="html"/></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>:</span><span
-                                                                                class="info"><%=rdohip%></span>
+                                                                                class="info"><carlos:encode value='<%= rdohip %>' context="html"/></span>
                                                                         </li>
                                                                     </ul>
                                                                 </div>
@@ -1264,6 +1299,11 @@
                                                                 <carlos:encode value='<%= notes %>' context="html"/>&nbsp;
                                                             </div>
 
+                                                            <%-- Portal booking requests (#3849): their own box, after Notes. --%>
+                                                            <jsp:include page="/WEB-INF/jsp/demographic/portalBookingPrompt.jsp">
+                                                                <jsp:param name="portalBookingPatient" value="<%= demographic_no %>"/>
+                                                            </jsp:include>
+
                                                                 <%-- TOGGLED OFF PROGRAM ADMISSIONS --%>
                                                             <oscar:oscarPropertiesCheck
                                                                     property="DEMOGRAPHIC_PROGRAM_ADMISSIONS"
@@ -1275,7 +1315,7 @@
                                                                             for (Admission adm : serviceAdmissions) {
                                                                         %>
                                                                         <li><span class="label">Service:</span><span
-                                                                                class="info"><%=adm.getProgramName()%></span>
+                                                                                class="info"><%=SafeEncode.forHtmlContent(adm.getProgramName())%></span>
                                                                         </li>
 
                                                                         <%

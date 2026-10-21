@@ -61,7 +61,9 @@ class CarlosPropertiesLogInjectionUnitTest {
     @Test
     @DisplayName("should sanitize key when property is missing")
     void shouldSanitizeKey_whenPropertyMissing() {
-        String maliciousKey = "missing.key\r\n" + FORGED;
+        // Unique per run: the missing-key warning fires once per key per JVM, so a key another
+        // test (or an earlier repetition) already reported would produce no line to inspect.
+        String maliciousKey = "missing.key." + System.nanoTime() + "\r\n" + FORGED;
 
         try (LogCapture logCapture = LogCapture.forLogger(CarlosProperties.class)) {
             CarlosProperties.getInstance().getProperty(maliciousKey);
@@ -88,6 +90,21 @@ class CarlosPropertiesLogInjectionUnitTest {
             // Both the key and the blacklisted value are escaped in the warning.
             assertThat(logged).contains("blacklisted.key").contains("oscar.LegacyClass");
             assertThat(logged).contains("\\r\\n");
+        }
+    }
+
+    @Test
+    @DisplayName("should warn once per missing key however often it is read")
+    void shouldWarnOnce_whenSameMissingKeyIsReadRepeatedly() {
+        String key = "missing.once." + System.nanoTime();
+
+        try (LogCapture logCapture = LogCapture.forLogger(CarlosProperties.class)) {
+            for (int i = 0; i < 3; i++) {
+                CarlosProperties.getInstance().getProperty(key);
+            }
+
+            long warnings = logCapture.messages().stream().filter(message -> message.contains(key)).count();
+            assertThat(warnings).as("one warning for three lookups of the same missing key").isEqualTo(1);
         }
     }
 

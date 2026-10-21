@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import jakarta.persistence.Query;
 
@@ -106,6 +107,27 @@ public class EmailConfigDaoImpl extends AbstractDaoImpl<EmailConfig> implements 
         Query query = entityManager.createQuery("SELECT e FROM EmailConfig e WHERE e.id = ?1 AND e.active = true");
         query.setParameter(1, id);
         return getSingleResultOrNull(query);
+    }
+
+    @Override
+    @Transactional
+    public boolean encryptCredentialsIfUnchanged(int id, String original, String encrypted) {
+        // Read just the scalar column, not the entity and its cascading email history. Hold the
+        // row lock through the comparison and update so an operator's changes cannot be lost.
+        // Compare in Java: database text collations may ignore case or trailing whitespace.
+        List<String> current = entityManager.createNativeQuery(
+                        "SELECT configDetails FROM emailConfig WHERE id = ?1 AND active = true FOR UPDATE",
+                        String.class)
+                .setParameter(1, id)
+                .getResultList();
+        if (current.isEmpty() || !Objects.equals(current.get(0), original)) {
+            return false;
+        }
+        return entityManager.createQuery(
+                        "UPDATE EmailConfig e SET e.configDetailsJson = ?1 WHERE e.id = ?2")
+                .setParameter(1, encrypted)
+                .setParameter(2, id)
+                .executeUpdate() == 1;
     }
 
     /**

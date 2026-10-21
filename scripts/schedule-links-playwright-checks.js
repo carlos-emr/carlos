@@ -48,13 +48,20 @@ const scheduleLinks = [
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -165,7 +172,12 @@ async function login(context) {
 
 async function clickScheduleLink(context, schedulePage, linkSpec) {
   const locator = schedulePage.locator(linkSpec.selector).first();
-  if (!await locator.count()) {
+  // Wait for the link to attach rather than reading count() once: selecting a provider
+  // reloads the schedule window, and its navigation commits (URL updates) before the body
+  // renders, so an immediate count() races the reload and reports every link missing.
+  try {
+    await locator.waitFor({ state: 'attached', timeout: 15000 });
+  } catch {
     findings.push({ label: linkSpec.label, type: 'missing-user-link', selector: linkSpec.selector });
     return;
   }
@@ -289,6 +301,11 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
   await assertNoErrorPage(resultPage, 'schedule-provider-search');
   await resultPage.close();
+  // Selecting a provider navigates the MAIN schedule window (the popup submits into
+  // its opener), so schedulePage is mid-reload when this returns. Wait for that reload
+  // to settle before the caller asserts the schedule nav links — otherwise every link
+  // check races a torn-down DOM and reports a false "missing-user-link".
+  await schedulePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 }
 
 (async () => {

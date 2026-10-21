@@ -60,6 +60,26 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
 
     @Override
+    public void updatePageCount(Integer documentNo, int pageCount) {
+        if (documentNo == null || documentNo <= 0 || pageCount <= 0) throw new IllegalArgumentException("Invalid document page count");
+        int changed = entityManager.createQuery("update Document d set d.numberofpages=:pages where d.documentNo=:id and d.status<>:deleted")
+                .setParameter("pages", pageCount).setParameter("id", documentNo).setParameter("deleted", 'D').executeUpdate();
+        if (changed != 1) throw new IllegalStateException("Document is no longer available");
+        // JPQL bulk updates invalidate the second-level cache but bypass managed
+        // instances. Refresh under the acquired row lock so later flushes cannot
+        // write the caller's pre-wait metadata/classification back over another edit.
+        Document current = entityManager.find(Document.class, documentNo);
+        if (current != null) entityManager.refresh(current);
+    }
+
+    @Override
+    public Document findForPageMutation(Integer documentNo) {
+        Document document = entityManager.find(Document.class, documentNo, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (document != null) entityManager.refresh(document, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return document;
+    }
+
+    @Override
     public List<Object[]> getCtlDocsAndDocsByDemoId(Integer demoId, Module moduleName, DocumentType docType) {
         Query query = entityManager.createQuery("SELECT c, d FROM CtlDocument c, Document d WHERE c.id.module = ?1 AND c.id.documentNo = d.documentNo AND d.doctype = ?2 AND c.id.moduleId = ?3");
         query.setParameter(1, moduleName.name().toLowerCase());
@@ -337,10 +357,21 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
      */
     @Override
     public List<Document> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.updatedatetime>?1 order by x.updatedatetime";
-
-        Query query = entityManager.createQuery(sql);
+        // Exclude archive-backed eDocs before applying the result limit. Filtering in the manager
+        // after this query can return a short page and cause a synchronization client to stop before
+        // it reaches later ordinary documents.
+        Query query = entityManager.createQuery("""
+                SELECT document FROM Document document
+                WHERE document.updatedatetime > ?1
+                  AND NOT EXISTS (SELECT archive.id FROM OutboundEmailArchive archive
+                                  WHERE archive.document = document
+                                     OR archive.fileName = document.docfilename
+                                     OR archive.document.docfilename = document.docfilename)
+                  AND NOT EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
+                                  WHERE attachment.document = document
+                                     OR attachment.document.docfilename = document.docfilename)
+                ORDER BY document.updatedatetime
+                """);
         query.setParameter(1, updatedAfterThisDateExclusive);
         setLimit(query, itemsToReturn);
 
@@ -397,10 +428,25 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     @Override
     public List<Document> findByProgramProviderDemographicUpdateDate(Integer programId, String providerNo,
                                                                      Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sql = "select d from " + modelClass.getSimpleName()
-                + " d, CtlDocument c where c.id.documentNo=d.documentNo and c.id.module='demographic' AND c.id.moduleId = ?1 and (d.programId=?2 or d.programId is null or d.programId=-1) and d.doccreator=?3 and d.updatedatetime>?4 order by d.updatedatetime";
-
-        Query query = entityManager.createQuery(sql);
+        // As above, the exclusion belongs inside the limited query so archive rows cannot consume
+        // page slots in the SOAP synchronization API.
+        Query query = entityManager.createQuery("""
+                SELECT document FROM Document document, CtlDocument ctlDocument
+                WHERE ctlDocument.id.documentNo = document.documentNo
+                  AND ctlDocument.id.module = 'demographic'
+                  AND ctlDocument.id.moduleId = ?1
+                  AND (document.programId = ?2 OR document.programId IS NULL OR document.programId = -1)
+                  AND document.doccreator = ?3
+                  AND document.updatedatetime > ?4
+                  AND NOT EXISTS (SELECT archive.id FROM OutboundEmailArchive archive
+                                  WHERE archive.document = document
+                                     OR archive.fileName = document.docfilename
+                                     OR archive.document.docfilename = document.docfilename)
+                  AND NOT EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
+                                  WHERE attachment.document = document
+                                     OR attachment.document.docfilename = document.docfilename)
+                ORDER BY document.updatedatetime
+                """);
         query.setParameter(1, demographicId);
         query.setParameter(2, programId);
         query.setParameter(3, providerNo);

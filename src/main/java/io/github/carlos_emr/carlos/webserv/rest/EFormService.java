@@ -44,7 +44,9 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import jakarta.persistence.PersistenceException;
 import java.io.IOException;
 
@@ -95,7 +97,8 @@ public class EFormService extends AbstractServiceImpl {
 
 		if (eform == null) {
 			logger.warn("EForm not found for id: {}", id);
-			return RestResponse.errorResponse("Failed to find EForm");
+			throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
+                .entity(RestResponse.errorResponse("Failed to find EForm")).build());
 		}
 		EFormTo1 transferObj = new EFormConverter(false).getAsTransferObject(getLoggedInInfo(), eform);
 		return RestResponse.successResponse(transferObj);

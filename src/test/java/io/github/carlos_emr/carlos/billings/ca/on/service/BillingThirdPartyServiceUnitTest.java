@@ -111,6 +111,29 @@ class BillingThirdPartyServiceUnitTest {
         assertThat(properties).containsEntry("billTo", "77");
     }
 
+    /**
+     * Regression guard: {@code billing_on_ext.key_val} and {@code value} are both
+     * nullable, and {@link Properties} rejects a null key or value. One such row
+     * took the bill-correction screen down with an unhandled NPE. The active-status
+     * sibling was already hardened; this pins the inactive one.
+     */
+    @Test
+    void shouldCoalesceNullExtKeyAndValue_whenLoadingInactiveThirdPartyBillingProperties() {
+        BillingONExt nullValue = new BillingONExt();
+        nullValue.setKeyVal("payment1");
+        nullValue.setValue(null);
+        BillingONExt nullKey = new BillingONExt();
+        nullKey.setKeyVal(null);
+        nullKey.setValue("12.00");
+        when(extDao.getInactiveBillingExtItems("42")).thenReturn(List.of(nullValue, nullKey));
+
+        Properties properties = service.get3rdPartBillPropInactive("42");
+
+        assertThat(properties)
+                .containsEntry("payment1", "")
+                .containsEntry("", "12.00");
+    }
+
     @Test
     void shouldReportKeyExistence_whenExtRowsAreFound() {
         when(extDao.findByBillingNoAndKey(42, "gst")).thenReturn(List.of(new BillingONExt()));
@@ -168,6 +191,37 @@ class BillingThirdPartyServiceUnitTest {
                 .containsEntry("clinic_postal", "A1A1A1")
                 .containsEntry("clinic_phone", "555-1212")
                 .containsEntry("clinic_fax", "555-1313");
+    }
+
+    /**
+     * Regression guard: every {@code clinic} column read here is nullable —
+     * {@code clinic_name}, {@code clinic_phone} and {@code clinic_province} are
+     * {@code DEFAULT NULL}. This method runs unconditionally when the third-party
+     * invoice view model is assembled, so an install that never filled in the
+     * clinic details answered "CARLOS Error: 500" on Settle &amp; Print.
+     */
+    @Test
+    void shouldCoalesceNullClinicFields_whenClinicDetailsAreBlank() {
+        Clinic clinic = new Clinic();
+        clinic.setClinicName(null);
+        clinic.setClinicAddress(null);
+        clinic.setClinicCity(null);
+        clinic.setClinicProvince(null);
+        clinic.setClinicPostal(null);
+        clinic.setClinicPhone(null);
+        clinic.setClinicFax(null);
+        when(clinicDao.getClinic()).thenReturn(clinic);
+
+        Properties address = service.getLocalClinicAddr();
+
+        assertThat(address)
+                .containsEntry("clinic_name", "")
+                .containsEntry("clinic_address", "")
+                .containsEntry("clinic_city", "")
+                .containsEntry("clinic_province", "")
+                .containsEntry("clinic_postal", "")
+                .containsEntry("clinic_phone", "")
+                .containsEntry("clinic_fax", "");
     }
 
     @Test

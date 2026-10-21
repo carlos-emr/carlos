@@ -76,6 +76,228 @@
 <jsp:useBean id="LastPatientsBean" class="java.util.ArrayList" scope="session"/>
 
 
+
+
+<%
+    String user_no = (String) session.getAttribute("user");
+
+    String imageType = IncomingDocUtil.getAndSetViewDocumentAs(user_no, request.getParameter("imageType"));
+    // An explicit read-only retry stays in this window's queue even when another session
+    // changes the provider's shared default. Do not persist a retry as a preference change.
+    String queueIdStr = request.getParameter("queueId");
+    io.github.carlos_emr.carlos.managers.SecurityInfoManager queueSecurity = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+    io.github.carlos_emr.carlos.utility.LoggedInInfo queueLogin = io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
+    try {
+        if (queueIdStr == null) {
+            String selectedQueue = request.getParameter("defaultQueue");
+            if (selectedQueue != null) io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(queueSecurity, queueLogin, selectedQueue);
+            queueIdStr = IncomingDocUtil.getAndSetIncomingDocQueue(user_no, selectedQueue);
+        }
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(queueSecurity, queueLogin, queueIdStr);
+    } catch (SecurityException denied) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
+    String entryMode = IncomingDocUtil.getAndSetEntryMode(user_no, request.getParameter("entryMode"));
+
+    UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+    UserProperty uProp = userPropertyDAO.getProp(user_no, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
+    String useDocumentDescriptionTemplateType = UserProperty.CLINIC;
+    if (uProp != null && uProp.getValue().equals(UserProperty.USER)) {
+        useDocumentDescriptionTemplateType = UserProperty.USER;
+    }
+
+    // add to most recent patient list
+    int listsize = LastPatientsBean.size();
+    String ptid = request.getParameter("lastdemographic_no") == null ? "" : request.getParameter("lastdemographic_no");
+    if (ptid.length() > 0) {
+        if (LastPatientsBean.contains(ptid) == true) {
+            LastPatientsBean.remove(LastPatientsBean.indexOf(ptid));
+            LastPatientsBean.add(ptid);
+        } else {
+            LastPatientsBean.add(ptid);
+            if (listsize > 2) {
+                LastPatientsBean.remove(0);
+            }
+        }
+    }
+
+    java.util.Locale vLocale = request.getLocale();
+    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletConfig().getServletContext());
+    ProviderLabRoutingDao providerLabRoutingDao = ctx.getBean(ProviderLabRoutingDao.class);
+    DemographicDao demographicDao = ctx.getBean(DemographicDao.class);
+    QueueDao queueDao = ctx.getBean(QueueDao.class);
+
+    CtlDocClassDao docClassDao = ctx.getBean(CtlDocClassDao.class);
+    List<String> reportClasses = docClassDao.findUniqueReportClasses();
+    ArrayList<String> subClasses = new ArrayList<String>();
+    ArrayList<String> consultA = new ArrayList<String>();
+    ArrayList<String> consultB = new ArrayList<String>();
+    for (String reportClass : reportClasses) {
+        List<String> subClassList = docClassDao.findSubClassesByReportClass(reportClass);
+        if (reportClass.equals("Consultant ReportA")) {
+            consultA.addAll(subClassList);
+        } else if (reportClass.equals("Consultant ReportB")) {
+            consultB.addAll(subClassList);
+        } else {
+            subClasses.addAll(subClassList);
+        }
+
+        if (!consultA.isEmpty() && !consultB.isEmpty()) {
+            for (String partA : consultA) {
+                for (String partB : consultB) {
+                    subClasses.add(partA + " " + partB);
+                }
+            }
+        }
+    }
+
+
+    List<Integer> routingIdList = providerLabRoutingDao.findLastRoutingIdGroupedByProviderAndCreatedByDocCreator(user_no);
+    Collections.sort(routingIdList, Collections.reverseOrder());
+
+    List<Hashtable> queues = queueDao.getQueues();
+    int queueId = 1;
+    if (queueIdStr != null) {
+        queueIdStr = queueIdStr.trim();
+        queueId = Integer.parseInt(queueIdStr);
+    }
+
+    String errorMessage = "";
+    String pdfNo = "";
+    String pdfDirParam = request.getParameter("pdfDir");
+    // Validate pdfDir against the incoming document folder allowlist to prevent path traversal
+    // (CWE-22). The allowlist is configurable, so the fallback has to come from it too --
+    // hardcoding "Fax" here made the first page load throw on any install whose configured
+    // folders do not include it.
+    List<String> allowedPdfDirs = IncomingDocUtil.getAllowedIncomingDocFolders();
+    String pdfDir = IncomingDocUtil.isAllowedIncomingDocFolder(pdfDirParam)
+            ? pdfDirParam : IncomingDocUtil.getDefaultIncomingDocFolder();
+    String pdfDirectory = IncomingDocUtil.getIncomingDocumentFilePath(queueIdStr, pdfDir);
+    String pdfAction = request.getParameter("pdfAction") == null ? "" : request.getParameter("pdfAction");
+    String pdfPageNumber = request.getParameter("pdfPageNumber") == null ? "1" : request.getParameter("pdfPageNumber");
+    // Validate pdfName with PathValidationUtils to prevent path traversal (CWE-22)
+    String pdfNameParam = request.getParameter("pdfName");
+    String pdfName = "";
+    if (pdfNameParam != null && !pdfNameParam.isEmpty()) {
+        try {
+            File allowedPdfDir = new File(pdfDirectory);
+            pdfName = PathValidationUtils.validatePath(pdfNameParam, allowedPdfDir).getName();
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Path traversal attempt blocked for pdfName in incomingDocs.jsp");
+            pdfName = "";
+        }
+    }
+    String pdfExtractPageNumber = request.getParameter("pdfExtractPageNumber") == null ? "" : request.getParameter("pdfExtractPageNumber");
+
+    // pdfAction rotates, deletes or extracts pages of the queued PDF: a mutation. The page
+    // is reached through ViewIncomingDocuments2Action and also as ManageDocument's
+    // nextIncomingDoc result, which bypasses that gate, so these checks are the shared
+    // boundary for both entry paths. CSRFGuard protects only
+    // POST/PUT/DELETE/PATCH, so a GET carrying pdfAction from a link, an image tag or a
+    // prefetch would otherwise change the file with no token. Refuse it before touching
+    // anything; the PdfInfoForm posts, so real operators never see this.
+    if (!pdfAction.isEmpty() && !"POST".equals(request.getMethod())) {
+        response.setHeader("Allow", "POST");
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return;
+    }
+    // The page itself only needs _edoc read (the gate above and ViewDocumentRead2Action), but
+    // a page action rewrites or deletes the queued file. Hold it to the same _edoc write that
+    // ManageDocument's addIncomingDocument requires, so a read-only user cannot change the
+    // queue with a CSRF-valid POST.
+    if (!pdfAction.isEmpty() && !ctx.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+            .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
+    // doPagesAction ignores names it does not know; reject them so a typo or a new verb
+    // cannot reach the page without first being added to the supported set.
+    if (!pdfAction.isEmpty() && !IncomingDocUtil.isSupportedPageAction(pdfAction)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+        return;
+    }
+
+    try {
+        String[] observedRevisions = request.getParameterValues("sourceRevision");
+        String observedRevision = observedRevisions != null && observedRevisions.length == 1 ? observedRevisions[0] : null;
+        IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale, observedRevision);
+    } catch (io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.ConflictException | java.nio.file.NoSuchFileException changed) {
+        out.clearBuffer();
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageSourceChanged(
+                request, response, out, queueIdStr, pdfDir, request.getParameter("pdfNo"));
+        return;
+    } catch (IncomingDocUtil.PageEditAdmissionBusyException busy) {
+        out.clearBuffer();
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageEditBusy(
+                request, response, out, queueIdStr, pdfDir, request.getParameter("pdfNo"));
+        return;
+    } catch (io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException busy) {
+        errorMessage = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale())
+                .getString("dms.incomingDocs.editNotApplied");
+    } catch (Exception e) {
+        errorMessage = e.getMessage();
+    }
+
+
+    IncomingDocUtil myIncomingDocUtil = new IncomingDocUtil();
+    List<String> pdfList = myIncomingDocUtil.getDocList(pdfDirectory);
+    List<String> pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
+
+    pdfNo = request.getParameter("pdfNo") == null ? "1" : request.getParameter("pdfNo");
+    int pdfNoInt;
+    try { pdfNoInt = Integer.parseInt(pdfNo); } catch (NumberFormatException e) { pdfNoInt = 1; }
+    if (pdfNoInt <= 0) {
+        pdfNoInt = 1;
+    }
+
+    if (pdfList.size() < pdfNoInt) {
+        pdfNoInt = pdfList.size();
+    }
+    pdfNo = String.valueOf(pdfNoInt);
+
+    int PdfIndex = pdfNoInt - 1;
+    if (pdfList.size() >= 1 && PdfIndex <= (pdfList.size() - 1)) {
+        pdfName = pdfList.get(PdfIndex);
+    } else {
+        pdfName = "";
+    }
+
+    ArrayList docTypes = EDocUtil.getDoctypes("demographic");
+    String todayDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
+
+
+    int tabIndex = 0;
+    int numOfPage = 0;
+    String sourceRevision = "";
+    if (!pdfName.isEmpty()) {
+        try (io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.Lease viewLease =
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.acquire(
+                    new File(IncomingDocUtil.getIncomingDocumentFilePathName(queueIdStr, pdfDir, pdfName)), new File(pdfDirectory))) {
+            numOfPage = IncomingDocUtil.getNumOfPages(queueIdStr, pdfDir, pdfName);
+            sourceRevision = io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.sha256(viewLease.source().toPath());
+        } catch (io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException busy) {
+            // This JSP also follows successful POST mutations. Retry a constructed read-only
+            // GET, never reload the current request and risk replaying a page edit or filing.
+            out.clearBuffer();
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageCountBusy(
+                    request, response, out, queueIdStr, pdfDir, pdfNo, pdfPageNumber, errorMessage);
+            return;
+        } catch (java.io.IOException unreadable) {
+            out.clearBuffer();
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageCountFailed(
+                    request, response, out, queueIdStr, pdfDir, pdfNo, pdfPageNumber, errorMessage);
+            return;
+        }
+    }
+
+    if (Integer.parseInt(pdfPageNumber) > numOfPage) {
+        pdfPageNumber = String.valueOf(numOfPage);
+    }
+%>
+<c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+<html lang="${pageContext.request.locale.language}">
+<head>
 <style>
     .autocomplete_style {
         background: #fff;
@@ -146,148 +368,6 @@
         width: 100%;
     }
 </style>
-
-<%
-    String user_no = (String) session.getAttribute("user");
-
-    String imageType = IncomingDocUtil.getAndSetViewDocumentAs(user_no, request.getParameter("imageType"));
-    String queueIdStr = IncomingDocUtil.getAndSetIncomingDocQueue(user_no, request.getParameter("defaultQueue"));
-    String entryMode = IncomingDocUtil.getAndSetEntryMode(user_no, request.getParameter("entryMode"));
-
-    UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-    UserProperty uProp = userPropertyDAO.getProp(user_no, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
-    String useDocumentDescriptionTemplateType = UserProperty.CLINIC;
-    if (uProp != null && uProp.getValue().equals(UserProperty.USER)) {
-        useDocumentDescriptionTemplateType = UserProperty.USER;
-    }
-
-    // add to most recent patient list
-    int listsize = LastPatientsBean.size();
-    String ptid = request.getParameter("lastdemographic_no") == null ? "" : request.getParameter("lastdemographic_no");
-    if (ptid.length() > 0) {
-        if (LastPatientsBean.contains(ptid) == true) {
-            LastPatientsBean.remove(LastPatientsBean.indexOf(ptid));
-            LastPatientsBean.add(ptid);
-        } else {
-            LastPatientsBean.add(ptid);
-            if (listsize > 2) {
-                LastPatientsBean.remove(0);
-            }
-        }
-    }
-
-    java.util.Locale vLocale = request.getLocale();
-    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletConfig().getServletContext());
-    ProviderLabRoutingDao providerLabRoutingDao = ctx.getBean(ProviderLabRoutingDao.class);
-    DemographicDao demographicDao = ctx.getBean(DemographicDao.class);
-    QueueDao queueDao = ctx.getBean(QueueDao.class);
-
-    CtlDocClassDao docClassDao = ctx.getBean(CtlDocClassDao.class);
-    List<String> reportClasses = docClassDao.findUniqueReportClasses();
-    ArrayList<String> subClasses = new ArrayList<String>();
-    ArrayList<String> consultA = new ArrayList<String>();
-    ArrayList<String> consultB = new ArrayList<String>();
-    for (String reportClass : reportClasses) {
-        List<String> subClassList = docClassDao.findSubClassesByReportClass(reportClass);
-        if (reportClass.equals("Consultant ReportA")) {
-            consultA.addAll(subClassList);
-        } else if (reportClass.equals("Consultant ReportB")) {
-            consultB.addAll(subClassList);
-        } else {
-            subClasses.addAll(subClassList);
-        }
-
-        if (!consultA.isEmpty() && !consultB.isEmpty()) {
-            for (String partA : consultA) {
-                for (String partB : consultB) {
-                    subClasses.add(partA + " " + partB);
-                }
-            }
-        }
-    }
-
-
-    List<Integer> routingIdList = providerLabRoutingDao.findLastRoutingIdGroupedByProviderAndCreatedByDocCreator(user_no);
-    Collections.sort(routingIdList, Collections.reverseOrder());
-
-    List<Hashtable> queues = queueDao.getQueues();
-    int queueId = 1;
-    if (queueIdStr != null) {
-        queueIdStr = queueIdStr.trim();
-        queueId = Integer.parseInt(queueIdStr);
-    }
-
-    String errorMessage = "";
-    String pdfNo = "";
-    String pdfDirParam = request.getParameter("pdfDir");
-    // Validate pdfDir against whitelist to prevent path traversal (CWE-22)
-    String pdfDir = ("Fax".equals(pdfDirParam) || "Mail".equals(pdfDirParam)
-            || "File".equals(pdfDirParam) || "Refile".equals(pdfDirParam))
-            ? pdfDirParam : "Fax";
-    String pdfDirectory = IncomingDocUtil.getIncomingDocumentFilePath(queueIdStr, pdfDir);
-    String pdfAction = request.getParameter("pdfAction") == null ? "" : request.getParameter("pdfAction");
-    String pdfPageNumber = request.getParameter("pdfPageNumber") == null ? "1" : request.getParameter("pdfPageNumber");
-    // Validate pdfName with PathValidationUtils to prevent path traversal (CWE-22)
-    String pdfNameParam = request.getParameter("pdfName");
-    String pdfName = "";
-    if (pdfNameParam != null && !pdfNameParam.isEmpty()) {
-        try {
-            File allowedPdfDir = new File(pdfDirectory);
-            pdfName = PathValidationUtils.validatePath(pdfNameParam, allowedPdfDir).getName();
-        } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Path traversal attempt blocked for pdfName in incomingDocs.jsp");
-            pdfName = "";
-        }
-    }
-    String pdfExtractPageNumber = request.getParameter("pdfExtractPageNumber") == null ? "" : request.getParameter("pdfExtractPageNumber");
-
-    try {
-        IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale);
-    } catch (Exception e) {
-        errorMessage = e.getMessage();
-    }
-
-
-    IncomingDocUtil myIncomingDocUtil = new IncomingDocUtil();
-    List<String> pdfList = myIncomingDocUtil.getDocList(pdfDirectory);
-    List<String> pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
-
-    pdfNo = request.getParameter("pdfNo") == null ? "1" : request.getParameter("pdfNo");
-    int pdfNoInt;
-    try { pdfNoInt = Integer.parseInt(pdfNo); } catch (NumberFormatException e) { pdfNoInt = 1; }
-    if (pdfNoInt <= 0) {
-        pdfNoInt = 1;
-    }
-
-    if (pdfList.size() < pdfNoInt) {
-        pdfNoInt = pdfList.size();
-    }
-    pdfNo = String.valueOf(pdfNoInt);
-
-    int PdfIndex = pdfNoInt - 1;
-    if (pdfList.size() >= 1 && PdfIndex <= (pdfList.size() - 1)) {
-        pdfName = pdfList.get(PdfIndex);
-    } else {
-        pdfName = "";
-    }
-
-    ArrayList docTypes = EDocUtil.getDoctypes("demographic");
-    String todayDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
-
-
-    int tabIndex = 0;
-    int numOfPage = 0;
-    if (!pdfName.isEmpty()) {
-        numOfPage = IncomingDocUtil.getNumOfPages(queueIdStr, pdfDir, pdfName);
-    }
-
-    if (Integer.parseInt(pdfPageNumber) > numOfPage) {
-        pdfPageNumber = String.valueOf(numOfPage);
-    }
-%>
-<c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-<html lang="${pageContext.request.locale.language}">
-<head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -445,63 +525,35 @@
         }
 
         function extractPagePdf(pdfNo, pdfDir, pdfName) {
-            var validPages = true;
             if (totalPage <= 1) {
                 alert("<fmt:message key="dms.incomingDocs.nothingToExtract"/>");
             } else {
                 var range = prompt("<fmt:message key="dms.incomingDocs.enterPagesToExtract"/> ", "1-" + curPage);
-                var rangestr = "";
-                if (range == null || range == "") {
-                    validPages = false;
-                }
-                range = trim(range);
-
-                var numbers = [];
+                if (range === null) return;
+                range = range.trim();
+                var validPages = range.length > 0;
+                var selectedPages = new Set();
                 var ranges = range.split(',');
-
-                for (var i = 0; i < ranges.length; i++) {
-                    if (ranges[i].length == 0) {
+                for (var i = 0; validPages && i < ranges.length; i++) {
+                    var match = /^([0-9]+)(?:-([0-9]+))?$/.exec(ranges[i].trim());
+                    if (!match) {
                         validPages = false;
+                        break;
                     }
-                    if (ranges[i]) {
-                        var ranges1 = ranges[i].split('-');
-                        if (ranges1.length > 2) {
-                            validPages = false;
-                        }
-                        for (var j = 0; j < ranges1.length; j++) {
-                            var re = /^[0-9]+$/;
-                            if (!re.test(ranges1[j])) {
-                                validPages = false;
-                            }
-                        }
-                        if (validPages) {
-                            var range3 = ranges[i].concat('-' + ranges[i]).split('-');
-                            for (var k = parseInt(range3[0], 10); k <= parseInt(range3[1], 10); k++) {
-                                if (k ><%=numOfPage%>) {
-                                    validPages = false;
-                                }
-                                if (k == 0) {
-                                    validPages = false;
-                                }
-                                numbers[k] = k;
-                            }
-                        }
+                    var first = Number(match[1]);
+                    var last = match[2] === undefined ? first : Number(match[2]);
+                    // Check bounds before expanding: user input must never determine
+                    // an unbounded loop or allocate a sparse array with a huge index.
+                    if (!Number.isSafeInteger(first) || !Number.isSafeInteger(last)
+                            || first < 1 || last < first || last > totalPage) {
+                        validPages = false;
+                        break;
+                    }
+                    for (var pageNumber = first; pageNumber <= last; pageNumber++) {
+                        selectedPages.add(pageNumber);
                     }
                 }
-
-                if (validPages) {
-                    var notwholedoc = false;
-                    for (var m = 1; m < numbers.length; m++) {
-                        if (numbers[m] == null) {
-                            notwholedoc = true;
-                        }
-                    }
-                    if (!notwholedoc) {
-                        if ((numbers.length - 1) ==<%=numOfPage%>) {
-                            validPages = false;
-                        }
-                    }
-                }
+                validPages = validPages && selectedPages.size > 0 && selectedPages.size < totalPage;
 
                 if (validPages) {
                     document.PdfInfoForm.pdfNo.value = pdfNo;
@@ -601,8 +653,11 @@
             }
             console.log("pdfName " + pdfName);
             if (pdfName.length === 0) {
+                // No viewable document is selected (or its name failed path validation).
+                // Show a clear message rather than an empty <iframe src=""> that just
+                // renders as a blank right-hand pane with no explanation.
                 document.getElementById('pgnum') ? document.getElementById('pgnum').innerHTML = '' : '';
-                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<iframe	src=""  width="800" height="900" ></iframe>' : '';
+                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<div style="padding:16px;color:#555;">No document is available to preview.</div>' : '';
             } else {
                 document.getElementById('pgnum').innerHTML = pn + ' of <span class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">' + totalPage + '</span>';
 
@@ -697,6 +752,9 @@
                 return false;
             }
 
+            // "File" is the shipped folder for documents filed straight to the chart, so the
+            // missing-recipient prompt is skipped there. A folder added through
+            // ALLOWED_INCOMING_DOC_FOLDERS is treated like the other queues and still prompts.
             if (document.PdfInfoForm.pdfDir.value != "File") {
                 var flagproviderObj = document.getElementsByName('flagproviders');
                 if (flagproviderObj.length == 0) {
@@ -895,6 +953,7 @@
                     <input type="hidden" name="pdfNo" value="<carlos:encode value='<%= pdfNo %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfDir" value="<carlos:encode value='<%= pdfDir %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfName" value="<carlos:encode value='<%= pdfName %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="sourceRevision" value="<carlos:encode value='<%= sourceRevision %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfAction" value="">
                     <input type="hidden" name="pdfPageNumber" value="1">
                     <input type="hidden" name="pdfExtractPageNumber" value="">
@@ -924,10 +983,20 @@
                         <tr>
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Fax');"><fmt:message key="dms.incomingDocs.fax"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Mail');"><fmt:message key="dms.incomingDocs.mail"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','File');"><fmt:message key="dms.incomingDocs.file"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Refile');"><fmt:message key="dms.incomingDocs.refile"/></button>
+                                    <%
+                                        for (String allowedPdfDir : allowedPdfDirs) {
+                                            String pdfDirLabelKey = IncomingDocUtil.getIncomingDocFolderLabelKey(allowedPdfDir);
+                                    %>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','<carlos:encode value='<%= allowedPdfDir %>' context="javaScriptAttribute"/>');"><%
+                                        if (pdfDirLabelKey != null) {
+                                    %><fmt:message key="<%= pdfDirLabelKey %>"/><%
+                                        } else {
+                                    %><carlos:encode value='<%= allowedPdfDir %>' context="html"/><%
+                                        }
+                                    %></button>
+                                    <%
+                                        }
+                                    %>
                                 </div>
                             </td>
                         </tr>
@@ -1044,10 +1113,17 @@
                             <option value="Fast" <%=entryMode.equals("Fast") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.fast"/></option>
                         </select>
                     </legend>
-                    <form id="forms_" method="post" action="ManageDocument">
+                    <fmt:message key="faxAnnotateViewer.status.documentServerBusy" var="incomingWaitMessage"/>
+                    <fmt:message key="faxAnnotateViewer.alert.saveUnconfirmed" var="incomingUnconfirmedMessage"/>
+                    <fmt:message key="faxAnnotateViewer.status.saving" var="incomingSavingMessage"/>
+                    <form id="forms_" method="post" action="ManageDocument" data-incoming-filing="true"
+                          data-saving-message="<carlos:encode value='${incomingSavingMessage}' context="htmlAttribute"/>"
+                          data-wait-message="<carlos:encode value='${incomingWaitMessage}' context="htmlAttribute"/>"
+                          data-unconfirmed-message="<carlos:encode value='${incomingUnconfirmedMessage}' context="htmlAttribute"/>">
                         <input type="hidden" name="method" value="addIncomingDocument"/>
                         <input type="hidden" name="pdfDir" value="<carlos:encode value='<%= pdfDir %>' context="htmlAttribute"/>">
                         <input type="hidden" name="pdfName" value="<carlos:encode value='<%= pdfName %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="sourceRevision" value="<carlos:encode value='<%= sourceRevision %>' context="htmlAttribute"/>">
                         <input type="hidden" name="queueId" value="<carlos:encode value='<%= queueIdStr %>' context="htmlAttribute"/>">
                         <input type="hidden" name="pdfNo" value="<carlos:encode value='<%= pdfNo %>' context="htmlAttribute"/>">
                         <input type="hidden" name="queue" value="1">
@@ -1246,6 +1322,7 @@
                                             title="<carlos:encode value='${selectPatientToSaveMessage}' context="htmlAttribute"/>"
                                             data-disabled-title="<carlos:encode value='${selectPatientToSaveMessage}' context="htmlAttribute"/>"
                                             aria-describedby="save-disabled-help"><fmt:message key="inboxmanager.document.SaveAndNext"/></button>
+                                    <p id="incoming-filing-status" role="status" aria-live="polite"></p>
                                     <div id="save-disabled-help" class="form-text text-muted">
                                         <carlos:encode value='${selectPatientToSaveMessage}' context="html"/>
                                     </div>
@@ -1325,5 +1402,6 @@
     showPageImg('<carlos:encode value='<%= queueIdStr %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfDir %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfName %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfPageNumber %>' context="javaScriptBlock"/>');
 </script>
 
+<script src="<%=request.getContextPath()%>/js/incomingDocumentFiling.js"></script>
 </body>
 </html>

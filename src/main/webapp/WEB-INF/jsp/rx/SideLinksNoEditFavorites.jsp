@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
@@ -39,11 +40,24 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    RxSessionBean bean2 = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+    // This fragment is shared by prescription and allergy pages. Authorize each clinical
+    // section separately: lacking allergy access must not terminate an authorized Rx page.
+    RxSessionBean bean2 = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
+    RxSessionBean rxSidebarAllergyBean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r");
+    if (bean2 == null) bean2 = rxSidebarAllergyBean;
+    if (bean2 == null) {
+        // No Rx open for the request's patient (or a malformed demographicNo): nothing to render,
+        // and never another patient's (#3908).
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND);
+        return;
+    }
 
-    Allergy[] allergies = RxPatientData.getPatient(LoggedInInfo.getLoggedInInfoFromSession(request), bean2.getDemographicNo()).getActiveAllergies();
+    Allergy[] allergies = rxSidebarAllergyBean == null ? new Allergy[0]
+            : RxPatientData.getPatient(LoggedInInfo.getLoggedInInfoFromSession(request),
+                    rxSidebarAllergyBean.getDemographicNo()).getActiveAllergies();
     String alle = "";
     if (allergies.length > 0) {
         alle = "Red";
@@ -54,6 +68,7 @@
 
 <div class="PropSheetMenu">
 
+    <% if (rxSidebarAllergyBean != null) { %>
     <security:oscarSec roleName="<%=roleName$%>" objectName="_allergy" rights="r" reverse="<%=false%>">
 
         <p class="PropSheetLevel1CurrentItem<%=alle%>"><fmt:message key="oscarRx.sideLinks.msgAllergies"/></p>
@@ -61,13 +76,14 @@
                     <%for (int j=0; j<allergies.length; j++){%>
 
         <p class="PropSheetMenuItemLevel1"><a
-                title="<%= allergies[j].getDescription() %> - <%= allergies[j].getReaction() %>">
-            <%=allergies[j].getShortDesc(13, 8, "...")%>
+                title="<carlos:encode value='<%= allergies[j].getDescription() %>' context="htmlAttribute"/> - <carlos:encode value='<%= allergies[j].getReaction() %>' context="htmlAttribute"/>">
+            <carlos:encode value='<%= allergies[j].getShortDesc(13, 8, "...") %>' context="html"/>
         </a></p>
         <%}%>
 
 
     </security:oscarSec>
+    <% } %>
 
     <p class="PropSheetLevel1CurrentItem"><fmt:message key="oscarRx.sideLinks.msgFavorites"/></p>
     <p class="PropSheetMenuItemLevel1">
@@ -77,9 +93,9 @@
 
     <p class="PropSheetMenuItemLevel1"><a href="javascript:void(0);"
                                           onclick="goSD3('<%= favorites[j].getFavoriteId() %>');"
-                                          title="<%= favorites[j].getFavoriteName() %>"><%if (favorites[j].getFavoriteName().length() > 13) { %>
-        <%= favorites[j].getFavoriteName().substring(0, 10) + "..." %> <%} else {%>
-        <%= favorites[j].getFavoriteName() %> <%}%></a></p>
+                                          title="<carlos:encode value='<%= favorites[j].getFavoriteName() %>' context="htmlAttribute"/>"><%if (favorites[j].getFavoriteName().length() > 13) { %>
+        <carlos:encode value='<%= favorites[j].getFavoriteName().substring(0, 10) + "..." %>' context="html"/> <%} else {%>
+        <carlos:encode value='<%= favorites[j].getFavoriteName() %>' context="html"/> <%}%></a></p>
     <%}%>
 
 </div>
@@ -89,7 +105,7 @@
 <script type="text/javascript">
 
     function goSD3(favoriteId) {
-        location.href = "<%= request.getContextPath() %>/rx/searchDrug?usefav=true&favid=" + favoriteId;
+        location.href = "<%= request.getContextPath() %>/rx/choosePatient?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true&favid=" + encodeURIComponent(favoriteId);
     }
 
 </script>

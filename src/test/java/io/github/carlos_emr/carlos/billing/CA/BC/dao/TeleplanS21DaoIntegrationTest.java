@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS21;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -59,6 +58,15 @@ public class TeleplanS21DaoIntegrationTest extends CarlosTestBase {
         entity.setPayeeNo(payeeNo);
         entity.setStatus(status);
         return entity;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"OPEN", " O"})
+    void shouldRejectInvalidStatus_beforeExecutingQuery(String status) {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.search_all_tahd(status))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Teleplan status must be exactly one character");
     }
 
     @Test
@@ -115,7 +123,6 @@ public class TeleplanS21DaoIntegrationTest extends CarlosTestBase {
         assertThat(results).isEmpty();
     }
 
-    @Disabled("Production DAO passes String to HQL Character parameter — needs DAO fix")
     @Test
     @Tag("read")
     @DisplayName("should search all records excluding given status")
@@ -128,13 +135,11 @@ public class TeleplanS21DaoIntegrationTest extends CarlosTestBase {
         dao.persist(active2);
 
         // Exclude status 'D' - should return only records with status != 'D'
-        // Note: status is Character, query uses String parameter
         List<TeleplanS21> results = dao.search_all_tahd("D");
         assertThat(results).hasSize(2);
         assertThat(results).allSatisfy(r -> assertThat(r.getStatus()).isNotEqualTo('D'));
     }
 
-    @Disabled("Production DAO passes String to HQL Character parameter — needs DAO fix")
     @Test
     @Tag("read")
     @DisplayName("should return all records when excluded status does not match any")

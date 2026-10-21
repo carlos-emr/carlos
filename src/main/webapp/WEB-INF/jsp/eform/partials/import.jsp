@@ -81,23 +81,38 @@
         <input type="hidden" name="scheduleNav" value="1"/>
     </c:if>
 
+    <%--
+        Multipart rejections reach this page through the action's "input"
+        result, before the action runs -- so "importErrors" below is never set
+        on that path and its block cannot report them. Render the multipart
+        layer's own errors independently, or a rejected import shows nothing at
+        all. Messages can embed the submitted filename, so they are encoded.
+    --%>
+    <%
+        java.util.List<String> uploadErrors = (java.util.List<String>) request.getAttribute("actionErrors");
+        if (uploadErrors != null && !uploadErrors.isEmpty()) {
+    %>
+    <div class="alert alert-danger" role="alert">
+        <ul class="action-errors mb-0">
+            <% for (String uploadError : uploadErrors) { %>
+                <li><carlos:encode value='<%= uploadError %>' context="html"/></li>
+            <% } %>
+        </ul>
+    </div>
+    <% } %>
+
     <%
         List<String> importErrors = (List<String>) request.getAttribute("importErrors");
         if (importErrors != null && importErrors.size() > 0) {
     %>
+    <%-- The actionErrors block that used to be nested here was unreachable in
+         practice and redundant now: it sat inside this importErrors guard, and
+         ManageEForm2Action never calls addActionError -- it only sets the
+         importErrors attribute. Multipart rejections are reported by the
+         unconditional block above, which does not depend on the action having
+         run. Leaving both would have rendered the same list twice the day an
+         action error was added alongside importErrors. --%>
     <div class="row">
-        <% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><carlos:encode value='<%= error %>' context="html"/></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %>
         <ul>
             <%for (String importError : importErrors) {%>
             <li class="text-danger"><carlos:encode value='<%= importError %>' context="html"/>

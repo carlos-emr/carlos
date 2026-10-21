@@ -186,10 +186,35 @@ class DownloadEFormPdf2ActionUnitTest {
 
         assertThat(result).isEqualTo("download");
         assertThat(request.getAttribute("eFormPDF")).isEqualTo("QUJD");
+        // No "Submit & PDF" intent on the approval form: the window stays open.
+        assertThat(request.getAttribute("isSuccess_Autoclose")).isNull();
         // The ticket is scoped to DOWNLOAD: a PREVIEW or FAX ticket must not unlock a download.
         verify(renderApprovalService).consume(request, loggedInInfo, 42, "123",
                 EFormRenderApprovalService.Operation.DOWNLOAD, "ticket");
         verify(documentAttachmentManager).renderEFormPacketWithCompleteness(eq(request), any(), eq(approval));
+    }
+
+    @Test
+    @DisplayName("should flag the approved download to auto-close when the approval form carries the Submit & PDF intent")
+    void shouldFlagAutoClose_whenApprovalCarriesSubmitAndPdfIntent() throws Exception {
+        request.setParameter("fdid", "42");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("renderApproval", "ticket");
+        request.setParameter("autoClose", "true");
+        EFormRenderApproval approval = org.mockito.Mockito.mock(EFormRenderApproval.class);
+        when(renderApprovalService.consume(request, loggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.DOWNLOAD, "ticket")).thenReturn(approval);
+        when(documentAttachmentManager.renderEFormPacketWithCompleteness(eq(request), any(), eq(approval)))
+                .thenReturn(new EformDataManager.EformPdfRender(
+                        Path.of("eform-browser-render-1.pdf"),
+                        io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport.complete()));
+        when(documentAttachmentManager.convertPDFToBase64(any())).thenReturn("QUJD");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("download");
+        assertThat(request.getAttribute("isDownload")).isEqualTo("true");
+        assertThat(request.getAttribute("isSuccess_Autoclose")).isEqualTo("true");
     }
 
     @Test

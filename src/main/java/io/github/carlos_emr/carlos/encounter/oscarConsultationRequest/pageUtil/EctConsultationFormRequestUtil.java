@@ -131,7 +131,7 @@ public class EctConsultationFormRequestUtil {
 
 	public boolean isEReferral = false;
 
-	private final ConsultationRequestDao consultationRequestDao = SpringUtils.getBean(ConsultationRequestDao.class);
+	private final ConsultRequestDao consultationRequestDao = SpringUtils.getBean(ConsultRequestDao.class);
 	private final ConsultationRequestExtDao consultationRequestExtDao = SpringUtils.getBean(ConsultationRequestExtDao.class);
 	private final ConsultationServiceDao consultationServiceDao = (ConsultationServiceDao) SpringUtils.getBean(ConsultationServiceDao.class);
 	private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -239,15 +239,30 @@ public class EctConsultationFormRequestUtil {
         return verdict;
     }
 
+    /**
+     * Populates this form from an existing request, including patient, specialist,
+     * appointment and fax details. Optional contact associations may be absent.
+     *
+     * @param loggedInInfo current authenticated session information
+     * @param id positive decimal request identifier
+     * @return {@code true} when loaded; {@code false} for null, malformed,
+     *         out-of-range or nonpositive identifiers, or a missing request
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean estRequestFromId(LoggedInInfo loggedInInfo, String id) {
 
+        final int requestId;
+        try {
+            requestId = Integer.parseInt(id);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        if (requestId <= 0) {
+            return false;
+        }
         boolean verdict = true;
-        getSpecailistsName(id);
-
-
-		ConsultationRequest cr = consultationRequestDao.find(Integer.parseInt(id));
+        ConsultationRequest cr = consultationRequestDao.findWithAssociations(requestId);
 		
 		if (cr != null) {
 			fdid = cr.getFdid();
@@ -291,7 +306,7 @@ public class EctConsultationFormRequestUtil {
                     contactId = Integer.parseInt(demographicContact.getContactId());
                 }
 
-                if (contactType == DemographicContact.TYPE_CONTACT
+                if (contactType != null && contactType == DemographicContact.TYPE_CONTACT
                         && DemographicContact.CATEGORY_PROFESSIONAL.equalsIgnoreCase(contactCategory)) {
                     professionalContact = (ProfessionalContact) contactDao.find(contactId);
                 }
@@ -309,6 +324,7 @@ public class EctConsultationFormRequestUtil {
             // ProfessionalSpecialist joined to the ConsultationRequest will always
             // be available. This model is used in the Fax and PDF printing methods.
             professionalSpecialist = cr.getProfessionalSpecialist();
+            populateSpecialistContactDetails(professionalSpecialist);
 
 
 			Date appointmentTime = cr.getAppointmentTime();
@@ -322,7 +338,7 @@ public class EctConsultationFormRequestUtil {
 			setAppointmentInstructions( cr.getAppointmentInstructions() );
 			setAppointmentInstructionsLabel( cr.getAppointmentInstructionsLabel() );
 			letterheadName = cr.getLetterheadName();
-			letterheadTitle = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id), "letterheadTitle");
+			letterheadTitle = consultationRequestExtDao.getConsultationRequestExtsByKey(requestId, "letterheadTitle");
 			letterheadAddress = cr.getLetterheadAddress();
 			letterheadPhone = cr.getLetterheadPhone();
 			letterheadFax = cr.getLetterheadFax();
@@ -376,17 +392,19 @@ public class EctConsultationFormRequestUtil {
                 }
             }
 
-			isEReferral = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id), ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
+			isEReferral = consultationRequestExtDao.getConsultationRequestExtsByKey(requestId, ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
+        } else {
+            return false;
         }
 
-        getFaxLogs(id);
+        getFaxLogs(requestId);
 
         return verdict;
     }
 
-    private void getFaxLogs(String requestId) {
+    private void getFaxLogs(int requestId) {
 
-        List<FaxClientLog> faxClientLogs = faxClientLogDao.findClientLogbyRequestId(Integer.parseInt(requestId));
+        List<FaxClientLog> faxClientLogs = faxClientLogDao.findClientLogbyRequestId(requestId);
         for (FaxClientLog faxClientLog : faxClientLogs) {
             FaxJob faxJob = faxJobDao.find(faxClientLog.getFaxId());
             FaxRecipient faxRecipient = null;
@@ -442,27 +460,31 @@ public class EctConsultationFormRequestUtil {
         ProfessionalSpecialist ps = dao.find(ConversionUtils.fromIntString(id));
         if (ps != null) {
             retval = ps.getFormattedTitle();
-            specPhone = ps.getPhoneNumber();
-            specFax = ps.getFaxNumber();
-            specAddr = ps.getStreetAddress();
-            specEmail = ps.getEmailAddress();
-            MiscUtils.getLogger().debug("getting Null" + specEmail + "<");
-            if (specPhone == null || specPhone.equals("null")) {
-                specPhone = "";
-            }
-            if (specFax == null || specFax.equals("null")) {
-                specFax = "";
-            }
-            if (specAddr == null || specAddr.equals("null")) {
-                specAddr = "";
-            }
-            if (specEmail == null || specEmail.equalsIgnoreCase("null")) {
-                specEmail = "";
-            }
+            populateSpecialistContactDetails(ps);
         }
 
         return retval;
 
+    }
+
+    /** Uses the specialist attached to the request, including converted health-care-team contacts. */
+    private void populateSpecialistContactDetails(ProfessionalSpecialist ps) {
+        specPhone = ps != null ? ps.getPhoneNumber() : null;
+        specFax = ps != null ? ps.getFaxNumber() : null;
+        specAddr = ps != null ? ps.getStreetAddress() : null;
+        specEmail = ps != null ? ps.getEmailAddress() : null;
+        if (specPhone == null || specPhone.equals("null")) {
+            specPhone = "";
+        }
+        if (specFax == null || specFax.equals("null")) {
+            specFax = "";
+        }
+        if (specAddr == null || specAddr.equals("null")) {
+            specAddr = "";
+        }
+        if (specEmail == null || org.apache.commons.lang3.Strings.CI.equals(specEmail, "null")) {
+            specEmail = "";
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -514,14 +536,43 @@ public class EctConsultationFormRequestUtil {
         return ps.get(0).getFormattedName();
     }
 
+    /**
+     * Looks up the display name of a consultation service.
+     *
+     * @param id String the service id as stored on the consultation request; may be null, blank or
+     *           non-numeric on legacy rows
+     * @return String the service description, or an empty string when the id is missing, malformed
+     *         or unknown (previously a NumberFormatException aborted consult printing)
+     */
     public String getServiceName(String id) {
-        String retval = new String();
-        ConsultationServices cs = consultationServiceDao.find(Integer.parseInt(id));
-        if (cs != null) {
-            retval = cs.getServiceDesc();
+        if (id == null || id.isBlank()) {
+            return "";
         }
+        int serviceId;
+        try {
+            serviceId = Integer.parseInt(id.trim());
+        } catch (NumberFormatException e) {
+            return "";
+        }
+        ConsultationServices cs = consultationServiceDao.find(serviceId);
+        return cs != null ? cs.getServiceDesc() : "";
+    }
 
-        return retval;
+    /**
+     * Maps the consultation service description to the health-care-team catalogue.
+     * The catalogues have independent identifiers; role "0" means unspecified when
+     * neither the service nor an optional "other" specialty exists.
+     */
+    public String getHealthCareTeamRole() {
+        ContactSpecialtyDao specialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
+        int serviceId = ConversionUtils.fromIntString(service);
+        ConsultationServices consultationService = serviceId > 0 ? consultationServiceDao.find(serviceId) : null;
+        ContactSpecialty specialty = consultationService == null ? null
+                : specialtyDao.findBySpecialty(consultationService.getServiceDesc());
+        if (specialty == null) {
+            specialty = specialtyDao.findBySpecialty("other");
+        }
+        return specialty == null ? "0" : specialty.getId().toString();
     }
 
     public String getClinicName() {
@@ -545,6 +596,22 @@ public class EctConsultationFormRequestUtil {
             appointmentInstructions = "";
         }
         this.appointmentInstructions = appointmentInstructions;
+    }
+
+    /**
+     * Set both halves of the appointment instruction for a print preview of unsaved work.
+     *
+     * <p>The setters are private because the stored record is the only thing that normally writes
+     * them. The preview renders a form the clinician has edited but not saved, and the PDF prints
+     * the label rather than the value, so the two have to move together — see
+     * {@link ConsultationPreviewOverlay}. Nothing here reaches the database.</p>
+     *
+     * @param value the posted lookup value
+     * @param label the label that value resolves to, as the PDF will print it
+     */
+    void setAppointmentInstructionsForPreview(String value, String label) {
+        setAppointmentInstructions(value);
+        setAppointmentInstructionsLabel(label);
     }
 
     public String getAppointmentInstructionsLabel() {

@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmBCAR2007Record extends FrmRecord {
@@ -77,7 +77,7 @@ public class FrmBCAR2007Record extends FrmRecord {
                 props.setProperty("pg2_formDate", UtilDateUtilities.DateToString(new Date(), _dateFormat));
                 props.setProperty("pg3_formDate", UtilDateUtilities.DateToString(new Date(), _dateFormat));
 
-                String rd = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
+                String rd = DemographicXml.referralDoctor(demo.getFamilyDoctor());
                 rd = rd != null ? rd : "";
                 props.setProperty("pg1_famPhy", rd);
 

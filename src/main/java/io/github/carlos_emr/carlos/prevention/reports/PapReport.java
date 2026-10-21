@@ -64,14 +64,14 @@ public class PapReport implements PreventionReport {
     public PapReport() {
     }
 
-    public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList list, Date asofDate) {
+    public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
         int inList = 0;
         double done = 0, doneWithGrace = 0;
         ArrayList<PreventionReportDisplay> returnReport = new ArrayList<PreventionReportDisplay>();
 
         /////
         for (int i = 0; i < list.size(); i++) {//for each  element in arraylist
-            ArrayList<String> fieldList = (ArrayList<String>) list.get(i);
+            ArrayList<String> fieldList = list.get(i);
             Integer demo = Integer.valueOf(fieldList.get(0));
             //search   prevention_date prevention_type  deleted   refused
             ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "PAP", demo);
@@ -145,7 +145,7 @@ public class PapReport implements PreventionReport {
                 bonusEl.add(Calendar.MONTH, -42);
                 Date bonusStartDate = bonusEl.getTime();
 
-                if (prevDate != null && !dateIsRefused && bonusStartDate.before(prevDate) && asofDate.after(prevDate)) {
+                if (prevDate != null && !dateIsRefused && bonusStartDate.before(prevDate) && !asofDate.before(prevDate)) {
                     prd.bonusStatus = "Y";
                     prd.billStatus = "Y";
                     done++;
@@ -243,7 +243,7 @@ public class PapReport implements PreventionReport {
                 log.error("Error parsing prevention date: " + prevDateStr, e);
             }
 
-            if (prevDate != null && prevDate.before(asOfDate)) {
+            if (prevDate != null && !prevDate.after(asOfDate)) {
                 noFutureItems.add(h);
             }
         }

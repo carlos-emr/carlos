@@ -377,6 +377,50 @@ class DisplayImage2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Nested
+    @DisplayName("Optional clinic vaccine catalogue")
+    class VaccineCatalogueResolution {
+        private void withBundledCatalogue() throws Exception {
+            Path warRoot = tempDir.resolve("test-war");
+            Files.createDirectories(warRoot.resolve("prevention"));
+            Files.writeString(warRoot.resolve("prevention/vaccine-brands.json"),
+                    "[{\"name\":\"BUNDLED\"}]", StandardCharsets.UTF_8);
+            mockRequest = new MockHttpServletRequest(new MockServletContext("file:" + warRoot));
+            mockRequest.setParameter("imagefile", "vaccine-brands.json");
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
+            action = new DisplayImage2Action();
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_prevention"), eq("r"), isNull()))
+                    .thenReturn(true);
+        }
+
+        @Test
+        void shouldServeBundledJson_whenClinicOverrideIsAbsent() throws Exception {
+            withBundledCatalogue();
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(200);
+            assertThat(mockResponse.getContentType()).isEqualTo("application/json");
+            assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+            assertThat(mockResponse.getContentAsString()).isEqualTo("[{\"name\":\"BUNDLED\"}]");
+        }
+
+        @Test
+        void shouldPreserveClinicOverride_whenBothCopiesExist() throws Exception {
+            withBundledCatalogue();
+            Files.writeString(tempDir.resolve("vaccine-brands.json"), "[{\"name\":\"CLINIC\"}]");
+            action.execute();
+            assertThat(mockResponse.getStatus()).isEqualTo(200);
+            assertThat(mockResponse.getContentAsString()).isEqualTo("[{\"name\":\"CLINIC\"}]");
+        }
+
+        @Test
+        void shouldReturnNotFound_whenNeitherCatalogueExists() throws Exception {
+            withBundledCatalogue();
+            Files.delete(tempDir.resolve("test-war/prevention/vaccine-brands.json"));
+            action.execute();
+            assertThat(mockResponse.getStatus()).isEqualTo(404);
+        }
+    }
+
     /**
      * The editor-asset split. {@code EFormAssetDeployer} treats {@code editControl2.js} as MANAGED
      * (replaced on startup when the on-disk bytes differ) but {@code blank.rtl} and
@@ -466,6 +510,42 @@ class DisplayImage2ActionUnitTest extends CarlosUnitTestBase {
                     .contains("CLINIC HELP")
                     .doesNotContain("SHIPPED HELP");
             assertThat(mockResponse.getHeader("Content-Security-Policy")).isNull();
+        }
+
+        @Test
+        @DisplayName("should serve a clinic letter template unsandboxed so the editor can load it")
+        void shouldServeClinicLetterTemplateUnsandboxed_whenRtlOnDisk() throws Exception {
+            // Any *.rtl in the image directory is offered by the template dropdown and navigated into
+            // the editor iframe; a sandbox CSP makes that frame cross-origin and breaks the editor.
+            mockRequest.setParameter("imagefile", "MissedAppointment.rtl");
+            Files.writeString(tempDir.resolve("MissedAppointment.rtl"),
+                    "<html><body>Dear ##patient_name##</body></html>", StandardCharsets.UTF_8);
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentType()).startsWith("text/html");
+            assertThat(mockResponse.getContentAsString()).contains("Dear ##patient_name##");
+            assertThat(mockResponse.getHeader("Content-Security-Policy")).isNull();
+            assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        }
+
+        @Test
+        @DisplayName("should return 404 for a clinic letter template that is not on disk")
+        void shouldReturnNotFound_whenClinicLetterTemplateAbsent() throws Exception {
+            // Only the two seeded names have a WAR fallback; a clinic template either exists or 404s.
+            mockRequest.setParameter("imagefile", "MissedAppointment.rtl");
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(404);
         }
 
         @Test
