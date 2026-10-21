@@ -321,6 +321,9 @@ class MutatorActionGetRejectionContractUnitTest {
             // IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
             Arguments.of("io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
                     "_lab", "w"),
+            // Send to MRP: routes a document or lab into the patient's MRP's inbox. Every caller posts.
+            Arguments.of("io.github.carlos_emr.carlos.mds.pageUtil.SendMostResponProv2Action",
+                    "_lab", "w"),
             // --- providers ---
             // Preferences > View groups > Delete (#4515): removes the ticked group memberships.
             // The providers package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
@@ -652,6 +655,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
         // BC billing administration is not in IN_SCOPE_PACKAGE_PREFIXES; the WCB correction registers explicitly.
         "io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionActionWCB2Action",
+        "io.github.carlos_emr.carlos.mds.pageUtil.SendMostResponProv2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
