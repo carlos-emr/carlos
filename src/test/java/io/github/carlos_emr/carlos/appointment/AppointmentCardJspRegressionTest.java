@@ -26,6 +26,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,15 @@ class AppointmentCardJspRegressionTest {
         assertThat(card).contains("AppointmentCardContact.resolve(");
         // The card used to read only these keys, which nothing has written since June 2025.
         assertThat(card).doesNotContain("\"APPT_CARD_");
+        // The resolved lines are the ones printed, not the defaults computed before them.
+        assertThat(card)
+                .contains("firstLine = card.name();")
+                .contains("phone = card.phone();")
+                .contains("fax = card.fax();");
+        assertThat(card.substring(card.indexOf("fax = card.fax();")))
+                .contains("<carlos:encode value='<%= firstLine %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= phone %>' context=\"html\"/>")
+                .contains("Fax <carlos:encode value='<%= fax %>' context=\"html\"/>");
     }
 
     @Test
@@ -61,6 +71,17 @@ class AppointmentCardJspRegressionTest {
                 .contains("AppointmentCardContact.shownValue(props, AppointmentCardContact.Field.NAME)")
                 .contains("AppointmentCardContact.shownValue(props, AppointmentCardContact.Field.PHONE)")
                 .contains("AppointmentCardContact.shownValue(props, AppointmentCardContact.Field.FAX)");
+        // Each box shows its resolved value, so the next save keeps what the card prints.
+        assertBoxShows(preferences, "appointmentCardName", "apptCardName");
+        assertBoxShows(preferences, "appointmentCardPhone", "apptCardPhone");
+        assertBoxShows(preferences, "appointmentCardFax", "apptCardFax");
+    }
+
+    private static void assertBoxShows(String page, String boxName, String variable) {
+        assertThat(page)
+                .as("the %s box shows %s", boxName, variable)
+                .containsPattern(Pattern.compile("name=\"" + boxName + "\"[^>]*value=\"<carlos:encode value='<%= "
+                        + variable + " %>' context=\"htmlAttribute\"/>\">"));
     }
 
     private static String read(String webappPath) throws IOException {

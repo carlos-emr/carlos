@@ -34,6 +34,8 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -98,6 +100,19 @@ class AppointmentCardContactUnitTest {
         saved("APPT_CARD_NAME", "FAKE Old Clinic");
 
         assertThat(resolve().name()).isEqualTo("FAKE New Clinic");
+    }
+
+    @Test
+    void shouldNotReadTheOlderKeys_whenEveryLineIsSaved() {
+        saved("appointmentCardName", "FAKE Pw Clinic");
+        saved("appointmentCardPhone", "613-555-0144");
+        saved("appointmentCardFax", "613-555-0145");
+
+        resolve();
+
+        verify(userProperties, never()).getProp(PROVIDER, "APPT_CARD_NAME");
+        verify(userProperties, never()).getProp(PROVIDER, "APPT_CARD_PHONE");
+        verify(userProperties, never()).getProp(PROVIDER, "APPT_CARD_FAX");
     }
 
     @Test
