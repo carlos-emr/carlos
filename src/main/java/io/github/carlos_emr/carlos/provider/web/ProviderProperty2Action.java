@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.appointment.AppointmentCardContact;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -2433,22 +2434,21 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genDashboardPrefs";
     }
 
+    private UserProperty shownCardValue(String provider, AppointmentCardContact.Field field) {
+        UserProperty shown = new UserProperty();
+        shown.setName(field.key());
+        shown.setValue(AppointmentCardContact.shownValue(this.userPropertyDAO, provider, field));
+        return shown;
+    }
+
     public String viewAppointmentCardPrefs() {
         String provider = (String) request.getSession().getAttribute("user");
 
-        UserProperty name = this.userPropertyDAO.getProp(provider, "appointmentCardName");
-        UserProperty phone = this.userPropertyDAO.getProp(provider, "appointmentCardPhone");
-        UserProperty fax = this.userPropertyDAO.getProp(provider, "appointmentCardFax");
-
-        if (name == null) {
-            name = new UserProperty();
-        }
-        if (phone == null) {
-            phone = new UserProperty();
-        }
-        if (fax == null) {
-            fax = new UserProperty();
-        }
+        // The values the card prints, older APPT_CARD_* ones included, so saving the page carries
+        // them into the keys it saves (issue #5134). Fresh objects: the loaded rows stay untouched.
+        UserProperty name = shownCardValue(provider, AppointmentCardContact.Field.NAME);
+        UserProperty phone = shownCardValue(provider, AppointmentCardContact.Field.PHONE);
+        UserProperty fax = shownCardValue(provider, AppointmentCardContact.Field.FAX);
 
         request.setAttribute("name", name);
         request.setAttribute("phone", phone);
