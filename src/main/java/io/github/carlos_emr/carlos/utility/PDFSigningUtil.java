@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyStore;
+import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.Security;
 import java.security.Signature;
@@ -26,6 +27,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.GregorianCalendar;
+import java.util.Map;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.pdfbox.Loader;
@@ -35,12 +37,24 @@ import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureInterface;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.DERSet;
+import org.bouncycastle.asn1.cms.Attribute;
+import org.bouncycastle.asn1.cms.AttributeTable;
+import org.bouncycastle.asn1.cms.CMSAttributes;
+import org.bouncycastle.asn1.ess.ESSCertIDv2;
+import org.bouncycastle.asn1.ess.SigningCertificateV2;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.IssuerSerial;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
+import org.bouncycastle.cms.CMSAttributeTableGenerator;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.cms.CMSTypedData;
+import org.bouncycastle.cms.DefaultSignedAttributeTableGenerator;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
@@ -49,7 +63,14 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 
 /**
- * Applies certificate-backed detached signatures to PDF files.
+ * Applies certificate-backed signatures to PDF files as PAdES baseline B-B: SubFilter
+ * {@code ETSI.CAdES.detached}, a detached CMS signature whose signed attributes carry the content
+ * type, the message digest and an ESS signing-certificate-v2 for the signer, and no CMS
+ * signing-time (the signing time is the signature dictionary's {@code /M} entry).
+ *
+ * <p>RSA and EC keys both sign. myCarlos verifies ECDSA P-256 signatures (carlos-emr/carlos#4691,
+ * carlos-emr/mycarlos#55), so a clinic that wants its PDFs shown as verified there uses a P-256
+ * key.</p>
  *
  * @since 2026-09-21
  */
@@ -108,7 +129,7 @@ public final class PDFSigningUtil {
 
             PDSignature signature = new PDSignature();
             signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE);
-            signature.setSubFilter(PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED);
+            signature.setSubFilter(PDSignature.SUBFILTER_ETSI_CADES_DETACHED);
             signature.setName(config.getSignerName());
             signature.setReason(config.getReason());
             if (config.getLocation() != null) {
@@ -310,6 +331,7 @@ public final class PDFSigningUtil {
                 CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
                 generator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(
                         new JcaDigestCalculatorProviderBuilder().setProvider(PROVIDER_NAME).build())
+                        .setSignedAttributeGenerator(new PadesSignedAttributes(signingCertificate))
                         .build(signer, signingCertificate));
                 generator.addCertificates(new JcaCertStore(Arrays.asList(signingMaterial.certificateChain())));
 
@@ -320,6 +342,33 @@ public final class PDFSigningUtil {
             } catch (CMSException | GeneralSecurityException | IllegalArgumentException | OperatorCreationException e) {
                 throw new IOException("Failed to create detached PDF signature", e);
             }
+        }
+    }
+
+    /**
+     * The signed attributes of a PAdES baseline B-B signature: Bouncy Castle's standard set (content
+     * type, message digest, algorithm protection) plus an ESS signing-certificate-v2 that binds the
+     * signer certificate, without the CMS signing-time attribute that PAdES baseline excludes.
+     */
+    private static final class PadesSignedAttributes implements CMSAttributeTableGenerator {
+        private final DefaultSignedAttributeTableGenerator standard;
+
+        private PadesSignedAttributes(X509Certificate signingCertificate) throws GeneralSecurityException {
+            byte[] certificateHash = MessageDigest.getInstance("SHA-256").digest(signingCertificate.getEncoded());
+            IssuerSerial issuerSerial = new IssuerSerial(
+                    new GeneralNames(new GeneralName(X500Name.getInstance(signingCertificate.getIssuerX500Principal().getEncoded()))),
+                    signingCertificate.getSerialNumber());
+            // SHA-256 is ESSCertIDv2's default hash algorithm, so it is left out of the encoding.
+            SigningCertificateV2 signingCertificateV2 =
+                    new SigningCertificateV2(new ESSCertIDv2[]{new ESSCertIDv2(certificateHash, issuerSerial)});
+            this.standard = new DefaultSignedAttributeTableGenerator(new AttributeTable(
+                    new Attribute(PKCSObjectIdentifiers.id_aa_signingCertificateV2, new DERSet(signingCertificateV2))));
+        }
+
+        @Override
+        @SuppressWarnings("rawtypes") // Bouncy Castle's interface takes a raw Map.
+        public AttributeTable getAttributes(Map parameters) {
+            return standard.getAttributes(parameters).remove(CMSAttributes.signingTime);
         }
     }
 

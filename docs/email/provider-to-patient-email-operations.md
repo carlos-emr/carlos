@@ -302,6 +302,14 @@ What a signature does and does not give the recipient:
   readers show an "unknown signer" warning until the recipient trusts that
   certificate. A certificate from a recognised authority avoids the warning.
 
+The signature is PAdES baseline B-B (SubFilter `ETSI.CAdES.detached`), the
+format PDF readers and validators expect for signed documents. Its signed data
+names the signing certificate (ESS signing-certificate-v2), and the signing time
+is the signature's own date rather than a CMS attribute. CARLOS signed with
+`adbe.pkcs7.detached` before; readers validate both the same way, and nothing
+else about signing changes. RSA and EC keys both work. For myCarlos to show a
+PDF as verified, the key must be ECDSA P-256 (carlos-emr/carlos#4691).
+
 To enable it, provision a PKCS#12 or JKS keystore holding the private key and
 its certificate chain, readable only by the Tomcat user, and set in
 `carlos.properties`:

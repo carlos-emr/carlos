@@ -1002,6 +1002,13 @@
             <artifactId>bcpkix-jdk18on</artifactId>
             <version>${bouncycastle.version}</version>
         </dependency>
+        <!-- Used directly by PDFSigningUtil (CMS attribute tables, ESS signing-certificate-v2);
+             already resolved through bcpkix, declared because the code imports it. -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcutil-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
+        </dependency>
 
         <!-- Apache Ant (security-patched version, required by JasperReports) -->
         <dependency>
