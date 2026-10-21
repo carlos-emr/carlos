@@ -47,6 +47,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -77,10 +79,15 @@ public class PrintLabs2Action extends ActionSupport {
         }
 
         String segmentID = request.getParameter("segmentID");
-        if (segmentID == null || !segmentID.matches("\\d+")) {
+        Integer labNo = LabPatientAccess.positiveIdentity(segmentID);
+        if (labNo == null) {
             logger.warn("PrintLabs2Action called with invalid segmentID: {}", LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            return "error";
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
+        // Resolve the real owner before logging, parsing HL7, setting PDF headers or creating files.
+        LabPatientAccess.requireLab(securityInfoManager, SpringUtils.getBean(PatientLabRoutingDao.class),
+                LoggedInInfo.getLoggedInInfoFromSession(request), labNo, "HL7");
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), "");
 

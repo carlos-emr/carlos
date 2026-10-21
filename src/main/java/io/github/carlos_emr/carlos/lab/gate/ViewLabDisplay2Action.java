@@ -12,7 +12,13 @@
  */
 package io.github.carlos_emr.carlos.lab.gate;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -40,6 +46,36 @@ public final class ViewLabDisplay2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)) {
             throw new SecurityException("missing required sec object (_lab)");
+        }
+
+        String segment = request.getParameter("segmentID");
+        Integer labNo = LabPatientAccess.positiveIdentity(segment);
+        if (labNo == null) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        PatientLabRoutingDao routings = SpringUtils.getBean(PatientLabRoutingDao.class);
+        LabPatientAccess.requireLab(securityInfoManager, routings, loggedInInfo, labNo, "HL7");
+        // The JSP can render supplied versions, the latest version, or comparison data from
+        // matching versions. Authorize those actual lab identities before forwarding to it.
+        String all = request.getParameter("all");
+        String versions = all != null && !"null".equalsIgnoreCase(all)
+                ? request.getParameter("multiID") : Hl7textResultsData.getMatchingLabs(segment);
+        if (versions == null || versions.isEmpty()) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        Set<Integer> checked = new LinkedHashSet<>();
+        checked.add(labNo);
+        for (String version : versions.split(",", -1)) {
+            Integer versionNo = LabPatientAccess.positiveIdentity(version);
+            if (versionNo == null) {
+                ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            if (checked.add(versionNo)) {
+                LabPatientAccess.requireLab(securityInfoManager, routings, loggedInInfo, versionNo, "HL7");
+            }
         }
 
         return SUCCESS;

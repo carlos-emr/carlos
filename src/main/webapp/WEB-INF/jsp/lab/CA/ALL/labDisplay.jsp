@@ -122,6 +122,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.service.LabPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
@@ -274,6 +275,8 @@
     }
 
 
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    PatientLabRoutingDao accessRoutings = SpringUtils.getBean(PatientLabRoutingDao.class);
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
@@ -286,9 +289,14 @@
 
 
 
+        // Other native actions can forward directly here. Resolve the real patient ownership
+        // before any HL7 parser, read audit or rendering, including all selected/comparison labs.
+        LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo,
+                new String[] {segmentID}, "HL7");
         if (showAll) {
             multiLabId = request.getParameter("multiID");
             segmentIDs = multiLabId.split(",");
+            LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
             for (int i = 0; i < segmentIDs.length; ++i) {
                 handlers.add(Factory.getHandler(segmentIDs[i]));
             }
@@ -297,6 +305,7 @@
         } else {
             multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
             segmentIDs = multiLabId.split(",");
+            LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
 
 		int totalMatchingLabs = segmentIDs.length;
 		if (showLatest != null && "true".equals(showLatest) && totalMatchingLabs > 1) {
@@ -387,7 +396,7 @@ LocalDate nearFuture = LocalDate.now().plusWeeks(6);
 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 String strDate = nearFuture.format(formatter);
 
-SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
 TicklerManager ticklerManager= SpringUtils.getBean(TicklerManager.class);
 
 if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic ) {
