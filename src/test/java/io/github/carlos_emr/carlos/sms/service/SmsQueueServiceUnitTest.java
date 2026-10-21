@@ -35,6 +35,26 @@ class SmsQueueServiceUnitTest {
             SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"));
 
     @Test
+    @DisplayName("enqueue records nothing while the provider is not ready")
+    void shouldRecordNothing_whenProviderIsNotReady() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
+        SmsConfigService configService = mock(SmsConfigService.class);
+        when(configService.sendingEnabled()).thenReturn(true);
+        when(configService.providerReady(SmsProviderType.STUB)).thenReturn(false);
+        SmsQueueService service = new SmsQueueService(new SmsSendValidator(), command -> CONSENTED, recorder, worker,
+                new SmsDefaultProviderResolver(() -> "STUB"), configService);
+
+        SmsSendResultDto result = service.enqueueAndProcessNow(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.messages()).containsExactly(SmsSendService.SMS_PROVIDER_NOT_READY_MESSAGE);
+        assertThat(recorder.transactions()).isEmpty();
+        verify(worker, never()).processDueMessages(anyInt());
+    }
+
+    @Test
     @DisplayName("enqueue returns queued after validation and consent pass")
     void shouldQueueMessage_whenConsentAllows() {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
