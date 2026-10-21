@@ -498,7 +498,11 @@ public class PreventionData {
                 addToHashIfNotNull(h, "never", prevention.isNever() ? "1" : "0");
                 addToHashIfNotNull(h, "creator", prevention.getCreatorProviderNo());
                 addToHashIfNotNull(h, "snomedId", prevention.getSnomedId());
-                String summary = "Prevention " + prevention.getPreventionType() + " provided by " + providerName + " on " + preventionDate;
+                // A date saved to the year or the year and month (as a CDS import stores it) is
+                // given at that precision, as the Preventions list shows it, not as a made-up day.
+                String summaryDate = partialDateDao.getDatePartial(preventionDate, PartialDate.PREVENTION,
+                        prevention.getId(), PartialDate.PREVENTION_PREVENTIONDATE);
+                String summary = "Prevention " + prevention.getPreventionType() + " provided by " + providerName + " on " + summaryDate;
                 summary = summary + " entered by " + creatorName + " on " + lastUpdateDate;
 
                 addToHashIfNotNull(h, "brandSnomedId", ext.get("brandSnomedId"));

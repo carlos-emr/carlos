@@ -173,6 +173,27 @@ class PreventionDataWriteIntegrationTest extends CarlosTestBase {
         assertThat(display).isEqualTo(date);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"2026, 2026", "2026-09, 2026-09", "2026-09-14, 2026-09-14 00:00"})
+    void shouldGiveTheSavedPrecision_inTheEditPageSummary(String saved, String shown) {
+        Integer id = insert(saved, extensions());
+        // The summary also lists DHIR submissions; the test context has no DHIR manager, so stand
+        // one in that has none.
+        io.github.carlos_emr.carlos.managers.DHIRSubmissionManager dhir =
+                mock(io.github.carlos_emr.carlos.managers.DHIRSubmissionManager.class);
+        String summary;
+        try (org.mockito.MockedStatic<io.github.carlos_emr.carlos.utility.SpringUtils> springUtils =
+                org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class,
+                        org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            springUtils.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                    io.github.carlos_emr.carlos.managers.DHIRSubmissionManager.class)).thenReturn(dhir);
+
+            summary = (String) PreventionData.getPreventionById("" + id).get("summary");
+        }
+
+        assertThat(summary).contains(" on " + shown + " entered by ");
+    }
+
     @Test void shouldPreserveUndatedImports_withoutInventingAClinicalDate() {
         Integer id = insert("", extensions());
         assertThat(preventionDao.find(id).getPreventionDate()).isNull();
