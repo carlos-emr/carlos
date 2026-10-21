@@ -84,6 +84,19 @@ function assertSelectionOnly(body) {
   return params;
 }
 
+async function waitForVaccineEditor(editor, config, patient) {
+  const expected = new URL(h.appUrl(config.baseUrl, '/prevention/ViewAddPreventionData'));
+  // The page event can expose the initial empty/about:blank document. Its load
+  // state does not establish that the native vaccine-picker navigation committed.
+  await editor.waitForURL(url => url.origin === expected.origin && url.pathname === expected.pathname,
+    { timeout: 20000, waitUntil: 'domcontentloaded' });
+  const url = new URL(editor.url());
+  h.assert(url.origin === expected.origin && url.pathname === expected.pathname
+    && url.searchParams.get('demographic_no') === String(patient)
+    && url.searchParams.get('prevention') === 'Tdap' && url.searchParams.get('brandName') === 'ADACEL',
+  `Enter opened ${url.pathname}${url.search}`);
+}
+
 async function workflow(s) {
   const { sql, patient, marker, provider, context, config } = s;
   s.cleanup(() => {
@@ -227,10 +240,7 @@ async function workflow(s) {
     await box.press('Enter');
     editor = await popup;
     h.wireStrictPage(editor, 'prevention-editor', s.recorder);
-    await editor.waitForLoadState('domcontentloaded');
-    const url = new URL(editor.url());
-    h.assert(url.pathname.endsWith('/prevention/ViewAddPreventionData') && url.searchParams.get('prevention') === 'Tdap'
-      && url.searchParams.get('brandName') === 'ADACEL', `Enter opened ${url.pathname}${url.search}`);
+    await waitForVaccineEditor(editor, config, patient);
     await index.waitForTimeout(1000);
     h.assert(!watch.posts.length && !watch.downloads.length, 'Enter in the vaccine box printed');
     // Left open: the saved form's close page refreshes this opener and then closes itself.
