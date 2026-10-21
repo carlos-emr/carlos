@@ -128,14 +128,14 @@
 
         <script language="JavaScript">
             <!--
+            <%-- The patient being booked (from the waiting list) is kept across provider changes. --%>
             function changePro(providerno) {
-                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                self.location.href = a;
+                var destination = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) + "<%= request.getParameter("startDate") == null ? "" : "&startDate=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate"))) %><%= curDemoNo.isEmpty() ? "" : "&demographic_no=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo)) + "&demographic_name=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName)) %>";<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                self.location.href = destination;
             }
 
             function selectprovider(s) {
-                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(s.options[s.selectedIndex].value) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                self.location.href = a;
+                changePro(s.options[s.selectedIndex].value);
             }//-->
 
 
@@ -204,7 +204,7 @@
         <tr align="center" bgcolor="#CCCCFF">
             <% if (bMultisites) { %><td><fmt:message key="schedule.scheduleflipview.tableSite"/></td><% } %>
             <td width="15%" nowrap><a
-                    href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"
+                    href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"
                     title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>"
                     border='0'><img src="<%= request.getContextPath() %>/images/previous.gif"></a> <select
                     name="provider_no" onChange="selectprovider(this)">
@@ -230,7 +230,7 @@
                     }
                 %>
             </select><a
-                    href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"
+                    href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"
                     title="<fmt:message key="schedule.scheduleflipview.msgNextmonth"/>"
                     border='0'><img src="<%= request.getContextPath() %>/images/next.gif"></a></td>
             <% for (int j = 0; j < colscode; j++) { %>
@@ -426,9 +426,9 @@
 
     </table>
     <a
-            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnLastMonth"/> </a>
+            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"><fmt:message key="schedule.scheduleflipview.btnLastMonth"/> </a>
     |
     <a
-            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnNextMonth"/></a>
+            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"><fmt:message key="schedule.scheduleflipview.btnNextMonth"/></a>
     </body>
 </html>
