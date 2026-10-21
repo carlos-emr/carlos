@@ -7927,6 +7927,25 @@
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) plus an owned FAKE- patient and one appointment on the throwaway's own schedule; the shared test provider's preferences are never touched. Cleanup removes the appointment, the throwaway's property/ProviderPreference rows and the throwaway."
     },
     {
+      "name": "appointment-card-preferences",
+      "script": "scripts/appointment-card-preferences-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Preferences > Appointment Card (clinic name, phone, fax) followed to Edit Appointment > Print Card. Expected to FAIL at the last step while app-findings-log.md finding 315 stands: the card reads APPT_CARD_NAME/PHONE/FAX, which nothing writes, while Preferences saves appointmentCardName/Phone/Fax, so the card shows the provider's name and the clinic's own phone and fax.",
+      "expectedFailure": {
+        "finding": 315,
+        "step": "the appointment card shows the clinic name, phone and fax saved in Preferences"
+      },
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js), the session's owned FAKE- patient and one appointment today on the throwaway's own schedule. Cleanup removes the appointment, then the throwaway with its property rows; both are asserted gone."
+    },
+    {
       "name": "gap-provider-schedule-keyboard-shortcuts",
       "script": "scripts/gap-provider-schedule-keyboard-shortcuts-playwright-checks.js",
       "tiers": [
