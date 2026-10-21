@@ -474,17 +474,23 @@ behind the portal's own switch, `PATIENT_PORTAL_MYCARLOS_DELIVERY_ENABLED`.
 - **Receipts:** CARLOS checks each pickup receipt itself, not trusting the portal. The receipt
   must be signed with the accepted device's Ed25519 key. Its delivery ID, the ciphertext hash of
   the uploaded copy and the SHA-256 of the signed PDF must all match. CARLOS keeps the
-  receipt's vault head hash as an anchor for the patient's vault history. That is Ben's
-  decision L: a later rewrite of the patient's own history on the device then shows up.
+  receipt's `vault_head_link`, a per-link anchor of the patient's vault history. That is Ben's
+  decision L: a later rewrite of the patient's own history on the device then shows up. The
+  anchor is per link, so two clinics can't match a device by it. CARLOS can't recompute an
+  anchor: it only stores them and hands them back, for the device or an auditor to check.
   - **De-duplication:** CARLOS records the first valid receipt for each delivery ID and device. A
     re-sent receipt is byte-identical, with the same `jti`, and changes nothing.
+  - **Removing a device:** staff (through CARLOS) or the patient can remove a device. The
+    portal then deletes that link's waiting copies at once. CARLOS shows those copies as
+    "removed" and stops sending to that device; an upload for it would be refused with
+    `device_removed`.
   - **Device keys:** they are per link. myCarlos makes a fresh pair for each portal link, so
     a device key ID is never shared across devices or links. CARLOS's accepted-device list holds
     one entry per device key ID.
 
 **Shared vectors:** `src/test/resources/patientportal/delivery-contract.json` is a byte-identical
 copy of the portal's `tests/fixtures/delivery-contract.json` at portal commit
-`77554dd368d5f72e75a2820883e955d90efb3b54`. Every key in it is FAKE and derived from readable
+`c35649b6ba3244bd5bd01c42e55bc7706ea30dbe`. Every key in it is FAKE and derived from readable
 seed text, so the file holds no key material. Senders can't reproduce its seals, because the
 ephemeral key is random, so the CARLOS tests check by round trip:
 1. Build the manifest for `sender.manifest_claims` with the `clinic_a` test key, and compare it

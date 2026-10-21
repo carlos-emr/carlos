@@ -17,6 +17,7 @@
     "link_audience": "carlos-patient-portal-device-link",
     "receipt_audience": "carlos-delivery-receipt",
     "assertion_header": "X-MyCarlos-Device-Assertion",
+    "vault_head_link_info": "mycarlos/vault-head/v1",
     "assertion_issuer": "mycarlos",
     "assertion_lifetime_seconds": 60,
     "max_assertion_lifetime_seconds": 120,
@@ -41,13 +42,9 @@
     "info": "4f6465206f6e2061204772656369616e2055726e",
     "ikmE": "909a9b35d3dc4713a5e72a4da274b55d3d3821a37e5d099e74a647db583a904b",
     "pkEm": "1afa08d3dec047a643885163f1180476fa7ddb54c6a8029ea33f95796bf2ac4a",
-    "skEm": "f4ec9b33b792c372c1d2c2063507b684ef925b8c75a42dbcbf57d63ccd381600",
     "ikmR": "1ac01f181fdf9f352797655161c58b75c656a6cc2716dcb66372da835542e1df",
     "pkRm": "4310ee97d88cc1f088a5576c77ab0cf5c3ac797f3d95139c6c84b5429c59662a",
-    "skRm": "8057991eef8f1f1af18f4a9491d16a1ce333f695d4db8e38da75975c4478e0fb",
     "enc": "1afa08d3dec047a643885163f1180476fa7ddb54c6a8029ea33f95796bf2ac4a",
-    "shared_secret": "0bbe78490412b4bbea4812666f7916932b828bba79942424abb65244930d69a7",
-    "key": "ad2744de8e17f4ebba575b3f5f5a8fa1f69c2a07f6e7500bc60ca6e3e3ec1c91",
     "base_nonce": "5c4d98150661b848853b547f",
     "encryptions": [
       {
@@ -59,6 +56,21 @@
       }
     ]
   },
+  "vault_head_link_examples": [
+    {
+      "link": "link to clinic-a",
+      "keys": "device",
+      "head": "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5",
+      "vault_head_link": "a2d9e011a395dfa24ea261cb3bbe0996fc41b462426120da4ca52fd0aa040ea1"
+    },
+    {
+      "link": "link to clinic-b",
+      "keys": "device_link_b",
+      "head": "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5",
+      "vault_head_link": "9ba20cb10fda78c2eb6201291a214e4699aeda64fe8c349bdbb66abb03f836c5",
+      "note": "the same head on the device's other link: a different value"
+    }
+  ],
   "keys": {
     "derivation": "key bytes = SHA-256(UTF-8 seed_text). Ed25519: the 32-byte seed. X25519: the 32-byte private key. P-256: scalar = int(key bytes, big-endian) mod (n - 1) + 1.",
     "clinic_a": {
@@ -926,6 +938,55 @@
         "expect": "not_a_link_code"
       }
     ],
+    "upload_targets": [
+      {
+        "name": "an active device of the patient",
+        "recipient_id": "rcp-FAKE0001aaaaaaaaaaaa",
+        "device_key_id": "Ebz2sH2jVoqcdFhl1BmIOBRm1xuT-zW5bvFBcCeERPY",
+        "expect": "accept"
+      },
+      {
+        "name": "a removed device",
+        "recipient_id": "rcp-FAKE0001aaaaaaaaaaaa",
+        "device_key_id": "UfKEw1hvufYaSTpPEAC3iFECGAQJg1ULkDzYhZGsAVQ",
+        "expect": "device_removed"
+      },
+      {
+        "name": "an unknown device",
+        "recipient_id": "rcp-FAKE0001aaaaaaaaaaaa",
+        "device_key_id": "uEfVzhnkYSKK7qDRnG3fZFStvifu-kFuyxrjP08wisY",
+        "expect": "invalid_delivery"
+      },
+      {
+        "name": "another patient's recipient ID with this device",
+        "recipient_id": "rcp-FAKE0002bbbbbbbbbbbb",
+        "device_key_id": "Ebz2sH2jVoqcdFhl1BmIOBRm1xuT-zW5bvFBcCeERPY",
+        "expect": "invalid_delivery"
+      }
+    ],
+    "removal": {
+      "device": "device",
+      "deletes": [
+        "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13"
+      ],
+      "keeps": [
+        "c7f3a9b1-4e2d-4a68-9d05-3b8e6f1c2a47"
+      ],
+      "then": [
+        {
+          "request": "list waiting copies",
+          "expect": "device_removed"
+        },
+        {
+          "request": "send the receipt",
+          "expect": "device_removed"
+        },
+        {
+          "upload_target": "an active device of the patient",
+          "expect": "device_removed"
+        }
+      ]
+    },
     "device_requests": [
       {
         "name": "list waiting copies",
@@ -940,12 +1001,12 @@
         ]
       },
       {
-        "name": "check in with the vault head",
+        "name": "check in with the vault head anchor",
         "method": "GET",
         "path": "/api/mycarlos/deliveries",
         "query": "",
         "body": "",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImV4cCI6MTc5MjQ1NDQ2MCwiaWF0IjoxNzkyNDU0NDAwLCJpc3MiOiJteWNhcmxvcyIsImp0aSI6ImNjMTVhOWFlLTYyYWQtNTM2Ny04Y2I0LTI1OWFjZDllZjIwZiIsImtpZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJyZXF1ZXN0X2hhc2giOiJhYWNlOWRlMDY0ZDQzZDVjNjIyMzdmZTE1ZThkMmFhNmRjZDhhYjYxZGZkYmRjZWFmNjk2YmNkMjk0MTJhZjZkIiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.WRYgH0eQp92mRyYsxSIr84nEgQJehiilPh35FUER8xKo94MlXVuCK6WSuWXUGVN6OfQYez6fE6reO0cfud5QBg",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImV4cCI6MTc5MjQ1NDQ2MCwiaWF0IjoxNzkyNDU0NDAwLCJpc3MiOiJteWNhcmxvcyIsImp0aSI6ImU2ZDg1OTNlLTFjNGItNTNkYS05MzllLTEzMTZhZTU4ZDVlYSIsImtpZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJyZXF1ZXN0X2hhc2giOiJhYWNlOWRlMDY0ZDQzZDVjNjIyMzdmZTE1ZThkMmFhNmRjZDhhYjYxZGZkYmRjZWFmNjk2YmNkMjk0MTJhZjZkIiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.4xgEZ8K2wxWKGe__hJ2NtCeSc7y7XbN6zN7vY6I61Crd0miA7sPpM8Y2ZfoJQbJADt1TylTBC9WhR82AGlk1BQ",
         "expect": "accept",
         "returns": [
           "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13"
@@ -966,8 +1027,8 @@
         "method": "POST",
         "path": "/api/mycarlos/deliveries/6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13/receipt",
         "query": "",
-        "body": "{\"receipt\":\"eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.Y0IEcm8p3Y45ki90O23eToWJbsx8fhOJKx41AYwPta2Wquy6sZVgxkZufQIMHIMtXhN3ddmbRQkQiwvRjKkIBQ\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImV4cCI6MTc5MjQ1NDQ2MCwiaWF0IjoxNzkyNDU0NDAwLCJpc3MiOiJteWNhcmxvcyIsImp0aSI6IjA0YjQ2ODE3LWYzMTgtNTdiZS05NTM3LWNhZTQ2Mzg3ZWZmYiIsImtpZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJyZXF1ZXN0X2hhc2giOiI5MWI5NmMzOTdiZGI1MWNlNzNkOGMwZTlhZmRkZjYyZTFlMmUwYzA0NmViNDRkNWIxMWVlOTE0MjAzYThjNzViIn0.wT3Qdp8NKsL4SUibQDuwSXpVm9P00yxtyFIpITWMNJygE4gNu5ZR8Qt7dpVwAfdQA1Ag-1fUF_nHPW_QyWf7Cg",
+        "body": "{\"receipt\":\"eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.RZdUpxNw7w0PdDzDlwz08j9w8bSwzvO-rDUewoDM8uI5eKyUAPzCaRDrfZnm6bZbMt3B-ynoIAy4TfrHwy-JCg\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImV4cCI6MTc5MjQ1NDQ2MCwiaWF0IjoxNzkyNDU0NDAwLCJpc3MiOiJteWNhcmxvcyIsImp0aSI6IjA0YjQ2ODE3LWYzMTgtNTdiZS05NTM3LWNhZTQ2Mzg3ZWZmYiIsImtpZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJyZXF1ZXN0X2hhc2giOiJlODllYzJkNmUxNzRlMDk3OGEyMGI1N2M1NWNhNmE0NGI0NDJhN2FhZWRjYWNlNTgwZmFhNmE2Yjc2YWI5YjcxIn0.0uyqsyVlmWv6_A1DmsWUvWitunjqgPIiTSOGTkZjjp2gWJg7TRyohxCY4FSBhEq1aMtNWA4JyVQ2vBxFMRqADQ",
         "expect": "accept",
         "returns": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13"
       },
@@ -1036,12 +1097,12 @@
         "expect": "invalid_assertion"
       },
       {
-        "name": "a vault head that is not a SHA-256",
+        "name": "a vault head anchor that is not 64 hex digits",
         "method": "GET",
         "path": "/api/mycarlos/deliveries",
         "query": "",
         "body": "",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImV4cCI6MTc5MjQ1NDQ2MCwiaWF0IjoxNzkyNDU0NDAwLCJpc3MiOiJteWNhcmxvcyIsImp0aSI6ImQ0OTA5NmYxLTcxMmItNTBkYy1hMjM1LTZjMzdlZDVkZDkwMCIsImtpZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJyZXF1ZXN0X2hhc2giOiJhYWNlOWRlMDY0ZDQzZDVjNjIyMzdmZTE1ZThkMmFhNmRjZDhhYjYxZGZkYmRjZWFmNjk2YmNkMjk0MTJhZjZkIiwidmF1bHRfaGVhZCI6Im5vdC1hLWhhc2gifQ.iUd4ZoAx3UQbe1U9UyZr2bl63bthpUODCPMtIvcg6VT-_2Z1ZfAC_AlevjuHHLZAvoLurSOinFhKkUUPV23YCA",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImV4cCI6MTc5MjQ1NDQ2MCwiaWF0IjoxNzkyNDU0NDAwLCJpc3MiOiJteWNhcmxvcyIsImp0aSI6ImIzZTE0NzhjLTEzOWItNWMxNC1hYzY1LWI2OTQ4MDdlNDBjMCIsImtpZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJyZXF1ZXN0X2hhc2giOiJhYWNlOWRlMDY0ZDQzZDVjNjIyMzdmZTE1ZThkMmFhNmRjZDhhYjYxZGZkYmRjZWFmNjk2YmNkMjk0MTJhZjZkIiwidmF1bHRfaGVhZF9saW5rIjoibm90LWEtaGFzaCJ9.tl9Vp1M1JOAlWq3X-MbqbetW7cLY4IJA5lhBG9tRI97X-GZwjcEeeBs2gJ44pDMTLQFuBYdVVursXk65R0FKCw",
         "expect": "invalid_assertion"
       },
       {
@@ -1085,8 +1146,8 @@
         "method": "POST",
         "path": "/api/mycarlos/deliveries/6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13/receipt",
         "query": "",
-        "body": "{\"receipt\":\"eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.Y0IEcm8p3Y45ki90O23eToWJbsx8fhOJKx41AYwPta2Wquy6sZVgxkZufQIMHIMtXhN3ddmbRQkQiwvRjKkIBQx\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImV4cCI6MTc5MjQ1NDQ2MCwiaWF0IjoxNzkyNDU0NDAwLCJpc3MiOiJteWNhcmxvcyIsImp0aSI6IjJlODRmYzlkLWMzNTktNThjZS05YTcxLTVkOTYzNDgyMzE4MSIsImtpZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJyZXF1ZXN0X2hhc2giOiI5MWI5NmMzOTdiZGI1MWNlNzNkOGMwZTlhZmRkZjYyZTFlMmUwYzA0NmViNDRkNWIxMWVlOTE0MjAzYThjNzViIn0.AcSVP_V0MfSxDUYjDgorNe4L_ZU0eT6It96jsaH3VxJ5jcB6KFcH7k-yfPfIuJy6YPesjZrRWKEODhvKUiZTAw",
+        "body": "{\"receipt\":\"eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.RZdUpxNw7w0PdDzDlwz08j9w8bSwzvO-rDUewoDM8uI5eKyUAPzCaRDrfZnm6bZbMt3B-ynoIAy4TfrHwy-JCgx\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImV4cCI6MTc5MjQ1NDQ2MCwiaWF0IjoxNzkyNDU0NDAwLCJpc3MiOiJteWNhcmxvcyIsImp0aSI6IjJlODRmYzlkLWMzNTktNThjZS05YTcxLTVkOTYzNDgyMzE4MSIsImtpZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJyZXF1ZXN0X2hhc2giOiJlODllYzJkNmUxNzRlMDk3OGEyMGI1N2M1NWNhNmE0NGI0NDJhN2FhZWRjYWNlNTgwZmFhNmE2Yjc2YWI5YjcxIn0.tDEBDSXWKk-rNjpue8QQRgpnbhlOeWFwMs-9rR6QAuqaH1-0Gl4JtunspmBEoyMBL7lgX_Pgol82wpB7Qmn8Bg",
         "expect": "request_mismatch"
       },
       {
@@ -1132,77 +1193,84 @@
         "expect": "accept",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
-        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.Y0IEcm8p3Y45ki90O23eToWJbsx8fhOJKx41AYwPta2Wquy6sZVgxkZufQIMHIMtXhN3ddmbRQkQiwvRjKkIBQ"
+        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.RZdUpxNw7w0PdDzDlwz08j9w8bSwzvO-rDUewoDM8uI5eKyUAPzCaRDrfZnm6bZbMt3B-ynoIAy4TfrHwy-JCg"
       },
       {
         "name": "ciphertext hash differs from the stored copy",
         "expect": "receipt_mismatch",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
-        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.bVnztP0b1st_wLBTkQMcBvbiacILT_LZ8xwutEisgaLA7F2r5mNvJTFGzHWEW2VEjp5LRrVd0D52U8jtO5JfBQ"
+        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.1zb91Sb5zwMHgGgOJBC9565b69v35BIQep9eixu2j8SE38jCcjYTzZzyEn_bBCfNaygnOOUUlIBKJM-U3hhXAg"
       },
       {
         "name": "receipt names another delivery than the route",
         "expect": "receipt_mismatch",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
-        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiMGQ0YjhlMjEtN2EzZi00YzY2LTliMTItOGU1YTFmN2MzZDkwIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.ZoAJDByznqm4H7JpSFfnq_Y0mAXaeNQ_PrFMkWHZgt_-n3GQt2z8F3Zy_lZOLagxiIcBw-DYpfSaBgjOIyVVCA"
+        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiMGQ0YjhlMjEtN2EzZi00YzY2LTliMTItOGU1YTFmN2MzZDkwIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.0HkbJkLQcWN9zGaXcgjEBXjJoRFQogUttZU3Z1iAoLL5Uausemfw9D2Q9nuygofpAs6QuLHbdcQoHxyvG0utBQ"
       },
       {
         "name": "route names another device's copy",
         "expect": "delivery_not_found",
         "device": "device",
         "delivery_id": "c7f3a9b1-4e2d-4a68-9d05-3b8e6f1c2a47",
-        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiYzdmM2E5YjEtNGUyZC00YTY4LTlkMDUtM2I4ZTZmMWMyYTQ3IiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.ncgRLpLi5r_ui2HjsXaguyLtXBFwhLheRmJzsGLCLjSAbibXAG_Dr7JUCPTloH6luF6DQMgUePoSF9xZ4lKxAw"
+        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiYzdmM2E5YjEtNGUyZC00YTY4LTlkMDUtM2I4ZTZmMWMyYTQ3IiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.lAK2Rhh5uyA1eKU-iCy9p31IRhwBoS2doNzcsejN57Xy7bdZ4tuKxnFa2wIyM1_Gi-RLE8uP6drVtuNTEGSABw"
       },
       {
         "name": "signed by another device",
         "expect": "invalid_receipt",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
-        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.ZpqiKdQzigiKRGYpPba1pXwmfhjXY6l_tDyJwabGtF1zNgIVkvLWwvpNj9gJhaL7dfDdaoMYR4nRISNeCmIdDQ"
+        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.pkP-tO9uq6JbYB0XKSC065zZMhJXcBuWCieLyafpk1sas9AdyvGzeu5MbRVhoukqs2ThuOW_Ax7muDilrQMNDw"
       },
       {
         "name": "names another device",
         "expect": "invalid_receipt",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
-        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6InpJNTNTZEVBa05fTFAzWHVHZjl4STg1bHJkRk11bVBoZlA5YjFXaHBwZFUiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.2rVyisowTJGTaUYhtbqMfIdD5IJ4kxO6FK9Lt2OIwbGLTD9UyphaSwkaexkLw3j6FVn3WahthyiMZ2WUBd36BA"
+        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6InpJNTNTZEVBa05fTFAzWHVHZjl4STg1bHJkRk11bVBoZlA5YjFXaHBwZFUiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.HFz4UlmW_CW59-jj6yaHmWfdYcWIA2rwGLSVEnm2-Gl1uwzqiYcx7AZ-8opC_x-cFgUOgbcncrTXvHhSy_QoCA"
       },
       {
         "name": "another patient's recipient ID",
         "expect": "invalid_receipt",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
-        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDJiYmJiYmJiYmJiYmIiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.xaCjsVt2raMoBwDTUwot0JmXUfDNqi2kCTs31eIxHm4fJuxsmIGpMT4o3ZAnFnKt_KkPt-DFbzRbNpK6p7mCCA"
+        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDJiYmJiYmJiYmJiYmIiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.2VZnZ1c_HlsBoDqUy0aKwAycpOEL2UfxWgzRKq-WKy5vUtcSeQZh8AHNRk0oMbdw3eoyJYVnsF76spfyHVrsCg"
       },
       {
-        "name": "missing the vault head",
+        "name": "missing the vault head anchor",
         "expect": "invalid_receipt",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
         "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0In0.Z1rOvfJtJd1GdA2bXN-KJp9N1JyuXt0pJEuSKVnSkQ0Tsz0lBqQeq9vUIyVlOjlehznmtYXxQrcRryToEZj6Cg"
       },
       {
+        "name": "a raw vault head instead of the link's anchor",
+        "expect": "invalid_receipt",
+        "device": "device",
+        "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
+        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.Y0IEcm8p3Y45ki90O23eToWJbsx8fhOJKx41AYwPta2Wquy6sZVgxkZufQIMHIMtXhN3ddmbRQkQiwvRjKkIBQ"
+      },
+      {
         "name": "device request audience",
         "expect": "invalid_receipt",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
-        "receipt": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.IUE_exaOmb_pLsBhQiWqIbmJX8cqzFhOsA6lwo4nQcHCHwkSVFFVoIdTB7HED7TUE6Sa7HMYK1i8D4edQZsPAw"
+        "receipt": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.F_GoIEdIRGLoYyRIBhs75SwuRaYGLZDSOYGSDqazwAcZrnuyE1u9BsLNfWZ2y7BRjkd_Dcw8eXcXqaFCZqhrCA"
       },
       {
         "name": "a duplicate claim",
         "expect": "invalid_receipt",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
-        "receipt": "eyJjaXBoZXJ0ZXh0X3NoYTI1NiI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.vbJur0eyWNmSywCsHKNhFpDaIC9YwlIXqsFnprKi6wUIVCgPZTllRHF8sVmrAuaHNkNVGyw1QBuTEich2p2cDQ"
+        "receipt": "eyJjaXBoZXJ0ZXh0X3NoYTI1NiI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.1Ie1JhA8Yxy3QBw8etQsETl-xoP5DXjuTqvXDB6dmTEPEkzl-glDbI4VA_dVwJFHbFoHrWlF8Pvlc9du_01rCw"
       },
       {
         "name": "the same receipt again",
         "expect": "accept",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
-        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.Y0IEcm8p3Y45ki90O23eToWJbsx8fhOJKx41AYwPta2Wquy6sZVgxkZufQIMHIMtXhN3ddmbRQkQiwvRjKkIBQ",
+        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiMjk4ZjQyZGYtM2Q1Ni01OWIyLWEzNWItNGNiZThhMzI0NWQ0IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.RZdUpxNw7w0PdDzDlwz08j9w8bSwzvO-rDUewoDM8uI5eKyUAPzCaRDrfZnm6bZbMt3B-ynoIAy4TfrHwy-JCg",
         "after": "the receipt for a picked-up copy",
         "note": "a retry after a lost response: byte-identical, same jti"
       },
@@ -1211,7 +1279,7 @@
         "expect": "delivery_not_found",
         "device": "device",
         "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
-        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiZTgyYTViOTAtODdjZC01MDc5LWIzNDgtNTc4ZjI2YTczYmM5IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZCI6ImI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjViNWI1YjUifQ.iPruYhpnX3cKX-M_6AtsuKBgcfas6c8gmR-ywPceF-GK2U0GFUFZP7xPdYN3F-c42wI_cPCAKlEcDWnwp6VDBQ",
+        "receipt": "eyJhdWQiOiJjYXJsb3MtZGVsaXZlcnktcmVjZWlwdCIsImNpcGhlcnRleHRfc2hhMjU2IjoiOWEzZjU1ZGNjNGRlN2YzNTQ0N2ViZTc2MzNlMmNiMDA1MzQxMjlmOTM0M2MxZTI5NWI5YjZiZWZhODVkNjgzNCIsImRlbGl2ZXJ5X2lkIjoiNmYxYzJhN2UtMGI5ZC00ZTUzLThhNDEtMmQ3YzliMGU1ZjEzIiwiZGV2aWNlX2tleV9pZCI6IkViejJzSDJqVm9xY2RGaGwxQm1JT0JSbTF4dVQtelc1YnZGQmNDZUVSUFkiLCJkb2N1bWVudF9zaGEyNTYiOiJjZWYzYjAzMGE5Mzc2M2NiODM2MzY3ODIxZDZkMzk4YTI3NmI2ODQ0Yjc4M2Y5ZTFiOGY4YmZjYTRkMjJlNjM3IiwianRpIjoiZTgyYTViOTAtODdjZC01MDc5LWIzNDgtNTc4ZjI2YTczYmM5IiwicGlja2VkX3VwX2F0IjoxNzkyNDU0NDAwLCJyZWNpcGllbnRfaWQiOiJyY3AtRkFLRTAwMDFhYWFhYWFhYWFhYWEiLCJ0eXAiOiJteWNhcmxvcy1kZWxpdmVyeS1yZWNlaXB0IiwidmF1bHRfaGVhZF9saW5rIjoiYTJkOWUwMTFhMzk1ZGZhMjRlYTI2MWNiM2JiZTA5OTZmYzQxYjQ2MjQyNjEyMGRhNGNhNTJmZDBhYTA0MGVhMSJ9.ZoymZmy63-ouAujqajE92MAK_ASpVJ7fSszUhhn6LvrbOhwQDmCzT3EycR9S_btQLu2GVRiqz4t_WpQ283jGDg",
         "after": "the receipt for a picked-up copy"
       }
     ],
@@ -1222,8 +1290,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiIwMWQyOWUwMi1lZTU0LTVmMzUtOWU5Yi1mZDliNzRmMDYzNzIiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiMWY0YTAzM2QzYmIxYzk1MzMwOGU3OWRlOWUxN2I4YzFhMTI0YjM1MzdmNTEzMDZiODIxN2NhZDliMmQyZTAxYSJ9.sxbLiJi2KEbwkwkFrin3Vl-43wRZVHkPeE4XIjbPhzUDuO8zxFelN8CtEUa254_XgcoV_CYrYeDL3BwbNrNaAw",
+        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiIwMWQyOWUwMi1lZTU0LTVmMzUtOWU5Yi1mZDliNzRmMDYzNzIiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiYWUzNGJmYTZiZjAzODczZjk0NDgxNTVlNjVhOGI0MjIyNWU1ZGI1MGUwNjkyY2E5YjkzNDQxZmE5OTY0M2M0MSJ9.DAYWAKgieQH5xhI20zQ9dYM6oKH7jhy50c8Jr-IHbfx3m5qoO1LwG0dXnxEkgUI3GRQ3e-j_JmDiamF-TPkvDQ",
         "returns": {
           "account": "account-1",
           "recipient_id": "rcp-FAKE0001aaaaaaaaaaaa",
@@ -1236,8 +1304,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0002\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJjMGFmNzg1NC02NzJlLTUwYWEtOWI2Ny05YmQxNzZkYTZlZjUiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiZDg3Zjg5YjlhMmI0MzY5YmMzMmE4MWUwNjRkMjNjMDc4NDcyZDc3MjgzMDE0OGM2NjMxYWI2NGFlMjRkNTRhZiJ9.eu1xuGkA9tihoBesMB5XQ5KbFjVvd3qfFxuY6X9pRfvtpykCe7a4gd5uVqyJXTf73wPcA3CJc0kjPTS3nlOXDw",
+        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0002\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJjMGFmNzg1NC02NzJlLTUwYWEtOWI2Ny05YmQxNzZkYTZlZjUiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiOTcxODFiMTc1NjViY2YxNGEwNWMwYzI1YWUyMzQyMGZhNTY0ZjEwOWJjZTRmNzA3MWY1ZGM3YmYxZGVkYjM4ZCJ9.CIcS3kMmUI_2Aap1F5HqrZLGLDwHN3sX5VC2XvDYIxzxfb4jmDwh5F3I2nl-pOg-CgaU5UwJW8zZXiZLzziVAQ",
         "note": "link_id names account-2's pending link; the code is account-1's",
         "account_wrong_codes_after": {
           "account-2": 1
@@ -1249,8 +1317,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKEWR0NG1\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0004\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJhYzViMjBmZC0xMDYyLTU0ZmEtOTZjNy00ZTIzOTVhNDRmMzciLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiNjFmYWI5ODM3ZDgxNTFkMDE3ZWUxM2E2NDZjMmE3OTc3Njc1ZjUxMGJhZjc0NTFkYWQ5ZDlkOGZjMWE1YjY3NSJ9.5OYeFJZI0Mf7ctvGJ6IKX32ZIIzlZcb7DyRAYNiC0XIK_yoD7LG1UHF9ZA0EikNEaTvcQUVOscjcb7NZxKb4BQ",
+        "body": "{\"code\":\"FAKEWR0NG1\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0004\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJhYzViMjBmZC0xMDYyLTU0ZmEtOTZjNy00ZTIzOTVhNDRmMzciLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiNTAxMzczNjI3MjVhMDViZjRkZTVlZjJlYzY4MGQ4OTQzZDg3OWE4ZTc3OTYyZTYwOWM5ZDljZmM0MjZhYzczZiJ9.XgaV2YkL3yCF3cQ1zV2SIC7gaNJj8MUPhy3HqS8CzitvzovJ6uGqDzBhXixrNZ9Sm4gnymAREJRMgOdSMiwRAg",
         "note": "an ended link answers the same, but nothing is counted",
         "account_wrong_codes_after": {
           "account-1": 0
@@ -1262,8 +1330,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKEWR0NG1\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0003\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJhNTk0ZjEzYS1mYzM0LTU3YzYtYjM1NC1lZWFjODE3Mjg3Y2MiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiNWM5OTQwNGI4OTMxMTg5ZmFjZGJmYzY1YTI1Mjg5NjcyNjkzYmUwODcwOWJkZjljMGYwODk4ZTFhNjMxNWMyYSJ9.r6ffhLQ99O_-bPaXoS28m0RQVDBlHpU265vBvyKhg3lI2kI5s3LIldnqfKGLi4RmCg1NVx32c3_3rqUaw0eHDQ",
+        "body": "{\"code\":\"FAKEWR0NG1\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0003\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJhNTk0ZjEzYS1mYzM0LTU3YzYtYjM1NC1lZWFjODE3Mjg3Y2MiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiMGQ4NDY0NzE0YWMxZjk3NzI2OTc5NDBhMmZmYzlkMTI3ZDFlOTViNTlkMThkNjZhMDgzODYwNGY2YjA5ZmFiZCJ9.3TYxXcYin_hdhdvjHmbvuY3OmXohg5pLCT_29SDIX5E56_J2DLLlKgNZdC5EVzmyUYdKJsnOHe9ysLvChPWFDQ",
         "account_wrong_codes_after": {
           "account-1": 0
         }
@@ -1274,8 +1342,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE2B8NQJ\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0003\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI0ODMxYzQ5Mi04MWEyLTUxNGQtYTU2Yy0zNmU2ODE2OTA5ZDciLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiNTBkOTFmMDRmZTM5OTkzZDY2YWQ2Njg2MWUwOGU1MzI3NGM4OGNkNTc1YjBjMzQzNmI0NDM2YWQ1ZDkxODU5NCJ9.9LfA3kE9eRJkXLBAhmwVUSSvqicxBnCSR6IWjHqYAp731ck3g5Ep_8T28-txc_fknGSfA5mBQNmI7KBbIMTsDA"
+        "body": "{\"code\":\"FAKE2B8NQJ\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0003\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI0ODMxYzQ5Mi04MWEyLTUxNGQtYTU2Yy0zNmU2ODE2OTA5ZDciLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiZTQ5ZDUwZGVjNTc4YzdiOTY5YTI5MzAwMWI4MWExZGJjNmJjZTQ1ZjY0MTc2MDA3YzFkYzAyNWM3Y2YzYzY2ZiJ9.F3YSPQ7VWbBov1akIBkE8XCL-fE0ihg3VnUU54txkyddA3JLnoARe8SuGBomXEjQ4_XzTR3NQxLQgnITtpn5Cw"
       },
       {
         "name": "a used code",
@@ -1283,8 +1351,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE6C1ZMR\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0004\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI2NzNjYWUyMS1jNGE2LTViNzItOTdjYi00MzZhNGIzYTViNTQiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiNzcxZWEyN2NlNzU3NjhjM2VjZmVhMmVlNTVmNTJlNmMxYzYyY2U2YTJjZDFmMTY5ZDIxMDkwOTc2MDRjOTM5NiJ9.fDp2aBYJtg6k6uHduXMTUOvjVQpFEHEk0-Hf6EjsJbqjEwyg54PQmgJQRjvFSK8R1_-KwpC9DKhGJwhF6yq1Cw"
+        "body": "{\"code\":\"FAKE6C1ZMR\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0004\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI2NzNjYWUyMS1jNGE2LTViNzItOTdjYi00MzZhNGIzYTViNTQiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiM2UxNzljOGJjZGYwM2M5OTU1NmViM2FiMzdhOTFmZTZjYTYyZDQ3YzZmMTA0MDVlNDlkZmIwYTM2YjAzNzcwMyJ9.0xIvrpjmaIrB0LLuOVSl52apFc-RuylBU3xXxXDl3gLa0TwWAKKUXastP_rjtgncX0YQmadeH67oxXfBWNBDAw"
       },
       {
         "name": "the session that showed the code has signed out",
@@ -1292,8 +1360,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE4H9WTK\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0005\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJlZDIxNzk2My0xMTUzLTVhMTItYjcxNy1mOTY1YmU4ZjA1ZGMiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiN2QzNDgwNWI2NTk4MTExZmY2YTczOTE3ODA4YWU2Nzg1ODQ2NTBiZjc0NTRjZDFhNzM0OTA5MjVhNTIzZjViNyJ9.kZZvN0p1RK9jcQaiuT68ZN7MhUGTqqvJAUGhKYTglNh21gXAoBZaPoi7SL3QrollxldLKW3exUM7CU6SdDPWBA"
+        "body": "{\"code\":\"FAKE4H9WTK\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0005\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJlZDIxNzk2My0xMTUzLTVhMTItYjcxNy1mOTY1YmU4ZjA1ZGMiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiZGI4MTAxODhhMmQyYzk4Zjk5NzJiNGIxZjIxY2ViZTM5MGRlNmI5NGIxMDI0MTBiNWZiN2MwMjJkNzFhMDliOCJ9.l4nDtSD-CTm3n7DtETnibzgmon42ZHYwKn-S06hHXXwt761e4HEX4sGpJDFGLvyiKE4RV7vVTYgL9nxLZmpvCA"
       },
       {
         "name": "too many wrong codes for this link",
@@ -1301,8 +1369,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE8P3FXN\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0006\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI1YTI0NTk4ZS1hMTc4LTVjZGYtYmE0MS01MzY0OWUyZTNkYTUiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiMDZjNjYwNDAzYWNjNzU3MTE4NDJiZjkwZGUxMmZhZWNlYzM5Nzc4NDkyZTBhYjdiOGY1MDQ1YmQzMWUwOWI4MCJ9.ceA1bBbyJ-m1AzhajtFbjc3V9oWVYoOmjxmNYgzXly_y0jJc-a8OJotJwFoQ_uJY9vlLDVrH13tKaOPQaP6SCw"
+        "body": "{\"code\":\"FAKE8P3FXN\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0006\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI1YTI0NTk4ZS1hMTc4LTVjZGYtYmE0MS01MzY0OWUyZTNkYTUiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiYzI3MjUzNGM2NTAyOGVkM2Q0YmQyN2UyNzg2Y2ZiOGUyZGFhNzdhOWVhZDkyNmJkYzY1MTQ3NjY3ZTZhOGE1ZCJ9.J5wThuLzI9-9M_O50edEsz217rkwo5BI3cDMZf3Hxt2NJXZbWcZJgrrB942iArIDwXhggiNfXbs3ee-qhwTjBQ"
       },
       {
         "name": "too many wrong codes for this account",
@@ -1310,8 +1378,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE5G7YVA\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0007\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI3OWM4NzU5OS00MGY5LTUxODAtOGJjMC02MDIxMzI5YmRkOWEiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiYzhiMzEyY2ZhYTg4M2M4ZTdmNWJiOTcyZjVhZThiYTM2NGU5MDI5Zjg3NjIyMTYzMTNkZTFlMTU0ODI3MTRmNiJ9.03vCVAfCaWmherIAUyTMYhHecqZjui5Vl-IpIPrdHASyecvaoCKjICM38yJG6PjAfht-T0hN8UEHtNoP2kFSAg"
+        "body": "{\"code\":\"FAKE5G7YVA\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0007\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI3OWM4NzU5OS00MGY5LTUxODAtOGJjMC02MDIxMzI5YmRkOWEiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiOWQ3ODhhYmUwMDYyNGZmZWM3OTY0ZWFkNjAzNWRiOTE3MzE2NmVmZmE3ZWUzNWQ1MWI0ZmJiOTBjOGU0OWRjZSJ9.z6WFOs3nYnR2VTZ_L-7UzuF33j1bQDdGG1OAARvWt8C89B0nR7spjM_VE0DBIzQibtuSAoEVCW-3ij4X8cMCBw"
       },
       {
         "name": "a code sent in its display form",
@@ -1319,8 +1387,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE7-Q2M4K\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI0NzhhMjYyMi0zNTYyLTU5ZmYtYTVmNC1lOGI4ZWM5NTcwMTUiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiYTExZTFlMmVjMzY4NWQyMWI0ZDY3MThkMjM3NTU0NWExOWQ3Mjg3ZmNlMWJjY2Q4YWJhZTQxZDMyNmY0OTdmMSJ9.33m9C9Nu6anQ-5sm6UpzTWBYjj5NY8HgZymTnl9nb77FZfZ2muOwJc-opK-AUX2Ho9wHKQhe-a8hOVBGQxAKDg"
+        "body": "{\"code\":\"FAKE7-Q2M4K\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI0NzhhMjYyMi0zNTYyLTU5ZmYtYTVmNC1lOGI4ZWM5NTcwMTUiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiMWJmMDI2YWEwMmIyNzYyMDRkNDJmOGRjMDQ5YzRiNDE4ZDA3NWMwNmI5YjNiZDZjNWNlNWE1NWM0MjcyNjUxZSJ9.BTT2B3_c6ZG_qScIvFoGalrXhAyBdG7ALoH2gZYFTj2VL4XGc1HtUOHGPDX1x3uGpX9uygTSeWV6XHwd5G1uDg"
       },
       {
         "name": "a duplicate body member",
@@ -1328,8 +1396,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"link_id\":\"FAKE0002\",\"code\":\"FAKE7Q2M4K\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJlNGJjYTJkNS05YmVhLTVlY2ItOWZlMC0xOTk2NmRlMjNiMDYiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiOGY5MWZkMjIwNzYyMGJiZDQwNWY2NTZkZjNiMDM1MTg2NGUwZWJhOGVkZjdlNTM1YjY4Y2Q4MzVlMTUyMTVmYyJ9.9VymQw7yWUjgpePqyiEYHJVrBYT7KCbMRxwHSxOKr4lKqKGYNRitXgQK6y_lRrSOUulJ9_t946eLxwYcx_zZCA"
+        "body": "{\"link_id\":\"FAKE0002\",\"code\":\"FAKE7Q2M4K\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJlNGJjYTJkNS05YmVhLTVlY2ItOWZlMC0xOTk2NmRlMjNiMDYiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiN2U0MDM4ZDMzOWY5NGY0Y2FiMzU3MzQ5MzJiZmYyZjI2YWMwYzU3OGVhZjlmYWU5ZmZiOTFlZmQxMTgwMWMxNiJ9.NFUp4u-rVc24_J8vQswjIfcsbMsMuf1Sqxzwk2I70v-fsQ1WIGOnSjgpcIe7BqeYDASB6nN5y-sYi5cqCEZxAw"
       },
       {
         "name": "an unknown link ID",
@@ -1337,8 +1405,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0009\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJkNjYzODBmNy00YzlhLTU4MmItYmRiNS1iMjEyMWVjODA4YWEiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiZmI3YmYwZjgwMTE5YWQ1OTVhMmI1ZjRmNzdhODhkMjRhOGI1NWQ2NDNiNzhiMjA4ZjkxYTE1ZWU2OWYyOTU4NCJ9.8qJ2cqaXuhSZGMOg5yR3FHISSlaON01EITVTJ3WDcnNUFsxWkRjQJtkOH78HCa2ONUEBvkAg-xewYfVbn5TODw"
+        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0009\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJkNjYzODBmNy00YzlhLTU4MmItYmRiNS1iMjEyMWVjODA4YWEiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiMGEyYzFkNWMxOTMyZjZlMzJkYWYwMzA4MmY4NmNmNGZhMWQ0YWU4YzNjNDNlODE3ZjU1YjI0NjU0M2ViZjg2MSJ9.JoXGzfCoJpCwN29kbB1xlOCVrtBFv99p4nnsh1TU6_ibDLfiLWJtdKh29QKTBD8WGC56uzmBoEy6TkySPFnJDg"
       },
       {
         "name": "signed by a key other than the one in the body",
@@ -1346,8 +1414,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI5ZmQ2YzI0ZS01N2ZjLTU0MzUtOGU5MC1lYjJkNWFhMjRkZjIiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiMWY0YTAzM2QzYmIxYzk1MzMwOGU3OWRlOWUxN2I4YzFhMTI0YjM1MzdmNTEzMDZiODIxN2NhZDliMmQyZTAxYSJ9.memuZXEHZdFeUmAp0P9q4o3B9bIov2JYxaosGW8CcKeuoNeiX4j5NOvawq4TT7zX-ai41sNl866GuEGrDrMrAQ"
+        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI5ZmQ2YzI0ZS01N2ZjLTU0MzUtOGU5MC1lYjJkNWFhMjRkZjIiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiYWUzNGJmYTZiZjAzODczZjk0NDgxNTVlNjVhOGI0MjIyNWU1ZGI1MGUwNjkyY2E5YjkzNDQxZmE5OTY0M2M0MSJ9.9-Xf9H7qFUD3lYMFTOT4o7__yubxUwsaMOcc491gB7Qxz4VgbX2Y0IkqRFgdIp_zcHclpz-EBzh2mRBwHTXfBQ"
       },
       {
         "name": "kid is not the body keys' fingerprint",
@@ -1355,8 +1423,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJkY2EyZmI0My00YWQ3LTVmZjctYWQ1YS1mM2M1MjA4NTExNmYiLCJraWQiOiJVZktFdzFodnVmWWFTVHBQRUFDM2lGRUNHQVFKZzFVTGtEelloWkdzQVZRIiwicmVxdWVzdF9oYXNoIjoiMWY0YTAzM2QzYmIxYzk1MzMwOGU3OWRlOWUxN2I4YzFhMTI0YjM1MzdmNTEzMDZiODIxN2NhZDliMmQyZTAxYSJ9.xeBNajr54AfSqJ46wqwKsjqG0NtoRA5wlnozc3FRzkTQwf0lqVFBPlTgC0HM9enkAVArGQSpsrA77gf3SfTWCg"
+        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJkY2EyZmI0My00YWQ3LTVmZjctYWQ1YS1mM2M1MjA4NTExNmYiLCJraWQiOiJVZktFdzFodnVmWWFTVHBQRUFDM2lGRUNHQVFKZzFVTGtEelloWkdzQVZRIiwicmVxdWVzdF9oYXNoIjoiYWUzNGJmYTZiZjAzODczZjk0NDgxNTVlNjVhOGI0MjIyNWU1ZGI1MGUwNjkyY2E5YjkzNDQxZmE5OTY0M2M0MSJ9.bxMrZgkMH0fH9Fv4IV-lz9kiCmdEFp9tXH5SPRdNI8Ii8-meXaSFT7Tn_ZAKesTQFHlnk-g003QZOD47dHyXDg"
       },
       {
         "name": "device audience on the link route",
@@ -1364,8 +1432,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImV4cCI6MTc5MjQ1NDQ2MCwiaWF0IjoxNzkyNDU0NDAwLCJpc3MiOiJteWNhcmxvcyIsImp0aSI6IjMwMmIwYjZlLWMyZDEtNWI2Zi1hNjJkLTNiZDNkYTkxMjM1NiIsImtpZCI6InVFZlZ6aG5rWVNLSzdxRFJuRzNmWkZTdHZpZnUta0Z1eXhyalAwOHdpc1kiLCJyZXF1ZXN0X2hhc2giOiIxZjRhMDMzZDNiYjFjOTUzMzA4ZTc5ZGU5ZTE3YjhjMWExMjRiMzUzN2Y1MTMwNmI4MjE3Y2FkOWIyZDJlMDFhIn0.B2Lpbq0o-_1E49JtMazY9uqBjFDNnWK0CmC7kLmHuTj-nBQjDEEv0roPzYyJ-tBhb5Q77g6dFGuMUFRQhqs-DA"
+        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWFwaSIsImV4cCI6MTc5MjQ1NDQ2MCwiaWF0IjoxNzkyNDU0NDAwLCJpc3MiOiJteWNhcmxvcyIsImp0aSI6IjMwMmIwYjZlLWMyZDEtNWI2Zi1hNjJkLTNiZDNkYTkxMjM1NiIsImtpZCI6InVFZlZ6aG5rWVNLSzdxRFJuRzNmWkZTdHZpZnUta0Z1eXhyalAwOHdpc1kiLCJyZXF1ZXN0X2hhc2giOiJhZTM0YmZhNmJmMDM4NzNmOTQ0ODE1NWU2NWE4YjQyMjI1ZTVkYjUwZTA2OTJjYTliOTM0NDFmYTk5NjQzYzQxIn0.SrSZwVsfWDM92Uv_WtRfCuOSox9M98X6Bqvdk8uM9c9M1lL68Fg3iudzLrHgv8OGR924lxUUq1ouNP4IlynKDw"
       },
       {
         "name": "device name changed after signing",
@@ -1373,8 +1441,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"FAKE renamed device\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJiNjA5NjI2Ny03NzIzLTViNjAtOTE1YS0xY2FkMjMyZTM1ZjMiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiMWY0YTAzM2QzYmIxYzk1MzMwOGU3OWRlOWUxN2I4YzFhMTI0YjM1MzdmNTEzMDZiODIxN2NhZDliMmQyZTAxYSJ9.4nazVXSFztvMFkVq2vvPDwplgZcotcb1KvV0M4zI8LGFTE1BVTbz6ixcmTLrp9WQxyXayxSF6TLOuHPVmiBfDw"
+        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"myCarlos on my laptop\",\"ed25519_public_key\":\"gqVlG9cDvlrdo_jzziT2jl4FZEGDS1V_WwNk9kDm_DU\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"FaOvW6L8lpi23KcGw2oom5gK0zWyiWpIZGms-J7CaS8\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiJiNjA5NjI2Ny03NzIzLTViNjAtOTE1YS0xY2FkMjMyZTM1ZjMiLCJraWQiOiJ1RWZWemhua1lTS0s3cURSbkczZlpGU3R2aWZ1LWtGdXl4cmpQMDh3aXNZIiwicmVxdWVzdF9oYXNoIjoiYWUzNGJmYTZiZjAzODczZjk0NDgxNTVlNjVhOGI0MjIyNWU1ZGI1MGUwNjkyY2E5YjkzNDQxZmE5OTY0M2M0MSJ9.utxoiDJjtsLo2Vi7xgvzxjMXxEB9clvHYkQkyoQtZrqZMAQhFwHO8ZwGjF2Qf9Ai3yPSiyFNdwpnX538yrQ5CA"
       },
       {
         "name": "a device key that is already linked",
@@ -1382,8 +1450,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"njUvKIbOgLS2FyrkL2a6iGkUbNIsd1iR0FaELGmiaGI\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"41IHjK4kO6HTxTGlXde7IBQGjSo7XVz-vKbb8wXN9HY\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiIzMWViMTM3MS0zOTU4LTUwMWMtODlhNy0xMzZhZjEwN2Q5ZWYiLCJraWQiOiJFYnoyc0gyalZvcWNkRmhsMUJtSU9CUm0xeHVULXpXNWJ2RkJjQ2VFUlBZIiwicmVxdWVzdF9oYXNoIjoiZDI3YmE3MzU5ZWE4OGY1MWZmYzUwMTcyMzM5Mzc0NThiMTJmZGE0N2I0MDc1OGNlZDVjMWQ2NGY5YTBlNmJkMiJ9.yXFKUPOs66Y0mwz7jMBjXkTNxYx6MXj8P-dqAGaZLn6JXVTPBXPm4ThLwiQD5dzHPsLAl63Ws2M3Mbw9dknDCg"
+        "body": "{\"code\":\"FAKE7Q2M4K\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"njUvKIbOgLS2FyrkL2a6iGkUbNIsd1iR0FaELGmiaGI\",\"link_id\":\"FAKE0001\",\"x25519_public_key\":\"41IHjK4kO6HTxTGlXde7IBQGjSo7XVz-vKbb8wXN9HY\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiIzMWViMTM3MS0zOTU4LTUwMWMtODlhNy0xMzZhZjEwN2Q5ZWYiLCJraWQiOiJFYnoyc0gyalZvcWNkRmhsMUJtSU9CUm0xeHVULXpXNWJ2RkJjQ2VFUlBZIiwicmVxdWVzdF9oYXNoIjoiN2YxMjMzYzU4NGQ0ZTM3ZjcwYjhhNjk3MzczMDg3NTVjZTk1ODM4ZWVlZjM4MmQwNDc4Y2NiOWViNzI5Y2VmNSJ9.oz69zxSM7tqtWxOvY-8tCECmi5qpfakJ-a-xyR3B-pm7F0_FVJlvyg4X7-1chO2vFRqDk-okxrVcCP784naVBA"
       },
       {
         "name": "a link's keys offered for another account",
@@ -1391,8 +1459,8 @@
         "method": "POST",
         "path": "/api/mycarlos/link",
         "query": "",
-        "body": "{\"code\":\"FAKE9D3RHW\",\"device_name\":\"FAKE Linux laptop\",\"ed25519_public_key\":\"njUvKIbOgLS2FyrkL2a6iGkUbNIsd1iR0FaELGmiaGI\",\"link_id\":\"FAKE0002\",\"x25519_public_key\":\"41IHjK4kO6HTxTGlXde7IBQGjSo7XVz-vKbb8wXN9HY\"}",
-        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI4MmU2MDE5NC04NzhmLTU4NGItOGJmMy1hZjA0N2ZlODAyMDEiLCJraWQiOiJFYnoyc0gyalZvcWNkRmhsMUJtSU9CUm0xeHVULXpXNWJ2RkJjQ2VFUlBZIiwicmVxdWVzdF9oYXNoIjoiZThjMGY4MWJkMDZiZTkwYzdlODhjY2RiNDYyNTA0ZjYwOTdhNTY0MTMzZDZkMDJhMmMzMDMzMzUwYWExNGZlMyJ9.MF919R2QjS1Dx70W7EDXC4pfCWWxwZhk-cGpumfCUnSzJXQGCugwZ5EP1P2C8SlyrSm8Fn5i8M83HvLySRQCDA",
+        "body": "{\"code\":\"FAKE9D3RHW\",\"device_name\":\"myCarlos on Linux\",\"ed25519_public_key\":\"njUvKIbOgLS2FyrkL2a6iGkUbNIsd1iR0FaELGmiaGI\",\"link_id\":\"FAKE0002\",\"x25519_public_key\":\"41IHjK4kO6HTxTGlXde7IBQGjSo7XVz-vKbb8wXN9HY\"}",
+        "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtZGV2aWNlLWxpbmsiLCJleHAiOjE3OTI0NTQ0NjAsImlhdCI6MTc5MjQ1NDQwMCwiaXNzIjoibXljYXJsb3MiLCJqdGkiOiI4MmU2MDE5NC04NzhmLTU4NGItOGJmMy1hZjA0N2ZlODAyMDEiLCJraWQiOiJFYnoyc0gyalZvcWNkRmhsMUJtSU9CUm0xeHVULXpXNWJ2RkJjQ2VFUlBZIiwicmVxdWVzdF9oYXNoIjoiYWRmM2MxYmZhMGNjYmI4MzAwN2M1OTFjZDExZWIwY2RhMWJhN2RkMjk2NTUwYjJiY2I1Y2JkOWM5ZWNmODU0MyJ9.fPPtq5XTK25B-CBT4cpq3AEV5-RdAt30CBmdUeuN0vM0twVt1KgJuMlK8IL2EoSk9Ed5Tuon2XYxxXH2E3HCCw",
         "note": "keys are per link; a second link always brings a fresh pair"
       }
     ]
