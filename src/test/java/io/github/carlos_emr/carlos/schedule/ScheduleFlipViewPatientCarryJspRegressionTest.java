@@ -90,6 +90,23 @@ class ScheduleFlipViewPatientCarryJspRegressionTest {
     }
 
     @Test
+    void shouldBookFromASlotButton_withOneCompleteCall() throws IOException {
+        String page = flipView();
+        List<String> slotHandlers = new ArrayList<>();
+        for (String line : page.split("\n")) {
+            if (line.contains("onclick=\"t(")) {
+                slotHandlers.add(line.trim());
+            }
+        }
+
+        // A button, not an href="#" link, and the booking call closes once: an extra ')' is a
+        // syntax error that makes every slot do nothing.
+        assertThat(page).contains("<!DOCTYPE html>").contains("<button type=\"button\"");
+        assertThat(slotHandlers).hasSize(1);
+        assertThat(slotHandlers.get(0)).endsWith("'<%=allowWeek%>');\">");
+    }
+
+    @Test
     void shouldCarryThePatient_onEveryMonthLink() throws IOException {
         // Each link sits on one line; its href holds JSP tags with their own double quotes.
         List<String> monthLinks = new ArrayList<>();
@@ -100,8 +117,7 @@ class ScheduleFlipViewPatientCarryJspRegressionTest {
         }
 
         // Last and next month, at the top and at the bottom of the page.
-        assertThat(monthLinks).hasSize(4);
-        assertThat(monthLinks).allSatisfy(link -> assertThat(link)
+        assertThat(monthLinks).hasSize(4).allSatisfy(link -> assertThat(link)
                 .contains("<% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context=\"uriComponent\"/>")
                 .contains("&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context=\"uriComponent\"/><% } %>"));
     }
