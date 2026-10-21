@@ -12,7 +12,8 @@
 // posted straight to ValidateSwipeCard is refused (400) without changing the record; missing,
 // oversized and nameless tracks are also refused, and a fresh valid swipe still works. The other search
 // modes are patient-search-modes'. Fixtures: the owned synthetic patient, given a synthetic
-// Luhn-valid HIN that no other row carries; the patient row is deleted by runWorkflow.
+// Luhn-valid HIN that no other row carries. This check removes its update's extension
+// archive and custom rows before runWorkflow removes the owned patient.
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -46,8 +47,57 @@ async function shownPatients(page) {
     .map(text => text.trim()).filter(text => /^\d+$/.test(text)).sort();
 }
 
+function registerSwipeSupportCleanup(s) {
+  const { sql, patient, marker } = s;
+  const positiveId = value => typeof value === 'string' && /^[1-9]\d*$/.test(value)
+    && BigInt(value) <= 2147483647n;
+  h.assert(positiveId(patient) && /^FAKE-PW[0-9a-f]{16}$/.test(marker),
+    'Invalid swipe fixture ownership identity');
+  const owner = `demographic_no=${patient} AND last_name=${h.sqlString(marker)}`;
+  const verifyOwner = () => h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner}`) === '1',
+    'Swipe fixture ownership changed; retain its support rows');
+  const supportRows = () => {
+    const archives = sql.rows(`SELECT id,demographic_no FROM demographicExtArchive
+      WHERE demographic_no=${patient} ORDER BY id`);
+    const custom = sql.rows(`SELECT demographic_no FROM demographiccust WHERE demographic_no=${patient}`);
+    h.assert(archives.every(row => row.length === 2 && positiveId(row[0]) && row[1] === patient)
+      && new Set(archives.map(row => row[0])).size === archives.length,
+    'Invalid owned swipe extension archive identities');
+    h.assert(custom.length <= 1 && custom.every(row => row.length === 1 && positiveId(row[0]) && row[0] === patient),
+      'Invalid owned swipe custom-row identity');
+    return { archives: archives.map(row => row[0]), custom: custom.map(row => row[0]) };
+  };
+  let initialized = false;
+  // Register before reading the baseline or allowing a write. An unreadable or
+  // nonempty baseline retains the parent for investigation, never a broad wipe.
+  s.cleanup(() => {
+    const browser = s.context.browser();
+    h.assert(browser && !browser.isConnected(), 'Swipe browser close is unconfirmed; retain its support rows');
+    verifyOwner();
+    h.assert(initialized, 'Swipe support baseline is unconfirmed; retain the fixture');
+    const rows = supportRows();
+    // archiveId is not ownership: legacy rows for another patient may share it.
+    // Both the captured child primary key and this patient key must still match.
+    const parentStillOwned = `EXISTS (SELECT 1 FROM demographic WHERE ${owner})`;
+    if (rows.archives.length) sql.execute(`DELETE FROM demographicExtArchive
+      WHERE id IN (${rows.archives.join(',')}) AND demographic_no=${patient} AND ${parentStillOwned}`);
+    if (rows.custom.length) sql.execute(`DELETE FROM demographiccust
+      WHERE demographic_no=${rows.custom[0]} AND ${parentStillOwned}`);
+    verifyOwner();
+    const remaining = supportRows();
+    h.assert(!remaining.archives.length && !remaining.custom.length,
+      'Owned swipe extension archive/custom rows were not removed');
+  });
+  verifyOwner();
+  const before = supportRows();
+  h.assert(!before.archives.length && !before.custom.length,
+    'Swipe fixture has pre-existing support rows; retain them and refuse the workflow');
+  initialized = true;
+}
+
 async function workflow(s) {
   const { sql, patient, marker } = s;
+  registerSwipeSupportCleanup(s);
   const hin = luhnHin();
   h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE hin=${h.sqlString(hin)}`) === '0',
     'The synthetic HIN collides with an existing record; rerun');
@@ -187,4 +237,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('patient-swipe-card-search', workflow, { openMaster: false });
-module.exports = { workflow };
+module.exports = { workflow, registerSwipeSupportCleanup };
