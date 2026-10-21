@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -857,12 +856,16 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
                 invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
                 return null;
             }).when(mockDemographicDao).save(demographic);
+            List<Integer> demographicNoAtSave = new ArrayList<>();
+            doAnswer(invocation -> {
+                DemographicExt ext = invocation.getArgument(0);
+                demographicNoAtSave.add(ext.getDemographicNo());
+                return ext;
+            }).when(mockDemographicExtDao).saveEntity(any(DemographicExt.class));
 
             manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
 
-            ArgumentCaptor<DemographicExt> saved = ArgumentCaptor.forClass(DemographicExt.class);
-            verify(mockDemographicExtDao).saveEntity(saved.capture());
-            assertThat(saved.getValue().getDemographicNo()).isEqualTo(TEST_DEMO_NO);
+            assertThat(demographicNoAtSave).containsExactly(TEST_DEMO_NO);
         }
 
         @Test
@@ -877,12 +880,16 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
                 invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
                 return null;
             }).when(mockDemographicDao).save(demographic);
+            List<Integer> demographicNoAtSave = new ArrayList<>();
+            doAnswer(invocation -> {
+                DemographicExt ext = invocation.getArgument(0);
+                demographicNoAtSave.add(ext.getDemographicNo());
+                return ext;
+            }).when(mockDemographicExtDao).saveEntity(any(DemographicExt.class));
 
             manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
 
-            ArgumentCaptor<DemographicExt> saved = ArgumentCaptor.forClass(DemographicExt.class);
-            verify(mockDemographicExtDao).saveEntity(saved.capture());
-            assertThat(saved.getValue().getDemographicNo()).isEqualTo(TEST_DEMO_NO);
+            assertThat(demographicNoAtSave).containsExactly(TEST_DEMO_NO);
         }
 
         @Test
