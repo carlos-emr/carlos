@@ -114,6 +114,7 @@ public class RxUtil {
      * ("500.0mg"). A match starts only where a number starts and never backtracks, so a long run of
      * digits in a stored dosage costs linear time.
      */
+    @SuppressWarnings("java:S8786") // linear: the lookbehind and possessive quantifiers never backtrack (60,000 digits parse in under 1 s)
     private static final Pattern PRODUCT_STRENGTH = Pattern.compile(
             "(?<!\\d)(\\d++(?:\\.\\d++)?+)\\s*+([a-zµμ]++)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     /** Runs of ASCII letters, digits and underscores: the words of an instruction, as {@code \\b} sees them. */
