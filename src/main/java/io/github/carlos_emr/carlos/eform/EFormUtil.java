@@ -167,6 +167,28 @@ public class EFormUtil {
     }
 
     public static ArrayList<HashMap<String, ? extends Object>> listEForms(String sortBy, String deleted) {
+        return buildListing(sortBy, deleted, false);
+    }
+
+    /**
+     * Lists eForm templates for the eForm Library, adding the editor each one opens in.
+     *
+     * <p>Same rows and keys as {@link #listEForms(String, String)}, plus {@code "editorKind"}: the
+     * {@link EFormEditorResolver.EditorKind} the library's Edit action routes to. It is a separate
+     * method so the many other callers of the plain listing do not pay for scanning every template's
+     * markup.</p>
+     *
+     * @param sortBy one of {@link #NAME}, {@link #SUBJECT}, {@link #FILE_NAME} or {@link #DATE}
+     * @param deleted {@link #CURRENT}, {@link #DELETED} or "all"
+     * @return the listing rows, each with an {@code "editorKind"} value
+     * @since 2026-10-22
+     */
+    public static ArrayList<HashMap<String, ? extends Object>> listEFormsWithEditor(String sortBy, String deleted) {
+        return buildListing(sortBy, deleted, true);
+    }
+
+    private static ArrayList<HashMap<String, ? extends Object>> buildListing(
+            String sortBy, String deleted, boolean includeEditorKind) {
 
         // sends back a list of forms that were uploaded (those that can be added to the patient)
 
@@ -199,6 +221,9 @@ public class EFormUtil {
             curht.put("formDateAsDate", eform.getFormDate());
             curht.put("formTime", ConversionUtils.toTimeString(eform.getFormTime()));
             curht.put("roleType", eform.getRoleType());
+            if (includeEditorKind) {
+                curht.put("editorKind", EFormEditorResolver.resolve(eform.getFormHtml()));
+            }
             results.add(curht);
         }
         return (results);

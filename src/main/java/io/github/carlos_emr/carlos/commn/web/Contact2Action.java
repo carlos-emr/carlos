@@ -61,13 +61,10 @@ import io.github.carlos_emr.carlos.commn.model.ContactSpecialty;
 import io.github.carlos_emr.carlos.commn.model.CtlRelationships;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicContact;
-import io.github.carlos_emr.carlos.commn.model.DemographicPharmacy;
-import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalContact;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.managers.PharmacyManager;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -105,8 +102,26 @@ public class Contact2Action extends ActionSupport {
     static ContactSpecialtyDao contactSpecialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private static CtlRelationshipsDao ctlRelationshipsDao = SpringUtils.getBean(CtlRelationshipsDao.class);
-    private static PharmacyManager pharmacyManager = SpringUtils.getBean(PharmacyManager.class);
 
+    /**
+     * Dispatches on the {@code method} request parameter. Any other value, or
+     * none, renders the read-only {@link #manage()} view; the consultation
+     * form's {@code method=manageContactList} link relies on that fallback.
+     * <p>
+     * Only targets with a caller in the web UI are routed. The flag and
+     * pharmacy targets ({@code setEmergencyContact}, {@code setDNC},
+     * {@code setMRP}, {@code addPharmacy}, {@code removePharmacy},
+     * {@code addPharmacyInfo}, {@code editPharmacyInfo} and
+     * {@code savePharmacyInfo}) were removed: nothing called them, the pharmacy
+     * form views they returned were never mapped, and the writers changed
+     * patient rows with no privilege check (issues #3509 and #4402). A request
+     * naming one now falls through to {@link #manage()} and writes nothing.
+     * Reintroduce such a capability deliberately, with a UI caller, a
+     * patient-scoped privilege check and unambiguous consent semantics, rather
+     * than restoring the old methods.
+     *
+     * @return the Struts result of the selected target
+     */
     @Override
     public String execute() {
         String method = request.getParameter("method");
@@ -130,25 +145,9 @@ public class Contact2Action extends ActionSupport {
             return saveContact();
         } else if ("saveProContact".equals(method)) {
             return saveProContact();
-        } else if ("setEmergencyContact".equals(method)) {
-            return setEmergencyContact();
-        } else if ("setDNC".equals(method)) {
-            return setDNC();
-        } else if ("setMRP".equals(method)) {
-            return setMRP();
         } else if ("searchAllContacts".equals(method)) {
             return searchAllContacts();
-        } else if ("addPharmacy".equals(method)) {
-            return addPharmacy();
-        } else if ("removePharmacy".equals(method)) {
-            return removePharmacy();
-        } else if ("addPharmacyInfo".equals(method)) {
-            return addPharmacyInfo();
-        } else if ("editPharmacyInfo".equals(method)) {
-            return editPharmacyInfo();
-        } else if ("savePharmacyInfo".equals(method)) {
-            return savePharmacyInfo();
-        } 
+        }
 
         // Return the manage method by default
         return manage();
@@ -361,7 +360,6 @@ public class Contact2Action extends ActionSupport {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    @SuppressWarnings("unused")
     public String removeContact() {
         if (!requireContactPost()) {
             return NONE;
@@ -491,7 +489,6 @@ public class Contact2Action extends ActionSupport {
         return false;
     }
 
-    @SuppressWarnings("unused")
     public String addContact() {
         CtlRelationshipsDao relationshipDao = SpringUtils.getBean(CtlRelationshipsDao.class);
         CarlosProperties prop = CarlosProperties.getInstance();
@@ -502,7 +499,6 @@ public class Contact2Action extends ActionSupport {
         return "cForm";
     }
 
-    @SuppressWarnings("unused")
     public String addProContact() {
         ContactSpecialtyDao specialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
         List<ContactSpecialty> specialties = specialtyDao.findAll();
@@ -517,7 +513,6 @@ public class Contact2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    @SuppressWarnings("unused")
     public String editHealthCareTeam() {
 
         String demographicContactId = request.getParameter(CONTACT_ID_PARAMETER);
@@ -579,7 +574,6 @@ public class Contact2Action extends ActionSupport {
         return "pForm";
     }
 
-    @SuppressWarnings("unused")
     public String editContact() {
         String id = request.getParameter("contact.id");
         String demographicContactId = request.getParameter("demographicContactId");
@@ -619,7 +613,6 @@ public class Contact2Action extends ActionSupport {
         return "view";
     }
 
-    @SuppressWarnings("unused")
     public String editProContact() {
         String id = request.getParameter("pcontact.id");
         ProfessionalContact contact = null;
@@ -643,9 +636,8 @@ public class Contact2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    @SuppressWarnings("unused")
     public String saveContact() {
-        // Directory, flag and pharmacy writes are POST-only like saveManage and
+        // Directory writes are POST-only like saveManage and
         // removeContact: a GET or HEAD replay must not write (issue #3682).
         if (!requireContactPost()) {
             return NONE;
@@ -709,9 +701,8 @@ public class Contact2Action extends ActionSupport {
      * This method should be normalized into a Manager class in the future. It's like this because this method has/had
      * pre-existing dependents.
      */
-    @SuppressWarnings("unused")
     public String saveProContact() {
-        // Directory, flag and pharmacy writes are POST-only like saveManage and
+        // Directory writes are POST-only like saveManage and
         // removeContact: a GET or HEAD replay must not write (issue #3682).
         if (!requireContactPost()) {
             return NONE;
@@ -865,106 +856,9 @@ public class Contact2Action extends ActionSupport {
 
 
     /**
-     * Assigns the given contact with emergency contact status.
-     */
-    @SuppressWarnings("unused")
-    public String setEmergencyContact() {
-        // Directory, flag and pharmacy writes are POST-only like saveManage and
-        // removeContact: a GET or HEAD replay must not write (issue #3682).
-        if (!requireContactPost()) {
-            return NONE;
-        }
-        String contactId = request.getParameter(CONTACT_ID_PARAMETER);
-        boolean toggle = Boolean.parseBoolean(request.getParameter("setting"));
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        DemographicContact demographicContact = demographicManager.getPersonalEmergencyContactById(
-                loggedInInfo, Integer.parseInt(contactId));
-
-        if (toggle) {
-            demographicContact.setEc("true");
-        } else {
-            demographicContact.setEc("");
-        }
-
-        demographicContactDao.merge(demographicContact);
-        request.setAttribute("demographic_no", demographicContact.getDemographicNo());
-        return null;
-    }
-
-    /**
-     * Set whether or not this external providers is allowed to be contacted
-     * by the clinic.
-     */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    @SuppressWarnings("unused")
-    public String setDNC() {
-        // Directory, flag and pharmacy writes are POST-only like saveManage and
-        // removeContact: a GET or HEAD replay must not write (issue #3682).
-        if (!requireContactPost()) {
-            return NONE;
-        }
-        String contactId = request.getParameter(CONTACT_ID_PARAMETER);
-        String contactGroup = request.getParameter("contactGroup");
-
-        int contactIdInt = Integer.parseInt(contactId);
-
-        boolean dnc = Boolean.parseBoolean(request.getParameter("dnc"));
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if ("pharmacy".equalsIgnoreCase(contactGroup)) {
-            pharmacyManager.setDoNotContact(loggedInInfo, contactIdInt, dnc);
-        } else {
-            DemographicContact demographicContact = demographicManager.getHealthCareMemberbyId(loggedInInfo, contactIdInt);
-            demographicContact.setConsentToContact(dnc);
-            demographicContactDao.merge(demographicContact);
-        }
-
-        return null;
-    }
-
-    /**
-     * Assigns the given providers with a Most Responsible Provider status.
-     */
-    @SuppressWarnings("unused")
-    public String setMRP() {
-        // Directory, flag and pharmacy writes are POST-only like saveManage and
-        // removeContact: a GET or HEAD replay must not write (issue #3682).
-        if (!requireContactPost()) {
-            return NONE;
-        }
-        String contactId = request.getParameter(CONTACT_ID_PARAMETER);
-        int contactIdInt = Integer.parseInt(contactId);
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        DemographicContact demographicContactMRP = demographicManager.getHealthCareMemberbyId(loggedInInfo, contactIdInt);
-        List<DemographicContact> demographicContacts = null;
-        if (demographicContactMRP != null) {
-            demographicContacts = demographicManager.getHealthCareTeam(loggedInInfo, demographicContactMRP.getDemographicNo());
-        }
-
-        // set all contacts in this demographic group to false to ensure no duplicates are made.
-        if (demographicContacts != null) {
-            for (DemographicContact demographicContact : demographicContacts) {
-                if (demographicContact.isMrp()) {
-                    demographicContact.setMrp(Boolean.FALSE);
-                    demographicContactDao.merge(demographicContact);
-                }
-            }
-        }
-
-        demographicContactMRP.setMrp(Boolean.TRUE);
-        demographicContactDao.merge(demographicContactMRP);
-        request.setAttribute("demographic_no", demographicContactMRP.getDemographicNo());
-        return null; //mapping.findForward("ajax");
-    }
-
-    /**
      * Searches all contacts in all contact tables (ProfessionalSpecialist, ProfessionalContact)
      * based on the "searchMode" request parameter.
      */
-    @SuppressWarnings("unused")
     public String searchAllContacts() {
 
         String searchMode = request.getParameter("searchMode");
@@ -982,124 +876,6 @@ public class Contact2Action extends ActionSupport {
         }
 
         return null;
-    }
-
-    /**
-     * Adds a Pharmacy contact to a demographic's list of preferred Pharmacy contacts.
-     */
-    @SuppressWarnings("unused")
-    public String addPharmacy() {
-        // Directory, flag and pharmacy writes are POST-only like saveManage and
-        // removeContact: a GET or HEAD replay must not write (issue #3682).
-        if (!requireContactPost()) {
-            return NONE;
-        }
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        String pharmacyId = request.getParameter(CONTACT_ID_PARAMETER);
-        String demographic_no = request.getParameter("demographic_no");
-        String preferredOrder = request.getParameter("preferredOrder");
-
-        pharmacyManager.addPharmacy(loggedInInfo, Integer.parseInt(demographic_no), Integer.parseInt(pharmacyId),
-                Integer.parseInt(preferredOrder));
-
-        return "ajax";
-    }
-
-    /**
-     * Removes a Pharmacy from a Demographic's preferred Pharmacy contact list.
-     */
-    @SuppressWarnings("unused")
-    public String removePharmacy() {
-        // Directory, flag and pharmacy writes are POST-only like saveManage and
-        // removeContact: a GET or HEAD replay must not write (issue #3682).
-        if (!requireContactPost()) {
-            return NONE;
-        }
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String demographicPharmacyId = request.getParameter(CONTACT_ID_PARAMETER);
-        String demographic_no = request.getParameter("demographic_no");
-
-        pharmacyManager.removePharmacy(loggedInInfo, Integer.parseInt(demographic_no), Integer.parseInt(demographicPharmacyId));
-
-        return "ajax";
-    }
-
-    /**
-     * Calls a blank addEditPharmacy.jsp page for adding a new Pharmacy to the
-     * Pharmacy contact list.
-     */
-    @SuppressWarnings("unused")
-    public String addPharmacyInfo() {
-        String demographic_no = request.getParameter("demographic_no");
-        request.setAttribute("demographic_no", demographic_no);
-        request.setAttribute("method", "savePharmacyInfo");
-        return "addEditPharmacy";
-    }
-
-    /**
-     * Calls the addEditPharmacy.jsp page and populates it with the selected Pharmacy.
-     */
-    @SuppressWarnings("unused")
-    public String editPharmacyInfo() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String pharmacyId = request.getParameter(CONTACT_ID_PARAMETER);
-        String demographic_no = request.getParameter("demographic_no");
-        PharmacyInfo pharmacyInfo = null;
-
-        DemographicPharmacy demographicPharmacy = pharmacyManager.getDemographicPharmacy(loggedInInfo, Integer.parseInt(pharmacyId));
-        if (demographicPharmacy != null) {
-            pharmacyInfo = demographicPharmacy.getDetails();
-        }
-        request.setAttribute("method", "savePharmacyInfo");
-        request.setAttribute("pharmacyInfo", pharmacyInfo);
-        request.setAttribute("demographic_no", demographic_no);
-
-        return "addEditPharmacy";
-    }
-
-    /**
-     * Saves a new Pharmacy entry from an incoming PharmacyInfo DynaForm
-     */
-    @SuppressWarnings("unused")
-    public String savePharmacyInfo() {
-        // Directory, flag and pharmacy writes are POST-only like saveManage and
-        // removeContact: a GET or HEAD replay must not write (issue #3682).
-        if (!requireContactPost()) {
-            return NONE;
-        }
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-//        DynaValidatorForm dform = (DynaValidatorForm) form;
-//        PharmacyInfo pharmacyInfo = (PharmacyInfo) dform.get("pharmacyInfo");
-
-        logger.debug("PharmacyInfo bean: " + pharmacyInfo.toString());
-
-        String demographic_no = request.getParameter("demographic_no");
-        Integer currentPharmacyId = pharmacyInfo.getId();
-        pharmacyInfo.setStatus(PharmacyInfo.ACTIVE);
-
-        logger.debug("Incoming Pharmacy ID " + currentPharmacyId);
-
-        if (demographic_no == null) {
-            demographic_no = "";
-        }
-
-        if (currentPharmacyId == null) {
-            currentPharmacyId = 0;
-        }
-
-        Integer newPharmacyId = pharmacyManager.savePharmacyInfo(loggedInInfo, pharmacyInfo);
-
-        // Link to demographic if this is a new contact generated from a demographic.
-        logger.info("Linking new Pharmacy {} to demographic {}", newPharmacyId, LogSafe.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-        if (newPharmacyId > 0 && !demographic_no.isEmpty() && currentPharmacyId == 0) {
-            pharmacyManager.addPharmacy(loggedInInfo, Integer.parseInt(demographic_no), newPharmacyId, 0);
-        }
-
-        request.setAttribute("demographic_no", demographic_no);
-        request.setAttribute("id", newPharmacyId);
-
-        return "addEditPharmacy";
     }
 
     /**
@@ -1452,17 +1228,5 @@ public class Contact2Action extends ActionSupport {
     @StrutsParameter
     public void setPcontact(ProfessionalContact pcontact) {
         this.pcontact = pcontact;
-    }
-
-    private PharmacyInfo pharmacyInfo;
-
-    @StrutsParameter(depth = 1)
-    public PharmacyInfo getPharmacyInfo() {
-        return pharmacyInfo;
-    }
-
-    @StrutsParameter
-    public void setPharmacyInfo(PharmacyInfo pharmacyInfo) {
-        this.pharmacyInfo = pharmacyInfo;
     }
 }
