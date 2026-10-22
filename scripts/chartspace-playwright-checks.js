@@ -104,20 +104,32 @@ async function checkWidth(page, baseUrl, demographicNo, viewport) {
   await assertAnnouncer(page, label);
 
   // The patient is identified in <title> and <h1>; read from the DOM, no hardcoded name.
-  const identity = await page.evaluate(() => ({
-    title: document.title.trim(),
-    heading: (document.querySelector('h1.cs-title') || { textContent: '' }).textContent.trim(),
-  }));
+  const identity = await page.evaluate(() => {
+    const h1 = document.querySelector('h1.cs-title');
+    const ageNode = h1 && h1.querySelector('.cs-patient-age');
+    // The separator dot before the age is aria-hidden; the age text is what remains of the span.
+    const age = ageNode
+      ? Array.from(ageNode.childNodes)
+        .filter((node) => !(node.nodeType === 1 && node.getAttribute('aria-hidden') === 'true'))
+        .map((node) => node.textContent).join('').trim()
+      : '';
+    // The patient name is the heading's own text, before the age span.
+    const name = h1
+      ? Array.from(h1.childNodes).filter((node) => node.nodeType === 3).map((node) => node.textContent).join('').trim()
+      : '';
+    return { title: document.title.trim(), heading: h1 ? h1.textContent.trim() : '', name, age };
+  });
   assert(identity.title.length > 0 && identity.title !== 'ChartSpace',
     `${label}: <title> is empty or the plain ChartSpace title`);
   assert(identity.heading.length > 0 && identity.heading !== 'ChartSpace',
     `${label}: <h1> is empty or the plain ChartSpace title`);
-  // <title> has one middle dot (name, title), or two when the heading carries an age (name, age, title).
-  const hasAge = (await page.locator('h1.cs-title .cs-patient-age').textContent() || '').replace('\u00b7', '').trim().length > 0;
-  const titleSeparators = identity.title.split('\u00b7').length - 1;
-  const expectedSeparators = hasAge ? 2 : 1;
-  assert(titleSeparators === expectedSeparators,
-    `${label}: <title> has ${titleSeparators} separators, expected ${expectedSeparators}`);
+  assert(identity.name.length > 0, `${label}: <h1> carries no patient name`);
+  // <title> is "name · title" or, when the heading carries an age, "name · age · title". Derive the
+  // expected prefix from the heading rather than counting separators: a patient name may itself
+  // contain a middle dot (CHARTSPACE_DEMOGRAPHIC_NO can select any existing patient).
+  const expectedPrefix = identity.age ? `${identity.name} \u00b7 ${identity.age} \u00b7 ` : `${identity.name} \u00b7 `;
+  assert(identity.title.startsWith(expectedPrefix) && identity.title.length > expectedPrefix.length,
+    `${label}: <title> "${identity.title}" does not start with "${expectedPrefix}" followed by the page title`);
 
   const overflow = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
