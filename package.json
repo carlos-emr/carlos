@@ -311,6 +311,7 @@
     "test:form-bc-antenatal-record-playwright": "node scripts/form-bc-antenatal-record-playwright-checks.js",
     "test:form-bc-newborn-playwright": "node scripts/form-bc-newborn-playwright-checks.js",
     "test:form-bc-add-form-defaults-playwright": "node scripts/form-bc-add-form-defaults-playwright-checks.js",
+    "test:form-bc-epds-wording-playwright": "node scripts/form-bc-epds-wording-playwright-checks.js",
     "test:form-bc-saved-value-encoding-playwright": "node scripts/form-bc-saved-value-encoding-playwright-checks.js",
     "test:billing-bc-associations-playwright": "node scripts/billing-bc-associations-playwright-checks.js",
     "test:billing-bc-settle-paid-claims-playwright": "node scripts/billing-bc-settle-paid-claims-playwright-checks.js",

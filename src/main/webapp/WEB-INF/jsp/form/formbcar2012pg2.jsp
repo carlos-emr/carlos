@@ -3407,251 +3407,249 @@
                 <td>
                     <table width="100%" cellspacing="0" cellpadding="0">
                         <tr>
-                            <th align="left">Edinburgh Perinatal/Postnatal Depression Scale (EPDS)<br/><br/></th>
+                            <th align="left"><fmt:message key='form.bcar.epdsTitle'/><br/><br/></th>
                         </tr>
                         <tr>
-                            <th align="center">SCORING GUIDE</th>
+                            <th align="center"><fmt:message key='form.bcar.scoringGuide'/></th>
                         </tr>
                         <tr>
-                            <th align="left">In the past 7 days:</th>
+                            <th align="left"><fmt:message key='form.bcar.inThePast7Days'/></th>
                         </tr>
                         <tr>
                             <td>
-                                1. I have been able to laugh and see the funny side of things<br/>
+                        <fmt:message key='form.bcar.epds.q1'/><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS1" value="0"
                                                                 onclick="calcEPDSscore()"/>
-                        As much as I always could
+                        <fmt:message key='form.bcar.epds.asMuchAsIAlwaysCould'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS1" value="1"
                                                                 onclick="calcEPDSscore()"/>
-                        Not quite as much now
+                        <fmt:message key='form.bcar.epds.notQuiteAsMuchNow'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS1" value="2"
                                                                 onclick="calcEPDSscore()"/>
-                        Definitely not so much now
+                        <fmt:message key='form.bcar.epds.definitelyNotSoMuchNow'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS1" value="3"
                                                                 onclick="calcEPDSscore()"/>
-                        Not at all
+                        <fmt:message key='form.bcar.epds.notAtAll'/>
                         </span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                2. I have looked forward with enjoyment to things<br/>
+                        <fmt:message key='form.bcar.epds.q2'/><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS2" value="0"
                                                                 onclick="calcEPDSscore()"/>
-                        As much as I ever did
+                        <fmt:message key='form.bcar.epds.asMuchAsIEverDid'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS2" value="1"
                                                                 onclick="calcEPDSscore()"/>
-                        Rather less than I used to
+                        <fmt:message key='form.bcar.epds.ratherLessThanIUsedTo'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS2" value="2"
                                                                 onclick="calcEPDSscore()"/>
-                        Definitely less than I used to
+                        <fmt:message key='form.bcar.epds.definitelyLessThanIUsedTo'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS2" value="3"
                                                                 onclick="calcEPDSscore()"/>
-                        Hardly at all
+                        <fmt:message key='form.bcar.epds.hardlyAtAll'/>
                         </span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                3. I have blamed myself unnecessarily when things went wrong<br/>
+                        <fmt:message key='form.bcar.epds.q3'/><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS3" value="3"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, most of the time
+                        <fmt:message key='form.bcar.epds.yesMostOfTheTime'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS3" value="2"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, some of the time
+                        <fmt:message key='form.bcar.epds.yesSomeOfTheTime'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS3" value="1"
                                                                 onclick="calcEPDSscore()"/>
-                        Not very often
+                        <fmt:message key='form.bcar.epds.notVeryOften'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS3" value="0"
                                                                 onclick="calcEPDSscore()"/>
-                        No, never
+                        <fmt:message key='form.bcar.epds.noNever'/>
                         </span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                4. I have been anxious or worried for no good reason<br/>
+                        <fmt:message key='form.bcar.epds.q4'/><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS4" value="0"
                                                                 onclick="calcEPDSscore()"/>
-                        No, not at all
+                        <fmt:message key='form.bcar.epds.noNotAtAll'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS4" value="1"
                                                                 onclick="calcEPDSscore()"/>
-                        Hardly ever
+                        <fmt:message key='form.bcar.epds.hardlyEver'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS4" value="2"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, sometimes
+                        <fmt:message key='form.bcar.epds.yesSometimes'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS4" value="3"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, very often
+                        <fmt:message key='form.bcar.epds.yesVeryOften'/>
                         </span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                5. I have felt scared or panicky for no very good reason<br/>
+                        <fmt:message key='form.bcar.epds.q5'/><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS5" value="3"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, quite a lot
+                        <fmt:message key='form.bcar.epds.yesQuiteALot'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS5" value="2"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, sometimes
+                        <fmt:message key='form.bcar.epds.yesSometimes'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS5" value="1"
                                                                 onclick="calcEPDSscore()"/>
-                        No, not much
+                        <fmt:message key='form.bcar.epds.noNotMuch'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS5" value="0"
                                                                 onclick="calcEPDSscore()"/>
-                        No, not at all
+                        <fmt:message key='form.bcar.epds.noNotAtAll'/>
                         </span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                6. Things have been getting on top of me<br/>
+                        <fmt:message key='form.bcar.epds.q6'/><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS6" value="3"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, most of the time I haven't been able to cope
+                        <fmt:message key='form.bcar.epds.yesMostOfTheTimeICouldNotCoped'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS6" value="2"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, sometimes I haven't been coping as card card-body bg-body-tertiary as usual
+                        <fmt:message key='form.bcar.epds.yesSometimesICopedLessThanUsual'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS6" value="1"
                                                                 onclick="calcEPDSscore()"/>
-                        No, most of the time I have coped quite well
+                        <fmt:message key='form.bcar.epds.noMostOfTheTimeICopedQuiteWell'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS6" value="0"
                                                                 onclick="calcEPDSscore()"/>
-                        No, I have been coping as card card-body bg-body-tertiary as ever
+                        <fmt:message key='form.bcar.epds.noIHaveBeenCopingAsWellAsEver'/>
                         </span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                7. I have been so unhappy that I have had difficulty sleeping<br/>
+                        <fmt:message key='form.bcar.epds.q7'/><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS7" value="3"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, most of the time
+                        <fmt:message key='form.bcar.epds.yesMostOfTheTime'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS7" value="2"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, sometimes
+                        <fmt:message key='form.bcar.epds.yesSometimes'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS7" value="1"
                                                                 onclick="calcEPDSscore()"/>
-                        Not very often
+                        <fmt:message key='form.bcar.epds.notVeryOften'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS7" value="0"
                                                                 onclick="calcEPDSscore()"/>
-                        No, not at all
+                        <fmt:message key='form.bcar.epds.noNotAtAll'/>
                         </span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                8. I have felt sad or miserable<br/>
+                        <fmt:message key='form.bcar.epds.q8'/><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS8" value="3"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, most of the time
+                        <fmt:message key='form.bcar.epds.yesMostOfTheTime'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS8" value="2"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, quite often
+                        <fmt:message key='form.bcar.epds.yesQuiteOften'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS8" value="1"
                                                                 onclick="calcEPDSscore()"/>
-                        Not very often
+                        <fmt:message key='form.bcar.epds.notVeryOften'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS8" value="0"
                                                                 onclick="calcEPDSscore()"/>
-                        No, not at all
+                        <fmt:message key='form.bcar.epds.noNotAtAll'/>
                         </span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                9. I have been so unhappy that I have been crying<br/>
+                        <fmt:message key='form.bcar.epds.q9'/><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS9" value="3"
                                                                 onclick="calcEPDSscore();"/>
-                        Yes, most of the time
+                        <fmt:message key='form.bcar.epds.yesMostOfTheTime'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS9" value="2"
                                                                 onclick="calcEPDSscore();"/>
-                        Yes, quite often
+                        <fmt:message key='form.bcar.epds.yesQuiteOften'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS9" value="1"
                                                                 onclick="calcEPDSscore();"/>
-                        Only occasionally
+                        <fmt:message key='form.bcar.epds.onlyOccasionally'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS9" value="0"
                                                                 onclick="calcEPDSscore();"/>
-                        No, not at all
+                        <fmt:message key='form.bcar.epds.noNever'/>
                         </span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                10. The thought of harming myself has occured to me<br/>
+                        <fmt:message key='form.bcar.epds.q10'/><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS10" value="3"
                                                                 onclick="calcEPDSscore();"/>
-                        Yes, quite often
+                        <fmt:message key='form.bcar.epds.yesQuiteOften'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS10" value="2"
                                                                 onclick="calcEPDSscore();"/>
-                        Sometimes
+                        <fmt:message key='form.bcar.epds.sometimes'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS10" value="1"
                                                                 onclick="calcEPDSscore();"/>
-                        Hardly ever
+                        <fmt:message key='form.bcar.epds.hardlyEver'/>
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS10" value="0"
                                                                 onclick="calcEPDSscore();"/>
-                        Never
+                        <fmt:message key='form.bcar.epds.never'/>
                         </span>
                             </td>
                         </tr>
                         <tr>
                             <td class="small9">
-                                <b>A score of 1 - 3 to item 10 indicating a risk of self-harm, requires immediate mental
-                                    health assessment and intervention as appropriate.</b><br/><br/>
+                                <b><fmt:message key='form.bcar.epds.selfHarmWarning'/></b><br/><br/>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                Score: <input type="text" name="ar2_EPDSscore" readonly="true" size="3"
+                                <fmt:message key='form.bcar.score'/>: <input type="text" name="ar2_EPDSscore" readonly="true" size="3"
                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_EPDSscore", ""))%>"/>
                             </td>
                         </tr>
                         <tr>
                             <td class="small9">
-                                <i>Scoring of 11 - 13 range, monitor, support, and offer education.</i>
+                                <i><fmt:message key='form.bcar.epds.score11to13'/></i>
                             </td>
                         </tr>
                         <tr>
                             <td class="small9">
-                                <i>Scoring of 14 or higher, follow up with comprehensive bio-psychosocial diagnostic
-                                    assessment for depression.</i><br/><br/>
+                                <i><fmt:message key='form.bcar.epds.score14plus'/></i><br/><br/>
                             </td>
                         </tr>
                         <tr>
                             <td class="small9">
-                                Source: Cox, JL, Holden, JM, Sagovsky, R (1987).<br/>
-                                Department of Psychiatry, University of Edinburgh.
+                                <fmt:message key='form.bcar.epds.source'/><br/>
+                                <fmt:message key='form.bcar.epds.sourceDept'/>
                             </td>
                         </tr>
                     </table>

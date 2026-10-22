@@ -3367,7 +3367,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS9" value="0"
                                                                 onclick="calcEPDSscore();"/>
-                        <fmt:message key='form.bcar.epds.noNotAtAll'/>
+                        <fmt:message key='form.bcar.epds.noNever'/>
                         </span>
                             </td>
                         </tr>

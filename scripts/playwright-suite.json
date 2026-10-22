@@ -3999,6 +3999,24 @@
       "fixtures": "Owned synthetic patient and one formBCAR row for it, removed with it. Reads the clinic's encounterForm rows and changes none of them, so it can run alongside other checks."
     },
     {
+      "name": "form-bc-epds-wording",
+      "script": "scripts/form-bc-epds-wording-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Issue #5050: BC-AR 2007 and BC-AR 2012 page 2 show the Edinburgh Postnatal Depression Scale word for word as published, item by item and answer by answer in the published order: the original English (Cox, Holden & Sagovsky 1987) to an English browser and the validated French version (Guedeney & Fermanian 1998) to a French one (Accept-Language fr-CA); ticking one answer per item gives the published total. BC-AR 2012 printed its own English copy before (item 6 read 'coping as card card-body bg-body-tertiary as usual', so French never reached it), and item 9's last answer read 'No, not at all' instead of 'No, never'. scripts/bcar-epds-wording.test.js holds the bundles to the same words.",
+      "fixtures": "Owned synthetic patient. One marker-named Forms-menu registration per form (encounterForm, clinic-wide), removed and asserted in cleanup, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Nothing is saved."
+    },
+    {
       "name": "billing-bc-associations",
       "script": "scripts/billing-bc-associations-playwright-checks.js",
       "tiers": [
