@@ -12728,8 +12728,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "The clinic-wide document description list (Administration ▸ Document Description Template) and the same page opened from Preferences by a provider with only the doctor role; provider-preferences covers the administrator test login's own list. On develop the last step fails: the doctor is refused (HTTP 403) on the page their Preferences link to (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
-      "fixtures": "The test login's own entry and a throwaway doctor login; every entry carries the run marker. Entries and the throwaway are removed in cleanup."
+      "notes": "The clinic-wide document description list (Administration ▸ Document Description Template), and a provider with only the doctor role using their own list (#5057): it opens from Preferences, Add/Update/Delete keep entries the doctor's own, Incoming Docs in Fast mode offers the doctor's own shortcuts and then the clinic's, crafted requests for another provider's entries are refused with no row changed, and the doctor role's seeded _admin.document grant opens the clinic-wide list from Administration. provider-preferences covers the administrator test login's own list.",
+      "fixtures": "The test login's own entry, a clinic-wide entry and a throwaway doctor login (its template preference and Incoming Docs entry mode go with it); every entry carries the run marker. Entries and the throwaway are removed in cleanup. Needs the seeded doctor role's _admin.document grant."
     },
     {
       "name": "allergy-list-views",
