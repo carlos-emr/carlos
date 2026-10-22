@@ -33,6 +33,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /**
  * Contract of {@code DemographicDaoImpl.runAfterCommitOrNow}, which keeps the HL7 A04 export of a
  * newly created patient from being written for a transaction that later rolls back.
+ *
+ * @since 2026-10-22
  */
 @Tag("unit")
 @Tag("fast")

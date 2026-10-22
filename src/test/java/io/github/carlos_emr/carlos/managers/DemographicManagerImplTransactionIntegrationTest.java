@@ -72,6 +72,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * test adds an equivalent test-only constraint for its duration and sends two extras with the
  * same key (the reported bug). The test seeds its own program because
  * {@code admission.program_id} has a foreign key.</p>
+ *
+ * @since 2026-10-21
  */
 @DisplayName("DemographicManagerImpl transactional integration tests")
 @Tag("integration")
