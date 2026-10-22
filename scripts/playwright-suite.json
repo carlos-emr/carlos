@@ -2415,6 +2415,20 @@
       "fixtures": "Owns synthetic patients, an unused DOB year, a program and admissions; verifies REST count/results, invalid inputs, domain restrictions, POST search/picker handoffs, merged pagination and unmerge; removes owned fixtures on success or failure."
     },
     {
+      "name": "rest-demographic-create-extensions",
+      "script": "scripts/rest-demographic-create-extensions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Creates marker-named synthetic patients through POST /ws/rs/demographics (plus one victim patient with an extension row inserted by SQL) and removes them, their extensions and admissions on success or failure; verifies extras are linked to the new patient, a client-supplied extension id/demographicNo cannot re-point another patient's row, and a colliding extension key leaves no partial patient."
+    },
+    {
       "name": "rest-birth-date",
       "script": "scripts/rest-birth-date-playwright-checks.js",
       "tiers": [
