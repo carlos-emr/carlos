@@ -1250,8 +1250,10 @@ Ontario, Canada
                                                     // (getFullName() concatenates raw DB values and can produce "null, null")
                                                     String ln = StringUtils.defaultString(demForName.getLastName()).trim();
                                                     String fn = StringUtils.defaultString(demForName.getFirstName()).trim();
+                                                    // "Last,First", as Edit Appointment shows it and Add stores it for a linked
+                                                    // patient (AppointmentAddRecord2Action): the box shows what will be saved.
                                                     if (!ln.isEmpty() || !fn.isEmpty()) {
-                                                        name = ln.isEmpty() ? fn : fn.isEmpty() ? ln : ln + ", " + fn;
+                                                        name = ln.isEmpty() ? fn : fn.isEmpty() ? ln : ln + "," + fn;
                                                     }
                                                 }
                                             } catch (Exception lookupEx) {
