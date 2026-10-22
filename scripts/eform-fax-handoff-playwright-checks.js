@@ -47,9 +47,12 @@ function isPrepare(url) {
   return FAX_PATH.test(parsed.pathname) && parsed.searchParams.get('method') === 'prepareFax';
 }
 
+// A fixed pattern over every name/value pair, compared by name: no RegExp is built from an argument.
 function hiddenValue(html, name) {
-  const match = html.match(new RegExp(`name="${name}" value="([^"]*)"`));
-  return match ? match[1].replace(/&#x2f;|&#47;/gi, '/').replace(/&amp;/g, '&') : '';
+  for (const [, field, value] of html.matchAll(/name="([A-Za-z]+)" value="([^"]*)"/g)) {
+    if (field === name) return value.replace(/&#x2f;|&#47;/gi, '/').replace(/&amp;/g, '&');
+  }
+  return '';
 }
 
 async function workflow(s) {
