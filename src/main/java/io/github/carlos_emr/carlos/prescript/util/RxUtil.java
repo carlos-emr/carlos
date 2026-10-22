@@ -60,6 +60,7 @@ public class RxUtil {
     /** The lower-case form of {@link #METHOD_APPLY}, as the topical-word set and the legacy text scan compare it. */
     private static final String APPLY_WORD = "apply";
     private static final String METHOD_RUB_WELL_IN = "Rub well in";
+    @SuppressWarnings("java:S5843") // a vocabulary of unit spellings: the metric counts every spelling, and the match is linear
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
             "(?:mc?gs?|[µμu]g|g(?:rams?|ms?)?|iu|meq|mmol|milligrams?|micrograms?"
                     + "|milliequivalents?|millimoles?|international\\s++units?)\\b",
@@ -265,7 +266,7 @@ public class RxUtil {
     public static String FloatToString(float value) {
         java.text.NumberFormat fmt = java.text.NumberFormat.getNumberInstance(Locale.ROOT);
         fmt.setGroupingUsed(false);
-        return fmt.format((double) value);
+        return fmt.format(value);
     }
 
     public static float StringToFloat(String value) {
