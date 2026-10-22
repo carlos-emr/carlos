@@ -97,7 +97,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     
     /**
-     * HTTP response object, maintained for consistency but not actively used.
+     * HTTP response object, used to refuse a delete that is not posted.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -150,6 +150,15 @@ public class MsgHandleMessages2Action extends ActionSupport {
         // Verify user has permission to read messages
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
             throw new SecurityException("missing required sec object (_msg)");
+        }
+
+        // Delete is this route's only write: Reply, Reply All and Forward just open the compose page.
+        // ViewMessage.jsp posts it, but the route's name has no verb HttpMethodGuardFilter knows, so a
+        // GET carrying "delete" (which has no CSRF token) deleted the message (issue #3394).
+        if (request.getParameter("delete") != null && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         String demographicNo = this.getDemographic_no();

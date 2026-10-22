@@ -77,6 +77,8 @@ public class DxresearchReport2Action extends ActionSupport {
 
     private final static String SUCCESS = "success";
     private final static String EDIT_DESC = "editdesc";
+    /** The {@code method} value that writes a code description; POST only. */
+    static final String EDIT_DESC_METHOD = "editDesc";
     private DxresearchDAO dxresearchdao = SpringUtils.getBean(DxresearchDAO.class);
     private MyGroupDao mygroupdao = SpringUtils.getBean(MyGroupDao.class);
     private static final String REPORTS_PATH = "org/oscarehr/common/web/DxResearchReport.jrxml";
@@ -183,7 +185,18 @@ public class DxresearchReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_report)");
         }
 
-        String result = dispatch(request.getParameter("method"));
+        String method = request.getParameter("method");
+        // editDesc rewrites a coding system's description for every chart and report that shows the
+        // code, and its only form (editCodeDesc.jsp) posts it. The method name starts with no verb
+        // HttpMethodGuardFilter knows, and a GET carries no CSRF token, so a link alone could reach the
+        // write: refuse it before dispatch (issue #3394). The reports themselves stay open to GET.
+        if (EDIT_DESC_METHOD.equals(method) && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        String result = dispatch(method);
         if (SUCCESS.equals(result)) {
             // Built for every render of oscarReportDxReg.jsp, never kept in the session: see
             // REPORT_QUICK_LISTS. A list created elsewhere appears on the next render.
@@ -211,7 +224,7 @@ public class DxresearchReport2Action extends ActionSupport {
             return patientRegistedActive();
         } else if ("patientRegistedResolve".equals(method)) {
             return patientRegistedResolve();
-        } else if ("editDesc".equals(method)) {
+        } else if (EDIT_DESC_METHOD.equals(method)) {
             return editDesc();
         } else if ("addSearchCode".equals(method)) {
             return addSearchCode();
