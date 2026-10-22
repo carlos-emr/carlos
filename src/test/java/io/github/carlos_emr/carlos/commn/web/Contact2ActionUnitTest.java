@@ -74,7 +74,7 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
-    void shouldRefuseDirectorySaveBeforeParsingIdentifiersOrAccessingDao(String method) {
+    void shouldRefuseDirectorySave_beforeAuthorizationIdentifiersOrDao(String method) {
         registerContactActionBeans(); mockRequest.setMethod(method);
         addRequestParameter("method", "saveContact"); addRequestParameter("contact.id", "invalid");
         ContactDao previous = Contact2Action.contactDao; Contact2Action.contactDao = mockContactDao;
@@ -82,8 +82,8 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
             assertThat(new Contact2Action().execute()).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(405);
             assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
-            verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(null));
-            verifyNoInteractions(mockContactDao, mockDemographicContactDao, mockProfessionalContactDao);
+            // The method guard runs first (release/2026.08, #4406): no authorization lookup on a refused verb.
+            verifyNoInteractions(mockSecurityInfoManager, mockContactDao, mockDemographicContactDao, mockProfessionalContactDao);
         } finally { Contact2Action.contactDao = previous; }
     }
 
@@ -101,10 +101,9 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         } finally { Contact2Action.contactDao = previous; }
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"GET", "POST"})
-    void shouldCheckDirectoryWriteAuthorizationBeforeMethodOrIdentifierHandling(String method) {
-        registerContactActionBeans(); mockRequest.setMethod(method);
+    @Test
+    void shouldThrowSecurityException_whenDirectoryWriteIsDeniedOnPost() {
+        registerContactActionBeans(); mockRequest.setMethod("POST");
         addRequestParameter("method", "saveContact"); addRequestParameter("contact.id", "invalid");
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(null))).thenReturn(false);
         assertThatThrownBy(() -> new Contact2Action().execute()).isInstanceOf(SecurityException.class);

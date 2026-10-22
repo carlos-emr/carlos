@@ -306,11 +306,7 @@ public class MeasurementData2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
-        if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
+        // execute() has already refused a non-POST save (strict method invocation routes only execute()).
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String appointmentNoString = request.getParameter("appointmentNo");
         String measurementType = request.getParameter("type");
@@ -364,11 +360,7 @@ public class MeasurementData2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
-        if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
+        // execute() has already refused a non-POST save (strict method invocation routes only execute()).
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String strAppointmentNo = request.getParameter("appointmentNo");
         int appointmentNo = Integer.parseInt(strAppointmentNo);

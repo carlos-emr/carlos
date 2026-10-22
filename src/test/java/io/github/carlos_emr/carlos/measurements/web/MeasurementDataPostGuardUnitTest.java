@@ -37,21 +37,21 @@ class MeasurementDataPostGuardUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @CsvSource({"GET,saveMeasurement", "HEAD,saveMeasurement", "PUT,saveMeasurement", "DELETE,saveMeasurement", "GET,saveValues", "HEAD,saveValues"})
-    void shouldRefuseWritesAfterAuthorizationBeforeParsingOrDaoAccess(String method, String operation) throws Exception {
+    void shouldRefuseWrites_beforeAuthorizationParsingOrDaoAccess(String method, String operation) throws Exception {
         mockRequest.setMethod(method); addRequestParameter("action", operation);
         addRequestParameter("demographicNo", "invalid"); addRequestParameter("appointmentNo", "invalid");
         addRequestParameter("dateObserved", "invalid"); addRequestParameter("type", "WT"); addRequestParameter("value", "5.5");
         withAction(action -> {
             assertThat(action.execute()).isEqualTo("none");
             assertThat(mockResponse.getStatus()).isEqualTo(405); assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
-            verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("invalid"));
-            verifyNoInteractions(measurements, appointments);
+            // execute() refuses the verb first (release/2026.08, #5104): no authorization lookup either.
+            verifyNoInteractions(mockSecurityInfoManager, measurements, appointments);
         });
     }
 
     @ParameterizedTest
-    @CsvSource({"GET,saveMeasurement", "POST,saveMeasurement", "GET,saveValues", "POST,saveValues"})
-    void shouldRetainAuthorizationFailureBeforeMethodAndParsing(String method, String operation) throws Exception {
+    @CsvSource({"POST,saveMeasurement", "POST,saveValues"})
+    void shouldThrowSecurityException_whenPostedWriteIsDenied(String method, String operation) throws Exception {
         mockRequest.setMethod(method); addRequestParameter("action", operation); addRequestParameter("demographicNo", "123");
         addRequestParameter("appointmentNo", "invalid");
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq("123"))).thenReturn(false);
