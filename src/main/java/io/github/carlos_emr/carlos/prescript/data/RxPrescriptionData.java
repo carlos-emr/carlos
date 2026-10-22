@@ -222,6 +222,9 @@ public class RxPrescriptionData {
         }
         prescription.setDispenseInternal(Boolean.TRUE.equals(drug.getDispenseInternal()));
         prescription.setPharmacyId(drug.getPharmacyId());
+        // Read it like toPrescription does: re-prescribing and the long-term toggle copy this
+        // prescription into a new drugs row, which would otherwise lose the tick (#5056).
+        if (drug.isNonAuthoritative() != null) prescription.setNonAuthoritative(drug.isNonAuthoritative());
         return prescription;
     }
 
@@ -275,6 +278,18 @@ public class RxPrescriptionData {
         return prescription;
     }
 
+    /**
+     * Creates the in-memory copy that re-prescribing (ReRx) stages from a saved prescription.
+     *
+     * <p>The copy keeps what the prescriber set on the old card, including its Comment and
+     * Non-Authoritative tick (#5056), so neither has to be re-entered. It starts and is written
+     * today, has no end date, and records the old drug as its {@code drugReferenceId}.</p>
+     *
+     * @param providerNo the prescribing provider
+     * @param demographicNo the current patient
+     * @param rePrescribe the saved prescription being re-prescribed
+     * @return an unsaved prescription staged from {@code rePrescribe}
+     */
     public Prescription newPrescription(String providerNo, int demographicNo, Prescription rePrescribe) {
         // Create new prescription
         Prescription prescription = new Prescription(0, providerNo, demographicNo);
@@ -328,6 +343,8 @@ public class RxPrescriptionData {
         prescription.setDispenseInternal(rePrescribe.getDispenseInternal());
         prescription.setProtocol(rePrescribe.getProtocol());
         prescription.setPriorRxProtocol(rePrescribe.getPriorRxProtocol());
+        prescription.setComment(rePrescribe.getComment());
+        prescription.setNonAuthoritative(rePrescribe.isNonAuthoritative());
         return prescription;
     }
 

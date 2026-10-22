@@ -11,15 +11,16 @@
  *      Substitution not allowed, Last Refill Date, Written Date, Protocol Reference, Pick Up Date and
  *      Time, Comment, eTreatment type and Rx status ▸ Save Only: the drugs row stores each value;
  *   2. Rx again ▸ tick the drug's ReRx box ▸ Stage Medication: the restaged card shows the saved
- *      options, including the last refill and pick-up date and time, and a Written Date reset to
- *      the new script's start date (by design: RxPrescriptionData.newPrescription sets both to
- *      today); its remove link unstages it and nothing is saved. (Re-prescribing does not carry the
- *      Comment or Non-Authoritative over: the same method copies neither. Whether it should is a
- *      product question, so the check asserts neither way;)
- *   3. a second custom drug with a 12:30 pick-up time ▸ Save Only: the time is stored as 12:30. The
- *      field asks for 24-hour HH:MM (checkDate.js isValidTime), but RxWriteScript2Action parses it
- *      with "hh:mm", which reads 12 as midnight. This step runs last so the earlier ones are proven
- *      first.
+ *      options, including the last refill and pick-up date and time, the Comment and the
+ *      Non-Authoritative tick (#5056), and a Written Date reset to the new script's start date (by
+ *      design: RxPrescriptionData.newPrescription sets both to today); its remove link unstages it
+ *      and nothing is saved;
+ *   3. Rx again ▸ ReRx ▸ Stage Medication ▸ Save Only: the new drugs row stores the Comment and the
+ *      Non-Authoritative tick without the prescriber re-entering them (#5056), and the source is
+ *      archived as re-prescribed;
+ *   4. a second custom drug with a 12:30 pick-up time ▸ Save Only: the time is stored as 12:30. The
+ *      field asks for 24-hour HH:MM (checkDate.js isValidTime); the save once read 12 as midnight
+ *      (#4799). This step runs last so the earlier ones are proven first.
  * Other checks cover the neighbours: instructions parsing and Save Only (rx-edit-discontinue), the
  * card's Add to Favorites (gap-encounter-rx-add-favourite), the quantity price (gap-encounter-rx-
  * quantity-price), re-prescribing (rx-stash-patient-isolation, rx-fax-reprint-represcribe), removing
@@ -187,6 +188,8 @@ async function workflow(s) {
       protocol: await rx.locator(`#protocol_${card}`).inputValue(),
       eTreatment: await rx.locator(`select[name="eTreatmentType_${card}"]`).inputValue(),
       rxStatus: await rx.locator(`select[name="rxStatus_${card}"]`).inputValue(),
+      nonAuthoritative: await rx.locator(`#nonAuthoritativeN_${card}`).isChecked(),
+      comment: await rx.locator(`#comment_${card}`).inputValue(),
     };
     const expected = {
       longTerm: true, refillDuration: options.refillDuration, refillQuantity: options.refillQuantity,
@@ -194,6 +197,7 @@ async function workflow(s) {
       outsideOhip: options.outsideOhip, pastMed: true, compliance: true, nosubs: true,
       lastRefill: options.lastRefill, pickupDate: options.pickupDate, pickupTime: options.pickupTime,
       protocol: options.protocol, eTreatment: options.eTreatment, rxStatus: options.rxStatus,
+      nonAuthoritative: true, comment: options.comment,
     };
     const wrong = Object.keys(expected).filter(key => shown[key] !== expected[key]);
     h.assert(wrong.length === 0, `The restaged card shows ${wrong.map(key => `${key}=${shown[key]} (saved ${expected[key]})`).join(', ')}`);
@@ -212,16 +216,44 @@ async function workflow(s) {
       'Removing the restaged card changed the saved drugs');
   });
 
+  let reRxDrug;
+  await s.step('saving the re-prescribed card keeps the Comment and Non-Authoritative tick (#5056)', async () => {
+    await rx.close();
+    rx = await openRx('rx-module-rerx-save');
+    await rx.locator(`#reRxCheckBox_${drug}`).check();
+    await rx.locator('#reRxConfirmBox input[name="stage"]').click();
+    const restaged = rx.locator(`fieldset[data-drug-ref-id="${drug}"]`);
+    await restaged.waitFor({ state: 'visible', timeout: TIMEOUT });
+    const card = (await restaged.locator('[id^="instructions_"]').first().getAttribute('id')).slice('instructions_'.length);
+    // Nothing is typed: the prescriber saves the copy exactly as it was restaged.
+    h.assert(await rx.locator(`#nonAuthoritativeN_${card}`).isChecked()
+      && await rx.locator(`#comment_${card}`).inputValue() === options.comment,
+      'The restaged card did not show the saved Comment and Non-Authoritative tick');
+    await saveOnly(rx);
+    const renewal = `FROM drugs WHERE demographic_no=${patient} AND archived=0 AND drugid<>${drug}`;
+    await expectValue(sql, `SELECT COUNT(*) ${renewal}`, '1', 'Save Only did not store exactly one re-prescribed drug');
+    const [[id, comment, nonAuthoritative]] = sql.rows(`SELECT drugid, comment, non_authoritative ${renewal}`);
+    reRxDrug = id;
+    h.assert(/^[1-9]\d*$/.test(reRxDrug), 'The re-prescribed drug id is invalid');
+    h.assert(comment === options.comment && nonAuthoritative === '1',
+      `The re-prescribed drug stored ${comment === options.comment ? 'the comment' : 'another comment'} `
+      + `and non_authoritative=${nonAuthoritative} (the source had the comment and 1)`);
+    h.assert(sql.value(`SELECT CONCAT(archived,'|',archived_reason) FROM drugs WHERE drugid=${drug}`) === '1|represcribed',
+      'The re-prescribed source was not archived as re-prescribed');
+  });
+
   await s.step('a 12:30 pick-up time is stored as 12:30', async () => {
+    await rx.close();
+    rx = await openRx('rx-module-noon-pickup');
     const card = await stageCustomDrug(rx, `${marker} FAKE noon pickup`);
     await enterInstructions(rx, card, INSTRUCTIONS);
     await openMore(rx, card);
     await rx.locator(`#pickupDate_${card}`).fill(options.pickupDate);
     await rx.locator(`#pickupTime_${card}`).fill('12:30');
     await saveOnly(rx);
-    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`, '2', 'Save Only did not store the second drug');
+    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`, '3', 'Save Only did not store the third drug');
     const pickup = sql.value(`SELECT DATE_FORMAT(pickup_datetime,'%Y-%m-%d %H:%i') FROM drugs
-      WHERE demographic_no=${patient} AND drugid<>${drug}`);
+      WHERE demographic_no=${patient} AND drugid NOT IN (${drug},${reRxDrug})`);
     h.assert(pickup === `${options.pickupDate} 12:30`, `A 12:30 pick-up time was stored as ${pickup}`);
   });
 }

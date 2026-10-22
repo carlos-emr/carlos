@@ -13393,7 +13393,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned synthetic patient and marker-named custom drugs saved through the UI; cleanup removes the patient's drugs, prescription, partial_date, drugReason and DigitalSignature rows and asserts none remain. No DrugRef data needed.",
-      "notes": "Checks option save/renewal restoration and correct 24-hour noon pickup storage; #4799 is fixed by #4800."
+      "notes": "Checks option save/renewal restoration, that ReRx carries the Comment and Non-Authoritative tick onto the saved renewal (#5056), and correct 24-hour noon pickup storage; #4799 is fixed by #4800."
     },
     {
       "name": "rx-prescription-lifecycle",

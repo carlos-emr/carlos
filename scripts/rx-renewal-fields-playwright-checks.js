@@ -78,14 +78,16 @@ async function workflow(s){
       return;
     }
     if(['authoritative','comment'].includes(action)){
-      // A new ReRx deliberately initializes a new prescribing event's date and
-      // metadata. Inspect the saved event through its real record link instead.
+      // Read the saved event through its real record link, then prove the next ReRx
+      // carries the value over rather than asking the prescriber to re-enter it (#5056).
       await ui.clickAndAwaitReload(rx,rx.locator(`#prescrip_${replacement}`));
       const record=await s.popup(rx,rx.locator(`a[onclick*="/rx/ViewDisplayRxRecord?id=${replacement}'"]`).first(),'renewal-clinical-record');
       const field=async label=>(await record.locator('td.label').filter({hasText:label}).first().locator('xpath=following-sibling::td[1]').innerText()).trim();
       if(action==='authoritative')h.assert(await field('Non Authorative:')==='true','Saved record lost the non-authoritative selection');
       else if(action==='comment')h.assert(await field('Comment:')===c.after,'Saved record lost the renewal comment');
-    }else{key=await stageExisting(rx,replacement);await shown(c.after);}
+      await record.close();await rx.close();rx=await f.open();
+    }
+    key=await stageExisting(rx,replacement);await shown(c.after);
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`)==='3','Reopening renewal saved an unintended prescription');
   });
 }
