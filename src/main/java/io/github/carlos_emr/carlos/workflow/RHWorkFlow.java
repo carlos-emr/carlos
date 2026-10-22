@@ -149,13 +149,19 @@ public class RHWorkFlow implements WorkFlow {
      * context-root base resolved outside the application, and which named a Forms-menu shortcut
      * ("RH Form") that no shipped install registers.
      *
-     * @return an address relative to the context path, which the queue page prefixes
+     * <p>The address names the row's workflow as well, so a patient with two active RH workflows has
+     * the form opened, and saved, for the pregnancy on the row rather than for the first active one.
+     *
+     * @param demographicNo the patient's demographic number (String, from the queue row)
+     * @param workFlowId    the row's workflow id (String, from the queue row)
+     * @return String: an address relative to the context path, which the queue page prefixes
      */
     @Override
     public String getLink(String demographicNo, String workFlowId) {
         int patient = positiveIdOrZero(demographicNo);
-        return "/form/formRhImmuneGlobulin?demographic_no=" + patient + "&formId=" + rhFormId(patient,
-                positiveIdOrZero(workFlowId));
+        int workflow = positiveIdOrZero(workFlowId);
+        String link = "/form/formRhImmuneGlobulin?demographic_no=" + patient + "&formId=" + rhFormId(patient, workflow);
+        return workflow > 0 ? link + "&workflowId=" + workflow : link;
     }
 
     private static int rhFormId(int demographicNo, int workFlowId) {

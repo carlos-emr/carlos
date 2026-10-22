@@ -8,6 +8,12 @@
 -- Fresh installs: the Ontario and BC reference data (V1.0.2__on_data.sql, V1.0.2__bc_data.sql) still insert the row;
 -- applied migrations are never edited, so this later migration removes it on fresh and upgraded databases alike.
 -- Idempotent: the DELETE matches nothing once the row is gone. It matches the worksheet's address (form_value, the
--- primary key), with or without the old .jsp suffix, whatever display name, order or hidden flag a clinic gave it.
+-- primary key) whatever display name, order or hidden flag a clinic gave it: the seeded
+-- ../form/patientEncounterWorksheet.jsp?demographic_no= and the extensionless form, under any path prefix. The name
+-- must end at .jsp, the query string or the end of the address, so a clinic's own form whose name merely starts with
+-- patientEncounterWorksheet (patientEncounterWorksheetCustom.jsp) keeps its registration.
 DELETE FROM encounterForm
-WHERE form_value LIKE '%form/patientEncounterWorksheet%';
+WHERE form_value LIKE '%form/patientEncounterWorksheet.jsp?%'
+   OR form_value LIKE '%form/patientEncounterWorksheet.jsp'
+   OR form_value LIKE '%form/patientEncounterWorksheet?%'
+   OR form_value LIKE '%form/patientEncounterWorksheet';

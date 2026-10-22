@@ -241,8 +241,18 @@
                 ArrayList currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
 
                 if (currentWorkFlows != null && currentWorkFlows.size() > 0) {
-                    request.setAttribute("currentWorkFlow", currentWorkFlows.get(0));
-                    h = (Hashtable) currentWorkFlows.get(0);
+                    // A WorkFlow queue row names its pregnancy (issue #4992): show and save that one when it is
+                    // among this patient's active workflows, otherwise the first active one as before.
+                    String requestedWorkflowId = request.getParameter("workflowId");
+                    Hashtable chosen = (Hashtable) currentWorkFlows.get(0);
+                    for (Object candidate : currentWorkFlows) {
+                        if (requestedWorkflowId != null && requestedWorkflowId.trim().equals(((Hashtable) candidate).get("ID"))) {
+                            chosen = (Hashtable) candidate;
+                            break;
+                        }
+                    }
+                    request.setAttribute("currentWorkFlow", chosen);
+                    h = chosen;
                 }
 
                 if (h != null) {

@@ -231,6 +231,22 @@ public class PreventionData {
         }
     }
 
+    /**
+     * Throws unless prevention {@code id} is recorded as {@code preventionType}. prevention/AddPrevention
+     * accepts the RH form's type though no Preventions-page item lists it (issue #4992); an RH edit or
+     * delete must reach only an RH record, never another type's record in the same chart.
+     *
+     * @param id             the prevention record id
+     * @param preventionType the type the request was posted as
+     * @throws IllegalArgumentException when the record is missing or of another type
+     */
+    public static void requirePreventionType(int id, String preventionType) {
+        Prevention prevention = preventionDao.find(id);
+        if (prevention == null || !Objects.equals(prevention.getPreventionType(), preventionType)) {
+            throw new IllegalArgumentException("Prevention record is not of the posted type");
+        }
+    }
+
     public static ArrayList<Map<String, Object>> getPreventionDataFromExt(String extKey, String extVal) {
         ArrayList<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
 

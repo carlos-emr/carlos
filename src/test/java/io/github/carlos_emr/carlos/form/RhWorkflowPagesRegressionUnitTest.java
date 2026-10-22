@@ -72,7 +72,7 @@ class RhWorkflowPagesRegressionUnitTest {
             jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(contains("workflowId = ?"), eq(42), eq(7))).thenReturn(bound);
 
             assertThat(new RHWorkFlow().getLink("42", "7"))
-                    .isEqualTo("/form/formRhImmuneGlobulin?demographic_no=42&formId=55");
+                    .isEqualTo("/form/formRhImmuneGlobulin?demographic_no=42&formId=55&workflowId=7");
         }
 
         assertThat(read("oscarWorkflow/WorkFlowList.jsp"))
@@ -89,7 +89,7 @@ class RhWorkflowPagesRegressionUnitTest {
             ResultSet none = rows();
             jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(contains("workflowId = ?"), eq(42), eq(7))).thenReturn(none);
 
-            assertThat(new RHWorkFlow().getLink("42", "7")).isEqualTo("/form/formRhImmuneGlobulin?demographic_no=42&formId=0");
+            assertThat(new RHWorkFlow().getLink("42", "7")).isEqualTo("/form/formRhImmuneGlobulin?demographic_no=42&formId=0&workflowId=7");
             jdbc.verify(() -> LegacyJdbcQuery.getPreparedResultSet(matches("(?s)(?!.*workflowId).*"), eq(42)), never());
         }
     }
@@ -99,7 +99,7 @@ class RhWorkflowPagesRegressionUnitTest {
     void shouldNotQuery_whenQueueRowIdsAreNotNumbers() {
         try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
             assertThat(new RHWorkFlow().getLink("x' OR 1=1", "7"))
-                    .isEqualTo("/form/formRhImmuneGlobulin?demographic_no=0&formId=0");
+                    .isEqualTo("/form/formRhImmuneGlobulin?demographic_no=0&formId=0&workflowId=7");
             jdbc.verifyNoInteractions();
         }
     }
@@ -121,6 +121,18 @@ class RhWorkflowPagesRegressionUnitTest {
         String form = read("form/formRhImmuneGlobulin.jsp");
         assertThat(form).contains("popup(700,600,'form/addRhInjection?demographic_no=");
         assertThat(form).doesNotContain("popup(700,600,'addRhInjection?demographic_no=<carlos");
+    }
+
+    @Test
+    @DisplayName("should show and save the queue row's workflow when it is one of the patient's active workflows")
+    void shouldBindRequestedWorkflow_whenQueueRowNamesIt() throws IOException {
+        // Two active RH workflows for one patient: the row's link names its own, and the page must not fall
+        // back to the first active one, or the form shown and saved would belong to another pregnancy.
+        String form = read("form/formRhImmuneGlobulin.jsp");
+        assertThat(form).contains("String requestedWorkflowId = request.getParameter(\"workflowId\");")
+                .contains("requestedWorkflowId.trim().equals(((Hashtable) candidate).get(\"ID\"))")
+                .contains("request.setAttribute(\"currentWorkFlow\", chosen);")
+                .doesNotContain("h = (Hashtable) currentWorkFlows.get(0);");
     }
 
     @Test

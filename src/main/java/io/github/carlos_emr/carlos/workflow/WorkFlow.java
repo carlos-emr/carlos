@@ -65,10 +65,10 @@ public interface WorkFlow {
     /**
      * The page a queue row opens for one patient's workflow.
      *
-     * @param demographic the patient on the row
-     * @param workFlowId  the row's workflow id
-     * @return an address relative to the application's context path, starting with {@code /} (the queue
-     *         page prefixes the context path), and not HTML-escaped
+     * @param demographic the patient on the row (String demographic number)
+     * @param workFlowId  the row's workflow id (String)
+     * @return String: an address relative to the application's context path, starting with {@code /}
+     *         (the queue page prefixes the context path), and not HTML-escaped
      */
     public String getLink(String demographic, String workFlowId);
 

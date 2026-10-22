@@ -406,6 +406,11 @@ public class AddPrevention2Action extends ActionSupport {
                 result.add("Patient not found");
             } else if (id != null) {
                 PreventionData.requirePreventionInChart(Integer.parseInt(id), demographicId);
+                if (RH_INJECTION_TYPE.equals(preventionType)) {
+                    // The RH type is accepted without a Preventions-page item, so an RH edit or delete
+                    // must name an RH record: it may not reach another type's record in the chart.
+                    PreventionData.requirePreventionType(Integer.parseInt(id), RH_INJECTION_TYPE);
+                }
             }
         } catch (IllegalArgumentException invalidRecord) {
             result.add("Invalid patient or prevention record");

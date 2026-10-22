@@ -120,7 +120,22 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         mockRequest.setParameter("id", "100");
         mockRequest.setParameter("delete", "delete");
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        data.verify(() -> PreventionData.requirePreventionType(100, "RH"));
         data.verify(() -> PreventionData.deletePreventionData("100", "42"));
+    }
+
+    @Test void shouldRejectRhDelete_whenRecordIsAnotherType() throws Exception {
+        // The RH type is accepted without a Preventions-page item, so it must not reach another type's record.
+        unconfigured("RH");
+        mockRequest.setParameter("prevention", AddPrevention2Action.RH_INJECTION_TYPE);
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "delete");
+        data.when(() -> PreventionData.requirePreventionType(100, "RH"))
+                .thenThrow(new IllegalArgumentException("not an RH record"));
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        data.verify(() -> PreventionData.deletePreventionData(any(), any()), never());
+        verifyNoInteractions(manager);
     }
 
     @Test void shouldRejectUnconfiguredType_withoutWriting() throws Exception {

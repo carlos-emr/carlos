@@ -79,9 +79,9 @@ public class FrmAlphaRecord extends FrmRecord {
     /**
      * The saved ALPHA record for printing.
      *
-     * @param demographicNo the patient the record belongs to
-     * @param existingID    the {@code formAlpha.ID} to print
-     * @return the record's columns, empty when no row matches both values
+     * @param demographicNo int: the patient the record belongs to
+     * @param existingID    int: the {@code formAlpha.ID} to print
+     * @return Properties: the record's columns, empty when no row matches both values
      * @throws SQLException if the record cannot be read
      */
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
