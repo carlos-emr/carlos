@@ -200,7 +200,7 @@ class Fax2ActionPrepareFaxUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should answer 503 with a configuration message when no fax account is active")
-    void shouldReturnServiceUnavailable_whenNoActiveFaxAccount() throws Exception {
+    void shouldReturnServiceUnavailable_whenNoActiveFaxAccount() {
         when(faxManager.getFaxGatewayAccounts(user)).thenReturn(List.of());
 
         String result = execute(() -> handoffAction(PATIENT));
