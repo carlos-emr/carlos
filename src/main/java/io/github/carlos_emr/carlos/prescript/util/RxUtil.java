@@ -496,46 +496,47 @@ public class RxUtil {
         if (rx.isDurationSpecifiedByUser()) {
             return rx.getDuration();
         }
-        if (!typedQuantity.isEmpty() && (rx.getQuantity() == null || rx.getQuantity().isEmpty()
-                || "0".equals(rx.getQuantity()))) {
+        if (!typedQuantity.isEmpty() && calculatedNoQuantity(rx)) {
             rx.setQuantity(typedQuantity);
         }
-        String qStr = typedQuantity;
-        if (rx.getUnitName() == null) {
-            double qtyD;
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
-            if (m1.find()) {
-                String qNum = qStr.substring(m1.start(), m1.end());
-                qtyD = Double.parseDouble(qNum);
-                //get the quantity unit
-                String qUnit = qStr.replace(qNum, "").trim();
-                if (qUnit != null && qUnit.length() > 0) {
-                    rx.setUnitName(qUnit);
-                    return null; //if a quantity unit is specified, can't calculate duration.
-                } else {
-                    double takeMax = rx.getTakeMax();
-                    double nPerDay = findNPerDay(rx.getFrequencyCode());
-                    double nDays = findNDays(rx.getDurationUnit());
-                    p("qtyD--takeMax--nPerDay--nDays--" + qtyD + " " + takeMax + " " + nPerDay + " " + nDays);
-                    if (takeMax != 0d && nPerDay != 0d && nDays != 0d) {
-                        // The quantity covers takeMax units per administration, nPerDay
-                        // administrations per day and nDays days per duration unit.
-                        double durD = qtyD / (takeMax * nPerDay * nDays);
-                        int durInt = (int) durD;
-                        p("durInt", Integer.toString(durInt));
-                        return Integer.toString(durInt);
-                    } else {
-                        return null;
-                    }
-                }
-            } else {
-                logger.error("quantity is not specified");
-                return null;
-            }
-        } else {
+        if (rx.getUnitName() != null) {
             return null;
         }
+        Matcher digits = Pattern.compile("\\d+").matcher(typedQuantity);
+        if (!digits.find()) {
+            logger.error("quantity is not specified");
+            return null;
+        }
+        String number = digits.group();
+        String quantityUnit = typedQuantity.replace(number, "").trim();
+        if (!quantityUnit.isEmpty()) {
+            // A quantity typed with its own unit (a Mitte quantity) leaves the duration incalculable.
+            rx.setUnitName(quantityUnit);
+            return null;
+        }
+        return durationForQuantity(rx, Double.parseDouble(number));
+    }
+
+    /** True when the parser left no calculated quantity behind: null, empty or "0". */
+    private static boolean calculatedNoQuantity(RxPrescriptionData.Prescription rx) {
+        String quantity = rx.getQuantity();
+        return quantity == null || quantity.isEmpty() || "0".equals(quantity);
+    }
+
+    /**
+     * Divides the quantity by the units taken per duration unit: the maximum dose per
+     * administration, the administrations per day and the days per duration unit.
+     *
+     * @return the whole duration, or null when the dose, the frequency or the duration unit is unknown
+     */
+    private static String durationForQuantity(RxPrescriptionData.Prescription rx, double quantity) {
+        double takeMax = rx.getTakeMax();
+        double nPerDay = findNPerDay(rx.getFrequencyCode());
+        double nDays = findNDays(rx.getDurationUnit());
+        if (takeMax == 0d || nPerDay == 0d || nDays == 0d) {
+            return null;
+        }
+        return Integer.toString((int) (quantity / (takeMax * nPerDay * nDays)));
     }
 
     private static void setEmptyValues(RxPrescriptionData.Prescription rx) {
