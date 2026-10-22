@@ -6,7 +6,7 @@ const { spawnSync } = require('node:child_process');
 
 /*
  * Several checks run one script under several manifest entries and pick the finding a run pins with an
- * environment variable (ALLERGY_PIN, MCEDT_PIN, ECHART_VERIFY_PIN, ECHART_ISSUES_PIN, LAB_FLOWSHEET_PIN, and the claim lists
+ * environment variable (ALLERGY_PIN, MCEDT_PIN, ECHART_VERIFY_PIN, ECHART_ISSUES_PIN, LAB_FLOWSHEET_PIN, BC_REPROCESS_PIN, and the claim lists
  * FORM_CATALOG_ONLY / FORM_CATALOG_EXCEPT, ROURKE_GROWTH_ONLY / ROURKE_GROWTH_EXCEPT, CLINICAL_FORMS_ONLY / CLINICAL_FORMS_EXCEPT and CONSULT_CONFIG_ONLY / CONSULT_CONFIG_EXCEPT). A bad value is an error of the RUN, so it is
  * judged when the check runs and never when the module is required: a stray pin variable in the shell of
  * whoever runs the meta-tests must not fail a test that only requires the module. Each case runs in a child process because the variable is read once, at load.
@@ -26,6 +26,8 @@ const CASES = [
     good: ['', 'editor', 'heading', 'resolve', 'panel', 'radios'], run: 'workflow({})' },
   { script: 'lab-to-flowsheet-playwright-checks.js', variable: 'LAB_FLOWSHEET_PIN', label: 'LabFlowsheet',
     good: ['', 'value', 'fraction', 'time', 'seconds'], run: 'workflow({})' },
+  { script: 'billing-bc-reprocess-bill-playwright-checks.js', variable: 'BC_REPROCESS_PIN', label: 'BcReprocess',
+    good: ['', 'inactive'], run: 'workflow({})' },
   // The two table-driven form checks select the (form, concern) pairs a run asserts with a pair of variables
   // (lib/form-claims.js); each variable is judged on its own, so each has its own case.
   { script: 'form-catalog-smoke-playwright-checks.js', variable: 'FORM_CATALOG_ONLY', label: 'FormCatalogOnly',

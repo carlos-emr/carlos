@@ -982,7 +982,7 @@ const TEARDOWN_LOGOUT_TIMEOUT_MS = 10000;
  *
  * @returns {Promise<boolean>} whether /logout answered below 400
  */
-async function logoutContext(context, config, { log = console, timeout = TEARDOWN_LOGOUT_TIMEOUT_MS } = {}) {
+async function logoutContext(context, config, { log = console, timeout = TEARDOWN_LOGOUT_TIMEOUT_MS, closePage = true } = {}) {
   let page;
   let posted;
   try {
@@ -1001,7 +1001,7 @@ async function logoutContext(context, config, { log = console, timeout = TEARDOW
     log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
     return false;
   } finally {
-    if (page) await page.close().catch(() => {});
+    if (page && closePage) await page.close().catch(() => {});
   }
 }
 
@@ -1067,7 +1067,10 @@ function logoutOnClose(browser, config, { log = console, logout = logoutContext 
     done.add(context);
     try {
       if (await sessionStillHeld(context)) return;
-      await logout(context, config, { log });
+      // The enclosing close will dispose this temporary page with the context.
+      // Closing it separately can stall Chromium after the logout redirect and
+      // prevent the enclosing browser/context close from ever being reached.
+      await logout(context, config, { log, closePage: false });
     } catch (error) {
       log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
     }
