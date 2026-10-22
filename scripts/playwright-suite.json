@@ -15919,6 +15919,31 @@
         "CHARTSPACE_DEMOGRAPHIC_NO"
       ],
       "fixtures": "Read-only on an existing FAKE- demo patient (CHARTSPACE_DEMOGRAPHIC_NO, default 2); no fixtures, no writes."
+    },
+    {
+      "name": "rx-reprint-authorization",
+      "script": "scripts/rx-reprint-authorization-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned patient, prescription/drug, and throwaway roles/logins; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "log",
+        "prescription",
+        "drugs",
+        "security",
+        "provider",
+        "secRole",
+        "secObjPrivilege",
+        "secUserRole"
+      ],
+      "notes": "Issue #3585: reprint audit writes require global and patient-scoped write; rejects GET/HEAD and tokenless POST, with browser reprint and persisted audit assertions."
     }
   ]
 }
