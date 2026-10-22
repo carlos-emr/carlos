@@ -264,7 +264,7 @@ public class RptByExampleData {
         if (MiscUtils.getLogger().isWarnEnabled()) {
             MiscUtils.getLogger().warn(
                     "Query-by-Example unavailable provider={} reason={}; see docs/query-by-example-least-privilege.md",
-                    providerNo, LogSafe.sanitize(reason));
+                    LogSafe.sanitize(providerNo), LogSafe.sanitize(reason));
         }
     }
 
@@ -272,7 +272,7 @@ public class RptByExampleData {
         if (MiscUtils.getLogger().isWarnEnabled()) {
             MiscUtils.getLogger().warn(
                     "Query-by-Example refused by reporting account privileges provider={} queryHash={} errorCode={}",
-                    providerNo, queryHash(sql), errorCode);
+                    LogSafe.sanitize(providerNo), queryHash(sql), errorCode);
         }
     }
 
