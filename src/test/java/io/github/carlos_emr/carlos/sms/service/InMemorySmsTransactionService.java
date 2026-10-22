@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -126,6 +127,12 @@ final class InMemorySmsTransactionService implements SmsTransactionService {
     @Override
     public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
         transaction.markClaimReleased(dueAt);
+        return transaction;
+    }
+
+    @Override
+    public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt, SmsProviderErrorCode reason) {
+        JpaSmsTransactionService.releaseWithReason(transaction, dueAt, reason);
         return transaction;
     }
 

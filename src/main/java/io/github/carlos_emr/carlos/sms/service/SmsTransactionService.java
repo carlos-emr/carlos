@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
@@ -45,9 +46,19 @@ public interface SmsTransactionService {
 
     /**
      * Returns a claimed-but-unsent row to the queue, rolling back the claim's attempt increment.
-     * Used when the SMS-provider rate limiter denies a token after the row was already claimed.
+     * Used when the SMS-provider rate limiter denies a token after the row was already claimed. It records
+     * no reason: the row keeps whatever error it already had.
      */
     SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt);
+
+    /**
+     * Returns a claimed-but-unsent row to the queue as {@link #releaseClaim(SmsTransaction, Date)} does, with the
+     * same version check, and also records why it waits: {@code reason}'s code and fixed message, never a
+     * provider's wording. Used when the SMS provider asked CARLOS to send more slowly
+     * ({@link SmsProviderErrorCode#RATE_LIMITED}), which uses none of the text's attempts. Every other hand-back
+     * uses {@link #releaseClaim(SmsTransaction, Date)} and records no reason.
+     */
+    SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt, SmsProviderErrorCode reason);
 
     SmsTransaction recordInboundMessage(SmsInboundWebhookDto webhook);
 

@@ -63,7 +63,8 @@ public class JpaSmsSendRateLimitService implements SmsSendRateLimitService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean tryAcquire(SmsProviderType providerType) {
         SmsProviderType safeProviderType = providerType == null ? SmsProviderType.STUB : providerType;
-        SmsSendRateLimit limit = Objects.requireNonNull(limits.apply(safeProviderType), "SMS send rate limit is required");
+        SmsSendRateLimit limit =
+                Objects.requireNonNull(limits.apply(safeProviderType), "SMS send rate limit is required");
         // Materialize the key with one atomic upsert before locking it. A locking read of a missing key
         // takes a gap lock under MariaDB repeatable read; concurrent inserts then deadlock while upgrading
         // those gap locks. The upsert also takes an exclusive lock for an existing key, so it avoids the

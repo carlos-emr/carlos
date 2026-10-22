@@ -55,8 +55,10 @@ class StubSmsProviderClientUnitTest {
     void shouldRejectCallback_whenSecretIsBlank() {
         StubSmsProviderClient client = new StubSmsProviderClient();
 
-        assertThat(client.validateCallback("{}", Map.of("X-Carlos-Sms-Stub-Secret", "anything"), " ")).isFalse();
-        assertThat(client.validateCallback("{}", Map.of(), null)).isFalse();
+        assertThat(client.validateCallback(request(Map.of("X-Carlos-Sms-Stub-Secret", "anything")), " ", NO_SETTINGS))
+                .isFalse();
+        assertThat(client.validateCallback(request(Map.of()), null, NO_SETTINGS)).isFalse();
+        assertThat(client.acceptedCallbacks()).as("the stub sends no callbacks, so CARLOS never checks one").isEmpty();
     }
 
     @Test
@@ -64,9 +66,11 @@ class StubSmsProviderClientUnitTest {
     void shouldValidateCallback_whenSecretIsConfigured() {
         StubSmsProviderClient client = new StubSmsProviderClient();
 
-        assertThat(client.validateCallback("{}", Map.of("X-Carlos-Sms-Stub-Secret", "secret"), "secret")).isTrue();
-        assertThat(client.validateCallback("{}", Map.of("X-Carlos-Sms-Stub-Secret", "wrong"), "secret")).isFalse();
-        assertThat(client.validateCallback(null, Map.of("X-Carlos-Sms-Stub-Secret", "secret"), "secret")).isFalse();
+        assertThat(client.validateCallback(request(Map.of("x-carlos-sms-stub-secret", "secret")), "secret", NO_SETTINGS))
+                .as("header names match ignoring case").isTrue();
+        assertThat(client.validateCallback(request(Map.of("X-Carlos-Sms-Stub-Secret", "wrong")), "secret", NO_SETTINGS))
+                .isFalse();
+        assertThat(client.validateCallback(null, "secret", NO_SETTINGS)).isFalse();
     }
 
     @Test
@@ -74,10 +78,10 @@ class StubSmsProviderClientUnitTest {
     void shouldReturnEmptyWebhookDto_whenParsingStubPayload() {
         StubSmsProviderClient client = new StubSmsProviderClient();
 
-        assertThat(client.parseInboundWebhook(null, null)).isEmpty();
-        assertThat(client.parseInboundWebhook("{}", Map.of())).isEmpty();
-        assertThat(client.parseDeliveryWebhook(null, null)).isEmpty();
-        assertThat(client.parseDeliveryWebhook("{}", Map.of())).isEmpty();
+        assertThat(client.parseInboundWebhook(null)).isEmpty();
+        assertThat(client.parseInboundWebhook(request(Map.of()))).isEmpty();
+        assertThat(client.parseDeliveryWebhook(null)).isEmpty();
+        assertThat(client.parseDeliveryWebhook(request(Map.of()))).isEmpty();
     }
 
     @Test
@@ -95,5 +99,9 @@ class StubSmsProviderClientUnitTest {
         assertThatThrownBy(() -> client.lookupMessageStatus(" ", null, NO_SETTINGS))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("clientReferenceId or providerMessageId");
+    }
+
+    private static SmsWebhookRequest request(Map<String, String> headers) {
+        return new SmsWebhookRequest("POST", Map.of(), headers, "{}");
     }
 }
