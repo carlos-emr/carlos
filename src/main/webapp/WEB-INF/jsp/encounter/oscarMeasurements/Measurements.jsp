@@ -464,12 +464,19 @@
             const value = String(text == null ? '' : text).trim();
             if (!/^(\d+\.?\d*|\.\d+)$/.test(value)) return null;
             const number = Number(value);
-            return number > 0 ? number : null;
+            return Number.isFinite(number) && number > 0 ? number : null;
+        }
+
+        // The row of a clinic-added measurement type, matched without regard to case: type codes
+        // compare case-insensitively in the database, and Add Measurement Type stores them
+        // upper-cased, so a type entered as WHtR is rendered as row-WHTR.
+        function measurementRowAnyCase(type) {
+            return document.querySelector('tr[id="row-' + type + '" i]');
         }
 
         // The value input of a measurement row (its third cell), or null when the group has no such row.
-        function measurementValueInput(rowId) {
-            return document.getElementById(rowId)?.querySelectorAll('td')[2]?.querySelector('input') || null;
+        function measurementValueInput(row) {
+            return row?.querySelectorAll('td')[2]?.querySelector('input') || null;
         }
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -477,7 +484,7 @@
             const rowWT = document.getElementById('row-WT');
             const rowHT = document.getElementById('row-HT');
             const rowWAIS = document.getElementById('row-WAIS');
-            const rowWHtR = document.getElementById('row-WHtR');
+            const rowWHtR = measurementRowAnyCase('WHtR');
             const rowBMI = document.getElementById('row-BMI');
 
             if (rowWT) {
@@ -528,16 +535,21 @@
                 }
             }
 
-            // WHtR is calculated only where the clinic has added a measurement type coded WHtR to
-            // the group alongside HT and WAIS; CARLOS does not ship that type.
+            // WHtR is calculated only where the clinic has added a measurement type coded WHtR (in
+            // any case) to the group alongside HT and WAIS; CARLOS does not ship that type.
             if (rowWAIS && rowHT && rowWHtR) {
                 const waisInput = rowWAIS.querySelectorAll('td')[2]?.querySelector('input');
                 const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
-
-                if (waisInput && htInput) {
+                const whtrInput = measurementValueInput(rowWHtR);
+                if (waisInput && htInput && whtrInput) {
                     const updateWHtR = function () {
                         calcWHtR(waisInput.value, htInput.value);
                     };
+                    // Typing in WHtR makes the value the user's own, even when it matches the last
+                    // calculation; a value set by script fires no input event.
+                    whtrInput.addEventListener('input', function () {
+                        delete whtrInput.dataset.calculatedValue;
+                    });
                     // The dblclick listeners run after the unit conversions registered above, so a
                     // value converted to cm is used at once rather than on the next blur.
                     [waisInput, htInput].forEach(function (input) {
@@ -574,7 +586,7 @@
         // being a usable number, a ratio this page wrote is cleared, so Submit cannot save a WHtR for
         // values the form no longer holds; a WHtR the user typed in is left as it is.
         function calcWHtR(wais, h) {
-            const whtrInput = measurementValueInput('row-WHtR');
+            const whtrInput = measurementValueInput(measurementRowAnyCase('WHtR'));
             if (!whtrInput) return;
 
             const waist = parsePositiveMeasurement(wais);
