@@ -48,6 +48,8 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link AllergyBlockLoader}: the three block states, the
  * patient-scoped {@code _allergy} check, and which failures become a state
  * versus propagate.
+ *
+ * @since 2026-10-08
  */
 @Tag("unit")
 class AllergyBlockLoaderUnitTest {

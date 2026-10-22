@@ -81,6 +81,10 @@ test('chartSpace.jsp keeps the presentation contract', () => {
   assert.ok(jsp.includes('<%@ include file="/WEB-INF/jspf/bootstrap-css.jspf" %>'));
   assert.ok(jsp.includes('${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/css/global.css'));
   assert.ok(!jsp.includes('/library/bootstrap/'), 'Bootstrap asset versions belong in the shared include');
+  ['chartspace-layout.js', 'chartspace-allergies.js', 'chartspace.js'].forEach((f) => assert.ok(
+    jsp.includes('<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/chartspace/' + f + '"></script>'),
+    f + ' is loaded through an encoded context path, like the stylesheet links'));
+  assert.ok(!jsp.includes('<script src="${pageContext.request.contextPath}'), 'no script src uses the raw context path');
   const order = ['chartspace-layout.js', 'chartspace-allergies.js', 'chartspace.js']
     .map((f) => jsp.indexOf('/js/chartspace/' + f));
   assert.ok(order[0] > -1 && order[0] < order[1] && order[1] < order[2], String(order));

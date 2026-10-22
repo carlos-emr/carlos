@@ -110,9 +110,9 @@
      never hidden or moved. --%>
 <div id="cs-announcer" class="visually-hidden" role="status" aria-live="polite"></div>
 
-<script src="${pageContext.request.contextPath}/js/chartspace/chartspace-layout.js"></script>
-<script src="${pageContext.request.contextPath}/js/chartspace/chartspace-allergies.js"></script>
-<script src="${pageContext.request.contextPath}/js/chartspace/chartspace.js"></script>
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/chartspace/chartspace-layout.js"></script>
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/chartspace/chartspace-allergies.js"></script>
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/chartspace/chartspace.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         window.ChartSpace.init({

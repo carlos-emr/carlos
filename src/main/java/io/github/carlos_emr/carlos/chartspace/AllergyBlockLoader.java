@@ -38,6 +38,8 @@ import java.util.List;
  * <p>Kept out of the action so the action stays a gate. Auditing is already
  * done by {@link AllergyManager#getActiveAllergies}, so nothing is logged here
  * (and no patient identifier or allergy text would be).</p>
+ *
+ * @since 2026-10-08
  */
 // Extraction point: when a 2nd block exists, introduce ChartSpaceBlockLoader { blockId(); load(...) } and a registry.
 @Service
