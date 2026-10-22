@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.model.QuickList;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBeanHandler;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
 import io.github.carlos_emr.carlos.managers.CodingSystemManager;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
@@ -601,4 +602,77 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
         }
     }
 
+    // ── editDesc method guard ───────────────────────────────────────────
+
+    /**
+     * {@code method=editDesc} rewrites a coding system's description for every chart and report that
+     * shows the code. Its only form posts it; the name starts with no verb the method guard knows, so the
+     * action itself refuses anything but POST (issue #3394).
+     */
+    @Nested
+    @DisplayName("editDesc method guard")
+    class EditDescMethodGuard {
+
+        private void addEditDescParameters() {
+            addRequestParameter("method", "editDesc");
+            addRequestParameter("editingCodeType", "icd9");
+            addRequestParameter("editingCodeCode", "250");
+            addRequestParameter("editingCodeDesc", "FAKE description");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"GET", "HEAD", "PUT"})
+        @DisplayName("should refuse an editDesc that is not posted, before writing the description")
+        void shouldRefuseEditDesc_whenNotPosted(String httpMethod) throws Exception {
+            getMockRequest().setMethod(httpMethod);
+            addEditDescParameters();
+
+            try (MockedStatic<dxQuickListItemsHandler> handler = mockStatic(dxQuickListItemsHandler.class)) {
+                assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+
+                assertThat(getMockResponse().getStatus()).isEqualTo(405);
+                assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
+                handler.verifyNoInteractions();
+            }
+            assertThat(getMockSession().getAttribute("editingCodeDesc")).isNull();
+        }
+
+        @Test
+        @DisplayName("should write the description when editCodeDesc.jsp posts it")
+        void shouldWriteDescription_whenPosted() throws Exception {
+            getMockRequest().setMethod("POST");
+            addEditDescParameters();
+
+            try (MockedStatic<dxQuickListItemsHandler> handler = mockStatic(dxQuickListItemsHandler.class)) {
+                assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+                handler.verify(() -> dxQuickListItemsHandler.updatePatientCodeDesc("icd9", "250", "FAKE description"));
+            }
+            assertThat(getMockSession().getAttribute("editingCodeDesc")).isEqualTo("FAKE description");
+        }
+
+        @Test
+        @DisplayName("should refuse a posted editDesc from a caller who may only read the report")
+        void shouldRefuseEditDesc_whenCallerLacksReportWrite() {
+            denyPrivilege("_report", "w");
+            getMockRequest().setMethod("POST");
+            addEditDescParameters();
+
+            try (MockedStatic<dxQuickListItemsHandler> handler = mockStatic(dxQuickListItemsHandler.class)) {
+                assertThatThrownBy(() -> executeAction(action))
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessage("missing required sec object (_report)");
+                handler.verifyNoInteractions();
+            }
+        }
+
+        @Test
+        @DisplayName("should still open the report by GET")
+        void shouldOpenReport_whenGetHasNoMethod() throws Exception {
+            getMockRequest().setMethod("GET");
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockResponse().getStatus()).isEqualTo(200);
+        }
+    }
 }

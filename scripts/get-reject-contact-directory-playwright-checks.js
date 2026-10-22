@@ -6,27 +6,24 @@
  * "Contact" ▸ search ▸ "Add/Edit contact" (method=addContact) ▸ fill ▸ Save
  * (POST demographic/Contact, method=saveContact).
  *
- * Contact2Action's writers -- saveManage, removeContact, saveContact, saveProContact,
- * savePharmacyInfo, addPharmacy, removePharmacy, setEmergencyContact, setDNC, setMRP -- are
+ * Contact2Action's writers -- saveManage, removeContact, saveContact, saveProContact -- are
  * POST-only (405 on GET/HEAD before any read or write) since issue #3682. Before that only the
  * first two were: the route "Contact" has no mutator prefix, HttpMethodGuardFilter's method list
  * is matched EXACTLY (saveContact is not "save"), and the class is outside the GET-rejection
  * contract, so a replayed saveContact rewrote any Contact row named by contact.id (Struts binds
- * contact.* from a query string). The check creates a directory contact and, through the
- * External row's professional search and its "Add/Edit Professional Contact" form
- * (method=saveProContact), an external professional contact (a Contact row of type
- * ProfessionalContact; since #4987 that form no longer makes a professional specialist for the
- * External row); replays each captured save as GET/HEAD with a changed last name; and asserts
- * 405 and unchanged rows in the LAST step. (The set-flag and pharmacy writers have no UI caller
- * and are reported, not probed; see issue #4402.)
+ * contact.* from a query string). The check creates a directory contact and, through the External
+ * row's professional search and its "Add/Edit Professional Contact" form (method=saveProContact),
+ * an external professional contact (a Contact row since #5020; before it the form always made a
+ * professional specialist); replays each captured save as GET/HEAD with a changed last name for
+ * that same (owned) row; and asserts 405 and unchanged rows in the LAST step. (The set-flag and
+ * pharmacy writers, which had no UI caller, were removed in issues #3509 and #4402;
+ * contact-removed-targets proves a request naming one writes nothing.)
  *
- * Fixtures: the owned synthetic patient; the Contact rows the pages create carry the run marker
- * as their last name; cleanup deletes rows carrying the marker (and the patient's associations to
- * them) and asserts it. It also removes any marker professionalSpecialists row, which only a
- * regression of #4987 would create.
+ * Fixtures: the owned synthetic patient; the Contact and professionalSpecialists rows the pages
+ * create carry the run marker as their last name; cleanup deletes rows carrying the marker (and
+ * the patient's professional associations to them) and asserts it.
  * Risk sweep "get-reject" (STATE-CHANGING ACTIONS THAT ACCEPT GET).
  */
-const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -44,8 +41,6 @@ async function workflow(s) {
   const ownedSpecialists = `SELECT specId FROM professionalSpecialists WHERE LOCATE(${q(marker)}, lName) = 1`;
   s.cleanup(() => {
     // Registered first, so it runs after the directory cleanup below (cleanups run in reverse).
-    // Only a regression of #4987 makes a specialist here; the save step then fails, and this
-    // removes what it made.
     sql.execute(`DELETE FROM DemographicContact WHERE type=3 AND demographicNo=${s.patient} AND contactId IN (SELECT specId FROM (${ownedSpecialists}) t);
       DELETE FROM professionalSpecialists WHERE LOCATE(${q(marker)}, lName) = 1`);
     h.assert(sql.value(`SELECT COUNT(*) FROM professionalSpecialists WHERE LOCATE(${q(marker)}, lName) = 1`) === '0',
@@ -63,7 +58,6 @@ async function workflow(s) {
   let contactId;
   let savedPro;
   let editor;
-  let cpso;
   let proContactId;
   const proLastName = `${marker}P`;
   let pageDefect = null;
@@ -96,7 +90,7 @@ async function workflow(s) {
     }
   });
 
-  await s.step('Contacts ▸ Add professional ▸ External ▸ search ▸ Add/Edit Professional Contact ▸ Save creates the external professional contact (POST method=saveProContact)', async () => {
+  await s.step('Contacts ▸ Add professional ▸ External search ▸ Add/Edit Professional Contact ▸ Save creates the external contact (POST method=saveProContact)', async () => {
     // Manage Contacts opens in a named window, so the one the first step opened is reused.
     if (!editor || editor.isClosed()) {
       editor = await s.popup(s.master, masterRecordLink(s.master, 'Contact?method=manage').first(), 'contacts');
@@ -108,22 +102,14 @@ async function workflow(s) {
     await search.locator('input[name="pcontact.lastName"]').fill(proLastName);
     await search.locator('input[name="pcontact.firstName"]').fill('Professional');
     await search.locator('input[name="pcontact.workPhone"]').fill('416-555-0142');
-    // A six-digit CPSO no existing contact or specialist carries, so the stored row and the
-    // replay's changed CPSO below are this run's alone.
-    do {
-      cpso = String(100000 + randomInt(900000));
-    } while (sql.value(`SELECT (SELECT COUNT(*) FROM professionalSpecialists WHERE referralNo=${q(cpso)})
-      + (SELECT COUNT(*) FROM Contact WHERE cpso=${q(cpso)})`) !== '0');
-    await search.locator('input[name="pcontact.cpso"]').fill(cpso);
     savedPro = await captureRequest(search, url => url.pathname.endsWith('/demographic/Contact'),
       () => search.locator('input[name="submitbtn"]').click());
     h.assert(savedPro.params.get('method') === 'saveProContact', 'The professional form did not post method=saveProContact');
-    // The External row asks for an external professional contact (contactType 2, #4987).
-    h.assert(savedPro.params.get('contactType') === '2', 'The External row\'s form did not post contactType=2 (#4987)');
-    await expectValue(sql, `SELECT COUNT(*) FROM Contact WHERE type='ProfessionalContact' AND lastName=${q(proLastName)} AND cpso=${q(cpso)}`, '1',
+    // Since #5020 the External row's form asks for contactType=2, so the save is an external
+    // professional contact in the Contact table, handed back to the row (the popup then closes).
+    h.assert(savedPro.params.get('contactType') === '2', `The External row's form posted contactType=${savedPro.params.get('contactType')}`);
+    await expectValue(sql, `SELECT COUNT(*) FROM Contact WHERE type='ProfessionalContact' AND lastName=${q(proLastName)}`, '1',
       'Save did not create the external professional contact');
-    h.assert(sql.value(`SELECT COUNT(*) FROM professionalSpecialists WHERE LOCATE(${q(marker)}, lName) = 1`) === '0',
-      'Save from the External row created a professional specialist (#4987)');
     proContactId = sql.value(`SELECT id FROM Contact WHERE type='ProfessionalContact' AND lastName=${q(proLastName)}`);
     await search.waitForLoadState('load').catch(() => {});
     if (!search.isClosed()) await search.close();
@@ -136,17 +122,19 @@ async function workflow(s) {
       snapshot: () => sql.value(`SELECT CONCAT(lastName,'|',firstName) FROM Contact WHERE id=${contactId}`) });
   });
 
-  await s.step('the saveProContact replayed as GET/HEAD with a changed name and CPSO is recorded', async () => {
-    // pcontact.id stays empty (a new contact), so an accepted replay would CREATE a second
-    // professional contact under the changed name and CPSO; the snapshot lists the owned
-    // professional rows (and any owned specialist) to catch that.
+  await s.step('the saveProContact replayed as GET/HEAD with a changed name is recorded', async () => {
+    // pcontact.id stays 0 (a new contact), so an accepted replay would CREATE a second owned
+    // professional record. The snapshot counts both tables the form can write (an external
+    // contact, or a specialist for any other type) so neither kind of write goes unseen.
     await ledger.probe(s, { label: 'demographic/Contact?method=saveProContact', path: savedPro.path,
-      params: replayParams(savedPro.params, { 'pcontact.lastName': `${marker}PGET`, 'pcontact.cpso': String((Number(cpso) + 1) % 1000000).padStart(6, '0') }),
+      params: replayParams(savedPro.params, { 'pcontact.lastName': `${marker}PGET` }),
       snapshot: () => sql.value(`SELECT CONCAT(
-          (SELECT CONCAT(COUNT(*),'|',IFNULL(GROUP_CONCAT(CONCAT(id,':',lastName,':',IFNULL(cpso,'')) ORDER BY id),''))
-             FROM Contact WHERE type='ProfessionalContact' AND LOCATE(${q(marker)}, lastName) = 1),
-          '#', (SELECT COUNT(*) FROM professionalSpecialists WHERE LOCATE(${q(marker)}, lName) = 1))`) });
-    h.assert(/^[1-9]\d*$/.test(proContactId), 'The professional contact id was not captured');
+          (SELECT CONCAT(COUNT(*),'|',IFNULL(GROUP_CONCAT(CONCAT(id,':',lastName) ORDER BY id),''))
+            FROM Contact WHERE type='ProfessionalContact' AND LOCATE(${q(marker)}, lastName) = 1),
+          '||',
+          (SELECT CONCAT(COUNT(*),'|',IFNULL(GROUP_CONCAT(CONCAT(specId,':',lName) ORDER BY specId),''))
+            FROM professionalSpecialists WHERE LOCATE(${q(marker)}, lName) = 1))`) });
+    h.assert(/^[1-9]\d*$/.test(proContactId), 'The external professional contact id was not captured');
   });
 
   await s.step('both contact saves refused GET/HEAD, the owned rows are unchanged, and the page ran cleanly', async () => {

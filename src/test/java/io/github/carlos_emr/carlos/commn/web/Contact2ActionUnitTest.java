@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.commn.dao.ProfessionalContactDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.DemographicContact;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.managers.PharmacyManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,11 +41,19 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.apache.struts2.ActionSupport;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.same;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -137,7 +144,6 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
     @Mock private ProfessionalSpecialistDao mockProfessionalSpecialistDao;
     @Mock private ContactSpecialtyDao mockContactSpecialtyDao;
     @Mock private CtlRelationshipsDao mockCtlRelationshipsDao;
-    @Mock private PharmacyManager mockPharmacyManager;
 
     @Test
     @DisplayName("should reject ajax remove when patient record ACL denies write")
@@ -171,7 +177,6 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(ProfessionalSpecialistDao.class, mockProfessionalSpecialistDao);
         replaceSpringUtilsBean(ContactSpecialtyDao.class, mockContactSpecialtyDao);
         replaceSpringUtilsBean(CtlRelationshipsDao.class, mockCtlRelationshipsDao);
-        replaceSpringUtilsBean(PharmacyManager.class, mockPharmacyManager);
     }
 
     @Test
@@ -240,24 +245,18 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
     }
 
     /**
-     * Every other write the action dispatches is POST-only too. The installed
-     * get-reject-contact-directory check showed a GET replay of
-     * {@code method=saveContact} renaming a directory contact (issue #3682); the
-     * flag and pharmacy writes had the same gap. Dispatch goes through
-     * {@code execute()}, the route a replayed URL actually takes.
+     * The directory writes the action dispatches are POST-only too. The
+     * installed get-reject-contact-directory check showed a GET replay of
+     * {@code method=saveContact} renaming a directory contact (issue #3682).
+     * Dispatch goes through {@code execute()}, the route a replayed URL
+     * actually takes.
      */
     @ParameterizedTest(name = "{1} {0}")
     @CsvSource({
             "saveContact, GET", "saveContact, HEAD",
-            "saveProContact, GET", "saveProContact, HEAD",
-            "setEmergencyContact, GET", "setEmergencyContact, HEAD",
-            "setDNC, GET", "setDNC, HEAD",
-            "setMRP, GET", "setMRP, HEAD",
-            "addPharmacy, GET", "addPharmacy, HEAD",
-            "removePharmacy, GET", "removePharmacy, HEAD",
-            "savePharmacyInfo, GET", "savePharmacyInfo, HEAD"
+            "saveProContact, GET", "saveProContact, HEAD"
     })
-    void shouldRejectGetAndHead_beforeAnyDirectoryFlagOrPharmacyWrite(String method, String httpMethod) {
+    void shouldRejectGetAndHead_beforeAnyDirectoryWrite(String method, String httpMethod) {
         registerContactActionBeans();
         mockRequest.setMethod(httpMethod);
         addRequestParameter("method", method);
@@ -270,7 +269,7 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
             assertThat(mockResponse.getStatus()).isEqualTo(405);
             assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
             verifyNoInteractions(mockContactDao, mockProfessionalContactDao, mockProfessionalSpecialistDao,
-                    mockDemographicContactDao, mockDemographicManager, mockPharmacyManager, mockSecurityInfoManager);
+                    mockDemographicContactDao, mockDemographicManager, mockSecurityInfoManager);
         });
     }
 
@@ -292,12 +291,70 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         });
     }
 
+    /**
+     * The flag and pharmacy targets had no UI caller and were removed (issues
+     * #3509 and #4402). A request that still names one, posted by a script or
+     * replayed as a link, must reach only the read-only manage view: one
+     * patient read check, no write check, and no DAO or manager write.
+     */
+    @ParameterizedTest(name = "{1} {0}")
+    @CsvSource({
+            "setEmergencyContact, POST", "setEmergencyContact, GET",
+            "setDNC, POST", "setDNC, GET",
+            "setMRP, POST", "setMRP, GET",
+            "addPharmacy, POST", "addPharmacy, GET",
+            "removePharmacy, POST", "removePharmacy, GET",
+            "addPharmacyInfo, POST", "addPharmacyInfo, GET",
+            "editPharmacyInfo, POST", "editPharmacyInfo, GET",
+            "savePharmacyInfo, POST", "savePharmacyInfo, GET"
+    })
+    void shouldRenderReadOnlyManageView_whenRemovedTargetIsRequested(String method, String httpMethod) {
+        registerContactActionBeans();
+        mockRequest.setMethod(httpMethod);
+        addRequestParameter("method", method);
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        // The parameters the removed targets read, so a restored branch would act on them.
+        addRequestParameter("contactId", "7");
+        addRequestParameter("contactGroup", "pharmacy");
+        addRequestParameter("dnc", "true");
+        addRequestParameter("setting", "true");
+        addRequestParameter("preferredOrder", "1");
+        addRequestParameter("pharmacyInfo.name", "Replayed Pharmacy");
+        withStaticWriteDependencies(() -> {
+            assertThat(new Contact2Action().execute()).isEqualTo("manage");
+            assertThat(mockResponse.getStatus()).isEqualTo(200);
+            verify(mockSecurityInfoManager).hasPrivilege(
+                    any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq(DEMOGRAPHIC_NO));
+            verify(mockSecurityInfoManager, never()).hasPrivilege(
+                    any(LoggedInInfo.class), anyString(), eq("w"), any());
+            verify(mockDemographicContactDao, never()).merge(any());
+            verify(mockDemographicContactDao, never()).persist(any());
+            verifyNoInteractions(mockContactDao, mockProfessionalContactDao, mockProfessionalSpecialistDao,
+                    mockDemographicManager);
+        });
+    }
+
+    /**
+     * Struts binds request parameters only through {@link StrutsParameter}
+     * accessors. The removed {@code savePharmacyInfo} was the only reader of
+     * the {@code pharmacyInfo.*} binding, so that entity binding stays gone.
+     */
+    @Test
+    void shouldBindOnlyContactForms_forStrutsParameters() {
+        Set<String> bound = Arrays.stream(Contact2Action.class.getDeclaredMethods())
+                .filter(m -> m.isAnnotationPresent(StrutsParameter.class))
+                .map(Method::getName)
+                .collect(Collectors.toSet());
+
+        assertThat(bound).containsExactlyInAnyOrder("getContact", "setContact", "getPcontact", "setPcontact");
+    }
+
     private void withStaticWriteDependencies(Runnable scenario) {
         // The legacy action caches these beans in static fields on first load, so
         // point them at this test's mocks for the scenario and put them back after.
-        String[] fields = {"contactDao", "proContactDao", "professionalSpecialistDao", "demographicManager", "pharmacyManager"};
+        String[] fields = {"contactDao", "proContactDao", "professionalSpecialistDao", "demographicManager"};
         Object[] mocks = {mockContactDao, mockProfessionalContactDao, mockProfessionalSpecialistDao,
-                mockDemographicManager, mockPharmacyManager};
+                mockDemographicManager};
         Object[] previous = new Object[fields.length];
         for (int i = 0; i < fields.length; i++) {
             previous[i] = ReflectionTestUtils.getField(Contact2Action.class, fields[i]);
