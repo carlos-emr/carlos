@@ -76,19 +76,39 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAuditAgainstNotesOwnPatient_notTheRequestParameter() {
+    void shouldRefuseHistory_whenRequestNamesAnotherPatient() {
+        // Another patient's chart must not show this note's stored history, even to a login that may read both.
         request.setParameter("demographicNo", "999");
-        note.setDemographic_no("101");
-        String audit = note.getAuditString();
 
-        action.history();
+        assertThat(action.history()).isEqualTo("none");
+        assertThat(((MockHttpServletResponse) action.response).getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("history")).isNull();
+        assertThat(request.getAttribute("demoName")).isNull();
+        assertThat(action.getCaseNote_history()).isNull();
+        verify(security, never()).hasPrivilege(any(), anyString(), anyString(), anyString());
+        logActionMock.verifyNoInteractions();
+    }
 
-        logActionMock.verify(() -> LogAction.addLog("4249", LogConst.READ, LogConst.CON_CME_NOTE, "501",
-                "192.0.2.7", "101", audit));
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0", "-101", "x101"})
+    void shouldRefuseHistory_whenNamedPatientIsNotAPatientNumber(String named) {
+        request.setParameter("demographicNo", named);
+
+        assertThat(action.history()).isEqualTo("none");
+        assertThat(request.getAttribute("history")).isNull();
+        logActionMock.verifyNoInteractions();
     }
 
     @Test
-    void forgedOpenPatientCannotAuthorizeLockedStoredNoteOwner() {
+    void shouldServeHistory_whenRequestNamesTheOwnerWithLeadingZeros() {
+        request.setParameter("demographicNo", "0101");
+
+        assertThat(action.history()).isEqualTo("historyview");
+        assertThat(request.getAttribute("history")).isEqualTo("earlier revision");
+    }
+
+    @Test
+    void shouldRefuseLockedOwner_whenRequestNamesAnOpenPatient() {
         request.setParameter("demographicNo", "999");
         when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
         assertThat(action.history()).isEqualTo("none");
@@ -112,13 +132,14 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void forgedRequestDoesNotChangeAuthorizedOwnersDisplayedIdentity() {
-        request.setParameter("demographicNo", "999");
+    void shouldShowAndAuditTheOwner_whenRequestNamesNoPatient() {
+        request.removeParameter("demographicNo");
+        String audit = note.getAuditString();
+
         assertThat(action.history()).isEqualTo("historyview");
         assertThat(request.getAttribute("demoName")).isEqualTo("Actual owner");
-        verify(manager, never()).getDemoName("999");
-        verify(manager, never()).getDemoAge("999");
-        verify(manager, never()).getDemoDOB("999");
+        logActionMock.verify(() -> LogAction.addLog("4249", LogConst.READ, LogConst.CON_CME_NOTE, "501",
+                "192.0.2.7", "101", audit));
     }
 
     @Test

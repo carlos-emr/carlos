@@ -3185,6 +3185,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Long owner = note == null ? null : parseExistingNoteId(note.getDemographic_no());
         if (owner == null || owner <= 0 || owner > Integer.MAX_VALUE) return refuseNoteHistory();
         String patient = owner.toString();
+        // A request that names a patient must name the note's owner, as notehistory requires. Otherwise one
+        // patient's chart would show another patient's stored history, and this view's cumulative text could
+        // carry revisions a group-note link never shared (notehistory serves those through its linked view).
+        String named = request.getParameter("demographicNo");
+        if (StringUtils.isNotBlank(named) && !owner.equals(parseExistingNoteId(named))) return refuseNoteHistory();
         if (!securityInfoManager.hasPrivilege(info, "_demographic", "r", patient)
                 || !securityInfoManager.hasPrivilege(info, "_casemgmt.notes", "r", patient)
                 || !securityInfoManager.isAllowedAccessToPatientRecord(info, owner.intValue())) {
