@@ -577,7 +577,7 @@
         <input type="submit" value="<fmt:message key='global.save'/>"/> <%
                 if ( h != null && h.get("ID") != null){ %> <input
             type="button"
-            onClick="javascript: popup(700,600,'addRhInjection?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&amp;workflowId=<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="javaScriptAttribute"/>&amp;formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="javaScriptAttribute"/>','addInjection');"
+            onClick="javascript: popup(700,600,'form/addRhInjection?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&amp;workflowId=<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="javaScriptAttribute"/>&amp;formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="javaScriptAttribute"/>','addInjection');"
             value="Add Injection"/> <%-- a style="color:blue; " href="javascript: function myFunction() {return false; }" onClick="popup(700,600,'addRhInjection?demographic_no=<%=demographicNo%>&amp;workflowId=<%=h.get("ID")%>&amp;formId=<%=formId%>','addInjection')">Add Injection</a --%>
                 <%}%>
         </form>
@@ -641,7 +641,6 @@
             function deleteCall() {
                 var url = "<%=request.getContextPath()%>/prevention/AddPrevention";
                 var data = new URLSearchParams(new FormData(document.getElementById('deleteForm'))).toString();
-                console.log("deleteCall " + data);
                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                 var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {

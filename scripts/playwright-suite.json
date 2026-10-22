@@ -6660,6 +6660,22 @@
       "fixtures": "Owned synthetic patient and the VT record and measurements Save & Exit stores; cleanup deletes the owned patient's formVTForm and measurements rows and asserts them gone. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
     },
     {
+      "name": "rh-workflow-form-links",
+      "script": "scripts/rh-workflow-form-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [],
+      "notes": "Issue #4992, the Rh immune globulin workflow around the RH form: the WorkFlow queue's RH link left the application and named a Forms-menu shortcut no shipped install registers (284), Add Injection opened addRhInjection without form/ (285), the injection editor's Save raised a script error (287), and the injection panel stayed empty because its lookup parsed the prevention entity's toString() as an id (288). A saved RH form bound to an active workflow is opened for the owned patient: its panel lists the seeded injection with its lot (carrying inert markup, shown as text), product, location and reason; Add Injection opens the editor for the same patient, workflow and form; Save Injection stores one linked injection without a script error and the panel refreshes to two; the panel's Delete removes only the chosen injection; the queue row's link resolves inside the application to that workflow's saved form and opens it. The log-privacy half (290) is PreventionDataExtLookupUnitTest.",
+      "fixtures": "Owned synthetic patient; one active RH workflow, one saved formRhImmuneGlobulin row bound to it and one RH prevention with workflowId, formId, lot, product, dosage, location and reason extensions; the injection Save Injection stores. Cleanup deletes the owned patient's preventions and their extensions, formRhImmuneGlobulin rows and workflow rows, and asserts them gone. The queue lists every active RH workflow, so other clinics' rows may show; the check reads only the owned patient's link."
+    },
+    {
       "name": "form-checkbox-reopen",
       "script": "scripts/form-checkbox-reopen-playwright-checks.js",
       "tiers": [

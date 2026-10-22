@@ -237,8 +237,14 @@ public class PreventionData {
         try {
             List<PreventionExt> preventionExts = preventionExtDao.findByKeyAndValue(extKey, extVal);
             for (PreventionExt preventionExt : preventionExts) {
-                Map<String, Object> hash = getPreventionById(preventionDao.find(preventionExt.getPreventionId()).toString());
-                if (hash.get("deleted") != null && ((String) hash.get("deleted")).equals("0")) {
+                // Pass the identifier, never the entity's reflection-based toString(): parsing that
+                // clinical content as an id both hid the RH injections and wrote it into an error log
+                // (issue #4992).
+                Integer preventionId = preventionExt.getPreventionId();
+                if (preventionId == null) continue;
+                Map<String, Object> hash = getPreventionById(preventionId.toString());
+                // An old extension can outlive its prevention. It must not hide later live records.
+                if (hash != null && "0".equals(hash.get("deleted"))) {
                     list.add(hash);
                 }
             }
@@ -466,8 +472,18 @@ public class PreventionData {
     public static Map<String, Object> getPreventionById(String id) {
         Map<String, Object> h = null;
 
+        Integer preventionId;
         try {
-            Prevention prevention = preventionDao.find(Integer.valueOf(id));
+            preventionId = Integer.valueOf(id == null ? "" : id.trim());
+        } catch (NumberFormatException e) {
+            // The value is not echoed: a caller that passed an entity's toString() here wrote the
+            // patient's prevention, lot and reason into the error log (issue #4992).
+            log.warn("Refused a prevention lookup by a value that is not a numeric id");
+            return null;
+        }
+
+        try {
+            Prevention prevention = preventionDao.find(preventionId);
             if (prevention != null) {
                 Map<String, String> ext = getPreventionKeyValues(prevention.getId().toString());
 

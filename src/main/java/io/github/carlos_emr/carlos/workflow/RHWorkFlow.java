@@ -30,11 +30,14 @@
 
 package io.github.carlos_emr.carlos.workflow;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -137,8 +140,54 @@ public class RHWorkFlow implements WorkFlow {
         return WorkFlowDSFactory.getWorkFlowDS("Rh_workflow.drl");
     }
 
+    /**
+     * Opens the RH form saved for this pregnancy: the patient's latest {@code formRhImmuneGlobulin}
+     * record bound to the workflow, else the patient's latest RH record, else a new form (which binds
+     * to the patient's active workflow). Issue #4992: the address was {@code ../form/forwardshortcutname},
+     * which the queue page's context-root base resolved outside the application, and which named a
+     * Forms-menu shortcut ("RH Form") that no shipped install registers.
+     *
+     * @return an address relative to the context path, which the queue page prefixes
+     */
+    @Override
     public String getLink(String demographicNo, String workFlowId) {
-        return "../form/forwardshortcutname?formname=RH Form&amp;demographic_no=" + demographicNo;
+        int patient = positiveIdOrZero(demographicNo);
+        return "/form/formRhImmuneGlobulin?demographic_no=" + patient + "&formId=" + rhFormId(patient,
+                positiveIdOrZero(workFlowId));
+    }
+
+    private static int rhFormId(int demographicNo, int workFlowId) {
+        if (demographicNo <= 0) {
+            return 0;
+        }
+        String latest = " ORDER BY formEdited DESC, ID DESC LIMIT 1";
+        try {
+            if (workFlowId > 0) {
+                Integer bound = firstId("SELECT ID FROM formRhImmuneGlobulin WHERE demographic_no = ? AND workflowId = ?"
+                        + latest, demographicNo, workFlowId);
+                if (bound != null) {
+                    return bound;
+                }
+            }
+            Integer any = firstId("SELECT ID FROM formRhImmuneGlobulin WHERE demographic_no = ?" + latest, demographicNo);
+            return any == null ? 0 : any;
+        } catch (SQLException e) {
+            MiscUtils.getLogger().warn("Could not find the RH form for a workflow queue row ({})", e.getClass().getSimpleName());
+            return 0;
+        }
+    }
+
+    private static Integer firstId(String sql, Object... params) throws SQLException {
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, params)) {
+            return rs.next() ? rs.getInt(1) : null;
+        }
+    }
+
+    private static int positiveIdOrZero(String value) {
+        if (value == null || !value.trim().matches("[0-9]{1,9}")) {
+            return 0;
+        }
+        return Integer.parseInt(value.trim());
     }
 
 
