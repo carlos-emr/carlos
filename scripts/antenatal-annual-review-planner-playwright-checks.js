@@ -49,7 +49,7 @@ async function workflow(s) {
   sql.execute(`INSERT INTO encounterForm (form_value,form_name,form_table,hidden)
     SELECT ${h.sqlString(formValue)},${h.sqlString(formName)},'formAnnual',COALESCE(MAX(hidden),0)+1 FROM encounterForm`);
   const chart = await s.chart();
-  await chart.locator('#menuTitle1 a').hover();
+  await ui.openFormsMenu(chart);
   const annual = await s.popup(chart, chart.getByRole('link', { name: formName, exact: true }), 'annual-form');
   const openPlanner = () => s.popup(annual, annual.getByRole('link', { name: 'Annual Review Planner' }).first(), 'annual-review-planner');
   let planner;

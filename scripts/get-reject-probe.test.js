@@ -2,14 +2,16 @@
 'use strict';
 /*
  * Classification rules of the get-reject ledger: unchanged rows alone never prove the
- * application refused a GET/HEAD. Only a 405, or a 403 carrying the application's own header,
- * counts; a WAF page, a 5xx and an unmarked 403 are inconclusive and fail the ledger.
+ * application refused a GET/HEAD. Only a 405 or a 403 carrying the application's own header (or, for
+ * a 405, its error page) counts; a WAF page, a 5xx and an unmarked 403 or 405 are inconclusive and
+ * fail the ledger.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createLedger } = require('./lib/get-reject-probe');
 
 const APP = { 'x-permitted-cross-domain-policies': 'none' };
+const APP_ERROR_PAGE = '<html><head><title>Error Page</title></head><body>Method Not Allowed</body></html>';
 
 function session(responses) {
   const queue = [...responses];
@@ -34,9 +36,19 @@ async function run(responses, options = {}) {
   return ledger;
 }
 
-test('shouldAcceptRefusal_whenBothVerbsAre405', async () => {
-  const ledger = await run([{ status: 405 }, { status: 405 }]);
+test('shouldAcceptRefusal_whenBothVerbsAre405CarryingTheApplicationHeader', async () => {
+  const ledger = await run([{ status: 405, headers: APP }, { status: 405, headers: APP }]);
   assert.equal(ledger.assertAllRefused(), 1);
+});
+
+test('shouldAcceptRefusal_whenTheGetIs405WithTheApplicationErrorPage', async () => {
+  const ledger = await run([{ status: 405, body: APP_ERROR_PAGE }, { status: 405, headers: APP }]);
+  assert.equal(ledger.assertAllRefused(), 1);
+});
+
+test('shouldReject_whenA405HasNoApplicationHeaderOrErrorPage', async () => {
+  const ledger = await run([{ status: 405, body: '<html>nope</html>' }, { status: 405 }]);
+  assert.throws(() => ledger.assertAllRefused(), /could not be attributed to the application/);
 });
 
 test('shouldAcceptRefusal_whenBothVerbs403CarryTheApplicationHeader', async () => {
@@ -50,7 +62,7 @@ test('shouldReject_whenA403HasNoApplicationHeader', async () => {
 });
 
 test('shouldReject_whenHeadIs403WithoutTheApplicationHeader', async () => {
-  const ledger = await run([{ status: 405 }, { status: 403 }]);
+  const ledger = await run([{ status: 405, headers: APP }, { status: 403 }]);
   assert.throws(() => ledger.assertAllRefused(), /could not be attributed to the application/);
 });
 

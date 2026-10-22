@@ -67,7 +67,7 @@ async function workflow(s) {
   s.cleanup(() => fixture.cleanup());
   const owned = `%${role}%`;
   // The GET ProviderAddRole probe names this role; a wrongly accepted GET would create it.
-  const roles = `${R},${h.sqlString(`${role}-GET`)}`;
+  const roles = `${R},${h.sqlString(`${role}-GET`)},${h.sqlString(`${role}-read`)}`;
   s.cleanup(() => {
     sql.execute([
       `DELETE FROM MyGroupAccessRestriction WHERE myGroupNo=${G}`,
@@ -156,7 +156,7 @@ async function workflow(s) {
     const before = frame.url();
     await frame.locator('#role_name').fill('Z');
     const dialogs = await h.withExpectedDialogs(admin, async () => {
-      await frame.locator('input[name="submit"][value="Search"]').click();
+      await frame.locator('[name="submit"][value="Search"]').click();
     });
     h.assert(dialogs.length === 1 && /must type/i.test(dialogs[0].text), 'The short role name raised no validation alert');
     h.assert(frame.url() === before, 'The refused search still submitted');
@@ -164,10 +164,10 @@ async function workflow(s) {
   let roleNo;
   await s.step('searching the new name offers it as NEW and the confirmed Save creates exactly one role', async () => {
     await frame.locator('#role_name').fill(role);
-    await submitIn(admin, frame, frame.locator('input[name="submit"][value="Search"]'));
+    await submitIn(admin, frame, frame.locator('[name="submit"][value="Search"]'));
     h.assert(/It is a NEW role/.test(await frame.locator('span.alert').innerText()), 'The search did not offer the name as a new role');
     const dialogs = await h.withExpectedDialogs(admin, () =>
-      submitIn(admin, frame, frame.locator('input[name="submit"][value="Save"]')));
+      submitIn(admin, frame, frame.locator('[name="submit"][value="Save"]')));
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Save did not ask for confirmation exactly once');
     h.assert((await frame.locator('span.alert').innerText()).includes(`${role} is added.`), 'Save did not confirm the new role');
     h.assert(sql.value(`SELECT CONCAT(COUNT(*),'|',MAX(description)) FROM secRole WHERE role_name=${R}`) === `1|${role}`,
@@ -177,7 +177,7 @@ async function workflow(s) {
   });
   await s.step('searching the saved name again offers it for editing, not as a duplicate', async () => {
     await frame.locator('#role_name').fill(role);
-    await submitIn(admin, frame, frame.locator('input[name="submit"][value="Search"]'));
+    await submitIn(admin, frame, frame.locator('[name="submit"][value="Search"]'));
     h.assert(/You can edit the role/.test(await frame.locator('span.alert').innerText())
       && await frame.locator('input[name="action"]').inputValue() === `edit${role}`, 'The existing role was not offered for editing');
     h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name LIKE ${h.sqlString(owned)}`) === '1', 'Searching changed the role table');
@@ -230,8 +230,11 @@ async function workflow(s) {
           h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0,
             'Flowsheet access exposed the role-rights editor');
           h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Flowsheet access granted role-rights editing');
-          h.assert(await own.locator('#adminNav a[rel$="/admin/ManageFlowsheets"]').count() === 0,
-            'The menu advertised the write-only flowsheet editor to a read-only doctor');
+          // Read on _admin.flowsheet opens the list; the write controls are the writer's alone
+          // (manage-flowsheets-access pins both sides, issue #4623).
+          const flowsheets = await openItem(own, 'ManageFlowsheets', 'table.table');
+          await h.assertNotErrorPage(flowsheets, 'doctor flowsheet administration');
+          h.assert(await flowsheets.locator('#flowsheetActionForm').count() === 0, 'A read-only doctor was handed the flowsheet enable/disable form');
         }
       }
     } finally { await ctx.close(); }
@@ -250,7 +253,21 @@ async function workflow(s) {
     const { ctx, admin: own } = await throwawaySession('role-throwaway-granted');
     try {
       const page = await openItem(own, 'ProviderAddRole', 'input#role_name');
-      h.assert(await page.locator('input[name="submit"][value="Search"]').isVisible(), 'Add A Role did not render its form');
+      h.assert(await page.locator('[name="submit"][value="Search"]').isVisible(), 'Add A Role did not render its form');
+      await page.locator('#role_name').fill(role);
+      await submitIn(own, page, page.locator('[name="submit"][value="Search"]'));
+      h.assert(await page.locator('input[name="action"]').inputValue() === `edit${role}`,
+        'The read-only role search did not find the saved role');
+      h.assert(await page.locator('[name="submit"][value="Save"]').count() === 0,
+        'The read-only role search offered Save');
+      const extra = `${role}-read`;
+      const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+      const denied = await ctx.request.post(h.appUrl(config.baseUrl, '/admin/ProviderAddRole'), {
+        form: { submit: 'Save', action: `add${extra}`, role_name: extra, 'CSRF-TOKEN': token }, maxRedirects: 0 });
+      h.assert(denied.status() === 403, 'The read-only role Save was not refused');
+      await denied.dispose();
+      h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${h.sqlString(extra)}`) === '0',
+        'The refused read-only Save created a role');
       h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0, 'Read access exposed Assign Role/Rights to Object');
       h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Read access was not refused the write-only privilege editor');
     } finally { await ctx.close(); }
@@ -359,6 +376,14 @@ async function workflow(s) {
     frame = await openItem(admin, 'GroupNoAcl', 'select#chosen_group');
     // Choosing a group re-renders the page for it (onChange submits method=setGroupNo).
     await submitIn(admin, frame, () => frame.locator('select#chosen_group').selectOption(group));
+    // The page offers only active providers (PMmodule ProviderDao.getActiveProviders: status 1, and a
+    // provider number not starting with "-"). Not "exactly": a provider this check inserts by SQL can
+    // be missing from the application's cached provider list until it refreshes.
+    const listed = await frame.locator('input[name="data"]').evaluateAll(boxes => boxes.map(b => b.value));
+    const active = sql.rows("SELECT provider_no FROM provider WHERE status='1' AND provider_no NOT LIKE '-%'").map(r => r[0]);
+    const notActive = listed.filter(p => !active.includes(p));
+    h.assert(!notActive.length, `Access Control lists providers that are not active: ${notActive.join(',')}`);
+    h.assert(listed.includes(s.provider), 'Access Control does not list the administrator');
     const box = frame.locator(`input[name="data"][value="${s.provider}"]`);
     h.assert(await box.isChecked() === !restrict, 'The group\'s current restriction is not reflected');
     await box.setChecked(restrict);
@@ -377,6 +402,12 @@ async function workflow(s) {
     await accessControl(false);
     h.assert(restrictions().length === 0, 'The restriction row was not removed');
     h.assert(await groupOption() === 1, 'The un-restricted group did not return to the day sheet');
+  });
+  await s.step('a GET carrying the Access Control save is refused with 405 and stores nothing', async () => {
+    const params = new URLSearchParams({ method: 'save', chosen_group: group, data: s.provider });
+    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/admin/GroupNoAcl?${params}`), { maxRedirects: 0 });
+    h.assert(response.status() === 405, `A GET Access Control save answered ${response.status()}, not 405`);
+    h.assert(restrictions().length === 0, 'A refused GET stored a restriction');
   });
   await s.step('Fix notes with invalid role lists the owned role as a target (opened, never submitted)', async () => {
     frame = await openItem(admin, 'FixRolesOnNotes', 'select[name="role_to"]');

@@ -104,7 +104,7 @@ Every failing check passes the steps it reaches before the one that hits the def
 | `my-groups` | §2.3 | all | PASS |
 | `schedule-admin-settings` | §2.3 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the schedule date popup preselects the wrong template and Template Code Setting edit truncates apostrophes. |
 | `schedule-views` | §2.3 | all | PASS |
-| `waiting-list` | §2.3 | all | FAIL on confirmed defects. Fails at its first step on 2026.08 until the Master Record stops rendering the waiting list read-only when DEMOGRAPHIC_WAITING_LIST=true (edit.jsp wLReadonly). |
+| `waiting-list` | §2.3 | all | PASS once #4229 is fixed: the Master Record takes waiting-list availability from `WaitingListAvailabilityService` (feature on, current list in the login's group) instead of the inverted `wLReadonly` switch, and Report ▸ Waiting List is the entry the check uses to create its list. |
 | `admin-update-demographic-provider` | §2.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: a GET performs the bulk reassignment (HTTP 200). |
 | `demographic-cds-import` | §2.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: a duplicate import is reported as 'Imported Successfully'. Needs xmllint (libxml2-utils). |
 | `demographic-merge` | §2.4 | all | PASS |
@@ -126,6 +126,7 @@ Every failing check passes the steps it reaches before the one that hits the def
 | `hrm-report-print-download` | §2.6 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: HRM list, print and download serve a locked patient's reports (no patient-level authorization). |
 | `lab-forwarding-rules` | §2.6 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: the Administration Lab Forwarding Rules page binds its provider selector to the wrong id, so no provider's rules can be loaded or saved. |
 | `lab-manual-entry-cumulative` | §2.6 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: Row Display throws ReferenceError (scanDOM) and loads a missing spinner image. |
+| `lab-to-flowsheet` | §2.6 | ON | A lab created through Inbox ▸ Create Lab (CML 3767 HEMOGLOBIN A1C, one result within and one above the Diabetes Flowsheet's own target, read from the flowsheet, plus an unmapped CML 2010 hemoglobin) is followed into `measurements` (type A1C, `lab_no`, identifier, unit, date), the chart's Measurements module, the Diabetes Flowsheet after Dx 250 (each result under its date, the one above the target flagged and the one within it not, nothing for the unmapped test) and the Health Tracker; all of that passes. Five known failures each have a pinned entry: the A1C row has no link to the lab it came from (258), a result whose first five characters are all digits or one of `+ , - . / : ; < = > ?` was filed cut to four (a creatinine of 112.5 became 112.) by the shipped `HL7_LAB_MEASUREMENT_FILTER` (256, fixed in #4613: `lab-to-flowsheet-long-value` now expects every step to pass, for that creatinine and three more such results on the same lab), a result observed between 12:00 and 12:59 is filed twelve hours early (259), an A1C reported as a fraction was never flagged (257, fixed: it is now read as percent and the entry passes), and a lab uploaded with an observation time that has no seconds is filed as observed at the upload time (262). The unmapped test is filed with an empty type (a lab-only record the Lab Result views read), not left out of `measurements`; "does not appear" means no flowsheet type, Measurements line, flowsheet row or tracker card. |
 | `billing-on-admin-config` | §2.7 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: Manage Billing Form Add/bill-type/Delete and dx Search Update are refused for missing CSRF tokens, and the code Search update/confirm pages throw script errors. |
 | `billing-on-batch-clipboard` | §2.7 | ON | FAIL on confirmed defects. Fails on 2026.08: Billing Reconciliation ▸ Report posts a runtime-built form without a CSRF token (403), so the billing clipboard is unreachable. |
 | `billing-on-correction-delete` | §2.7 | ON | FAIL on confirmed defects. Fails at its Unbill step on 2026.08: the history page submits a runtime-built form without a CSRF token (403). |
@@ -146,7 +147,8 @@ Every failing check passes the steps it reaches before the one that hits the def
 | `tickler-forward-filters` | §3.4 | all | PASS |
 | `tickler-preferences` | §3.4 | all | FAIL on confirmed defects. Fails on 2026.08: the Preferences link opens the stale-note-date page instead of the tickler preference form (and further defects behind it). |
 | `workflow-tickler-suggested-text` | §3.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the patient tickler list (ticklerDemoMain) answers 500 for a patient with a tickler (LazyInitializationException). The WorkFlow step skips while WORKFLOW is off. |
-| `clinical-forms-save-reopen` | §3.5 | ON | FAIL on confirmed defects. Records each form and fails at the end on 2026.08: a second save/print is refused for a missing CSRF token, Vascular Tracker 404s, Annual print 404s, MMSE image 404s, and the Discharge Summary and Mental Health Form 1 saves throw TypeErrors. |
+| `clinical-forms-save-reopen` | §3.5 | ON | Records each form and asserts it per concern. The second-Save CSRF refusal, Annual print, MMSE image and Discharge Summary / Mental Health Form 1 defects of the first run were fixed (#4295 to #4298; finding 70 stays open for Print and Save and Exit from a redisplayed page, which no check drives); the entries now also cover Mental Health Forms 14 and 42, Annual V2 for a female and a male patient, the Vascular Tracker and the Mental Health referral / assessment / outcome chain. Known failures (Forms 14 and 42 script errors, the Mental Health script error, chart reload, reopen 500 and Print) each have a pinned entry; see `app-findings-log.md` findings 236 to 239 and 242. The Vascular Tracker 404, its 400 Save and its script errors (findings 103, 254 and 255) were fixed in #4667; their entries now run as regressions. The remaining Ontario forms are `form-catalog-smoke`. |
+| `form-rourke2020-growth` | §3.5 | ON | Rourke 2020 and the Growth 0-36m and Growth Chart forms, each asserted per concern for an owned infant: open, keys, save, redisplay, reopen, restore (Rourke: on every page), Rourke's measurement dialog (weights and lengths into `measurements`), the graph PDFs (their pages, points counted from the content streams, every page drawn as a PNG), Print (PDF carrying the typed text). Known failures each have a pinned entry: no head circumference dialog (243), the local date (152), the two Immunization boxes that are not stored (244), `null` visit dates (245), the wrong sex marks (246), gestational age one week short (247), seven page II notes the template declares and never places (248), the empty DOB line (249), Growth Chart Print BMI 500 (250), the wrong title of the lower Length and Weight graph (252) and the CDC title of the Growth 0-36 window (253); unpinned on purpose: slow save and print (251, no agreed budget). A pair fails under its pinned step only for its own defect: a control that cannot be reached, a concern that was not reached and a stray browser problem read as a failure elsewhere. The graph is a PDF, not the PNG the plan assumed. |
 | `dashboard-display` | §3.6 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: Assign Tickler 404s on a doubled context path, Add To Disease Registry writes nothing, BulkPatientAction writes on GET, and Drill Down 403s without _dashboardChgUser. |
 | `demographic-report-favourites` | §3.6 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: a GET of report/DemographicReport with query=Save Query writes a saved query (no GET rejection, no CSRF on GET). |
 | `report-age-sex-visit` | §3.6 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: the Provider Service Report form replaces the shell's jQuery and throws on its oscarMonth rule. |
@@ -235,6 +237,10 @@ own fixture. `scripts/xss-poison-helpers.test.js` pins these rules.
 
 ## Routes with no UI entry
 
+`report/GenerateSpreadsheet` was retired under #3965. The
+`patient-retired-spreadsheet` regression checks that authenticated GET and CSRF-valid
+POST requests return 404 without patient data or a download.
+
 Per the suite's rule a route with no link gets no check; each is a finding about the route.
 The checks' authors confirmed these by source search and by the absence of an opener on the
 live install:
@@ -242,7 +248,7 @@ live install:
 - **Reports:** `RunClinicalReport` / `RemoveClinicalReport` / `ViewClinicalExport`, the
   `report/ViewReportForm*` / `ViewReportFilter` / `ViewReportResult` designer chain,
   `report/ViewGenerateLetters` and the letters chain, `report/printLabDaySheetAction`,
-  `ViewReportecharthistory`, `ViewReportedblist`, `GenerateSpreadsheet`,
+  `ViewReportecharthistory`, `ViewReportedblist`,
   `ViewOscarReportDxReg`, `ViewSelectCDMReport`, `ViewCDMReport`, `ViewEditCodeDesc`,
   `oscarReport/reportByTemplate/ViewListTemplates`, `exportTemplateAction`.
 - **Patient sets and records:** `demographic/ViewAddDemoToPatientSet`,

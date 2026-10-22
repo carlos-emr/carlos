@@ -20,6 +20,8 @@ import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletContext;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+
 /**
  * Resolves legacy form JSP paths to the new action routes and internal
  * WEB-INF locations.
@@ -243,6 +245,10 @@ public final class FormViewRoutes {
         String pathOnly = queryIndex >= 0 ? trimmed.substring(0, queryIndex) : trimmed;
         String query = queryIndex >= 0 ? trimmed.substring(queryIndex) : "";
 
+        if ("/form/SetupForm.do".equals(pathOnly) || "/form/SetupForm".equals(pathOnly)) {
+            return "/form/SetupForm" + query;
+        }
+
         if ("/form/formXmlUpload.jsp".equals(pathOnly)) {
             return "/form/formXmlUpload" + query;
         }
@@ -252,8 +258,13 @@ public final class FormViewRoutes {
         if ("/form/forwardname.jsp".equals(pathOnly)) {
             return "/form/forwardname" + query;
         }
-        if ("/form/pharmaForms/formBPMH.jsp".equals(pathOnly)) {
+        // The BC seed registers BPMH as "../formBPMH.do?demographic_no="; actions are extensionless now (#4732).
+        if ("/form/pharmaForms/formBPMH.jsp".equals(pathOnly) || "/formBPMH.do".equals(pathOnly)) {
             return "/formBPMH" + query;
+        }
+        // The BC seed registers BC-WCB as "../billing/CA/BC/viewformwcb.do?demographic_no=" the same way.
+        if ("/billing/CA/BC/viewformwcb.do".equals(pathOnly)) {
+            return "/billing/CA/BC/viewformwcb" + query;
         }
         if (!pathOnly.startsWith(PUBLIC_FORM_PREFIX)) {
             return null;
@@ -283,7 +294,11 @@ public final class FormViewRoutes {
         if (formLink == null || !SAFE_FORM_LINK_PATTERN.matcher(formLink).matches()) {
             return null;
         }
-        return INTERNAL_FORM_PREFIX + formLink;
+        // The pattern already limits form_link to one file name directly under the
+        // form folder, so this never throws. Callers forward to the result, and
+        // validatePathComponent is the sanitizer static analysis recognizes for a
+        // single request-supplied path segment.
+        return INTERNAL_FORM_PREFIX + PathValidationUtils.validatePathComponent(formLink, "form_link");
     }
 
     static boolean isAllowedWildcardFormView(String relativeView) {

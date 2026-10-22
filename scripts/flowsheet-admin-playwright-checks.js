@@ -45,11 +45,13 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('node:child_process');
 const { randomBytes } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
 const LOCAL_HOSTS = new Set([
   'localhost',
@@ -586,21 +588,15 @@ function cleanupResources() {
   return cleanupPromise;
 }
 
-function installSignalHandler(signal, exitCode) {
-  process.once(signal, () => {
-    cleanupResources()
-      .catch((error) => console.error(`Cleanup after ${signal} failed: ${error.message}`))
-      .finally(() => process.exit(exitCode));
-  });
-}
-
-installSignalHandler('SIGINT', 130);
-installSignalHandler('SIGTERM', 143);
+// cleanupResources() memoises its in-flight promise, so the finally block and a signal
+// cannot run it twice (issue #3600).
+installCleanupSignalHandlers(cleanupResources);
 
 (async () => {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -609,7 +605,7 @@ installSignalHandler('SIGTERM', 143);
     cleanupCreatedRows();
     browser = await chromium.launch(launchOptions);
     browserContext = await browser.newContext({
-      ignoreHTTPSErrors: baseUrlIsLocal,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 1000 },
     });
     await installNavigationGuard(browserContext);

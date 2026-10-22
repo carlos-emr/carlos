@@ -6,15 +6,17 @@
  *
  * User path: Schedule ▸ Search ▸ Master Record ▸ Billing History (popup) ▸ Edit
  * (billingONCorrection) ▸ bill-to ▸ Save; Correction ▸ Payments List (billingON3rdPayments)
- * ▸ partial then full payment; Billing History ▸ Print (ViewBillingON3rdInv) ▸ Print PDF
- * (BillingInvoicePrint); Schedule ▸ Administration ▸ Billing ▸ Invoice Reports ▸ Bill
- * Patient ▸ tick ▸ Print (BillingInvoiceListPrint); Correction ▸ Payer
- * (ViewOnSearch3rdBillAddr) ▸ Add/Edit Address (OnAddEdit3rdAddr) ▸ Edit; Payer ▸ pick.
+ * ▸ partial then full payment ▸ view (viewPayment_ext); Billing History ▸ Print
+ * (ViewBillingON3rdInv) ▸ Print PDF (BillingInvoicePrint); Schedule ▸ Administration ▸
+ * Billing ▸ Invoice Reports ▸ Bill Patient ▸ tick ▸ Print (BillingInvoiceListPrint);
+ * Correction ▸ Payer (ViewOnSearch3rdBillAddr) ▸ Add/Edit Address (OnAddEdit3rdAddr) ▸
+ * Edit; Payer ▸ pick.
  *
  * Asserts against MariaDB: the bill-to lands in billing_on_ext; each payment writes
  * billing_on_payment / billing_on_item_payment / billing_on_transaction rows and moves
  * billing_on_cheader1.paid and the ext payment key, with the balance the popup and the
- * invoice show; both PDFs are real PDFs whose text carries the invoice number and total,
+ * invoice show; a payment's view popup shows its date, type, amount and paid item and
+ * writes nothing; both PDFs are real PDFs whose text carries the invoice number and total,
  * and printing appends the "Printed" note to comment1; a GET against the payment save is
  * refused and writes nothing; Add/Edit Address loads the owned address; picking it in the
  * Payer search fills and saves the bill-to (last: fails on a known defect, see report).
@@ -33,6 +35,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const CORRECTION_FORM = 'form[action$="/billing/CA/ON/UpdateBillingONCorrection"]';
 const PAYMENTS = '/billing/CA/ON/billingON3rdPayments';
@@ -150,7 +153,7 @@ function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250' }) {
 
 /** Master Record ▸ Billing History: the patient's bill list popup. */
 async function openHistory(s) {
-  const link = s.master.locator('a[onclick*="/billing/CA/ON/ViewBillingONHistory"]').first();
+  const link = masterRecordLink(s.master, '/billing/CA/ON/ViewBillingONHistory').first();
   h.assert(await link.count() === 1, 'The Master Record does not offer the Ontario Billing History link');
   const history = await s.popup(s.master, link, 'billing-history');
   await history.locator('#billingHistoryTable').waitFor({ state: 'visible', timeout: 20000 });
@@ -383,6 +386,39 @@ async function workflow(s) {
     const text = (await payments.locator('body').innerText()).replace(/\s+/g, ' ');
     h.assert(amountShown(text, 'Balance:', '0.00'), 'The payments popup does not show a zero item balance');
     h.assert(await payments.locator('a', { hasText: 'view' }).count() === 2, 'The payments list does not show both payments');
+    await payments.close();
+    if (!correction.isClosed()) await correction.close();
+  });
+
+  await s.step('a payment\'s view popup shows its date, type, amounts and paid item, and changes nothing', async () => {
+    const { correction, payments } = await openPayments();
+    const [paymentId, paymentDate, typeName] = sql.rows(`SELECT p.payment_id, DATE(p.pay_date), IFNULL(t.payment_type, '')
+      FROM billing_on_payment p LEFT JOIN billing_payment_type t ON t.id = p.paymentTypeId
+      WHERE p.billing_no=${headerId} ORDER BY p.payment_id LIMIT 1`)[0];
+    const rowsNow = () => sql.value(`SELECT CONCAT_WS('|',
+      (SELECT COUNT(*) FROM billing_on_payment WHERE billing_no=${headerId}),
+      (SELECT COUNT(*) FROM billing_on_item_payment WHERE ch1_id=${headerId}),
+      (SELECT COUNT(*) FROM billing_on_transaction WHERE ch1_id=${headerId}))`);
+    const before = rowsNow();
+    // Today's link calls onViewPayment(id); develop PR #4479 makes it a real href to the same route, so match both.
+    const link = payments.locator(`a[href*="onViewPayment('${paymentId}')"], `
+      + `a[href*="method=viewPayment_ext"][href$="billPaymentId=${paymentId}"]`);
+    h.assert(await link.count() === 1, 'The payments list offers no view link for the first payment');
+    const view = await s.popup(payments, link, 'third-party-view-payment');
+    await view.locator('text=View payment details').waitFor({ state: 'visible' });
+    const text = (await view.locator('body').innerText()).replace(/\s+/g, ' ');
+    // The first payment is the partial one, paid in cash on the owned bill's one private-code item.
+    h.assert(amountShown(text, 'Date:', paymentDate), `The view popup does not show the payment date ${paymentDate}`);
+    h.assert(typeName !== '' && text.includes(`Payment type: ${typeName}`),
+      `The view popup does not name the payment type ${typeName}`);
+    h.assert(amountShown(text, 'Payment:', partial), `The view popup does not show the ${partial} payment`);
+    const item = (await view.locator('tr', { hasText: code }).first().innerText()).replace(/\s+/g, ' ');
+    h.assert(item.includes(`${marker},Workflow`) && item.includes(String(headerId)) && item.includes(partial),
+      `The view popup's item row does not name the patient, the invoice and the paid ${partial}: ${item}`);
+    h.assert(await view.locator('form, input[type="submit"], button[type="submit"]').count() === 0,
+      'The view popup offers a form, although viewing a payment changes nothing');
+    await view.close();
+    h.assert(rowsNow() === before && headerState() === `P|PAT|${total}|${total}`, 'Viewing a payment changed the bill');
     await payments.close();
     if (!correction.isClosed()) await correction.close();
   });

@@ -34,6 +34,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @XmlRootElement
 public class DocumentTo1 implements Serializable {
     private Integer id;
@@ -48,11 +50,14 @@ public class DocumentTo1 implements Serializable {
     private String source = "";
     private String sourceFacility = "";
     private Integer programId = -1;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date updateDateTime = new Date();
     private char status = 'A';
     private String contentType;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date contentDateTime = new Date();
     private String reportMedia;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date sentDateTime;
     private int public1 = 0;
     private Date observationDate = new Date();

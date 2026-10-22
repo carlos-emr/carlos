@@ -282,14 +282,23 @@
                     ];
                     function filterPharmacies() {
                         const filters = pharmacyFilters.map(function(pair) {
-                            return { column: pair[1], value: String($(pair[0]).val() || '').toLocaleLowerCase() };
+                            return { column: pair[1], value: String($(pair[0]).val() || '').toLocaleLowerCase(),
+                                numeric: pair[1] === '.phone' || pair[1] === '.fax' };
                         });
                         $('.pharmacyItem').each(function() {
                             const row = $(this);
-                            // These fields are literal text searches. Read displayed text,
-                            // not HTML, and apply every column on every input event.
+                            // Read displayed text and apply every active column. Phone and
+                            // fax formatting is ignored; other fields remain literal text.
                             row.toggle(filters.every(function(filter) {
-                                return row.find(filter.column).text().toLocaleLowerCase().includes(filter.value);
+                                const text = row.find(filter.column).text();
+                                if (filter.numeric) {
+                                    const value = filter.value.trim();
+                                    if (value === '') return true;
+                                    const digits = value.replace(/\D/g, '');
+                                    // Invalid nonempty input must not become an empty match-all.
+                                    return digits !== '' && text.replace(/\D/g, '').includes(digits);
+                                }
+                                return text.toLocaleLowerCase().includes(filter.value);
                             }));
                         });
                     }

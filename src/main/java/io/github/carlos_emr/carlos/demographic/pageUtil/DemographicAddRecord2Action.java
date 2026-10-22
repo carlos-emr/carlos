@@ -42,6 +42,8 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -51,6 +53,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -68,7 +72,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>Only POST requests are accepted. Returns {@code "duplicate"} when a HIN
  * duplicate is detected, {@code "methodNotAllowed"} for non-POST requests, and
- * {@code "success"} on normal completion.</p>
+ * {@code "success"} on normal completion. A repeat of an already-saved form
+ * ({@link FormSubmissionGuard}) returns {@code "success"} for the patient the
+ * first submission registered, or {@code "submissionRefused"} (HTTP 409) when
+ * that outcome is unknown.</p>
  *
  * @since 2026-04-04
  */
@@ -86,6 +93,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
     private DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
     private DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
     private WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
+
+    /** Set once the patient row has committed, so a later failure can be told apart from one before it. */
+    private String registeredDemographicNo;
 
     /**
      * Processes a demographic add form POST, persisting all related records and
@@ -112,19 +122,49 @@ public class DemographicAddRecord2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        // One rendered Add Demographic form registers one patient (issue #4225). The result page is
+        // rendered straight from this POST, so reloading it, like a double click or a re-click while
+        // a slow save is out, sends the same form again; a patient with no HIN has no other
+        // duplicate protection. The repeat is answered with the first registration's own result
+        // page. Claimed before validation: once the first save has stored the patient, the HIN
+        // check would otherwise refuse the repeat as a duplicate of the patient it just created.
+        // A post without a token keeps the previous behaviour.
+        FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
+                request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.DEMOGRAPHIC_ADD,
+                null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+        switch (attempt.verdict()) {
+            case PROCEED, ABSENT -> { }
+            case ALREADY_SAVED -> {
+                return showAdded(attempt.result(), demographicDao.getDemographic(attempt.result()));
+            }
+            default -> {
+                return FormSubmissionGuard.refuse(request, response, attempt.verdict());
+            }
+        }
+        try (FormSubmissionGuard.Claim claim = attempt.claim()) {
+            return addRecord(loggedInInfo, claim);
+        } catch (RuntimeException e) {
+            // The patient row is already committed and the form is spent, so a reload shows the
+            // registered patient rather than adding another; record that the rest may be missing.
+            // The exception itself is logged with its incident id by the exception interceptor.
+            if (registeredDemographicNo != null) {
+                logger.error("DemographicAddRecord2Action: patient {} was registered, but a later registration step failed;"
+                        + " its custom, consent, extension, archive or admission rows may be incomplete",
+                        LogSafe.sanitize(registeredDemographicNo));
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Builds, validates and stores the new patient and its related rows. The patient row is
+     * committed on its own (the related writes are not one transaction), so the claim is told the
+     * patient was saved as soon as that row exists: a later failure must not let a repeat of the
+     * form register the patient a second time.
+     */
+    private String addRecord(LoggedInInfo loggedInInfo, FormSubmissionGuard.Claim claim) {
         String curUser_no = (String) request.getSession().getAttribute("user");
         String proNo = curUser_no;
-
-        // --- Appointment return parameters ---
-        String fromAppt = request.getParameter("fromAppt");
-        String provider_no2 = request.getParameter("provider_no");
-        String bFirstDisp2 = request.getParameter("bFirstDisp");
-        String year2 = request.getParameter("year");
-        String month2 = request.getParameter("month");
-        String day2 = request.getParameter("day");
-        String start_time2 = request.getParameter("start_time");
-        String end_time2 = request.getParameter("end_time");
-        String duration2 = request.getParameter("duration");
 
         // --- Build Demographic entity ---
         Demographic demographic = new Demographic();
@@ -132,7 +172,8 @@ public class DemographicAddRecord2Action extends ActionSupport {
         demographic.setFirstName(StringUtils.trimToEmpty(request.getParameter("first_name")));
         demographic.setMiddleNames(normalizeOptionalMiddleNames(request.getParameter("middleNames")));
         demographic.setAlias(request.getParameter("nameUsed"));
-        demographic.setPrefName(request.getParameter("nameUsed"));
+        // Name Used is kept whole in the alias; pref_name holds only what fits its column (#5128).
+        demographic.setPrefName(Demographic.prefNameForNameUsed(request.getParameter("nameUsed")));
         demographic.setAddress(request.getParameter("address"));
         demographic.setCity(request.getParameter("city"));
         if (request.getParameter("province") != null) {
@@ -240,7 +281,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
         List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
         if (!fieldLengthValidationErrors.isEmpty()) {
             logger.warn("DemographicAddRecord2Action: rejected demographic input due to field length limits: {}",
-                    String.join("; ", fieldLengthValidationErrors));
+                    LogSafe.sanitize(String.join("; ", fieldLengthValidationErrors)));
             request.setAttribute("fieldLengthValidationErrors", fieldLengthValidationErrors);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return "validationError";
@@ -264,13 +305,20 @@ public class DemographicAddRecord2Action extends ActionSupport {
             }
         }
 
-        StringBuilder bufName = new StringBuilder(request.getParameter("last_name") + "," + request.getParameter("first_name"));
-        StringBuilder bufChart = new StringBuilder(StringUtils.trimToEmpty(request.getParameter("chart_no")));
-        StringBuilder bufDoctorNo = new StringBuilder(StringUtils.trimToEmpty(request.getParameter("staff")));
-
-        demographicDao.save(demographic);
+        // The patient row commits in a transaction the claim observes: a save that rolled back
+        // leaves the form submittable, and one whose commit could not be confirmed never does.
+        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+            if (claim != null) {
+                claim.storageStarted();
+            }
+            demographicDao.save(demographic);
+        });
 
         String dem = demographic.getDemographicNo().toString();
+        registeredDemographicNo = dem;
+        if (claim != null) {
+            claim.saved(dem);
+        }
 
         // --- DemographicCust ---
         DemographicCust demographicCust = new DemographicCust();
@@ -295,7 +343,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
                     try {
                         optOut = Integer.parseInt(consentRecord) == 1;
                     } catch (NumberFormatException e) {
-                        logger.warn("DemographicAddRecord2Action: invalid consent value={}, defaulting to false", consentRecord);
+                        logger.warn("DemographicAddRecord2Action: invalid consent value={}, defaulting to false", LogSafe.sanitize(consentRecord));
                         optOut = false;
                     }
                     patientConsentManager.addEditConsentRecord(loggedInInfo, demographic.getDemographicNo(),
@@ -410,20 +458,38 @@ public class DemographicAddRecord2Action extends ActionSupport {
             }
         }
 
-        // --- Set view attributes ---
+        return showAdded(dem, demographic);
+    }
+
+    /**
+     * The result page for the registered patient {@code dem}, with the appointment-return
+     * parameters the form carried. A repeated submission of an already-saved form ends here too,
+     * so the user sees the same page whichever of the two responses the browser kept; its name,
+     * chart number and doctor are read from the saved patient, never from the repeat, whose
+     * entries were not saved.
+     *
+     * @param saved the registered patient, or null when it can no longer be read
+     */
+    private String showAdded(String dem, Demographic saved) {
         request.setAttribute("demographicNo", dem);
-        request.setAttribute("fromAppt", fromAppt);
-        request.setAttribute("startTime", start_time2);
-        request.setAttribute("providerNo", provider_no2);
-        request.setAttribute("bFirstDisp", bFirstDisp2);
-        request.setAttribute("year2", year2);
-        request.setAttribute("month2", month2);
-        request.setAttribute("day2", day2);
-        request.setAttribute("endTime", end_time2);
-        request.setAttribute("duration", duration2);
-        request.setAttribute("bufName", bufName.toString());
-        request.setAttribute("bufChart", bufChart.toString());
-        request.setAttribute("bufDoctorNo", bufDoctorNo.toString());
+        request.setAttribute("fromAppt", request.getParameter("fromAppt"));
+        request.setAttribute("startTime", request.getParameter("start_time"));
+        request.setAttribute("providerNo", request.getParameter("provider_no"));
+        request.setAttribute("bFirstDisp", request.getParameter("bFirstDisp"));
+        request.setAttribute("year2", request.getParameter("year"));
+        request.setAttribute("month2", request.getParameter("month"));
+        request.setAttribute("day2", request.getParameter("day"));
+        request.setAttribute("endTime", request.getParameter("end_time"));
+        request.setAttribute("duration", request.getParameter("duration"));
+        if (saved != null) {
+            request.setAttribute("bufName", saved.getLastName() + "," + saved.getFirstName());
+            request.setAttribute("bufChart", StringUtils.trimToEmpty(saved.getChartNo()));
+            request.setAttribute("bufDoctorNo", StringUtils.trimToEmpty(saved.getProviderNo()));
+        } else {
+            request.setAttribute("bufName", request.getParameter("last_name") + "," + request.getParameter("first_name"));
+            request.setAttribute("bufChart", StringUtils.trimToEmpty(request.getParameter("chart_no")));
+            request.setAttribute("bufDoctorNo", StringUtils.trimToEmpty(request.getParameter("staff")));
+        }
         // Pass through remaining appointment params for URL construction in view
         request.setAttribute("creator", request.getParameter("creator"));
         request.setAttribute("appointmentDate", request.getParameter("appointment_date"));

@@ -136,9 +136,32 @@ OSCAR_DEFAULT_MIGRATIONS=(
   'displayAlertsOnScheduleScreen=false|displayAlertsOnScheduleScreen=true'
   'DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=false|DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=true'
 )
+# The OAuth access-mode keys are reset to their stock default once, from ANY
+# single-definition value (.oauth-access-defaults-migrated). Keep in step with
+# the OAUTH_ACCESS_DEFAULTS block in debian/carlos-emr.postinst.
+OAUTH_ACCESS_DEFAULTS=(
+  'oauth.scope.enforcement.enabled|oauth.scope.enforcement.enabled=false'
+  'oauth.scope.legacy.access|oauth.scope.legacy.access=restricted'
+)
+# The old stock HL7_LAB_MEASUREMENT_FILTER line (#4613) is rewritten once to the
+# line the package's skeleton carries (.lab-measurement-filter-migrated). The
+# snapshots carry digests of that key, so this is the 16-hex sha256 prefix of the
+# old stock line plus its newline: the LAB_FILTER_OLD of debian/carlos-emr.postinst,
+# and a contract test holds the two together.
+LAB_FILTER_OLD_SHA=8a16bd11665e3306
+# The digest of no definition at all (sha256 of empty input): a skeleton that
+# lacks the key, or an /etc file whose key was deleted, never sanctions a rewrite.
+LAB_FILTER_NONE_SHA=e3b0c44298fc1c14
+# The old stock Help link (a path that now returns 404) is rewritten once to the
+# line the package's skeleton carries (.help-url-default-migrated). Keep in step
+# with the HELP_URL block in debian/carlos-emr.postinst; a contract test holds
+# these two lines to the postinst and to the shipped carlos.properties.
+HELP_URL_OLD='resource_base_url=http://oscarmanual.org/14/'
+HELP_URL_NEW='resource_base_url=https://github.com/carlos-emr/carlos/wiki'
 ht_pre=$(g "$PRE" cfg.healthTracker 2>/dev/null || true); ht_post=$(g "$POST" cfg.healthTracker 2>/dev/null || true)
 ht_sentinel_pre=$(g "$PRE" sentinel..health-tracker-default-migrated 2>/dev/null || true)
 od_sentinel_pre=$(g "$PRE" sentinel..oscar-feature-defaults-migrated 2>/dev/null || true)
+oa_sentinel_pre=$(g "$PRE" sentinel..oauth-access-defaults-migrated 2>/dev/null || true)
 # Every migrated line either stayed put or made exactly its sanctioned
 # old-stock -> new-stock move on an upgrade that had not yet run that migration.
 ht_ok=0
@@ -151,25 +174,113 @@ for pair in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
   od_changed="$od_changed $k"
   { [ "$pre" = "$old_line" ] && [ "$post" = "$new_line" ] && [ "$od_sentinel_pre" != yes ]; } || od_ok=0
 done
+# An OAuth access key either stayed put or, on the upgrade that first writes
+# its sentinel, moved from one definition of any value to exactly the stock line.
+oa_ok=1; oa_changed=""
+for pair in "${OAUTH_ACCESS_DEFAULTS[@]}"; do
+  k=${pair%%|*}; new_line=${pair#*|}
+  pre=$(g "$PRE" "cfg.oauthAccess.$k" 2>/dev/null || true); post=$(g "$POST" "cfg.oauthAccess.$k" 2>/dev/null || true)
+  [ "$pre" = "$post" ] && continue
+  oa_changed="$oa_changed $k"
+  case "$pre" in *';'*|'') oa_ok=0; continue ;; esac
+  { [ "$post" = "$new_line" ] && [ "$oa_sentinel_pre" != yes ]; } || oa_ok=0
+done
+# The lab filter either stayed put or, on the upgrade that first writes its
+# sentinel, moved from exactly the old stock line to exactly the skeleton's.
+lf_pre=$(g "$PRE" cfg.labFilter.sha 2>/dev/null || true); lf_post=$(g "$POST" cfg.labFilter.sha 2>/dev/null || true)
+lf_skel=$(g "$POST" cfg.labFilter.skel.sha 2>/dev/null || true)
+lf_sentinel_pre=$(g "$PRE" sentinel..lab-measurement-filter-migrated 2>/dev/null || true)
+# The skeleton's line counts only when it exists and is not the old line itself.
+lf_skel_fixed() { [ -n "$lf_skel" ] && [ "$lf_skel" != "$LAB_FILTER_OLD_SHA" ] && [ "$lf_skel" != "$LAB_FILTER_NONE_SHA" ]; }
+lf_ok=0; lf_changed=no
+if [ -n "$lf_pre" ] && [ "$lf_pre" = "$lf_post" ]; then
+  lf_ok=1
+elif [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lf_sentinel_pre" != yes ]; then
+  lf_ok=1; lf_changed=yes
+fi
+# The Help link either stayed put or, on the upgrade that first writes its
+# sentinel, moved from exactly the old stock line to exactly the new one.
+hu_pre=$(g "$PRE" cfg.helpUrl 2>/dev/null || true); hu_post=$(g "$POST" cfg.helpUrl 2>/dev/null || true)
+hu_sentinel_pre=$(g "$PRE" sentinel..help-url-default-migrated 2>/dev/null || true)
+hu_ok=0; hu_changed=no
+if [ "$hu_pre" = "$hu_post" ]; then
+  hu_ok=1
+elif [ "$hu_pre" = "$HELP_URL_OLD" ] && [ "$hu_post" = "$HELP_URL_NEW" ] && [ "$hu_sentinel_pre" != yes ]; then
+  hu_ok=1; hu_changed=yes
+fi
+# The Query by Example reporting account (#3372): either both keys stayed put,
+# or the install recorded none and carlos-ctl db-users added carlos_report with a
+# password (the snapshots hold only a digest of it). A changed name, or a password
+# replaced across an upgrade, is not sanctioned.
+rp_user_pre=$(g "$PRE" cfg.reportingUser 2>/dev/null || true); rp_user_post=$(g "$POST" cfg.reportingUser 2>/dev/null || true)
+rp_pw_pre=$(g "$PRE" cfg.reportingPassword 2>/dev/null || true); rp_pw_post=$(g "$POST" cfg.reportingPassword 2>/dev/null || true)
+rp_ok=0; rp_changed=no
+if [ "$rp_user_pre" = "$rp_user_post" ] && [ "$rp_pw_pre" = "$rp_pw_post" ]; then
+  rp_ok=1
+elif { [ -z "$rp_user_pre" ] || [ "$rp_user_pre" = db_reporting_username= ]; } \
+    && { [ -z "$rp_pw_pre" ] || [ "$rp_pw_pre" = none ]; } \
+    && [ "$rp_user_post" = db_reporting_username=carlos_report ] \
+    && [ -n "$rp_pw_post" ] && [ "$rp_pw_post" != none ]; then
+  rp_ok=1; rp_changed=added
+fi
 if [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$(g "$POST" cfg.carlos.properties.sha)" ]; then
   ok "cfg.carlos.properties.sha preserved"
-elif [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] \
+elif [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ] && [ "$lf_ok" = 1 ] && [ "$hu_ok" = 1 ] && [ "$rp_ok" = 1 ] \
     && [ -n "$(g "$PRE" cfg.carlos.properties.otherKeys.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.otherKeys.sha)" = "$(g "$POST" cfg.carlos.properties.otherKeys.sha)" ]; then
-  ok "cfg.carlos.properties.sha changed only by the one-time stock-default migrations (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none})"
+  ok "cfg.carlos.properties.sha changed only by the one-time stock-default migrations (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none}; OAuth access:${oa_changed:- none}; lab filter: $lf_changed; Help link: $hu_changed; reporting account: $rp_changed)"
 elif [ -n "$(g "$PRE" cfg.carlos.properties.active.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.active.sha)" = "$(g "$POST" cfg.carlos.properties.active.sha)" ] \
-    && [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ]; then
+    && [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ] && [ "$lf_ok" = 1 ] && [ "$hu_ok" = 1 ] && [ "$rp_ok" = 1 ]; then
   # Same active settings apart from any sanctioned migration, different bytes:
   # a key was commented out and re-appended with its old value (see
   # deb-upgrade-baseline.sh).
-  ok "cfg.carlos.properties layout changed but every active setting is preserved (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none})"
+  ok "cfg.carlos.properties layout changed but every active setting is preserved (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none}; lab filter: $lf_changed; Help link: $hu_changed; reporting account: $rp_changed)"
 else
-  bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults changed:${od_changed:- none})"
+  bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults changed:${od_changed:- none}; OAuth access changed:${oa_changed:- none}; lab filter: '$lf_pre' -> '$lf_post', sanctioned=$lf_ok; Help link: '$hu_pre' -> '$hu_post', sanctioned=$hu_ok; reporting account: '$rp_user_pre' -> '$rp_user_post', password digest $([ "$rp_pw_pre" = "$rp_pw_post" ] && echo kept || echo changed), sanctioned=$rp_ok)"
+fi
+# A package that ships the Query by Example grant list runs carlos-ctl db-users,
+# which records the account: an install it leaves without one has Query by
+# Example closed (it never falls back to the application account).
+if [ "$(g "$POST" cfg.reportingGrantList 2>/dev/null || true)" = present ]; then
+  if [ "$rp_user_post" = db_reporting_username=carlos_report ] && [ -n "$rp_pw_post" ] && [ "$rp_pw_post" != none ]; then
+    ok "carlos.properties records the Query by Example reporting account"
+  else
+    bad "the package ships the Query by Example grant list but carlos.properties does not record carlos_report ('$rp_user_post')"
+  fi
+fi
+# The OAuth access-mode reset is asserted when the PRE snapshot carries a
+# single definition of either key that is not the stock default.
+if [ "$oa_sentinel_pre" != yes ]; then
+  oa_expected=0
+  for pair in "${OAUTH_ACCESS_DEFAULTS[@]}"; do
+    k=${pair%%|*}; new_line=${pair#*|}
+    pre=$(g "$PRE" "cfg.oauthAccess.$k" 2>/dev/null || true)
+    case "$pre" in ''|*';'*) continue ;; esac
+    [ "$pre" = "$new_line" ] && continue
+    oa_expected=1
+    post=$(g "$POST" "cfg.oauthAccess.$k" 2>/dev/null || true)
+    [ "$post" = "$new_line" ] && ok "the OAuth access setting $pre was reset to $new_line" || bad "$k was not reset: '$post'"
+  done
+  if [ "$oa_expected" = 1 ]; then
+    [ "$(g "$POST" sentinel..oauth-access-defaults-migrated)" = yes ] && ok "OAuth access-defaults migration sentinel written" || bad "OAuth access-defaults migration sentinel missing after upgrade"
+  fi
 fi
 if [ "$ht_pre" = health_tracker=false ] && [ "$ht_sentinel_pre" != yes ]; then
   [ "$ht_post" = health_tracker=true ] && ok "the old stock health_tracker=false was migrated to true" || bad "health_tracker was not migrated: '$ht_post'"
   [ "$(g "$POST" sentinel..health-tracker-default-migrated)" = yes ] && ok "health-tracker migration sentinel written" || bad "health-tracker migration sentinel missing after upgrade"
+fi
+# The lab filter rewrite is asserted when the PRE snapshot carries exactly the
+# old stock line and the migration has not run yet.
+if [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && [ "$lf_sentinel_pre" != yes ]; then
+  lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: digest '$lf_post', skeleton '$lf_skel'"
+  [ "$(g "$POST" sentinel..lab-measurement-filter-migrated)" = yes ] && ok "lab-filter migration sentinel written" || bad "lab-filter migration sentinel missing after upgrade"
+fi
+# The Help link rewrite is asserted when the PRE snapshot carries exactly the old
+# stock line and the migration has not run yet.
+if [ "$hu_pre" = "$HELP_URL_OLD" ] && [ "$hu_sentinel_pre" != yes ]; then
+  [ "$hu_post" = "$HELP_URL_NEW" ] && ok "the old stock Help link was migrated to $HELP_URL_NEW" || bad "the Help link was not migrated: '$hu_post'"
+  [ "$(g "$POST" sentinel..help-url-default-migrated)" = yes ] && ok "Help-link migration sentinel written" || bad "Help-link migration sentinel missing after upgrade"
 fi
 # Like the health_tracker check above, the migration is only asserted when the
 # PRE snapshot carries at least one old stock line it should have rewritten.

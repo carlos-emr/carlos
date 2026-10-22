@@ -70,6 +70,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -105,7 +106,7 @@ const UNUSED_FID = '999999999';
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   const recorder = createRecorder();
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1400, height: 900 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1400, height: 900 } });
     const loginPage = await login(context, config, recorder);
     await loginPage.close();
 

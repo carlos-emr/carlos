@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +43,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DisplayName("DxResearch2Action Unit Tests")
@@ -135,5 +138,30 @@ class DxResearch2ActionTest extends CarlosUnitTestBase {
         Object actionErrors = mockRequest.getAttribute("actionErrors");
         assertThat(actionErrors).isInstanceOf(Collection.class);
         assertThat((Collection<?>) actionErrors).isNotEmpty();
+    }
+
+    @Test
+    void shouldReRenderTheFormsOwnPatient_whenAnotherWindowOpenedARegistryLast() throws Exception {
+        // Another window's registry, under the names the page used to read from the session. The
+        // failure page renders the hidden patient field the next submission writes to (#4673).
+        mockRequest.getSession().setAttribute("demographicNo", "67890");
+        mockRequest.getSession().setAttribute("allDiagnostics", "patient 67890's diagnoses");
+
+        assertThat(action.execute()).isEqualTo("failure");
+
+        assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo("12345");
+        assertThat(mockRequest.getAttribute("allDiagnostics")).isInstanceOf(dxResearchBeanHandler.class);
+        assertThat(mockRequest.getAttribute("providerNo")).isEqualTo("999998");
+        verify(mockDxresearchDao, never()).persist(any());
+    }
+
+    @Test
+    void shouldNotPublishAPatient_whenTheFormsPatientIsNotANumber() throws Exception {
+        action.setDemographicNo("12345<script>");
+
+        assertThat(action.execute()).isEqualTo("failure");
+
+        assertThat(mockRequest.getAttribute("demographicNo")).isNull();
+        assertThat(mockRequest.getAttribute("allDiagnostics")).isNull();
     }
 }

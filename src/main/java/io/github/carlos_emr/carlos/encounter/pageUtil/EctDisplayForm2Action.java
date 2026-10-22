@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
@@ -54,6 +55,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class EctDisplayForm2Action extends EctDisplayAction {
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final ObjectMapper FORM_ACTION_JSON = new ObjectMapper();
 
     private String cmd = "forms";
     private String menuId = "1";
@@ -64,12 +66,6 @@ public class EctDisplayForm2Action extends EctDisplayAction {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String appointmentNo = bean.appointmentNo;
-        if (appointmentNo == null && request.getSession().getAttribute("cur_appointment_no") != null) {
-            appointmentNo = (String) request.getSession().getAttribute("cur_appointment_no");
-
-        }
-
-
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", "r", null)) {
             return true; // The link of form won't show up on new CME screen.
         } else {
@@ -93,7 +89,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                 String fullTitle;
                 Date date = null;
                 String key;
-                int hash;
+                long hash;
                 // grab all of the forms
                 EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
                 List<EncounterForm> encounterForms = encounterFormDao.findAll();
@@ -110,19 +106,27 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                     String table = encounterForm.getFormTable();
                     if (!table.equalsIgnoreCase("")) {
 
-                        EctFormData.PatientForm[] pforms = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, bean.demographicNo, table);
+                        // The item links to formId=latest, so it must be dated and titled from the
+                        // row that shortcut opens (last edited, then highest ID), not from the most
+                        // recently created row: for a form updated in place those differ (#4678).
+                        EctFormData.PatientForm pfrm = EctFormData.getShortcutLatestPatientForm(bean.demographicNo, table);
                         // if a form has been started for the patient, create a module item for it
-                        if (pforms.length > 0) {
+                        if (pfrm != null) {
 
                             NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-                            EctFormData.PatientForm pfrm = pforms[0];
 
                             // convert date to that specified in base class
                             DateFormat formatter = new SimpleDateFormat(EctFormData.DATETIME_FORMAT);
-                            serviceDateStr = pfrm.getEdited();
+                            // A row without an edit time is only chosen when every row lacks one;
+                            // label it blank rather than failing the whole module.
+                            serviceDateStr = pfrm.edited != null ? pfrm.getEdited() : "";
 
+                            // Reset per item so an unparseable date never inherits the previous form's.
+                            date = null;
                             try {
-                                date = formatter.parse(serviceDateStr);
+                                if (!serviceDateStr.isEmpty()) {
+                                    date = formatter.parse(serviceDateStr);
+                                }
                             } catch (ParseException ex) {
                                 logger.debug("EctDisplayForm2Action: Error creating date " + ex.getMessage());
                             }
@@ -144,7 +148,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                                 }
                             }
                             winName = winName + serviceDateStr;
-                            hash = Math.abs(winName.hashCode());
+                            hash = NavBarDisplayDAO.popupWindowHash(winName);
                             url = new StringBuilder(
                                     "popupPage(700,960,'" + hash + "started', '" +
                                             request.getContextPath() +
@@ -175,7 +179,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
 
                     // we add all unhidden forms to the pop up menu
                     if (!encounterForm.isHidden()) {
-                        hash = Math.abs(winName.hashCode());
+                        hash = NavBarDisplayDAO.popupWindowHash(winName);
                         // Legacy form_value stores paths like "../form/formX.jsp?demographic_no=".
                         // Form JSPs now live under /WEB-INF/jsp/form/ and are served by the
                         // form/* Struts wildcard action, so translate the legacy path to the
@@ -192,12 +196,16 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                         Dao.addPopUpText(encounterForm.getFormName());
 
                         // auto completion arrays and colour code are set
-                        Dao.addAutoCompleteItem(key, "popupPage(700,960,'" + hash + "new','" + newFormPath + "');", BGCOLOUR);
+                        // JSON arguments let the legacy dispatcher invoke the same guard without eval.
+                        // LeftNavBarDisplay encodes the complete expression for its JavaScript block.
+                        Dao.addAutoCompleteItem(key, "openEncounterForm.apply(null,"
+                                + FORM_ACTION_JSON.writeValueAsString(new String[] {
+                                        newFormPath, hash + "new", encounterForm.getFormName()}) + ");", BGCOLOUR);
                     }
                 }
                 Dao.setRightURL("return !showMenu('" + menuId + "', event);");
 
-                // sort module items, i.e. forms, from most recently started to more distant
+                // sort module items, i.e. forms, from most recently edited to more distant
                 Dao.sortItems(NavBarDisplayDAO.DATESORT_ASC);
             } catch (Exception e) {
                 logger.error("EctDisplayForm2Action SQL ERROR:", e);

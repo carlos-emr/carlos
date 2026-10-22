@@ -55,7 +55,6 @@ public class RxSessionBean implements java.io.Serializable {
     private Hashtable allergyWarnings = new Hashtable();
     private Hashtable missingAllergyWarnings = new Hashtable();
     private Hashtable workingAllergyWarnings = new Hashtable();
-    private String interactingDrugList = ""; //contains hash tables, each hashtable has the a
     private CopyOnWriteArrayList reRxDrugIdList = new CopyOnWriteArrayList<>();
     private HashMap randomIdDrugIdPair = new HashMap();
     private List<HashMap<String, String>> listMedHistory = new ArrayList();
@@ -104,14 +103,6 @@ public class RxSessionBean implements java.io.Serializable {
      */
     public synchronized void clearReRxDrugIdList() {
         reRxDrugIdList = new CopyOnWriteArrayList<>();
-    }
-
-    public String getInteractingDrugList() {
-        return interactingDrugList;
-    }
-
-    public void setInteractingDrugList(String s) {
-        interactingDrugList = s;
     }
 
     public String getProviderNo() {
@@ -458,6 +449,41 @@ public class RxSessionBean implements java.io.Serializable {
     }
 
 
+    /**
+     * One exact-product allergy check for the full prescription page.
+     *
+     * @param warnings  the patient's allergies the product matches
+     * @param unchecked allergies that could not be compared with the product, such as a shortcut
+     *                  class when the DIN's ingredients are unknown; never a clear result
+     * @param failed    true when the check could not run, so nothing is known about allergies
+     */
+    public record AllergyCheck(List<Allergy> warnings, List<Allergy> unchecked, boolean failed) {
+        public AllergyCheck {
+            warnings = List.copyOf(warnings);
+            unchecked = List.copyOf(unchecked);
+        }
+    }
+
+    /**
+     * Returns confirmed and unchecked exact-product results without reusing an ATC-only cache.
+     * Like {@link #getAllergyWarnings(LoggedInInfo, String)}, it checks nothing when the
+     * {@code RX_ALLERGY_CHECKING} property turns allergy checking off.
+     */
+    public AllergyCheck checkProductAllergies(LoggedInInfo loggedInInfo, String atccode, String din) {
+        if (!CarlosProperties.getInstance().getBooleanProperty("RX_ALLERGY_CHECKING", "yes")) {
+            return new AllergyCheck(List.of(), List.of(), false);
+        }
+        try {
+            Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, getDemographicNo()).getActiveAllergies();
+            List<Allergy> unchecked = new ArrayList<>();
+            Allergy[] warnings = new RxDrugData().getAllergyWarnings(atccode, allergies, unchecked, din);
+            return new AllergyCheck(Arrays.asList(warnings), unchecked, false);
+        } catch (Exception failure) {
+            logger.warn("Allergy warning check failed ({})", failure.getClass().getSimpleName());
+            return new AllergyCheck(List.of(), List.of(), true);
+        }
+    }
+
     public Allergy[] getAllergyWarnings(LoggedInInfo loggedInInfo, String atccode) {
         Allergy[] allergies = null;
 
@@ -581,7 +607,6 @@ public class RxSessionBean implements java.io.Serializable {
                 .append("allergyWarnings", allergyWarnings)
                 .append("missingAllergyWarnings", missingAllergyWarnings)
                 .append("workingAllergyWarnings", workingAllergyWarnings)
-                .append("interactingDrugList", interactingDrugList)
                 .append("reRxDrugIdList", reRxDrugIdList)
                 .append("randomIdDrugIdPair", randomIdDrugIdPair)
                 .append("listMedHistory", listMedHistory)

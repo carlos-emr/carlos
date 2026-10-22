@@ -41,6 +41,12 @@ migration/
            V1.0.46__field_note_report_privilege.sql
            V1.0.47__align_measurements_deleted_columns.sql
            V1.0.52__enforce_provider_signature_identity.sql
+           V1.0.53__decode_diagnostic_description_apostrophes.sql
+           V1.0.54__allow_dashboard_exclusion_history.sql
+           V1.0.55__preserve_remittance_health_number_version.sql
+           V1.0.57__preserve_rourke2020_immunization_notes.sql
+           V1.0.58__preserve_on_behalf_lab_filing_comments.sql
+           V1.0.59__archive_security_mfa_setting.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -49,6 +55,7 @@ migration/
            V1.0.12__portable_billing_filename_unique_indexes.sql
            V1.0.23__activate_legacy_consultation_services.sql
            V1.0.34__add_oma_uninsured_service_fees.sql
+           V1.0.56__preserve_claim_item_explanations.sql
   bc/      V1.0.1__bc_schema.sql            # British Columbia-only tables (structure)
            V1.0.2__bc_data.sql              # British Columbia reference data (rows)
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
@@ -56,9 +63,9 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.52`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59`.
 `V1.0.48`–`V1.0.51` are claimed by open pull requests; the next unallocated number for ANY
-location — shared or province — is `V1.0.53`.
+location — shared or province — is `V1.0.60`.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
 The V1.0.31/V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;
@@ -210,8 +217,13 @@ consultation/eForm attachment sources add `common/V1.0.42` and `common/V1.0.43`.
 Consultations list filter indexes (#3976) add `common/V1.0.45`, and the field-note report privilege
 adds `common/V1.0.46`. `common/V1.0.47` aligns the `measurementsDeleted` columns with
 `measurements`. Provider signature identity is enforced by
-`common/V1.0.52__enforce_provider_signature_identity.sql`. The next unallocated version is
-`V1.0.53`. Apply/merge these forward migrations in version order; if their merge
+`common/V1.0.52__enforce_provider_signature_identity.sql`. Rourke 2020 page III/IV
+immunization notes (#4602) add `common/V1.0.57__preserve_rourke2020_immunization_notes.sql`.
+On-behalf lab filing comments keep their full text through
+`common/V1.0.58__preserve_on_behalf_lab_filing_comments.sql`. The security archive keeps each
+record's MFA on/off setting (#5120, not the MFA secret) through
+`common/V1.0.59__archive_security_mfa_setting.sql`; rows archived before it read NULL, meaning
+"not recorded". The next unallocated version is `V1.0.60`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized

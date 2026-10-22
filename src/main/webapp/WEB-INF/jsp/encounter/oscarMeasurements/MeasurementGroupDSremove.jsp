@@ -45,6 +45,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -92,7 +93,9 @@
     %>
 
 
-    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewMeasurementGroupDScomplete" method="post" name="formRemove">
+    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/MeasurementGroupDecisionSupport" method="post" name="formRemove">
+        <%-- The group this page shows: another tab may open a different group in the session before this posts. --%>
+        <input type="hidden" name="groupName" value="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>">
         <input type="hidden" name="property" value="<%=propKey%>">
 
 

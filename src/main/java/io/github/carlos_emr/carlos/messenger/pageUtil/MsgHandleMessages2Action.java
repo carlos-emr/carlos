@@ -91,13 +91,16 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @see ContactIdentifier
  */
 public class MsgHandleMessages2Action extends ActionSupport {
+    /** The value the {@code delete} flag holds when this request deletes its message. */
+    private static final String DELETE_FLAG = "Delete";
+
     /**
      * HTTP request object for accessing parameters and session.
      */
     HttpServletRequest request = ServletActionContext.getRequest();
     
     /**
-     * HTTP response object, maintained for consistency but not actively used.
+     * HTTP response object, used to refuse a delete that is not posted.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -152,6 +155,17 @@ public class MsgHandleMessages2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
+        // Delete is this route's only write: Reply, Reply All and Forward just open the compose page.
+        // ViewMessage.jsp posts it, but the route's name has no verb HttpMethodGuardFilter knows, so a
+        // GET carrying "delete" (which has no CSRF token) deleted the message (issue #3394). The test is
+        // the one the delete below makes: the parameter, or a value Struts already bound to the field.
+        boolean deletes = request.getParameter("delete") != null || DELETE_FLAG.equalsIgnoreCase(delete);
+        if (deletes && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         String demographicNo = this.getDemographic_no();
 
         // Check for attached demographics and update demographicNo if found
@@ -168,7 +182,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
         // Determine which operation to perform based on request parameters
         if (request.getParameter("delete") != null) {
-            delete = "Delete";
+            delete = DELETE_FLAG;
         } else if (request.getParameter("reply") != null) {
             reply = "Reply";
         } else if (request.getParameter("replyAll") != null) {
@@ -178,7 +192,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
         }
 
         // Process delete operation
-        if ("Delete".equalsIgnoreCase(delete)) {
+        if (DELETE_FLAG.equalsIgnoreCase(delete)) {
             // Soft delete the message
             messagingManager.deleteMessage(loggedInInfo, Integer.parseInt(messageNo));
 
@@ -218,6 +232,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
             request.setAttribute("ReText", theSendMessage.toString());
             request.setAttribute("replyList", replyList);
             request.setAttribute("ReSubject", subject.toString());
+            keepForwardedAttachments(message.getId());
 
             return "reply";
 
@@ -234,18 +249,34 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
             subject.append(forwardMessage.getSubject());
             themessage = forwardMessage.getMessage();
-            // Add quote markers (Note: bug - this replaces newlines incorrectly)
-            themessage = themessage.replace('\n', '>');
+            // Quote each line, as Reply does. Replacing the line break itself joined the lines of a message
+            // stored with "\n" breaks; a "\r\n" break keeps its "\r" ahead of the "\n>".
+            themessage = themessage.replace("\n", "\n>");
             theSendMessage = new StringBuilder(themessage);
             theSendMessage.insert(0, "\n\n\n>");
 
             // Set attributes for message composition page
             request.setAttribute("ReText", theSendMessage.toString());
             request.setAttribute("ReSubject", subject.toString());
+            keepForwardedAttachments(forwardMessage.getId());
             return "reply";
         }
 
         return SUCCESS;
+    }
+
+    /**
+     * Hands the compose page a key of its own that starts with the chart items saved for this
+     * message ("Save Attachments" in the view's Attachment window), so the reply or forward sends
+     * what was saved for this message and whatever is attached in this window only. The items
+     * used to wait on the login-wide messenger bean, where a compose page opened anywhere, for any
+     * patient, took them (issue #4673).
+     */
+    private void keepForwardedAttachments(Integer messageId) {
+        if (messageId != null && messageId > 0) {
+            request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE,
+                    MsgAttachmentStaging.composeKey(request.getSession(), messageId));
+        }
     }
 
 

@@ -36,6 +36,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   buildFailureDetails,
@@ -95,7 +96,7 @@ async function fetchEdit(page, query, label, expectedStatus) {
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
 

@@ -84,10 +84,12 @@ async function workflow(s) {
   });
 
   await s.step('the refused attempt is itself in the audit log, naming the patient and the refused login', async () => {
-    await probe.settle(3000);
-    const refused = probe.since(attemptedAfter, `provider_no=${h.sqlString(doctor.login.providerNo)}`);
-    h.assert(refused.length >= 1,
-      'A refused attempt to open a locked patient\'s Master Record left no audit row naming the patient and the refused login');
+    // LogAction.addLog commits on a background executor: poll for the doctor's patient-scoped row instead of
+    // querying once after a fixed delay (waitFor fails with this description when none ever lands).
+    const doctorNo = doctor.login.providerNo;
+    const refused = (await probe.waitFor(rows => rows.some(r => r.provider === doctorNo),
+      'a refused attempt to open a locked patient\'s Master Record (no row naming the patient and the refused login)',
+      { after: attemptedAfter })).filter(r => r.provider === doctorNo);
     h.assert(refused.every(r => r.provider === doctor.login.providerNo), `A refusal row is attributed to another provider (${refused.map(label).join(', ')})`);
   });
 }

@@ -381,7 +381,14 @@ public class LabResultData implements Comparable<LabResultData> {
                 return null;
             }
             time = time.trim();
-            String dateFormat = "yyyy-MM-dd HH:mm:ss".substring(0, time.length());
+            String fullFormat = "yyyy-MM-dd HH:mm:ss";
+            if (time.length() > fullFormat.length()) {
+                // Native SQL received timestamps include fractional seconds, even .0.
+                // This legacy parser uses whole-second precision; reject other suffixes.
+                if (!time.substring(fullFormat.length()).matches("\\.[0-9]{1,9}")) return null;
+                time = time.substring(0, fullFormat.length());
+            }
+            String dateFormat = fullFormat.substring(0, time.length());
             this.dateTimeObr = UtilDateUtilities.getDateFromString(time, dateFormat);
         } else if (CML.equals(this.labType)) {
             String date = "";

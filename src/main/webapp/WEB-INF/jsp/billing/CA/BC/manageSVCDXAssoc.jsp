@@ -18,6 +18,8 @@
 <%@page
         import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ServiceCodeAssociation" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -55,8 +57,8 @@
                         </td>
                         <td style="text-align: right" colspan="2"><a
                                 href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewHelp')"> <fmt:message key="global.help"/> </a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"> <fmt:message key="global.about"/> </a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"> <fmt:message key="global.license"/> </a></td>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"> <fmt:message key="global.about"/> </a> | <a
+                                href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"> <fmt:message key="global.license"/> </a></td>
                     </tr>
                     <tr bgcolor="CCCCFF">
                         <th><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.svc"/></th>
@@ -70,25 +72,25 @@
                     %>
                     <tr align="center" class="assocRow"
                         bgcolor="<%=i%2==0?"FFFFFF":"EEEEFF"%>">
-                        <td><%=assoc.getServiceCode()%>
+                        <td><carlos:encode value='<%= assoc.getServiceCode() %>'/>
                         </td>
                         <td>
                             <%
                                 List dxcodes = assoc.getDxCodes();
                                 for (int j = 0; j < dxcodes.size(); j++) {
                                     String s = (String) dxcodes.get(j);
-                                    out.print(s + "<br>");
+                                    out.print(SafeEncode.forHtmlContent(s) + "<br>");
                                 }
                             %>
                         </td>
                         <td><a
-                                href="editServiceCodeAssocAction?svcCode=<%=assoc.getServiceCode()%>">Edit</a>
+                                href="editServiceCodeAssocAction?svcCode=<carlos:encode value='<%= assoc.getServiceCode() %>' context="uriComponent"/>">Edit</a>
                             <br>
                             <a href="javascript:void(0)"
                                     onclick="document.getElementById('deleteAssocForm_<%=i%>').submit()">Remove</a>
                             <form id="deleteAssocForm_<%=i%>" method="post"
                                   action="deleteServiceCodeAssoc" style="display:none">
-                                <input type="hidden" name="svcCode" value="<%=assoc.getServiceCode()%>"/>
+                                <input type="hidden" name="svcCode" value="<carlos:encode value='<%= assoc.getServiceCode() %>' context="htmlAttribute"/>"/>
                             </form>
                         </td>
                     </tr>

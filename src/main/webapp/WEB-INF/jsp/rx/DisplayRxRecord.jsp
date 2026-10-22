@@ -40,6 +40,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.text.SimpleDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.rx.StaticScriptBean" %>
 <%@page import="java.util.List" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao,io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
@@ -74,6 +75,8 @@
     Drug drug = drugDao.find(drugId);
 
     SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+    // A pick-up date saved without a time is stored at midnight and shows as the date alone, as on the static script.
+    SimpleDateFormat dateOnlyFormatter = new SimpleDateFormat("yyyy-MM-dd");
 
     PartialDateDao partialDateDao = SpringUtils.getBean(PartialDateDao.class);
     DrugReasonDao drugReasonDao = SpringUtils.getBean(DrugReasonDao.class);
@@ -205,13 +208,13 @@
                 </tr>
                 <tr>
                     <td class="label">Drug Name:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getDrugName()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getDrugName())) %>
                     </td>
                 </tr>
                 <% if (drug.getBrandName() != null && !drug.getBrandName().equalsIgnoreCase("null")) { %>
                 <tr>
                     <td class="label">Brand Name:</td>
-                    <td><%= drug.getBrandName()%>
+                    <td><%= SafeEncode.forHtmlContent(drug.getBrandName())%>
                     </td>
                 </tr>
                 <%}%>
@@ -330,7 +333,7 @@
                 </tr>
                 <tr>
                     <td class="label">Pickup Date/Time:</td>
-                    <td><%=drug.getPickUpDateTime() != null ? dateTimeFormatter.format(drug.getPickUpDateTime()) : ""%>
+                    <td><%=drug.getPickUpDateTime() != null ? (StaticScriptBean.hasPickupTime(drug.getPickUpDateTime()) ? dateTimeFormatter : dateOnlyFormatter).format(drug.getPickUpDateTime()) : ""%>
                     </td>
                 </tr>
                 <tr>
@@ -505,14 +508,14 @@
             Unused Items
 
             ID: <%= drug.getId()%><br>
-            Audit: <%= drug.getAuditString()%><br>
-            Full: <%= drug.getFullOutLine()%><br>
+            Audit: <%= SafeEncode.forHtmlContent(drug.getAuditString())%><br>
+            Full: <%= SafeEncode.forHtmlContent(drug.getFullOutLine())%><br>
             Position: <%= drug.getPosition()%><br>
             Start Date Unknown: <%= drug.getStartDateUnknown()%><br>
             Script No: <%= drug.getScriptNo()%><br>
             hide for cpp: <%= drug.getHideFromCpp() %><br>
-            GCN: <%= drug.getGcnSeqNo()%><br>
-            Gen Name: <%= drug.getGenericName()%><br>
+            GCN: <%= SafeEncode.forHtmlContent(drug.getGcnSeqNo())%><br>
+            Gen Name: <%= SafeEncode.forHtmlContent(drug.getGenericName())%><br>
             Min: <%= drug.getTakeMin()%><br>
             Max: <%= drug.getTakeMax()%><br>
              --%>

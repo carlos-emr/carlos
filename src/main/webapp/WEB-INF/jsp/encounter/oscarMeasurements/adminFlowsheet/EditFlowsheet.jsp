@@ -44,6 +44,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.service.FlowSheetCustomizationService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
@@ -89,7 +90,7 @@
             if (!action.equals(cust.getAction())) continue;
             if (!measurement.equals(cust.getMeasurement())) continue;
 
-            boolean isClinicLevel = "".equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo());
+            boolean isClinicLevel = FlowSheetCustomizationService.ScopeLevel.CLINIC == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
             boolean isProviderLevel = currentProvider.equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo());
 
             // Patient scope: inherit from clinic or provider
@@ -129,8 +130,8 @@
                 isCurrentScopeMatch = demographic.equals(cust.getDemographicNo());
             } else if ("clinic".equals(scope)) {
                 // Clinic scope: providerNo="" AND demographicNo="0"
-                isCurrentScopeMatch = "".equals(cust.getProviderNo()) &&
-                                      "0".equals(cust.getDemographicNo());
+                isCurrentScopeMatch = FlowSheetCustomizationService.ScopeLevel.CLINIC
+                        == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
             } else {
                 // Provider scope: providerNo=currentProvider AND demographicNo="0"
                 isCurrentScopeMatch = currentProvider.equals(cust.getProviderNo()) &&
@@ -145,16 +146,12 @@
     }
 
     /**
-     * Determines the scope level name for a customization.
+     * Determines the scope level name for a customization. Delegates to
+     * {@link FlowSheetCustomizationService} so the page and the cascade checks share one
+     * null-safe definition of clinic/provider/patient scope.
      */
     private String getScopeLevelName(FlowSheetCustomization cust) {
-        if ("".equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo())) {
-            return "clinic";
-        } else if (!"0".equals(cust.getDemographicNo())) {
-            return "patient";
-        } else {
-            return "provider";
-        }
+        return SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevelName(cust);
     }
 
     /**

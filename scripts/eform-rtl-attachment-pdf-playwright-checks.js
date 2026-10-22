@@ -39,6 +39,12 @@
  * A family with nothing to attach is reported as SKIP and does not fail the run unless
  * RTL_REQUIRE_ALL_FAMILIES=1.
  *
+ * The letters are saved for demographic 1 on purpose: what this check asserts is that patient's documents, labs, forms and HRM
+ * reports in the Attach popup, which an owned patient does not have. Every instance it saves, with its values and attachment rows,
+ * is therefore removed again by its number (lib/eform-instance-residue.js: only that patient's instances above a mark taken before
+ * the first save), where the application's own Delete only marks them removed; it used to leave 25 instances, 245 values and 20
+ * attachment rows behind per run. MYSQL_* reaches the database.
+ *
  * Environment: BASE_URL, CHROME_PATH, TEST_USER/TEST_PASSWORD/TEST_PIN, RTL_DEMOGRAPHIC_NO,
  * RTL_FORM_NAME, RTL_SCREENSHOT_DIR, RTL_REQUIRE_ALL_FAMILIES, RTL_HRM_TEXT_MARKER, RTL_HRM_DOCUMENT_NO (default 1).
  */
@@ -46,6 +52,9 @@ const fs = require('fs');
 const zlib = require('zlib');
 const { spawnSync } = require('child_process');
 const { chromium } = require('playwright');
+const { settleOperations } = require('./graceful-signal-cancellation');
+const { createSqlRunner, readConfig, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { markEformInstances, removeEformInstancesSince } = require('./lib/eform-instance-residue');
 const {
   assert,
   buildArtifactPath,
@@ -210,9 +219,12 @@ async function downloadPdf(page, locator, label, trigger = (target) => target.cl
     (response) => response.url().includes('/eform/addEForm') && response.request().method() === 'POST',
     { timeout: 120000 },
   );
-  await trigger(locator);
-  const response = await responsePromise;
-  const download = await downloadPromise;
+  // Settle the trigger and both waits together: awaiting one while another is pending lets a
+  // second timeout reject unhandled and kill the process before cleanup runs (#3607). The trigger
+  // goes first so its own failure is the one reported, not the waits' timeout.
+  const [, download, response] = await settleOperations([
+    Promise.resolve().then(() => trigger(locator)), downloadPromise, responsePromise,
+  ]);
   try {
     // saveAs sits inside the try as well: if it rejects part-way, whatever it did write is
     // still removed below.
@@ -401,12 +413,15 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
 
 (async () => {
   const recorder = createRecorder();
+  const sql = createSqlRunner(readConfig().mysql);
+  // Before the first save: the instances saved after this are the run's, and only they are removed.
+  const instanceMark = markEformInstances(sql);
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
     // Only a loopback target (the packaged install's self-signed front door) may skip TLS
     // validation; any other BASE_URL keeps it on.
     const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
-    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
     const managerPage = await openManager(context, config, recorder, 'rtl-manager');
@@ -428,6 +443,13 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2).slice(0, 6000));
   } finally {
     await browser.close();
+    try {
+      removeEformInstancesSince(sql, instanceMark, config.demographicNo);
+    } catch (error) {
+      record('cleanup', 'the saved letters were removed', false, String(error && error.message || error));
+    } finally {
+      sql.dispose();
+    }
   }
   const failed = results.filter((r) => !r.ok).length;
   const skipped = results.filter((r) => r.skipped).length;

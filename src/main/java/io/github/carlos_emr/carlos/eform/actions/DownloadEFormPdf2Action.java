@@ -185,7 +185,9 @@ public class DownloadEFormPdf2Action extends ActionSupport {
             return "download";
         } catch (EformContentUnavailableException e) {
             return EFormSavedRenderResponse.missing(request, renderApprovalService, loggedInInfo,
-                    e, fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.DOWNLOAD,
+                    e, fdidValue, storedDemographicNo,
+                    eformData.getFormId() == null ? null : String.valueOf(eformData.getFormId()),
+                    EFormRenderApprovalService.Operation.DOWNLOAD,
                     approval, "true".equals(request.getParameter("autoClose")));
         } catch (PDFGenerationException e) {
             if (e.isRetryable()) {

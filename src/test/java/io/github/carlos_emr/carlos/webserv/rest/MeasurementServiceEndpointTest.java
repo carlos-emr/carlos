@@ -27,7 +27,9 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -108,6 +110,38 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/measurements/BP/0/type").textValue()).isEqualTo("BP");
             verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq("123"));
             verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123));
+        }
+
+        @Test
+        @DisplayName("should write the measurement entity's midnight timestamps as epoch milliseconds")
+        void shouldWriteEntityTimestampsAsEpochMillis_whenTheyFallOnMidnight() {
+            // MeasurementResponse carries Measurement entities, not MeasurementTo1, so the entity's
+            // own DATETIME fields need the epoch shape too (issue #3877).
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq("123")))
+                .thenReturn(true);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123))).thenReturn(true);
+            Calendar calendar = Calendar.getInstance();
+            calendar.clear();
+            calendar.set(2026, Calendar.MARCH, 11);
+            Date midnight = calendar.getTime();
+            Measurement m = new Measurement();
+            m.setType("WT");
+            m.setDataField("70");
+            m.setDateObserved(midnight);
+            m.setCreateDate(midnight);
+            when(mockMeasurementManager.getMeasurementByType(any(LoggedInInfo.class), eq(123), any()))
+                .thenReturn(List.of(m));
+
+            Response response = request().path("/measurements/123")
+                .post(Entity.json("{\"types\":[\"WT\"]}"));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            for (String field : List.of("dateObserved", "createDate")) {
+                var value = wireJson.at("/measurements/WT/0/" + field);
+                assertThat(value.isIntegralNumber()).as("%s on the wire: %s", field, value).isTrue();
+                assertThat(value.longValue()).as(field).isEqualTo(midnight.getTime());
+            }
         }
 
         @Test

@@ -35,6 +35,8 @@ import java.sql.SQLException;
 import java.util.Date;
 import java.util.Properties;
 
+import org.apache.commons.lang3.StringUtils;
+
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.login.DBHelp;
@@ -60,8 +62,8 @@ public class FrmBCHPRecord extends FrmRecord {
                     // props.setProperty("formEdited",
                     // UtilDateUtilities.DateToString(new Date(),_dateFormat));
                     props.setProperty("pg1_patientName", rs.getString("last_name") + ", " + rs.getString("first_name"));
-                    props.setProperty("pg1_phn", rs.getString("hin"));
-                    props.setProperty("pg1_phone", rs.getString("phone") + "  " + rs.getString("phone2"));
+                    props.setProperty("pg1_phn", StringUtils.defaultString(rs.getString("hin")));
+                    props.setProperty("pg1_phone", StringUtils.defaultString(rs.getString("phone")) + "  " + StringUtils.defaultString(rs.getString("phone2")));
                     props.setProperty("pg1_formDate", UtilDateUtilities
                             .DateToString(new Date(), _dateFormat));
                     providerNo = rs.getString("provider_no");
@@ -72,7 +74,7 @@ public class FrmBCHPRecord extends FrmRecord {
                 ProviderData proData = new ProviderData();
                 proData.getProvider(providerNo);
 
-                props.setProperty("pg1_msp", proData.getOhip_no());
+                props.setProperty("pg1_msp", StringUtils.defaultString(proData.getOhip_no()));
                 props.setProperty("pg1_md", "Dr. " + proData.getLast_name());
 
             }
@@ -86,8 +88,8 @@ public class FrmBCHPRecord extends FrmRecord {
                     demographicNo);
             if (rs.next()) {
                 props.setProperty("pg1_patientName_cur", rs.getString("last_name") + ", " + rs.getString("first_name"));
-                props.setProperty("pg1_phn_cur", rs.getString("hin"));
-                props.setProperty("pg1_phone_cur", rs.getString("phone") + "  " + rs.getString("phone2"));
+                props.setProperty("pg1_phn_cur", StringUtils.defaultString(rs.getString("hin")));
+                props.setProperty("pg1_phone_cur", StringUtils.defaultString(rs.getString("phone")) + "  " + StringUtils.defaultString(rs.getString("phone2")));
             }
         }
         return props;

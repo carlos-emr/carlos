@@ -40,21 +40,21 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+import java.util.StringJoiner;
 import java.util.Vector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RxPrescriptionData {
@@ -67,6 +67,59 @@ public class RxPrescriptionData {
 
     static String textViewLineForFullOutline(String fullOutLine) {
         return StringUtils.defaultString(fullOutLine).replace(";", "\n");
+    }
+
+    /**
+     * The prescriber, clinic and patient lines that open a stored prescription's text view, one per line in a fixed
+     * order. A value the record doesn't have is written as an empty line, not the word "null", so every line keeps its
+     * place for the readers of the stored text (the REST {@code PrescriptionTo1} and the SOAP {@code
+     * PrescriptionTransfer}).
+     *
+     * @param doctorName the prescriber's signature, or {@code null} to use the provider's first and last name
+     */
+    public static String textViewHeader(String doctorName, RxProviderData.Provider provider, RxPatientData.Patient patient,
+                                        Date today) {
+        StringBuilder header = new StringBuilder();
+        for (String line : new String[] {
+                doctorName != null ? doctorName : joinPresent(provider.getFirstName(), provider.getSurname()),
+                provider.getClinicName(),
+                provider.getClinicAddress(),
+                provider.getClinicCity(),
+                provider.getClinicPostal(),
+                provider.getClinicPhone(),
+                provider.getClinicFax(),
+                joinPresent(patient.getFirstName(), patient.getSurname()),
+                patient.getAddress(),
+                joinPresent(patient.getCity(), patient.getPostal()),
+                patient.getPhone(),
+                RxUtil.DateToString(today, "MMMM d, yyyy")}) {
+            header.append(StringUtils.defaultString(line)).append('\n');
+        }
+        return header.toString();
+    }
+
+    /** The two values that are present, separated by a space ("" when neither is). */
+    private static String joinPresent(String first, String second) {
+        return Stream.of(first, second).filter(StringUtils::isNotEmpty).collect(Collectors.joining(" "));
+    }
+
+    /**
+     * Renders a stored prescription outline ({@link #getFullOutLine(String)}) as HTML, one line per
+     * {@code ";"}-separated part joined with {@code <br />}.
+     *
+     * <p>The outline carries the drug name and instructions exactly as the prescriber entered them,
+     * so each part is HTML-encoded here, once, at output. The split happens before encoding because
+     * an encoded character such as {@code &amp;} itself contains a {@code ";"} (#3952).
+     *
+     * @param fullOutLine the stored outline; {@code null} renders as empty
+     * @return HTML-safe markup with a {@code <br />} between the outline's lines
+     */
+    public static String fullOutLineToHtml(String fullOutLine) {
+        StringJoiner html = new StringJoiner("<br />");
+        for (String part : StringUtils.defaultString(fullOutLine).split(";", -1)) {
+            html.add(SafeEncode.forHtmlContent(part));
+        }
+        return html.toString();
     }
 
     public static String getFullOutLine(String special) {
@@ -490,76 +543,19 @@ public class RxPrescriptionData {
     }
 
     /**
-     * Returns the newest copy of each equivalent clinical entry, newest first.
-     * Drug identity alone is insufficient: doses, directions, status and dated history
-     * must remain distinguishable. Full prescription history is available separately
-     * through {@link #getPrescriptionsByPatient(int)}.
+     * Returns the patient's medication list, one entry per product and regimen, newest first.
+     * See {@link UniqueMedicationList} for which rows merge and which copy is listed. Full
+     * prescription history is available separately through {@link #getPrescriptionsByPatient(int)}.
      */
     public Prescription[] getUniquePrescriptionsByPatient(int demographicNo) {
-        List<Prescription> result = new ArrayList<>();
-        Set<PrescriptionContent> seen = new HashSet<>();
         DrugDao dao = SpringUtils.getBean(DrugDao.class);
-        List<Drug> drugList = new ArrayList<>(dao.findByDemographicId(demographicNo));
-        drugList.sort(new Drug.ComparatorIdDesc());
-
-        for (Drug drug : drugList) {
-            if (drug.isDeleted()) {
-                continue;
-            }
-            // Do not infer equivalence when the product itself is unidentified.
-            if (hasProductIdentity(drug) && !seen.add(PrescriptionContent.from(drug))) {
-                continue;
-            }
+        List<Prescription> result = new ArrayList<>();
+        for (Drug drug : UniqueMedicationList.select(dao.findByDemographicId(demographicNo))) {
             Prescription prescription = toPrescription(drug, demographicNo);
             prescription.setPosition(drug.getPosition());
             result.add(prescription);
         }
         return result.toArray(new Prescription[0]);
-    }
-
-    private static boolean hasProductIdentity(Drug drug) {
-        return (StringUtils.isNotBlank(drug.getGcnSeqNo()) && !"0".equals(drug.getGcnSeqNo()))
-                || StringUtils.isNotBlank(drug.getCustomName())
-                || StringUtils.isNotBlank(drug.getBrandName())
-                || StringUtils.isNotBlank(drug.getGenericName())
-                || StringUtils.isNotBlank(drug.getRegionalIdentifier());
-    }
-
-    /**
-     * Exact clinical values, excluding row ID, script linkage, display position/visibility and
-     * create/update timestamps. Those bookkeeping fields differ between duplicate rows.
-     * Nulls are retained rather than guessed to mean an empty value or a default.
-     */
-    private record PrescriptionContent(List<Object> product, List<Object> directions, List<Object> history) {
-        private static PrescriptionContent from(Drug drug) {
-            return new PrescriptionContent(
-                    values(drug.getGcnSeqNo(), drug.getBrandName(), drug.getCustomName(), drug.getGenericName(),
-                            drug.getAtc(), drug.getRegionalIdentifier(), drug.getDosage(), drug.getUnit(),
-                            drug.getUnitName(), drug.getDrugForm()),
-                    values(drug.getTakeMin(), drug.getTakeMax(), drug.getFreqCode(), drug.getDuration(),
-                            drug.getDurUnit(), drug.getQuantity(), drug.getRepeat(), drug.isNoSubs(), drug.isPrn(),
-                            drug.getSpecial(), drug.getSpecialInstruction(), drug.getMethod(), drug.getRoute(),
-                            drug.isCustomInstructions(), drug.getRefillDuration(), drug.getRefillQuantity(),
-                            drug.getDispenseInterval(), drug.getDispenseInternal(), drug.getProtocol(),
-                            drug.getPriorRxProtocol(), drug.getETreatmentType(), drug.getRxStatus(), drug.getPharmacyId()),
-                    values(drug.getProviderNo(), drug.getDemographicId(), instant(drug.getRxDate()),
-                            instant(drug.getEndDate()), instant(drug.getWrittenDate()), instant(drug.getLastRefillDate()),
-                            instant(drug.getPickUpDateTime()), drug.isArchived(), drug.getArchivedReason(),
-                            instant(drug.getArchivedDate()), drug.getLongTerm(), drug.getShortTerm(), drug.getPastMed(),
-                            drug.getPatientCompliance(), drug.getStartDateUnknown(), drug.getOutsideProviderName(),
-                            drug.getOutsideProviderOhip(), drug.getComment(), drug.isCustomNote(),
-                            drug.isNonAuthoritative()));
-        }
-
-        private static List<Object> values(Object... values) {
-            // List.of/copyOf reject nullable database fields. The backing array is private.
-            return Collections.unmodifiableList(Arrays.asList(values));
-        }
-
-        private static Long instant(Date date) {
-            // Snapshot mutable dates and compare Date/Timestamp instances consistently.
-            return date == null ? null : date.getTime();
-        }
     }
 
     public Favorite[] getFavorites(String providerNo) {
@@ -618,26 +614,8 @@ public class RxPrescriptionData {
             logger.error("Prescription operation failed ({})", e.getClass().getSimpleName());
         }
         ProSignatureData sig = new ProSignatureData();
-        boolean hasSig = sig.hasSignature(bean.getProviderNo());
-        String doctorName = "";
-        if (hasSig) {
-            doctorName = sig.getSignature(bean.getProviderNo());
-        } else {
-            doctorName = (provider.getFirstName() + ' ' + provider.getSurname());
-        }
-
-        textView.append(doctorName + "\n");
-        textView.append(provider.getClinicName() + "\n");
-        textView.append(provider.getClinicAddress() + "\n");
-        textView.append(provider.getClinicCity() + "\n");
-        textView.append(provider.getClinicPostal() + "\n");
-        textView.append(provider.getClinicPhone() + "\n");
-        textView.append(provider.getClinicFax() + "\n");
-        textView.append(patient.getFirstName() + " " + patient.getSurname() + "\n");
-        textView.append(patient.getAddress() + "\n");
-        textView.append(patient.getCity() + " " + patient.getPostal() + "\n");
-        textView.append(patient.getPhone() + "\n");
-        textView.append(RxUtil.DateToString(today, "MMMM d, yyyy") + "\n");
+        String doctorName = sig.hasSignature(bean.getProviderNo()) ? sig.getSignature(bean.getProviderNo()) : null;
+        textView.append(textViewHeader(doctorName, provider, patient, today));
 
         String txt;
         for (int i = 0; i < bean.getStashSize(); i++) {

@@ -30,6 +30,8 @@
 package io.github.carlos_emr.carlos.report.oscarMeasurements.data;
 
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -50,7 +52,7 @@ public class RptMeasurementsData {
     public int getNbPatientSeen(String startDateA, String endDateA) {
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
         return dao.findByCreateDate(ConversionUtils.fromDateString(startDateA),
-                ConversionUtils.fromDateString(endDateA)).size();
+                dayAfter(endDateA)).size();
     }
 
     /**
@@ -61,9 +63,25 @@ public class RptMeasurementsData {
     public ArrayList<String> getPatientsSeen(String startDate, String endDate) {
         ArrayList<String> patients = new ArrayList<>();
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
-        for (Integer patientId : dao.findByCreateDate(ConversionUtils.fromDateString(startDate), ConversionUtils.fromDateString(endDate))) {
+        for (Integer patientId : dao.findByCreateDate(ConversionUtils.fromDateString(startDate), dayAfter(endDate))) {
             patients.add(patientId.toString());
         }
         return patients;
+    }
+
+    /**
+     * The report's end date is a whole day, but measurements carry a creation timestamp; the DAO's
+     * exclusive upper bound is therefore midnight of the day after the end date (#4549).
+     * A null result from parsing (unparseable input) stays null, as before.
+     */
+    private static Date dayAfter(String endDate) {
+        Date end = ConversionUtils.fromDateString(endDate);
+        if (end == null) {
+            return null;
+        }
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(end);
+        cal.add(Calendar.DAY_OF_MONTH, 1);
+        return cal.getTime();
     }
 }

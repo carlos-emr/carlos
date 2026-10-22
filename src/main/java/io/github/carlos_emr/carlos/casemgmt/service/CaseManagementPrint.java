@@ -51,29 +51,22 @@
  *
  * @see CaseManagementPrintPdf
  * @see CaseManagementManager
- * @see NoteService
  * @since 2026-01-24
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import org.openpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
-import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.util.ExtPrint;
-import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay;
-import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
-import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -85,7 +78,7 @@ import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import java.io.File;
 import java.nio.file.Files;
 import java.io.FileOutputStream;
@@ -103,13 +96,6 @@ public class CaseManagementPrint {
 
 
     CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
-
-    private NoteService noteService = SpringUtils.getBean(NoteService.class);
-
-
-    private ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
-
-    private ProgramManager programMgr = SpringUtils.getBean(ProgramManager.class);
 
     private PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
 
@@ -152,7 +138,7 @@ public class CaseManagementPrint {
      * @param printLabs boolean true to include laboratory results (HL7 reports)
      * @param printPreventions boolean true to include prevention/immunization records
      * @param printAllergies boolean true to include patient allergy information
-     * @param useDateRange boolean true to filter notes by date range (requires startDate and endDate)
+     * @param useDateRange boolean true to filter notes and labs by date range (requires startDate and endDate)
      * @param startDate Calendar the start date for date range filtering (inclusive); may be null if useDateRange is false
      * @param endDate Calendar the end date for date range filtering (inclusive); may be null if useDateRange is false
      * @param request HttpServletRequest the servlet request containing session data and parameters
@@ -166,6 +152,9 @@ public class CaseManagementPrint {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public void doPrint(LoggedInInfo loggedInInfo, Integer demographicNo, boolean printAllNotes, String[] noteIds, boolean printCPP, boolean printRx, boolean printLabs, boolean printPreventions, boolean printAllergies, boolean useDateRange, Calendar startDate, Calendar endDate, HttpServletRequest request, OutputStream os) throws IOException, DocumentException {
 
+        // Extensions read servlet parameters rather than this method's patient argument. Bind every
+        // parameter view to the authorized patient so a query string cannot select a second chart.
+        request = patientScopedRequest(request, demographicNo);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         ChartPrintDateRange printRange = useDateRange ? ChartPrintDateRange.from(startDate, endDate) : null;
@@ -190,7 +179,7 @@ public class CaseManagementPrint {
         request.setAttribute("demoSex", getDemoSex(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoPhn", getDemoPhn(demono));
-        request.setAttribute("mrp", getMRP(request));
+        request.setAttribute("mrp", getMRP(demono));
         String dob = getDemoDOB(demono);
         dob = convertDateFmt(dob, request);
         request.setAttribute("demoDOB", dob);
@@ -201,7 +190,9 @@ public class CaseManagementPrint {
             Long noteId = ConversionUtils.fromLongString(noteIdStr);
             if (noteId != null && noteId > 0) {
                 CaseManagementNote note = this.caseManagementMgr.getNote(noteId.toString());
-                if (note != null && note.getProviderNo() != null
+                // Callers authorize the print against demographicNo, but the note ids arrive from the
+                // request; a note of another patient must never ride into this patient's chart PDF.
+                if (note != null && demono.equals(note.getDemographic_no()) && note.getProviderNo() != null
                         && (note.getProviderNo().isEmpty() || Integer.parseInt(note.getProviderNo()) != -1)) {
                     notes.add(note);
                 }
@@ -348,7 +339,9 @@ public class CaseManagementPrint {
                 LinkedHashMap<String, LabResultData> accessionMap = new LinkedHashMap<String, LabResultData>();
                 for (int i = 0; i < labs.size(); i++) {
                     LabResultData result = labs.get(i);
-                    if (result.isHL7TEXT()) {
+                    // Filter before accession de-duplication so an out-of-range version
+                    // cannot hide a report that belongs to the selected calendar days.
+                    if (result.isHL7TEXT() && (printRange == null || printRange.contains(result.getDateObj()))) {
                         if (result.accessionNumber == null || result.accessionNumber.equals("")) {
                             accessionMap.put("noAccessionNum" + i + result.labType, result);
                         } else {
@@ -359,8 +352,6 @@ public class CaseManagementPrint {
                 }
 
                 for (LabResultData result : accessionMap.values()) {
-                    //Date d = result.getDateObj();
-                    // TODO:filter out the ones which aren't in our date range if there's a date range????
                     String segmentId = result.segmentID;
                     // Each lab is rendered into the application temp directory, as every other
                     // LabPDFCreator caller does, NOT under DOCUMENT_DIR: addEmbeddedDocuments()
@@ -446,6 +437,33 @@ public class CaseManagementPrint {
 
     }
 
+    private static HttpServletRequest patientScopedRequest(HttpServletRequest request, Integer demographicNo) {
+        String patient = String.valueOf(demographicNo);
+        return new HttpServletRequestWrapper(request) {
+            @Override
+            public String getParameter(String name) {
+                return "demographicNo".equals(name) ? patient : super.getParameter(name);
+            }
+
+            @Override
+            public String[] getParameterValues(String name) {
+                return "demographicNo".equals(name) ? new String[]{patient} : super.getParameterValues(name);
+            }
+
+            @Override
+            public Map<String, String[]> getParameterMap() {
+                Map<String, String[]> parameters = new HashMap<>(super.getParameterMap());
+                parameters.put("demographicNo", new String[]{patient});
+                return Collections.unmodifiableMap(parameters);
+            }
+
+            @Override
+            public Enumeration<String> getParameterNames() {
+                return Collections.enumeration(getParameterMap().keySet());
+            }
+        };
+    }
+
     /**
      * Extracts issue IDs from a list of Issue objects into a String array.
      *
@@ -465,161 +483,6 @@ public class CaseManagementPrint {
         }
         return issueIds;
     }
-
-    /**
-     * Retrieves all note IDs for a patient within a specified date range.
-     *
-     * This method queries the note service with a comprehensive set of filter criteria including
-     * date range boundaries, program context, and session-based filters (roles, providers, issues).
-     * It respects the user's current program assignment and applies any active E-Chart view filters
-     * that may have been set by CaseManagementView2Action.
-     *
-     * The method defaults to the "OSCAR" program if the provider has not been assigned to a specific
-     * program. Only local notes (NoteDisplayLocal) are included in the returned results.
-     *
-     * @param loggedInInfo LoggedInInfo the authenticated session information
-     * @param request HttpServletRequest the servlet request containing session attributes and parameters
-     * @param demoNo String the patient's demographic number as a string
-     * @param startDate Date the start of the date range (inclusive)
-     * @param endDate Date the end of the date range (inclusive)
-     * @return String[] array of note IDs (as strings) matching the criteria
-     */
-    @SuppressWarnings("unchecked")
-    private String[] getAllNoteIdsWithinDateRange(LoggedInInfo loggedInInfo, HttpServletRequest request, String demoNo, Date startDate, Date endDate) {
-
-        HttpSession se = loggedInInfo.getSession();
-
-        ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
-        String programId = null;
-
-        if (pp != null && pp.getProgramId() != null) {
-            programId = "" + pp.getProgramId();
-        } else {
-            programId = String.valueOf(programMgr.getProgramIdByProgramName("OSCAR")); //Default to the oscar program if providers hasn't been assigned to a program
-        }
-
-        NoteSelectionCriteria criteria = new NoteSelectionCriteria();
-        criteria.setStartDate(startDate);
-        criteria.setEndDate(endDate);
-        criteria.setMaxResults(Integer.MAX_VALUE);
-        criteria.setDemographicId(ConversionUtils.fromIntString(demoNo));
-        criteria.setUserRole((String) request.getSession().getAttribute("userrole"));
-        criteria.setUserName((String) request.getSession().getAttribute("user"));
-        if (request.getParameter("note_sort") != null && request.getParameter("note_sort").length() > 0) {
-            criteria.setNoteSort(request.getParameter("note_sort"));
-        }
-        if (programId != null && !programId.trim().isEmpty()) {
-            criteria.setProgramId(programId);
-        }
-
-        if (se.getAttribute("CaseManagementViewAction_filter_roles") != null) {
-            criteria.getRoles().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_roles"));
-        }
-
-        if (se.getAttribute("CaseManagementViewAction_filter_providers") != null) {
-            criteria.getProviders().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_providers"));
-        }
-
-        if (se.getAttribute("CaseManagementViewAction_filter_issues") != null) {
-            criteria.getIssues().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_issues"));
-        }
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: " + criteria);
-        }
-
-        NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
-
-        List<String> buf = new ArrayList<String>();
-        if (result != null && result.getNotes() != null) {
-            for (NoteDisplay nd : result.getNotes()) {
-                if (nd instanceof NoteDisplayLocal) {
-                    buf.add(nd.getNoteId().toString());
-                }
-            }
-        }
-
-        return buf.toArray(new String[0]);
-    }
-
-    /**
-     * Retrieves all note IDs for a patient without date range restrictions.
-     *
-     * This method queries the note service with filter criteria based on program context and
-     * session-based filters (roles, providers, issues), but without date range boundaries.
-     * It retrieves up to Integer.MAX_VALUE notes and respects the user's current program
-     * assignment and any active E-Chart view filters.
-     *
-     * If no session filters are present (roles, providers, issues), the criteria will have
-     * empty lists, which signals the note service to return all notes without filtering by
-     * those dimensions. The method defaults to the "OSCAR" program if the provider has not
-     * been assigned to a specific program.
-     *
-     * Only local notes (NoteDisplayLocal) are included in the returned results.
-     *
-     * @param loggedInInfo LoggedInInfo the authenticated session information
-     * @param request HttpServletRequest the servlet request containing session attributes and parameters
-     * @param demoNo String the patient's demographic number as a string
-     * @return String[] array of all note IDs (as strings) matching the criteria
-     */
-    @SuppressWarnings("unchecked")
-    private String[] getAllNoteIds(LoggedInInfo loggedInInfo, HttpServletRequest request, String demoNo) {
-
-        HttpSession se = loggedInInfo.getSession();
-
-        ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
-        String programId = null;
-
-        if (pp != null && pp.getProgramId() != null) {
-            programId = "" + pp.getProgramId();
-        } else {
-            programId = String.valueOf(programMgr.getProgramIdByProgramName("OSCAR")); //Default to the oscar program if providers hasn't been assigned to a program
-        }
-
-        NoteSelectionCriteria criteria = new NoteSelectionCriteria();
-        criteria.setMaxResults(Integer.MAX_VALUE);
-        criteria.setDemographicId(ConversionUtils.fromIntString(demoNo));
-        criteria.setUserRole((String) request.getSession().getAttribute("userrole"));
-        criteria.setUserName((String) request.getSession().getAttribute("user"));
-        if (request.getParameter("note_sort") != null && request.getParameter("note_sort").length() > 0) {
-            criteria.setNoteSort(request.getParameter("note_sort"));
-        }
-        if (programId != null && !programId.trim().isEmpty()) {
-            criteria.setProgramId(programId);
-        }
-
-        // Apply session filters if they exist (set by CaseManagementView2Action)
-        // If no filters are present, criteria will have empty lists which means "no filtering" - get all notes
-        if (se.getAttribute("CaseManagementViewAction_filter_roles") != null) {
-            criteria.getRoles().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_roles"));
-        }
-
-        if (se.getAttribute("CaseManagementViewAction_filter_providers") != null) {
-            criteria.getProviders().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_providers"));
-        }
-
-        if (se.getAttribute("CaseManagementViewAction_filter_issues") != null) {
-            criteria.getIssues().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_issues"));
-        }
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: " + criteria);
-        }
-
-        NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
-
-        List<String> buf = new ArrayList<String>();
-        if (result != null && result.getNotes() != null) {
-            for (NoteDisplay nd : result.getNotes()) {
-                if (nd instanceof NoteDisplayLocal) {
-                    buf.add(nd.getNoteId().toString());
-                }
-            }
-        }
-
-        return buf.toArray(new String[0]);
-    }
-
 
     /**
      * Retrieves the patient's full name for the specified demographic number.
@@ -683,24 +546,26 @@ public class CaseManagementPrint {
     }
 
     /**
-     * Retrieves the Most Responsible Provider (MRP) name from the encounter session.
+     * Retrieves the printed patient's Most Responsible Provider (MRP) name.
      *
-     * The MRP is the family doctor or primary care provider assigned to the patient.
-     * This method extracts the provider information from the EctSessionBean and formats
-     * the full name (first name + surname).
+     * The MRP is the family doctor or primary care provider assigned to the patient
+     * ({@code demographic.provider_no}), formatted as first name + surname. It is read from the
+     * patient being printed, never from the login-wide {@code EctSessionBean}: that bean names
+     * whichever chart was entered last in any window of the login, so it printed another
+     * patient's family doctor on this patient's record (issue #4673).
      *
-     * @param request HttpServletRequest the servlet request containing the EctSessionBean in session
-     * @return String the MRP's full name (first name + surname), or empty string if no MRP is assigned
+     * @param demoNo String the printed patient's demographic number
+     * @return String the MRP's full name, or empty string if the patient has no MRP or the MRP's
+     *         provider record no longer exists
      */
-    protected String getMRP(HttpServletRequest request) {
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session encounter context bean (fields validated on store)
-        if (bean == null) return new String("");
-        if (bean.familyDoctorNo == null) return new String("");
-        if (bean.familyDoctorNo.isEmpty()) return new String("");
+    protected String getMRP(String demoNo) {
+        if (demoNo == null) return "";
+        String providerNo = caseManagementMgr.getDemoProviderNo(demoNo);
+        if (providerNo == null || providerNo.isEmpty()) return "";
 
-        EctProviderData.Provider prov = new EctProviderData().getProvider(bean.familyDoctorNo);
-        String name = prov.getFirstName() + " " + prov.getSurname();
-        return name;
+        EctProviderData.Provider prov = new EctProviderData().getProvider(providerNo);
+        if (prov == null) return "";
+        return prov.getFirstName() + " " + prov.getSurname();
     }
 
     /**

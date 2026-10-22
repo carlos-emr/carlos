@@ -199,6 +199,10 @@ public class MeasurementDSHelper {
             if (!dataField.isEmpty()) {
                 try {
                     ret = Double.parseDouble(dataField);
+                    // A1C may arrive as a fraction (0.095) from some labs; compare it as percent.
+                    if (A1cPercent.appliesTo(mdb.getType())) {
+                        ret = A1cPercent.toPercent(ret);
+                    }
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Fatal error while parsing double value {} for Flowsheet type {} in demographic number {}", ret, mdb.getType(), mdb.getDemo(), e);
                     problem = true;

@@ -56,6 +56,32 @@
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
 
+## eForm Chrome Styling
+
+- eForm pages must not receive a global stylesheet: the renderers (`efmshowform_data.jsp`,
+  `efmformadd_data.jsp`) and the PDF render surface (`EFormRenderPdfHtmlComposer`) never add the
+  plain `bootstrap.min.css`, whose reboot moves legacy eForm fields on screen and in print (#3944).
+- The toolbar, save alert and attachment picker use
+  `eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css`, generated (never hand-edited) by
+  `scripts/build-eform-scoped-bootstrap.js`; new chrome goes inside an element with
+  `class="carlos-eform-ui"`. See `docs/eform-chrome-bootstrap-scope.md`.
+
+## Query by Example Reporting Account
+
+- Query by Example runs every query as the read-only database account `carlos_report`
+  (`db_reporting_username` / `db_reporting_password`), never as `db_username`, and refuses to run
+  without it (issue #3372). There is no fallback to the application account.
+- `src/main/resources/db/reporting/carlos_report_grants.sql` lists every table as `reportable` or
+  `restricted` and rebuilds the account's grants. A migration that creates a table must add its
+  row there; `QueryByExampleReportingClassificationUnitTest` fails the build until it does, and
+  when the restricted rows differ from `QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES`.
+- The application reads the same file from the WAR (`ReportingGrantList`) and refuses an account
+  whose `SHOW GRANTS` reach past it, so keep its one-row-per-line format: a row the reader cannot
+  parse closes Query by Example rather than being skipped.
+- Provisioning: `carlos-ctl db-users` / `db-migrate` on packaged installs; `populate_db.sh` and
+  the `qbe-reporting-account` helper in the devcontainer. See
+  `docs/query-by-example-least-privilege.md`.
+
 ## Debian Packaging and carlos-ctl
 
 The single-host deployment is three Debian packages (plus a transitional one):
@@ -349,6 +375,13 @@ the top of that file:
 - `NON_MUTATOR_GATES` — a read-scope gate that permits GET and only 405s
   on truly unsupported methods like DELETE/PUT.
 
+`HttpMethodGuardFilter` only infers a write from the route name or the
+`method` value. When a route picks its write from another parameter
+(`buttonUpdate`, `delete`, `forward`, ...), the action must refuse the GET
+itself; also list the route in the filter's
+`MUTATION_INTENT_PARAMS_BY_ROUTE`, and the contract test drives every entry
+there against its action (issue #3394).
+
 **When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
 the slice's package prefix only after the existing guarded actions in that
 slice have been audited and classified in the contract manifest. For a
@@ -403,6 +436,18 @@ result. PR #2043 showed this surfaces in CARLOS as `CARLOS Error: 0` because
 
 Track broader cleanup of legacy mixed direct-response actions in
 GitHub issue #2064.
+
+### Duplicate Submissions and Stale Edits
+
+A create form that a double click, a slow-response re-click or a reload of its POST result page
+can repeat must save once per rendering: use `FormSubmissionGuard` (issue #4225). Render its
+token into the form and claim it in the action before validation. Answer a repeat of a saved
+rendering with the first save's own result page, and map `submissionRefused` to
+`/WEB-INF/jsp/common/formSubmissionRefused.jsp` for the 409 cases. An edit form that posts every
+field must refuse a form rendered from an older version rather than overwrite the newer record;
+`DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference. Browser checks
+that deliberately replay a captured POST must drop `carlosFormSubmission` and
+`demographicVersion`. See `docs/form-submission-guard.md`.
 
 ## Layer Names — class naming policy
 
@@ -494,9 +539,10 @@ When asked to write tests, you MUST:
 3. **Never invent or assume method names** - verify they exist
 4. **Choose the right base class**:
    - `CarlosTestBase` - Integration tests with Spring context and database
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - `CarlosUnitTestBase` - Unit tests with mocked SpringUtils (no database)
    - Domain-specific bases like `DemographicUnitTestBase` - Unit tests with test data builders
-5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for EntityManager (integration tests only)
+5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for Spring-injected EntityManagers in application-context integration tests
 6. **For Manager unit tests**: Register SpringUtils mocks BEFORE creating static mocks (LogAction, etc.)
 
 ### Integration Test Pitfalls (Hibernate/H2)
@@ -1319,7 +1365,8 @@ docs/test/test-writing-guide.md                       # Test writing patterns an
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
 4. **Choose the right base class**:
-   - Integration tests: Extend `CarlosTestBase` (Spring context + H2 database)
+   - Spring integration tests: Extend `CarlosTestBase` (Spring context + H2 database).
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
 5. **Follow BDD naming strictly**: `should<Action>_<prepositionOrContext><Condition>` (camelCase, exactly ONE underscore, suffix starts lowercase; e.g. `_when`, `_by`, `_for`, `_with`). Do not use zero-underscore or multi-underscore variants.

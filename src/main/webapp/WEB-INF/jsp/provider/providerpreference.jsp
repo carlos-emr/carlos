@@ -70,6 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.AppointmentCardContact" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow" %>
 <%!
     // DAOs declared at class level -- thread-safe Spring singletons shared across all requests
@@ -194,10 +195,11 @@
     String colour = props.getOrDefault("ProviderColour", "");
     boolean dashboardShare = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.DASHBOARD_SHARE, "no"));
 
-    // Appointment card preferences
-    String apptCardName = props.getOrDefault("appointmentCardName", "");
-    String apptCardPhone = props.getOrDefault("appointmentCardPhone", "");
-    String apptCardFax = props.getOrDefault("appointmentCardFax", "");
+    // Appointment card preferences: what the card prints, so the older APPT_CARD_* values an
+    // upgraded install may hold show here and the next save carries them over (issue #5134).
+    String apptCardName = AppointmentCardContact.shownValue(props, AppointmentCardContact.Field.NAME);
+    String apptCardPhone = AppointmentCardContact.shownValue(props, AppointmentCardContact.Field.PHONE);
+    String apptCardFax = AppointmentCardContact.shownValue(props, AppointmentCardContact.Field.FAX);
 
     // Signature stamp
     boolean hasConsultSignature = false;
@@ -1090,6 +1092,10 @@
     <div id="secLab" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
 
+            <div class="pref-row">
+                <a href="${pageContext.request.contextPath}/setProviderStaleDate?method=viewHl7LabResultPrefs"
+                   target="_blank" rel="noopener"><fmt:message key="provider.setHl7LabResultPrefs.title"/></a>
+            </div>
             <%-- Lab acknowledgement --%>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.disableLabAckComment"/></div>
@@ -1371,7 +1377,7 @@
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-file-alt"></i> <fmt:message key="provider.providerpreference.link.docDescTemplate"/>
                 </a>
-                <a href="<%=request.getContextPath()%>/setProviderStaleDate?method=viewTicklerTaskAssignee"
+                <a href="<%=request.getContextPath()%>/setTicklerPreferences?method=viewTicklerTaskAssignee"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-tasks"></i> <fmt:message key="provider.providerpreference.link.ticklerPrefs"/>
                 </a>

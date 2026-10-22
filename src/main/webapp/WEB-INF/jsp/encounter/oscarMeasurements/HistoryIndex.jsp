@@ -114,7 +114,7 @@
                             <td><carlos:encode value="${data.typeDescription}" context="html"/></td>
                             <td>
                                 <a href="#"
-                                   onclick="popupPage(300,800,'${pageContext.request.contextPath}/encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forUriComponent(data.type)}'); return false;">
+                                   onclick="popupPage(300,800,'${pageContext.request.contextPath}/encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forUriComponent(data.type)}&amp;demographicNo=${carlos:forHtmlAttribute(demographicNo)}'); return false;">
                                     <fmt:message key="encounter.oscarMeasurements.historyIndex.btnMore"/>
                                 </a>
                             </td>
