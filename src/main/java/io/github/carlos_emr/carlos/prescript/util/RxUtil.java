@@ -1267,7 +1267,7 @@ public class RxUtil {
      * information, or an administered amount. Any unit followed by a concentration denominator
      * or a body-size basis ({@code /mL}, {@code /kg}) names the product only; grams and IU written
      * with {@code /dose} or {@code per dose} are administered; grams applied to the skin or a
-     * mucosa, IU not given by mouth and mEq given by a written non-oral route are administered;
+     * mucosa, IU not given by mouth and mEq or mmol given by a written non-oral route are administered;
      * the remaining strength units are strengths. An amount with no recognized unit is
      * administered (callers check its boundary).
      */
@@ -1286,7 +1286,7 @@ public class RxUtil {
         }
         boolean grams = "g".equalsIgnoreCase(unit.group());
         boolean internationalUnits = "iu".equalsIgnoreCase(unit.group());
-        boolean milliequivalents = "meq".equalsIgnoreCase(unit.group());
+        boolean electrolyteUnits = "meq".equalsIgnoreCase(unit.group()) || "mmol".equalsIgnoreCase(unit.group());
         // "17 g per dose" and "20 IU/dose" state an administered amount in a measurable unit. A mass
         // per dose in mg, mcg or mEq ("500 mg per dose", an inhaler's "250 mcg/dose") still does not
         // say how many dispensable units supply it, so it is read as a strength below.
@@ -1301,10 +1301,11 @@ public class RxUtil {
         if (internationalUnits) {
             return isOral(instructions, segment) ? AmountKind.STRENGTH : AmountKind.ADMINISTERED;
         }
-        // Milliequivalents infused or injected ("20 mEq IV daily") are the amount given; by mouth, or
-        // with no route written, a potassium tablet's 20 mEq is its strength, so only a written
-        // non-oral route makes mEq an administered amount (the IU rule reads routeless IU as insulin).
-        if (milliequivalents && hasNonOralRoute(instructions, segment)) {
+        // Milliequivalents or millimoles infused or injected ("20 mEq IV daily", "20 mmol IV over 6 h")
+        // are the amount given; by mouth, or with no route written, a potassium tablet's 20 mEq is its
+        // strength, so only a written non-oral route makes them administered amounts (the IU rule
+        // reads routeless IU as insulin).
+        if (electrolyteUnits && hasNonOralRoute(instructions, segment)) {
             return AmountKind.ADMINISTERED;
         }
         return AmountKind.STRENGTH;
