@@ -687,6 +687,7 @@
     "test:gap-encounter-eform-edoc-approval-playwright": "node scripts/gap-encounter-eform-edoc-approval-playwright-checks.js",
     "test:gap-encounter-eform-error-log-playwright": "node scripts/gap-encounter-eform-error-log-playwright-checks.js",
     "test:gap-encounter-visual-eform-editor-playwright": "node scripts/gap-encounter-visual-eform-editor-playwright-checks.js",
+    "test:eform-visual-editor-default-edit-playwright": "node scripts/eform-visual-editor-default-edit-playwright-checks.js",
     "test:gap-encounter-fieldnote-report-playwright": "node scripts/gap-encounter-fieldnote-report-playwright-checks.js",
     "test:gap-encounter-form-data-import-playwright": "node scripts/gap-encounter-form-data-import-playwright-checks.js",
     "test:gap-encounter-rx-add-favourite-playwright": "node scripts/gap-encounter-rx-add-favourite-playwright-checks.js",

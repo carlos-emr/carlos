@@ -60,7 +60,7 @@
         <action name="eform/eformGenerator" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/Eform_dbtags" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/eformFloatingToolbar/eform_floating_toolbar" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
-        <action name="eform/visualEformEditor" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/visualEformEditor" class="io.github.carlos_emr.carlos.eform.gate.ViewVisualEFormEditor2Action"/>
         <action name="eform/partials/upload" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/partials/import" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/partials/upload_image" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
