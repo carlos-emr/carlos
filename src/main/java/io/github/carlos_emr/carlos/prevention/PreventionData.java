@@ -236,8 +236,8 @@ public class PreventionData {
      * accepts the RH form's type though no Preventions-page item lists it (issue #4992); an RH edit or
      * delete must reach only an RH record, never another type's record in the same chart.
      *
-     * @param id             the prevention record id
-     * @param preventionType the type the request was posted as
+     * @param id             int: the prevention record id
+     * @param preventionType String: the type the request was posted as
      * @throws IllegalArgumentException when the record is missing or of another type
      */
     public static void requirePreventionType(int id, String preventionType) {

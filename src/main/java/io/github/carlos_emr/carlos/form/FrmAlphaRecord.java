@@ -48,6 +48,16 @@ public class FrmAlphaRecord extends FrmRecord {
     /** The date format the page shows and posts for {@code formCreated}. */
     private static final String DATE_FORMAT = "yyyy/MM/dd";
 
+    /**
+     * The ALPHA record to show: for a positive {@code existingID}, that {@code formAlpha} row of this patient
+     * (empty when none matches both); otherwise a new record seeded with the patient's name and today's date.
+     *
+     * @param loggedInInfo  LoggedInInfo: the signed-in user (unused; the legacy record contract passes it)
+     * @param demographicNo int: the patient the record belongs to
+     * @param existingID    int: the {@code formAlpha.ID} to load, or 0 for a new record
+     * @return Properties: the record's columns
+     * @throws SQLException if the record cannot be read
+     */
     @Override
     public Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID) throws SQLException {
         if (existingID > 0) {
@@ -69,6 +79,13 @@ public class FrmAlphaRecord extends FrmRecord {
         return props;
     }
 
+    /**
+     * Inserts the submitted ALPHA record as a new {@code formAlpha} row for the patient it names.
+     *
+     * @param props Properties: the submitted form values, including {@code demographic_no}
+     * @return int: the new row's id
+     * @throws SQLException if the row cannot be inserted
+     */
     @Override
     public int saveFormRecord(Properties props) throws SQLException {
         String demographicNo = props.getProperty("demographic_no");
@@ -89,11 +106,28 @@ public class FrmAlphaRecord extends FrmRecord {
         return newHelper().getPrintRecord(sql, demographicNo, existingID);
     }
 
+    /**
+     * The form action configured for the submit button pressed.
+     *
+     * @param submit String: the submit button's value ({@code save}, {@code exit}, ...)
+     * @return String: the configured action, as {@link FrmRecordHelp} resolves it
+     * @throws SQLException if the configuration cannot be read
+     */
     @Override
     public String findActionValue(String submit) throws SQLException {
         return newHelper().findActionValue(submit);
     }
 
+    /**
+     * The address the save continues to, built by {@link FrmRecordHelp}.
+     *
+     * @param where  String: the page to continue to
+     * @param action String: the configured action
+     * @param demoId String: the patient's demographic number
+     * @param formId String: the saved record's id
+     * @return String: the continuation address
+     * @throws SQLException if the address cannot be built
+     */
     @Override
     public String createActionURL(String where, String action, String demoId, String formId) throws SQLException {
         return newHelper().createActionURL(where, action, demoId, formId);

@@ -132,7 +132,10 @@ class RhWorkflowPagesRegressionUnitTest {
         assertThat(form).contains("String requestedWorkflowId = request.getParameter(\"workflowId\");")
                 .contains("if (requestedWorkflowId == null) {\n                        h = (Hashtable) currentWorkFlows.get(0);")
                 .contains("requestedWorkflowId.trim().equals(((Hashtable) candidate).get(\"ID\"))")
-                .doesNotContain("request.setAttribute(\"currentWorkFlow\", currentWorkFlows.get(0));");
+                .doesNotContain("request.setAttribute(\"currentWorkFlow\", currentWorkFlows.get(0));")
+                // A named workflow that is no longer active is still posted, so form/RHPrevention refuses the save.
+                .contains("<%} else if (requestedWorkflowId != null) {%>")
+                .contains("<input type=\"hidden\" name=\"workflowId\" value=\"<carlos:encode value='<%= requestedWorkflowId.trim() %>' context=\"htmlAttribute\"/>\"/>");
     }
 
     @Test
