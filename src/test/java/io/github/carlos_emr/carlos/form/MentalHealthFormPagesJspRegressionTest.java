@@ -145,9 +145,10 @@ class MentalHealthFormPagesJspRegressionTest {
 
         // The patient details, the three catalogue entries of each list, and the comments.
         assertThat(count).isEqualTo(expected);
-        assertThat(page).contains("<span class=\"" + styleClass + "\"><%= SafeEncode.forHtmlContent(props.getProperty(\""
-                + comments + "\", \"\")) %></span>");
-        assertThat(page).containsPattern("\\." + styleClass + "\\s*\\{\\s*white-space:\\s*pre-wrap;\\s*}");
+        assertThat(page)
+                .contains("<span class=\"" + styleClass + "\"><%= SafeEncode.forHtmlContent(props.getProperty(\""
+                        + comments + "\", \"\")) %></span>")
+                .containsPattern("\\." + styleClass + "\\s*\\{\\s*white-space:\\s*pre-wrap;\\s*}");
     }
 
     @ParameterizedTest(name = "{0}")
@@ -195,8 +196,8 @@ class MentalHealthFormPagesJspRegressionTest {
     void shouldSubmitPrint_throughFormPrototype(String name) throws IOException {
         String page = jsp(name);
 
-        assertThat(page).contains("<input type=\"hidden\" name=\"submit\"");
-        assertThat(page).doesNotContain("document.forms[0].submit()")
+        assertThat(page).contains("<input type=\"hidden\" name=\"submit\"")
+                .doesNotContain("document.forms[0].submit()")
                 .contains("HTMLFormElement.prototype.submit.call(document.forms[0]);");
     }
 
