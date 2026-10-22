@@ -10,15 +10,18 @@
  *
  * Asserted: the search lists exactly the owned login; the edit page reflects the
  * row; saving a rename plus two flag changes writes exactly those columns (the
- * password/PIN sentinels leave the credentials untouched); the renamed login can
- * still sign in; both mutators refuse GET without writing; the delete removes the
- * row, the search no longer lists it, and the deleted login is refused at the
- * front door (lands on /loginfailed, never on the schedule).
+ * password/PIN sentinels leave the credentials untouched) and archives the pre-edit
+ * row once in SecurityArchive; the renamed login can still sign in; where the legacy
+ * PIN controls are offered, a new PIN is stored only as a salted hash, archived the
+ * same way, and signs in; both mutators refuse GET without writing; the delete
+ * removes the row, the search no longer lists it, and the deleted login is refused
+ * at the front door (lands on /loginfailed, never on the schedule).
  *
  * Fixtures: one marker-named provider row, its security row (password hash and PIN
  * copied from the configured test login so config.testPassword/testPin sign it in)
- * and one doctor role, all seeded by SQL and removed by cleanup, which asserts they
- * are gone. No demo row is touched.
+ * and one doctor role, all seeded by SQL and removed by cleanup together with the
+ * SecurityArchive rows the edits write, which asserts they are gone. No demo row is
+ * touched.
  */
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates, dataTableRows } = require('./lib/playwright-ui');
@@ -101,6 +104,8 @@ async function workflow(s) {
     const ownedLog = `(provider_no=${no} OR (contentId IN (${h.sqlString(userName)},${h.sqlString(renamed)})
       AND action IN ('failed','unlock')))`;
     sql.execute(`DELETE FROM log WHERE ${ownedLog}`);
+    // The edits archive the pre-edit row (SecurityManager.updateSecurityRecord).
+    if (securityNo) sql.execute(`DELETE FROM SecurityArchive WHERE security_no=${securityNo} AND provider_no=${no}`);
     sql.execute(`DELETE FROM security WHERE provider_no=${no} AND user_name IN (${h.sqlString(userName)},${h.sqlString(renamed)})`);
     for (const table of PROVIDER_LINKED_TABLES) sql.execute(`DELETE FROM ${table} WHERE provider_no=${no}`);
     // Logging in creates ProviderPreference (keyed providerNo) and may add its children.
@@ -109,6 +114,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM security WHERE provider_no=${no})
       + (SELECT COUNT(*) FROM secUserRole WHERE provider_no=${no}) + (SELECT COUNT(*) FROM provider WHERE provider_no=${no})
       + (SELECT COUNT(*) FROM log WHERE ${ownedLog})
+      + (SELECT COUNT(*) FROM SecurityArchive WHERE provider_no=${no})
       + ${PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${no})`).join(' + ')}`) === '0',
     'Owned security/provider fixtures were not removed');
   });
@@ -176,6 +182,12 @@ async function workflow(s) {
       'The security row did not change exactly as submitted (credentials, expiry date or other flags moved)');
     h.assert(sql.value(`SELECT lastUpdateDate >= NOW() - INTERVAL 5 MINUTE FROM security WHERE security_no=${securityNo}`) === '1',
       'The update did not stamp lastUpdateDate');
+    // The pre-edit row is archived once: the original name, flags and credentials, not the edit.
+    const archived = sql.rows(`SELECT user_name,password,provider_no,pin,b_ExpireSet,b_LocalLockSet,b_RemoteLockSet
+      FROM SecurityArchive WHERE security_no=${securityNo}`);
+    h.assert(archived.length === 1, `The update wrote ${archived.length} SecurityArchive rows instead of one`);
+    h.assert(JSON.stringify(archived[0]) === JSON.stringify([userName, before[1], providerNo, before[3], '0', '1', '1']),
+      'SecurityArchive did not keep the pre-edit state of the record');
   });
   await s.step('the renamed login still signs in with the unchanged password and PIN', async () => {
     const ctx2 = await h.newContext(context.browser(), config);
@@ -183,6 +195,35 @@ async function workflow(s) {
     try {
       const schedule = await h.login(ctx2, { ...config, testUser: renamed }, recorder, { label: 'security-renamed-login' });
       h.assert(/providercontrol|appointment/i.test(schedule.url()), 'The renamed login did not reach the schedule');
+    } finally { await ctx2.close(); }
+  });
+  await s.step('a new PIN is stored only as a salted hash, archived, and signs in', async () => {
+    frame = await openSection(admin, 'input[name="keyword"]');
+    await searchByUserName(admin, frame, renamed);
+    await navigateFrame(admin, frame, frame.getByRole('link', { name: renamed, exact: true }));
+    const pinBox = frame.locator('input[name="pin"]');
+    if (await pinBox.count() === 0 || await pinBox.isDisabled()) {
+      // The installation hides legacy PINs (MFA only): there is no PIN to change.
+      console.log('security-record-admin: legacy PIN controls are not offered; PIN storage step not applicable');
+      return;
+    }
+    const pinBefore = sql.value(`SELECT pin FROM security WHERE security_no=${securityNo}`);
+    const newPin = String(randomInt(1000, 10000));
+    await pinBox.fill(newPin);
+    await frame.locator('input[name="conPin"]').fill(newPin);
+    await navigateFrame(admin, frame, frame.locator('input[name="subbutton"]'));
+    h.assert(/Security Record Updated Successfully/.test(await frame.locator('h2').first().innerText()), 'The PIN change did not report success');
+    const [storedPin, pinDated] = sql.rows(`SELECT pin, pinUpdateDate >= NOW() - INTERVAL 5 MINUTE FROM security WHERE security_no=${securityNo}`)[0];
+    h.assert(storedPin && storedPin !== newPin && storedPin !== pinBefore && !storedPin.includes(newPin) && storedPin.length >= 40,
+      'The new PIN was not stored as a salted hash');
+    h.assert(pinDated === '1', 'The PIN change did not stamp pinUpdateDate');
+    const archivedPins = sql.rows(`SELECT pin FROM SecurityArchive WHERE security_no=${securityNo} ORDER BY id`).map(row => row[0]);
+    h.assert(archivedPins.length === 2 && archivedPins[1] === pinBefore, 'The PIN change did not archive the previous PIN once');
+    const ctx2 = await h.newContext(context.browser(), config);
+    ctx2.on('page', p => h.wireStrictPage(p, 'security-new-pin-login', recorder));
+    try {
+      const schedule = await h.login(ctx2, { ...config, testUser: renamed, testPin: newPin }, recorder, { label: 'security-new-pin-login' });
+      h.assert(/providercontrol|appointment/i.test(schedule.url()), 'The login with the new PIN did not reach the schedule');
     } finally { await ctx2.close(); }
   });
   await s.step('SecurityUpdate and SecurityDelete refuse GET without writing', async () => {

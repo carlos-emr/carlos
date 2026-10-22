@@ -3,8 +3,10 @@
 /*
  * Two administrators edit the same owned login. A stale POST must return 409 without clearing B's
  * force-reset setting, preserve A's original version and draft (including entered credentials),
- * and refuse replay. A separate current-record view supports an intentional retry. Deletion
- * while editing returns 404 without resurrecting the login. Only owned fixtures are removed.
+ * and refuse replay. A separate current-record view supports an intentional retry. Each accepted
+ * edit archives the row it replaced once in SecurityArchive; a refused one archives nothing.
+ * Deletion while editing returns 404 without resurrecting the login. Only owned fixtures are
+ * removed.
  */
 const { randomInt, randomBytes } = require('node:crypto');
 const h = require('./lib/playwright-harness');
@@ -53,12 +55,15 @@ async function workflow(s) {
     for (const login of logins) {
       const no = h.sqlString(login.providerNo);
       sql.execute(`DELETE FROM log WHERE provider_no=${no}`);
+      // Accepted edits archive the pre-edit row (SecurityManager.updateSecurityRecord).
+      if (login.securityNo) sql.execute(`DELETE FROM SecurityArchive WHERE security_no=${login.securityNo} AND provider_no=${no}`);
       sql.execute(`DELETE FROM security WHERE provider_no=${no} AND user_name=${h.sqlString(login.userName)}`);
       for (const table of PROVIDER_LINKED_TABLES) sql.execute(`DELETE FROM ${table} WHERE provider_no=${no}`);
       for (const table of PROVIDER_PREFERENCE_TABLES) sql.execute(`DELETE FROM ${table} WHERE providerNo=${no}`);
       sql.execute(`DELETE FROM provider WHERE provider_no=${no} AND last_name=${h.sqlString(s.marker)}`);
       h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM security WHERE provider_no=${no}) + (SELECT COUNT(*) FROM provider WHERE provider_no=${no})
-        + (SELECT COUNT(*) FROM secUserRole WHERE provider_no=${no})`) === '0', 'Owned security/provider fixtures were not removed');
+        + (SELECT COUNT(*) FROM secUserRole WHERE provider_no=${no}) + (SELECT COUNT(*) FROM SecurityArchive WHERE provider_no=${no})`) === '0',
+      'Owned security/provider fixtures were not removed');
     }
   });
   const [[hash, pin]] = sql.rows(`SELECT password,pin FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
@@ -81,6 +86,8 @@ async function workflow(s) {
   };
   const record = seed('k');
   const row = () => sql.value(`SELECT CONCAT(forcePasswordReset,'|',b_ExpireSet) FROM security WHERE security_no=${record.securityNo}`);
+  // Each accepted edit archives the row it replaced; a refused edit archives nothing.
+  const archives = () => sql.value(`SELECT COUNT(*) FROM SecurityArchive WHERE security_no=${record.securityNo}`);
   const b = await openSecondSession(s, { label: 'second-session', openMaster: false });
 
   let a;
@@ -112,6 +119,7 @@ async function workflow(s) {
     await other.frame.locator('select[name="forcePasswordReset"]').selectOption('1');
     await navigateFrame(other.admin, other.frame, other.frame.locator('input[name="subbutton"]'));
     h.assert(row() === '1|0', 'The newer force-password-reset did not reach the database');
+    h.assert(archives() === '1', 'The accepted edit did not archive the replaced row exactly once');
     savedProof = proof();
     await a.frame.locator('input[name="b_ExpireSet"]').check();
     await a.frame.locator('input[name="password"]').fill(draftPassword);
@@ -123,12 +131,13 @@ async function workflow(s) {
     h.assert(await a.frame.locator('input[name="securityEditVersion"]').inputValue() === originalVersion,
       'The refusal silently rebased the original version');
     h.assert(proof() === savedProof && row() === '1|0', 'The stale edit changed fields or credentials');
+    h.assert(archives() === '1', 'The refused stale edit wrote a SecurityArchive row');
     h.assert(/changed|draft/i.test(await a.frame.locator('#security-edit-refused').innerText()), 'The conflict did not explain recovery');
   });
 
   await s.step('replaying the stale form remains refused, then a reviewed retry keeps the newer protection', async () => {
     await submitRefused(a, 409);
-    h.assert(proof() === savedProof, 'Replaying the stale form changed the security row');
+    h.assert(proof() === savedProof && archives() === '1', 'Replaying the stale form changed or archived the security row');
     const opened = s.context.waitForEvent('page');
     await a.frame.locator('#reviewCurrentSecurity').click();
     const current = await opened;
@@ -141,6 +150,8 @@ async function workflow(s) {
     await Promise.all([current.waitForURL(/\/admin\/SecurityUpdate$/), current.locator('input[name="subbutton"]').click()]);
     await current.locator('#security-update-ok').waitFor();
     h.assert(row() === '1|1', 'The reviewed expiry change did not preserve force-password-reset');
+    h.assert(sql.value(`SELECT CONCAT(COUNT(*),'|',SUM(forcePasswordReset=1 AND b_ExpireSet=0)) FROM SecurityArchive
+      WHERE security_no=${record.securityNo}`) === '2|1', 'The reviewed retry did not archive the newer protected state once');
     h.assert(sql.value(`SELECT password=${h.sqlString(hash)} AND pin=${h.sqlString(pin)} FROM security
       WHERE security_no=${record.securityNo}`) === '1', 'The reviewed flag-only retry changed credentials');
     h.assert(await a.frame.locator('input[name="password"]').inputValue() === draftPassword,
