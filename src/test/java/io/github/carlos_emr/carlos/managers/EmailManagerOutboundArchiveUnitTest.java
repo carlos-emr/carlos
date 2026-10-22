@@ -207,7 +207,8 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             public void send(jakarta.mail.internet.MimeMessage message) {
                 try {
                     var out = new java.io.ByteArrayOutputStream();
-                    message.writeTo(out);
+                    // Match the real SMTP transport's newline framing in this sender double.
+                    message.writeTo(new org.eclipse.angus.mail.util.CRLFOutputStream(out));
                     capturedMime.set(out.toByteArray());
                 } catch (Exception failure) { throw new AssertionError(failure); }
             }
