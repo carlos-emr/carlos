@@ -458,6 +458,7 @@
     "test:consultation-chart-import-playwright": "node scripts/consultation-chart-import-playwright-checks.js",
     "test:dashboard-display-playwright": "node scripts/dashboard-display-playwright-checks.js",
     "test:measurement-group-entry-playwright": "node scripts/measurement-group-entry-playwright-checks.js",
+    "test:measurement-whtr-playwright": "node scripts/measurement-whtr-playwright-checks.js",
     "test:report-by-template-groups-playwright": "node scripts/report-by-template-groups-playwright-checks.js",
     "test:report-cdm-playwright": "node scripts/report-cdm-playwright-checks.js",
     "test:hrm-report-print-download-playwright": "node scripts/hrm-report-print-download-playwright-checks.js",
