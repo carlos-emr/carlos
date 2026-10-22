@@ -7,6 +7,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -145,14 +146,14 @@
         }
 
         function syncDemo() {
-            document.forms[0].c_surname.value = "<%=props.getProperty("c_surname_cur", "")%>";
-            document.forms[0].c_givenName.value = "<%=props.getProperty("c_givenName_cur", "")%>";
-            document.forms[0].c_address.value = "<%=props.getProperty("c_address_cur", "")%>";
-            document.forms[0].c_city.value = "<%=props.getProperty("c_city_cur", "")%>";
-            document.forms[0].c_province.value = "<%=props.getProperty("c_province_cur", "")%>";
-            document.forms[0].c_postal.value = "<%=props.getProperty("c_postal_cur", "")%>";
-            document.forms[0].c_phn.value = "<%=props.getProperty("c_phn_cur", "")%>";
-            document.forms[0].c_phone.value = "<%=props.getProperty("c_phone_cur", "")%>";
+            document.forms[0].c_surname.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_surname_cur", ""))%>";
+            document.forms[0].c_givenName.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_givenName_cur", ""))%>";
+            document.forms[0].c_address.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_address_cur", ""))%>";
+            document.forms[0].c_city.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_city_cur", ""))%>";
+            document.forms[0].c_province.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_province_cur", ""))%>";
+            document.forms[0].c_postal.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_postal_cur", ""))%>";
+            document.forms[0].c_phn.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_phn_cur", ""))%>";
+            document.forms[0].c_phone.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_phone_cur", ""))%>";
         }
 
         /**
@@ -369,9 +370,9 @@
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
     <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
@@ -403,11 +404,11 @@
                            cellpadding="0">
                         <tr>
                             <th><%=bView ? "<font color='yellow'>VIEW PAGE: </font>" : ""%>
-                                <%=props.getProperty("c_clinicName", "") %> <br>
+                                <%=SafeEncode.forHtmlContent(props.getProperty("c_clinicName", "")) %> <br>
                                 Client Chart Checklist
                             </th>
                             <input type="hidden" name="c_clinicName"
-                                   value="<%=props.getProperty("c_clinicName","") %>"/>
+                                   value="<%=SafeEncode.forHtmlAttribute(props.getProperty("c_clinicName","")) %>"/>
                         </tr>
                     </table>
 
@@ -420,31 +421,31 @@
 		<img src="<%= request.getContextPath() %>/images/cal.gif" id="pg1_formDate_cal">
           <%=bSync? ("<b><a href=# onClick='syncDemo(); return false;'><font color='red'>Synchronize</font></a></b>") :"" %>
       <br>
-      <input type="text" name="pg1_formDate" style="width:100%" size="10" maxlength="10" value="<%= props.getProperty("pg1_formDate", "") %>" @oscar.formDB dbType="date" />
+      <input type="text" name="pg1_formDate" style="width:100%" size="10" maxlength="10" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_formDate", "")) %>" @oscar.formDB dbType="date" />
       </td>
       <td >      </td>
     </tr-->
                         <tr>
                             <td>GIVEN NAME<br>
                                 <input type="text" name="c_givenName" style="width: 100%" size="30"
-                                       maxlength="30" value="<%= props.getProperty("c_givenName", "") %>"
+                                       maxlength="30" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_givenName", "")) %>"
                                        @oscar.formDB/></td>
                             <td width="50%">SURNAME<br>
                                 <input type="text" name="c_surname" style="width: 100%" size="30"
-                                       maxlength="30" value="<%= props.getProperty("c_surname", "") %>"
+                                       maxlength="30" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_surname", "")) %>"
                                        @oscar.formDB/></td>
                         </tr>
                         <!--tr>
       <td>ADDRESS<br>
-      <input type="text" name="c_address" style="width:100%" size="50" maxlength="60" value="<%= props.getProperty("c_address", "") %>" @oscar.formDB />
-      <input type="text" name="c_city" style="width:100%" size="50" maxlength="60" value="<%= props.getProperty("c_city", "") %>" @oscar.formDB />
-      <input type="text" name="c_province" size="18" maxlength="50" value="<%= props.getProperty("c_province", "") %>" @oscar.formDB />
-      <input type="text" name="c_postal" size="7" maxlength="8" value="<%= props.getProperty("c_postal", "") %>" @oscar.formDB />
+      <input type="text" name="c_address" style="width:100%" size="50" maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_address", "")) %>" @oscar.formDB />
+      <input type="text" name="c_city" style="width:100%" size="50" maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_city", "")) %>" @oscar.formDB />
+      <input type="text" name="c_province" size="18" maxlength="50" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_province", "")) %>" @oscar.formDB />
+      <input type="text" name="c_postal" size="7" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_postal", "")) %>" @oscar.formDB />
 	  </td>
 	  <td valign="top">PHONE NUMBER<br>
-      <input type="text" name="c_phone" style="width:100%" size="60" maxlength="60" value="<%= props.getProperty("c_phone", "") %>" @oscar.formDB />
+      <input type="text" name="c_phone" style="width:100%" size="60" maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phone", "")) %>" @oscar.formDB />
 		PHN<br>
-      <input type="text" name="c_phn" style="width:100%" size="20" maxlength="20" value="<%= props.getProperty("c_phn", "") %>" @oscar.formDB />
+      <input type="text" name="c_phn" style="width:100%" size="20" maxlength="20" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phn", "")) %>" @oscar.formDB />
 	  </td>
     </tr-->
                     </table>
@@ -496,14 +497,14 @@
                 </select></td>
                 <td nowrap><input type="text" id="dateCon<%=i %>"
                                   name="dateCon<%=i %>" size="10" maxlength="10"
-                                  value="<%= props.getProperty("dateCon"+i, "") %>"
+                                  value="<%= SafeEncode.forHtmlAttribute(props.getProperty("dateCon"+i, "")) %>"
                                   onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="dateCon<%=i %>_cal"></td>
                 <td nowrap><%=descCon[i] %>
                 </td>
                 <td><input type="text" id="cCon<%=i %>" name="cCon<%=i %>"
                            size="40" maxlength="40"
-                           value="<%= props.getProperty("cCon"+i, "") %>"/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("cCon"+i, "")) %>"/></td>
             </tr>
             <% } %>
             <tr>
@@ -536,7 +537,7 @@
                 </select></td>
                 <td nowrap><input type="text" id="dateConA<%=i %>"
                                   name="dateConA<%=i %>" size="10" maxlength="10"
-                                  value="<%= props.getProperty("dateConA"+i, "") %>"
+                                  value="<%= SafeEncode.forHtmlAttribute(props.getProperty("dateConA"+i, "")) %>"
                                   onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="dateConA<%=i %>_cal"></td>
                 <% if (!descConA[i].startsWith("<input")) { %>
@@ -544,7 +545,7 @@
                 </td>
                 <td><input type="text" id="cConA<%=i %>" name="cConA<%=i %>"
                            size="40" maxlength="40"
-                           value="<%= props.getProperty("cConA"+i, "") %>"/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("cConA"+i, "")) %>"/></td>
                 <% } else { %>
                 <td colspan='2'><%=descConA[i] %>
                 </td>
@@ -593,7 +594,7 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date1st<%=i %>"
                                               name="date1st<%=i %>" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date1st"+i, "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date1st"+i, "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date1st<%=i %>_cal"></td>
                 <% if (!desc1st[i].startsWith("<input")) { %>
@@ -601,7 +602,7 @@
                 </td>
                 <td><input type="text" id="c1st<%=i %>" name="c1st<%=i %>"
                            size="40" maxlength="40"
-                           value="<%= props.getProperty("c1st"+i, "") %>"/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c1st"+i, "")) %>"/></td>
                 <% } else { %>
                 <td colspan='2'><%=desc1st[i] %>
                 </td>
@@ -646,7 +647,7 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date2nd<%=i %>"
                                               name="date2nd<%=i %>" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date2nd"+i, "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date2nd"+i, "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date2nd<%=i %>_cal"></td>
                 <% if (!desc2nd[i].startsWith("<input")) { %>
@@ -654,7 +655,7 @@
                 </td>
                 <td><input type="text" id="c2nd<%=i %>" name="c2nd<%=i %>"
                            size="40" maxlength="40"
-                           value="<%= props.getProperty("c2nd"+i, "") %>"/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c2nd"+i, "")) %>"/></td>
                 <% } else {%>
                 <td colspan='2'><%=desc2nd[i] %>
                 </td>
@@ -700,7 +701,7 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date3rd1<%=i %>"
                                               name="date3rd1<%=i %>" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date3rd1"+i, "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date3rd1"+i, "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date3rd1<%=i %>_cal"></td>
                 <% if (!desc3rd1[i].startsWith("<input")) { %>
@@ -708,7 +709,7 @@
                 </td>
                 <td><input type="text" id="c3rd1<%=i %>" name="c3rd1<%=i %>"
                            size="40" maxlength="40"
-                           value="<%= props.getProperty("c3rd1"+i, "") %>"/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c3rd1"+i, "")) %>"/></td>
                 <% } else { %>
                 <td colspan='2'><%=desc3rd1[i] %>
                 </td>
@@ -758,7 +759,7 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date3rd2<%=i %>"
                                               name="date3rd2<%=i %>" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date3rd2"+i, "")%>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date3rd2"+i, ""))%>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date3rd2<%=i %>_cal"></td>
                 <% if (!desc3rd2[i].startsWith("<input")) { %>
@@ -766,7 +767,7 @@
                 </td>
                 <td><input type="text" id="c3rd2<%=i %>" name="c3rd2<%=i %>"
                            size="40" maxlength="40"
-                           value="<%= props.getProperty("c3rd2"+i, "") %>"/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c3rd2"+i, "")) %>"/></td>
                 <% } else { %>
                 <td colspan='2'><%=desc3rd2[i] %>
                 </td>
@@ -797,12 +798,12 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date3rd2a0"
                                               name="date3rd2a0" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date3rd2a0", "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date3rd2a0", "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date3rd2a0_cal"></td>
                 <td>&nbsp;&nbsp;Vit K</td>
                 <td><input type="text" id="c3rd2a0" name="c3rd2a0" size="40"
-                           maxlength="40" value="<%= props.getProperty("c3rd2a0", "") %>"/></td>
+                           maxlength="40" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c3rd2a0", "")) %>"/></td>
             </tr>
             <tr>
                 <td width="20%"><select name="status3rd2a1">
@@ -826,12 +827,12 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date3rd2a1"
                                               name="date3rd2a1" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date3rd2a1", "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date3rd2a1", "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date3rd2a1_cal"></td>
                 <td>&nbsp;&nbsp;Eye prophylaxis</td>
                 <td><input type="text" id="c3rd2a1" name="c3rd2a1" size="40"
-                           maxlength="40" value="<%= props.getProperty("c3rd2a1", "") %>"/></td>
+                           maxlength="40" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c3rd2a1", "")) %>"/></td>
             </tr>
             <tr>
                 <td width="20%"><select name="status3rd2a2">
@@ -851,12 +852,12 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date3rd2a2"
                                               name="date3rd2a2" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date3rd2a2", "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date3rd2a2", "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date3rd2a2_cal"></td>
                 <td>&nbsp;&nbsp;NB Screen</td>
                 <td><input type="text" id="c3rd2a2" name="c3rd2a2" size="40"
-                           maxlength="40" value="<%= props.getProperty("c3rd2a2", "") %>"/></td>
+                           maxlength="40" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c3rd2a2", "")) %>"/></td>
             </tr>
             <tr>
                 <td width="20%"><select name="status3rd2a3">
@@ -876,12 +877,12 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date3rd2a3"
                                               name="date3rd2a3" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date3rd2a3", "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date3rd2a3", "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date3rd2a3_cal"></td>
                 <td>&nbsp;&nbsp;Circumcision</td>
                 <td><input type="text" id="c3rd2a3" name="c3rd2a3" size="40"
-                           maxlength="40" value="<%= props.getProperty("c3rd2a3", "") %>"/></td>
+                           maxlength="40" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c3rd2a3", "")) %>"/></td>
             </tr>
         </table>
 
@@ -932,7 +933,7 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date3rd3<%=i %>"
                                               name="date3rd3<%=i %>" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date3rd3"+i, "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date3rd3"+i, "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date3rd3<%=i %>_cal"></td>
                 <% if (!desc3rd3[i].startsWith("<input")) { %>
@@ -940,7 +941,7 @@
                 </td>
                 <td><input type="text" id="c3rd3<%=i %>" name="c3rd3<%=i %>"
                            size="40" maxlength="40"
-                           value="<%= props.getProperty("c3rd3"+i, "") %>"/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c3rd3"+i, "")) %>"/></td>
                 <% } else { %>
                 <td colspan='2'><%=desc3rd3[i] %>
                 </td>
@@ -973,7 +974,7 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date3rd4<%=i %>"
                                               name="date3rd4<%=i %>" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date3rd4"+i, "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date3rd4"+i, "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date3rd4<%=i %>_cal"></td>
                 <% if (!desc3rd4[i].startsWith("<input")) { %>
@@ -981,7 +982,7 @@
                 </td>
                 <td><input type="text" id="c3rd4<%=i %>" name="c3rd4<%=i %>"
                            size="40" maxlength="40"
-                           value="<%= props.getProperty("c3rd4"+i, "") %>"/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c3rd4"+i, "")) %>"/></td>
                 <% } else {%>
                 <td colspan='2'><%=desc3rd4[i] %>
                 </td>
@@ -1017,7 +1018,7 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="date3rd5<%=i %>"
                                               name="date3rd5<%=i %>" size="10" maxlength="10"
-                                              value="<%= props.getProperty("date3rd5"+i, "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("date3rd5"+i, "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="date3rd5<%=i %>_cal"></td>
                 <% if (!desc3rd5[i].startsWith("<input")) { %>
@@ -1025,7 +1026,7 @@
                 </td>
                 <td><input type="text" id="c3rd5<%=i %>" name="c3rd5<%=i %>"
                            size="40" maxlength="40"
-                           value="<%= props.getProperty("c3rd5"+i, "") %>"/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c3rd5"+i, "")) %>"/></td>
                 <% } else {%>
                 <td colspan='2'><%=desc3rd5[i] %>
                 </td>
@@ -1061,11 +1062,11 @@
                 </select></td>
                 <td nowrap width="10%"><input type="text" id="dateOther<%=i %>"
                                               name="dateOther<%=i %>" size="10" maxlength="10"
-                                              value="<%= props.getProperty("dateOther"+i, "") %>"
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("dateOther"+i, "")) %>"
                                               onDblClick="calToday(this)" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="dateOther<%=i %>_cal"></td>
                 <td><input type="text" name="descOther<%=i %>" size="50"
-                           maxlength="70" value="<%= props.getProperty("descOther"+i, "") %>"/>
+                           maxlength="70" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("descOther"+i, "")) %>"/>
                 </td>
             </tr>
             <% } %>

@@ -3966,6 +3966,24 @@
       "fixtures": "Owned synthetic patient; its formBCNewBorn2008 rows go with it. Opens the form from the BC seed's encounter form list and changes no clinic-wide setting (it asserts every encounterForm row is unchanged), so it can run alongside other checks. form/createpdf writes no print log. Needs Poppler pdftotext."
     },
     {
+      "name": "form-bc-saved-value-encoding",
+      "script": "scripts/form-bc-saved-value-encoding-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 900,
+      "env": [],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Issue #5090: on every page of BC-AR (original, 2007, 2012), both Birth Summaries, BC-NewBorn (original, 2008), BC-INR, Chart Checklist and the BC Health Passport, two plain text boxes are typed with a value holding a double quote, <, >, & and an apostrophe; Save must store it byte for byte, the redisplay must show it exactly, and a fresh chart's saved-form entry must reopen the record showing it exactly on every page. Before the fix the pages printed saved values unencoded, so the value came back cut off at the quote. scripts/legacy-form-value-encoding.test.js proves the source half (no unencoded saved value left on those pages).",
+      "fixtures": "Owned synthetic patient; its rows in the ten BC form tables go with it. One marker-named Forms-menu registration per form (encounterForm, clinic-wide), removed and asserted in cleanup, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "billing-bc-associations",
       "script": "scripts/billing-bc-associations-playwright-checks.js",
       "tiers": [
