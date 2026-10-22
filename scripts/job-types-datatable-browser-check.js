@@ -27,6 +27,9 @@ const ASSETS = new Map([
   ['/jquery-ui.js', 'library/jquery/jquery-ui-1.14.2.min.js'],
   ['/jquery-ui.css', 'library/jquery/jquery-ui.structure-1.14.2.min.css'],
   ['/datatables.js', 'library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js'],
+  ...['444444', 'ffffff', '777620', 'cc0000', '555555', '777777'].map(color => [
+    `/images/ui-icons_${color}_256x240.png`, `library/jquery/images/ui-icons_${color}_256x240.png`,
+  ]),
 ]);
 
 function renderFixture() {
@@ -62,7 +65,8 @@ async function withFixture(browser, exercise) {
     try {
       const url = new URL(request.url, 'http://fixture');
       if (ASSETS.has(url.pathname)) {
-        response.setHeader('Content-Type', url.pathname.endsWith('.css') ? 'text/css' : 'application/javascript');
+        response.setHeader('Content-Type', url.pathname.endsWith('.css') ? 'text/css'
+          : url.pathname.endsWith('.png') ? 'image/png' : 'application/javascript');
         response.end(fs.readFileSync(path.join(ROOT, 'src/main/webapp', ASSETS.get(url.pathname))));
       } else if (url.pathname === '/') {
         response.setHeader('Content-Type', 'text/html');
