@@ -145,7 +145,7 @@ public class SecurityUpdate2Action extends ActionSupport {
         if (error != null) return refuse(request, response, id, 400, error);
         // SecurityManager refuses a record without a password; a login with no stored hash must
         // be given a new password in the same edit rather than fail inside the save.
-        if (SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(password)
+        if (SecurityUpdatePasswordValidator.isUnchanged(password)
                 && (row.getPassword() == null || row.getPassword().isEmpty())) {
             return refuse(request, response, id, 400, "admin.securityupdate.msgUpdateFailure");
         }
@@ -174,7 +174,7 @@ public class SecurityUpdate2Action extends ActionSupport {
         row.setProviderNo(provider);
         row.setBExpireset(checked(request, "b_ExpireSet") ? 1 : 0);
         row.setDateExpiredate(expiry);
-        if (!SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(password)) {
+        if (!SecurityUpdatePasswordValidator.isUnchanged(password)) {
             row.setPassword(securityManager.encodePassword(password));
             row.setPasswordUpdateDate(new Date());
         }

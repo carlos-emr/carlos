@@ -237,7 +237,7 @@ class RemovedJspReferenceRegressionTest {
         assertThat(action)
                 .contains("securityManager.updateSecurityRecord(LoggedInInfo.getLoggedInInfoFromSession(request), row);")
                 // A record the manager would refuse is refused first, with the form's failure message.
-                .contains("SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(password)")
+                .contains("SecurityUpdatePasswordValidator.isUnchanged(password)")
                 .doesNotContain("saveEntity(");
     }
 
