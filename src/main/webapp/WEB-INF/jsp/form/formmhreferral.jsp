@@ -116,8 +116,8 @@
                 popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
                 document.forms[0].action = "<%= request.getContextPath() %>/form/formmhreferralprint";
                 document.forms[0].target = "planner";
-                // The hidden input named "submit" shadows the form's own submit() method, so
-                // document.forms[0].submit() threw and no print page was requested (#4596).
+                // The hidden input named "submit" shadows the form's own submit() method, so calling
+                // it on the form threw and no print page was requested (#4596).
                 HTMLFormElement.prototype.submit.call(document.forms[0]);
                 // Leave the form as Save expects to find it.
                 document.forms[0].action = mainAction;

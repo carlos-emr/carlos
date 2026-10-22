@@ -179,7 +179,7 @@ class MentalHealthFormPagesJspRegressionTest {
     void shouldResolveStoredPage_beforeIncludingIt(String name, String resolution) throws IOException {
         String page = jsp(name);
 
-        assertThat(page).contains(resolution);
+        assertThat(page.replaceAll("\\s+", " ")).contains(resolution);
         assertThat(page).doesNotContainPattern("getRequestDispatcher\\([^;]*props\\.getProperty\\(\"c_lastVisited\"");
     }
 

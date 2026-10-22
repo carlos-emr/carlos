@@ -278,8 +278,8 @@
             return true;
         }
 
-        // This form's own dates. It used to check the lab requisition's b_dateSigned and
-        // o_specimenCollectionDate, which it does not have, so every Save threw (#4597).
+        // This form's own dates. It used to check two date fields of the lab requisition it was copied
+        // from, which this form does not have, so every Save threw (#4597).
         function checkAllDates() {
             var form = document.forms[0];
             return valDate(form.signatureDate);
