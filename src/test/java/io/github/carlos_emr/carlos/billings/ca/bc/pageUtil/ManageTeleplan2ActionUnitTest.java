@@ -41,9 +41,12 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -173,13 +176,66 @@ class ManageTeleplan2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    /** Posts Manually Set Sequence # with {@code number}, as a login with billing read rights. */
-    private String postSequence(String number) throws Exception {
+    /** A billing-read login posting one of the superuser writes, with BILLING_SUPERUSER set to {@code superUser}. */
+    private String postAs(String providerNo, String superUser, String method) throws Exception {
+        return postAs(providerNo, superUser, method, "42");
+    }
+
+    /** As {@link #postAs(String, String, String)}, with {@code num} as the posted sequence number. */
+    private String postAs(String providerNo, String superUser, String method, String num) throws Exception {
         request.setMethod("POST");
-        request.addParameter("method", "setSequenceNumber");
-        request.addParameter("num", number);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)).thenReturn(true);
-        return new ManageTeleplan2Action().execute();
+        request.addParameter("method", method);
+        request.addParameter("num", num);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), nullable(String.class)))
+                .thenReturn(true);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn(providerNo);
+        String previous = CarlosProperties.getInstance().getProperty("BILLING_SUPERUSER");
+        if (superUser == null) CarlosProperties.getInstance().remove("BILLING_SUPERUSER");
+        else CarlosProperties.getInstance().setProperty("BILLING_SUPERUSER", superUser);
+        try {
+            return new ManageTeleplan2Action().execute();
+        } finally {
+            if (previous == null) CarlosProperties.getInstance().remove("BILLING_SUPERUSER");
+            else CarlosProperties.getInstance().setProperty("BILLING_SUPERUSER", previous);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"setSequenceNumber", "getSequenceNumber", "setUserName", "setPass"})
+    @DisplayName("should refuse the superuser writes when the login is not the billing superuser")
+    void shouldRefuseSuperuserWrite_whenTheLoginIsNotTheBillingSuperuser(String method) {
+        try (MockedConstruction<TeleplanSequenceDAO> sequenceDao = mockConstruction(TeleplanSequenceDAO.class);
+             MockedConstruction<TeleplanUserPassDAO> userPassDao = mockConstruction(TeleplanUserPassDAO.class)) {
+            assertThatThrownBy(() -> postAs("828693", "999998", method))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("BILLING_SUPERUSER");
+            assertThat(sequenceDao.constructed()).isEmpty();
+            assertThat(userPassDao.constructed()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse the sequence write when no billing superuser is configured")
+    void shouldRefuseSequenceWrite_whenNoBillingSuperuserIsConfigured() {
+        try (MockedConstruction<TeleplanSequenceDAO> sequenceDao = mockConstruction(TeleplanSequenceDAO.class)) {
+            assertThatThrownBy(() -> postAs("999998", null, "setSequenceNumber")).isInstanceOf(SecurityException.class);
+            assertThat(sequenceDao.constructed()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should store the sequence for the billing superuser")
+    void shouldStoreSequence_forTheBillingSuperuser() throws Exception {
+        try (MockedConstruction<TeleplanSequenceDAO> sequenceDao = mockConstruction(TeleplanSequenceDAO.class)) {
+            assertThat(postAs("999998", "999998", "setSequenceNumber")).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(sequenceDao.constructed()).hasSize(1);
+            verify(sequenceDao.constructed().get(0)).saveUpdateSequence(42);
+        }
+    }
+
+    /** Posts Manually Set Sequence # with {@code number}, as the billing superuser. */
+    private String postSequence(String number) throws Exception {
+        return postAs("999998", "999998", "setSequenceNumber", number);
     }
 
     /** Issue #5066: a refused sequence number stored nothing and the page said nothing. */

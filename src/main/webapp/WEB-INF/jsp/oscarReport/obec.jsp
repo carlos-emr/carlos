@@ -117,7 +117,7 @@
 </div>
 </s:if>
 
-<form action="${ctx}/oscarReport/obec" class="card card-body bg-body-tertiary"
+<form action="${ctx}/oscarReport/obec" method="post" class="card card-body bg-body-tertiary"
       id="obecForm">
     <fieldset>
         <h4>

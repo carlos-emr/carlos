@@ -29,6 +29,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -134,6 +136,7 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRedirectWithinContextPath_afterSave() throws Exception {
+        when(request.getMethod()).thenReturn("POST");
         when(request.getParameter("method")).thenReturn("save");
         when(request.getContextPath()).thenReturn("/carlos");
         when(handler.saveFormHistory()).thenReturn(42);
@@ -216,6 +219,7 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRefuseSaving_whenPatientIsRestrictedForUser() {
+        when(request.getMethod()).thenReturn("POST");
         when(request.getParameter("method")).thenReturn("save");
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 1001)).thenReturn(false);
         BpmhForm2Bean posted = new BpmhForm2Bean();
@@ -225,5 +229,56 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
 
         verify(handler, never()).saveFormHistory();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"GET, save", "HEAD, save", "GET, print", "HEAD, print"})
+    @DisplayName("should answer 405 and store nothing when save or print is not posted")
+    void shouldStoreNothing_whenSaveOrPrintIsNotPosted(String httpMethod, String method) throws Exception {
+        when(request.getMethod()).thenReturn(httpMethod);
+        when(request.getParameter("method")).thenReturn(method);
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        action.setForm(posted);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        verify(response).setHeader("Allow", "POST");
+        verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(handedToHandler).as("no handler is built, so nothing is loaded or stored").isNull();
+        verify(handler, never()).saveFormHistory();
+    }
+
+    @Test
+    @DisplayName("should still open a form by GET")
+    void shouldOpenForm_whenRequestedByGet() {
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getParameter("demographic_no")).thenReturn("1001");
+        when(request.getParameter("formId")).thenReturn("0");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(handler).populateFormBean();
+        verify(response, never()).setHeader("Allow", "POST");
+    }
+
+    @Test
+    @DisplayName("should let a posted print through to the print path")
+    void shouldReachPrint_whenPrintIsPosted() throws Exception {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("print");
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        action.setForm(posted);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        // The print path built its handler and loaded the form; it then stops at the PDF template, which
+        // this unit test has no servlet context for.
+        assertThat(handedToHandler).isNotNull();
+        verify(handler).populateFormBean();
+        verify(response, never()).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
     }
 }

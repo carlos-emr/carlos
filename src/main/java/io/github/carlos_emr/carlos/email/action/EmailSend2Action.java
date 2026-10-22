@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.email.action;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.regex.Pattern;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +21,11 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -62,31 +70,42 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @see io.github.carlos_emr.carlos.email.core.EmailData
  */
 public class EmailSend2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final Pattern NUMERIC_ID = Pattern.compile("\\d{1,10}");
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
-    private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
-    private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final EmailManager emailManager;
+    private final EformDataManager eformDataManager;
+    private final EmailComposeManager emailComposeManager;
+    private final DemographicManager demographicManager;
     private final transient AttachmentOwnershipService attachmentOwnershipService;
 
-    /**
-     * Shown when the send is refused because the window's attachments are gone (already sent,
-     * cancelled, or dropped as the oldest of many open composers) or do not belong to the email's
-     * patient (#4425). Nothing is sent and nothing is logged as sent.
-     */
+    /** Shown when this window's attachments are expired or do not belong to the email's patient. */
     static final String ATTACHMENTS_REFUSED_MESSAGE = "This email was not sent: this window has expired,"
             + " or its attachments do not belong to this patient. Close it and start the email again.";
 
-    /** Struts-created: resolves the ownership check from Spring. */
+    /** Struts-created: resolves the collaborators from Spring. */
     public EmailSend2Action() {
         this(SpringUtils.getBean(AttachmentOwnershipService.class));
     }
 
-    /** Test constructor. */
     EmailSend2Action(AttachmentOwnershipService attachmentOwnershipService) {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailManager.class),
+                SpringUtils.getBean(EformDataManager.class), SpringUtils.getBean(EmailComposeManager.class),
+                SpringUtils.getBean(DemographicManager.class), attachmentOwnershipService);
+    }
+
+    EmailSend2Action(SecurityInfoManager securityInfoManager, EmailManager emailManager,
+            EformDataManager eformDataManager, EmailComposeManager emailComposeManager,
+            DemographicManager demographicManager, AttachmentOwnershipService attachmentOwnershipService) {
+        this.securityInfoManager = securityInfoManager;
+        this.emailManager = emailManager;
+        this.eformDataManager = eformDataManager;
+        this.emailComposeManager = emailComposeManager;
+        this.demographicManager = demographicManager;
         this.attachmentOwnershipService = attachmentOwnershipService;
     }
 
@@ -107,6 +126,32 @@ public class EmailSend2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
             throw new SecurityException("missing required sec object (_email)");
+        }
+
+        // Every route mutates: sendDirectEmail and the default sendEFormEmail deliver mail and
+        // persist an EmailLog (and may delete the eForm), and cancel only ever arrives from the
+        // compose form's POST. HttpMethodGuardFilter does not classify this route, so the
+        // POST-only gate lives here, before any parameter is parsed or any side effect fires.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return NONE;
+        }
+
+        // Every route parses demographicId into an int (EmailData.setDemographicNo, and the retry
+        // form's consent lookup). A tampered or overlong value would surface as a
+        // NumberFormatException, i.e. a server error, instead of a refused request.
+        if (!isValidDemographicId(request.getParameter("demographicId"))) {
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "demographicId must be a patient number");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return NONE;
         }
 
         if ("sendDirectEmail".equals(request.getParameter("method"))) {
@@ -143,7 +188,12 @@ public class EmailSend2Action extends ActionSupport {
         if (attachments.isEmpty()) {
             return refuseSend();
         }
-        EmailLog emailLog = sendEmail(request, attachments.get());
+        EmailLog emailLog;
+        try {
+            emailLog = sendEmail(request, attachments.get());
+        } catch (EmailFieldLengthException e) {
+            return rejectOverLengthFields(e);
+        }
 
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
@@ -176,11 +226,144 @@ public class EmailSend2Action extends ActionSupport {
         if (attachments.isEmpty()) {
             return refuseSend();
         }
-        EmailLog emailLog = sendEmail(request, attachments.get());
+        EmailLog emailLog;
+        try {
+            emailLog = sendEmail(request, attachments.get());
+        } catch (EmailFieldLengthException e) {
+            return rejectOverLengthFields(e);
+        }
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
         return SUCCESS;
+    }
+
+    /**
+     * Renders the compose result page with one i18n'd error per over-length field instead of
+     * sending. The compose page checks the same limits before submitting, so this is the
+     * server-side backstop for scripted or tampered submissions and for limits the browser
+     * measured differently.
+     *
+     * @param e the validation failure raised before anything was persisted or sent
+     * @return Struts2 SUCCESS result, which renders the failure panel of the compose page
+     */
+    private String rejectOverLengthFields(EmailFieldLengthException e) {
+        // Sizes and message keys only; the field content is PHI and is never logged.
+        logger.warn("Email rejected before sending: {}", e.getMessage());
+        request.setAttribute("emailLengthViolations", e.getViolations());
+        restoreComposeForm();
+        return SUCCESS;
+    }
+
+    /**
+     * Re-populates the compose page from the rejected POST so the provider can shorten the
+     * reported fields and send again from the same window.
+     *
+     * <p>{@code isEmailSuccessful} is deliberately left unset: the page then renders the editable
+     * form, with the length errors above it, instead of the sent/failed result panel. The compose
+     * page reads most of its values from request attributes whose names differ from the POST
+     * parameter names ({@code encryptedMessage} is rendered from {@code encryptedMessageEmail},
+     * {@code patientChartOption} from {@code emailPatientChartOption}, and so on), so each one is
+     * copied across here. Every value is output-encoded by the page; values the page writes
+     * unencoded (the transaction type, the patient id and the eForm flags) are normalised to an
+     * enum name, an integer or a boolean first.</p>
+     */
+    private void restoreComposeForm() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        TransactionType transactionType = parseTransactionType(request.getParameter("transactionType"));
+        request.setAttribute("transactionType", transactionType);
+        // Range-checked, not just digit-checked: a ten-digit id passes NUMERIC_ID but would
+        // overflow the Integer the consent lookup below needs, turning the rejection into a 500.
+        Integer demographicNo = parseDemographicId(request.getParameter("demographicId"));
+        String demographicId = demographicNo == null ? null : demographicNo.toString();
+        request.setAttribute("demographicId", demographicId);
+        request.setAttribute("fdid", numericOrNull(request.getParameter("fdid")));
+        request.setAttribute("fid", numericOrNull(request.getParameter("fid")));
+        request.setAttribute("openEFormAfterEmail", "true".equals(request.getParameter("openEFormAfterEmail")));
+        request.setAttribute("deleteEFormAfterEmail", "true".equals(request.getParameter("deleteEFormAfterEmail")));
+        // Never auto-send the retry: the provider has to see and fix the reported fields. The
+        // explicit false also stops the page picking up a session-scoped value by EL scope lookup.
+        request.setAttribute("isEmailAutoSend", false);
+
+        // Sender and recipients. Only the hidden recipient inputs are submitted (the visible ones
+        // are disabled), and they are exactly what this send would have used, so they are echoed
+        // as the valid list; a recipient the provider removed stays removed.
+        request.setAttribute("senderAccounts", emailComposeManager.getAllSenderAccounts());
+        request.setAttribute("senderConfigId", numericOrNull(request.getParameter("senderConfigId")));
+        String[] recipients = request.getParameterValues("receiverEmailAddress");
+        request.setAttribute("receiverEmailList", recipients == null
+                ? Collections.emptyList() : new ArrayList<>(Arrays.asList(recipients)));
+        request.setAttribute("invalidReceiverEmailList", Collections.emptyList());
+        if (demographicNo != null) {
+            request.setAttribute("receiverName", demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo));
+            String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
+            request.setAttribute("emailConsentName", emailConsent[0]);
+            request.setAttribute("emailConsentStatus", emailConsent[1]);
+        }
+
+        // Provider-entered text, under the attribute names the page renders.
+        request.setAttribute("subjectEmail", request.getParameter("subjectEmail"));
+        request.setAttribute("bodyEmail", request.getParameter("bodyEmail"));
+        request.setAttribute("encryptedMessageEmail", request.getParameter("encryptedMessage"));
+        request.setAttribute("emailPDFPassword", request.getParameter("emailPDFPassword"));
+        request.setAttribute("emailPDFPasswordClue", request.getParameter("emailPDFPasswordClue"));
+        request.setAttribute("internalComment", request.getParameter("internalComment"));
+        request.setAttribute("emailAdditionalParams", request.getParameter("additionalURLParams"));
+        String chartOption = request.getParameter("patientChartOption");
+        request.setAttribute("emailPatientChartOption", isChartOption(chartOption) ? chartOption : null);
+
+        // Encryption choices. Echo what was submitted so the re-rendered form never carries a
+        // weaker encryption state than the one the provider chose (Copilot review on #3906).
+        request.setAttribute("isEmailEncrypted", "true".equals(request.getParameter("isEmailEncrypted")));
+        request.setAttribute("isEmailAttachmentEncrypted",
+                "true".equals(request.getParameter("isEmailAttachmentEncrypted")));
+    }
+
+    private static String numericOrNull(String value) {
+        return value != null && NUMERIC_ID.matcher(value).matches() ? value : null;
+    }
+
+    /**
+     * Parses a submitted patient number, or returns {@code null} when it is absent, not all
+     * digits, or too large for an {@code int}. Never throws: the value comes from a hidden form
+     * field and may be tampered with or overlong.
+     */
+    static Integer parseDemographicId(String value) {
+        if (numericOrNull(value) == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Whether a submitted {@code demographicId} can be sent on to the routes: absent or blank
+     * (a direct email with no patient), or a parseable patient number.
+     */
+    static boolean isValidDemographicId(String value) {
+        return value == null || value.isEmpty() || parseDemographicId(value) != null;
+    }
+
+    private static TransactionType parseTransactionType(String value) {
+        for (TransactionType type : TransactionType.values()) {
+            if (type.name().equals(value)) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isChartOption(String value) {
+        for (ChartDisplayOption option : ChartDisplayOption.values()) {
+            if (option.getValue().equals(value)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -236,7 +419,17 @@ public class EmailSend2Action extends ActionSupport {
     private EmailLog sendEmail(HttpServletRequest request, List<EmailAttachment> attachments) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         EmailData emailData = prepareEmailFields(request, attachments);
-        return emailManager.sendEmail(loggedInInfo, emailData);
+        try {
+            return emailManager.sendEmail(loggedInInfo, emailData);
+        } catch (EmailFieldLengthException e) {
+            // Validation consumed the original key. Give this window a fresh key even when it
+            // has no attachments, so a corrected retry can send exactly once.
+            EmailAttachmentStaging.Staged retry = EmailAttachmentStaging.stage(
+                    request.getSession(), emailData.getDemographicNo(), attachments);
+            request.setAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE, retry.key());
+            request.setAttribute("emailAttachmentList", retry.prepared().attachments());
+            throw e;
+        }
     }
 
     /**

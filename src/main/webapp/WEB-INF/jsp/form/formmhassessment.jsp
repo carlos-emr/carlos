@@ -107,7 +107,7 @@
 
             function getMainAction() {
                 mainAction = document.forms[0].action;
-                mainTarget = docuemtn.forms[0].target;
+                mainTarget = document.forms[0].target;
             }
 
             function onPrint() {

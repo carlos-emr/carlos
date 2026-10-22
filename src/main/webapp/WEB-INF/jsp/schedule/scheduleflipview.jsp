@@ -55,13 +55,7 @@
 
 <%!
     //multisite starts =====================
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-    private JdbcApptImpl jdbc = new JdbcApptImpl();
-    private List<Site> sites;
-    private String[] curScheduleMultisite;
-
-    private String getSiteHTML(String scDate, String provider_no, List<Site> sites) {
-        if (!bMultisites) return "";
+    private String getSiteHTML(JdbcApptImpl jdbc, String scDate, String provider_no, List<Site> sites) {
         String _loc = jdbc.getLocationFromSchedule(scDate, provider_no);
         String color = ApptUtil.getColorFromLocation(sites, _loc);
         // Validate color against safe CSS characters to prevent CSS injection via style attribute
@@ -69,7 +63,12 @@
         return "<span style='background-color:" + color + "'>" + SafeEncode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
     }
 %>
-<% if (bMultisites) {
+<%
+    // Multisite state belongs to this request only; a JSP declaration would make it fields shared by every login.
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+    JdbcApptImpl jdbc = new JdbcApptImpl();
+    List<Site> sites = new java.util.ArrayList<Site>();
+    if (bMultisites) {
     SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
     sites = siteDao.getAllSites();
 }
@@ -119,23 +118,43 @@
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<html>
+<!DOCTYPE html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="schedule.scheduleflipview.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css" type="text/css">
+        <style>
+            /* The page's former presentational attributes, as CSS, so it looks as it did. */
+            body.flipview { background-color: #999FFF; color: #000000; margin: 0; }
+            table.flipview-grid { width: 100%; border-spacing: 0; font-size: medium; }
+            table.flipview-grid > tbody > tr > td,
+            table.flipview-grid > tbody > tr > th { padding: 0; }
+            tr.flipview-head { text-align: center; background-color: #CCCCFF; }
+            tr.flipview-head > th { font-weight: normal; }
+            th.flipview-provider { width: 15%; white-space: nowrap; }
+            tr.flipview-day { text-align: center; }
+            td.flipview-date { text-align: right; white-space: nowrap; }
+            /* Was display:inline. With the doctype, an inline table sits on a text line and makes
+               every row taller; a centred block table keeps the rows as they were. */
+            table.flipview-slotbox { display: table; margin: 0 auto; font-size: x-small; }
+            /* A slot is a button, not a link, and still looks like the link it was. */
+            button.flipview-slot { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: #0066CC; cursor: pointer; }
+            button.flipview-slot:hover { color: red; text-decoration: underline; }
+            .flipview-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+        </style>
 
         <script language="JavaScript">
             <!--
+            <%-- The patient being booked (from the waiting list) is kept across provider changes. --%>
             function changePro(providerno) {
-                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                self.location.href = a;
+                var destination = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) + "<%= request.getParameter("startDate") == null ? "" : "&startDate=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate"))) %><%= curDemoNo.isEmpty() ? "" : "&demographic_no=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo)) + "&demographic_name=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName)) %>";<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                self.location.href = destination;
             }
 
             function selectprovider(s) {
-                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(s.options[s.selectedIndex].value) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                self.location.href = a;
+                changePro(s.options[s.selectedIndex].value);
             }//-->
 
 
@@ -191,8 +210,7 @@
         // note: brain-dead calendar numbers months from 0, thus all the +1s in the expressions below
 //  String dateString1 = outform.format(inform.parse(cal.get(Calendar.YEAR)+"-"+(cal.get(Calendar.MONTH)+1)+"-"+cal.get(Calendar.DATE)) );
     %>
-    <body bgcolor="#999FFF" text="#000000" topmargin="0" leftmargin="0"
-          rightmargin="0">
+    <body class="flipview">
 
 
     <div style="colur: #FF0000; text-decoration: none"><a
@@ -200,14 +218,15 @@
             style="text-decoration: none; color: #000000"><fmt:message key="schedule.scheduleflipview.btnGoBack"/></a> <a
             href="<%= request.getContextPath() %>/provider/providercontrol"
             style="text-decoration: none; color: #000000"><fmt:message key="schedule.scheduleflipview.btnDayPage"/></a></div>
-    <table width="100%" border="1" cellspacing="0" cellpadding="0">
-        <tr align="center" bgcolor="#CCCCFF">
-            <% if (bMultisites) { %><td><fmt:message key="schedule.scheduleflipview.tableSite"/></td><% } %>
-            <td width="15%" nowrap><a
-                    href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"
+    <table border="1" class="flipview-grid">
+        <tr class="flipview-head">
+            <% if (bMultisites) { %><th scope="col"><fmt:message key="schedule.scheduleflipview.tableSite"/></th><% } %>
+            <th scope="col" class="flipview-provider"><a
+                    href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"
                     title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>"
-                    border='0'><img src="<%= request.getContextPath() %>/images/previous.gif"></a> <select
-                    name="provider_no" onChange="selectprovider(this)">
+                    border='0'><img src="<%= request.getContextPath() %>/images/previous.gif" alt="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>"></a> <label
+                    for="flipViewProvider" class="flipview-hidden"><fmt:message key="provider.appointmentProviderAdminDay.provider"/></label><select
+                    id="flipViewProvider" name="provider_no" onChange="selectprovider(this)">
                 <%
 
 
@@ -230,14 +249,14 @@
                     }
                 %>
             </select><a
-                    href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"
+                    href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"
                     title="<fmt:message key="schedule.scheduleflipview.msgNextmonth"/>"
-                    border='0'><img src="<%= request.getContextPath() %>/images/next.gif"></a></td>
+                    border='0'><img src="<%= request.getContextPath() %>/images/next.gif" alt="<fmt:message key="schedule.scheduleflipview.msgNextmonth"/>"></a></th>
             <% for (int j = 0; j < colscode; j++) { %>
-            <td>
+            <th scope="col">
                 <% if (nStep < 60) { %> <%=j % (60 / nStep) == 0 ? "" + (j / (60 / nStep) + nStartTime) : ""%>
                 <% } else { //show everyhour %> <%=j + nStartTime%> <% } %>
-            </td>
+            </th>
             <% } %>
         </tr>
         <%
@@ -322,12 +341,12 @@
                 /* this -1 is explained below */
                 appointmentTime.add(Calendar.MINUTE, -1);
         %>
-        <tr align="center" bgcolor="<%=bgcolor%>">
+        <tr class="flipview-day" style="background-color: <%=bgcolor%>">
             <%
                 if (bMultisites)
-                    out.print("<td align='right'>" + getSiteHTML(strTempDate, curProvider_no, sites) + "</td>");
+                    out.print("<td align='right'>" + getSiteHTML(jdbc, strTempDate, curProvider_no, sites) + "</td>");
             %>
-            <td align="right" nowrap><a
+            <td class="flipview-date"><a
                     href="<%=originalPagePath%>?year=<%=cal.get(Calendar.YEAR)%>&month=<%=cal.get(Calendar.MONTH)+1%>&day=<%=cal.get(Calendar.DATE)%>&view=0&displaymode=day&dboperation=searchappointmentday"><%=outform.format(inform.parse(strTempDate))%>&nbsp;</a>
             </td>
             <%
@@ -398,12 +417,12 @@
             <td
                     <%=DateTimeCodeBean.get("color" + temp.toString()) != null ? ("bgcolor=\"" + SafeEncode.forHtmlAttribute(String.valueOf(DateTimeCodeBean.get("color" + temp.toString()))) + "\"") : ""%>
                     title="<%=hour+":"+(min<10?"0":"")+min%>">
-                <table style="display:inline; font-size:x-small;">
+                <table role="presentation" class="flipview-slotbox">
                     <tr>
-                        <td rowspan="2" style="vertical-align:middle;"><a href=#
-                                                                          onClick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<carlos:encode value='<%= DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<%=allowDay%>','<%=allowWeek%>');return false;">
+                        <td rowspan="2" style="vertical-align:middle;"><button type="button" class="flipview-slot"
+                                                                          onclick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<carlos:encode value='<%= DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<%=allowDay%>','<%=allowWeek%>');">
                             <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : SafeEncode.forHtml(temp.toString()) %>
-                        </a></td>
+                        </button></td>
                         <td title="<fmt:message key="schedule.scheduleflipview.msgbookings"/>"
                             style="vertical-align:top; font-size: x-small;"><%=strNumOfAppts%>
                         </td>
@@ -426,9 +445,9 @@
 
     </table>
     <a
-            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnLastMonth"/> </a>
+            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"><fmt:message key="schedule.scheduleflipview.btnLastMonth"/> </a>
     |
     <a
-            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnNextMonth"/></a>
+            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"><fmt:message key="schedule.scheduleflipview.btnNextMonth"/></a>
     </body>
 </html>

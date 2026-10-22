@@ -72,8 +72,9 @@
  * never as a pass. No BC install was used (BC work is out of scope, issue #4439).
  *
  * NOT ASSERTED, on purpose: the top E-Chart button of the CML and PathNet pages renders a missing-key
- * label (finding 196) and CML's version chain throws a ClassCastException on every view (finding 197).
- * Asserting them here would make these checks fail earlier than the defects they pin.
+ * label (finding 196). Asserting it here would make these checks fail earlier than the defects they pin.
+ * CML's version chain (finding 197, fixed: #4568) needs more than one report of an accession number, which
+ * this script never seeds; cml-version-chain-playwright-checks.js asserts it.
  *
  * Fixtures: the owned FAKE- patient (runWorkflow, no master record opened); one lab of the run's type
  * seeded by SQL with synthetic names and a synthetic HIN, under a random 10-digit number verified

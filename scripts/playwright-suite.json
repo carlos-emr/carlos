@@ -6082,12 +6082,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The Mental Health pages, pinned to finding 237: each page load throws ReferenceError: docuemtn is not defined. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 237,
-        "step": "Mental Health: raised no JavaScript-layer problems"
-      }
+      "notes": "Regression coverage for finding 237 (#4497): Mental Health Referral, Assessment and Outcome must load without JavaScript-layer problems.",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "clinical-forms-save-reopen-mental-health-chart-reload",
@@ -6356,12 +6352,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Position Hazard, pinned to finding 235: the form links form/positionHazardStyle.css, which does not exist, so Chromium refuses the error page as a stylesheet. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
-      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 235,
-        "step": "Position Hazard: opens from the Forms menu with no error page, script error or failed asset"
-      }
+      "notes": "Position Hazard, finding 235 (fixed, #4594): the form no longer requests the nonexistent positionHazardStyle.css. Its inline layout, shared stylesheet and print stylesheet are unchanged. This entry asserts opening without browser problems and still runs the save, redisplay, reopen, value-restoration and PDF flow.",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-bc",
@@ -7078,7 +7070,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; the shipped Rourke2017 Forms-menu entry (no registration change); cleanup deletes the patient's measurements and formRourke2017 rows (the form autosaves) and asserts it.",
-      "notes": "Expected to FAIL at the last step 'every encounter-form write refused GET/HEAD, stored nothing replayed, and the measurement dialog saved': form/formname (Frm2Action) GET/HEAD write a form record, and the Rourke Wt measurement dialog Save throws a TypeError and never posts."
+      "notes": "Expected to FAIL at the last step 'every encounter-form write refused GET/HEAD, stored nothing replayed, and the measurement dialog saved': the Rourke Wt measurement dialog Save throws a TypeError and never posts. The form/formname and MeasurementData saves already refuse GET/HEAD."
     },
     {
       "name": "get-reject-chart-notes",
@@ -7154,10 +7146,11 @@
         "MYSQL_PASSWORD"
       ],
       "mutates": [
-        "Contact"
+        "Contact",
+        "professionalSpecialists"
       ],
-      "fixtures": "The marker Contact row the page creates is in the clinic-wide contact list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned synthetic patient; the page creates one Contact row whose last name carries the run marker; cleanup deletes marker Contact rows (and any DemographicContact pointing at them) and asserts it.",
-      "notes": "Expected to FAIL at the last step until demographic/Contact method=saveContact rejects GET/HEAD writes. Editor script behavior is also independently covered by contact-editor."
+      "fixtures": "The marker Contact and professionalSpecialists rows the pages create are in clinic-wide lists while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned synthetic patient; cleanup deletes marker Contact and professionalSpecialists rows and their patient DemographicContact associations and asserts they are gone.",
+      "notes": "demographic/Contact methods saveContact and saveProContact reject GET/HEAD with 405 since issue #3682; the last step fails if either replay writes again. Editor script behavior is also independently covered by contact-editor."
     },
     {
       "name": "get-reject-measurement-groups",
@@ -8217,7 +8210,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Patients whose surname starts with the run tag, created through Search > Create Demographic; cleanup removes every row of those patients (relabels to the marker, then removeMarkedPatients) and asserts none remain. The append-only audit log is not touched.",
-      "notes": "Expected to FAIL at the last step 'preferred name, pronoun and gender past their columns are refused or stored whole' until the add/edit forms limit nameUsed to the 30-character pref_name column and validate pronoun and gender (25) like the other fields."
+      "notes": "Expected to FAIL at the step 'preferred name, pronoun and gender past their columns are refused or stored whole' until pronoun and gender (25) are validated like the other fields. Name Used is checked against the alias (70), not pref_name: it must be stored whole in the alias, with pref_name holding its first 30 characters by design (#5128, which needs #5127; before both, a Name Used over 30 characters fails the save under a strict sql_mode and is cut under an empty one)."
     },
     {
       "name": "boundary-demographic-search",
@@ -11570,6 +11563,21 @@
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the would-be recipient (lib/throwaway-login-fixture.js), one CML lab seeded by SQL by legacy-lab-display's describeLab under a random 10-digit number verified unoccupied (labReportInformation / labPatientPhysicianInfo / labTestResults, plus patientLabRouting and providerLabRouting rows), and one synthetic HL7 lab uploaded through Inbox > HL7 Lab Upload with a unique accession, matched to the owned patient and then filed under demographic 0 by SQL (where an unlinked lab lives). Cleanup removes exactly those rows by key (the CML lab after proving its header still carries the run's marker, with the providerLabRoutingLock row and the audit rows the page wrote for its number; the HL7 lab found by its accession, with its routing, measurement and upload checksum rows and, when LAB_UPLOAD_DOCUMENT_STORE is set, its archived upload file) and asserts them gone. The test login's forwarding favourites are snapshotted, one favourite to the recipient is seeded so that 'favourites unchanged' is asserted against a list that is never empty, and cleanup restores the snapshot, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward, legacy-lab-display or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
     },
     {
+      "name": "cml-version-chain",
+      "script": "scripts/cml-version-chain-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "The CML report-version chain (issue #4568). Seven steps seed two synthetic orders, display and navigate their versions, acknowledge the final report and file the older version, forward both versions through the provider picker, match both unmatched versions to the owned patient, and show a visible warning without sibling links when source patient identities conflict. Reports that recycled the accession two years earlier remain untouched. The test uses the patient lab list as the popup opener and checks database rows after each mutation. CML_LABS=yes also exercises the list service-date lookup; CML identifiers must never reach the HL7 parser. Run on Ontario.",
+      "fixtures": "Owned FAKE patient, six CML reports under two unique accessions, and one throwaway forwarding recipient. All owned reports, routing, locks, audit rows and the recipient are removed and verified. Sender forwarding favorites are snapshotted and restored. Run exclusively with other checks that change forwarding favorites."
+    },
+    {
       "name": "authz-write-role-matrix",
       "script": "scripts/authz-write-role-matrix-playwright-checks.js",
       "tiers": [
@@ -12983,7 +12991,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "BC day sheet: B on an owned appointment, the bill form (physician, fee code, diagnosis, Continue, Save Bill), then -B on it. Asserts that the claim is written for the appointment and the appointment becomes billed (B); that -B marks the bill and its line D, puts the appointment back to P and archives the changed row; that -B on an appointment whose claim was submitted says it cannot delete billed items and changes nothing; and that a GET carrying the unbill is refused. First committed coverage of the BC unbill (the -B checks so far are Ontario-only). Fails at the last step on 2026.08: BillingDeleteWithoutNo has no method guard (#4439, D12). The expectedFailure is added with its finding number when the findings log is assembled.",
+      "notes": "BC day sheet: B on an owned appointment, the bill form (physician, fee code, diagnosis, Continue, Save Bill), then -B on it. Asserts that the claim is written for the appointment and the appointment becomes billed (B); that -B marks the bill and its line D, puts the appointment back to P and archives the changed row; that -B on an appointment whose claim was submitted says it cannot delete billed items and changes nothing; and that a GET carrying the unbill is refused. First committed coverage of the BC unbill (the -B checks so far are Ontario-only). The last step failed on 2026.08 while BillingDeleteWithoutNo also took a GET (#4439, D12); it now takes only posts and answers a GET with 405.",
       "fixtures": "Seeds and removes one billing physician (bc.createBillingPhysician), the workflow's own FAKE patient made a BC patient, and three appointments for it today on the test login's day sheet: one to bill, and two already billed with seeded claims (one submitted, one open). Cleanup deletes every BC billing row of the patient, then its appointments and their archive rows, then the physician, and asserts each is gone."
     },
     {
@@ -14212,13 +14220,9 @@
         "WAITING_LIST_BOOKING"
       ],
       "fixtures": "Two synthetic patients on an owned list in the login schedule group; books only a future free rendered slot; owned appointment cleanup.",
-      "notes": "Make Appointment from a manager row, Next Month, then a free slot: the booking form must retain the selected patient/provider/date/time. Confirmed live on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 294.",
+      "notes": "Make Appointment from a manager row, Next Month, then a free slot: the booking form must retain the selected patient/provider/date/time. Regression for finding 294 (#4994, fixed): confirmed live on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04) before the fix.",
       "envSet": {
         "WAITING_LIST_BOOKING": "navigate"
-      },
-      "expectedFailure": {
-        "finding": 294,
-        "step": "Next Month retains the waiting-list patient when a free slot is selected"
       }
     },
     {
@@ -14236,17 +14240,13 @@
         "WAITING_LIST_BOOKING"
       ],
       "fixtures": "Two synthetic patients and a list; temporarily adds two marker-owned memberships for existing active providers to the login group and verifies their removal. Does not modify provider records or preferences; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Make Appointment from a waiting-list row, change provider in Flip View, then select a free slot: the patient/provider/date/time must stay correct. Confirmed live on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 294.",
+      "notes": "Make Appointment from a waiting-list row, change provider in Flip View, then select a free slot: the patient/provider/date/time must stay correct. Regression for finding 294 (#4994, fixed): confirmed live on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04) before the fix.",
       "envSet": {
         "WAITING_LIST_BOOKING": "provider"
       },
       "mutates": [
         "mygroup"
-      ],
-      "expectedFailure": {
-        "finding": 294,
-        "step": "changing provider retains the waiting-list patient when a free slot is selected"
-      }
+      ]
     },
     {
       "name": "rx-favourite-dose-roundtrip",
@@ -15771,6 +15771,19 @@
       "env": [],
       "fixtures": "Owned synthetic patient(s) and related rows; cleanup verifies removal. Must not run concurrently with other checks.",
       "notes": "Issue #3352: GET opens, search/select does not write, GET/HEAD save is 405, and a form POST saves the relation. Clicks the legacy master-record link when enabled; otherwise opens its supported route."
+    },
+    {
+      "name": "email-field-length",
+      "script": "scripts/email-field-length-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
     },
     {
       "name": "admin-security-workflow",
