@@ -101,11 +101,13 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
                 .setParameter("id", DEMO_NO + 1)
                 .executeUpdate();
         entityManager.createNativeQuery(
-                "INSERT INTO program (id) VALUES (:id)")
+                "INSERT INTO program (id, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing) "
+                        + "VALUES (:id, false, false, false, false, false, false)")
                 .setParameter("id", PROGRAM_ID)
                 .executeUpdate();
         entityManager.createNativeQuery(
-                "INSERT INTO program (id) VALUES (:id)")
+                "INSERT INTO program (id, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing) "
+                        + "VALUES (:id, false, false, false, false, false, false)")
                 .setParameter("id", PROGRAM_ID_2)
                 .executeUpdate();
         entityManager.flush();
@@ -129,6 +131,26 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(adm);
         entityManager.flush();
         return adm;
+    }
+
+    @Test
+    @DisplayName("should load nullable legacy admission flags and persist explicit values")
+    void shouldLoadNullableLegacyFlags_withoutChangingBooleanApi() {
+        Admission admission = createAndPersist(DEMO_NO, PROGRAM_ID, Admission.STATUS_CURRENT, today);
+        Long id = admission.getId();
+        entityManager.createNativeQuery("UPDATE admission SET temporary_admission_flag=NULL, "
+                + "automatic_discharge=NULL WHERE am_id=:id").setParameter("id", id).executeUpdate();
+        entityManager.clear();
+        Admission loaded = admissionDao.getAdmission(id);
+        assertThat(loaded.isTemporaryAdmissionFlag()).isFalse();
+        assertThat(loaded.getAutomaticDischarge()).isFalse();
+        loaded.setTemporaryAdmissionFlag(true);
+        loaded.setAutomaticDischarge(true);
+        entityManager.flush();
+        entityManager.clear();
+        Admission persisted = admissionDao.getAdmission(id);
+        assertThat(persisted.isTemporaryAdmissionFlag()).isTrue();
+        assertThat(persisted.getAutomaticDischarge()).isTrue();
     }
 
     // ========================================================================

@@ -135,7 +135,7 @@ public class FrmLabReqRecord extends FrmRecord {
                     }
                     props.setProperty("reqProvName", Misc.getString(rs, "provName"));
                     props.setProperty("provName", Misc.getString(rs, "provName"));
-                    props.setProperty("practitionerNo", "0000-" + num + "-" + sp);
+                    props.setProperty("practitionerNo", PractitionerNumber.ohipRequisition(num, sp));
                 }
                 rs.close();
             } else {
@@ -156,7 +156,7 @@ public class FrmLabReqRecord extends FrmRecord {
                     }
                     num = Misc.getString(rs, "ohip_no");
                     props.setProperty("reqProvName", Misc.getString(rs, "provName"));
-                    props.setProperty("practitionerNo", "0000-" + num + "-" + sp);
+                    props.setProperty("practitionerNo", PractitionerNumber.ohipRequisition(num, sp));
                 }
                 rs.close();
 
@@ -177,7 +177,7 @@ public class FrmLabReqRecord extends FrmRecord {
                     }
                     if (num.equals("")) {
                         num = Misc.getString(rs, "ohip_no");
-                        props.setProperty("practitionerNo", "0000-" + num + "-" + sp);
+                        props.setProperty("practitionerNo", PractitionerNumber.ohipRequisition(num, sp));
                     }
                     props.setProperty("provName", Misc.getString(rs, "provName"));
 

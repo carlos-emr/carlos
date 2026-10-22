@@ -39,7 +39,9 @@ import io.github.carlos_emr.carlos.commn.model.Episode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.beans.BeanUtils;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -47,7 +49,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Lists and edits episodes using patient-specific demographic read/write rights.
+ * Stored patient ownership is immutable; validation precedes managed-entity changes.
+ */
 public class Episode2Action extends ActionSupport {
+    private static final String INVALID_PATIENT_IDENTIFIER = "Invalid patient identifier";
+    private static final String DEMOGRAPHIC_NO = "demographicNo";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -55,8 +63,9 @@ public class Episode2Action extends ActionSupport {
     private EpisodeDao episodeDao = SpringUtils.getBean(EpisodeDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /** Dispatches the requested episode operation, defaulting to the patient list. */
     @Override
-    public String execute() {
+    public String execute() throws IOException {
         if ("save".equals(request.getParameter("method"))) {
             return save();
         }
@@ -66,8 +75,10 @@ public class Episode2Action extends ActionSupport {
         return this.list();
     }
 
-    public String list() {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+    /** Lists episodes only after validating the patient ID and demographic read access. */
+    public String list() throws IOException {
+        Integer demographicNo = positiveInteger(request.getParameter(DEMOGRAPHIC_NO));
+        if (demographicNo == null) return reject(400, INVALID_PATIENT_IDENTIFIER);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
@@ -78,48 +89,115 @@ public class Episode2Action extends ActionSupport {
         return "list";
     }
 
-    public String edit() {
-        String id = request.getParameter("episode.id");
-
-        if (id != null) {
-            Episode e = episodeDao.find(Integer.valueOf(id));
-            request.setAttribute("episode", e);
+    /**
+     * Opens an episode form after patient read authorization and stored ownership checks.
+     * Links containing only episode.id authorize the patient recorded on that episode.
+     */
+    public String edit() throws IOException {
+        String requestedPatient = request.getParameter(DEMOGRAPHIC_NO);
+        Integer demographicNo = positiveInteger(requestedPatient);
+        if (requestedPatient != null && demographicNo == null) return reject(400, INVALID_PATIENT_IDENTIFIER);
+        if (demographicNo != null) requirePatientAccess(demographicNo, "r");
+        String rawId = request.getParameter("episode.id");
+        if (rawId != null && !rawId.isBlank()) {
+            Integer id = positiveInteger(rawId);
+            if (id == null) return reject(400, "Invalid episode identifier");
+            Episode stored = episodeDao.find(id);
+            if (stored == null || (demographicNo != null && stored.getDemographicNo() != demographicNo)) {
+                return reject(404, "Episode not found");
+            }
+            // Existing list/navbar links carry only episode.id. Authorize the
+            // stored patient before exposing the record through those links.
+            if (demographicNo == null) {
+                demographicNo = stored.getDemographicNo();
+                if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
+                    return reject(404, "Episode not found");
+                }
+            }
+            request.setAttribute("episode", stored);
+        } else if (demographicNo == null) {
+            return reject(400, INVALID_PATIENT_IDENTIFIER);
         }
-
         String[] codingSystems = CarlosProperties.getInstance().getProperty("dxResearch_coding_sys", "").split(",");
-        List<String> cs = Arrays.asList(codingSystems);
-        request.setAttribute("codingSystems", cs);
-        request.setAttribute("demographicNo", request.getParameter("demographicNo"));
+        request.setAttribute("codingSystems", Arrays.asList(codingSystems));
+        request.setAttribute(DEMOGRAPHIC_NO, demographicNo.toString());
         return "form";
     }
 
-    public String save() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        Integer id = null;
-        try {
-            id = Integer.parseInt(request.getParameter("episode.id"));
-        } catch (NumberFormatException e) {/*empty*/}
-        Episode e = null;
-        if (id != null && id.intValue() > 0) {
-            e = episodeDao.find(Integer.valueOf(id));
-        } else {
-            e = new Episode();
+    /**
+     * Creates or updates an episode on POST with patient write access. Description,
+     * status and calendar dates must be valid before copying submitted fields.
+     * Existing episodes cannot move to another patient; audit ownership is server-set.
+     */
+    public String save() throws IOException {
+        if (!"POST".equals(request.getMethod())) return reject(405, "POST required");
+        if (episode == null || episode.getDemographicNo() <= 0) return reject(400, INVALID_PATIENT_IDENTIFIER);
+        requirePatientAccess(episode.getDemographicNo(), "w");
+        String rawId = request.getParameter("episode.id");
+        boolean creating = rawId == null || rawId.isBlank() || "0".equals(rawId);
+        Integer id = creating ? null : positiveInteger(rawId);
+        if (!creating && id == null) return reject(400, "Invalid episode identifier");
+        Episode stored = creating ? new Episode() : episodeDao.find(id);
+        if (stored == null || (!creating && stored.getDemographicNo() != episode.getDemographicNo())) {
+            return reject(404, "Episode not found");
         }
-        BeanUtils.copyProperties(episode, e, new String[]{"id", "lastUpdateTime", "lastUpdateUser"});
-        e.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+        if (!validEpisode()) return reject(400, "Check the episode description, status and dates");
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", e.getDemographicNo())) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
-
-        if (id != null && id.intValue() > 0) {
-            episodeDao.merge(e);
-        } else {
-            episodeDao.persist(e);
-        }
+        // Do not copy bound properties onto a managed entity until ownership,
+        // permission and validation have all succeeded. Patient identity is immutable.
+        if (creating) stored.setDemographicNo(episode.getDemographicNo());
+        stored.setStartDate(episode.getStartDate());
+        stored.setEndDate(episode.getEndDate());
+        stored.setCode(episode.getCode());
+        stored.setCodingSystem(episode.getCodingSystem());
+        stored.setDescription(episode.getDescription());
+        stored.setStatus(episode.getStatus());
+        stored.setNotes(episode.getNotes());
+        stored.setLastUpdateUser(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+        if (creating) episodeDao.persist(stored);
+        else episodeDao.merge(stored);
         request.setAttribute("parentAjaxId", "episode");
         return SUCCESS;
+    }
+
+    private boolean validEpisode() {
+        if (episode.getDescription() == null || episode.getDescription().isBlank() || episode.getStartDate() == null) return false;
+        if (episode.getStatus() == null || !List.of("Current", "Complete", "Deleted").contains(episode.getStatus())) return false;
+        if ("Complete".equals(episode.getStatus()) && episode.getEndDate() == null) return false;
+        if (episode.getEndDate() != null && episode.getEndDate().before(episode.getStartDate())) return false;
+        return validDateInput("episode.startDateStr", episode.getStartDateStr())
+                && validDateInput("episode.endDateStr", episode.getEndDateStr());
+    }
+
+    private boolean validDateInput(String parameter, String formatted) {
+        String value = request.getParameter(parameter);
+        if (value == null) return true;
+        if (value.isBlank()) return formatted.isEmpty();
+        try {
+            return LocalDate.parse(value).toString().equals(formatted);
+        } catch (DateTimeParseException ex) {
+            return false;
+        }
+    }
+
+    private void requirePatientAccess(int demographicNo, String right) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", right, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+    }
+
+    private static Integer positiveInteger(String value) {
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed > 0 ? parsed : null;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private String reject(int status, String message) throws IOException {
+        response.sendError(status, message);
+        return NONE;
     }
 
     private Episode episode;

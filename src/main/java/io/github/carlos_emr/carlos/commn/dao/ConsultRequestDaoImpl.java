@@ -74,6 +74,24 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         return query.getResultList();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ConsultationRequest findWithAssociations(Integer id) {
+        var query = entityManager.createQuery("""
+                SELECT cr
+                FROM ConsultationRequest cr
+                LEFT JOIN FETCH cr.professionalSpecialist
+                LEFT JOIN FETCH cr.demographicContact
+                LEFT JOIN FETCH cr.lookupListItem
+                WHERE cr.id = :id
+                """, ConsultationRequest.class);
+        query.setParameter("id", id);
+        List<ConsultationRequest> results = query.getResultList();
+        return results.isEmpty() ? null : results.get(0);
+    }
+
     private static class QueryWithParams {
         String sql;
         List<Object> params = new java.util.ArrayList<>();
@@ -144,9 +162,16 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
             queryWithParams.addParam("demographicNo", filter.getDemographicNo());
         }
 
-        if (filter.getMrpNo() != null && filter.getMrpNo() > 0) {
+        if (StringUtils.isNotBlank(filter.getMrpNo())) {
             sql.append("and d.providerNo = :mrpNo ");
+            // demographic.provider_no is a varchar and provider numbers may carry leading zeros
+            // (e.g. "000001"): bind the string exactly as received so it matches the column.
             queryWithParams.addParam("mrpNo", filter.getMrpNo());
+        }
+
+        if (filter.getConsultantId() != null && filter.getConsultantId() > 0) {
+            sql.append("and specialist.id = :consultantId ");
+            queryWithParams.addParam("consultantId", filter.getConsultantId());
         }
 
         String orderBy = "cr.referralDate";

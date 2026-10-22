@@ -223,7 +223,7 @@
                 <table width="100%" border="0" cellspacing="1" cellpadding="1" class="small9">
                     <tr>
                         <td>
-                            <img src="graphics/BCAR2020_ref_pg1_top.png" width="100%"/>
+                            <img src="${pageContext.request.contextPath}/form/graphics/BCAR2020_ref_pg1_top.png" width="100%"/>
                         </td>
                     </tr>
                     <tr>

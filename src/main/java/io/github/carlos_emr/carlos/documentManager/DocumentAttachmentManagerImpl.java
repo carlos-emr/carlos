@@ -1,22 +1,32 @@
 package io.github.carlos_emr.carlos.documentManager;
 
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+
 import io.github.carlos_emr.carlos.managers.*;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.metrics.LongCounter;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
+import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
+import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver;
+import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver.Resolution;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.utility.DateUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,12 +46,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.util.*;
+import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 /**
  * Implementation of the DocumentAttachmentManager interface providing comprehensive document attachment
@@ -74,8 +87,11 @@ import java.util.*;
  */
 @Service
 public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager {
-    private static final org.apache.logging.log4j.Logger logger =
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
+    private static final Logger logger = MiscUtils.getLogger();
+    private static final String ATTR_DEMOGRAPHIC_ID = "demographicId";
+    private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
+    private static final String UNREADABLE_TEMPORARY_PDF = "unreadable temporary PDF";
+    private static final String UNOPENABLE_DOCUMENT_PDF = "document PDF cannot be opened";
     private static final String MISSING_CONSULT_SECURITY_OBJECT = "missing required sec object (_con)";
     private static final LongCounter TEMP_CLEANUP_FAILURES = GlobalOpenTelemetry.getMeter(
                     "io.github.carlos_emr.carlos.documentManager")
@@ -86,7 +102,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     @Autowired
     private ConsultDocsDao consultDocsDao;
     @Autowired
+    private ConsultationRequestDao consultationRequestDao;
+    @Autowired
     private EFormDocsDao eFormDocsDao;
+    @Autowired
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     @Autowired
     private ConsultationManager consultationManager;
@@ -96,12 +116,24 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private EformDataManager eformDataManager;
     @Autowired
     private FormsManager formsManager;
-    @Autowired
-    private LabManager labManager;
+    private final LabManager labManager;
     @Autowired
     private NioFileManager nioFileManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+    private AttachmentOwnershipService attachmentOwnershipService;
+
+    // Setter-injected: the older collaborators above are still field-injected, and the
+    // constructor takes only LabManager.
+    @Autowired
+    public void setAttachmentOwnershipService(AttachmentOwnershipService attachmentOwnershipService) {
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
+
+    @Autowired
+    public DocumentAttachmentManagerImpl(LabManager labManager) {
+        this.labManager = labManager;
+    }
 
     // @Autowired
     // public void setEformDataManager(EformDataManager eformDataManager) {
@@ -117,6 +149,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      *
      * @param loggedInInfo LoggedInInfo the current user's session information
      * @param requestId Integer the unique identifier of the consultation request
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve (e.g., DOC, LAB, EFORM, HRM, FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;String&gt; a list of document IDs as strings attached to the consultation request
@@ -130,7 +165,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<String> consultAttachments = new ArrayList<>();
         List<ConsultDocs> consultDocs = consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
         for (ConsultDocs consultDocs1 : consultDocs) {
-            consultAttachments.add(String.valueOf(consultDocs1.getDocumentNo()));
+            consultAttachments.add(documentType == DocumentType.LAB
+                    ? LabAttachmentReference
+                        .stored(consultDocs1.getLabType(), consultDocs1.getDocumentNo()).key()
+                    : String.valueOf(consultDocs1.getDocumentNo()));
         }
         return consultAttachments;
     }
@@ -144,6 +182,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      *
      * @param loggedInInfo LoggedInInfo the current user's session information
      * @param fdid Integer the unique form data identifier of the eForm
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve (e.g., DOC, LAB, EFORM, HRM, FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;String&gt; a list of document IDs as strings attached to the eForm
@@ -157,7 +198,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<String> eFormAttachments = new ArrayList<>();
         List<EFormDocs> eFormDocs = eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType());
         for (EFormDocs eFormDocs1 : eFormDocs) {
-            eFormAttachments.add(String.valueOf(eFormDocs1.getDocumentNo()));
+            eFormAttachments.add(documentType == DocumentType.LAB
+                    ? LabAttachmentReference
+                        .stored(eFormDocs1.getLabType(), eFormDocs1.getDocumentNo()).key()
+                    : String.valueOf(eFormDocs1.getDocumentNo()));
         }
         return eFormAttachments;
     }
@@ -171,6 +215,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      *
      * @param loggedInInfo LoggedInInfo the current user's session information
      * @param fdid Integer the unique form data identifier of the eForm
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve (typically FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;EctFormData.PatientForm&gt; a list of PatientForm objects attached to the eForm
@@ -219,14 +266,30 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     public List<AttachmentLabResultData> getAllLabsSortedByVersions(LoggedInInfo loggedInInfo, String demographicNo) {
         CommonLabResultData commonLabResultData = new CommonLabResultData();
         List<LabResultData> allLabs = commonLabResultData.populateLabResultsData(loggedInInfo, "", demographicNo, "", "", "", "U");
+        return groupLabsByVersion(allLabs, Hl7textResultsData::getMatchingLabs);
+    }
+
+    /**
+     * Groups labs for the picker: one entry per newest lab, with its older versions attached.
+     *
+     * @param allLabs List&lt;LabResultData&gt; the patient's labs from every configured source
+     * @param hl7VersionChain UnaryOperator&lt;String&gt; resolves an HL7 segment id to its
+     *        comma-separated version chain, oldest first, newest last
+     *        ({@code Hl7textResultsData.getMatchingLabs} in production)
+     * @return List&lt;AttachmentLabResultData&gt; newest labs with their version ids
+     */
+    List<AttachmentLabResultData> groupLabsByVersion(List<LabResultData> allLabs, UnaryOperator<String> hl7VersionChain) {
         Collections.sort(allLabs);
 
+        // Segment ids are only unique within a lab source (HL7, MDS, CML and BCP each number
+        // their own tables), so every lookup below is keyed by source and id together; an HL7
+        // and an MDS lab that share an id are two labs, not one.
         List<String> allLabVersionIds = new ArrayList<>();
         List<AttachmentLabResultData> allLabsSortedByVersions = new ArrayList<>();
 
         Map<String, LabResultData> labMap = new HashMap<>();
         for (LabResultData lab : allLabs) {
-            labMap.put(lab.getSegmentID(), lab);
+            labMap.put(labKey(lab.getLabType(), lab.getSegmentID()), lab);
         }
 
         /*
@@ -239,38 +302,47 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
          * First, I iterate through the 'allLabs' using a for loop.
          */
         for (LabResultData lab : allLabs) {
-            if (allLabVersionIds.contains(lab.getSegmentID())) {
+            if (allLabVersionIds.contains(labKey(lab.getLabType(), lab.getSegmentID()))) {
                 continue;
             }
 
-            AttachmentLabResultData attachmentLabResultData = new AttachmentLabResultData(lab.getSegmentID(), getDisplayLabName(lab), lab.getDateObj());
+            AttachmentLabResultData attachmentLabResultData = new AttachmentLabResultData(lab.getSegmentID(), getDisplayLabName(lab), lab.getDateObj(), lab.getLabType());
 
-            /*
-             * Then, if, for example, I pass lab ID 1, it will give all its related labs in the correct version order.
-             * By 'correct order,' I mean it will return this array [7, 9, 8, 1, 6].
-             * This array will be in version order, where the first is the oldest and the last is the latest.
-             */
-            String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
-
-
-            /*
-             * Here, I add the latest lab (6) to 'allLabsSortedByVersions' after attaching its versions (7, 9, 8, and 1) to the latest lab.
-             */
-            for (int i = matchingLabIds.length - 2; i >= 0; i--) {
-                LabResultData versionLab = labMap.get(matchingLabIds[i]);
-                if (versionLab != null) {
-                    attachmentLabResultData.getLabVersionIds().put(versionLab.getSegmentID(), DateUtils.formatDate(versionLab.getDateObj(), null));
-                }
+            // Version chains exist for HL7 labs only; the matching walks hl7TextInfo, so an
+            // MDS/CML/BCP id must never be looked up there (it would pull an unrelated HL7 lab
+            // with the same number in as a "version").
+            if (LabResultData.HL7TEXT.equals(lab.getLabType())) {
+                /*
+                 * Then, if, for example, I pass lab ID 1, it will give all its related labs in the correct version order.
+                 * By 'correct order,' I mean it will return this array [7, 9, 8, 1, 6].
+                 * This array will be in version order, where the first is the oldest and the last is the latest.
+                 */
+                String[] matchingLabIds = hl7VersionChain.apply(lab.getSegmentID()).split(",");
 
                 /*
-                 * Then, I add those version labs (7, 9, and 8) into the 'allLabVersionIds' array so that they can be skipped.
-                 * At the start of the for loop, I use `if (allLabVersionIds.contains(lab.getSegmentID())) { continue; }` to ensure that labs already included in 'allLabVersionIds' are skipped during the iteration.
+                 * Here, I add the latest lab (6) to 'allLabsSortedByVersions' after attaching its versions (7, 9, 8, and 1) to the latest lab.
                  */
-                allLabVersionIds.add(matchingLabIds[i]);
+                for (int i = matchingLabIds.length - 2; i >= 0; i--) {
+                    LabResultData versionLab = labMap.get(labKey(LabResultData.HL7TEXT, matchingLabIds[i]));
+                    if (versionLab != null) {
+                        attachmentLabResultData.getLabVersionIds().put(versionLab.getSegmentID(), DateUtils.formatDate(versionLab.getDateObj(), null));
+                    }
+
+                    /*
+                     * Then, I add those version labs (7, 9, and 8) into the 'allLabVersionIds' array so that they can be skipped.
+                     * At the start of the for loop, `allLabVersionIds.contains(...)` ensures that labs already included as versions are skipped during the iteration.
+                     */
+                    allLabVersionIds.add(labKey(LabResultData.HL7TEXT, matchingLabIds[i]));
+                }
             }
             allLabsSortedByVersions.add(attachmentLabResultData);
         }
         return allLabsSortedByVersions;
+    }
+
+    /** Source-qualified lab key; a null source (legacy rows) groups with HL7, the only unnamed source. */
+    private static String labKey(String labType, String segmentId) {
+        return (labType == null || labType.isEmpty() ? LabResultData.HL7TEXT : labType) + ":" + segmentId;
     }
 
     /**
@@ -320,15 +392,23 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @param providerNo String the provider number performing the attachment operation
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's demographic number for security validation
-     * @throws SecurityException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege, or if any id
+     *                           is submitted and the user may not access the patient's record
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
-        }
+        requireConsultAttachAccess(loggedInInfo, demographicNo, hasAttachmentIds(attachments));
 
-        DocumentAttach documentAttach = new DocumentAttach();
-        documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
+        attachments = guardArchiveAttachments(documentType, attachments,
+                () -> consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
+                        .map(ConsultDocs::getDocumentNo)
+                        .toList());
+        // The consultation form does not list a document or eForm whose target was deleted, filed to
+        // another patient or is patient-independent, so an Update submits a set without it; keep it
+        // attached (and named on the preview, print, fax and confirmation pages) rather than
+        // detaching it silently (#3145). An available attachment the user removed is detached as
+        // before; HRM and form attachments keep the old whole-set replace.
+        DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, false);
+        documentAttach.attachToConsult(attachments, documentType, providerNo, requestId, true);
     }
 
     /**
@@ -348,15 +428,101 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @param demographicNo Integer the patient's demographic number for security validation
      * @param editOnOcean Boolean when true, registers attachments for OceanMD transmission;
      *                            when false, performs standard local attachment only
-     * @throws SecurityException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege, or if any id
+     *                           is submitted and the user may not access the patient's record
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo, Boolean editOnOcean) {
+        requireConsultAttachAccess(loggedInInfo, demographicNo, hasAttachmentIds(attachments));
+
+        attachments = guardArchiveAttachments(documentType, attachments,
+                () -> consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
+                        .map(ConsultDocs::getDocumentNo)
+                        .toList());
+        DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, editOnOcean);
+        documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
+    }
+
+    @Override
+    public void verifyConsultAttachments(LoggedInInfo loggedInInfo, Integer requestId, Integer demographicNo,
+                                         Map<DocumentType, String[]> attachmentsByType) {
+        boolean attachesRecords = false;
+        if (attachmentsByType != null) {
+            for (String[] ids : attachmentsByType.values()) {
+                attachesRecords |= hasAttachmentIds(ids);
+            }
+        }
+        requireConsultAttachAccess(loggedInInfo, demographicNo, attachesRecords);
+        if (attachmentsByType == null) {
+            return;
+        }
+        // Refuse outbound email archive eDocs in the preflight too, so the separate attachToConsult
+        // writes that follow cannot fail part-way and leave the consultation partially updated.
+        assertNoOutboundEmailArchiveAttachments(DocumentType.DOC, attachmentsByType.get(DocumentType.DOC));
+        DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, false);
+        for (Map.Entry<DocumentType, String[]> entry : attachmentsByType.entrySet()) {
+            documentAttach.verifyConsultAttachments(entry.getValue(), entry.getKey(), requestId);
+        }
+    }
+
+    /**
+     * Patient-scoped gate for consultation attach, detach and verification.
+     *
+     * <p>{@code _con} write for the patient is always required. When the call would attach (or keep
+     * attached) any record, the caller must also be allowed to access the patient's record:
+     * a patient-scoped {@code _con} grant is not the circle-of-care check, and attached records are
+     * later printed, faxed and sent to Ocean. A detach-only call (every id list empty) does not
+     * disclose anything, so a consultation can still be saved without attachments.</p>
+     */
+    private void requireConsultAttachAccess(LoggedInInfo loggedInInfo, Integer demographicNo, boolean attachesRecords) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo)) {
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
+        if (attachesRecords
+                && (demographicNo == null || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo))) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
+    }
 
-        DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);
-        documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
+    private static boolean hasAttachmentIds(String[] attachments) {
+        if (attachments == null) {
+            return false;
+        }
+        for (String id : attachments) {
+            if (id != null && !id.isBlank()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Keeps the attachments whose id belongs to {@code demographicNo}, via
+     * {@link AttachmentOwnershipService#retainOwned} (one batched lookup); everything else (foreign,
+     * deleted, unparseable, {@code null}) is dropped and only the count logged.
+     */
+    <T> List<T> retainOwnedAttachments(DocumentType documentType, Integer demographicNo, List<T> attachments,
+                                       java.util.function.Function<T, String> idOf) {
+        List<T> retained = attachmentOwnershipService.retainOwned(documentType, demographicNo, attachments, idOf);
+        int dropped = (attachments == null ? 0 : attachments.size()) - retained.size();
+        if (dropped > 0) {
+            logger.warn("Omitted {} consultation attachment(s) of type {} not owned by the consultation patient", dropped, documentType.getType());
+        }
+        return retained;
+    }
+
+    private static Integer parseAttachmentId(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer parseDemographicNo(String demographicId) {
+        return parseAttachmentId(demographicId);
     }
 
     /**
@@ -379,7 +545,12 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new RuntimeException("missing required sec object (_eform)");
         }
 
-        DocumentAttach documentAttach = new DocumentAttach();
+        attachments = guardArchiveAttachments(documentType, attachments,
+                () -> eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType()).stream()
+                        .map(EFormDocs::getDocumentNo)
+                        .toList());
+
+        DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, false);
         documentAttach.attachToEForm(attachments, documentType, providerNo, fdid);
     }
 
@@ -541,28 +712,100 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      */
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String requestId = (String) request.getAttribute("reqId");
-        String demographicId = (String) request.getAttribute("demographicId");
+        String requestId = attributeToString(request.getAttribute("reqId"));
+        String demographicId = resolveConsultationDemographicId(requestId, attributeToString(request.getAttribute(ATTR_DEMOGRAPHIC_ID)));
+        request.setAttribute(ATTR_DEMOGRAPHIC_ID, demographicId);
+        // The packet carries the patient's PHI. Callers check this too; enforce it here so a new
+        // caller that only gates on role-level _con cannot render another patient's chart records.
+        Integer ownerDemographicNo = parseDemographicNo(demographicId);
+        if (ownerDemographicNo == null
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, ownerDemographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, ownerDemographicNo)) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
+        requireConsultationOfPatient(loggedInInfo, request, requestId, ownerDemographicNo);
         Path consultationFormPDFPath = consultationManager.renderConsultationForm(request);
-
-        List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
-        List<EDoc> attachedEDocs = EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED);
-        CommonLabResultData labResultData = new CommonLabResultData();
-        List<LabResultData> attachedLabs = labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED);
-        ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
-        List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
-
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         pdfDocumentList.add(consultationFormPDFPath.toString());
-        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
-        attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
-        attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
-        attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
-        attachFormPDFs(request, response, attachedForms, pdfDocumentList);
+        try {
+            List<ConsultAttachmentWarning> attachmentWarnings = initializeAttachmentWarnings(request);
+            recordUnavailableConsultAttachmentWarnings(requestId, attachmentWarnings);
 
-        Path result = concatPDF(pdfDocumentList, demographicId);
-        cleanupRenderedTempInputs(pdfDocumentList, result);
-        return result;
+            // Defence in depth for issue #3867: the eForm and document lookups below resolve attachments
+            // by consultation id alone, so a consult_docs row written before attach-time ownership checks
+            // existed could still print or fax another patient's record. Keep only this patient's own.
+            // HRM lookups are already scoped to the patient; forms have no common owner column. Only
+            // HL7 labs can be rendered; other lab sources are named before being omitted (#4693).
+            List<EFormData> attachedEForms = retainOwnedAttachments(DocumentType.EFORM, ownerDemographicNo,
+                    consultationManager.getAttachedEForms(requestId), eForm -> eForm.getId() == null ? null : String.valueOf(eForm.getId()));
+            List<EDoc> attachedEDocs = retainOwnedAttachments(DocumentType.DOC, ownerDemographicNo,
+                    EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED), EDoc::getDocId);
+            CommonLabResultData labResultData = new CommonLabResultData();
+            List<LabResultData> listedLabs = labResultData.populateLabResultsData(
+                    loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED);
+            if (listedLabs != null) {
+                for (LabResultData lab : listedLabs) {
+                    // Unresolved identity is not an overridable rendering omission.
+                    if (lab != null && lab.isAttachmentUnavailable()) {
+                        throw new PDFGenerationException("A lab attachment is unavailable or has an unresolved source. Select it again before printing.");
+                    }
+                    if (lab != null && !lab.isHL7TEXT()) {
+                        recordSkippedAttachment(attachmentWarnings,
+                                ConsultAttachmentWarning.unsupportedLab(lab.getLabType(), lab.getSegmentID()),
+                                "unsupported lab source");
+                    }
+                }
+            }
+            List<LabResultData> attachedLabs = retainOwnedAttachments(DocumentType.LAB, ownerDemographicNo,
+                    AttachmentOwnershipService.renderableLabsOnly(listedLabs),
+                    LabResultData::getSegmentID);
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
+            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
+
+            // Older callers can omit unavailable rows as before. Unsupported sources and render
+            // failures require a caller that reviews and approves omissions before disclosure.
+            long unavailableWarnings = attachmentWarnings.stream().filter(ConsultAttachmentWarning::isUnavailable).count();
+            boolean allowSkipped = Boolean.TRUE.equals(request.getAttribute(ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE));
+            attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, attachmentWarnings);
+            attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList, attachmentWarnings);
+            attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList, attachmentWarnings);
+            attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList, attachmentWarnings);
+            attachFormPDFs(request, response, attachedForms, pdfDocumentList, attachmentWarnings);
+            if (!allowSkipped && attachmentWarnings.size() > unavailableWarnings) {
+                // Do not print or fax a consult that silently lacks an attachment it lists.
+                throw new PDFGenerationException("One or more consultation attachments could not be rendered");
+            }
+
+            Path result = concatPDF(pdfDocumentList, demographicId);
+            cleanupRenderedTempInputs(pdfDocumentList, result);
+            return result;
+        } catch (PDFGenerationException | RuntimeException e) {
+            // The rendered consult and attachment PDFs hold PHI; do not leave them for the purge job.
+            cleanupRenderedTempInputs(pdfDocumentList, null);
+            throw e;
+        }
+    }
+
+    /**
+     * The check above authorizes the patient named by {@code demographicId}, but
+     * {@code ConsultationPDFCreator} renders the consultation named by {@code reqId} (a raw
+     * {@code reqId} request parameter taking precedence over the attribute). Tie the two together
+     * before anything is rendered: the consultation must exist and belong to that patient, and a
+     * {@code reqId} parameter, if present, must name the same consultation. Otherwise a mismatched
+     * pair would render another patient's consultation under this patient's authorization.
+     */
+    private void requireConsultationOfPatient(LoggedInInfo loggedInInfo, HttpServletRequest request, String requestId,
+                                              Integer ownerDemographicNo) {
+        Integer consultationRequestId = parseAttachmentId(requestId);
+        String requestIdParameter = request.getParameter("reqId");
+        if (consultationRequestId == null
+                || (requestIdParameter != null && !requestIdParameter.trim().equals(consultationRequestId.toString()))) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
+        ConsultationRequest consultation = consultationManager.getRequest(loggedInInfo, consultationRequestId);
+        if (consultation == null || !ownerDemographicNo.equals(consultation.getDemographicId())) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
     }
 
     /**
@@ -628,6 +871,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         return renderEFormPacket(request, response, approval);
     }
 
+    /** Upper bound on PHI-safe console-error descriptions surfaced for a whole fax packet. */
+    private static final int MAX_PACKET_CONSOLE_DETAILS = 10;
+
     private EformDataManager.EformPdfRender renderEFormPacket(HttpServletRequest request,
             HttpServletResponse response, EFormRenderApproval approval) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -664,6 +910,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             EFormRenderCompletenessReport packetCompleteness = primary.completeness();
             Map<Integer, EFormRenderCompletenessReport> formCompleteness =
                     new LinkedHashMap<>(primary.formCompleteness());
+            List<String> severeConsoleDetails = new ArrayList<>();
+            appendSevereConsoleDetails(severeConsoleDetails, primary.severeConsoleDetails());
             pdfDocumentList.add(eFormPath.toString());
 
             List<EFormData> attachedEForms = EFormUtil.listPatientEformsCurrentAttachedToEForm(fdid);
@@ -682,6 +930,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                     attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, approval);
             packetCompleteness = packetCompleteness.merge(attached.completeness());
             formCompleteness.putAll(attached.formCompleteness());
+            appendSevereConsoleDetails(severeConsoleDetails, attached.severeConsoleDetails());
             attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
             attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
             attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
@@ -704,7 +953,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                                 + attachedHRMs.size() + attachedForms.size());
             }
             return new EformDataManager.EformPdfRender(result, packetCompleteness,
-                    Map.copyOf(formCompleteness));
+                    Map.copyOf(formCompleteness), List.copyOf(severeConsoleDetails));
         } catch (PDFGenerationException | RuntimeException e) {
             cleanupRenderedTempInputs(pdfDocumentList, null);
             throw e;
@@ -835,10 +1084,6 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         return path;
     }
 
-    private void attachEFormPDFs(LoggedInInfo loggedInInfo, List<EFormData> attachedEForms, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
-        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, null);
-    }
-
     /**
      * @return the merged completeness of every attached eForm, so an advisory condition on an
      *         attachment is not silently dropped from the packet the clinician receives
@@ -848,46 +1093,330 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             EFormRenderApproval approval) throws PDFGenerationException {
         EFormRenderCompletenessReport merged = EFormRenderCompletenessReport.complete();
         Map<Integer, EFormRenderCompletenessReport> formCompleteness = new LinkedHashMap<>();
+        List<String> severeConsoleDetails = new ArrayList<>();
         for (EFormData eForm : attachedEForms) {
             EformDataManager.EformPdfRender rendered =
                     eformDataManager.createEformPdfWithCompleteness(loggedInInfo, eForm.getId(), approval);
             merged = merged.merge(rendered.completeness());
             formCompleteness.putAll(rendered.formCompleteness());
+            appendSevereConsoleDetails(severeConsoleDetails, rendered.severeConsoleDetails());
             pdfDocumentList.add(rendered.path().toString());
         }
-        return new EFormPacketAttachments(merged, Map.copyOf(formCompleteness));
+        return new EFormPacketAttachments(merged, Map.copyOf(formCompleteness),
+                List.copyOf(severeConsoleDetails));
+    }
+
+    /**
+     * Merge one render's PHI-safe console-error descriptions into the packet's running list,
+     * de-duplicating and capping the total. These are display-only strings for the
+     * informed-override screen; they are never part of the completeness digest.
+     */
+    private static void appendSevereConsoleDetails(List<String> into, List<String> from) {
+        if (from == null || from.isEmpty()) {
+            return;
+        }
+        for (String detail : from) {
+            if (into.size() >= MAX_PACKET_CONSOLE_DETAILS) {
+                return;
+            }
+            if (detail != null && !detail.isBlank() && !into.contains(detail)) {
+                into.add(detail);
+            }
+        }
     }
 
     private record EFormPacketAttachments(EFormRenderCompletenessReport completeness,
-            Map<Integer, EFormRenderCompletenessReport> formCompleteness) {
+            Map<Integer, EFormRenderCompletenessReport> formCompleteness,
+            List<String> severeConsoleDetails) {
     }
 
-    private void attachEDocPDFs(LoggedInInfo loggedInInfo, List<EDoc> attachedEDocs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    private void attachEFormPDFs(LoggedInInfo loggedInInfo, List<EFormData> attachedEForms,
+            ArrayList<Object> pdfDocumentList, List<ConsultAttachmentWarning> attachmentWarnings)
+            throws PDFGenerationException {
+        if (attachedEForms == null) {
+            return;
+        }
+        for (EFormData eForm : attachedEForms) {
+            if (eForm == null) {
+                recordSkippedAttachment(attachmentWarnings, ConsultAttachmentWarning.notRendered(DocumentType.EFORM, null), MISSING_ATTACHMENT_METADATA);
+                continue;
+            }
+            Integer eFormId = eForm.getId();
+            addRenderedAttachmentPDF(
+                    pdfDocumentList,
+                    attachmentWarnings,
+                    DocumentType.EFORM,
+                    eFormId,
+                    () -> renderDocument(loggedInInfo, DocumentType.EFORM, eFormId));
+        }
+    }
+
+    private void attachEDocPDFs(LoggedInInfo loggedInInfo, List<EDoc> attachedEDocs, ArrayList<Object> pdfDocumentList, List<ConsultAttachmentWarning> attachmentWarnings) throws PDFGenerationException {
+        if (attachedEDocs == null) {
+            return;
+        }
+        for (EDoc eDoc : attachedEDocs) {
+            if (eDoc == null) {
+                recordSkippedAttachment(attachmentWarnings, ConsultAttachmentWarning.notRendered(DocumentType.DOC, null), MISSING_ATTACHMENT_METADATA);
+                continue;
+            }
+            String docId = eDoc.getDocId();
+            addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.DOC, docId,
+                    () -> documentManager.renderDocument(loggedInInfo, eDoc));
+        }
+    }
+
+    private void attachLabPDFs(LoggedInInfo loggedInInfo, List<LabResultData> attachedLabs, ArrayList<Object> pdfDocumentList, List<ConsultAttachmentWarning> attachmentWarnings) throws PDFGenerationException {
+        if (attachedLabs == null) {
+            return;
+        }
+        for (LabResultData lab : attachedLabs) {
+            if (lab == null) {
+                recordSkippedAttachment(attachmentWarnings, ConsultAttachmentWarning.notRendered(DocumentType.LAB, null), MISSING_ATTACHMENT_METADATA);
+            } else {
+                attachLabPDF(loggedInInfo, lab, pdfDocumentList, attachmentWarnings);
+            }
+        }
+    }
+
+    private void attachLabPDF(LoggedInInfo loggedInInfo, LabResultData lab, ArrayList<Object> pdfDocumentList,
+            List<ConsultAttachmentWarning> attachmentWarnings) throws PDFGenerationException {
+        String labId = lab.getSegmentID();
+        // Labs follow the lab-source rules, not the skip-and-name rule: the consult form lists an
+        // unavailable lab for the user to select again, and every render (the on-screen preview the
+        // Print button uses, print and fax) refuses until then.
+        if (lab.isAttachmentUnavailable()) {
+            throw new PDFGenerationException("A lab attachment is unavailable or has an unresolved source. Select it again before printing.");
+        }
+        if (!LabResultData.HL7TEXT.equals(lab.getLabType())) {
+            // The renderer resolves every lab id as an HL7 segment; other sources are filtered out
+            // before this point (#4693).
+            throw new PDFGenerationException("This lab source cannot be included in a PDF packet. Print it from its source-specific lab viewer.");
+        }
+        try {
+            Integer parsedLabId = Integer.valueOf(labId);
+            addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.LAB, labId,
+                    () -> renderDocument(loggedInInfo, DocumentType.LAB, parsedLabId));
+        } catch (NumberFormatException e) {
+            recordSkippedAttachment(attachmentWarnings, ConsultAttachmentWarning.notRendered(DocumentType.LAB, labId), "invalid lab segment id");
+        }
+    }
+
+    private void attachHRMPDFs(LoggedInInfo loggedInInfo, ArrayList<HashMap<String, ? extends Object>> attachedHRMs, ArrayList<Object> pdfDocumentList, List<ConsultAttachmentWarning> attachmentWarnings) throws PDFGenerationException {
+        if (attachedHRMs == null) {
+            return;
+        }
+        for (HashMap<String, ?> hrm : attachedHRMs) {
+            if (hrm == null || !(hrm.get("id") instanceof Integer)) {
+                recordSkippedAttachment(attachmentWarnings, ConsultAttachmentWarning.notRendered(DocumentType.HRM, null), MISSING_ATTACHMENT_METADATA);
+                continue;
+            }
+            Integer hrmId = (Integer) hrm.get("id");
+            addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.HRM, hrmId,
+                    () -> renderDocument(loggedInInfo, DocumentType.HRM, hrmId));
+        }
+    }
+
+    private void attachFormPDFs(HttpServletRequest request, HttpServletResponse response, List<EctFormData.PatientForm> attachedForms, ArrayList<Object> pdfDocumentList, List<ConsultAttachmentWarning> attachmentWarnings) throws PDFGenerationException {
+        if (attachedForms == null) {
+            return;
+        }
+        for (EctFormData.PatientForm form : attachedForms) {
+            if (form == null) {
+                recordSkippedAttachment(attachmentWarnings, ConsultAttachmentWarning.notRendered(DocumentType.FORM, null), MISSING_ATTACHMENT_METADATA);
+                continue;
+            }
+            String formId = form.getFormId();
+            addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.FORM, formId,
+                    () -> formsManager.renderForm(request, response, form));
+        }
+    }
+
+    private void attachEDocPDFs(LoggedInInfo loggedInInfo, List<EDoc> attachedEDocs,
+            ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
         for (EDoc eDoc : attachedEDocs) {
             Path path = documentManager.renderDocument(loggedInInfo, eDoc);
             pdfDocumentList.add(path.toString());
         }
     }
 
-    private void attachLabPDFs(LoggedInInfo loggedInInfo, List<LabResultData> attachedLabs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    void attachLabPDFs(LoggedInInfo loggedInInfo, List<LabResultData> attachedLabs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
         for (LabResultData lab : attachedLabs) {
-            Path path = renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(lab.getSegmentID()));
+            if (lab != null && lab.isAttachmentUnavailable()) {
+                throw new PDFGenerationException("A lab attachment is unavailable or has an unresolved source. Select it again before printing.");
+            }
+            if (lab != null && !LabResultData.HL7TEXT.equals(lab.getLabType())) {
+                throw new PDFGenerationException("This lab source cannot be included in a PDF packet. Print it from its source-specific lab viewer.");
+            }
+            int labId;
+            try {
+                labId = Integer.parseInt(lab == null ? null : lab.getSegmentID());
+            } catch (NumberFormatException e) {
+                throw new PDFGenerationException(
+                        "Attached lab could not be rendered because its segment id is invalid.", e);
+            }
+            Path path = renderDocument(loggedInInfo, DocumentType.LAB, labId);
             pdfDocumentList.add(path.toString());
         }
     }
 
-    private void attachHRMPDFs(LoggedInInfo loggedInInfo, ArrayList<HashMap<String, ? extends Object>> attachedHRMs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    private void attachHRMPDFs(LoggedInInfo loggedInInfo,
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMs,
+            ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
         for (HashMap<String, ?> hrm : attachedHRMs) {
             Path path = renderDocument(loggedInInfo, DocumentType.HRM, (Integer) hrm.get("id"));
             pdfDocumentList.add(path.toString());
         }
     }
 
-    private void attachFormPDFs(HttpServletRequest request, HttpServletResponse response, List<EctFormData.PatientForm> attachedForms, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    private void attachFormPDFs(HttpServletRequest request, HttpServletResponse response,
+            List<EctFormData.PatientForm> attachedForms, ArrayList<Object> pdfDocumentList)
+            throws PDFGenerationException {
         for (EctFormData.PatientForm form : attachedForms) {
             Path path = formsManager.renderForm(request, response, form);
             pdfDocumentList.add(path.toString());
         }
+    }
+
+    private List<ConsultAttachmentWarning> initializeAttachmentWarnings(HttpServletRequest request) {
+        List<ConsultAttachmentWarning> attachmentWarnings = new ArrayList<>();
+        request.setAttribute(ATTACHMENT_WARNINGS_ATTRIBUTE, attachmentWarnings);
+        return attachmentWarnings;
+    }
+
+    private String attributeToString(Object attribute) {
+        return Objects.toString(attribute, null);
+    }
+
+    /**
+     * The patient of the saved consultation named by {@code requestId}. A missing submitted
+     * demographic is filled in from it; a missing, malformed or unknown consultation, or a submitted
+     * demographic naming another patient, is refused the same way as a failed {@code _con} check.
+     */
+    private String resolveConsultationDemographicId(String requestId, String requestDemographicId) {
+        Resolution resolution = ConsultationDemographicResolver.resolve(consultationRequestDao, requestId,
+                requestDemographicId, "PDF", logger);
+        if (!resolution.isResolved()) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
+        return resolution.demographicId();
+    }
+
+    @Override
+    public List<ConsultAttachmentWarning> getUnavailableConsultAttachmentWarnings(Integer requestId) {
+        List<ConsultAttachmentWarning> attachmentWarnings = new ArrayList<>();
+        if (requestId != null) {
+            recordUnavailableConsultAttachmentWarnings(String.valueOf(requestId), attachmentWarnings);
+        }
+        return attachmentWarnings;
+    }
+
+    private void recordUnavailableConsultAttachmentWarnings(String requestId, List<ConsultAttachmentWarning> attachmentWarnings) {
+        Integer consultRequestId;
+        try {
+            consultRequestId = Integer.valueOf(requestId);
+        } catch (NumberFormatException e) {
+            logger.warn("Skipped unavailable consult attachment lookup for invalid requestId={}", LogSafe.sanitize(requestId));
+            return;
+        }
+        List<ConsultDocs> unavailableAttachments = consultDocsDao.findUnavailableActiveConsultAttachments(consultRequestId);
+        if (unavailableAttachments == null) {
+            return;
+        }
+        for (ConsultDocs consultDoc : unavailableAttachments) {
+            if (consultDoc == null) {
+                continue;
+            }
+            recordSkippedAttachment(attachmentWarnings,
+                    ConsultAttachmentWarning.unavailable(documentTypeFromConsultDoc(consultDoc), consultDoc.getDocumentNo()),
+                    "unavailable consult attachment target");
+        }
+    }
+
+    private DocumentType documentTypeFromConsultDoc(ConsultDocs consultDoc) {
+        switch (consultDoc.getDocType()) {
+            case ConsultDocs.DOCTYPE_EFORM:
+                return DocumentType.EFORM;
+            case ConsultDocs.DOCTYPE_DOC:
+                return DocumentType.DOC;
+            case ConsultDocs.DOCTYPE_LAB:
+                return DocumentType.LAB;
+            default:
+                return null;
+        }
+    }
+
+    private void addRenderedAttachmentPDF(ArrayList<Object> pdfDocumentList, List<ConsultAttachmentWarning> attachmentWarnings, DocumentType documentType, Object documentId, AttachmentRenderer renderer) throws PDFGenerationException {
+        try {
+            Path path = renderer.render();
+            if (path == null || !Files.isReadable(path)) {
+                recordSkippedAttachment(attachmentWarnings,
+                        ConsultAttachmentWarning.notRendered(documentType, documentId), UNREADABLE_TEMPORARY_PDF);
+                return;
+            }
+            // Validate every source before merging, including generated eForm/lab/HRM/form PDFs.
+            // Attribute a damaged, protected or empty PDF to the attachment that produced it.
+            String mergeFailure = pdfMergeFailure(path);
+            if (mergeFailure != null) {
+                recordSkippedAttachment(attachmentWarnings,
+                        ConsultAttachmentWarning.notRendered(documentType, documentId),
+                        UNOPENABLE_DOCUMENT_PDF + " (" + mergeFailure + ")");
+                // An image document's PDF was made for this render; it holds patient data.
+                cleanupRenderedTempInputs(new ArrayList<>(List.of(path.toString())), null);
+                return;
+            }
+            pdfDocumentList.add(path.toString());
+        } catch (SecurityException e) {
+            throw e;
+        } catch (PDFGenerationException e) {
+            // Capacity/temporary infrastructure failure is a retry, never consent to discard content.
+            if (e.isRetryable()) throw e;
+            recordSkippedAttachment(attachmentWarnings,
+                    ConsultAttachmentWarning.notRendered(documentType, documentId), e.getClass().getSimpleName());
+        } catch (RuntimeException e) {
+            // The exception class only: renderer messages and causes can carry clinical text and paths.
+            recordSkippedAttachment(attachmentWarnings,
+                    ConsultAttachmentWarning.notRendered(documentType, documentId), e.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Tries the file the way {@code ConcatPDF} will merge it: opens it with no password, removes
+     * any owner-only security, and saves it again, here into a discarded stream. That costs one
+     * extra parse and save of each attachment PDF.
+     *
+     * @return {@code null} when it merges; otherwise the failure's exception class, which tells a
+     *         password-protected file (InvalidPasswordException) from a damaged one (for example
+     *         IOException)
+     */
+    private String pdfMergeFailure(Path path) {
+        try (PDDocument document = Loader.loadPDF(path.toFile())) {
+            if (document.getNumberOfPages() == 0) return "EmptyPdf";
+            if (document.isEncrypted()) {
+                document.setAllSecurityToBeRemoved(true);
+            }
+            document.save(OutputStream.nullOutputStream());
+            return null;
+        } catch (IOException | RuntimeException e) {
+            return e.getClass().getSimpleName();
+        }
+    }
+
+    private void recordSkippedAttachment(List<ConsultAttachmentWarning> attachmentWarnings,
+            ConsultAttachmentWarning warning, String reason) {
+        attachmentWarnings.add(warning);
+        // An unavailable target is expected (it was deleted or moved) and is named to staff; one
+        // that exists but could not be read is worth a warning.
+        if (warning.isUnavailable()) {
+            logger.info("Left out consultation attachment {}: {}", warning, LogSafe.sanitize(reason));
+        } else if (logger.isWarnEnabled()) {
+            logger.warn("Left out consultation attachment {}: {}", warning, LogSafe.sanitize(reason));
+        }
+    }
+
+    @FunctionalInterface
+    private interface AttachmentRenderer {
+        Path render() throws PDFGenerationException;
     }
 
     private String getDisplayLabName(LabResultData labResultData) {
@@ -956,5 +1485,73 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 }
             }
         }
+    }
+    /**
+     * Refuses an attempt to add an outbound email archive eDoc to an attachment relationship.
+     *
+     * <p>Only {@link DocumentType#DOC} can name an eDoc, so other attachment types short-circuit
+     * without a query.</p>
+     */
+    private void assertNoOutboundEmailArchiveAttachments(DocumentType documentType, String[] attachments) {
+        if (documentType != DocumentType.DOC || attachments == null) {
+            return;
+        }
+        List<Integer> documentNos = new ArrayList<>();
+        for (String attachment : attachments) {
+            if (attachment == null || attachment.isBlank()) {
+                continue;
+            }
+            try {
+                documentNos.add(Integer.valueOf(attachment.trim()));
+            } catch (NumberFormatException e) {
+                // Left for DocumentAttach to reject, so invalid-id behaviour is unchanged.
+            }
+        }
+        if (!findArchiveDocumentNos(documentType, documentNos).isEmpty()) {
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
+        }
+    }
+
+    private String[] guardArchiveAttachments(
+            DocumentType documentType,
+            String[] submittedAttachments,
+            Supplier<Collection<Integer>> currentDocumentNos) {
+        assertNoOutboundEmailArchiveAttachments(documentType, submittedAttachments);
+        if (documentType != DocumentType.DOC) {
+            return submittedAttachments;
+        }
+        return preserveCurrentArchiveAttachments(
+                documentType, submittedAttachments, currentDocumentNos.get());
+    }
+
+    /**
+     * Keeps archive eDocs already present in an attachment relationship attached.
+     *
+     * <p>The consultation and eForm calls replace the whole attachment set, so a submit that
+     * simply omits an archive artifact would detach it -- quietly severing a legal association
+     * without ever going through the controlled-deletion path. Refusing the submit would be
+     * worse: the omission is normal UI behaviour, not an attack. So archive attachments are
+     * folded back in and the rest of the submitted set is honoured.</p>
+     */
+    private String[] preserveCurrentArchiveAttachments(
+            DocumentType documentType, String[] submittedAttachments, Collection<Integer> currentDocumentNos) {
+        Set<Integer> archiveDocumentNos = findArchiveDocumentNos(documentType, currentDocumentNos);
+        if (archiveDocumentNos.isEmpty()) {
+            return submittedAttachments;
+        }
+        LinkedHashSet<String> preservedAttachments = new LinkedHashSet<>();
+        if (submittedAttachments != null) {
+            Collections.addAll(preservedAttachments, submittedAttachments);
+        }
+        archiveDocumentNos.stream().map(String::valueOf).forEach(preservedAttachments::add);
+        return preservedAttachments.toArray(new String[0]);
+    }
+
+    private Set<Integer> findArchiveDocumentNos(DocumentType documentType, Collection<Integer> documentNos) {
+        if (documentType != DocumentType.DOC || documentNos == null || documentNos.isEmpty()) {
+            return Set.of();
+        }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
+        return archiveDocumentNos != null ? archiveDocumentNos : Set.of();
     }
 }

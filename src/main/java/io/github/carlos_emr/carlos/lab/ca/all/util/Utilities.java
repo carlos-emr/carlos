@@ -44,12 +44,13 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Date;
 
@@ -73,10 +74,7 @@ public class Utilities {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static ArrayList<String> separateMessages(String fileName) throws Exception {
 
-        // Validate the file path is within DOCUMENT_DIR to prevent path traversal
-        CarlosProperties props = CarlosProperties.getInstance();
-        String place = props.getProperty("DOCUMENT_DIR");
-        File validatedFile = PathValidationUtils.validateExistingPath(new File(fileName), new File(place));
+        File validatedFile = PathValidationUtils.validateExistingDocumentPath(fileName);
 
         ArrayList<String> messages = new ArrayList<String>();
         try (InputStream is = new FileInputStream(validatedFile);
@@ -131,74 +129,113 @@ public class Utilities {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String saveFile(InputStream stream, String filename) {
-        String retVal = null;
-
-        try {
-            CarlosProperties props = CarlosProperties.getInstance();
-            String place = props.getProperty("DOCUMENT_DIR");
-
-            // Validate filename and construct path using PathValidationUtils
-            File safeDir = new File(place);
+        // try-with-resources on the caller's stream: directory resolution and filename validation
+        // below can return or throw before writeUploadToNewFile is reached, and callers such as
+        // LabUploadWs pass a raw stream with no finally of their own.
+        try (InputStream uploadStream = stream) {
+            File safeDir = PathValidationUtils.getRequiredDocumentDirectory();
             File targetFile = PathValidationUtils.validatePath(filename, safeDir);
 
-            // Construct retVal using the validated targetFile path
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime()), targetFile.getParentFile());
-            retVal = outputFile.getPath();
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName(
+                            "LabUpload." + targetFile.getName().replaceFirst("\\.enc$", "") + "." + (new Date()).getTime()),
+                    targetFile.getParentFile());
 
-            logger.debug("saveFile place={}, retVal={}",
-                    LogSafe.sanitize(place, 1024),
-                    LogSafe.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-
-            try (OutputStream os = Files.newOutputStream(outputFile.toPath());
-                BufferedInputStream bis = new BufferedInputStream(stream)) {
-
-                byte[] buffer = new byte[8192]; // 8KB buffer
-                int bytesRead;
-                while ((bytesRead = bis.read(buffer)) != -1) {
-                    os.write(buffer, 0, bytesRead);
-                }
+            // Only the configured directory is logged, never the generated name: it is derived from
+            // the caller-supplied lab filename, which can carry patient-identifying text.
+            if (logger.isDebugEnabled()) {
+                logger.debug("saveFile place={}",
+                        LogSafe.sanitize(safeDir.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
-        } catch (FileNotFoundException fnfe) {
-            logger.error("Unable to create or write to file: {}", LogSafe.sanitize(filename), fnfe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+
+            return writeUploadToNewFile(uploadStream, outputFile) ? outputFile.getPath() : null;
         } catch (IOException ioe) {
             logger.error("Error processing file: {}", LogSafe.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
         }
-        return retVal;
+    }
+
+    /**
+     * Streams the upload into {@code outputFile}, which must not already exist.
+     *
+     * @param stream the upload content; closed by this method
+     * @param outputFile the validated destination, created exclusively by this call
+     * @return {@code true} once written; {@code false} when another in-flight upload already owns the
+     *         generated name, in which case nothing on disk is created or removed
+     * @throws IOException if the write fails; the partial output is deleted first
+     */
+    private static boolean writeUploadToNewFile(InputStream stream, File outputFile) throws IOException {
+        // CREATE_NEW, not the default CREATE/TRUNCATE_EXISTING: the generated name is only
+        // millisecond-unique, so two concurrent uploads of the same filename can resolve to the same
+        // path. Failing the second one is better than silently interleaving two labs into one file.
+        // bis is declared FIRST on purpose: try-with-resources only closes resources it has already
+        // constructed, so if the CREATE_NEW open below fails (name collision or any other open error)
+        // a later-declared wrapper would never be built and the caller's stream would leak.
+        try (BufferedInputStream bis = new BufferedInputStream(stream);
+                OutputStream os = Files.newOutputStream(outputFile.toPath(),
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+
+            byte[] buffer = new byte[8192]; // 8KB buffer
+            int bytesRead;
+            while ((bytesRead = bis.read(buffer)) != -1) {
+                os.write(buffer, 0, bytesRead);
+            }
+            return true;
+        } catch (FileAlreadyExistsException nameCollision) {
+            // Another in-flight upload already created this name, so the file on disk is theirs. Fail
+            // this upload without any cleanup rather than deleting their output. Neither the name nor
+            // the exception is logged: both carry the lab filename.
+            logger.error("Generated lab upload name is already in use; upload not written");
+            return false;
+        } catch (IOException writeFailure) {
+            // Reachable only after CREATE_NEW succeeded above, so this call exclusively created
+            // outputFile and removing it cannot discard another request's output.
+            deletePartialOutput(outputFile);
+            throw writeFailure;
+        }
+    }
+
+    private static void deletePartialOutput(File outputFile) {
+        if (outputFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(outputFile.toPath());
+        } catch (IOException deleteException) {
+            // Neither the path nor the throwable is logged: the generated name embeds the caller's lab
+            // filename and the exception message repeats it. The exception type is enough to tell a
+            // permissions failure from a missing file.
+            logger.error("Error deleting partial lab upload output ({})", deleteException.getClass().getSimpleName());
+        }
     }
 
     public static String saveHRMFile(InputStream stream, String filename) {
         String retVal = null;
         String place = CarlosProperties.getInstance().getProperty("OMD_hrm");
 
-        try {
-            if (!place.endsWith("/")) {
-                place = new StringBuilder(place).insert(place.length(), "/").toString();
-            }
+        // try-with-resources over the caller's stream, and exclusive creation below: the last of the
+        // four upload writers to get the contract the others now share.
+        try (InputStream uploadStream = stream) {
             File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "OMD_hrm");
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("KeyUpload." + filename + "." + (new Date()).getTime()), baseDir);
-            retVal = outputFile.getPath();
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName("KeyUpload." + filename + "." + (new Date()).getTime()),
+                    baseDir);
 
-            //write the  file to the file specified
-            try (OutputStream os = new FileOutputStream(outputFile)) {
+            try (OutputStream os = Files.newOutputStream(outputFile.toPath(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                 int bytesRead;
-                while ((bytesRead = stream.read()) != -1) {
+                while ((bytesRead = uploadStream.read()) != -1) {
                     os.write(bytesRead);
                 }
             }
 
-            //close the stream
-            stream.close();
-        } catch (FileNotFoundException fnfe) {
-            logger.error("Error", fnfe);
-            return retVal;
-        } catch (IOException ioe) {
-            logger.error("Error", ioe);
-            return retVal;
-        } catch (SecurityException se) {
-            // A blank/misconfigured OMD_hrm directory or an unsafe generated filename throws here;
-            // degrade to the same null/partial-path return as the I/O failure paths rather than
-            // letting an unchecked exception escape saveHRMFile.
-            logger.error("Error", se);
+            // Assigned only after a complete write, like the other writers.
+            retVal = outputFile.getPath();
+        } catch (FileAlreadyExistsException nameCollision) {
+            logger.error("Generated HRM upload name is already in use; upload not written");
+            return null;
+        } catch (IOException | SecurityException ioe) {
+            logger.error("Error writing HRM upload: {}", LogSafe.exceptionTrace(ioe));
             return retVal;
         }
         return retVal;
@@ -206,20 +243,13 @@ public class Utilities {
 
     public static String savePdfFile(InputStream stream, String filename) {
         String retVal = null;
-        try {
+        File outputFile = null;
+        try (InputStream uploadStream = stream) {
             if (filename == null || filename.isBlank()) {
                 throw new IllegalArgumentException("Filename cannot be null or empty");
             }
 
-            CarlosProperties props = CarlosProperties.getInstance();
-            String place = props.getProperty("DOCUMENT_DIR");
-
-            if (!place.endsWith("/")) {
-                place = place + "/";
-            }
-
-            // Validate filename using PathValidationUtils
-            File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "lab document directory");
+            File baseDir = PathValidationUtils.getRequiredDocumentDirectory();
             File targetFile = PathValidationUtils.validatePath(filename, baseDir);
 
             // Derive the safe output name from the validated file (not the raw input)
@@ -230,24 +260,36 @@ public class Utilities {
                 safeName = safeName.substring(0, safeName.length() - 4);
             }
 
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf"), baseDir);
-            retVal = outputFile.toString();
+            outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName("DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf"),
+                    baseDir);
 
-            try (OutputStream os = new FileOutputStream(outputFile)) {
+            // CREATE_NEW like saveFile: the generated name is only millisecond-unique, and a
+            // truncating open destroyed the colliding upload's document rather than failing.
+            try (OutputStream os = Files.newOutputStream(outputFile.toPath(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                 int bytesRead;
-                while ((bytesRead = stream.read()) != -1) {
+                while ((bytesRead = uploadStream.read()) != -1) {
                     os.write(bytesRead);
                 }
             }
-            stream.close();
 
-        } catch (FileNotFoundException fnfe) {
-            logger.error("Error", fnfe);
-            return retVal;
+            // Assigned only after a complete write, matching saveFile: callers such as
+            // LabUploadWs.uploadPDF feed this straight to a parser, so a path to a partial
+            // document is worse than no path at all.
+            retVal = outputFile.toString();
+
+        } catch (FileAlreadyExistsException nameCollision) {
+            // The destination belongs to another in-flight upload; leave it untouched.
+            logger.error("Generated PDF upload name is already in use; upload not written");
+            return null;
         } catch (IOException ioe) {
-            logger.error("Error", ioe);
+            deletePartialOutput(outputFile);
+            // exceptionTrace, not the throwable: an IOException message here is the generated path,
+            // whose basename embeds the caller-supplied lab filename.
+            logger.error("Error writing PDF upload: {}", LogSafe.exceptionTrace(ioe));
             return retVal;
-        } catch (IllegalArgumentException iae) {
+        } catch (IllegalArgumentException | SecurityException iae) {
             logger.error("Invalid filename: {}", LogSafe.sanitize(filename), iae); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }

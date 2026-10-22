@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.CarlosProperties;
+
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -62,6 +65,7 @@ public final class PathValidationUtils {
             "Invalid filename: must not include a path.";
     private static final String BLOCKED_EXTENSION_MESSAGE =
             "Invalid filename: file extension .%s not allowed.";
+    private static final String INVALID_FIELD_EMPTY_LOG = "Invalid {}: null or empty";
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
             "jsp", "jspx", "war", "class", "jar", "jnlp");
 
@@ -91,6 +95,29 @@ public final class PathValidationUtils {
     private static final Set<String> WORK_APPLICATION_TEMP_SEGMENTS = Set.of("carlos");
 
     private static final Logger logger = MiscUtils.getLogger();
+
+    /**
+     * What this class's log lines name a path by, never the path itself: the first 12 hex digits of
+     * the SHA-256 of the canonical path where available (a directory's name can be a patient's
+     * import folder). If a temp root cannot be resolved, its reference uses the raw configured
+     * base string instead, without an appended subdirectory such as {@code work}. This method
+     * hashes the supplied string; it does not canonicalize it. For a known canonical path:
+     * {@code printf '%s' "$(realpath -m -- "$path")" | sha256sum | cut -c1-12}. The field label
+     * logged beside it says which setting or argument the path came from.
+     */
+    static String logReference(String path) {
+        return path == null ? "ref:none" : "ref:" + DigestUtils.sha256Hex(path).substring(0, 12);
+    }
+
+    /**
+     * The trace of a failure, types and code locations only, at debug; the error line names the
+     * exception type and attaches nothing.
+     */
+    private static void logTrace(Throwable failure) {
+        if (logger.isDebugEnabled()) {
+            logger.debug("Path validation failure trace:{}", LogSafe.exceptionTrace(failure));
+        }
+    }
 
     /**
      * Lazily-initialized set of allowed temp directories.
@@ -320,7 +347,7 @@ public final class PathValidationUtils {
     public static String validatePathComponent(String value, String label) {
         String field = label == null || label.trim().isEmpty() ? "path component" : label;
         if (value == null || value.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
         if (value.indexOf('\0') >= 0) {
@@ -403,11 +430,7 @@ public final class PathValidationUtils {
      * @throws SecurityException if the file is outside the allowed directory
      */
     public static File validateChildPath(File file, File allowedDir) {
-        if (file == null) {
-            throw new SecurityException("File is null");
-        }
-        validateWithinDirectory(file, allowedDir);
-        return file;
+        return validateExistingPath(file, allowedDir);
     }
 
     /**
@@ -439,7 +462,8 @@ public final class PathValidationUtils {
         try {
             return file.getCanonicalFile();
         } catch (IOException e) {
-            logger.error("Error resolving {}", field, e);
+            logger.error("Error resolving {} ({})", field, e.getClass().getSimpleName());
+            logTrace(e);
             throw new SecurityException("Error resolving trusted path", e);
         }
     }
@@ -475,19 +499,22 @@ public final class PathValidationUtils {
     public static File validateConfiguredDirectory(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new SecurityException("Invalid configured directory");
         }
 
         try {
             File directory = new File(configuredPath).getCanonicalFile();
             if (!directory.isDirectory()) {
-                logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("{} is not a directory: {}", field, logReference(directory.getPath()));
+                }
                 throw new SecurityException("Configured path is not a directory");
             }
             return directory;
         } catch (IOException e) {
-            logger.error("Error validating {}", field, e);
+            logger.error("Error validating {} ({})", field, e.getClass().getSimpleName());
+            logTrace(e);
             throw new SecurityException("Error validating configured directory", e);
         }
     }
@@ -535,19 +562,22 @@ public final class PathValidationUtils {
     public static File resolveConfiguredDirectory(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new SecurityException("Invalid configured directory");
         }
 
         try {
             File directory = new File(configuredPath).getCanonicalFile();
             if (directory.exists() && !directory.isDirectory()) {
-                logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("{} is not a directory: {}", field, logReference(directory.getPath()));
+                }
                 throw new SecurityException("Configured path is not a directory");
             }
             return directory;
         } catch (IOException e) {
-            logger.error("Error validating {}", field, e);
+            logger.error("Error validating {} ({})", field, e.getClass().getSimpleName());
+            logTrace(e);
             throw new SecurityException("Error validating configured directory", e);
         }
     }
@@ -583,7 +613,8 @@ public final class PathValidationUtils {
             validateWithinDirectory(sibling, parent);
             return sibling;
         } catch (IOException e) {
-            logger.error("Error validating {}", field, e);
+            logger.error("Error validating {} ({})", field, e.getClass().getSimpleName());
+            logTrace(e);
             throw new SecurityException("Error validating configured sibling path", e);
         }
     }
@@ -600,19 +631,22 @@ public final class PathValidationUtils {
     public static File validateConfiguredFile(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured file" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new SecurityException("Invalid configured file");
         }
 
         try {
             File file = new File(configuredPath).getCanonicalFile();
             if (!file.isFile()) {
-                logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("{} is not a file: {}", field, logReference(file.getPath()));
+                }
                 throw new SecurityException("Configured path is not a file");
             }
             return file;
         } catch (IOException e) {
-            logger.error("Error validating {}", field, e);
+            logger.error("Error validating {} ({})", field, e.getClass().getSimpleName());
+            logTrace(e);
             throw new SecurityException("Error validating configured file", e);
         }
     }
@@ -629,19 +663,22 @@ public final class PathValidationUtils {
     public static File resolveConfiguredFile(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured file" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new SecurityException("Invalid configured file");
         }
 
         try {
             File file = new File(configuredPath).getCanonicalFile();
             if (file.exists() && !file.isFile()) {
-                logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("{} is not a file: {}", field, logReference(file.getPath()));
+                }
                 throw new SecurityException("Configured path is not a file");
             }
             return file;
         } catch (IOException e) {
-            logger.error("Error validating {}", field, e);
+            logger.error("Error validating {} ({})", field, e.getClass().getSimpleName());
+            logTrace(e);
             throw new SecurityException("Error validating configured file", e);
         }
     }
@@ -699,7 +736,8 @@ public final class PathValidationUtils {
             validateZipEntryNameComponent(relativeName);
             return relativeName;
         } catch (IOException | RuntimeException e) {
-            logger.error("Error validating ZIP entry name", e);
+            logger.error("Error validating ZIP entry name ({})", e.getClass().getSimpleName());
+            logTrace(e);
             throw new SecurityException("Invalid ZIP entry name", e);
         }
     }
@@ -722,6 +760,80 @@ public final class PathValidationUtils {
         } catch (IllegalArgumentException e) {
             throw new FileValidationException(INVALID_FILENAME_MESSAGE, e);
         }
+    }
+
+    /**
+     * Validates that the path string resolves to a file within the allowed directory.
+     * Convenience overload that constructs the {@link File} internally, avoiding a
+     * bare {@code new File(taintedPath)} at the call site and keeping the taint sink
+     * inside this utility where SpotBugs can track containment.
+     *
+     * @param path the file path to validate; must be non-null and non-empty
+     * @param allowedDir the directory the resolved file must be within
+     * @return the validated File
+     * @throws SecurityException if the path is null/empty or resolves outside allowedDir
+     */
+    public static File validateExistingPath(String path, File allowedDir) {
+        if (path == null || path.isBlank()) {
+            throw new SecurityException("File path is null or empty");
+        }
+        return validateExistingPath(new File(path), allowedDir);
+    }
+
+    /**
+     * Returns DOCUMENT_DIR as a canonical directory, failing closed when it is not configured.
+     *
+     * @return the canonical DOCUMENT_DIR directory
+     * @throws IOException if DOCUMENT_DIR is unavailable or cannot be canonicalized
+     */
+    public static File getRequiredDocumentDirectory() throws IOException {
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        if (documentDir == null || documentDir.isBlank()) {
+            throw new IOException("DOCUMENT_DIR not configured; rejecting file access");
+        }
+        File canonicalDocumentDir = new File(documentDir).getCanonicalFile();
+        if (!canonicalDocumentDir.isDirectory()) {
+            throw new IOException("DOCUMENT_DIR is not an existing directory; rejecting file access");
+        }
+        return canonicalDocumentDir;
+    }
+
+    /**
+     * Returns the canonical, existing administrator-configured billing output directory.
+     *
+     * @return the canonical HOME_DIR directory
+     * @throws IOException if HOME_DIR is absent, unavailable or not a directory
+     */
+    public static File getRequiredHomeDirectory() throws IOException {
+        String home = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        if (home == null || home.isBlank()) {
+            throw new IOException("HOME_DIR not configured; rejecting file access");
+        }
+        File directory = new File(home).getCanonicalFile();
+        if (!directory.isDirectory()) {
+            throw new IOException("HOME_DIR is not an existing directory; rejecting file access");
+        }
+        return directory;
+    }
+
+    /**
+     * Validates that the path string is contained within DOCUMENT_DIR, which must be configured.
+     * Use this for application-created lab file paths that must fail closed when
+     * DOCUMENT_DIR is unavailable.
+     *
+     * <p><strong>Containment only.</strong> Like {@link #validateExistingPath(File, File)}, this
+     * canonicalizes and checks directory containment; it does <em>not</em> assert that the target
+     * exists or is a regular file. Callers that need those guarantees must still check
+     * {@link File#exists()} / {@link File#isFile()} themselves. It does require DOCUMENT_DIR itself
+     * to be a configured, existing directory.</p>
+     *
+     * @param path the file path to validate; must be non-null and non-empty
+     * @return the validated File, contained within DOCUMENT_DIR
+     * @throws IOException if DOCUMENT_DIR is unavailable or cannot be canonicalized
+     * @throws SecurityException if the path is null/empty or resolves outside DOCUMENT_DIR
+     */
+    public static File validateExistingDocumentPath(String path) throws IOException {
+        return validateExistingPath(path, getRequiredDocumentDirectory());
     }
 
     // ========================================================================
@@ -877,7 +989,8 @@ public final class PathValidationUtils {
 
             return false;
         } catch (IOException e) {
-            logger.error("Error validating file path", e);
+            logger.error("Error validating file path ({})", e.getClass().getSimpleName());
+            logTrace(e);
             return false;
         }
     }
@@ -930,7 +1043,8 @@ public final class PathValidationUtils {
         try {
             canonicalPath = file.getCanonicalPath();
         } catch (IOException e) {
-            logger.error("Error validating application temp path", e);
+            logger.error("Error validating application temp path ({})", e.getClass().getSimpleName());
+            logTrace(e);
             throw new SecurityException("Cannot resolve temp path");
         }
         for (Map.Entry<String, Set<String>> root : getApplicationTempRoots().entrySet()) {
@@ -965,7 +1079,8 @@ public final class PathValidationUtils {
         try {
             canonicalFile = sourceFile.getCanonicalFile();
         } catch (IOException e) {
-            logger.error("Cannot resolve canonical path for uploaded file", e);
+            logger.error("Cannot resolve canonical path for uploaded file ({})", e.getClass().getSimpleName());
+            logTrace(e);
             throw new SecurityException("Cannot resolve upload file path");
         }
 
@@ -1002,12 +1117,12 @@ public final class PathValidationUtils {
 
             if (!fileCanonical.equals(baseCanonical) && !fileCanonical.startsWith(baseCanonical + File.separator)) {
                 logger.error("Path {} is outside allowed directory {}",
-                        LogSafe.sanitize(fileCanonical, 1024),
-                        LogSafe.sanitize(baseCanonical, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                        logReference(fileCanonical), logReference(baseCanonical)); // NOSONAR javasecurity:S5145 — hashes of the paths, never the paths
                 throw new SecurityException("Invalid file path");
             }
         } catch (IOException e) {
-            logger.error("Error validating file path", e);
+            logger.error("Error validating file path ({})", e.getClass().getSimpleName());
+            logTrace(e);
             throw new SecurityException("Error validating file path");
         }
     }
@@ -1055,7 +1170,8 @@ public final class PathValidationUtils {
             String dirCanonical = directory.getCanonicalPath();
             return canonicalPath.equals(dirCanonical) || canonicalPath.startsWith(dirCanonical + File.separator);
         } catch (IOException e) {
-            logger.error("Error checking if file is within directory", e);
+            logger.error("Error checking if file is within directory ({})", e.getClass().getSimpleName());
+            logTrace(e);
             return false;
         }
     }
@@ -1148,7 +1264,7 @@ public final class PathValidationUtils {
             // sets must be honoured, otherwise a valid carlos-temp file could fail validation.
             roots.computeIfAbsent(dir.getCanonicalPath(), ignored -> new LinkedHashSet<>()).addAll(segments);
         } catch (IOException e) {
-            logger.debug("Could not resolve canonical path for {}: {}", basePath, e.getMessage());
+            logger.debug("Could not resolve canonical path for {} ({})", logReference(basePath), e.getClass().getSimpleName());
         }
     }
 
@@ -1179,7 +1295,7 @@ public final class PathValidationUtils {
             File dir = (subDir != null) ? new File(basePath, subDir) : new File(basePath);
             dirs.add(dir.getCanonicalPath());
         } catch (IOException e) {
-            logger.debug("Could not resolve canonical path for {}: {}", basePath, e.getMessage());
+            logger.debug("Could not resolve canonical path for {} ({})", logReference(basePath), e.getClass().getSimpleName());
         }
     }
 }

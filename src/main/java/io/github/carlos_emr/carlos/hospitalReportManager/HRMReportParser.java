@@ -399,29 +399,57 @@ public class HRMReportParser {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /**
+     * The report date shown for an HRM report: the first observation's date for imaging and
+     * cardio-respiratory reports, otherwise the report's event time.
+     *
+     * @return the formatted date, or an empty string when the report carries no usable date
+     */
     public static String getAppropriateDateStringFromReport(HRMReport report) {
-        if (report.getFirstReportClass().equalsIgnoreCase("Diagnostic Imaging Report") || report.getFirstReportClass().equalsIgnoreCase("Cardio Respiratory Report")) {
+        if (hasDatedObservation(report)) {
             return (String) report.getAccompanyingSubclassList().get(0).get(4);
         }
 
         Calendar calendar = report.getFirstReportEventTime();
+        if (calendar == null) {
+            return "";
+        }
         SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy");
         sdf.setTimeZone(calendar.getTimeZone());
 
         return sdf.format(calendar.getTime());
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /**
+     * Same selection as {@link #getAppropriateDateStringFromReport} as a {@link Date}.
+     *
+     * @return the report date, or {@code null} when the report carries no usable date
+     */
     public static Date getAppropriateDateFromReport(HRMReport report) {
-        if (report.getFirstReportClass().equalsIgnoreCase("Diagnostic Imaging Report") || report.getFirstReportClass().equalsIgnoreCase("Cardio Respiratory Report")) {
+        if (hasDatedObservation(report)) {
             return ((Date) (report.getAccompanyingSubclassList().get(0).get(3)));
         }
 
-        // Medical Records Report
-        return report.getFirstReportEventTime().getTime();
+        // Medical Records Report, or an imaging report without a dated observation.
+        Calendar calendar = report.getFirstReportEventTime();
+        return calendar == null ? null : calendar.getTime();
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private static boolean hasDatedObservation(HRMReport report) {
+        String reportClass = report.getFirstReportClass();
+        if (!("Diagnostic Imaging Report".equalsIgnoreCase(reportClass)
+                || "Cardio Respiratory Report".equalsIgnoreCase(reportClass))) {
+            return false;
+        }
+        // OBRContent is optional in the HRM schema, and getAccompanyingSubclassList() appends the
+        // observation Date (index 3) and its formatted string (index 4) only when the OBR carries an
+        // ObservationDateTime. Indexing blindly turned a schema-valid imaging report without an
+        // observation into an IndexOutOfBoundsException that failed every PDF packet it was
+        // attached to.
+        List<List<Object>> observations = report.getAccompanyingSubclassList();
+        return !observations.isEmpty() && observations.get(0).size() > 4;
     }
 
     public static boolean routeReportToProvider(HRMReport report, Integer reportId) {
@@ -430,7 +458,18 @@ public class HRMReportParser {
             return false;
         }
 
-        logger.info("Routing Report to Provider, for file:" + report.getFileLocation());
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        return Boolean.TRUE.equals(transaction.execute(status -> {
+            if (SpringUtils.getBean(HRMDocumentDao.class).findForUpdate(reportId) == null) {
+                throw new IllegalArgumentException("HRM report does not exist");
+            }
+            return routeReportToProviderLocked(report, reportId);
+        }));
+    }
+
+    private static boolean routeReportToProviderLocked(HRMReport report, Integer reportId) {
+        logger.info("Routing HRM report {} to delivered recipients", reportId);
 
         HRMDocumentToProviderDao hrmDocumentToProviderDao = SpringUtils.getBean(HRMDocumentToProviderDao.class);
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -486,6 +525,13 @@ public class HRMReportParser {
                 providerRouting.setSignedOff(0);
 
                 hrmDocumentToProviderDao.merge(providerRouting);
+            } else {
+                for (HRMDocumentToProvider existing : existingHRMDocumentToProviders) {
+                    if (existing.getMrpDemographicNo() != null) {
+                        existing.setMrpDemographicNo(null);
+                        hrmDocumentToProviderDao.merge(existing);
+                    }
+                }
             }
 
             //Gets the list of IncomingLabRules pertaining to the current providers
@@ -508,6 +554,9 @@ public class HRMReportParser {
                             hrmDocumentToProvider.setSignedOff(0);
                             //Stores it in the table
                             hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
+                        } else if (hrmDocumentToProvider.getMrpDemographicNo() != null) {
+                            hrmDocumentToProvider.setMrpDemographicNo(null);
+                            hrmDocumentToProviderDao.merge(hrmDocumentToProvider);
                         }
                     }
                 }

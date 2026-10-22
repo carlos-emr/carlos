@@ -159,7 +159,7 @@ public class LogReport2Action extends ActionSupport {
             if (sDate == null || sDate.isEmpty()) sDate = "1900-01-01";
             if (eDate == null || eDate.isEmpty()) eDate = "2999-01-01";
 
-            // Date params: getSysDateEX adds one day to make the end-date inclusive.
+            // The selected end date is inclusive; next midnight is the DAO's exclusive upper bound.
             java.sql.Date parsedStart = MyDateFormat.getSysDate(sDate);
             java.sql.Date parsedEnd = MyDateFormat.getSysDateEX(eDate, 1);
             if (parsedStart == null || parsedEnd == null) {

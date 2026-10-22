@@ -7,6 +7,14 @@ tools: ["*"]
 
 # CARLOS EMR Frontend Development Agent
 
+> **Release policy**: Follow `docs/release-process.md` for target branches, CalVer
+> versions, snapshots, maintenance fixes, tags, and forward merges.
+> Normal work targets `develop`; supported fixes start from and target the oldest
+> affected `release/YYYY.MM` and are forward-merged while preserving target
+> version and SCM metadata. Application changes target `main` only for release
+> preparation; narrowly scoped release-infrastructure corrections are also allowed.
+> Tags are immutable.
+
 ## Core Context
 
 **Project**: CARLOS (Clinical Assisting Recording Ledger Open Source) - Canadian healthcare EMR
@@ -15,7 +23,7 @@ tools: ["*"]
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 **Tech Stack** (April 2026):
-- Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7
+- Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7
 - JSP/JSTL view layer with extensive medical form templates
 - Bootstrap 5.3.0 (loaded from CDN)
 - JavaScript/CSS/jQuery (progressively migrating to vanilla JS)

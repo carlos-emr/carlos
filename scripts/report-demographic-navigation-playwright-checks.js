@@ -50,7 +50,7 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -58,6 +58,7 @@ const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 const path = require('path');
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
@@ -87,6 +88,9 @@ function isLocalHost(rawHost) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
@@ -107,7 +111,7 @@ const testPin = process.env.TEST_PIN || '2026';
 const mysqlHost = process.env.MYSQL_HOST || 'db';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const savedQueryStamp = `PW_DEMOREPORT_${Date.now()}`;
 
 const findings = [];
@@ -584,10 +588,15 @@ async function checkBackButtonDirectEntryFallback(context) {
   await page.close();
 }
 
+// Issue #3600: a finally does not run when the process is killed, which would leave
+// the saved-query row and the cleartext MySQL password file behind. Idempotent.
+const signalHandlers = installCleanupSignalHandlers(cleanupSavedQueryRow);
+
 (async () => {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -621,6 +630,8 @@ async function checkBackButtonDirectEntryFallback(context) {
   } finally {
     cleanupSavedQueryRow();
     await browser.close();
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })().catch((error) => {
   console.error('FAIL demographic report navigation Playwright check');

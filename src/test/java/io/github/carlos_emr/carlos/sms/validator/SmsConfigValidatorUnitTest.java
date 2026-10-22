@@ -1,0 +1,160 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.sms.validator;
+
+import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import java.util.Map;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Tag("unit")
+@Tag("validator")
+class SmsConfigValidatorUnitTest {
+    private static final Set<SmsProviderType> INSTALLED = Set.of(SmsProviderType.STUB);
+    private static final SmsConfigValidator.ProviderNeeds NONE = SmsConfigValidator.ProviderNeeds.NONE;
+
+    private final SmsConfigValidator validator = new SmsConfigValidator();
+
+    @Test
+    @DisplayName("accepts the stub provider with a valid sender number or none")
+    void shouldAcceptSettings_whenValid() {
+        assertThat(validator.validate(update(SmsProviderType.STUB, "416-555-1212"), INSTALLED, NONE)).isEmpty();
+        assertThat(validator.validate(update(SmsProviderType.STUB, ""), INSTALLED, NONE)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("requires a provider")
+    void shouldRejectSettings_whenProviderIsMissing() {
+        assertThat(validator.validate(update(null, ""), INSTALLED, NONE))
+                .containsExactly("sms.config.error.providerRequired");
+    }
+
+    @Test
+    @DisplayName("refuses a provider that has no installed client, since sends through it would fail")
+    void shouldRejectSettings_whenProviderHasNoClient() {
+        assertThat(validator.validate(update(SmsProviderType.VOIPMS, ""), INSTALLED, NONE))
+                .containsExactly("sms.config.error.providerNotInstalled");
+    }
+
+    @Test
+    @DisplayName("refuses a sender number that is not a valid phone number")
+    void shouldRejectSettings_whenSenderNumberIsInvalid() {
+        assertThat(validator.validate(update(SmsProviderType.STUB, "not-a-number"), INSTALLED, NONE))
+                .containsExactly("sms.config.error.senderNumber");
+    }
+
+    private static SmsConfigUpdateDto update(SmsProviderType providerType, String senderNumber) {
+        return new SmsConfigUpdateDto(providerType, true, false, senderNumber, "", false, Map.of(), null);
+    }
+
+    @Test
+    @DisplayName("refuses a webhook secret longer than 256 bytes, which would not fit once encrypted")
+    void shouldRejectSettings_whenWebhookSecretIsTooLong() {
+        SmsConfigUpdateDto update = new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "x".repeat(257), false, Map.of(), null);
+
+        assertThat(validator.validate(update, INSTALLED, NONE)).containsExactly("sms.config.error.webhookSecretTooLong");
+        assertThat(validator.validate(new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "x".repeat(256), false, Map.of(), null), INSTALLED, NONE)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("counts the webhook secret in UTF-8 bytes, since that is what gets encrypted and stored")
+    void shouldRejectSettings_whenMultiByteSecretExceedsByteLimit() {
+        // 200 characters, 400 bytes: under the character count but over the stored-size limit.
+        SmsConfigUpdateDto update = new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "\u00E9".repeat(200), false, Map.of(), null);
+
+        assertThat(validator.validate(update, INSTALLED, NONE)).containsExactly("sms.config.error.webhookSecretTooLong");
+        assertThat(validator.validate(new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "\u00E9".repeat(128), false, Map.of(), null), INSTALLED, NONE))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("refuses a new webhook secret together with removing the stored one, since saving would drop the new one")
+    void shouldRejectSettings_whenNewSecretAndClearAreBothGiven() {
+        SmsConfigUpdateDto update = new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "new-secret-value", true, Map.of(), null);
+
+        assertThat(validator.validate(update, INSTALLED, NONE)).containsExactly("sms.config.error.clearAndNewSecret");
+        assertThat(validator.validate(new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "", true, Map.of(), null), INSTALLED, NONE)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("refuses a provider credential longer than 1024 bytes")
+    void shouldRejectSettings_whenCredentialIsTooLong() {
+        assertThat(validator.validate(new SmsConfigUpdateDto(SmsProviderType.STUB, true, false, "", "", false,
+                Map.of("field_one", "x".repeat(1025)), null), INSTALLED, NONE))
+                .containsExactly("sms.config.error.credentialTooLong");
+        assertThat(validator.validate(new SmsConfigUpdateDto(SmsProviderType.STUB, true, false, "", "", false,
+                Map.of("field_one", "x".repeat(1024)), null), INSTALLED, NONE)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("asks for every required credential the provider declares before sending can be switched on")
+    void shouldRequireDeclaredCredentials_whenSendingIsSwitchedOn() {
+        SmsConfigValidator.ProviderNeeds needs = new SmsConfigValidator.ProviderNeeds(
+                Set.of("api_user", "api_password"), false, Set.of("api_user"));
+
+        assertThat(validator.validate(new SmsConfigUpdateDto(SmsProviderType.STUB, true, false, "", "", false,
+                Map.of("api_password", " "), null), INSTALLED, needs))
+                .as("a blank field keeps nothing when nothing is stored")
+                .containsExactly("sms.config.error.credentialRequired");
+        assertThat(validator.validate(new SmsConfigUpdateDto(SmsProviderType.STUB, true, false, "", "", false,
+                Map.of("api_password", "typed"), null), INSTALLED, needs))
+                .as("typed now, or already stored").isEmpty();
+        assertThat(validator.validate(new SmsConfigUpdateDto(SmsProviderType.STUB, false, false, "", "", false,
+                Map.of(), null), INSTALLED, needs))
+                .as("a clinic can choose a provider and enter its credentials before switching sending on")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("asks for a sender number before sending can be switched on, when the provider needs one")
+    void shouldRequireSenderNumber_whenProviderNeedsOneAndSendingIsSwitchedOn() {
+        SmsConfigValidator.ProviderNeeds needs = new SmsConfigValidator.ProviderNeeds(Set.of(), true, Set.of());
+
+        assertThat(validator.validate(update(SmsProviderType.STUB, " "), INSTALLED, needs))
+                .containsExactly("sms.config.error.senderNumberRequired");
+        assertThat(validator.validate(update(SmsProviderType.STUB, "416-555-1212"), INSTALLED, needs)).isEmpty();
+        assertThat(validator.validate(new SmsConfigUpdateDto(SmsProviderType.STUB, false, false, "", "", false,
+                Map.of(), null), INSTALLED, needs)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("accepts a blank sender number field when the save brings back the number stored for the provider")
+    void shouldAcceptBlankSenderNumber_whenSaveKeepsStoredNumber() {
+        SmsConfigValidator.ProviderNeeds kept = new SmsConfigValidator.ProviderNeeds(Set.of(), true, Set.of(), true);
+
+        assertThat(validator.validate(update(SmsProviderType.STUB, ""), INSTALLED, kept)).isEmpty();
+        assertThat(new SmsConfigValidator.ProviderNeeds(Set.of(), true, Set.of()).senderNumberKept())
+                .as("none kept unless the service says so").isFalse();
+    }
+}

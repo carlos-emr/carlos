@@ -24,9 +24,9 @@ allowed-tools:
   - Bash(ls /workspace/.playwright-mcp/*)
   - Bash(wc *)
   - Bash(curl * http://localhost:8080/*)
-  - Bash(mariadb -h db -uroot -ppassword oscar *)
-  - Bash(mariadb -h db -uroot -ppassword oscar -e *)
-  - Bash(mariadb * oscar * 2>&1 | tail -1)
+  - Bash(mariadb -h db -uroot -ppassword carlos *)
+  - Bash(mariadb -h db -uroot -ppassword carlos -e *)
+  - Bash(mariadb * carlos * 2>&1 | tail -1)
   - Bash(date *)
   - Bash(TIMESTAMP=*)
   - Write(path:ui-test-runs/**)
@@ -68,15 +68,15 @@ curl -sI http://localhost:8080/oscar/index.jsp | head -1
 # Expected: HTTP/1.1 200
 
 # 2. Database connection
-mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword carlos -e "SELECT 1;"
 # Expected: Returns 1
 
 # 3. Test user exists
-mariadb -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='carlosdoc';"
+mariadb -h db -uroot -ppassword carlos -e "SELECT user_name FROM security WHERE user_name='carlosdoc';"
 # Expected: carlosdoc
 
 # 4. Test patients exist
-mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no, last_name FROM demographic WHERE demographic_no IN (1, 182);"
+mariadb -h db -uroot -ppassword carlos -e "SELECT demographic_no, last_name FROM demographic WHERE demographic_no IN (1, 182);"
 # Expected: 2 rows
 ```
 

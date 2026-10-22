@@ -1,7 +1,7 @@
 /*
  * Runtime compatibility for stored eForms written against pre-migration CARLOS.
  *
- * Two adaptations live here:
+ * Compatibility paths here:
  *
  *  - Timer callbacks. Modern CSP blocks native string callbacks such as setTimeout("code", delay),
  *    so those are executed through an injected script while every one-shot timeout is tracked for the
@@ -10,6 +10,8 @@
  *  - Obsolete clinical-data fetches. Some forms XHR a route that has since been renamed and that the
  *    render surface could not use even under its new name; those are answered from data the server
  *    embedded in the page. See installCarlosEformLegacyFetchCompatibility below.
+ *  - Legacy jQuery shortcuts on the PDF surface, including forms that load another jQuery copy.
+ *  - Empty jSignature base30 exports, which the bundled decoder cannot read back.
  */
 (function installCarlosEformTimerCompatibility(window, document) {
     "use strict";
@@ -82,31 +84,45 @@
     }
 
     /**
-     * Programmatic equivalent of the capture-phase submit guard below, for callers that submit via
-     * HTMLFormElement.submit(). That API deliberately fires no submit event, so the listener never
-     * runs for the floating toolbar's save paths (remoteSave -> RichTextLetter.submit()) -- only the
-     * legacy SubmitButton.click() path is covered by the listener alone.
+     * Surfaces the advisory timer-failure banner for callers that submit via HTMLFormElement.submit().
+     * That API deliberately fires no submit event, so the capture-phase listener below never runs for
+     * the floating toolbar's save paths (remoteSave -> HTMLFormElement.submit()) -- only the legacy
+     * SubmitButton.click() path is covered by the listener alone.
      *
-     * @return {boolean} true when the caller must abort (a legacy timer failed); the banner is shown.
+     * <p>A failed legacy timer is ADVISORY, not blocking. The server render already treats
+     * timerCompatibilityFailure as an advisory condition and DELIVERS the document (it is counted in
+     * EFormRenderCompletenessReport.advisoryIssueCount, never withheld), so the print/save/fax paths
+     * must reach that server gate rather than dead-ending here -- otherwise the clinician can never
+     * produce a document the server would have delivered with a warning. This shows the notice so the
+     * clinician is informed; it never aborts the submission.</p>
+     *
+     * Returns nothing on purpose: a failed timer must never gate a caller's submission, so there is
+     * no block signal to hand back (an earlier version returned status.failed and every caller
+     * discarded it, which invited a future caller to re-read it as the old "should block").
      */
-    status.shouldBlockSubmission = function shouldBlockSubmission() {
-        if (!status.failed) {
-            return false;
+    status.warnBeforeSubmission = function warnBeforeSubmission() {
+        if (status.failed) {
+            showFailureNotice();
         }
-        showFailureNotice();
-        return true;
     };
 
     function showFailureNotice() {
         if (!document.body || document.getElementById("carlos-eform-timer-compat-error")) {
             return;
         }
+        // Advisory, not an error: a failed legacy timer no longer blocks saving or printing (the
+        // server delivers the document with its own advisory banner), so this warns rather than
+        // alarms -- amber/role="status" to match the toolbar's post-render advisory notice, not the
+        // red/role="alert" of a hard failure. The id stays stable: the PDF render surface hides this
+        // element by that id so the banner never prints (EFormBrowserPdfService render CSS).
         var notice = document.createElement("div");
         notice.id = "carlos-eform-timer-compat-error";
-        notice.setAttribute("role", "alert");
-        notice.style.cssText = "position:fixed;z-index:2147483647;top:0;left:0;right:0;"
-                + "padding:12px;background:#8b0000;color:#fff;font:16px sans-serif;text-align:center";
-        notice.textContent = "This eForm could not run a legacy timer. Review the form before saving or printing.";
+        notice.setAttribute("role", "status");
+        notice.style.cssText = "position:fixed;z-index:2147483647;top:0;left:0;right:0;padding:10px;"
+                + "background:#fff3cd;color:#664d03;border-bottom:1px solid #ffc107;"
+                + "font:14px sans-serif;text-align:center";
+        notice.textContent = "This eForm could not run a legacy timer, so some fields may be missing"
+                + " content. Review it before saving or printing.";
         document.body.insertBefore(notice, document.body.firstChild);
     }
 
@@ -345,10 +361,11 @@
                 delay,
                 Array.prototype.slice.call(arguments, 2));
     };
-    document.addEventListener("submit", function blockSubmitAfterTimerFailure(event) {
+    document.addEventListener("submit", function warnOnSubmitAfterTimerFailure() {
+        // A failed legacy timer is advisory, not blocking (see warnBeforeSubmission): the server
+        // render delivers the document with a warning rather than withholding it, so a native
+        // SubmitButton.click() submit must proceed to that gate. Surface the notice; do not cancel.
         if (status.failed) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
             showFailureNotice();
         }
     }, true);
@@ -369,6 +386,61 @@
         });
     }
     status.installed = true;
+}(window, document));
+
+/*
+ * Saved-PDF renderer aliases for forms written against older jQuery. Clinic forms can load their
+ * own jQuery after this shim and call .size() or .error() in the very next inline script. Ready and
+ * load listeners are too late for that caller, so patch each replacement as it is assigned.
+ */
+(function installCarlosLegacyJqueryAliases(window, document) {
+    "use strict";
+
+    if (!window.__carlosEformPdfRender) {
+        return;
+    }
+
+    function patch(jq) {
+        if (!jq || !jq.fn) {
+            return;
+        }
+        if (!jq.fn.size) {
+            jq.fn.size = function size() { return this.length; };
+        }
+        if (!jq.fn.error) {
+            jq.fn.error = function error(handler) {
+                return arguments.length ? this.on("error", handler) : this.trigger("error");
+            };
+        }
+    }
+
+    function watch(name) {
+        var descriptor = Object.getOwnPropertyDescriptor(window, name);
+        if (descriptor && !descriptor.configurable) {
+            patch(window[name]);
+            return;
+        }
+        var current = window[name];
+        Object.defineProperty(window, name, {
+            configurable: true,
+            enumerable: descriptor ? descriptor.enumerable : true,
+            get: function () { return current; },
+            set: function (next) {
+                current = next;
+                patch(next);
+            }
+        });
+        patch(current);
+    }
+
+    watch("jQuery");
+    watch("$");
+    window.__carlosInstallLegacyJqueryAliases = function () {
+        patch(window.jQuery);
+        patch(window.$);
+    };
+    document.addEventListener("DOMContentLoaded", window.__carlosInstallLegacyJqueryAliases);
+    window.addEventListener("load", window.__carlosInstallLegacyJqueryAliases);
 }(window, document));
 
 /*
@@ -515,4 +587,128 @@
     };
 
     status.installed = true;
+}(window, document));
+
+/*
+ * Signature round-trip for UNSIGNED forms.
+ *
+ * jSignature's base30 export of an EMPTY canvas is the media type with no payload:
+ *
+ *     $sig.jSignature("getData", "base30")   ->   "image/jsignature;base30,"
+ *
+ * Stored eForms persist exactly that string, and the signature boilerplate almost every
+ * third-party form carries feeds it straight back on load:
+ *
+ *     data = document.getElementById("StoreSignature1").value;   // "image/jsignature;base30,"
+ *     $sig.jSignature("setData", "data:" + data);                // from <body onload="...loadSig()">
+ *
+ * The bundled decoder cannot read its own export back. Its base30 importer splits the payload
+ * on "_" and then walks half the resulting length:
+ *
+ *     u = function (e) { var h = [], e = e.split("_"), a = e.length / 2, f = 0;
+ *                        for (; f < a; f++) h.push({x: v(e[2 * f]), y: v(e[2 * f + 1])}); ... }
+ *
+ * On an empty payload "".split("_") is [""], so a is 0.5 — the loop still runs once, e[1] is
+ * undefined, and v(undefined) does undefined.split("") and throws
+ * "Cannot read properties of undefined (reading 'split')".
+ *
+ * That throw is an UNCAUGHT page error on every open of an unsigned form, which the PDF render
+ * completeness gate counts as a severe page script error and refuses to print over — so an
+ * unsigned form could not be rendered, faxed or archived at all. Measured against a 179-package
+ * corpus of real published eForms: 79 carry this boilerplate and 75 of them failed to render.
+ *
+ * Fixing it here rather than in the vendored minified plugin keeps the third-party bundle
+ * byte-identical and upgradable, and the callers cannot be fixed — loadSig() is authored inside
+ * each clinic's own form HTML, not shipped by CARLOS.
+ *
+ * Scope is deliberately one shape: a data: URI whose media type is jSignature base30 AND
+ * whose payload is empty. A populated signature, any other media type, and every other jSignature
+ * verb go to the plugin untouched, so a real decode failure still surfaces as a real error.
+ */
+(function installCarlosEformSignatureCompatibility(window, document) {
+    "use strict";
+
+    if (window.__carlosEformSignatureCompat && window.__carlosEformSignatureCompat.installed) {
+        return;
+    }
+
+    var signatureStatus = {installed: false, skippedEmptyLoads: 0};
+    window.__carlosEformSignatureCompat = signatureStatus;
+
+    // "data:image/jsignature;base30," only, with nothing after the comma. A bare "data:" (no comma)
+    // is NOT matched: the plugin handles that
+    // one itself, and claiming it here would hide a genuine malformed-input path.
+    function isEmptySignatureDataUri(value) {
+        if (typeof value !== "string" || value.lastIndexOf("data:", 0) !== 0) {
+            return false;
+        }
+        var comma = value.indexOf(",");
+        if (comma === -1) {
+            return false;
+        }
+        if (!/^image\/jsignature;base30$/i.test(value.slice("data:".length, comma))) {
+            return false;
+        }
+        return value.slice(comma + 1) === "";
+    }
+
+    function installSignatureGuard() {
+        var $ = window.jQuery || window.$;
+        if (!$ || !$.fn || typeof $.fn.jSignature !== "function" || $.fn.jSignature.__carlosEmptyDataGuard) {
+            return;
+        }
+        var original = $.fn.jSignature;
+
+        function guarded(verb) {
+            if (verb === "setData" && isEmptySignatureDataUri(arguments[1])) {
+                signatureStatus.skippedEmptyLoads += 1;
+                // On the fast loopback render, a form's body onload can call loadSig() before
+                // jQuery runs its document-ready pad initialiser. There is nothing to reset yet:
+                // the later initialiser creates an empty canvas. Calling the plugin's reset on
+                // the absent canvas throws resetCanvas and withholds an otherwise complete PDF.
+                // Reset every pad that IS already initialised, and let a real reset failure still
+                // reach the page-error gate. A missing pad can only be skipped for this exact
+                // empty signature payload; populated signature data follows the plugin unchanged.
+                var readyCanvases = this.find("canvas.jSignature").add(this.filter("canvas.jSignature"));
+                if (readyCanvases.length > 0) {
+                    original.call(readyCanvases, "reset");
+                }
+                return this;
+            }
+            return original.apply(this, arguments);
+        }
+
+        // Plugins hang their own properties off the function; carry them over so the wrapper is
+        // indistinguishable from the original to anything that reads them.
+        Object.keys(original).forEach(function (key) {
+            guarded[key] = original[key];
+        });
+        guarded.__carlosEmptyDataGuard = true;
+
+        $.fn.jSignature = guarded;
+        signatureStatus.installed = true;
+    }
+
+    // An async plugin may arrive after DOMContentLoaded. Capture its script-load event after
+    // assignment but before body onload restores the signature. Retry only after the normal
+    // ready-time attempt misses, preserving the parsing-time setup of synchronous plugins.
+    function retrySignatureGuard() {
+        installSignatureGuard();
+        if (signatureStatus.installed) {
+            document.removeEventListener("load", retrySignatureGuard, true);
+            window.removeEventListener("load", retrySignatureGuard);
+        }
+    }
+    function installOrRetrySignatureGuard() {
+        installSignatureGuard();
+        if (!signatureStatus.installed) {
+            document.addEventListener("load", retrySignatureGuard, true);
+            window.addEventListener("load", retrySignatureGuard);
+        }
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", installOrRetrySignatureGuard);
+    } else {
+        installOrRetrySignatureGuard();
+    }
 }(window, document));

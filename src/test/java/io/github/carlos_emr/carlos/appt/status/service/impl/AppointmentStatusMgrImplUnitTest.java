@@ -40,9 +40,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -198,4 +201,51 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
 
         verify(cacheManager).getCache("appointmentStatuses");
     }
+
+    @Test
+    @DisplayName("should reset descriptions and colours by stable status code")
+    void shouldResetDescriptionsAndColours_byStableStatusCode() {
+        Map<String, ResetExpectation> defaults = new LinkedHashMap<>();
+        defaults.put("t", new ResetExpectation("To Do", "#FDFEC7"));
+        defaults.put("T", new ResetExpectation("Daysheet Printed", "#FDFEC7"));
+        defaults.put("H", new ResetExpectation("Here", "#00ee00"));
+        defaults.put("P", new ResetExpectation("Picked", "#FFBBFF"));
+        defaults.put("E", new ResetExpectation("Empty Room", "#FFFF33"));
+        defaults.put("a", new ResetExpectation("Customized 1", "#897DF8"));
+        defaults.put("b", new ResetExpectation("Customized 2", "#897DF8"));
+        defaults.put("c", new ResetExpectation("Customized 3", "#897DF8"));
+        defaults.put("d", new ResetExpectation("Customized 4", "#897DF8"));
+        defaults.put("e", new ResetExpectation("Customized 5", "#897DF8"));
+        defaults.put("f", new ResetExpectation("Customized 6", "#897DF8"));
+        defaults.put("h", new ResetExpectation("Confirmed", "#2fcccf"));
+        defaults.put("N", new ResetExpectation("No Show", "#cccccc"));
+        defaults.put("C", new ResetExpectation("Cancelled", "#999999"));
+        defaults.put("B", new ResetExpectation("Billed", "#3ea4e1"));
+
+        Map<String, Integer> ids = new LinkedHashMap<>();
+        int nextId = 301;
+        for (String code : defaults.keySet()) {
+            ids.put(code, nextId);
+            when(appointmentStatusDao.findByStatus(code)).thenReturn(status(nextId, code));
+            nextId++;
+        }
+
+        new AppointmentStatusMgrImpl().reset();
+
+        defaults.forEach((code, expectation) -> {
+            verify(appointmentStatusDao).findByStatus(code);
+            verify(appointmentStatusDao).modifyStatus(
+                    ids.get(code), expectation.description(), expectation.colour());
+        });
+        verifyNoMoreInteractions(appointmentStatusDao);
+    }
+
+    private AppointmentStatus status(int id, String code) {
+        AppointmentStatus status = new AppointmentStatus();
+        status.setId(id);
+        status.setStatus(code);
+        return status;
+    }
+
+    private record ResetExpectation(String description, String colour) {}
 }

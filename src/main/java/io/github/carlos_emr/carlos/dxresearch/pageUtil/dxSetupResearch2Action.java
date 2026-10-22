@@ -35,6 +35,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -76,13 +77,17 @@ public final class dxSetupResearch2Action extends ActionSupport {
             return ERROR;
         }
 
-        // Validate quickList is numeric if supplied and non-empty
-        String selectedQuickList = request.getParameter("quickList");
-        if (selectedQuickList == null) {
-            selectedQuickList = "";
-        }
-        if (!selectedQuickList.isEmpty() && !selectedQuickList.matches("\\d+")) {
-            return ERROR;
+        // The selector carries a list name, not a numeric identifier. Resolve it
+        // against stored names before loading items or recording the last-used list.
+        String requestedQuickList = request.getParameter("quickList");
+        String selectedQuickList = "";
+        if (requestedQuickList != null && !requestedQuickList.isEmpty()) {
+            selectedQuickList = SpringUtils.getBean(QuickListDao.class).findDistinct().stream()
+                    .filter(String.class::isInstance).map(String.class::cast)
+                    .filter(requestedQuickList::equals).findFirst().orElse(null);
+            if (selectedQuickList == null) {
+                return ERROR;
+            }
         }
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();

@@ -35,4 +35,14 @@ public record BillingReviewServiceParam(String code, String unit, String service
         unit = unit == null ? "" : unit;
         servicedAt = servicedAt == null ? "" : servicedAt;
     }
+    /**
+     * Accepts the bill form's bounded plain-decimal multipliers, with blank meaning one.
+     * Exponent notation must never reach fee scaling: a short exponent can expand to a huge integer.
+     */
+    public static boolean isValidMultiplier(String value) {
+        if (value == null || value.isBlank()) return true;
+        String decimal = value.trim();
+        return decimal.length() <= 4 && decimal.matches("-?\\d{1,4}(?:\\.\\d{1,3})?");
+    }
+
 }

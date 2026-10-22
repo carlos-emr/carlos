@@ -28,6 +28,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +59,9 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private UserPropertyDAO userPropertyDAO;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private UserProperty createProperty(String providerNo, String name, String value) throws Exception {
         UserProperty prop = new UserProperty();
@@ -99,6 +104,36 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
+        @DisplayName("should return the oldest row when the provider has duplicate rows for the name")
+        void shouldReturnOldestRow_whenNameIsDuplicated() throws Exception {
+            String providerNo = uniqueProviderNo();
+            String name = uniqueName("dup");
+            UserProperty oldest = createProperty(providerNo, name, "first");
+            createProperty(providerNo, name, "second");
+            userPropertyDAO.flush();
+
+            assertThat(userPropertyDAO.getProp(providerNo, name).getId()).isEqualTo(oldest.getId());
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should save into the duplicate row that getProviderPropertiesByNames reads")
+        void shouldUpdateOldestDuplicate_whenSavingByProviderAndName() throws Exception {
+            String providerNo = uniqueProviderNo();
+            String name = uniqueName("dupSave");
+            createProperty(providerNo, name, null);
+            createProperty(providerNo, name, "true");
+            userPropertyDAO.flush();
+
+            userPropertyDAO.saveProp(providerNo, name, "false");
+            userPropertyDAO.flush();
+
+            assertThat(userPropertyDAO.getProviderPropertiesByNames(providerNo, List.of(name)))
+                    .containsExactly(entry(name, "false"));
+        }
+
+        @Test
+        @Tag("read")
         @DisplayName("should return null when no property matches provider and name")
         void shouldReturnNull_whenNoPropertyMatchesProviderAndName() throws Exception {
             createProperty(uniqueProviderNo(), uniqueName("alpha"), "val1");
@@ -106,6 +141,26 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
 
             UserProperty result = userPropertyDAO.getProp(uniqueProviderNo(), uniqueName("missing"));
             assertThat(result).isNull();
+        }
+
+        @Test
+        @Tag("create")
+        @Tag("read")
+        @DisplayName("should keep a value longer than 2,000 characters, such as a user's formatted email footer")
+        void shouldRoundTripLongValue_forFormattedFooter() throws Exception {
+            // Issue #3981: UserProperty maps the same property table, whose value is now TEXT, so a
+            // formatted footer of 2,000 visible characters fits with its formatting.
+            String providerNo = uniqueProviderNo();
+            String name = uniqueName("email_footer");
+            String footer = "<i>Dr. Test</i><br><a href=\"mailto:desk@clinic.example\">Front desk</a><br>".repeat(90);
+            assertThat(footer.length()).isGreaterThan(6_000);
+            createProperty(providerNo, name, footer);
+            userPropertyDAO.flush();
+            entityManager.clear();
+
+            UserProperty result = userPropertyDAO.getProp(providerNo, name);
+
+            assertThat(result.getValue()).isEqualTo(footer);
         }
     }
 
@@ -196,6 +251,69 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
 
             Map<String, String> result = userPropertyDAO.getProviderPropertiesAsMap(uniqueProviderNo());
             assertThat(result).isEmpty();
+        }
+    }
+    @Nested
+    @DisplayName("getProviderPropertiesByNames")
+    class GetProviderPropertiesByNames {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return only the named properties of the given provider")
+        void shouldReturnOnlyNamedProperties_forGivenProvider() throws Exception {
+            String providerNo = uniqueProviderNo();
+            String wanted = uniqueName("wanted");
+            String alsoWanted = uniqueName("alsoWanted");
+            String unwanted = uniqueName("unwanted");
+            createProperty(providerNo, wanted, "true");
+            createProperty(providerNo, alsoWanted, "false");
+            createProperty(providerNo, unwanted, "x");
+            createProperty(uniqueProviderNo(), wanted, "otherProvider");
+            userPropertyDAO.flush();
+
+            Map<String, String> result = userPropertyDAO.getProviderPropertiesByNames(providerNo,
+                    List.of(wanted, alsoWanted, uniqueName("absent")));
+
+            assertThat(result).containsOnly(entry(wanted, "true"), entry(alsoWanted, "false"));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should resolve a duplicated name to its oldest row")
+        void shouldResolveDuplicatedName_toOldestRow() throws Exception {
+            String providerNo = uniqueProviderNo();
+            String name = uniqueName("dup");
+            createProperty(providerNo, name, "first");
+            createProperty(providerNo, name, "second");
+            userPropertyDAO.flush();
+
+            assertThat(userPropertyDAO.getProviderPropertiesByNames(providerNo, List.of(name)))
+                    .containsExactly(entry(name, "first"));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should keep an oldest duplicate whose value is NULL")
+        void shouldKeepOldestDuplicate_whenItsValueIsNull() throws Exception {
+            String providerNo = uniqueProviderNo();
+            String name = uniqueName("dupNull");
+            createProperty(providerNo, name, null);
+            createProperty(providerNo, name, "true");
+            userPropertyDAO.flush();
+
+            Map<String, String> result = userPropertyDAO.getProviderPropertiesByNames(providerNo, List.of(name));
+
+            assertThat(result).containsOnlyKeys(name);
+            assertThat(result.get(name)).isNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return an empty map for no names or no provider without querying")
+        void shouldReturnEmptyMap_forNoNamesOrNoProvider() {
+            assertThat(userPropertyDAO.getProviderPropertiesByNames(uniqueProviderNo(), List.of())).isEmpty();
+            assertThat(userPropertyDAO.getProviderPropertiesByNames(uniqueProviderNo(), null)).isEmpty();
+            assertThat(userPropertyDAO.getProviderPropertiesByNames(null, List.of("x"))).isEmpty();
         }
     }
 }

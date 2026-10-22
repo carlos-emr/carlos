@@ -10,7 +10,7 @@ export MYSQL_PWD="${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-password}}"
 # MariaDB 11.x dropped the mysql* client symlinks (mysql/mysqladmin/mysqldump); use mariadb.
 SQL="mariadb -u root"
 
-# Build oscar + oscar_test from the Flyway migration set — the SAME files production applies via
+# Build carlos + carlos_test from the Flyway migration set — the SAME files production applies via
 # `carlos-ctl db migrate` (common + Ontario locations): a complete, dead-pruned schema + reference
 # data. Loaded here with the mariadb CLI (not the Flyway CLI) because the MariaDB initdb temp server
 # is socket-only and Flyway needs TCP; dev databases are disposable, so a flyway_schema_history is
@@ -51,6 +51,11 @@ trap 'rm -f "${LOAD_SQL}"' EXIT
   cat "${MIG}/common/V1__baseline_schema.sql" \
       "${MIG}/on/V1.0.1__on_schema.sql" \
       "${MIG}/on/V1.0.2__on_data.sql"
+  # The genesis files issue a bare SET NAMES utf8mb4, whose default collation is
+  # uca1400 on current MariaDB images. Re-pin the connection before the forward
+  # chain so the checksum-frozen V1.0.7 migration can compare against its
+  # utf8mb4_general_ci table and the later repair migration remains reachable.
+  echo "SET NAMES utf8mb4 COLLATE utf8mb4_general_ci;"
   if [ -n "${FORWARD}" ]; then
     for f in ${FORWARD}; do
       echo "-- including $(basename "$f")" >&2
@@ -59,7 +64,7 @@ trap 'rm -f "${LOAD_SQL}"' EXIT
   fi
   echo "SET FOREIGN_KEY_CHECKS=1;"
 } > "${LOAD_SQL}"
-for DB in oscar oscar_test; do
+for DB in carlos carlos_test; do
   echo "Creating ${DB} from the Flyway baseline (common + on)..."
   # Explicit charset so the DATABASE default matches the fully-utf8mb4 schema even if the
   # server default ever changes (all baseline tables also set it per-table).
@@ -67,23 +72,135 @@ for DB in oscar oscar_test; do
   $SQL "${DB}" < "${LOAD_SQL}"
 done
 
-# drugref2 is a separate database (not part of the oscar schema).
+# drugref2 is a separate database (not part of the carlos schema).
 echo 'Creating drugref2 database...'
 $SQL -e "CREATE DATABASE IF NOT EXISTS drugref2;"
 $SQL drugref2 < /database/mysql/development-drugref.sql
 echo 'Applying drugref2 schema patches...'
 $SQL drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
 
-# --- Development-only demo data (oscar only; never applied to a production database) ---
+# --- Development-only demo data (carlos only; never applied to a production database) ---
 # development.sql is a full demo snapshot (truncate+reload) filtered to the live schema. It replaces
 # the baseline reference rows with the demo dataset (patients, appointments, notes, etc.).
 echo 'Loading demo data for development...'
-$SQL oscar < /scripts/development.sql
-echo 'Preparing demographic names for development environment...'
-$SQL oscar < /database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
+$SQL carlos < /scripts/development.sql
+# development.sql also truncate-reloads measurement and billing reference tables
+# (measurementType, validations, billingservice, ctl_billingservice) from the old
+# snapshot, undoing the reference-data migrations applied above. Re-apply those
+# migrations here; each one is idempotent. (The deb demo load needs no equivalent:
+# demo-additive-exclude.txt drops these tables, so the Flyway rows stand there.)
+# V1.0.43 is re-applied for a different reason: the snapshot's consultdocs and
+# EFormDocs rows predate lab_type (their INSERTs name the seven original columns,
+# so the reload leaves lab_type NULL), and the migration's inference UPDATE is
+# what resolves a demo lab attachment's source from patientLabRouting, exactly as
+# it does for legacy rows on an upgraded database.
+echo 'Re-applying reference-data migrations undone by the demo snapshot...'
+for REF_MIGRATION in \
+    "${MIG}/common/V1.0.32__add_nrtf_tuning_fork_measurement_type.sql" \
+    "${MIG}/common/V1.0.33__aacp_provided_revised_reviewed_validation.sql" \
+    "${MIG}/on/V1.0.34__add_oma_uninsured_service_fees.sql" \
+    "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql"; do
+  $SQL carlos < "${REF_MIGRATION}"
+done
+# development.sql also truncate-reloads the security tables (secObjectName,
+# secObjPrivilege, secRole, secUserRole, secPrivilege), wiping every security
+# object a migration added after the snapshot was taken (issue #4369: a missing
+# grant surfaces as a 403 for carlosdoc). Re-apply, in version order, every
+# forward migration that touches those tables. Discovery is by content rather
+# than a hand-kept list so a future migration that adds a security object is
+# covered automatically; this relies on the repo rule that forward migrations
+# are idempotent. (The deb demo load needs no equivalent:
+# demo-additive-exclude.txt drops the security tables, so Flyway rows stand.)
+echo 'Re-applying security-object migrations undone by the demo snapshot...'
+sh /scripts/reapply_security_migrations.sh "${MIG}" carlos -u root
+echo 'Restoring current Administration privileges...'
+$SQL carlos < /scripts/development_privileges.sql
+echo 'Seeding fake referral specialists and provider links...'
+$SQL carlos < /scripts/demo-provider-links.sql
+# Guarded no-ops here (development.sql truncate-reloads both tables with
+# these rows), kept for parity with the deb's carlos-ctl demo-data flow,
+# where the additive transform excludes the raw statements and these files
+# are the only source of the program-10034 enrolments and the ExternalNote
+# issue row. See scripts/demo-additive-exclude.txt (SPECIAL section).
+$SQL carlos < /scripts/demo-program-links.sql
+$SQL carlos < /scripts/demo-issue-codes.sql
+$SQL carlos < /scripts/demo-specialists.sql
+# Name sanitization v2: FAKE- prefixes across all person-name tables plus
+# replacement of known real names. The -on supplement covers Ontario-only
+# form tables; this devcontainer loads the Ontario schema, so both apply.
+echo 'Preparing demographic and provider names for development environment...'
+$SQL carlos < /scripts/demo-name-sanitization.sql
+$SQL carlos < /scripts/demo-name-sanitization-on.sql
 echo 'Seeding Rich Text Letter eForm...'
-$SQL oscar < /database/mysql/updates/update-2012-07-12.sql
+$SQL carlos < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'
-$SQL oscar < /database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
-$SQL oscar < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
+$SQL carlos < /database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
+$SQL carlos < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
+# Must run AFTER the modernize update above: it string-replaces the dead
+# public-JSP attachment paths (attachEform.jsp / displayAttachedFiles.jsp)
+# that 2026.3.0 still carries with the gated Struts routes, and switches
+# fid/demographic_no lookup to the hidden inputs the saved-instance render
+# provides. Without it the seeded RTL's Attach flow 404s on every install -
+# the eform-rtl-attachment-* Playwright checks pin this.
+echo 'Rewiring Rich Text Letter attachment routes...'
+$SQL carlos < /database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
+# Also after the modernize update, and for the same reason: it adds the hidden
+# user_id / user_ohip_no / doctor_provider_no inputs that editControl2.js reads to
+# pick consult_sig_<provider_no>.png for the Stamp and Closing Salutation buttons.
+# Without it the RTL falls back to the single shared stamp.png for every provider.
+echo 'Adding Rich Text Letter provider stamp fields...'
+$SQL carlos < /database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql
+# The snapshot's HRM rows name report files that never shipped, so every HRM
+# list is empty. Point one demographic-1 report at the fixture that
+# seed_data.sh copies into the document store (deb parity: carlos-ctl demo-data
+# applies the same file and copies the same fixture).
+echo 'Pointing a demo HRM report at the shipped fixture...'
+$SQL carlos < /scripts/demo-hrm-report.sql
+# development.sql truncate-reloads Facility with the old snapshot's
+# enableDigitalSignatures=0, undoing the V1.0.17 migration applied above.
+# Re-assert the product default so the demo environment exercises the
+# signature workflows (consultation stamps, signature pad) like a stock
+# install does.
+echo 'Enabling digital signatures on the demo facility...'
+$SQL carlos -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
+# development.sql truncate-reloads consentType and property with the old
+# snapshot, which has no SMS consent type and no sms_communication property,
+# so every SMS would be blocked as SMS_CONSENT_NOT_CONFIGURED and the consent
+# would be missing from the patient record. Re-apply the migration that seeds
+# them, then the one that turns it on with the approved wording; every statement in
+# both is idempotent. The globs survive a renumbering.
+echo 'Restoring the SMS consent type and sms_communication property...'
+for pattern in add_sms_consent activate_sms_consent; do
+  for f in "${MIG}"/common/V*__${pattern}.sql; do
+    [ -f "$f" ] || { echo "ERROR: no V*__${pattern}.sql under ${MIG}/common" >&2; exit 1; }
+    $SQL carlos < "$f"
+  done
+done
+# The activation switches the type on only while the description is the seeded draft and
+# sms_communication points at the type. If the demo data ever changes either, say so loudly
+# rather than leave developers with SMS blocked.
+SMS_CONSENT_ACTIVE=$($SQL -N carlos -e "SELECT COUNT(*) FROM consentType WHERE type = 'sms_communication_consent' AND active = 1;")
+if [ "${SMS_CONSENT_ACTIVE}" != "1" ]; then
+  echo "WARNING: the SMS consent type is not active after the reload; every patient SMS will be blocked as SMS_CONSENT_NOT_CONFIGURED" >&2
+fi
+# The consent section on the patient add, edit and view pages only renders with both
+# privateConsentEnabled=true and USE_NEW_PATIENT_CONSENT_MODULE=true (the module's
+# block is nested inside the privateConsentEnabled one). The devcontainer's
+# carlos.properties turns both off; flip both there to record or see the consent.
+
+# Same shape of problem: development.sql truncate-reloads `clinic` with the snapshot's
+# placeholder ('MHI Org '), undoing V1.0.24 applied above. clinic_name is what the eForm AP of
+# that name returns, so it is the letterhead the Rich Text Letter's ##letterhead## button prints
+# on every demo letter. Re-assert the migration's value, matching either placeholder so a
+# refreshed snapshot cannot quietly reintroduce the other one. (The deb demo load needs no
+# equivalent: demo-additive-exclude.txt drops `clinic`, so the Flyway value stands there.)
+echo 'Renaming the demo clinic away from the upstream placeholder...'
+$SQL carlos -e "UPDATE clinic SET clinic_name = 'CARLOS Demo Clinic' WHERE TRIM(clinic_name) IN ('MHI Org', 'McMaster Hospital');"
+# Administration fixtures for the data-backed Administration screens the demo
+# snapshot leaves empty. admin_test_data.sql is shared with the deb demo load
+# (carlos-ctl demo-data); admin_test_account.sql adds the devcontainer-only
+# `locktest` login and must follow it (it attaches to provider 999996).
+echo 'Loading Administration test fixtures...'
+$SQL carlos < /scripts/admin_test_data.sql
+$SQL carlos < /scripts/admin_test_account.sql
 echo 'Database initialization complete!'

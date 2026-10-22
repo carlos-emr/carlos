@@ -74,17 +74,10 @@
 
 		<script src="${ pageContext.request.contextPath }/js/jquery.fileDownload.js"></script>
 		<script src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>
-		<script>
-			jQuery(document).ready( function () {
-				jQuery('#tblEforms').DataTable({
-					"order": [],
-					"bPaginate": false,
-					"language": {
-						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
-					}
-				});
-			});
-		</script>
+		<%-- The former #tblEforms DataTable init was dead code: no element on this
+		     page carries that id, so the selector matched nothing and the call was
+		     a silent no-op. Removed rather than repointed — this page's table is
+		     the legacy encounterTable layout, not a DataTables candidate. --%>
         <script type="text/javascript" language="javascript">
             function showHtml() {
 
@@ -125,9 +118,17 @@
 
             function updateAjax() {
                 var parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-                if (parentAjaxId != "null") {
-                    window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
-                    window.opener.updateNeeded = true;
+                // Guarded as in efmpatientformlist.jsp: the null-safe encoder renders a missing
+                // id as "" (never "null"), and window.opener is null when this page is not a
+                // popup or the COOP header cut it; unguarded, every unload threw a TypeError.
+                try {
+                    if (parentAjaxId && parentAjaxId !== "null" && window.opener && !window.opener.closed
+                            && window.opener.document && window.opener.document.forms['encForm']) {
+                        window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
+                        window.opener.updateNeeded = true;
+                    }
+                } catch (e) {
+                    // Cross-origin or closed opener: nothing to update.
                 }
 
             }
@@ -146,8 +147,8 @@
                         <td><fmt:message key="eform.showmyform.msgFormLybrary"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -190,6 +191,9 @@
                                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
                                     <input type="hidden" name="callpage" value="single"/>
                                     <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= parentAjaxId %>' context="htmlAttribute"/>"/>
+                                    <%-- List state the post-delete redirect restores (RemEForm2Action#getRedirectTarget). --%>
+                                    <input type="hidden" name="appointment" value="<carlos:encode value='<%= appointment %>' context="htmlAttribute"/>"/>
+                                    <input type="hidden" name="orderby" value="<carlos:encode value='<%= orderByRequest %>' context="htmlAttribute"/>"/>
                                     <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"><fmt:message key="eform.uploadimages.btnDelete"/></a>
                                 </form>
                             </td>

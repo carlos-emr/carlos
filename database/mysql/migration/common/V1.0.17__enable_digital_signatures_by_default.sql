@@ -1,0 +1,32 @@
+-- Digital signatures (consultation stamps and signature-pad capture on
+-- consultations and prescriptions) are gated per facility by
+-- Facility.enableDigitalSignatures, and the genesis-seeded facility (id 1,
+-- "Default Facility") shipped with it OFF - so on a stock install the
+-- signature UI silently never appears until an operator finds
+-- Administration > Facility > Enable Digital Signatures. Signatures are a
+-- supported, tested workflow; make them the default.
+--
+-- Scoped to the seeded facility only: facilities created later through the
+-- admin UI carry an explicit operator choice for this checkbox and must not
+-- have it overridden on multi-facility installs. Runs once: a site that
+-- prefers signatures off can disable the setting afterwards and it will not
+-- be flipped back.
+--
+-- DELIBERATE, ONE-TIME OVERRIDE, worth a release note: a boolean flag cannot
+-- distinguish "still the seeded default (off)" from "operator explicitly turned
+-- it off via Administration > Facility". This is the standard changing-a-default
+-- migration and treats both the same, so an upgrade that ships this migration
+-- WILL re-enable signatures on the Default Facility even where an operator had
+-- deliberately disabled them. That is intended (the whole point is default-on);
+-- the operator re-disables once post-upgrade if desired. The postinst twin for
+-- the carlos.properties consultation_signature_enabled flag makes the same
+-- accepted tradeoff for its exact old-stock line.
+--
+-- One more dimension of that override, for the release note: on a converted
+-- pre-Flyway datadir adopted at baseline 1.0.2 (so this migration then runs),
+-- "id = 1" is whatever the legacy datadir's first Facility row is. That is the
+-- Default Facility on essentially every install, but a legacy multi-facility
+-- site whose PRIMARY clinic occupies id 1 with a deliberate off-choice would
+-- have it flipped. Same accepted "a boolean can't distinguish chosen-off"
+-- tradeoff, just widened from "the seeded default row" to "whatever row is id 1".
+UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;

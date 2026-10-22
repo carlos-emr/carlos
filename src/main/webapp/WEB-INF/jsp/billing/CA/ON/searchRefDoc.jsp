@@ -125,7 +125,7 @@
                 <tr style="background-color:<carlos:encode value='${bgColor}' context='cssString'/>"
                     onmouseover="this.style.cursor='pointer';this.style.backgroundColor='LightBlue';"
                     onmouseout="this.style.backgroundColor='<carlos:encode value="${bgColor}" context="javaScriptAttribute"/>'"
-                    onClick="<carlos:encode value='${sp.onClickHandler}' context='javaScriptAttribute'/>">
+                    onClick="<carlos:encode value='${sp.onClickHandler}' context='htmlAttribute'/>">
                     <td><carlos:encode value='${sp.referralNo}' context='html'/></td>
                     <td><carlos:encode value='${sp.surname}' context='html'/></td>
                     <td><carlos:encode value='${sp.givenName}' context='html'/></td>

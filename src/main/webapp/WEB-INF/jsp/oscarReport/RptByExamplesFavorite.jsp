@@ -29,14 +29,32 @@
 
 --%>
 
+<%--
+    RptByExamplesFavorite.jsp
+    =========================
+    Purpose: Edit a saved Query-by-Example favorite before returning to the
+             favorites list.
+
+    Features:
+    - Requires _report or _admin read privilege
+    - Localized favorite-name and SQL editing form
+    - POST-only submission to RptByExamplesFavorite
+
+    Parameters (set by backing action):
+    - favoriteName — Display name for the favorite
+    - newQuery     — SQL text being edited
+
+    @since 2001-2002
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -44,63 +62,93 @@
     }
 %>
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
-<link rel="stylesheet" type="text/css"
-      href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
+<!DOCTYPE html>
 <html>
-    <script language="JavaScript" type="text/JavaScript">
-
-    </script>
     <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
+        <link rel="stylesheet" type="text/css"
+              href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/encounter/encounterStyles.css"/>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/global.js"></script>
+        <style>
+            .report-favorite-layout {
+                display: grid;
+                grid-template-columns: minmax(0, 130px) minmax(400px, 1fr);
+            }
+            .report-favorite-layout > div {
+                box-sizing: border-box;
+            }
+            .report-favorite-title {
+                align-items: center;
+                display: flex;
+                padding: 0 6px;
+            }
+            .report-favorite-content {
+                height: auto;
+                padding: 8px 6px;
+            }
+            .report-favorite-fields {
+                display: grid;
+                gap: 8px;
+            }
+            .report-favorite-field {
+                align-items: center;
+                display: flex;
+                gap: 8px;
+            }
+            .report-favorite-field label {
+                flex: 0 0 100px;
+                font-weight: bold;
+            }
+            .report-favorite-query-field {
+                align-items: flex-start;
+            }
+            .report-favorite-actions {
+                padding-left: 108px;
+            }
+        </style>
         <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></title>
     </head>
 
     <body vlink="#0000FF" class="BodyStyle">
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <form action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite" method="post">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top"></td>
-            <td class="MainTableRightColumn">
-                <table>
-                    <tr>
-                       <td><input type="text" name="favoriteName" size="40" value="${favoriteName}"/></td>
-                    </tr>
-                    <tr>
-                        <td><textarea name="query" cols="80" rows="3">${newQuery}</textarea></td>
-                    </tr>
-                    <tr>
-                        <td><input type="button" value="Add" onclick="submit();"/> <input
-                                type="button"
-                                value="<fmt:message key='oscarReport.RptByExample.MsgCancel'/>"
-                                onclick="javascript:history.back(1);"/></td>
-                    </tr>
-                    <tr></tr>
-
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
-
+    <form action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/oscarReport/RptByExamplesFavorite" method="post">
+        <input type="hidden" name="id" value="${carlos:forHtmlAttribute(id)}"/>
+        <div class="MainTable report-favorite-layout" id="scrollNumber1">
+            <div class="MainTableTopRowLeftColumn report-favorite-title">
+                <fmt:message key="oscarReport.CDMReport.msgReport"/>
+            </div>
+            <div class="MainTableTopRowRightColumn report-favorite-title">
+                <div class="TopStatusBar report-favorite-title">
+                    <fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> -
+                    <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/>
+                </div>
+            </div>
+            <div class="MainTableLeftColumn"></div>
+            <div class="MainTableRightColumn report-favorite-content">
+                <div class="report-favorite-fields">
+                    <div class="report-favorite-field">
+                        <label for="favoriteName"><fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/></label>
+                        <input id="favoriteName" type="text" name="favoriteName" size="40"
+                               value="${carlos:forHtmlAttribute(favoriteName)}"/>
+                    </div>
+                    <div class="report-favorite-field report-favorite-query-field">
+                        <label for="query"><fmt:message key="oscarReport.RptByExample.MsgQuery"/></label>
+                        <textarea id="query" name="query" cols="80" rows="3">${carlos:forHtmlContent(query)}</textarea>
+                    </div>
+                    <div class="report-favorite-field report-favorite-actions">
+                        <input type="submit" value="<fmt:message key='global.btnAdd'/>"/>
+                        <input type="button"
+                               value="<fmt:message key='oscarReport.RptByExample.MsgCancel'/>"
+                               onclick="history.back();"/>
+                    </div>
+                </div>
+            </div>
+            <div class="MainTableBottomRowLeftColumn"></div>
+            <div class="MainTableBottomRowRightColumn"></div>
+        </div>
     </form>
     </body>
 </html>

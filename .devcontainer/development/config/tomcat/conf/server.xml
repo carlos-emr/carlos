@@ -17,11 +17,30 @@
     </GlobalNamingResources>
 
     <Service name="Catalina">
+        <!-- relaxedQueryChars="[]" is required by the Ocean Toolbar integration (cme_js=ocean
+             in carlos.properties): Ocean-generated eForm/eReferral URLs use square brackets in
+             the query string, which Tomcat rejects by default. This applies connector-wide,
+             including when Ocean is disabled. For proxied deployments, align query
+             validation/decoding with the front end; see debian/assets/tomcat/server.xml. -->
         <Connector port="8080" protocol="HTTP/1.1"
                    connectionTimeout="20000"
                    maxPostSize="52428800"
                    maxSwallowSize="52428800"
+                   relaxedQueryChars="[]"
                    redirectPort="8443"/>
+
+        <!-- Development-only TLS endpoint used by resources that require CONFIDENTIAL transport,
+             including JavaMelody monitoring. The image build generates this local keystore. -->
+        <Connector port="8443"
+                   protocol="org.apache.coyote.http11.Http11NioProtocol"
+                   SSLEnabled="true"
+                   maxThreads="150">
+            <SSLHostConfig>
+                <Certificate certificateKeystoreFile="/usr/local/tomcat/conf/dev-localhost.p12"
+                             certificateKeystorePassword="changeit"
+                             certificateKeystoreType="PKCS12"/>
+            </SSLHostConfig>
+        </Connector>
 
         <Engine name="Catalina" defaultHost="localhost">
             <Realm className="org.apache.catalina.realm.LockOutRealm">

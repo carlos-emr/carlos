@@ -31,9 +31,12 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import org.springframework.stereotype.Repository;
@@ -63,6 +66,51 @@ public class CtlDocumentDaoImpl extends AbstractDaoImpl<CtlDocument> implements 
         @SuppressWarnings("unchecked")
         List<CtlDocument> cList = query.getResultList();
         return cList;
+    }
+
+    @Override
+    public List<CtlDocument> findByDocumentNos(Collection<Integer> documentNos) {
+        if (documentNos == null || documentNos.isEmpty()) {
+            return List.of();
+        }
+        List<Integer> candidates = documentNos.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+        TypedQuery<CtlDocument> query = entityManager.createQuery(
+                "select x from CtlDocument x where x.id.documentNo in :documentNos",
+                CtlDocument.class);
+        query.setParameter("documentNos", candidates);
+        return query.getResultList();
+    }
+
+    @Override
+    public List<Integer> findDocumentNosForDemographic(Integer demographicNo, Collection<Integer> documentNos) {
+        if (demographicNo == null || documentNos == null || documentNos.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // Deletion lives on document.status: EDocUtil.deleteDocument sets it to 'D' and leaves the
+        // ctl_document row (and its status) untouched so undeleteDocument can restore the prior
+        // status. Checking only ctl_document.status would therefore still verify a deleted document.
+        // The join also drops ctl rows that point at no document at all. ctl_document.status is
+        // still compared null-safely: legacy rows may carry a NULL status and are live.
+        Query query = entityManager.createQuery(
+                "select distinct x.id.documentNo from CtlDocument x, Document d"
+                        + " where d.documentNo = x.id.documentNo"
+                        + " and x.id.module = :module and x.id.moduleId = :demographicNo"
+                        + " and d.status <> 'D'"
+                        + " and (x.status is null or x.status <> 'D')"
+                        + " and x.id.documentNo in (:documentNos)");
+        query.setParameter("module", DocumentDao.Module.DEMOGRAPHIC.getName());
+        query.setParameter("demographicNo", demographicNo);
+        query.setParameter("documentNos", documentNos);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> owned = query.getResultList();
+        return owned;
     }
 
 }

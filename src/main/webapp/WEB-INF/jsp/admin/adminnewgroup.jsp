@@ -200,7 +200,9 @@
 
     <script>
         $(document).ready(function () {
-            parent.parent.resizeIframe($('html').height());
+            if (parent && parent.parent && typeof parent.parent.resizeIframe === 'function') {
+                parent.parent.resizeIframe($('html').height());
+            }
 
         });
     </script>

@@ -36,7 +36,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
+**Stack**: Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 
@@ -200,7 +200,7 @@ The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrate
 **Migration History**:
 - Struts 2.5.33 → 6.8.0 (January 2026, PR #88) — security fix for CVE-2025-64775
 - Struts 6.8.0 → 7.1.1 (March 2026) — Jakarta EE namespace migration, `com.opensymphony.xwork2.*` → `org.apache.struts2.*`
-- Caffeine 3.2.3 cache dependency required by Struts for internal caching
+- Caffeine 3.2.4 cache dependency required by Struts for internal caching
 
 ## Healthcare Domain Context
 
@@ -444,7 +444,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ## Technology Stack Details
 
 ### Core Technologies
-- **Java 21** with modern language features and Jakarta XML Binding
+- **Java 25** with modern language features and Jakarta XML Binding
 - **Spring Framework 7.0.6**: IoC container, MVC, AOP, Security, transaction management (Jakarta EE 11)
 - **Spring Security 7.0.4**: Crypto module for password hashing
 - **Hibernate 7.2.7**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
@@ -456,8 +456,8 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
   - All 458 *2Action files migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
-  - Requires Caffeine 3.2.3 cache dependency for internal caching
-- **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
+  - Requires Caffeine 3.2.4 cache dependency for internal caching
+- **Apache CXF 4.1.8**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
@@ -691,7 +691,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 
 ### Docker Setup
 - Development environment runs in Docker containers
-- Tomcat container with Java 21 and debugging enabled
+- Tomcat container with Java 25 and debugging enabled
 - MariaDB database container
 - Maven repository caching for faster builds
 - Port 8080 for web application, 3306 for database
@@ -856,8 +856,10 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 3. **Complex Changes**: Ask clarifying questions first, create implementation plan, proceed after approval
 
 ### Branch Protection
-- **Protected Branches**: `develop`, `main`, `experimental` - direct commits prohibited
+- **Protected Branches**: `develop`, `main`, `experimental`, and `release/*` - direct commits prohibited
 - **All changes** must go through pull requests with review
+- **Release policy**: `docs/release-process.md` is authoritative for target branches, CalVer, snapshots, tags, maintenance fixes, and forward merges
+- **Release flow**: Start normal work from and target `develop`. Start a supported fix from and target the oldest affected `release/YYYY.MM`; maintainers then forward-merge it into newer lines while preserving target version/SCM metadata. Target `main` only for current-train release preparation or a necessary, narrowly scoped release-infrastructure correction. Never tag a snapshot, move, delete, or reuse a release tag, or edit a Flyway migration present in a published tag
 - Claude creates feature branches: `claude/issue-<number>-<timestamp>`
 
 ### Security Checklist (Every Code Change)
@@ -868,7 +870,8 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - [ ] No PHI in logs or error messages
 
 ### PR Requirements
-- ✅ Target `develop` branch (not `main`)
+- ✅ Target `develop` for normal work; target `release/YYYY.MM` only for an approved supported-release fix; use `main` only for current-train release preparation or a necessary release-infrastructure correction
+- ✅ Preserve the target branch snapshot/SCM metadata during forward merges; use merge ancestry rather than routine cherry-picks
 - ✅ Include tests for new functionality
 - ✅ Reference related issues (`fixes #123`)
 - ✅ Add "Generated with Claude Code" signature

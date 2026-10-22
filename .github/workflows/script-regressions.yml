@@ -1,0 +1,86 @@
+# Browser-harness/source-contract tests and an isolated Chromium editor fixture.
+# No VM, running application, database or secrets required.
+# Licensed under the repository's LICENSE.
+name: Script Regressions
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  script-regressions:
+    name: Node Script Regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
+    steps:
+      - name: Check out source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      # Several script tests read carlos-ctl, which is its own repository
+      # since the split; the checkout is the release debian/carlos-ctl.pin
+      # names, so they run against the CLI a release ships. A pin whose tag
+      # is not published yet (the CLI release lands before the CARLOS one)
+      # falls back to the pin's fallback commit with a warning. If neither
+      # is available, fail rather than silently skipping CLI-dependent tests.
+      - name: Check out the pinned carlos-ctl release
+        run: |
+          set -euo pipefail
+          tag="$(sed -n 's/^tag=//p' debian/carlos-ctl.pin)"
+          if [ -z "$tag" ]; then
+            echo "::error::debian/carlos-ctl.pin names no tag"
+            exit 1
+          fi
+          if git clone --quiet --depth 1 --branch "$tag" \
+              https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"; then
+            echo "carlos-ctl $tag at $(git -C "$CARLOS_CTL_SRC" rev-parse HEAD)"
+          else
+            # the pin's pre-release fallback commit (see debian/carlos-ctl.pin)
+            fallback="$(sed -n 's/^fallback=//p' debian/carlos-ctl.pin)"
+            if [ -n "$fallback" ]; then
+              git clone --quiet https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"
+              git -C "$CARLOS_CTL_SRC" checkout --quiet "$fallback"
+              echo "::warning::carlos-ctl tag $tag is not published yet; testing against the pin's fallback commit $fallback"
+            else
+              echo "::error::carlos-ctl tag $tag is not published and debian/carlos-ctl.pin names no fallback commit"
+              exit 1
+            fi
+          fi
+      - name: Install Poppler for PDF text regressions
+        run: |
+          if ! command -v pdftotext >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends poppler-utils
+          fi
+      - name: Run all script regressions
+        run: npm run test:scripts
+      # Both checks use only the standard-library Python supplied by the runner.
+      - name: Test changed-line coverage reporting
+        run: python3 -m unittest discover -s scripts/coverage -p 'test_*.py'
+      - name: Validate all configured Struts action classes
+        run: bash scripts/validate_struts_actions.sh
+      - name: Install Chromium for the isolated RTL fixture
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Check RTL measurement loading in Chromium
+        run: node scripts/rtl-measurement-browser-check.js
+      - name: Check eForm toolbar and fax compatibility in Chromium
+        run: node scripts/eform-toolbar-browser-check.js
+      - name: Check calendar initialization in eForms
+        run: node scripts/calendar-eform-browser-check.js
