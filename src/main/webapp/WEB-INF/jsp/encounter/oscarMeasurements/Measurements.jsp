@@ -447,6 +447,8 @@
             // If WT, HT and BMI exists then allow the link
             const rowWT = document.getElementById('row-WT');
             const rowHT = document.getElementById('row-HT');
+            const rowWAIS = document.getElementById('row-WAIS');
+            const rowWHtR = document.getElementById('row-WHtR');
             const rowBMI = document.getElementById('row-BMI');
 
             if (rowWT) {
@@ -471,6 +473,17 @@
                 }
             }
 
+            if (rowWAIS) {
+                const waisInput = rowWAIS.querySelectorAll('td')[2]?.querySelector('input');
+                if (waisInput) {
+                    waisInput.title = "Double click to convert inches to cm";
+                    waisInput.style.backgroundColor = "#d9e6f2";
+                    waisInput.addEventListener('dblclick', function () {
+                        htEnglish2Metric(this);
+                    });
+                }
+            }
+
             if (rowWT && rowHT && rowBMI) {
                 const wtInput = rowWT.querySelectorAll('td')[2]?.querySelector('input');
                 const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
@@ -482,6 +495,22 @@
 
                     htInput.addEventListener('blur', function () {
                         calcBMI(wtInput.value, this.value);
+                    });
+                }
+            }
+
+
+            if (rowWAIS && rowHT && rowWHtR) {
+                const waisInput = rowWAIS.querySelectorAll('td')[2]?.querySelector('input');
+                const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
+
+                if (waisInput && htInput) {
+                    waisInput.addEventListener('blur', function () {
+                        calcWHtR(this.value, htInput.value);
+                    });
+
+                    htInput.addEventListener('blur', function () {
+                        calcWHtR(waisInput.value, this.value);
                     });
                 }
             }
@@ -500,11 +529,26 @@
                 if (h > 0) {
                     b = (w / Math.pow(h / 100, 2)).toFixed(1);
                     const bmiInput = document.getElementById('row-BMI')?.querySelectorAll('td')[2]?.querySelector('input');
-                    const rowBMI = document.getElementById('row-BMI');
                     
                     if (bmiInput) {
                         bmiInput.value = b;
                         bmiInput.style.backgroundColor = "#d9e6f2";
+                    }
+                }
+            }
+        }
+
+        function calcWHtR(wais, h) {
+            let b = '';
+
+            if (!isNaN(parseFloat(wais)) && !isNaN(parseFloat(h)) && h !== "" && w !== "") {
+                if (h > 0) {
+                    b = (wais / h).toFixed(2);
+                    const whtrInput = document.getElementById('row-WHtR')?.querySelectorAll('td')[2]?.querySelector('input');
+                    
+                    if (whtrInput) {
+                        whtrInput.value = b;
+                        whtrInput.style.backgroundColor = "#d9e6f2";
                     }
                 }
             }
