@@ -669,7 +669,7 @@ public class FrmPDFServlet extends HttpServlet {
                             // xxxx", font));
                             ct.setSimpleColumn(Integer.parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2]
                                     .trim())), Integer.parseInt(cfgVal[7].trim()), (height - Integer.parseInt(cfgVal[8]
-                                    .trim())), Integer.parseInt(cfgVal[9].trim()), alignmentOf(cfgVal[0]));
+                                    .trim())), (float) Integer.parseInt(cfgVal[9].trim()), alignmentOf(cfgVal[0]));
 
                             //ct.addText(new Phrase(12, props.getProperty(tempName.toString(), ""), font)); // page
                             ct.setText(new Phrase(12, propValue, font));
@@ -733,11 +733,15 @@ public class FrmPDFServlet extends HttpServlet {
                                     (height - Integer.parseInt(cfgVal[2].trim())), 0);
                             cb.endText();
                         } else { // write prop text
+                            // A seventh column is fixed text (a checkbox's "X"), printed only when the field has a value.
+                            String text = propValue;
+                            if (cfgVal.length >= 7) {
+                                text = propValue.isEmpty() ? "" : cfgVal[6].trim();
+                            }
                             cb.beginText();
                             cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                            cb.showTextAligned(alignmentOf(cfgVal[0]), (cfgVal.length >= 7 ? ((propValue.equals("") ? "" : cfgVal[6].trim()))
-                                    : propValue), Integer.parseInt(cfgVal[1]
-                                    .trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
+                            cb.showTextAligned(alignmentOf(cfgVal[0]), text, (float) Integer.parseInt(cfgVal[1].trim()),
+                                    height - Integer.parseInt(cfgVal[2].trim()), 0);
 
                             cb.endText();
                         }
