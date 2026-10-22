@@ -1677,6 +1677,8 @@ public class RxUtil {
      * True when a fraction found just before the frequency can stand alone as a dose: a proper
      * fraction that is not written as a schedule ({@code x 3/7}, {@code for 2/52}).
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
     private static boolean isPlainDoseFraction(String instructions, NumberToken fraction) {
         ExactAmount amount = ExactAmount.parse(fraction.value);
         if (amount.isZero() || amount.numerator().compareTo(amount.denominator()) >= 0) {
