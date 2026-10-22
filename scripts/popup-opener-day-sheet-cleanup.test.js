@@ -22,7 +22,7 @@ function fixture(body, options = {}) {
     CREATE TABLE PageMonitor(id INTEGER PRIMARY KEY,pageName TEXT,pageId TEXT,session TEXT,providerNo TEXT);
     CREATE TABLE appointment(appointment_no INTEGER PRIMARY KEY,demographic_no INTEGER,provider_no TEXT,reason TEXT);
     CREATE TABLE appointmentArchive(id INTEGER PRIMARY KEY,appointment_no INTEGER,demographic_no INTEGER,provider_no TEXT,reason TEXT);
-    CREATE TABLE admission(id INTEGER PRIMARY KEY,client_id INTEGER,provider_no TEXT,program_id INTEGER,
+    CREATE TABLE admission(am_id INTEGER PRIMARY KEY,client_id INTEGER,provider_no TEXT,program_id INTEGER,
       admission_date TEXT,admission_from_transfer INTEGER,discharge_from_transfer INTEGER,admission_status TEXT,lastUpdateDate TEXT);
     CREATE TABLE program_provider(provider_no TEXT,program_id INTEGER);
     INSERT INTO demographic VALUES(41,'${MARKER}','999998'),(42,'FOREIGN','888888');
@@ -58,7 +58,7 @@ function fixture(body, options = {}) {
     cleanup(fn) { state.callbacks.push(fn); }};
   const monitor = (id, {session='unit-owned-session', provider='999998', pageId=PAGE, pageName='addappointment'} = {}) =>
     db.prepare('INSERT INTO PageMonitor VALUES(?,?,?,?,?)').run(id,pageName,pageId,session,provider);
-  const admission = (id=31, patient=41, provider='999998') => db.prepare('INSERT INTO admission(id,client_id,provider_no,program_id) VALUES(?,?,?,7)').run(id,patient,provider);
+  const admission = (id=31, patient=41, provider='999998') => db.prepare('INSERT INTO admission(am_id,client_id,provider_no,program_id) VALUES(?,?,?,7)').run(id,patient,provider);
   const appointments = () => {
     db.prepare('INSERT INTO appointmentArchive VALUES(?,?,?,?,?)').run(51,61,41,'999997',MARKER);
     db.prepare('INSERT INTO appointment VALUES(?,?,?,?)').run(62,41,'999997',MARKER);
@@ -80,7 +80,7 @@ test('real SQL removes every new exact slot/session/login-provider monitor and p
   f.monitor(15,{pageId:'999997|2026-10-21|09:15|09:29'}); f.monitor(16,{pageId:PAGE.replace('2026-10-21','2026-10-22')});
   f.monitor(17,{pageName:'other-page'}); f.monitor(18,{pageId:PAGE.replace('999997','999996')});
   f.admission(); owned.admissionCreated('31'); f.appointments();
-  f.db.exec("INSERT INTO appointment VALUES(70,42,'999997','FOREIGN'); INSERT INTO admission(id,client_id,provider_no) VALUES(71,42,'999998')");
+  f.db.exec("INSERT INTO appointment VALUES(70,42,'999997','FOREIGN'); INSERT INTO admission(am_id,client_id,provider_no) VALUES(71,42,'999998')");
   f.cleanup(); assert.deepEqual(f.ids(),[13,14,15,16,17,18]);
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM appointmentArchive').get().n,0);
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM appointment').get().n,1);
@@ -142,7 +142,7 @@ test('a foreign row attached to the same patient is preserved and retains the pa
 
 test('only the captured admission identity is removed; a concurrent admission is retained', () => fixture(async f => {
   const owned=f.begin();f.admission(31);owned.admissionCreated('31');f.admission(32);
-  assert.throws(()=>f.cleanup(),/foreign or uncertain/);assert.equal(f.db.prepare('SELECT id FROM admission').get().id,32);
+  assert.throws(()=>f.cleanup(),/foreign or uncertain/);assert.equal(f.db.prepare('SELECT am_id FROM admission').get().am_id,32);
 }));
 
 test('successful actual workflow cleanup removes its parent only after scoped monitor and child verification', () => fixture(async f => {

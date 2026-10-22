@@ -104,7 +104,7 @@ function installOwnedDaySheetCleanup(s) {
           AND provider_no=${h.sqlString(slot.provider)} AND reason=${h.sqlString(marker)} AND EXISTS (${ownerSql})`);
       }
     }
-    if (admission) sql.execute(`DELETE FROM admission WHERE id=${admission} AND client_id=${patient}
+    if (admission) sql.execute(`DELETE FROM admission WHERE am_id=${admission} AND client_id=${patient}
       AND provider_no=${h.sqlString(provider)} AND EXISTS (${ownerSql})`);
     owner();
     h.assert(children() === '0', 'Owned day-sheet rows remain; foreign or uncertain rows were retained');
