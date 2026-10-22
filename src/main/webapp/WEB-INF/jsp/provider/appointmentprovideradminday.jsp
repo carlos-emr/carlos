@@ -149,16 +149,6 @@
     pageContext.setAttribute("isPreventionWarningDisabled", providerPreventionManager.isDisabled());
 %>
 <%!
-    //multisite starts =====================
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-    private List<Site> sites = new ArrayList<Site>();
-    private List<Site> curUserSites = new ArrayList<Site>();
-    private List<String> siteProviderNos = new ArrayList<String>();
-    private List<String> siteGroups = new ArrayList<String>();
-    private String selectedSite = null;
-    private HashMap<String, String> siteBgColor = new HashMap<String, String>();
-    private HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
-
    private void appendTooltipLine(StringBuilder tooltip, String labelHtml, String value) {
     if (value == null) return;
     String trimmedValue = value.trim(); 
@@ -171,25 +161,35 @@
   }
 %>
 <%
+    // Multisite state belongs to this request only. These are locals of the page's service method: a JSP
+    // declaration would make them fields of the one servlet instance that every login shares.
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+    List<Site> sites = new ArrayList<Site>();
+    List<Site> curUserSites = new ArrayList<Site>();
+    List<String> siteProviderNos = new ArrayList<String>();
+    List<String> siteGroups = new ArrayList<String>();
+    String selectedSite = null;
+    HashMap<String, String> siteBgColor = new HashMap<String, String>();
+    HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
     if (bMultisites) {
         sites = siteDao.getAllActiveSites();
-        selectedSite = (String) session.getAttribute("site_selected");
+        String siteManagerProviderNo = (String) session.getAttribute("user");
+        if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+            curUserSites = siteDao.getActiveSitesByProviderNo(siteManagerProviderNo);
+        } else {
+            curUserSites = sites;
+        }
+        // The remembered clinic counts only while it is one this login is offered; anything else is All Clinics.
+        selectedSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(
+                (String) session.getAttribute("site_selected"), curUserSites);
 
         if (selectedSite != null) {
             //get site providers list
             siteProviderNos = siteDao.getProviderNoBySiteLocation(selectedSite);
             siteGroups = siteDao.getGroupBySiteLocation(selectedSite);
-        }
-
-        if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
-            String siteManagerProviderNo = (String) session.getAttribute("user");
-            curUserSites = siteDao.getActiveSitesByProviderNo(siteManagerProviderNo);
-            if (selectedSite == null) {
-                siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
-                siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
-            }
-        } else {
-            curUserSites = sites;
+        } else if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+            siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
+            siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
         }
 
         for (Site s : curUserSites) {
@@ -1452,15 +1452,15 @@
                                         </script>
 
                                         <select id="site" name="site" onchange="changeSite(this)"
-                                                style="background-color: <%=( selectedSite == null || siteBgColor.get(selectedSite) == null ? "#FFFFFF" : siteBgColor.get(selectedSite))%>">
+                                                style="background-color: <carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(selectedSite == null ? null : siteBgColor.get(selectedSite), "#FFFFFF") %>' context="htmlAttribute"/>">
                                             <option value="none" style="background-color:white"><fmt:message key="provider.appointmentprovideradminmonth.formAllClinics"/></option>
                                             <%
                                                 for (int i = 0; i < curUserSites.size(); i++) {
                                             %>
-                                            <option value="<%=curUserSites.get(i).getName()%>"
-                                                    style="background-color:<%=curUserSites.get(i).getBgColor()%>"
+                                            <option value="<carlos:encode value='<%= curUserSites.get(i).getName() %>' context="htmlAttribute"/>"
+                                                    style="background-color:<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(curUserSites.get(i).getBgColor(), "") %>' context="htmlAttribute"/>"
                                                     <%=(curUserSites.get(i).getName().equals(selectedSite)) ? " selected " : ""%> >
-                                                <%=curUserSites.get(i).getName()%>
+                                                <carlos:encode value='<%= curUserSites.get(i).getName() %>'/>
                                             </option>
                                             <%
                                                 }
@@ -2064,8 +2064,8 @@
                                                         nowrap>
                                                         <!-- multisites : add colour-coded to the "location" value of that appointment. -->
                                                         <%if (bMultisites) {%>
-                                                        <span title="<%= sitename %>"
-                                                              style="background-color:<%=siteBgColor.get(sitename)%>;">&nbsp;</span>|
+                                                        <span title="<carlos:encode value='<%= sitename %>' context="htmlAttribute"/>"
+                                                              style="background-color:<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(siteBgColor.get(sitename), "") %>' context="htmlAttribute"/>;">&nbsp;</span>|
                                                         <%} %>
 
                                                         <%

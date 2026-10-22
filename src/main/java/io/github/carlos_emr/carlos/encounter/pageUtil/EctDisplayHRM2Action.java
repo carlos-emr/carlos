@@ -85,7 +85,8 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
                 hash = Math.abs(winName.hashCode());
 
                 // The chart's patient, so a report linked to more than one patient acts for this one (#5060).
-                url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/hospitalReportManager/Display?id=" + hrmDocumentId
+                // 900 wide: the report page needs about 870 px, so 800 scrolled sideways (#3711).
+                url = "popupPage(700,900,'" + hash + "', '" + request.getContextPath() + "/hospitalReportManager/Display?id=" + hrmDocumentId
                         + "&segmentID=" + hrmDocumentId + chartPatientParameter + "');";
 
                 String labRead = "";

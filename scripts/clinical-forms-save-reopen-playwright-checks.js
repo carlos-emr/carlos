@@ -87,9 +87,8 @@ const FORMS = [
     idColumn: 'ID', provider: true, confirm: true, prose: 'r_refComments', fields: [], printOn: 'saved',
     chain: [{ link: 'Assessment', prose: 'a_assComments' }, { link: 'Outcome', prose: 'o_outComments' }],
     print: { button: 'Print', kind: 'popup', pathname: '/form/formmhoutcomeprint' },
-    // problems: the typo that every page of the form throws (237). opener: the note-lock beacon the chart sends as it is
-    // reloaded by an Assessment Save (242), so a different E-Chart problem after that is fixed does not read as pinned.
-    known: { problems: /docuemtn is not defined/, opener: /CaseManagementEntry failed \(net::ERR_ABORTED\)/ } },
+    // The note-lock beacon is sent when an Assessment Save reloads the chart (242).
+    known: { opener: /CaseManagementEntry failed \(net::ERR_ABORTED\)/ } },
   // The shipped registration points at the Struts 1 route SetupForm.do. The chart opened it as a raw URL and the
   // application answered 404 (finding 103, fixed in #4667: the route now resolves to SetupForm). That row only opens,
   // so nothing downstream of the open can hold it up; the form behind it is VT2.
@@ -138,7 +137,6 @@ function validatePin(env = process.env) {
  */
 const PINNED = Object.freeze({
   'mh14.problems': 'Mental Health Form 14: raised no JavaScript-layer problems',
-  'mhc.problems': 'Mental Health: raised no JavaScript-layer problems',
   'mhc.opener': 'Mental Health: Saving a page leaves the E-Chart that opened the form alone',
   'mhc.reopen': 'Mental Health: reopening from the E-Chart restores the saved values',
   'mhc.print': 'Mental Health: Print renders the saved page for the owned patient',
@@ -336,10 +334,13 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       // The entry being in the menu is what the step needs; the form opening for the owned patient is the test.
       const link = await claims.asPrecondition(async () => {
         setSex(form.sex || 'F');
-        await ui.openFormsMenu(chart);
-        const found = chart.getByRole('link', { name, exact: true });
+        // Save refreshes the panel immediately; a started-form item can now have
+        // the same name as its menu entry. Count registrations inside the menu only.
+        const found = chart.locator('#forms .menu').getByRole('link', { name, exact: true, includeHidden: true });
+        await found.first().waitFor({state: 'attached', timeout: 20000});
         const listed = await found.count();
         claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
+        await ui.openFormsMenu(chart);
         return found;
       }, 'the Forms-menu entry');
       entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.key}`));

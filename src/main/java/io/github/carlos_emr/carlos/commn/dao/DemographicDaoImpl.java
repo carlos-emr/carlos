@@ -79,6 +79,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
@@ -1713,6 +1715,26 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         return entityManager().find(Demographic.class, demographicNo, LockModeType.PESSIMISTIC_WRITE);
     }
 
+    /**
+     * Runs a non-transactional side effect once the surrounding transaction commits, or immediately
+     * when no transaction synchronization is active (callers that save outside a transaction keep
+     * their existing behaviour). The action is dropped if the transaction rolls back.
+     *
+     * @param action {@link Runnable} the side effect to run after commit
+     */
+    static void runAfterCommitOrNow(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
+    }
+
     @Override
     public void save(Demographic demographic) {
         if (demographic == null) {
@@ -1731,9 +1753,15 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
-            if (!(new HL7A04Generator()).generateHL7A04(demographic)) {
-                log.warn("HL7 A04 generation did not complete for a saved demographic");
-            }
+            // The A04 file is written to disk and cannot be rolled back, so inside a transaction (the
+            // manager creates the patient, admission and extensions in one) it is written only once that
+            // transaction commits; otherwise a rolled-back create would leave a registration for a
+            // patient that does not exist.
+            runAfterCommitOrNow(() -> {
+                if (!(new HL7A04Generator()).generateHL7A04(demographic)) {
+                    log.warn("HL7 A04 generation did not complete for a saved demographic");
+                }
+            });
         }
 
         // the new way

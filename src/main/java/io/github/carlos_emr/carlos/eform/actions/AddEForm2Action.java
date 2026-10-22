@@ -293,7 +293,7 @@ public class AddEForm2Action extends ActionSupport {
          * Part 2 of "counter hack for a hack" initialized in Javascript file
          * eform_floating_toolbar.js
          */
-        String[] imagePathPlaceHolders = request.getParameterValues("openosp-image-link");
+        String[] imagePathPlaceHolders = request.getParameterValues("carlos-image-link");
 
         /*
          * An eform developer may add these to the eForm in order to auto
@@ -316,7 +316,7 @@ public class AddEForm2Action extends ActionSupport {
              * Remove these parameters from the request after the imagePathPlaceHolders variable is set.
              * These values do not need to be saved into the eform_values table.
              */
-            if (curField.equalsIgnoreCase("openosp-image-link")) {
+            if (curField.equalsIgnoreCase("carlos-image-link")) {
                 continue;
             }
 

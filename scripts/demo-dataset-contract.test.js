@@ -333,11 +333,24 @@ function reappliedSecurityMigrations() {
  * order: the snapshot, the re-applied reference migrations, the re-applied security migrations,
  * and every later seed script.
  */
+/**
+ * Where each /scripts/<name> file of the database image comes from in this checkout, read from
+ * the image's own COPY lines, so a script copied from elsewhere in the tree (the Query by Example
+ * grant list ships from src/main/resources) is read from its real source.
+ */
+function imageScriptSources() {
+  const dockerfile = fs.readFileSync(path.join(ROOT, '.devcontainer', 'db', 'Dockerfile'), 'utf8');
+  const sources = new Map();
+  for (const m of dockerfile.matchAll(/^COPY \.\/(\S+) \/scripts\/(\S+)\s*$/gm)) sources.set(m[2], path.join(ROOT, m[1]));
+  return sources;
+}
+
 function devcontainerLoads() {
   const script = fs.readFileSync(POPULATE_DB, 'utf8');
+  const sources = imageScriptSources();
   const found = [];
   for (const m of script.matchAll(/^\$SQL carlos < \/scripts\/(\S+\.sql)\s*$/gm)) {
-    found.push({ at: m.index, file: path.join(ROOT, '.devcontainer', 'db', 'scripts', m[1]) });
+    found.push({ at: m.index, file: sources.get(m[1]) || path.join(ROOT, '.devcontainer', 'db', 'scripts', m[1]) });
   }
   for (const m of script.matchAll(/^\$SQL carlos < \/database\/mysql\/updates\/(\S+\.sql)\s*$/gm)) {
     found.push({ at: m.index, file: path.join(ROOT, 'database', 'mysql', 'updates', m[1]) });

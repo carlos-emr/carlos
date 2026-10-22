@@ -46,7 +46,7 @@ async function workflow(s) {
     await admin.waitForFunction(() => !!window.jQuery('#obecForm').data('validator'));
     let submissions = 0;
     const record = request => {
-      // The legacy form defaults to GET; guard every method, not just POST.
+      // Count every method, not just POST: the form posts, but any request to the report counts as a submission.
       if (new URL(request.url()).pathname.endsWith('/oscarReport/obec')) submissions++;
     };
     s.context.on('request', record);

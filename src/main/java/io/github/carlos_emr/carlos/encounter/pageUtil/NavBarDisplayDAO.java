@@ -63,6 +63,15 @@ public class NavBarDisplayDAO {
     public record PopupConfig(int width, int height, String windowName, String url) {}
 
     /**
+     * Stable, nonnegative popup identity. Widen before taking the absolute value:
+     * Integer.MIN_VALUE otherwise stays negative. All form entry points must use
+     * this same calculation so reopening a saved form reuses its named window.
+     */
+    public static long popupWindowHash(String identity) {
+        return Math.abs((long) identity.hashCode());
+    }
+
+    /**
      * Auto-complete item for the encounter left navbar search/filter.
      * The JSP renders these with {@code Encode.forJavaScript()} encoding.
      *

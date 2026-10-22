@@ -113,6 +113,12 @@ class EctDisplayForm2ActionUnitTest {
     }
 
     @Test
+    void shouldKeepPopupHashPositive_whenStringHashIsMinimumInteger() {
+        assertThat("polygenelubricants".hashCode()).isEqualTo(Integer.MIN_VALUE);
+        assertThat(NavBarDisplayDAO.popupWindowHash("polygenelubricants")).isEqualTo(2147483648L);
+    }
+
+    @Test
     @DisplayName("should date, title and link the item from the row the latest shortcut opens")
     void shouldDescribeShortcutRow_whenFormHasBeenStarted() {
         register("Annual", "formAnnual", "../form/formannual.jsp?demographic_no=");
@@ -189,6 +195,21 @@ class EctDisplayForm2ActionUnitTest {
         NavBarDisplayDAO panel = new NavBarDisplayDAO();
         assertThat(action.getInfo(session, request, panel)).isTrue();
         return panel;
+    }
+
+    @Test
+    void shouldSerializeGuardArgumentsAsJson_whenFormNameContainsPunctuation() throws Exception {
+        String name = "Caregiver's, \\\"record\\\" \\\\ suivi";
+        register(name, "formCaregiver", "../form/formcaregiver.jsp?demographic_no=");
+        String expression = render().getAutoCompleteItems().getFirst().jsExpression();
+        String prefix = "openEncounterForm.apply(null,";
+        assertThat(expression).startsWith(prefix).endsWith(");");
+        var arguments = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                expression.substring(prefix.length(), expression.length() - 2));
+        assertThat(arguments.size()).isEqualTo(3);
+        assertThat(arguments.get(0).asText()).contains("demographic_no=1&formId=0");
+        assertThat(arguments.get(1).asText()).endsWith("new");
+        assertThat(arguments.get(2).asText()).isEqualTo(name);
     }
 
     private void register(String name, String table, String value) {

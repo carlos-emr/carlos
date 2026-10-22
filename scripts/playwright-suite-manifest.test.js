@@ -800,7 +800,8 @@ test('shouldTakeTheReportingGuardFromTheScriptsOwnText_notFromWhatItRequires', (
  */
 const { parseMutates } = require('./lib/residue-audit');
 
-const KNOWN_WRITERS = ['fax-configure', 'schedule-setting', 'eform-admin-crud', 'eform-image-delete', 'prevention-add-data'];
+const KNOWN_WRITERS = ['fax-configure', 'schedule-setting', 'eform-admin-crud', 'eform-image-delete', 'prevention-add-data',
+  'consultation-specialty-selection'];
 
 test('shouldDeclareMutates_onTheKnownClinicWideWriters', () => {
   for (const name of KNOWN_WRITERS) {
@@ -810,6 +811,8 @@ test('shouldDeclareMutates_onTheKnownClinicWideWriters', () => {
       `${name} changes clinic-wide state and must list it in mutates`);
   }
   assert.deepEqual(checks.find((entry) => entry.name === 'fax-configure').mutates, ['fax_config']);
+  assert.deepEqual(checks.find((entry) => entry.name === 'consultation-specialty-selection').mutates,
+    ['consultationServices', 'professionalSpecialists']);
 });
 
 test('shouldKeepMutatesWellFormed_whereverItIsDeclared', () => {

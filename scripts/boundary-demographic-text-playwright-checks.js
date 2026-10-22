@@ -8,7 +8,8 @@
  * "%41", "+" and ";" are stored byte for byte (utf8mb4, no "?" substitution, no double encoding); the
  * Master Record and the Edit form redisplay them identically; an unchanged Update leaves every column
  * as it was; every text box carries a maxlength equal to its column; a surname of exactly the column
- * length is stored whole and one more character is visibly limited; and, last, a preferred name /
+ * length is stored whole and one more character is visibly limited; and, last, a Name Used longer than
+ * pref_name is stored whole in the alias (pref_name keeps its first 30 characters by design, #5128) and a
  * pronoun / gender past their columns are refused or stored whole, never silently cut. (Patient search
  * by these characters is boundary-demographic-search.)
  * Fixtures: patients whose surname starts with the run tag; cleanup removes every row of those patients
@@ -125,7 +126,8 @@ async function workflow(s) {
     const mapping = [['last_name', 'last_name'], ['first_name', 'first_name'], ['middleNames', 'middleNames'], ['address', 'address'],
       ['city', 'city'], ['residentialAddress', 'residentialAddress'], ['residentialCity', 'residentialCity'], ['postal', 'postal'],
       ['phone', 'phone'], ['phone2', 'phone2'], ['email', 'email'], ['hin', 'hin'], ['sin', 'sin'], ['chart_no', 'chart_no'],
-      ['nameUsed', 'pref_name'], ['pronouns', 'pronoun'], ['gender', 'gender']];
+      // Name Used is stored whole in the alias; pref_name keeps only what fits (#5128).
+      ['nameUsed', 'alias'], ['pronouns', 'pronoun'], ['gender', 'gender']];
     const mismatched = [];
     for (const [input, column] of mapping) {
       const box = add.locator(`form[name="adddemographic"] [name="${input}"]`).first();
@@ -161,17 +163,30 @@ async function workflow(s) {
     const pref = b.columnLength(sql, 'demographic', 'pref_name');
     const pron = b.columnLength(sql, 'demographic', 'pronoun');
     const gender = b.columnLength(sql, 'demographic', 'gender');
-    const prefOver = b.exactly(pref + 1, 'P');
+    // Past pref_name but within the alias: the alias, which the record shows, keeps it whole (#5128).
+    const nameUsed = b.exactly(pref + 10, 'P');
     const pronOver = b.exactly(pron + 1, 'q');
     const genderOver = b.exactly(gender + 1, 'g');
+    const problems = [];
+    // Its own patient, so a pronoun or gender failure (a refused or failed save) cannot hide its result.
+    add = await openAddForm(s, tag + 'U');
+    const nameForm = await fillBasics(add, tag + 'U', 'Wide');
+    await nameForm.locator('input[name="nameUsed"]').fill(nameUsed);
+    await submitAdd(add);
+    const typedNameUsed = nameUsed.toUpperCase();
+    try {
+      b.assertStored(sql, 'demographic', 'alias', where('U'), typedNameUsed, 'Add form Name Used (alias)');
+      // By design pref_name holds the first characters that fit its column.
+      b.assertStored(sql, 'demographic', 'pref_name', where('U'), Array.from(typedNameUsed).slice(0, pref).join(''),
+        'Add form Name Used (pref_name, its first characters)');
+    } catch (error) { problems.push(error.message); }
+    await add.close();
     add = await openAddForm(s, tag + 'Q');
     const form = await fillBasics(add, tag + 'Q', 'Wide');
-    await form.locator('input[name="nameUsed"]').fill(prefOver);
     await form.locator('input[name="pronouns"]').fill(pronOver);
     await form.locator('input[name="gender"]').fill(genderOver);
     await submitAdd(add);
-    const problems = [];
-    for (const [column, typedValue, uppercase] of [['pref_name', prefOver, true], ['pronoun', pronOver, false], ['gender', genderOver, false]]) {
+    for (const [column, typedValue, uppercase] of [['pronoun', pronOver, false], ['gender', genderOver, false]]) {
       try {
         b.assertNotSilentlyTruncated(sql, 'demographic', column, where('Q'), uppercase ? typedValue.toUpperCase() : typedValue, `Add form ${column}`);
       } catch (error) { problems.push(error.message); }

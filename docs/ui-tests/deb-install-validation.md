@@ -695,6 +695,12 @@ VALUES
  ('999998','2026-08-10','11:00:00','11:15:00','LOCAL_SEED_OBEC_REPORT_3',81,'','','','',NULL,'','','t',NOW(),'carlosdoc');"
 ```
 
+`episode-lifecycle-playwright-checks.js` needs both Episode module gates, `_episode`
+and `_newCasemgmt.episode`. The seeded `doctor` role holds `o` on both. The check
+uses `grantEpisodeModule` to grant the test login's provider number access for the
+run and restores or removes each provider row during cleanup. No manual role-wide
+grant is needed; see `scripts/lib/episode-module-access.js`.
+
 `cds-export-lab-documents-playwright-checks.js` (#3946) needs one more
 fixture, and it deliberately does **not** relax the package's
 `demographic.export.encryptedOnly=true` default: it gives the install a PGP
@@ -3226,3 +3232,142 @@ The whole form-catalogue family (`form-catalog-smoke` and its nine variants) plu
 signatures, all from the ALPHA (`/form/formalpha`, HTTP 500, finding 230) and Rourke 2006 (`/form/formrourke2006`, HTTP 500, finding
 236) pins; none involved a form this change touches. The seven `scripts/dependency-security.test.js` cases that need the Docusaurus
 dependencies fail with `MODULE_NOT_FOUND` where those packages are not installed; they do not read this change.
+
+### CML report-version chain validation (2026-10-15, issue #4568)
+
+`release/2026.08` at `244556ad` plus the #4568 branch at `9d1cd46f` was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR
+was compiled on the host with the `debian/rules` Maven flags, and `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder
+with `CARLOS_WAR` and `DRUGREF_WAR` (DrugRef built on the host from the commit `debian/drugref.pin` names, `1941e14`). carlos-ctl
+was 1.1.2 from its release. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported "All checks passed"). Behind the egress proxy one apt download in the image build ended in a
+"Broken pipe"; the repeat built the image. The installed classes were checked to be the fixed ones before any check ran
+(`MDSResultsData$CmlChain` present; the `ORDER BY tr.printDate, tr.printTime, lpp.id` and `TRIM(lpp2.accessionNum)` text in the
+DAO class).
+
+`cml-version-chain` (`npm run test:cml-version-chain-playwright`) seeds three reports of one accession (two versions two days
+apart, and a third that recycled the number two years earlier) and three more, unmatched, for the match step, then drives the real
+CML pages through the front door.
+
+| Run | `cml-version-chain` |
+|---|---|
+| fixed packages, fresh install | all five steps pass: seed, the newest version lists the older one as a `Version:` link (and not the recycled report), the older version opens from its link and links back, acknowledging the newest files the older one and leaves the recycled report alone, matching one unmatched version to the owned patient links every version of it and not the recycled report |
+| the two `release/2026.08` classes (`MDSResultsData`, `LabPatientPhysicianInfoDaoImpl`, byte-for-byte what `244556ad` compiles to) put back into the installed webapp | fails at the display step: "The final report page shows 0 "Version:" rows, expected 1"; the journal logs `ERROR data.MDSResultsData (MDSResultsData.java:610) - exception in getMatchingCMLLabs (ClassCastException)`, the line the issue quotes |
+| the same, seed and match steps only (a scratch wrapper that is not in the repository) | choosing the patient makes `oscarMDS/PatientMatch` answer HTTP 500, expected 200; the journal shows `IllegalStateException: Lab version lookup failed` caused by `ClassCastException: class java.lang.String cannot be cast to class java.util.Date`, the strict lookup that `PatientMatch` uses |
+| fixed classes restored and the service restarted | all five steps pass again |
+
+On the fixed install, built before #4558 landed, `legacy-lab-display` and `legacy-lab-display-mds` were unchanged: `known-fail` at Forward on finding 184 (fixed since, by #4558).
+`legacy-lab-display-pathnet` SKIPs on Ontario. The residue audit reported no residue. Until the classes were swapped the journal
+held no `getMatchingCMLLabs` error, and the server-log audit's only signatures were the two that the matching popup writes for a
+CML report (`Factory.getHandler` finding no HL7 text message under the lab's number, then the empty-message fallback), which is
+finding 313; both are now in `scripts/lib/server-log-baseline.tsv` with that citation, and the audit passes.
+
+The smoke tier passed 11 of 12. `echart` failed at "a Social History item and an encounter-note draft carrying WAF-scored text save
+and refresh" (`page.waitForResponse` timed out waiting for the `encounter/displayIssues?cmd=unresolvedIssues` refresh), twice in a
+row, and the same way with the two `release/2026.08` classes put back, so this change does not cause it. #4641 (`cbe3c561`)
+changed the CPP save to a POST that redirects and did not touch `scripts/echart-playwright-checks.js`, which still waits for that
+refresh; that is the likely cause, and it is not pursued here.
+
+The swaps used `docker cp` of the compiled classes and a `carlos-ctl restart`; Tomcat takes about a minute to be ready after it,
+and an HTTP 200 from the front door before then is nginx's, not the application's.
+
+### PR #4670 follow-up validation (2026-10-19)
+
+The follow-up includes `release/2026.08` through `da14420497750b5109914d461598899570270ace`.
+This is a local WAR deployment on Tomcat 11/JDK 25 and MariaDB 11.8.8, using the Ontario
+migration set and development fixtures with `CML_LABS=yes`. It is not a repeat of the older
+Debian/nginx packaged-install validation above.
+
+- All 1,703 lab-tagged Java tests pass with no failures, errors or skips. The suite includes the
+  real H2 candidate query, source identity conflicts, differently routed valid versions, missing or malformed
+  print headers, exact four-month DST boundaries in Havana and Santiago, month-end clamping,
+  and injected later-version failures proving Forward/File rollback.
+- Another 36 HTTP mutation and document-authorization tests pass. A failed acknowledgement
+  returns HTTP 500 instead of success, and successful/audited outcomes retain their behavior.
+- All 88 JavaScript cleanup, log-audit and browser-manifest checks pass; BDD naming and encoder
+  null-safety lint pass. The 25 cleanup/log-audit checks also pass after the final fixture cleanup edit.
+- `mvn -B -DskipTests package` passes, including dependency-lock verification, compilation,
+  Checkstyle and Javadoc. Maven emits existing documentation/deprecation warnings.
+- The seven-step `cml-version-chain` workflow passes: seed; display; older-version navigation;
+  acknowledge final/file older; forward both versions through the picker; match both unmatched
+  versions; display an explicit warning without sibling links for conflicting source identities.
+  Recycled accessions remain untouched, and fixture cleanup is verified.
+- The browser-window server log contains no ERROR or SEVERE entries and one expected,
+  identifier-free warning from the deliberate ambiguous-identity fixture. This is checked on
+  the running application's raw log, without the removed missing-HL7 baseline exception.
+
+The first browser pass revealed another cross-source lookup in the patient list's service-date
+loader. Both copies of that loader now query the HL7 factory only for HL7 reports, with tests
+covering overlapping numeric IDs. The patient-search popup has the same source guard. The chart and patient lab list also use
+source-qualified version grouping, retaining the newest visible report when a later version
+is outside the current result set. Tests cover CML/HL7 numeric-ID collisions and the browser
+checks actual list collapsing when CML lists are enabled. The warning
+message is present in every shipped locale bundle.
+
+Source patient identities establish CML membership; current chart assignments do not. An HIN
+match needs matching DOB or full name, and absent HINs require matching DOB plus full name.
+Conflicting HINs or insufficient source evidence block chain-wide mutations and require source
+review, including corrections that change all corroborating identity fields. The resolver does
+not silently omit an uncertain sibling. Other lab sources retain their existing membership rules.
+
+### Query by Example reporting account (2026-10-22, issue #3372)
+
+Query by Example now runs every query as the read-only `carlos_report` account that carlos-ctl 1.2.0 provisions from the grant list
+the WAR ships (`WEB-INF/classes/db/reporting/carlos_report_grants.sql`); see `docs/query-by-example-least-privilege.md`. The branch
+(`claude/issue-3372-20261022`, WAR from `89f982f8`) was packaged unstamped as `2026.09.0~snapshot26`: the CARLOS WAR compiled on the host
+with JDK 25, DrugRef from `debian/drugref.pin`, `dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` builder with `CARLOS_WAR` and
+`DRUGREF_WAR`. carlos-ctl was built from its PR branch (carlos-emr/carlos-ctl#10) as `1.2.0`. Docker Hub rate-limited the `ubuntu:26.04`
+pull, so `BASE_IMAGE` named a local image built from it earlier the same day.
+
+**Fresh install** (Ontario, demo dataset, `scripts/deb-docker-validation.sh up`): `carlos-ctl check` passed, including "Query by Example
+runs as carlos_report: SELECT on 409 reportable table(s), nothing else". `SHOW GRANTS` lists `casemgmt_note` and `DigitalSignature`
+column by column, without `password` and `signatureImage`, and no restricted table.
+
+| Run | Result |
+|---|---|
+| `report-query-by-example-least-privilege` (new), `report-query-by-example`, `report-query-by-example-front-door` | **PASS**, 3 of 3 through `:443`: a reportable table answers; a table created after provisioning (with a planted secret) is refused by MariaDB in the outer query and in a subquery, the secret never reaches the page and no history row is written; every hidden column is refused by name and through `SELECT *` while the other columns answer; in MariaDB the account holds SELECT only, no table with hidden columns as a whole, no schema, global or role privilege |
+| `--tier smoke` | **PASS**, 12 of 12 |
+| server-log audit | **PASS**, no unexplained signature (6 known) |
+
+Drift, introduced by hand on the running install and then repaired (`/root/qbe-drift-scenarios.sh`, 22 assertions, all pass with the
+final carlos-ctl):
+
+| Drift | `carlos-ctl check` | Repair |
+|---|---|---|
+| table-wide `SELECT` on `DigitalSignature` | FAIL: "DigitalSignature (every column, hidden ones included)" | `db-users` |
+| `SELECT (password)` on `casemgmt_note` | FAIL: "casemgmt_note.password" | `db-users` |
+| `SELECT` on `security` | FAIL: "security (restricted)" | `db-users` |
+| `PROXY ON ''@'%'` | FAIL: privileges beyond SELECT (proxy) | `db-users` revokes the PROXY grant |
+| `appointment` revoked on `127.0.0.1` only | FAIL: "1 reportable table(s) are not granted to carlos_report@127.0.0.1" | `db-users` |
+| `casemgmt_note.note` revoked on `localhost` only | FAIL: "casemgmt_note.note for localhost" | `db-users` |
+| an extra `carlos_report@'%'` login | FAIL: "also exists for host(s) %" | `DROP USER` |
+| the account's password changed in MariaDB | FAIL: the recorded password "does not log in as carlos_report@localhost" | `db-users` |
+| a `PUBLIC` grant on the schema plus a stale `SELECT, INSERT` on `security` | FAIL: PUBLIC holds privileges | `db-users` reports the refused list; the refused run had already revoked the stale grant; revoke from PUBLIC, `db-users` |
+
+With the table-wide `DigitalSignature` grant in place, the application refused the account before running anything: the
+`report-query-by-example` check failed at its first query, as intended, and the log read "Query-by-Example refused the reporting
+account: it holds a privilege other than SELECT on reportable tables of carlos". MariaDB prints a table grant and a column grant on
+one table as a single `GRANT SELECT, SELECT (...)` line, which the audit refuses as unrecognised; `carlos-ctl check` names the
+table. After `db-users` both checks passed again.
+
+One defect was found and fixed here: when the grant list refused to run, `db-users` warned with the first 400 characters of the
+client's stderr, which the client fills with the echoed `BEGIN NOT ATOMIC` block, so MariaDB's message was cut off. carlos-ctl now
+reports the last `ERROR` line (carlos-ctl `b98c931`).
+
+**Upgrade from `2026.08.0~alpha20`** (carlos-ctl 1.1.2, no reporting account) to the same packages: `deb-upgrade-baseline.sh`, then
+`apt-get install` of `carlos-ctl_1.2.0`, `carlos-emr` and `carlos-emr-drugref`. The transaction created `carlos_report` on both hosts
+and granted 409 tables; Flyway applied exactly `1.0.58` (45 in all); `carlos-ctl check` passed. `deb-upgrade-verify.sh` first scored
+44 of 45: `carlos.properties` changed, because provisioning records `db_reporting_username` and `db_reporting_password`. The baseline
+now snapshots those two keys (the password as a digest only) apart from its other digests, and the verifier accepts exactly that
+addition. Re-run against the same PRE snapshot (alpha20 had neither key, so its digests are identical under both script versions):
+**46 passed, 0 failed**. On the upgraded install the three Query by Example checks pass 3 of 3, `--tier smoke` passes 12 of 12 and the
+server-log audit reports no unexplained signature; the install also came back healthy after its container was restarted mid-run.
+
+A review of carlos-ctl#10 then found the login probe ignoring `CARLOS_DB_PORT` and calling any failed login a wrong password. With
+carlos-ctl `607c24e` installed on the upgraded container, `check` still passed; changing the account's password on `127.0.0.1` alone
+was reported as "does not log in as carlos_report@127.0.0.1", and `db-users` repaired it. A second review found `check` printing its
+OK line beside a login it could not try (a busy account, or MariaDB not answering on the port). With carlos-ctl `325482a` installed
+(OK only after a login that worked), `check` still passed on the same container. The 22 drift assertions passed again, and so did the
+three Query by Example checks (3 of 3).
+
+The installer printed "NOT ready to use" during both the fresh `snapshot26` and the `alpha20` transactions (an nginx reload while
+`carlos-emr` configures); no marker remained and `check` passed, so it predates this change.
