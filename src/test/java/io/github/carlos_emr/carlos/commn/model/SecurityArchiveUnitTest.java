@@ -46,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("security")
 class SecurityArchiveUnitTest {
 
-    private static Security record(boolean usingMfa) {
+    private static Security securityRecord(boolean usingMfa) {
         Security security = new Security();
         security.setId(42);
         security.setUserName("fakeuser");
@@ -69,17 +69,17 @@ class SecurityArchiveUnitTest {
 
     @Test
     void shouldArchiveMfaOn_whenTheRecordUsesMfa() {
-        assertThat(new SecurityArchive(record(true)).getUsingMfa()).isTrue();
+        assertThat(new SecurityArchive(securityRecord(true)).getUsingMfa()).isTrue();
     }
 
     @Test
     void shouldArchiveMfaOff_whenTheRecordDoesNotUseMfa() {
-        assertThat(new SecurityArchive(record(false)).getUsingMfa()).isFalse();
+        assertThat(new SecurityArchive(securityRecord(false)).getUsingMfa()).isFalse();
     }
 
     @Test
     void shouldCopyEveryOtherArchivedSetting_fromTheRecord() {
-        Security source = record(true);
+        Security source = securityRecord(true);
 
         SecurityArchive archive = new SecurityArchive(source);
 
