@@ -287,7 +287,8 @@
                         <%  if (demographicNo == null) { %>
                         <td>
                             <%-- data-lab-type: the picker posts each checked lab as "<id>:<type>" (issue #4558). --%>
-                            <input type="checkbox" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"
+                            <label for="flaggedLab<%= i %>" class="visually-hidden"><carlos:encode value='<%= formattedDate %>'/></label>
+                            <input type="checkbox" id="flaggedLab<%= i %>" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"
                                    data-lab-type="<carlos:encode value='<%= result.labType %>' context='htmlAttribute'/>"/>
                         </td>
                         <% } %>

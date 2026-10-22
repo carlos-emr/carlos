@@ -55,6 +55,18 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 @Repository
 public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements DocumentDao {
 
+    /** Description candidates, newest first: the first page. Both pages bind every value. */
+    private static final String DESCRIPTION_CANDIDATES_FIRST_PAGE =
+            "SELECT d FROM Document d WHERE d.status != 'D' AND d.docdesc LIKE ?1"
+            + " AND d.docdesc IS NOT NULL AND d.docdesc <> ''"
+            + " ORDER BY d.documentNo DESC";
+
+    /** Later description pages continue below the last document number scanned (?2). */
+    private static final String DESCRIPTION_CANDIDATES_NEXT_PAGE =
+            "SELECT d FROM Document d WHERE d.status != 'D' AND d.docdesc LIKE ?1"
+            + " AND d.docdesc IS NOT NULL AND d.docdesc <> '' AND d.documentNo < ?2"
+            + " ORDER BY d.documentNo DESC";
+
     public DocumentDaoImpl() {
         super(Document.class);
     }
@@ -512,11 +524,9 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         if (limit <= 0 || limit > 100 || (beforeDocumentNo != null && beforeDocumentNo <= 0)) {
             throw new IllegalArgumentException("Invalid document description page");
         }
-        String jpql = "SELECT d FROM Document d WHERE d.status != 'D' AND d.docdesc LIKE ?1"
-                + " AND d.docdesc IS NOT NULL AND d.docdesc <> ''"
-                + (beforeDocumentNo == null ? "" : " AND d.documentNo < ?2")
-                + " ORDER BY d.documentNo DESC";
-        Query query = entityManager.createQuery(jpql);
+        Query query = beforeDocumentNo == null
+                ? entityManager.createQuery(DESCRIPTION_CANDIDATES_FIRST_PAGE)
+                : entityManager.createQuery(DESCRIPTION_CANDIDATES_NEXT_PAGE);
         query.setParameter(1, keyword == null ? "%" : keyword);
         if (beforeDocumentNo != null) query.setParameter(2, beforeDocumentNo);
         query.setMaxResults(limit);

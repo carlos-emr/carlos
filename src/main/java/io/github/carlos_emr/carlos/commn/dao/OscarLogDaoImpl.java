@@ -51,6 +51,23 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    /** Recently opened, live, unmerged patients for a provider (?1), latest access first. */
+    private static final String RECENT_PATIENTS = "select l.demographicId from OscarLog l"
+            + " where l.providerNo = ?1 and l.demographicId > 0"
+            + " and exists (select d.demographicNo from Demographic d where d.demographicNo = l.demographicId"
+            + " and (d.patientStatus is null or d.patientStatus <> 'DE'))"
+            + " and not exists (select m.id from DemographicMerged m where m.demographicNo = l.demographicId and m.deleted = 0)"
+            + " group by l.demographicId order by max(l.created) desc, l.demographicId";
+
+    /** As {@link #RECENT_PATIENTS}, leaving out the patients in the bound set (?2) the caller may not open. */
+    private static final String RECENT_PATIENTS_EXCEPT_DENIED = "select l.demographicId from OscarLog l"
+            + " where l.providerNo = ?1 and l.demographicId > 0"
+            + " and exists (select d.demographicNo from Demographic d where d.demographicNo = l.demographicId"
+            + " and (d.patientStatus is null or d.patientStatus <> 'DE'))"
+            + " and not exists (select m.id from DemographicMerged m where m.demographicNo = l.demographicId and m.deleted = 0)"
+            + " and l.demographicId not in (?2)"
+            + " group by l.demographicId order by max(l.created) desc, l.demographicId";
+
     public OscarLogDaoImpl() {
         super(OscarLog.class);
     }
@@ -183,13 +200,9 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         // Audit history outlives deleted/merged patient rows. Exclude missing
         // and soft-deleted patients before pagination so a stale ID neither breaks
         // the picker nor hides the next available patient. Group by latest access.
-        var query = entityManager.createQuery("select l.demographicId from OscarLog l"
-                + " where l.providerNo = ?1 and l.demographicId > 0"
-                + " and exists (select d.demographicNo from Demographic d where d.demographicNo = l.demographicId"
-                + " and (d.patientStatus is null or d.patientStatus <> 'DE'))"
-                + " and not exists (select m.id from DemographicMerged m where m.demographicNo = l.demographicId and m.deleted = 0)"
-                + (deniedPatients.isEmpty() ? "" : " and l.demographicId not in (?2)")
-                + " group by l.demographicId order by max(l.created) desc, l.demographicId", Integer.class);
+        var query = deniedPatients.isEmpty()
+                ? entityManager.createQuery(RECENT_PATIENTS, Integer.class)
+                : entityManager.createQuery(RECENT_PATIENTS_EXCEPT_DENIED, Integer.class);
         query.setParameter(1, providerNo);
         if (!deniedPatients.isEmpty()) query.setParameter(2, deniedPatients);
         query.setFirstResult(startPosition);
