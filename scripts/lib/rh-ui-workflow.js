@@ -37,7 +37,9 @@ async function prepareRhWorkflow(s) {
   const chart = await s.chart();
   async function openNew() {
     await ui.openFormsMenu(chart);
-    const page = await s.popup(chart, chart.getByRole('link', { name: definition[0][0], exact: true }), 'rh-form');
+    // The "+" menu (#menu1) opens a new form. Once an RH form is saved, the chart's forms list also carries an
+    // entry with the same name, so a page-wide lookup can match both (as in billing-bc-wcb-links).
+    const page = await s.popup(chart, chart.locator('#menu1').getByRole('link', { name: definition[0][0], exact: true }), 'rh-form');
     await page.locator('[name="edd"]').waitFor();
     return page;
   }
