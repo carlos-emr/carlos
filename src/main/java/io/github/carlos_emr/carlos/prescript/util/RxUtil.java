@@ -111,9 +111,9 @@ public class RxUtil {
     /** A dose per kilogram or per square metre of body size, which states no fixed administered amount. */
     private static final Pattern BODY_SIZE_BASIS = Pattern.compile("(?:kg|m2|m²|m\\^2)(?!\\w)", Pattern.CASE_INSENSITIVE);
     /**
-     * A number and the word after it in a product's dosage text, as the drug picker stores a strength
-     * ("500.0mg"). A match starts only where a number starts and never backtracks, so a long run of
-     * digits in a stored dosage costs linear time.
+     * A number and the word after it in a product's dosage text, as the drug picker stages a strength
+     * ("500.0 mg", or "500.0mg" without the space). A match starts only where a number starts and
+     * never backtracks, so a long run of digits in a stored dosage costs linear time.
      */
     @SuppressWarnings("java:S8786") // linear: the lookbehind and possessive quantifiers never backtrack (60,000 digits parse in under 1 s)
     private static final Pattern PRODUCT_STRENGTH = Pattern.compile(
@@ -679,12 +679,13 @@ public class RxUtil {
      * <ul>
      *   <li>A product strength such as {@code 1000 mg} is turned into dispensable units per
      *       administration. When the selected product has one known strength in a comparable unit
-     *       ({@code dosage} {@code "500.0mg"}), the strength is divided by it: two tablets here. A
-     *       result that is not a whole number of units (or, for tablets, of halves or quarters), or a
-     *       liquid product whose volume per dose is not written, leaves the dose unset. Without a
-     *       comparable product strength (a custom drug, a combination product) one unit per
-     *       administration is assumed, and a strength range keeps its proportions ({@code 500-1000 mg}
-     *       is one to two units).</li>
+     *       ({@code dosage} {@code "500.0 mg"}, as the drug picker stages it), the strength is
+     *       divided by it: two tablets here. A result that is not a whole number of units (or, for
+     *       tablets, of halves or quarters), a liquid product whose volume per dose is not written,
+     *       or a combination product ({@code "5.0 mg / 325.0 mg"}, whose component strengths are
+     *       not compared) leaves the dose unset. Without a comparable product strength (a custom
+     *       drug, a strength in another measure) one unit per administration is assumed, and a
+     *       strength range keeps its proportions ({@code 500-1000 mg} is one to two units).</li>
      *   <li>A concentration such as {@code 250 mg/5 mL} or a dose per body size such as
      *       {@code 10 mg/kg} names the product and supplies no administered amount, so no dose or
      *       quantity is calculated from it.</li>
@@ -1227,7 +1228,7 @@ public class RxUtil {
             return false;
         }
         ExactAmount courseTotal = ExactAmount.ZERO;
-        int totalDays = 0;
+        long totalDays = 0;
         float firstTakeMin = 0f;
         float firstTakeMax = 0f;
         String firstFrequency = "";
@@ -1247,7 +1248,11 @@ public class RxUtil {
                     return false;
                 }
                 courseTotal = courseTotal.plus(segmentTotal);
-                totalDays += (int) Math.round(Double.parseDouble(rx.getDuration()) * findNDays(rx.getDurationUnit()));
+                // Clamped like the quantity: absurd segment durations must not wrap the course's
+                // day total into a negative duration.
+                long segmentDays = Math.min(Math.round(Double.parseDouble(rx.getDuration())
+                        * findNDays(rx.getDurationUnit())), Integer.MAX_VALUE);
+                totalDays = Math.min(totalDays + segmentDays, Integer.MAX_VALUE);
                 if (i == 0) {
                     firstTakeMin = rx.getTakeMin();
                     firstTakeMax = rx.getTakeMax();
@@ -1267,7 +1272,7 @@ public class RxUtil {
         rx.setMethod(firstMethod);
         rx.setRoute(firstRoute);
         rx.setPrn(firstPrn);
-        rx.setDuration(Integer.toString(totalDays));
+        rx.setDuration(Long.toString(totalDays));
         rx.setDurationUnit("D");
         rx.setDurationSpecifiedByUser(true);
         rx.setQuantity(Integer.toString(courseTotal.ceilingUnits()));
@@ -1724,10 +1729,11 @@ public class RxUtil {
      * has one known strength in a comparable unit, the stated strength is divided by it (1000 mg of a
      * 500 mg tablet is two tablets) and accepted only as a whole number of units, or for tablets that
      * may be split a whole number of halves or quarters, up to {@link #MAX_UNITS_PER_DOSE}. A
-     * modified-release, enteric-coated or similar tablet is never split. Any other result, or a
-     * liquid or rate product whose volume per dose is not written, leaves the dose unset so the
-     * prescriber's quantity is kept. Without a comparable product strength (a custom drug, a
-     * combination product, IU against a mass strength) one unit per administration is assumed, as
+     * modified-release, enteric-coated or similar tablet is never split. Any other result, a liquid
+     * or rate product whose volume per dose is not written, or a combination product (staged as
+     * {@code "5.0 mg / 325.0 mg"}; its component strengths are not compared) leaves the dose unset so
+     * the prescriber's quantity is kept. Without a comparable product strength (a custom drug, IU
+     * against a mass strength) one unit per administration is assumed, as
      * issue #3876 asks, and a strength range keeps its proportions from that unit.
      *
      * @return the minimum and maximum units per administration; {@code "0"} when none can be established
@@ -1760,7 +1766,11 @@ public class RxUtil {
         return minimum == null || maximum == null ? new String[] {"0", "0"} : new String[] {minimum, maximum};
     }
 
-    /** True for a liquid or a rate (250 mg/5 mL, 25 mcg/hr): the strength says nothing about the volume given. */
+    /**
+     * True for a liquid or a rate (250 mg/5 mL, 25 mcg/hr), whose strength says nothing about the
+     * volume given, and for a combination product, which the drug picker stages with the same
+     * slash ("5.0 mg / 325.0 mg") and whose component strengths are not compared.
+     */
     private static boolean isLiquidOrRate(RxPrescriptionData.Prescription rx) {
         String dosage = rx.getDosage();
         String form = rx.getDrugForm();
@@ -2379,10 +2389,10 @@ public class RxUtil {
         }
     }
 
-    /** The one strength of a selected product, read from its dosage text as the drug picker stores it ("500.0mg"). */
+    /** The one strength of a selected product, read from its dosage text as the drug picker stages it ("500.0 mg"). */
     private record ProductStrength(BigDecimal amount, StrengthMeasure measure) {
 
-        /** @return the product's strength, or null when the text names none or several (a combination product) */
+        /** @return the product's strength, or null when the text names none or several strengths */
         static ProductStrength single(String dosage) {
             Matcher strength = PRODUCT_STRENGTH.matcher(dosage == null ? "" : dosage);
             ProductStrength found = null;

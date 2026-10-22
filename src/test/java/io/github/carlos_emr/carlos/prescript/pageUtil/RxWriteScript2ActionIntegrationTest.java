@@ -156,14 +156,17 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     }
 
     /**
-     * A drug chosen from the drug reference carries its strength in {@code dosage} ("500.0mg")
-     * and its form in {@code drugForm}. A typed strength is divided by that strength, so the
-     * response and the staged card agree on the number of units per dose and the quantity;
-     * a strength that is not a whole number of units of the product calculates nothing.
+     * A drug chosen from the drug reference carries its strength in {@code dosage} ("500.0 mg" as
+     * the drug picker stages it; "500.0mg" is read the same way) and its form in {@code drugForm}.
+     * A typed strength is divided by that strength, so the response and the staged card agree on
+     * the number of units per dose and the quantity; a strength that is not a whole number of units
+     * of the product, or a combination product ("5.0 mg / 325.0 mg"), calculates nothing.
      */
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
         "1000 mg po tid x 7 days | 500.0mg | TABLET | 2 | 42",
+        "1000 mg po tid x 7 days | 500.0 mg | TABLET | 2 | 42",
+        "Take 5 mg po q4h x 5 days | 5.0 mg / 325.0 mg | TABLET | 0 | 0",
         "Take 0.5 mg po qhs x 30 days | 1.0mg | TABLET | 0.5 | 15",
         "Take 3 mg po daily x 30 days | 1.0mg | TABLET | 3 | 90",
         "Take 1 g po tid x 7 days | 500.0mg | CAPSULE | 2 | 42",

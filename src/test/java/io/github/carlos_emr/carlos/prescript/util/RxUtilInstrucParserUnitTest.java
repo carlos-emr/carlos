@@ -75,7 +75,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
 
     /**
      * Parses the directions for a selected product, given by its dosage text and form as the drug
-     * picker stores them ("500.0mg", "TABLET"), and checks the dose range and the dispense quantity.
+     * picker stages them ("500.0 mg", "TABLET"; "500.0mg" is read the same way), and checks the dose
+     * range and the dispense quantity.
      */
     private static void assertParsedDose(String instructions, String dosage, String drugForm,
             float minimum, float maximum, String quantity) {
@@ -500,13 +501,14 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         }
 
         /**
-         * When the selected product has one known strength (the drug picker stores it as
-         * {@code dosage}, e.g. "500.0mg"), the typed strength is divided by it: 1000 mg of a 500 mg
-         * tablet is two tablets, 0.5 mg of a 1 mg tablet is half a tablet. A result that is not a
-         * whole number of units (halves and quarters for tablets only), a liquid product, or more
-         * than 20 units leaves the dose unset so the prescriber's quantity is kept, and a
-         * modified-release or enteric-coated tablet is never split. A combination product or a
-         * strength in another measure keeps the one-unit default. With a tablet or capsule in IU
+         * When the selected product has one known strength (the drug picker stages it as
+         * {@code dosage}, e.g. "500.0 mg"; "500.0mg" is read the same way), the typed strength is
+         * divided by it: 1000 mg of a 500 mg tablet is two tablets, 0.5 mg of a 1 mg tablet is half a
+         * tablet. A result that is not a whole number of units (halves and quarters for tablets
+         * only), a liquid product, a combination product (staged as "5.0 mg / 325.0 mg", whose
+         * component strengths are not compared), or more than 20 units leaves the dose unset so the
+         * prescriber's quantity is kept, and a modified-release or enteric-coated tablet is never
+         * split. A strength in another measure keeps the one-unit default. With a tablet or capsule in IU
          * selected (vitamin D), an IU amount is its strength even without a route, while insulin
          * solutions and injected IU keep the typed amount.
          */
@@ -537,7 +539,10 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 1000 mg po daily x 30 days | 5.0mg | TABLET | 0 | 0 | 0",
             "Take 250 mg po tid x 10 days | 250.0mg/5.0ml | SUSPENSION | 0 | 0 | 0",
             "Take 10 mg po daily x 30 days | 10.0mg | SOLUTION | 0 | 0 | 0",
-            "Take 325 mg po q4h x 5 days | 325.0mg 30.0mg | TABLET | 1 | 1 | 30",
+            "1000 mg po tid x 7 days | 500.0 mg | TABLET | 2 | 2 | 42",
+            "Take 300 mg po q4h x 5 days | 300.0 mg / 30.0 mg / 15.0 mg | TABLET | 0 | 0 | 0",
+            "Take 5 mg po q4h prn x 5 days | 5.0 mg / 325.0 mg | TABLET | 0 | 0 | 0",
+            "Take 1 tab po q4h prn x 5 days | 5.0 mg / 325.0 mg | TABLET | 1 | 1 | 30",
             "Take 1000 IU po daily x 30 days | 25.0mcg | TABLET | 1 | 1 | 30",
             "1000 IU daily x 90 days | 1000.0unit | TABLET | 1 | 1 | 90",
             "2000 IU daily x 90 days | 1000.0unit | CAPSULE | 2 | 2 | 180",
@@ -1126,6 +1131,23 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getDuration()).isEqualTo("1");
             assertThat(rx.getDurationUnit()).isEqualTo("W");
             assertThat(rx.getQuantity()).isEqualTo("7");
+        }
+
+        /**
+         * Absurd segment durations must not wrap the course's day total into a negative duration:
+         * the days are clamped to the integer range the quantity already uses.
+         */
+        @Test
+        @DisplayName("should clamp the course duration when the taper days overflow the integer range")
+        void shouldClampCourseDays_whenTaperDurationsOverflow() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(
+                    "Take 2 tabs daily x 2000000000 days then 1 tab daily x 2000000000 days");
+
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getDuration()).isEqualTo(Integer.toString(Integer.MAX_VALUE));
+            assertThat(rx.getDurationUnit()).isEqualTo("D");
+            assertThat(rx.getQuantity()).isEqualTo(Integer.toString(Integer.MAX_VALUE));
         }
     }
 }
