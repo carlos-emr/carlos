@@ -7,6 +7,7 @@ import java.util.Objects;
 import org.openpdf.text.Chunk;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.Font;
+import org.openpdf.text.Paragraph;
 import org.openpdf.text.Phrase;
 import org.openpdf.text.pdf.BaseFont;
 
@@ -105,6 +106,46 @@ public final class PdfFonts {
         Runs runs = new Runs(phrase, font);
         text.codePoints().forEach(runs::add);
         runs.flush();
+    }
+
+    /**
+     * Returns a phrase in the given font holding text added through {@link #addText}, as a
+     * drop-in for {@code new Phrase(text, font)}, which draws only the characters that font has.
+     *
+     * @param text the text, or {@code null} for an empty phrase
+     * @param font the phrase font, which later {@code Phrase.add(String)} calls also use
+     * @return the phrase
+     */
+    public static Phrase phrase(String text, Font font) {
+        return phrase(Float.NaN, text, font);
+    }
+
+    /**
+     * Returns a phrase with the given leading, as a drop-in for {@code new Phrase(leading, text, font)}.
+     *
+     * @param leading the line leading, or {@code Float.NaN} for the font's default
+     * @param text the text, or {@code null} for an empty phrase
+     * @param font the phrase font
+     * @return the phrase
+     */
+    public static Phrase phrase(float leading, String text, Font font) {
+        Phrase phrase = new Phrase(leading, "", font);
+        addText(phrase, text, font);
+        return phrase;
+    }
+
+    /**
+     * Returns a paragraph holding text added through {@link #addText}, as a drop-in for
+     * {@code new Paragraph(text, font)}.
+     *
+     * @param text the text, or {@code null} for an empty paragraph
+     * @param font the paragraph font
+     * @return the paragraph
+     */
+    public static Paragraph paragraph(String text, Font font) {
+        Paragraph paragraph = new Paragraph("", font);
+        addText(paragraph, text, font);
+        return paragraph;
     }
 
     /** Groups consecutive characters drawn by the same face into one chunk. */
