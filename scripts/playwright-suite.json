@@ -4072,9 +4072,35 @@
         "BC"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "BC Bill Status and adjust bill page (#4373, #4346): Invoice List, Edit, Settle, billing history and exact note text. Finding 145 is fixed: the beta1 Ubuntu 26.04 promotion revalidation preserved the apostrophe after Settle and passed all five steps. Finding 147 (TypeError on the adjust page's load) was fixed with #4551.",
+      "env": [
+        "BC_REPROCESS_PIN"
+      ],
+      "notes": "BC Bill Status and adjust bill page (#4373, #4346): Invoice List, Edit, Settle, billing history and exact note text (BC_REPROCESS_PIN unset). Finding 145 is fixed: the beta1 Ubuntu 26.04 promotion revalidation preserved the apostrophe after Settle and passed all five steps. Finding 147 (TypeError on the adjust page's load) was fixed with #4551.",
       "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
+    },
+    {
+      "name": "billing-bc-reprocess-bill-inactive-physician",
+      "script": "scripts/billing-bc-reprocess-bill-playwright-checks.js",
+      "envSet": {
+        "BC_REPROCESS_PIN": "inactive"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "BC_REPROCESS_PIN"
+      ],
+      "notes": "BC adjust bill page, the bill of a physician who has left (#4422): Master record ▸ Invoice List ▸ Edit on a claim whose physician is inactive, fix Dx 1, Reprocess Bill; before the failure pin, assert the chosen Dx 1 is stored and exactly one history row is added. The physician select lists active physicians only, so the save posts an empty physician; the step asserts the claim keeps billing.provider_no, billing.provider_ohip_no, billingmaster.payee_no and billingmaster.practitioner_no. Expected to FAIL there while app-findings-log.md finding 153 stands (the save writes '' to all four).",
+      "expectedFailure": {
+        "finding": 153,
+        "step": "Reprocess Bill on the bill of a physician who has left keeps its provider, payee and practitioner numbers"
+      },
+      "fixtures": "One owned inactive billing physician (a copy of the test login's provider row with FAKE BC numbers and the run marker, status 0) and one billing/billingmaster/billingnote row for the workflow's own FAKE patient billed by that physician; cleanup deletes the patient's bill rows and the physician and asserts them gone. BC installs only (billregion=BC)."
     },
     {
       "name": "billing-bc-adjust-bill-code-search",
@@ -7960,6 +7986,36 @@
       "timeoutSec": 600,
       "env": [],
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) plus an owned FAKE- patient and one appointment on the throwaway's own schedule; the shared test provider's preferences are never touched. Cleanup removes the appointment, the throwaway's property/ProviderPreference rows and the throwaway."
+    },
+    {
+      "name": "appointment-card-preferences",
+      "script": "scripts/appointment-card-preferences-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Preferences > Appointment Card (clinic name, phone, fax) followed to Edit Appointment > Print Card: the printable card's Name and Appointment Date rows identify the owned patient appointment and its date/time alongside the saved contacts. Finding 316 (the card read APPT_CARD_NAME/PHONE/FAX, which nothing wrote) was fixed by #5137; the check passes on release since.",
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js), the session's owned FAKE- patient and one appointment today on the throwaway's own schedule. Cleanup removes the appointment, then the throwaway with its property rows; both are asserted gone."
+    },
+    {
+      "name": "preference-effects-2",
+      "script": "scripts/preference-effects-2-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Preferences > Patient name length, Default sex and HC type followed to the pages that read them: the day sheet cuts the throwaway's own appointment name to the saved length, and Schedule > Search > Create Demographic preselects the saved sex and HC type (controls first, with none set).",
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js), the session's owned FAKE- patient and one appointment today on the throwaway's own schedule. Cleanup removes the appointment, then the throwaway with its property rows; both are asserted gone. The add form is never submitted."
     },
     {
       "name": "gap-provider-schedule-keyboard-shortcuts",

@@ -1372,6 +1372,52 @@ test('shouldStillCloseTheBrowser_whenALogoutThrows', async () => {
   assert.deepEqual(log.lines, ['WARN teardown logout did not complete: page crashed']);
 });
 
+test('shouldReachTheEnclosingClose_whenTheTemporaryLogoutPageCannotCloseSeparately', async () => {
+  for (const enclosing of ['browser', 'context']) {
+    const context = fakeLogoutContext();
+    const newPage = context.newPage.bind(context);
+    let releasePage;
+    context.newPage = async () => {
+      const page = await newPage();
+      page.close = () => new Promise(resolve => { releasePage = resolve; });
+      return page;
+    };
+    let confirmClose;
+    const confirmed = new Promise(resolve => { confirmClose = resolve; });
+    let reachedClose;
+    const reached = new Promise(resolve => { reachedClose = resolve; });
+    const close = async () => { reachedClose(true); await confirmed; };
+    context.close = close;
+    const browser = { newContext: async () => context, contexts: () => [context], close };
+    harness.logoutOnClose(browser, logoutConfig, { log: warnings() });
+    await browser.newContext();
+    let completed = false;
+    const closing = (enclosing === 'browser' ? browser.close() : context.close()).then(() => { completed = true; });
+    const wasReached = await Promise.race([reached, new Promise(resolve => setTimeout(() => resolve(false), 100))]);
+    assert.equal(completed, false, 'the enclosing close must still await confirmation');
+    // Also drain the old implementation during the regression run.
+    if (releasePage) releasePage();
+    confirmClose();
+    await closing;
+    assert.equal(wasReached, true, `${enclosing}.close must not wait on the redundant page close`);
+    assert.equal(completed, true);
+    assert.deepEqual(context.calls.goto, ['http://127.0.0.1:8080/carlos/logoutPage']);
+  }
+});
+
+test('shouldPropagateTheEnclosingCloseFailure_afterTheLogoutPagePosts', async () => {
+  for (const enclosing of ['browser', 'context']) {
+    const context = fakeLogoutContext();
+    const close = async () => { throw new Error('browser transport did not close'); };
+    context.close = close;
+    const browser = { newContext: async () => context, contexts: () => [context], close };
+    harness.logoutOnClose(browser, logoutConfig, { log: warnings() });
+    await browser.newContext();
+    await assert.rejects(enclosing === 'browser' ? browser.close() : context.close(), /browser transport did not close/);
+    assert.deepEqual(context.calls.goto, ['http://127.0.0.1:8080/carlos/logoutPage']);
+  }
+});
+
 test('shouldLogOutOnlyWhenNotOptedOut_whenLaunchBrowserClosesTheBrowser', async (t) => {
   const Module = require('node:module');
   const load = Module._load;
