@@ -45,34 +45,6 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRourke2006Record extends FrmRecord {
-
-    /** The page a reopen falls back to when the stored page cannot be used. */
-    static final String FIRST_PAGE = "p1";
-
-    /**
-     * The Rourke 2006 page ({@code p1}..{@code p4}) a saved record reopens on, read from its stored
-     * {@code c_lastVisited}.
-     *
-     * <p>Pages 1, 3 and 4 used to write the hidden {@code c_lastVisited} as an unquoted attribute followed by
-     * {@code />}, so the browser posted the slash as part of the value and the table kept {@code p1/} (the column is
-     * {@code char(3)}). The reopen wrapper built {@code formrourke2006p1/.jsp} from it and answered HTTP 500
-     * (issue #4595). Records saved before the fix still hold the slash, so it is dropped here; anything that is not
-     * one of the four pages reopens on page 1 rather than naming another file.</p>
-     *
-     * @param lastVisited the stored {@code c_lastVisited}, possibly {@code null}, padded or carrying the stray slash
-     * @return {@code p1}, {@code p2}, {@code p3} or {@code p4}
-     */
-    public static String reopenPage(String lastVisited) {
-        if (lastVisited == null) {
-            return FIRST_PAGE;
-        }
-        String page = lastVisited.strip();
-        if (page.endsWith("/")) {
-            page = page.substring(0, page.length() - 1);
-        }
-        return page.matches("p[1-4]") ? page : FIRST_PAGE;
-    }
-
     public Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID)
             throws SQLException {
         Properties props = new Properties();

@@ -98,14 +98,6 @@ class FormCatalogPagesJspRegressionTest {
     }
 
     @Test
-    @DisplayName("should reopen Rourke 2006 through the page normalizer")
-    void shouldReopenRourke2006_throughPageNormalizer() throws IOException {
-        String wrapper = read("formrourke2006.jsp");
-        assertThat(wrapper).contains("FrmRourke2006Record.reopenPage(props.getProperty(\"c_lastVisited\"))");
-        assertThat(wrapper).doesNotContain("props.getProperty(\"c_lastVisited\", \"p1\")");
-    }
-
-    @Test
     @DisplayName("should encode every saved ALPHA text value")
     void shouldEncodeSavedText_onAlphaPage() throws IOException {
         // The page never opened before FrmAlphaRecord existed (issue #4590); once it does, a stored value with a quote,

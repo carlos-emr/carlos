@@ -4043,13 +4043,39 @@
         "BC"
       ],
       "timeoutSec": 300,
-      "env": [],
+      "env": [
+        "BC_REPROCESS_PIN"
+      ],
       "notes": "BC Bill Status and adjust bill page (#4373, #4346): Invoice List, Edit, Settle, billing history and note. Expected to FAIL at the note step while app-findings-log.md finding 145 stands (each save adds a backslash before an apostrophe). Finding 147 (TypeError on the adjust page's load) was fixed with #4551.",
       "expectedFailure": {
         "finding": 145,
         "step": "the save keeps the billing note exactly, apostrophe included"
       },
       "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
+    },
+    {
+      "name": "billing-bc-reprocess-bill-inactive-physician",
+      "script": "scripts/billing-bc-reprocess-bill-playwright-checks.js",
+      "envSet": {
+        "BC_REPROCESS_PIN": "inactive"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "BC_REPROCESS_PIN"
+      ],
+      "notes": "BC adjust bill page, the bill of a physician who has left (#4422): Master record ▸ Invoice List ▸ Edit on a claim whose physician is inactive, fix Dx 1, Reprocess Bill; before the failure pin, assert the chosen Dx 1 is stored and exactly one history row is added. The physician select lists active physicians only, so the save posts an empty physician; the step asserts the claim keeps billing.provider_no, billing.provider_ohip_no, billingmaster.payee_no and billingmaster.practitioner_no. Expected to FAIL there while app-findings-log.md finding 153 stands (the save writes '' to all four).",
+      "expectedFailure": {
+        "finding": 153,
+        "step": "Reprocess Bill on the bill of a physician who has left keeps its provider, payee and practitioner numbers"
+      },
+      "fixtures": "One owned inactive billing physician (a copy of the test login's provider row with FAKE BC numbers and the run marker, status 0) and one billing/billingmaster/billingnote row for the workflow's own FAKE patient billed by that physician; cleanup deletes the patient's bill rows and the physician and asserts them gone. BC installs only (billregion=BC)."
     },
     {
       "name": "billing-bc-adjust-bill-code-search",
@@ -5997,7 +6023,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Records each form independently and asserts, per form, open, validate (Discharge Summary and Mental Health Form 1: invalid dates and cancelled confirmations write nothing), save, redisplay, reopen, print, Save's confirmation, resave and script-error concerns. Palliative Care checks initial save, exact redisplay, CSRF-protected revision and latest-version reopening. Annual Health Review verifies its print route, saved record/date and literal prose. Discharge Summary and Mental Health Form 1 verify invalid-date rejection and cancelled confirmation without writes. Mental Health Form 14, Form 42, Annual V2 for a female and for a male patient (the wrapper picks its template by sex; each is reopened while its record is the table's latest) and the three-page Mental Health referral / assessment / outcome chain (three Saves of one record, each keeping the earlier pages) are driven the same way. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "notes": "Records each form independently and asserts, per form, open, validate (Discharge Summary and Mental Health Forms 1, 14 and 42: invalid dates and cancelled confirmations write nothing; Forms 14 and 42 also accept dd/mm/yyyy, the order they ask for), save, redisplay, reopen, print, Save's confirmation, resave and script-error concerns. Palliative Care checks initial save, exact redisplay, CSRF-protected revision and latest-version reopening. Annual Health Review verifies its print route, saved record/date and literal prose. Discharge Summary and Mental Health Forms 1, 14 and 42 verify invalid-date rejection and cancelled confirmation without writes. Mental Health Form 14, Form 42, Annual V2 for a female and for a male patient (the wrapper picks its template by sex; each is reopened while its record is the table's latest) and the three-page Mental Health referral / assessment / outcome chain (three Saves of one record, each keeping the earlier pages and a Referred By with quotes, an ampersand and angle brackets) are driven the same way. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
       "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -6115,12 +6141,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Mental Health Forms 14 and 42, pinned to finding 239: they carry the lab requisition's checkAllDates(), so every Save raises a TypeError. Form 14 is the pinned step and Form 42 shares the defect. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 239,
-        "step": "Mental Health Form 14: raised no JavaScript-layer problems"
-      }
+      "notes": "Mental Health Forms 14 and 42, regression for finding 239 (#4597, fixed): they carried the lab requisition's checkAllDates(), over fields they do not have, so every Save raised a TypeError and none of their own dates was checked. Their pages must now load and save with no JavaScript-layer problem; their own date checks are the default entry's validate pairs. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "clinical-forms-save-reopen-mental-health-script",
@@ -6169,12 +6191,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The Mental Health Assessment Save, pinned to finding 242: onSave() calls window.opener.location.reload(), so saving the page reloads the E-Chart that opened the form (the chart's main frame navigates and its note-lock beacon is aborted). Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 242,
-        "step": "Mental Health: Saving a page leaves the E-Chart that opened the form alone"
-      }
+      "notes": "The Mental Health Assessment Save, regression for finding 242 (#4600, fixed): onSave() called window.opener.location.reload(), so saving the page reloaded the E-Chart that opened the form (the chart's main frame navigated and its note-lock beacon was aborted). Saving the three pages must leave the chart alone. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "clinical-forms-save-reopen-mental-health-reopen",
@@ -6198,12 +6216,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The Mental Health chain, pinned to finding 236: after Referral, Assessment and Outcome are saved, the chart's saved-form entry answers HTTP 500 because the stored c_lastVisited is outcome/. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 236,
-        "step": "Mental Health: reopening from the E-Chart restores the saved values"
-      }
+      "notes": "The Mental Health chain, regression for finding 236 (#4595, fixed): the pages posted c_lastVisited as outcome/ (an unquoted attribute before />), so after Referral, Assessment and Outcome were saved the chart's saved-form entry answered HTTP 500. The entry must reopen the record with its saved values, Referred By's quotes and angle brackets intact (#4683). Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "clinical-forms-save-reopen-mental-health-print",
@@ -6227,12 +6241,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The Mental Health Print button, pinned to finding 238: onPrint() calls document.forms[0].submit(), which the form's hidden input named submit shadows, so it throws and no print page is requested. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 238,
-        "step": "Mental Health: Print renders the saved page for the owned patient"
-      }
+      "notes": "The Mental Health Print button, regression for finding 238 (#4596, fixed): onPrint() called document.forms[0].submit(), which the form's hidden input named submit shadows, so it threw and no print page was requested. Print is pressed on the saved Referral, Assessment and Outcome pages in turn, and each opens its print view showing that page's comments and Referred By exactly as typed (#4683). Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke",
@@ -6581,7 +6591,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2006, finding 236 (Rourke 2006 part fixed, #4595): the saved record could not be reopened (HTTP 500) because pages 1, 3 and 4 wrote c_lastVisited unquoted and the table stored p1/. The pages now quote it, and FrmRourke2006Record.reopenPage drops the slash a record saved before the fix still holds. Print runs on the reopened record, so it is claimed here. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "notes": "Rourke 2006, regression for finding 236 (#4595, fixed): the saved record could not be reopened (HTTP 500) because the page posted c_lastVisited as p1/ (an unquoted attribute before />). Print runs on the reopened record, so it is claimed here too. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
       "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -8031,6 +8041,36 @@
       "timeoutSec": 600,
       "env": [],
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) plus an owned FAKE- patient and one appointment on the throwaway's own schedule; the shared test provider's preferences are never touched. Cleanup removes the appointment, the throwaway's property/ProviderPreference rows and the throwaway."
+    },
+    {
+      "name": "appointment-card-preferences",
+      "script": "scripts/appointment-card-preferences-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Preferences > Appointment Card (clinic name, phone, fax) followed to Edit Appointment > Print Card: the printable card's Name and Appointment Date rows identify the owned patient appointment and its date/time alongside the saved contacts. Finding 316 (the card read APPT_CARD_NAME/PHONE/FAX, which nothing wrote) was fixed by #5137; the check passes on release since.",
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js), the session's owned FAKE- patient and one appointment today on the throwaway's own schedule. Cleanup removes the appointment, then the throwaway with its property rows; both are asserted gone."
+    },
+    {
+      "name": "preference-effects-2",
+      "script": "scripts/preference-effects-2-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Preferences > Patient name length, Default sex and HC type followed to the pages that read them: the day sheet cuts the throwaway's own appointment name to the saved length, and Schedule > Search > Create Demographic preselects the saved sex and HC type (controls first, with none set).",
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js), the session's owned FAKE- patient and one appointment today on the throwaway's own schedule. Cleanup removes the appointment, then the throwaway with its property rows; both are asserted gone. The add form is never submitted."
     },
     {
       "name": "gap-provider-schedule-keyboard-shortcuts",

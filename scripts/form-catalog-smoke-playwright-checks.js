@@ -79,7 +79,7 @@ const FORMS = [
   { key: 'rourke2006', code: 'R06', title: 'Rourke Baby Record 2006', view: 'formrourke2006', table: 'formRourke2006',
     prose: { name: 'p1_signature1w' }, fields: [check('p1_breastFeeding1w'), typed('c_length', '51.5')],
     print: { kind: 'pdf', button: 'Print', where: 'popup' },
-    known: { keys: claims.ASSERTION_ONLY, reopen: claims.ASSERTION_ONLY } },
+    known: { keys: claims.ASSERTION_ONLY } },
   { key: 'rourke', code: 'ROU', title: 'Rourke Baby Record', view: 'formrourke', table: 'formRourke',
     prose: { name: 'c_birthRemarks' }, fields: [check('p1_breastFeeding1w'), typed('c_length', '51.5')],
     print: { kind: 'window', button: 'Print' } },
@@ -192,7 +192,8 @@ function validatePin(env = process.env) {
  * cannot be found there. scripts/form-claims.test.js proves each literal equals the generated label, so the
  * table cannot drift from the wording below.
  */
-// Empty since findings 230 (ALPHA), 232 (CESD) and the Rourke 2006 part of 236 were fixed (#4590, #4591, #4595).
+// Empty: findings 230 (ALPHA, #4590) and 232 (CESD, #4591) are fixed, as is 236 (Rourke 2006 and Mental Health
+// reopen, #4595).
 const PINNED = Object.freeze({});
 const CONCERN_STEP = Object.freeze({
   bare: 'opens for a patient whose address, phone and health-card columns are NULL',
