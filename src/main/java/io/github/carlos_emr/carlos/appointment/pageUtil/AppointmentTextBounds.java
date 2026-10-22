@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.appointment.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -62,6 +63,8 @@ final class AppointmentTextBounds {
         return logical.codePointCount(0, logical.length()) > maximum ? new Violation(labelKey, maximum, false) : null;
     }
 
+    // FindSecBugs XSS_SERVLET: the text/plain refusal is fixed text plus a code-defined column bound (80 or 255); no request data is written.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "fixed text/plain refusal; only a code-defined column bound is interpolated, no request data")
     static String refuse(HttpServletRequest request, HttpServletResponse response, Violation violation) throws IOException {
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         request.setAttribute(RETRY, Boolean.TRUE);

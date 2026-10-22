@@ -83,9 +83,6 @@ public final class ClinicLogoUtility {
      *
      * @return PdfPTable an OpenPDF table element containing the logo image, for insertion into a PDF
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static PdfPTable createLogoHeader() {
         return logoTable(configuredLogo(CarlosProperties.getInstance(), false));
     }
@@ -127,6 +124,8 @@ public final class ClinicLogoUtility {
         return table;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: the path is the administrator's clinicLetterheadLogo / faxLogoInConsultation setting, not request input.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path comes from trusted administrator configuration, not user-controllable input")
     private static File configuredLogo(CarlosProperties props, boolean consultation) {
         String filename = consultation ? props.getProperty("faxLogoInConsultation") : props.getProperty("clinicLetterheadLogo");
         if (!consultation && filename == null) {
@@ -148,6 +147,10 @@ public final class ClinicLogoUtility {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: "on".equalsIgnoreCase(multisites) is the case-insensitive config flag check, not an authorization decision.
+    // FindSecBugs PATH_TRAVERSAL_IN: the stored docfilename is canonicalized and contained in DOCUMENT_DIR by
+    // PathValidationUtils.validateExistingPath before that same canonical file is returned.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive config flag; DB filename is contained in DOCUMENT_DIR by PathValidationUtils.validateExistingPath before use")
     private static File siteLogo(CarlosProperties props, String reference, boolean nameFirst) {
         if (!"on".equalsIgnoreCase(props.getProperty("multisites")) || reference == null || reference.isBlank()) {
             return null;

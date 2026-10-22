@@ -891,7 +891,7 @@
                     <fmt:param value="${appointmentTextLabel}"/>
                     <fmt:param value="${appointmentTextMaximum}"/>
                 </fmt:message>
-                <c:out value="${appointmentTextMessage}"/>
+                <carlos:encode value="${appointmentTextMessage}"/>
             </c:if></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>

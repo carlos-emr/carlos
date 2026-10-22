@@ -80,7 +80,7 @@ test('native edit delete confirmation bypasses text validation and retains accep
 });
 test('both native error forms display an encoded localized refusal and bind their four submitted fields',()=>{
  for(const file of ['addappointment.jsp','editappointment.jsp']){const jsp=readJsp(file);assert(jsp.includes('if (appointmentTextRetry) bFirstDisp = false;'));
-  assert(jsp.includes('appointmentTextRetry ? "" : "display:none"'));assert(jsp.includes('<c:out value="${appointmentTextMessage}"/>'));
+  assert(jsp.includes('appointmentTextRetry ? "" : "display:none"'));assert(jsp.includes('<carlos:encode value="${appointmentTextMessage}"/>'));
   assert(jsp.includes('/js/appointmentTextBounds.js'));for(const [name] of fields)assert(new RegExp(`name="${name}"`).test(jsp));
   for(const key of ['too-long','invalid','name','reason','notes','resources'])assert(jsp.includes('data-appointment-'+key+'='));
  }
