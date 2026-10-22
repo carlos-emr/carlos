@@ -72,6 +72,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * test adds an equivalent test-only constraint for its duration and sends two extras with the
  * same key (the reported bug). The test seeds its own program because
  * {@code admission.program_id} has a foreign key.</p>
+ *
+ * @since 2026-10-21
  */
 @DisplayName("DemographicManagerImpl transactional integration tests")
 @Tag("integration")
@@ -79,7 +81,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 class DemographicManagerImplTransactionIntegrationTest extends CarlosTestBase {
 
     private static final String PROVIDER_NO = "999998";
-    /** Name of the test-only copy of production's per-patient key index, which the H2 schema lacks. */
+    /** Name of the test-only copy of production's per-patient key index (H2 lacks it); the ADD/DROP DDL below spells the same literal. */
     private static final String TEST_UNIQUE_KEY_CONSTRAINT = "test_uk_demo_ext";
     private static final String DUPLICATE_KEY = "demo_cell";
 

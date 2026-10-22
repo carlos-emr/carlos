@@ -12,10 +12,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -25,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,13 +31,15 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Unit coverage for {@link DemographicDaoImpl#runAfterCommitOrNow(Runnable)}, which keeps the HL7 A04
- * registration file from being written for a patient whose creating transaction later rolls back.
+ * Contract of {@code DemographicDaoImpl.runAfterCommitOrNow}, which keeps the HL7 A04 export of a
+ * newly created patient from being written for a transaction that later rolls back.
+ *
+ * @since 2026-10-22
  */
-@DisplayName("DemographicDaoImpl after-commit hook")
 @Tag("unit")
 @Tag("fast")
 @Tag("dao")
+@DisplayName("Demographic DAO after-commit side effects")
 class DemographicDaoImplAfterCommitUnitTest {
 
     @AfterEach
@@ -52,39 +51,40 @@ class DemographicDaoImplAfterCommitUnitTest {
 
     @Test
     @DisplayName("should run the action immediately when no transaction is active")
-    void shouldRunImmediately_whenNoTransactionActive() {
-        List<String> ran = new ArrayList<>();
+    void shouldRunActionImmediately_whenNoTransactionActive() {
+        AtomicInteger runs = new AtomicInteger();
 
-        DemographicDaoImpl.runAfterCommitOrNow(() -> ran.add("a04"));
+        DemographicDaoImpl.runAfterCommitOrNow(runs::incrementAndGet);
 
-        assertThat(ran).containsExactly("a04");
+        assertThat(runs).hasValue(1);
     }
 
     @Test
     @DisplayName("should hold the action until the transaction commits")
-    void shouldRunOnlyAfterCommit_whenTransactionActive() {
-        List<String> ran = new ArrayList<>();
+    void shouldHoldAction_untilTransactionCommits() {
         TransactionSynchronizationManager.initSynchronization();
+        AtomicInteger runs = new AtomicInteger();
 
-        DemographicDaoImpl.runAfterCommitOrNow(() -> ran.add("a04"));
-        assertThat(ran).as("not run while the transaction is open").isEmpty();
+        DemographicDaoImpl.runAfterCommitOrNow(runs::incrementAndGet);
 
-        TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
-
-        assertThat(ran).containsExactly("a04");
+        assertThat(runs).as("not run before commit").hasValue(0);
+        registered().forEach(TransactionSynchronization::afterCommit);
+        assertThat(runs).as("run once after commit").hasValue(1);
     }
 
     @Test
-    @DisplayName("should never run the action when the transaction rolls back")
-    void shouldNeverRun_whenTransactionRollsBack() {
-        List<String> ran = new ArrayList<>();
+    @DisplayName("should drop the action when the transaction rolls back")
+    void shouldDropAction_whenTransactionRollsBack() {
         TransactionSynchronizationManager.initSynchronization();
+        AtomicInteger runs = new AtomicInteger();
 
-        DemographicDaoImpl.runAfterCommitOrNow(() -> ran.add("a04"));
-        // A rollback completes the synchronization with STATUS_ROLLED_BACK and never calls afterCommit.
-        TransactionSynchronizationManager.getSynchronizations()
-                .forEach(sync -> sync.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+        DemographicDaoImpl.runAfterCommitOrNow(runs::incrementAndGet);
+        registered().forEach(sync -> sync.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
 
-        assertThat(ran).isEmpty();
+        assertThat(runs).hasValue(0);
+    }
+
+    private static List<TransactionSynchronization> registered() {
+        return new ArrayList<>(TransactionSynchronizationManager.getSynchronizations());
     }
 }

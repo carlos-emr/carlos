@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportFragmentViewModel;
-import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
@@ -67,7 +66,7 @@ class BillingReportFragmentUnbilledUnitTest {
     void setUp() {
         appointmentDao = mock(OscarAppointmentDao.class);
         assembler = new BillingReportFragmentViewModelAssembler(
-                mock(BillingDao.class), mock(BillingONCHeader1Dao.class), mock(BillingONItemDao.class), appointmentDao);
+                mock(BillingONCHeader1Dao.class), mock(BillingONItemDao.class), appointmentDao);
         when(appointmentDao.findUnbilledAppointments(
                 anyString(), any(Date.class), any(Date.class), anyBoolean(), anyBoolean()))
                 .thenReturn(List.of());

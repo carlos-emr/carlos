@@ -433,17 +433,14 @@ public class DemographicManagerImpl implements DemographicManager {
     /**
      * Creates the patient, its program admission and its extensions in one transaction: if any
      * write fails (for example an extension that collides on the per-patient key), nothing is kept.
+     * Each extension is linked to the new patient's demographic number, replacing any number the
+     * caller supplied, and any extension {@code id} the caller supplied is discarded, so a create
+     * request can neither orphan an extension nor re-point an existing extension row.
      *
-     * <p>Every extension is attached to the newly created patient: any {@code demographicNo} or
-     * {@code id} the caller supplied on an extension is discarded, so a create request can neither
-     * orphan an extension nor re-point an existing extension row at the new patient.</p>
-     *
-     * @param loggedInInfo {@link LoggedInInfo} the authenticated caller; must hold write privilege on
-     *                     the demographic security object
-     * @param demographic {@link Demographic} the patient to create, optionally carrying extras
-     * @param admissionProgramId {@link Integer} the program id for the patient's initial admission
-     * @throws IllegalArgumentException if the patient's birth date cannot be parsed
-     * @throws SecurityException if the caller lacks write privilege
+     * @param loggedInInfo {@link LoggedInInfo} the acting provider; must hold write access to the demographic security object
+     * @param demographic {@link Demographic} the new patient, with optional extras; its demographic number is assigned on save
+     * @param admissionProgramId {@link Integer} the program the patient is admitted to
+     * @throws IllegalArgumentException if the birth date on the demographic cannot be parsed
      */
     @Override
     @Transactional
@@ -459,9 +456,6 @@ public class DemographicManagerImpl implements DemographicManager {
         demographic.setPatientStatus(PatientStatus.AC.name());
         demographic.setFamilyDoctor("<rdohip></rdohip><rd></rd>");
         demographic.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
-        // pref_name is NOT NULL and is written from the entity field (#5127); the REST converter never
-        // sets it, so derive it from Name Used (the alias) exactly as the Add Patient form does.
-        demographic.setPrefName(Demographic.prefNameForNameUsed(demographic.getAlias()));
         demographicDao.save(demographic);
 
         Admission admission = new Admission();

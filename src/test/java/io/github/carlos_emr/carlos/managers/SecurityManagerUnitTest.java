@@ -178,6 +178,24 @@ class SecurityManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should archive the stored MFA setting, not the one being saved")
+        void shouldArchiveStoredMfaSetting_whenTheUpdateTurnsMfaOn() {
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+            Security existing = createValidSecurity(1, "111", "user1", "pass");
+            existing.setUsingMfa(false);
+            Security updated = createValidSecurity(1, "111", "user1", "pass");
+            updated.setUsingMfa(true);
+            when(mockSecurityDao.find((Object) 1)).thenReturn(existing);
+
+            manager.updateSecurityRecord(loggedInInfo, updated);
+
+            // Identity, not equals(): AbstractModel compares ids, and both records carry id 1.
+            verify(mockSecurityArchiveDao).archiveRecord(same(existing));
+            verify(mockSecurityArchiveDao, never()).archiveRecord(same(updated));
+            assertThat(existing.isUsingMfa()).isFalse();
+        }
+
+        @Test
         @DisplayName("should not merge when archive fails")
         void shouldNotMerge_whenArchiveFails() {
             Security existing = createValidSecurity(1, "111", "user1", "oldpass");

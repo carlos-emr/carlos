@@ -1716,13 +1716,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     }
 
     /**
-     * Runs {@code action} once the surrounding transaction commits, or immediately when no
-     * transaction synchronization is active.
+     * Runs a non-transactional side effect once the surrounding transaction commits, or immediately
+     * when no transaction synchronization is active (callers that save outside a transaction keep
+     * their existing behaviour). The action is dropped if the transaction rolls back.
      *
-     * <p>The HL7 A04 registration message is written to disk, outside any database transaction. When
-     * a caller (for example {@code DemographicManagerImpl.createDemographic}) saves the patient
-     * together with its admission and extensions in one transaction, emitting the file from inside
-     * {@code save} would announce a patient that a later rollback removes.</p>
+     * @param action {@link Runnable} the side effect to run after commit
      */
     static void runAfterCommitOrNow(Runnable action) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -1755,6 +1753,10 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
+            // The A04 file is written to disk and cannot be rolled back, so inside a transaction (the
+            // manager creates the patient, admission and extensions in one) it is written only once that
+            // transaction commits; otherwise a rolled-back create would leave a registration for a
+            // patient that does not exist.
             runAfterCommitOrNow(() -> {
                 if (!(new HL7A04Generator()).generateHL7A04(demographic)) {
                     log.warn("HL7 A04 generation did not complete for a saved demographic");
