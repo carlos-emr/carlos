@@ -437,6 +437,8 @@ class MutatorActionGetRejectionContractUnitTest {
         // Demographic report favourites and patient sets (#4225) are POST-only;
         // report display/run/load remain GET-compatible. Focused RptDemographicReport2ActionUnitTest.
         "io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action",
+        // UploadLoginText2ActionUnitTest covers read-only GET and mutation-intent rejection.
+        "io.github.carlos_emr.carlos.login.UploadLoginText2Action",
         // Legacy encounter forms: every save must be POST; only submit=graph/printAll/printAllJasperReport read
         // and permit GET. Focused GET/HEAD cases in Frm2ActionMethodGuardUnitTest.
         "io.github.carlos_emr.carlos.form.Frm2Action",

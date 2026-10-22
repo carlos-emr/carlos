@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
-"""Real nginx/ModSecurity/CRS regression checks for issues #4571--4575 and the
-add-prevention free text of PR #4742.
+"""Real nginx/ModSecurity/CRS regression checks for issues #4571--4575, the
+add-prevention free text of PR #4742, and the eForm signature data-URI
+carrier of issue #3552.
 
 Run from any directory (Python >= 3.10, Node for the shared prose corpus):
   python3 scripts/waf/check-clinical-policy.py
@@ -41,6 +42,7 @@ Without it, all runtime artifacts are removed, including after failures.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import html
 import http.client
@@ -157,6 +159,20 @@ def load_corpus(node, root):
     if not corpus.startswith("http://10.0.0.5/") or "../" not in corpus or "<?" not in corpus:
         raise ValueError("shared corpus no longer exercises the three issue payload shapes")
     return phrases, corpus
+
+
+def signature_png(size=96 * 1024):
+    """A signature-sized PNG data URI: the PNG file signature, then deterministic noise.
+
+    Real canvas output is compressed image data, so its Base64 is about as random as this.
+    """
+    noise = bytearray()
+    counter = 0
+    while len(noise) < size:
+        noise += hashlib.sha256(b"carlos-3552-signature-%d" % counter).digest()
+        counter += 1
+    image = b"\x89PNG\r\n\x1a\n" + bytes(noise[:size])
+    return "data:image/png;base64," + base64.b64encode(image).decode("ascii")
 
 
 def build_cases(phrases, corpus):
@@ -343,8 +359,8 @@ def build_cases(phrases, corpus):
                               expect="inbound", signatures=("941100", "941110")))
 
     # Image placeholder transport was renamed together with browser and server.
-    # The RCE marker distinguishes argument-level rule 1030 from the broader
-    # data-URI-only exclusion 1040: stale/mismatched field names must fail here.
+    # Only the exact argument name is exempt (1030): a stale or mismatched name
+    # is still scored, by the RCE marker and by the data-URI XSS rules.
     image_source = '{"id":"signature","value":"data:image/png;base64,AQID$(id)"}'
     cases.append(request_case("carlos-image-link-save", 3352, LETTER, "carlos-image-link", image_source))
     for field in ("openosp-image-link", "clinicalNote"):
@@ -352,6 +368,73 @@ def build_cases(phrases, corpus):
     for method in ("GET", "PUT"):
         cases.append(request_case(f"image-link-wrong-{method}", 3352, LETTER, "carlos-image-link", image_source, method, **rce))
     cases.append(request_case("image-link-wrong-route", 3352, LETTER + "Evil", "carlos-image-link", image_source, **rce))
+
+    # Exclusion 1040 (#3552): the page moves signature data URIs out of the eForm's own
+    # (author-named) fields into ARGS:carlos-data-uri and leaves "carlos-data-uri:<nonce>:<n>"
+    # behind, the nonce in ARGS:carlos-data-uri-nonce (scored like any field).
+    # A signature-sized carried value passes; the same value left in an author-named field, and
+    # every attribute-XSS vector the old request-wide 941130/941170 removal let through, is
+    # scored again; and the carrier itself is still scored off its route/method and by the
+    # families it does not unhook.
+    png, jsignature = signature_png(), "data:image/jsignature;base30,3E13Z5Y5_1O24Z66_1O1Z3_3E2Z4"
+    nonce = "0123456789abcdef0123456789abcdef"
+    cases.append(Case("data-uri-carried-save", 3552, "POST", LETTER, urlencode([
+        ("SignatureBox", f"carlos-data-uri:{nonce}:0"), ("StoreSignature1", f"carlos-data-uri:{nonce}:1"),
+        ("clinicalNote", "Routine follow up."), ("carlos-data-uri", png), ("carlos-data-uri", jsignature),
+        ("carlos-data-uri-nonce", nonce)])))
+    data_uri_xss = {"expect": "inbound", "signatures": ("941130", "941170")}
+    for name, value in (("png", png), ("jsignature", jsignature)):
+        cases.append(request_case(f"data-uri-in-author-field-{name}", 3552, LETTER, "SignatureBox", value, **data_uri_xss))
+    for name, value, signatures in (
+        ("data-html", "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==", ("941130", "941170")),
+        ("svg", "data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+", ("941130", "941170")),
+        ("javascript", "javascript:alert(document.domain)", ("941170",)),
+        ("xlink", "a xlink:href=x", ("941130",)),
+        ("formaction", "a formaction=x", ("941130",)),
+    ):
+        cases.append(request_case(f"data-uri-author-field-{name}", 3552, LETTER, "clinicalNote", value,
+                                  extra=(("carlos-data-uri", png),), expect="inbound", signatures=signatures))
+    # Random Base64 trips more than the two data-URI rules: with "==" padding at its end and
+    # "/if+" anywhere before it, 932140 (attack-rce, Windows "if ... ==") matches on its own. 9 of
+    # 300 random 30-200 KB payloads did, so under the former by-id 1040 about one signature save in
+    # 33 was refused. The carried argument must keep attack-rce unhooked; the control shows the
+    # value really does score 932140 on an argument 1040 does not name.
+    rce_shaped = "data:image/png;base64,iVBORw0KGgoAAAA/if+AAAAAAAAAAAAAAA=="
+    cases.append(Case("data-uri-carried-rce-shaped", 3552, "POST", LETTER, urlencode([
+        ("SignatureBox", f"carlos-data-uri:{nonce}:0"), ("carlos-data-uri", rce_shaped),
+        ("carlos-data-uri-nonce", nonce)])))
+    cases.append(request_case("data-uri-rce-shaped-control", 3552, LETTER, "carlos-data-uri-x", rce_shaped,
+                              expect="inbound", signatures=("932140",)))
+    # The nonce is drawn afresh for every submission, and it is scored like any field, both in
+    # ARGS:carlos-data-uri-nonce and inside every "carlos-data-uri:<nonce>:<n>" reference. A nonce
+    # that tripped CRS would refuse saves at random, as random Base64 did with 932140. Pin a fixed
+    # sample: edge shapes (all digits, all letters, exponent-like) and SHA-256-derived nonces, in
+    # references with index 0 and 255 (the largest one a save can carry; this is policy only, so
+    # the indices need not resolve). 1,500 random nonces passed when this was added.
+    one_pixel = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB"
+                 "9Wl5n2QAAAAASUVORK5CYII=")
+    sample_nonces = ["0" * 32, "f" * 32, "1e" + "0" * 30, "0e1" + "9" * 29, "deadbeef" * 4]
+    sample_nonces += [hashlib.sha256(b"carlos-3552-nonce-%d" % k).hexdigest()[:32] for k in range(19)]
+    for k, sample in enumerate(sample_nonces):
+        cases.append(Case(f"data-uri-nonce-sample-{k:02d}", 3552, "POST", LETTER, urlencode([
+            ("SignatureBox", f"carlos-data-uri:{sample}:0"), ("MirrorPad", f"carlos-data-uri:{sample}:255"),
+            ("clinicalNote", "Routine follow up."), ("carlos-data-uri", one_pixel),
+            ("carlos-data-uri-nonce", sample)])))
+    carrier_probe = "data:image/png;base64,AQID"
+    for method in ("GET", "PUT"):
+        cases.append(request_case(f"data-uri-carrier-wrong-{method}", 3552, LETTER, "carlos-data-uri",
+                                  carrier_probe, method, **data_uri_xss))
+    for suffix in ("Evil", "/child"):
+        cases.append(request_case(f"data-uri-carrier-route-{suffix.replace('/', '-')}", 3552, LETTER + suffix,
+                                  "carlos-data-uri", carrier_probe, **data_uri_xss))
+    for similar in ("carlos-data-uri-x", "carlos-data-uri-nonce"):
+        cases.append(request_case(f"data-uri-carrier-similar-name-{similar}", 3552, LETTER, similar, carrier_probe,
+                                  **data_uri_xss))
+    for family, value, signatures in (("lfi", TRAVERSAL, ("930100", "930110")),
+                                      ("rfi", RFI, ("931100",)),
+                                      ("php", "<?php echo 1;", ("933100",))):
+        cases.append(request_case(f"data-uri-carrier-{family}-still-inspected", 3552, LETTER, "carlos-data-uri",
+                                  value, expect="inbound", signatures=signatures))
 
     if len({case.name for case in cases}) != len(cases):
         raise ValueError("duplicate case names")

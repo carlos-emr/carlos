@@ -409,6 +409,9 @@ export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 export RX_EXPECTED_BUILD_TAG='\$tag' EXPECTED_BUILD_VERSION='\$version'
 # The packaged store layout. Without these, about 30 checks fail on a
 # precondition before they drive anything.
+export BASE_DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument
+# The package leaves show_aua unset, so the login page must not show an agreement.
+export LOGIN_AGREEMENT_EXPECT=hidden
 export DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
 export LETTER_DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
 export BOUNDARY_DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
