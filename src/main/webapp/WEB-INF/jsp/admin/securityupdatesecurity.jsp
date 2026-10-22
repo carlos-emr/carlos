@@ -334,17 +334,19 @@
                     </td>
                 </tr>
                 <!-- new sec -->
+                <%-- A disabled PIN control (MFA on) is not submitted, and an absent PIN means "unchanged",
+                     so a refused draft shows the unchanged sentinel; an explicitly blank PIN stays blank. --%>
                 <tr>
                     <td align="right" nowrap><label for="securityPin"><fmt:message key="admin.securityrecord.formPIN"/>:</label>
                     </td>
-                    <td><input type="password" id="securityPin" name="pin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("pin"), "") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6"> <small>(<fmt:message key="admin.securityrecord.msgAtLeast"/>
+                    <td><input type="password" id="securityPin" name="pin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("pin"), "****") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6"> <small>(<fmt:message key="admin.securityrecord.msgAtLeast"/>
                         <%=op.getProperty("password_pin_min_length")%> <fmt:message key="admin.securityrecord.msgDigits"/>)</small>
                     </td>
                 </tr>
                 <tr>
                     <td align="right"><label for="securityPinConfirmation"><fmt:message key="admin.securityrecord.formConfirm"/>:</label>
                     </td>
-                    <td><input type="password" id="securityPinConfirmation" name="conPin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("conPin"), "") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6" /></td>
+                    <td><input type="password" id="securityPinConfirmation" name="conPin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("conPin"), "****") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6" /></td>
                 </tr>
 
 		<% } %>

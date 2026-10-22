@@ -239,7 +239,9 @@ async function workflow(s) {
     const recovered = await currentPage;
     h.wireStrictPage(recovered, 'review-current-appointment', s.recorder);
     await recovered.waitForLoadState('domcontentloaded');
-    h.assert(await recovered.locator('select[name="status"]').inputValue() === 'C', 'Recovery did not show the current cancellation');
+    // Same two status shapes as the cancellation step above.
+    h.assert(await recovered.locator('select[name="status"], input[type="text"][name="status"]').first().inputValue() === 'C',
+      'Recovery did not show the current cancellation');
     h.assert(await aEdit.locator('#reason').inputValue() === `${marker} edited by session A`, 'Opening recovery lost the original draft');
     await recovered.locator('#reason').fill(`${marker} edited by session A`);
     await Promise.all([

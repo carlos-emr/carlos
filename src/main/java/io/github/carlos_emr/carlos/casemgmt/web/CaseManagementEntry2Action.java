@@ -123,6 +123,20 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return false;
     }
 
+    /**
+     * Answers a {@code method=save} that no longer holds the note lock. The encounter page saves
+     * through XHR and keeps the editor and its text on a 409. The legacy native form on
+     * {@code CaseManagementEntry.jsp} would show a 409 as an empty page, so it gets the
+     * "note was not saved" page instead.
+     */
+    private String refuseSaveWithoutNoteLock() {
+        if (RequestNegotiation.isAjax(request)) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+        return "windowCloseError";
+    }
+
     private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
         String originalNote = StringUtils.defaultString(noteText);
         return new StringBuilder(originalNote.length() + issueNames.length() + REMOVED_ISSUE_MESSAGE_OVERHEAD)
@@ -1883,10 +1897,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("change_flag", "false");
 
         String demono = getDemographicNo(request);
-        if (!hasNoteLock(demono)) {
-            response.setStatus(HttpServletResponse.SC_CONFLICT);
-            return NONE;
-        }
+        if (!hasNoteLock(demono)) return refuseSaveWithoutNoteLock();
 
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
@@ -1895,10 +1906,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         long noteId = noteSave();
 
-        if (noteId == -1L && !hasNoteLock(demono)) {
-            response.setStatus(HttpServletResponse.SC_CONFLICT);
-            return NONE;
-        }
+        if (noteId == -1L && !hasNoteLock(demono)) return refuseSaveWithoutNoteLock();
 
         /* prepare the message */
         addActionMessage(getText("note.saved"));

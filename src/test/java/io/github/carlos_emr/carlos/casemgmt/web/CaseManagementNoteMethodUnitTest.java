@@ -79,11 +79,18 @@ class CaseManagementNoteMethodUnitTest extends CarlosUnitTestBase {
             verifyNoInteractions(notes, issues, extensions, issueDefinitions, locks, ticklers, security);
         }
     }
+    /**
+     * The encounter page saves through carlos-ajax.js (only CSRFGuard's marker in
+     * X-Requested-With) and keeps the editor on a 409; the legacy native form on
+     * CaseManagementEntry.jsp must get the "note was not saved" page, not an empty 409.
+     */
     @ParameterizedTest
-    @CsvSource({"missing", "takenOver", "raced"})
-    void shouldReturnConflictBeforeLoadingOrSavingNote_whenLockIsMissingOrTakenOver(String state) throws Exception {
+    @CsvSource({"missing, ajax", "takenOver, ajax", "raced, ajax",
+            "missing, form", "takenOver, form", "raced, form"})
+    void shouldRefuseBeforeLoadingOrSavingNote_whenLockIsMissingOrTakenOver(String state, String caller) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
+        if ("ajax".equals(caller)) request.addHeader("X-Requested-With", "OWASP CSRFGuard Project");
         request.setParameter("demographicNo", "42");
         request.getSession().setAttribute("userrole", "doctor");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -113,8 +120,13 @@ class CaseManagementNoteMethodUnitTest extends CarlosUnitTestBase {
                 doReturn("40").when(action).getDemoAge("42");
                 doReturn("1986-01-01").when(action).getDemoDOB("42");
             }
-            assertThat(action.save()).isEqualTo(ActionSupport.NONE);
-            assertThat(response.getStatus()).isEqualTo(409);
+            if ("ajax".equals(caller)) {
+                assertThat(action.save()).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(409);
+            } else {
+                assertThat(action.save()).isEqualTo("windowCloseError");
+                assertThat(response.getStatus()).isEqualTo(200);
+            }
             if (!"raced".equals(state)) verify(action, never()).getDemoName(anyString());
             verifyNoInteractions(mockedBeans.get(CaseManagementNoteDAO.class), mockedBeans.get(CaseManagementManager.class));
         }
