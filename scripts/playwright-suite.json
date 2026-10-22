@@ -6672,7 +6672,7 @@
       "timeoutSec": 240,
       "env": [],
       "mutates": [],
-      "notes": "Issue #4992 (findings-log numbers; the issue numbers them 284 to 290), the Rh immune globulin workflow around the RH form: the WorkFlow queue's RH link left the application and named a Forms-menu shortcut no shipped install registers (287), Add Injection opened addRhInjection without form/ (288), the injection editor's Save raised a script error (290), and the injection panel stayed empty because its lookup parsed the prevention entity's toString() as an id (291). A saved RH form bound to an active workflow is opened for the owned patient: its panel lists the seeded injection with its lot (carrying inert markup, shown as text), product, location and reason; Add Injection opens the editor for the same patient, workflow and form; Save Injection stores one linked injection without a script error and the panel refreshes to two; the panel's Delete removes only the chosen injection; the queue row's link resolves inside the application to that workflow's saved form and opens it. The log-privacy half (293) is PreventionDataExtLookupUnitTest.",
+      "notes": "Issue #4992 (findings-log numbers; the issue numbers them 284 to 290), the Rh immune globulin workflow around the RH form: the WorkFlow queue's RH link left the application and named a Forms-menu shortcut no shipped install registers (287), Add Injection opened addRhInjection without form/ (288), the injection editor's Save raised a script error (290), and the injection panel stayed empty because its lookup parsed the prevention entity's toString() as an id (291). Behind them the packaged install also refused the editor's GET (HttpMethodGuardFilter, an add* route) and every RH injection save and delete (prevention/AddPrevention, an unlisted prevention type); both are fixed. A saved RH form bound to an active workflow is opened for the owned patient: its panel lists the seeded injection with its lot (carrying inert markup, shown as text), product, location and reason; Add Injection opens the editor for the same patient, workflow and form; Save Injection stores one linked injection without a script error and the panel refreshes to two; the panel's Delete removes only the chosen injection; the queue row's link resolves inside the application to that workflow's saved form and opens it. The log-privacy half (293) is PreventionDataExtLookupUnitTest.",
       "fixtures": "Owned synthetic patient; one active RH workflow, one saved formRhImmuneGlobulin row bound to it and one RH prevention with workflowId, formId, lot, product, dosage, location and reason extensions; the injection Save Injection stores. Cleanup deletes the owned patient's preventions and their extensions, formRhImmuneGlobulin rows and workflow rows, and asserts them gone. The queue lists every active RH workflow, so other clinics' rows may show; the check reads only the owned patient's link."
     },
     {
@@ -14145,15 +14145,11 @@
       "env": [
         "RH_QUEUE_ONLY"
       ],
-      "notes": "RH Form Save, WorkFlow queue membership and RH link, close, later pregnancy. Requires WORKFLOW=yes. Verifies persisted state and rendered queue; leaves closed history intact. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 287.",
+      "notes": "RH Form Save, WorkFlow queue membership and RH link, close, later pregnancy. Requires WORKFLOW=yes. Verifies persisted state and rendered queue; leaves closed history intact. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 287 (fixed, #4992): the queue's RH link now opens the RH form saved for that workflow inside the application.",
       "mutates": [
         "encounterForm"
       ],
-      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 287,
-        "step": "the queue RH link reopens the saved form for that pregnancy"
-      }
+      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "rh-injection-workflow",
@@ -14169,15 +14165,11 @@
       "env": [
         "RH_INJECTION_ONLY"
       ],
-      "notes": "RH Form > Add Injection > Save Injection > Delete. Verifies the real popup, prevention fields and the opener injection panel. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 288.",
+      "notes": "RH Form > Add Injection > Save Injection > Delete. Verifies the real popup, prevention fields and the opener injection panel. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 288 (fixed, #4992): Add Injection opens form/addRhInjection, which HttpMethodGuardFilter no longer refuses as a GET to an add* write; Save Injection (finding 290) and Delete reach prevention/AddPrevention, which accepts the RH type the Preventions page does not list.",
       "mutates": [
         "encounterForm"
       ],
-      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 288,
-        "step": "Add Injection opens for the saved RH form and the same patient and workflow"
-      }
+      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "tickler-bulk-actions",
@@ -14232,17 +14224,13 @@
       "env": [
         "RH_INJECTION_ONLY"
       ],
-      "notes": "An existing injection on the current pregnancy is displayed through the RH form and archived by its panel Delete link. Independent of Add Injection so that a broken add path cannot hide display/delete failures. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 291.",
+      "notes": "An existing injection on the current pregnancy is displayed through the RH form and archived by its panel Delete link. Independent of Add Injection so that a broken add path cannot hide display/delete failures. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 291 (fixed, #4992): the panel looks injections up by their prevention id again, and its Delete posts the prevention type and date prevention/AddPrevention requires.",
       "mutates": [
         "encounterForm"
       ],
       "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "envSet": {
         "RH_INJECTION_ONLY": "existing"
-      },
-      "expectedFailure": {
-        "finding": 291,
-        "step": "a saved RH form displays an existing injection with its lot, product, dose and reason"
       }
     },
     {
@@ -14280,17 +14268,13 @@
         "CARLOS_LOG_JOURNAL_UNIT",
         "CARLOS_LOG_AUDIT_SINCE"
       ],
-      "notes": "Opens a current pregnancy with an existing RH injection through the chart and scans the server journal for the unique synthetic clinical marker. Verifies the panel request and that the journal was read; requires CARLOS_LOG_JOURNAL_UNIT. Independent of the blank panel assertion. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 293.",
+      "notes": "Opens a current pregnancy with an existing RH injection through the chart and scans the server journal for the unique synthetic clinical marker. Verifies the panel request and that the journal was read; requires CARLOS_LOG_JOURNAL_UNIT. Independent of the blank panel assertion. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 293 (fixed, #4992): the panel no longer logs the prevention entity, and a non-numeric id is refused without echoing it.",
       "mutates": [
         "encounterForm"
       ],
       "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "envSet": {
         "RH_INJECTION_ONLY": "privacy"
-      },
-      "expectedFailure": {
-        "finding": 293,
-        "step": "the RH injection panel writes no clinical fixture data to the server log"
       }
     },
     {

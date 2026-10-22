@@ -45,7 +45,7 @@ async function workflow(s) {
       await page.locator('#vt-WT-value').fill('999');
       await Promise.all([
         page.waitForURL(url => /\/form\/SubmitForm$/.test(url.pathname), { waitUntil: 'load' }),
-        page.getByRole('button', { name: 'Update VT', exact: true }).click(),
+        page.getByRole('button', { name: 'Update VT', exact: true }).first().click(),
       ]);
       await h.assertNotErrorPage(page, 'refused Vascular Tracker save');
       const reasons = await page.locator('.action-errors li').allInnerTexts();
@@ -63,7 +63,7 @@ async function workflow(s) {
       await page.locator('#vt-WT-value').fill('75');
       const saved = page.waitForResponse(answer => /\/form\/SubmitForm$/.test(new URL(answer.url()).pathname)
         && answer.request().method() === 'POST');
-      await h.withExpectedDialogs(page, () => page.getByRole('button', { name: 'Save and Exit', exact: true }).click({ noWaitAfter: true }),
+      await h.withExpectedDialogs(page, () => page.getByRole('button', { name: 'Save and Exit', exact: true }).first().click({ noWaitAfter: true }),
         { accept: true });
       const answer = await saved;
       h.assert(answer.status() === 200, `Save & Exit answered HTTP ${answer.status()}`);
