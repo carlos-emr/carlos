@@ -32,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -61,6 +62,62 @@ class EFormUtilIntegrationTest extends CarlosTestBase {
         HashMap<String, Object> loadedForm = EFormUtil.loadEForm(persistedForm.getId().toString());
 
         assertThat(loadedForm).containsEntry("fid", persistedForm.getId().toString());
+    }
+
+    @Test
+    @DisplayName("should list each current eForm with the editor its Edit action opens")
+    void shouldListEditorKind_forEachCurrentEForm() throws Exception {
+        EForm visual = persistForm("EDITOR_KIND_VISUAL", true,
+                "<html><head><meta name='carlos-eform-editor' content='visual'><title>v</title></head>"
+                        + "<body><div id='eform_container'><form id=\"inputForm\"></form></div></body></html>");
+        EForm generator = persistForm("EDITOR_KIND_GENERATOR", true,
+                "<html><body><div id=\"page1\" style=\"position:relative;\"><img id=\"BGImage1\" src=\"a.png\">"
+                        + "</div></body></html>");
+        EForm handWritten = persistForm("EDITOR_KIND_HTML", true,
+                "<html><body><form><textarea name='letter'></textarea></form></body></html>");
+        EForm deleted = persistForm("EDITOR_KIND_DELETED", false,
+                "<html><head><meta name='carlos-eform-editor' content='visual'></head><body></body></html>");
+        hibernateTemplate.flush();
+
+        List<HashMap<String, ? extends Object>> listing =
+                EFormUtil.listEFormsWithEditor(EFormUtil.NAME, EFormUtil.CURRENT);
+
+        assertThat(editorKindOf(listing, visual)).isEqualTo(EFormEditorResolver.EditorKind.VISUAL);
+        assertThat(editorKindOf(listing, generator)).isEqualTo(EFormEditorResolver.EditorKind.CONVERTIBLE);
+        assertThat(editorKindOf(listing, handWritten)).isEqualTo(EFormEditorResolver.EditorKind.HTML);
+        assertThat(listing).noneMatch(row -> deleted.getId().toString().equals(row.get("fid")));
+    }
+
+    @Test
+    @DisplayName("should leave the plain listing without the editor key")
+    void shouldOmitEditorKind_fromPlainListing() throws Exception {
+        EForm visual = persistForm("EDITOR_KIND_PLAIN_LISTING", true,
+                "<html><head><meta name='carlos-eform-editor' content='visual'></head><body></body></html>");
+        hibernateTemplate.flush();
+
+        List<HashMap<String, ? extends Object>> listing = EFormUtil.listEForms(EFormUtil.NAME, EFormUtil.CURRENT);
+
+        assertThat(listing).filteredOn(row -> visual.getId().toString().equals(row.get("fid")))
+                .singleElement()
+                .satisfies(row -> assertThat(row).doesNotContainKey("editorKind"));
+    }
+
+    private EForm persistForm(String name, boolean current, String formHtml) throws Exception {
+        EForm form = new EForm();
+        EntityDataGenerator.generateTestDataForModelClass(form);
+        form.setFormName(name);
+        form.setCurrent(current);
+        form.setFormHtml(formHtml);
+        eFormDao.persist(form);
+        return form;
+    }
+
+    private static Object editorKindOf(List<HashMap<String, ? extends Object>> listing, EForm form) {
+        return listing.stream()
+                .filter(row -> form.getId().toString().equals(row.get("fid")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("eForm " + form.getFormName() + " is not listed"))
+                .get("editorKind");
     }
 
     @Test

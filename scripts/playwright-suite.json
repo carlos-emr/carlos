@@ -9385,6 +9385,21 @@
       "notes": "Fails at its last step ('the database tag reference loads cleanly and from this host only') on 2026.08: eform/Eform_dbtags loads ../library/jquery/jquery-3.6.4.min.js (404 served as text/html), then falls back to code.jquery.com, and throws '$ is not defined'. Every earlier step passes."
     },
     {
+      "name": "eform-visual-editor-default-edit",
+      "script": "scripts/eform-visual-editor-default-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "The eForm the Visual eForm Editor saves plus three SQL-seeded templates (eForm Generator-style, hand-written, deleted), all named with the run marker; cleanup deletes them by fid and marker and asserts them gone.",
+      "notes": "Issue #3166: the eForm Library's Edit pencil opens visual-editor forms pre-loaded in the Visual eForm Editor inside the Administration panel and keeps the HTML source editor for every other form."
+    },
+    {
       "name": "gap-encounter-fieldnote-report",
       "script": "scripts/gap-encounter-fieldnote-report-playwright-checks.js",
       "tiers": [
