@@ -162,3 +162,26 @@ test('should refuse a reset password that quoting could not carry into the conta
   }
   assert.equal(run(['print-preseed'], { ...box.env, RESET_PASSWORD: 'Carlos2026!Verify' }).status, 0);
 });
+
+test('should refuse an unknown profile, and every profile without CARLOS_DISPOSABLE_HOST=true, before calling docker', (t) => {
+  const box = sandbox(t);
+  const unknown = run(['profile', 'nonesuch'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /profile must be legacy-teleplan or default \(got 'nonesuch'\)/);
+  for (const name of ['legacy-teleplan', 'default']) {
+    const r = run(['profile', name], { ...box.env, CARLOS_DISPOSABLE_HOST: '' });
+    assert.equal(r.status, 1, `${name}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /refusing to run: set CARLOS_DISPOSABLE_HOST=true/);
+  }
+  assert.equal(fs.existsSync(box.calls), false, 'docker was called before the profile was refused');
+});
+
+test('should refuse the legacy-teleplan profile on an install that is not British Columbia', (t) => {
+  const box = sandbox(t);
+  // The fake docker answers nothing, so the installed province reads as unknown.
+  const r = run(['profile', 'legacy-teleplan'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /the legacy-teleplan profile is for a BC install \(this one is 'unknown'\)/);
+  const calls = fs.readFileSync(box.calls, 'utf8');
+  assert.doesNotMatch(calls, /carlos-ctl restart/, 'the install was changed although the province check failed');
+});

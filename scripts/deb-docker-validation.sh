@@ -39,6 +39,9 @@
 #   CARLOS_DISPOSABLE_HOST=true DEBS_DIR=/path/to/debs scripts/deb-docker-validation.sh up
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh suite --tier smoke
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh audit
+#   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh profile legacy-teleplan
+#   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh suite --profile legacy-teleplan
+#   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh profile default
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh down
 #
 # Commands:
@@ -50,6 +53,10 @@
 #                 (default: --tier smoke); fails if carlos-emr restarted
 #                 during the run; the JUnit report is copied to LOG_DIR
 #   audit [ARGS]  run scripts/deb-server-log-audit.sh ARGS in the container
+#   profile NAME  switch the install to a configuration some checks need and
+#                 restart it: legacy-teleplan (BC, NEW_BC_TELEPLAN=no, for
+#                 `suite --profile legacy-teleplan`) or default (put back the
+#                 setting the profile replaced)
 #   shell         interactive shell in the container
 #   down          remove the container (the image is kept)
 #   print-preseed print the debconf preseed this run would use
@@ -470,6 +477,40 @@ cmd_audit() {
   in_container ". /root/suite-env.sh; scripts/deb-server-log-audit.sh $quoted"
 }
 
+# The install configurations of run-playwright-suite.js PROFILES. A profile's setting goes into the
+# install's own override file, after a marker line, and any line it replaces is kept commented out with
+# a prefix, so `profile default` puts the file back as it was. Switching always resets first, so two
+# switches in a row never keep the first profile's line as if it were the install's own.
+PROFILE_MARK='# carlos-validation-profile:'
+PROFILE_WAS='#carlos-validation-profile-was: '
+cmd_profile() {
+  local name="${1:-}" key='' value=''
+  case "$name" in
+    legacy-teleplan) key=NEW_BC_TELEPLAN; value=no ;;
+    default) ;;
+    *) die "profile must be legacy-teleplan or default (got '$name')" ;;
+  esac
+  require_disposable
+  mkdir -p "$LOG_DIR"
+  if [ "$name" = legacy-teleplan ]; then
+    local province
+    province=$(in_container '. /root/suite-env.sh; printf %s "${CARLOS_SUITE_PROVINCE:-}"' 2>/dev/null || true)
+    [ "$province" = BC ] || die "the legacy-teleplan profile is for a BC install (this one is '${province:-unknown}')"
+  fi
+  in_container "
+    set -e
+    P=/etc/carlos-emr/carlos.properties
+    sed -i -E '/^$PROFILE_MARK /{N;d}' \"\$P\"
+    sed -i -E 's/^$PROFILE_WAS//' \"\$P\"
+    if [ -n '$key' ]; then
+      sed -i -E 's/^($key[[:space:]]*[=:].*)\$/$PROFILE_WAS\1/' \"\$P\"
+      printf '%s\\n' '$PROFILE_MARK $name' '$key=$value' >> \"\$P\"
+    fi
+    carlos-ctl restart" >"$LOG_DIR/profile-$name.log" 2>&1 || die "switching to profile $name failed; see $LOG_DIR/profile-$name.log"
+  wait_front_door
+  say "profile $name: ${key:+$key=$value, }the application was restarted"
+}
+
 main() {
   local cmd="${1:-}"
   [ "$#" -gt 0 ] && shift
@@ -477,6 +518,7 @@ main() {
     up) cmd_up ;;
     suite) cmd_suite "$@" ;;
     audit) cmd_audit "$@" ;;
+    profile) cmd_profile "$@" ;;
     shell) require_disposable; docker exec -it "$CONTAINER" bash ;;
     down) require_disposable; docker rm -f "$CONTAINER" >/dev/null && say "removed $CONTAINER" ;;
     print-preseed) preseed ;;
