@@ -47,6 +47,8 @@ function pickUnusedProviderNo(sql) {
     const used = sql.value(`SELECT ${[
       `(SELECT COUNT(*) FROM provider WHERE provider_no=${c})`,
       `(SELECT COUNT(*) FROM security WHERE provider_no=${c})`,
+      // Edits archive rows under the provider number; cleanup counts them by it too.
+      `(SELECT COUNT(*) FROM SecurityArchive WHERE provider_no=${c})`,
       `(SELECT COUNT(*) FROM log WHERE provider_no=${c})`,
       ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${c})`),
       ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`),

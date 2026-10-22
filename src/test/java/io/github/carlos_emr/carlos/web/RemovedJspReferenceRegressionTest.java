@@ -236,8 +236,8 @@ class RemovedJspReferenceRegressionTest {
                 .doesNotContain("saveEntity");
         assertThat(action)
                 .contains("securityManager.updateSecurityRecord(LoggedInInfo.getLoggedInInfoFromSession(request), row);")
-                // An incomplete record is refused by the manager; the form shows its failure message.
-                .contains("catch (IllegalArgumentException incomplete)")
+                // A record the manager would refuse is refused first, with the form's failure message.
+                .contains("SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(password)")
                 .doesNotContain("saveEntity(");
     }
 

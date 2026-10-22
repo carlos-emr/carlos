@@ -179,13 +179,29 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRetainDraftWithoutCommit_whenManagerRefusesAnIncompleteRecord() throws Exception {
-        doThrow(new IllegalArgumentException("Invalid Security object built"))
-                .when(passwords).updateSecurityRecord(any(), any());
+    void shouldRetainDraftWithoutSave_whenStoredPasswordIsEmptyAndUnchanged() throws Exception {
+        // SecurityManager would refuse this record; the action refuses it first, with the draft.
+        row.setPassword("");
+        request.setParameter(SecurityEditVersion.PARAMETER, SecurityEditVersion.of(row));
         request.setParameter("user_name", "mydraft");
         assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("conflict");
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(request.getAttribute("securityEditErrorKey")).isEqualTo("admin.securityupdate.msgUpdateFailure");
+        assertThat(((Security) request.getAttribute("securityEditDraft")).getUserName()).isEqualTo("mydraft");
+        assertThat(request.getAttribute("securityUpdateCommitted")).isNull();
+        assertThat(committed).isFalse();
+        verifyNoInteractions(passwords); verify(dao, never()).detach(any());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldRefuseWithoutCommit_whenTheManagerSaveFails() throws Exception {
+        doThrow(new IllegalArgumentException("Simulated persistence failure"))
+                .when(passwords).updateSecurityRecord(any(), any());
+        request.setParameter("user_name", "mydraft");
+        assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("conflict");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("securityEditErrorKey")).isEqualTo("admin.securityupdate.msgUnconfirmed");
         assertThat(((Security) request.getAttribute("securityEditDraft")).getUserName()).isEqualTo("mydraft");
         assertThat(request.getAttribute("securityUpdateCommitted")).isNull();
         assertThat(committed).isFalse();

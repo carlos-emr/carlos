@@ -112,8 +112,13 @@ async function workflow(s) {
       });
       try {
         const html = await response.text();
-        h.assert(response.status() === 200 && message.test(html) && !/Security Record Updated Successfully/.test(html),
-          'A rejected direct update did not show its validation error');
+        // SecurityUpdate2Action refuses invalid input with HTTP 400 and re-renders the edit form
+        // with the error and the submitted draft, uncached, instead of a success page.
+        h.assert(response.status() === 400 && message.test(html) && !/Security Record Updated Successfully/.test(html),
+          `A rejected direct update did not show its validation error (HTTP ${response.status()})`);
+        h.assert(/id="security-edit-refused"/.test(html) && html.includes(`value="${rejectedUserName}"`),
+          'A rejected direct update did not keep the submitted draft');
+        h.assert(/no-store/.test(response.headers()['cache-control'] || ''), 'A rejected credential draft must not be cached');
         h.assert(snapshot() === before, 'A rejected direct update changed account fields or credentials');
       } finally { await response.dispose(); }
     }

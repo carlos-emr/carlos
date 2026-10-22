@@ -26,7 +26,7 @@ function pickUnusedProviderNo(sql, taken) {
     if (taken.includes(candidate)) continue;
     const c = h.sqlString(candidate);
     const used = sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${c}) + (SELECT COUNT(*) FROM security WHERE provider_no=${c})
-      + (SELECT COUNT(*) FROM log WHERE provider_no=${c})
+      + (SELECT COUNT(*) FROM log WHERE provider_no=${c}) + (SELECT COUNT(*) FROM SecurityArchive WHERE provider_no=${c})
       + ${[...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${c})`),
         ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`)].join(' + ')}`);
     if (used === '0') return candidate;

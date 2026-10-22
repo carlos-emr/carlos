@@ -143,6 +143,12 @@ public class SecurityUpdate2Action extends ActionSupport {
         String password = request.getParameter("password");
         String error = SecurityUpdatePasswordValidator.validate(password, request.getParameter("conPassword"), properties);
         if (error != null) return refuse(request, response, id, 400, error);
+        // SecurityManager refuses a record without a password; a login with no stored hash must
+        // be given a new password in the same edit rather than fail inside the save.
+        if (SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(password)
+                && (row.getPassword() == null || row.getPassword().isEmpty())) {
+            return refuse(request, response, id, 400, "admin.securityupdate.msgUpdateFailure");
+        }
         String provider = request.getParameter("provider_no");
         if (provider == null || provider.isBlank()) {
             return refuse(request, response, id, 400, "admin.securityupdate.msgUpdateFailure");
@@ -190,13 +196,10 @@ public class SecurityUpdate2Action extends ActionSupport {
                 row.setPinUpdateDate(hashed == null ? null : new Date());
             }
         }
-        try {
-            // The manager reads the pre-edit row (detached above) for the archive and MFA audit,
-            // then merges this edit onto it. It refuses an incomplete record before any write.
-            securityManager.updateSecurityRecord(LoggedInInfo.getLoggedInInfoFromSession(request), row);
-        } catch (IllegalArgumentException incomplete) {
-            return refuse(request, response, id, 400, "admin.securityupdate.msgUpdateFailure");
-        }
+        // The manager reads the pre-edit row (detached above) for the archive and MFA audit, then
+        // merges this edit onto it. Its completeness preconditions were checked above, so any
+        // exception here is a failure, logged and refused by execute() with the transaction rolled back.
+        securityManager.updateSecurityRecord(LoggedInInfo.getLoggedInInfoFromSession(request), row);
         LogAction.addLogSynchronous((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_SECURITY,
                 id + "->" + row.getUserName(), request.getRemoteAddr());
         return SUCCESS;
