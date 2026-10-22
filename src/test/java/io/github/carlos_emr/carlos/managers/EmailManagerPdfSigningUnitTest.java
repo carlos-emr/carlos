@@ -25,6 +25,8 @@ package io.github.carlos_emr.carlos.managers;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -367,25 +369,51 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
         Demographic patient = new Demographic();
         patient.setDemographicNo(1001);
         emailLog.setDemographic(patient);
-        DocumentManifest manifest = fakeManifest();
+        String keyId = "FAKE-" + "k".repeat(59);
+        String documentId = "FAKE-" + "d".repeat(59);
+        DocumentManifest manifest = new DocumentManifest(documentId, 1, 1_792_454_400L, null, "FAKE Demo Clinic",
+                "FAKE-Provider, Demo", null, "FAKE-Manifest-Patient, Jo", "1985-06-15", "FAKE CBC", "lab_report", null);
+        String expectedAudit = "emailLogId=71&source=doc&recordId=1&kid=" + keyId
+                + "&documentId=" + documentId + "&version=1&encrypted=false";
         EmailManager emailManager = createEmailManager(loggedInInfo, emailLog, attachment -> manifest);
 
-        try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
+        try (Connection auditDatabase = DriverManager.getConnection("jdbc:h2:mem:pdfSigningAudit");
+                MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
                 MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
                 MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
             paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
-            signer.when(() -> PDFSigningUtil.signingKeyId(any(PDFSigningConfig.class))).thenReturn("FAKE-kid");
+            signer.when(() -> PDFSigningUtil.signingKeyId(any(PDFSigningConfig.class))).thenReturn(keyId);
             signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
                     .thenReturn(signed);
+
+            // Exercise the real schema boundary: contentId is VARCHAR(80), while data is TEXT.
+            // A mock-only assertion previously accepted a payload the database could not retain.
+            try (var statement = auditDatabase.createStatement()) {
+                statement.execute("CREATE TABLE signingAudit (contentId VARCHAR(80), data CLOB)");
+            }
+            logActionMock.when(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.signAttachment"),
+                    eq("Email"), any(), eq("1001"), any())).thenAnswer(invocation -> {
+                        try (var insert = auditDatabase.prepareStatement("INSERT INTO signingAudit VALUES (?, ?)")) {
+                            insert.setString(1, invocation.getArgument(3));
+                            insert.setString(2, invocation.getArgument(5));
+                            insert.executeUpdate();
+                        }
+                        return null;
+                    });
 
             emailManager.signAttachments(emailData, loggedInInfo, emailLog);
 
             // An opaque document ID is traced back to its record through this entry; no names or content.
-            // CarlosUnitTestBase's LogAction mock records the call.
             logActionMock.verify(() -> LogAction.addLog(loggedInInfo, "EmailManager.signAttachment", "Email",
-                    "emailLogId=71&source=doc&recordId=1&kid=FAKE-kid&documentId=FAKE-document-id&version=1&encrypted=false",
-                    "1001", ""));
+                    "71", "1001", expectedAudit));
+            try (var statement = auditDatabase.createStatement();
+                    var row = statement.executeQuery("SELECT contentId, data FROM signingAudit")) {
+                assertThat(row.next()).isTrue();
+                assertThat(row.getString("contentId")).isEqualTo("71");
+                assertThat(row.getString("data")).isEqualTo(expectedAudit);
+                assertThat(row.next()).isFalse();
+            }
         } finally {
             closeWorkingDirectory(emailData);
         }

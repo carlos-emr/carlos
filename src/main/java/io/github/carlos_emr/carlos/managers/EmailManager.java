@@ -1834,7 +1834,9 @@ public class EmailManager {
                 + "&encrypted=" + encrypted;
         String demographicNo = emailLog.getDemographic() == null ? null
                 : String.valueOf(emailLog.getDemographic().getDemographicNo());
-        LogAction.addLog(loggedInInfo, "EmailManager.signAttachment", EMAIL_AUDIT_CONTENT, data, demographicNo, "");
+        // contentId is limited to 80 characters; keep the full tracing payload in log.data.
+        LogAction.addLog(loggedInInfo, "EmailManager.signAttachment", EMAIL_AUDIT_CONTENT,
+                String.valueOf(emailLog.getId()), demographicNo, data);
     }
 
     private EmailDocumentManifestComposer.AttachmentManifests documentManifests(LoggedInInfo loggedInInfo,

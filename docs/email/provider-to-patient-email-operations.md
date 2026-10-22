@@ -448,6 +448,9 @@ the patient's chart number and holds:
 - the embedded document ID and version, if the PDF carries a manifest;
 - whether the PDF was password-protected.
 
+The indexed `log.contentId` holds the email log ID. The complete tracing fields
+are stored in `log.data`, so they are not cut off by `contentId`'s 80-character limit.
+
 There are no names and no document content. The document ID cannot be turned
 back into a record on its own, so the audit entry is how a document ID that
 myCarlos shows is traced back to its record.
