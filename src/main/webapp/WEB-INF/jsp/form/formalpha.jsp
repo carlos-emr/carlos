@@ -327,7 +327,7 @@
                 <td><input type="checkbox" name="other1"
                         <%= props.getProperty("other1", "") %>></td>
                 <td><fmt:message key="encounter.formAlpha.formOther"/>:<input
-                        type="text" name="other1Name"
+                        type="text" name="other1Name" maxlength="30"
                         value="<carlos:encode value='<%= props.getProperty("other1Name", "")%>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
@@ -340,7 +340,7 @@
                 <td><input type="checkbox" name="other2"
                         <%= props.getProperty("other2", "") %>></td>
                 <td><fmt:message key="encounter.formAlpha.formOther"/>:<input
-                        type="text" name="other2Name"
+                        type="text" name="other2Name" maxlength="30"
                         value="<carlos:encode value='<%= props.getProperty("other2Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
@@ -352,7 +352,7 @@
                 <td><fmt:message key="encounter.formAlpha.formPsychologist"/></td>
                 <td><input type="checkbox" name="other3"
                         <%= props.getProperty("other3", "") %>></td>
-                <td>Other:<input type="text" name="other3Name"
+                <td>Other:<input type="text" name="other3Name" maxlength="30"
                                  value="<carlos:encode value='<%= props.getProperty("other3Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
@@ -365,7 +365,7 @@
                 <td><input type="checkbox" name="other4"
                         <%= props.getProperty("other4", "") %>></td>
                 <td><fmt:message key="encounter.formAlpha.formOther"/>:<input
-                        type="text" name="other4Name"
+                        type="text" name="other4Name" maxlength="30"
                         value="<carlos:encode value='<%= props.getProperty("other4Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>

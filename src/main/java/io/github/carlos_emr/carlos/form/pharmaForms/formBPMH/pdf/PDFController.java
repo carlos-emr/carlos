@@ -48,6 +48,8 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -415,14 +417,21 @@ public class PDFController {
             PdfFonts.addText(paragraph, drug.getInstruction(), body);
             column.addElement(paragraph);
         }
+        String patientName = continuationPatientName();
         int page = getReader().getNumberOfPages();
         try {
             int status;
             do {
                 getStamper().insertPage(++page, PageSize.LETTER);
                 PdfContentByte canvas = getStamper().getOverContent(page);
-                Phrase title = new Phrase("BPMH medication instruction notes — patient " + ((BpmhForm2Bean) data).getDemographicNo(), heading);
+                Phrase title = new Phrase();
+                PdfFonts.addText(title, "BPMH medication instruction notes (continued)", heading);
                 ColumnText.showTextAligned(canvas, 0, title, 36, 756, 0);
+                if (patientName != null) {
+                    Phrase patient = new Phrase();
+                    PdfFonts.addText(patient, "Patient: " + patientName, body);
+                    ColumnText.showTextAligned(canvas, 0, patient, 36, 741, 0);
+                }
                 column.setCanvas(canvas);
                 column.setSimpleColumn(36, 36, 576, 726);
                 status = column.go();
@@ -430,6 +439,20 @@ public class PDFController {
         } catch (DocumentException error) {
             throw new IllegalStateException("BPMH instruction continuation could not be rendered", error);
         }
+    }
+
+    /**
+     * The patient's name, as page 1 shows it, so a loose continuation page can be matched to its
+     * form. The internal record number is never printed on this patient and pharmacy hand-out.
+     *
+     * @return the formatted name, or null when the form carries no patient name
+     */
+    private String continuationPatientName() {
+        Demographic patient = data instanceof BpmhForm2Bean bean ? bean.getDemographic() : null;
+        if (patient == null || StringUtils.isAllBlank(patient.getLastName(), patient.getFirstName())) {
+            return null;
+        }
+        return patient.getFormattedName();
     }
 
     public void writeDataToPDF(Object data, String[] pages) {

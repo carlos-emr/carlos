@@ -172,6 +172,21 @@ class PDFControllerUnitTest {
     }
 
     @Test
+    void shouldNamePatientWithoutRecordNumber_onEveryContinuationPage(@TempDir Path output) throws Exception {
+        String clinical = "Take 1 tablet by mouth with breakfast; hold if dizzy and contact the pharmacist. ".repeat(120);
+        byte[] bytes = renderInstructions(output, List.of(clinical), true);
+        try (var pdf = Loader.loadPDF(bytes)) {
+            assertThat(pdf.getNumberOfPages()).isGreaterThan(2);
+            for (int page = 2; page <= pdf.getNumberOfPages(); page++) {
+                PDFTextStripper stripper = new PDFTextStripper(); stripper.setStartPage(page); stripper.setEndPage(page);
+                String text = stripper.getText(pdf);
+                assertThat(text).contains("BPMH medication instruction notes (continued)", "Patient: Warren, Dennis");
+                assertThat(text).doesNotContain("2345").doesNotContain("12345");
+            }
+        }
+    }
+
+    @Test
     void shouldLeaveContinuationDisabledForCallersThatDoNotOptIn(@TempDir Path output) throws Exception {
         byte[] bytes = renderInstructions(output, List.of("FAKE-PW1234567890abcdef continue at discharge"), false);
         try (var pdf = Loader.loadPDF(bytes)) { assertThat(pdf.getNumberOfPages()).isEqualTo(1); }
@@ -202,7 +217,8 @@ class PDFControllerUnitTest {
                 Positions positions = new Positions(); positions.setStartPage(page); positions.setEndPage(page);
                 String pageText = positions.getText(pdf);
                 assertThat(pageText).contains("BPMH medication instruction notes");
-                text.append(pageText.replaceAll("BPMH medication instruction notes[^\\n]*\\n", ""));
+                text.append(pageText.replaceAll("BPMH medication instruction notes[^\\n]*\\n", "")
+                        .replaceAll("Patient: [^\\n]*\\n", ""));
                 assertThat(positions.glyphs).isNotEmpty().allSatisfy(glyph -> {
                     assertThat(glyph.getFontSizeInPt()).isGreaterThanOrEqualTo(10);
                     assertThat(glyph.getXDirAdj()).isGreaterThanOrEqualTo(35.9f);
