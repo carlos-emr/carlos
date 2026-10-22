@@ -102,6 +102,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         @ValueSource(strings = {
             "100units/mL SC BID x 7 days", "250mg/5mL PO TID x 7 days",
             "Take 250 mg/5 mL PO TID x 7 days", "250 mg per 5 mL PO TID x 7 days",
+            "Take 250 mg per 5 mL TID x 7 days", "Take 250 mg / 5 mL TID x 7 days",
+            "250 mg/5 mL TID x 7 days", "100 IU per 1 mL BID x 7 days", "100IU/5mL tid x 7 days",
             "100IU/mL tid x 7 days", "100IU/5mL IV tid x 7 days",
             "100 IU/mL SC tid x 7 days", "100IU/mL SC tid x 7 days",
             "100 IU/5mL IM tid x 7 days", "100 IU / 5 mL SC tid x 7 days",
@@ -208,6 +210,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 1 sachet in 125 mL BID x 7 days | 1 | 1 | 14",
             "Take 1 tab PO with 250 mL BID x 7 days | 1 | 1 | 14",
             "two tablets po with 250 mL tid x 7 days | 2 | 2 | 42",
+            "Mix medication in 100 mL BID x 7 days | 0 | 0 | 0",
+            "Dissolve in 100 mL BID x 7 days | 0 | 0 | 0",
             "Take 0.5mL po OD x 7 days | 0.5 | 0.5 | 4",
             "Take 1/2mL po OD x 7 days | 0.5 | 0.5 | 4",
             "Take 1/2 tab po OD x 7 days | 0.5 | 0.5 | 4",

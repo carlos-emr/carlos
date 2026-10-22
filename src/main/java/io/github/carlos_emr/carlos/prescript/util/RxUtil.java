@@ -704,10 +704,10 @@ public class RxUtil {
                         }
             // "250 mg/5 mL PO 10 mL TID": when the leading number named the product rather than a
             // dose, an amount with its own unit just before the frequency is the administered dose
-            // (review of #5077). A leading count such as "Take 1 sachet in 125 mL BID" is kept.
-            boolean leadingDoseMissing = instructionSegment.amountMethod == null && instructionSegment.takeMin == null
-                    && instructionSegment.amountFrequency == null;
-            if (leadingDoseMissing && frequencyStart >= 0 && amountFrequency.isEmpty() && takeMinFrequency.isEmpty()) {
+            // (review of #5077). A leading count such as "Take 1 sachet in 125 mL BID" is kept, and
+            // directions that name no product ("Mix medication in 100 mL BID") stay unparsed.
+            boolean leadingNumberNamedProduct = instructionSegment.productAmount != null;
+            if (leadingNumberNamedProduct && frequencyStart >= 0 && amountFrequency.isEmpty() && takeMinFrequency.isEmpty()) {
                 UnitAmount unitAmount = findAmountWithUnitBeforeFrequency(instructions, frequencyStart, instructionSegment);
                 if (unitAmount != null && unitAmount.range()) {
                     takeMinFrequency = unitAmount.min();
@@ -1013,7 +1013,7 @@ public class RxUtil {
             return null;
         }
 
-        return new NumberRange(min.value, max.value, max.end);
+        return new NumberRange(min.start, min.value, max.value, max.end);
     }
 
     private static NumberRange findRangeAt(String text, int start) {
@@ -1028,7 +1028,7 @@ public class RxUtil {
             return null;
         }
 
-        return new NumberRange(min.value, max.value, max.end);
+        return new NumberRange(min.start, min.value, max.value, max.end);
     }
 
     private static NumberToken findDecimalBefore(String text, int endExclusive) {
@@ -1234,17 +1234,32 @@ public class RxUtil {
         }
         NumberRange range = findRangeBefore(instructions, unitStart);
         if (range != null) {
-            return classifyAmount(instructions, range.end, segment) == AmountKind.ADMINISTERED
+            return !followsConcentrationSeparator(instructions, range.start)
+                    && classifyAmount(instructions, range.end, segment) == AmountKind.ADMINISTERED
                     ? new UnitAmount(range.min, range.max, true) : null;
         }
         NumberToken amount = findDecimalBefore(instructions, unitStart);
         if (amount == null) {
             amount = findFractionBefore(instructions, unitStart);
         }
-        if (amount == null || classifyAmount(instructions, amount.end, segment) != AmountKind.ADMINISTERED) {
+        if (amount == null || followsConcentrationSeparator(instructions, amount.start)
+                || classifyAmount(instructions, amount.end, segment) != AmountKind.ADMINISTERED) {
             return null;
         }
         return new UnitAmount(amount.value, amount.value, false);
+    }
+
+    /**
+     * True when "/" or the word "per" directly precedes the amount: it is then the denominator
+     * of a concentration such as {@code 250 mg per 5 mL}, not an administered amount.
+     */
+    private static boolean followsConcentrationSeparator(String text, int amountStart) {
+        int end = skipWhitespaceBackward(text, amountStart);
+        if (end > 0 && text.charAt(end - 1) == '/') {
+            return true;
+        }
+        return end >= 3 && text.regionMatches(true, end - 3, "per", 0, 3)
+                && (end == 3 || !Character.isLetterOrDigit(text.charAt(end - 4)));
     }
 
     /** Finds a fraction such as {@code 1/2} ending (after optional whitespace) at the given index. */
@@ -1508,11 +1523,13 @@ public class RxUtil {
     }
 
     private static class NumberRange {
+        final int start;
         final String min;
         final String max;
         final int end;
 
-        NumberRange(String min, String max, int end) {
+        NumberRange(int start, String min, String max, int end) {
+            this.start = start;
             this.min = min;
             this.max = max;
             this.end = end;
