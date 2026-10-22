@@ -6331,12 +6331,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "CESD, pinned to finding 232: Save stores the row and then lands on the error page (HTTP 404) because the form's hidden form_link is formCDSD.jsp. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
-      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 232,
-        "step": "CESD: Save redisplays the saved record in the window it was pressed in"
-      }
+      "notes": "CESD, finding 232 (fixed, #4591): Save stored the row and then landed on the error page (HTTP 404) because the form's hidden form_link was formCDSD.jsp; it is now formCESD.jsp. The redisplay pair stays in its own entry so a regression is attributed to the finding. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-letterhead-restore",
