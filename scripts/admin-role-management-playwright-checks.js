@@ -398,11 +398,13 @@ async function workflow(s) {
     // Choosing a group re-renders the page for it (onChange submits method=setGroupNo).
     await submitIn(admin, frame, () => frame.locator('select#chosen_group').selectOption(group));
     // The page offers only active providers (PMmodule ProviderDao.getActiveProviders: status 1, and a
-    // provider number not starting with "-"). Not "exactly": a provider this check inserts by SQL can
-    // be missing from the application's cached provider list until it refreshes.
+    // provider number not starting with "-"). Not "exactly", in either direction: that list is cached for
+    // five minutes (CacheConfig.ACTIVE_PROVIDERS) and only an application save evicts it, so a provider
+    // a check inserts by SQL can be missing, and a throwaway provider an earlier check deleted by SQL can
+    // still be listed. What the page must never offer is a provider whose row says it is not active.
     const listed = await frame.locator('input[name="data"]').evaluateAll(boxes => boxes.map(b => b.value));
-    const active = sql.rows("SELECT provider_no FROM provider WHERE status='1' AND provider_no NOT LIKE '-%'").map(r => r[0]);
-    const notActive = listed.filter(p => !active.includes(p));
+    const notActive = listed.length ? sql.rows(`SELECT provider_no FROM provider WHERE provider_no IN (${listed.map(h.sqlString).join(',')})
+      AND (status IS NULL OR status<>'1' OR provider_no LIKE '-%')`).map(r => r[0]) : [];
     h.assert(!notActive.length, `Access Control lists providers that are not active: ${notActive.join(',')}`);
     h.assert(listed.includes(s.provider), 'Access Control does not list the administrator');
     const box = frame.locator(`input[name="data"][value="${s.provider}"]`);
