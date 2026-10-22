@@ -96,11 +96,14 @@
             <result name="fail">/WEB-INF/jsp/eform/partials/import.jsp</result>
             <result name="success">/WEB-INF/jsp/eform/partials/import.jsp</result>
         </action>
+        <!-- Save-and-fax ends at faxPreparation, a page whose own POST starts preview preparation.
+             There is deliberately no "fax" result forwarding to /fax/faxAction: a server-side
+             forward would run preparation inside the save request and leave the browser on the
+             save POST, so a reload would replay the clinical save. -->
         <action name="eform/addEForm" class="io.github.carlos_emr.carlos.eform.actions.AddEForm2Action">
             <result name="renderBusy">/WEB-INF/jsp/eform/EFormRenderCapacity.jsp</result>
             <result name="faxPreparation">/WEB-INF/jsp/eform/EFormFaxPreparation.jsp</result>
             <result name="close">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>
-            <result name="fax">/fax/faxAction</result>
             <result name="download">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>
             <result name="error">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>
             <result name="missingContent">/WEB-INF/jsp/eform/EFormRenderMissingContent.jsp</result>

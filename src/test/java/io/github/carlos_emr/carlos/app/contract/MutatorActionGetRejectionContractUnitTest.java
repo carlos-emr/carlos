@@ -496,8 +496,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Favourite sharing/copying writes require POST; the selection page permits GET.
         // Targeted guard from PR #2478, covered by CopyFavorites2ActionUnitTest.
         "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
-        // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
-        // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
+        // Fax: queue/cancel (including the no-method fall-through to cancel) mutate, and prepareFax
+        // stages a PDF and a session claim, so all three reject GET/HEAD; only getPreview and
+        // getPageCount stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
         // Fax admin queue: CancelFax/ResendFax/SetCompleted mutate and reject GET/HEAD before
         // dispatch; viewFax/fetchFaxStatus stay verb-open (see ManageFaxes2ActionUnitTest).

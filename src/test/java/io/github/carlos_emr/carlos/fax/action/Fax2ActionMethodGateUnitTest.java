@@ -301,7 +301,8 @@ class Fax2ActionMethodGateUnitTest extends CarlosUnitTestBase {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
-            // The eForm handoff now preserves POST through a 307 redirect.
+            // The saved-eForm handoff (EFormFaxPreparation.jsp) submits its own POST; a bare GET
+            // must never stage a PDF or a session claim.
             String result = new Fax2Action().execute();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
