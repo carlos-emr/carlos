@@ -49,6 +49,7 @@
 
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { waitUntil } = require('./lib/concurrency-support');
 
 async function openRx(session, demographicNo) {
   const page = await session.context.newPage();
@@ -71,6 +72,33 @@ async function stageCustomDrug(page, name) {
   const added = after.filter((id) => !before.includes(id));
   h.assert(added.length === 1, `staging ${name} added ${added.length} cards`);
   return added[0].split('_')[1];
+}
+
+/**
+ * Stages a custom drug and lets the card's follow-up requests finish before returning: the stage
+ * re-render, the stash sync, the limited-use, renal-dosing, allergy and interaction lookups and
+ * the parse of the still-empty instructions. A step that edits the new card as soon as it appears
+ * is otherwise overtaken by one of those late responses (the re-render replaces the card), and a
+ * step that navigates away cancels them.
+ */
+async function stageCustomDrugSettled(page, name) {
+  const pending = new Set();
+  let changed = Date.now();
+  const started = request => { pending.add(request); changed = Date.now(); };
+  const settled = request => { pending.delete(request); changed = Date.now(); };
+  page.on('request', started);
+  page.on('requestfinished', settled);
+  page.on('requestfailed', settled);
+  try {
+    const key = await stageCustomDrug(page, name);
+    await waitUntil(() => pending.size === 0 && Date.now() - changed > 500,
+      'the requests started by staging a custom drug to settle');
+    return key;
+  } finally {
+    page.off('request', started);
+    page.off('requestfinished', settled);
+    page.off('requestfailed', settled);
+  }
 }
 
 /**
@@ -483,4 +511,4 @@ async function workflow(session) {
 }
 
 if (require.main === module) runWorkflow('rx-stash-patient-isolation', workflow);
-module.exports = { workflow, openRx, stageCustomDrug, saveOnly, consumeExpectedConflict, clearOwnedPrescriptionRows };
+module.exports = { workflow, openRx, stageCustomDrug, stageCustomDrugSettled, saveOnly, consumeExpectedConflict, clearOwnedPrescriptionRows };

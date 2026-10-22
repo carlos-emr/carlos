@@ -11,7 +11,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
-const { stageCustomDrug, saveOnly, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
+const { stageCustomDrugSettled, saveOnly, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
 
 /** Compares a parsed dose with the expected value, allowing for the float the server sends for a fraction. */
 function sameDose(parsed, expected) {
@@ -23,7 +23,8 @@ async function workflow(s) {
   s.cleanup(() => clearOwnedPrescriptionRows(s.sql, s.patient, s.marker));
   const chart = await s.chart();
   const rx = await s.popup(chart, chart.locator('#menuTitleRx a').first(), 'rx-strength-quantity');
-  const key = await stageCustomDrug(rx, `${s.marker}-strength`);
+  // The first case edits the card at once; a late staging response would otherwise replace it.
+  const key = await stageCustomDrugSettled(rx, `${s.marker}-strength`);
 
   // [instruction, takeMin, takeMax, calQuantity, frequency = 'TID', duration = '7']
   // A '0' calQuantity means the page must keep the quantity the card already shows.

@@ -46,7 +46,7 @@
 const h = require('./lib/playwright-harness');
 const { randomBytes } = require('node:crypto');
 const { runWorkflow } = require('./lib/workflow-session');
-const { stageCustomDrug, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
+const { stageCustomDrug, stageCustomDrugSettled, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
 const { waitUntil } = require('./lib/concurrency-support');
 
 /** A provider number no real login owns: the favourites table takes six characters. */
@@ -59,27 +59,6 @@ async function openRx(session, demographicNo) {
   await h.assertNotErrorPage(page, 'Rx page');
   await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
   return page;
-}
-
-/** Lets staging's asynchronous requests finish before the test navigates away and cancels them. */
-async function stageCustomDrugBeforeNavigation(page, name) {
-  const pending = new Set();
-  let changed = Date.now();
-  const started = request => { pending.add(request); changed = Date.now(); };
-  const settled = request => { pending.delete(request); changed = Date.now(); };
-  page.on('request', started);
-  page.on('requestfinished', settled);
-  page.on('requestfailed', settled);
-  try {
-    const key = await stageCustomDrug(page, name);
-    await waitUntil(() => pending.size === 0 && Date.now() - changed > 500,
-      'requests started by staging to settle before navigation');
-    return key;
-  } finally {
-    page.off('request', started);
-    page.off('requestfinished', settled);
-    page.off('requestfailed', settled);
-  }
 }
 
 function insertFavorite(sql, providerNo, name) {
@@ -536,7 +515,8 @@ async function workflow(session) {
       // so relying on them to leave one behind masks whether this handoff preserves the draft.
       const page = await openRx(session, patient);
       const priorName = `${name}-pending`;
-      const priorKey = await stageCustomDrugBeforeNavigation(page, priorName);
+      // Staging's asynchronous requests must finish before the navigation below cancels them.
+      const priorKey = await stageCustomDrugSettled(page, priorName);
       await h.gotoApp(page, config.baseUrl, url);
       await h.assertNotErrorPage(page, `${label} sidebar`);
       let releaseStash;
