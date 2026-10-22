@@ -161,11 +161,17 @@ async function workflow(s) {
       await form.locator('input[name="dx1"]').fill(dx);
       const reprocess = form.locator('button[name="submit"][value="Reprocess Bill"]');
       h.assert(await reprocess.count() === 1, 'The adjust page has no Reprocess Bill button');
+      const historyBefore = Number(historyRows());
+      h.assert(Number.isSafeInteger(historyBefore), 'The owned bill history count is not an integer');
       const posted = adjust.waitForResponse(response => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/billing/CA/BC/reprocessBill'), { timeout: TIMEOUT });
       await ui.clickAndAwaitReload(adjust, reprocess, { label: 'Reprocess Bill', timeout: TIMEOUT });
       h.assert((await posted).status() === 200, 'Reprocess Bill did not answer 200');
       await h.assertNotErrorPage(adjust, 'BC reprocess save result');
+      await expectValue(sql, `SELECT dx_code1 FROM billingmaster WHERE billingmaster_no=${billingmasterNo}`, dx,
+        'Reprocess Bill did not store the chosen diagnostic code');
+      h.assert(Number(historyRows()) === historyBefore + 1,
+        'Reprocess Bill did not add exactly one owned billing_history row');
     });
     await s.step(STEP.inactive, async () => {
       const [providerNo, providerOhipNo, payeeNo, practitionerNo] = stored();
