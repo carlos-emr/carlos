@@ -53,7 +53,7 @@ class JobTypesJspRegressionTest {
                 .contains("if (!jobTypeTable)")
                 .contains("table.clear();")
                 .contains("table.rows.add(rows);")
-                .contains("table.draw();")
+                .contains("table.draw(false);")
                 .doesNotContain("$(\"#jobTypeTable tbody tr\").remove();");
         assertThat(countOccurrences(jsp, "$('#jobTypeTable').DataTable({"))
                 .as("the JSP should contain one DataTables initialization path")
@@ -64,16 +64,20 @@ class JobTypesJspRegressionTest {
     void shouldKeepDialogOpen_whenSaveFails() throws IOException {
         String jsp = Files.readString(JOB_TYPES_JSP, StandardCharsets.UTF_8);
         int saveRequestStart = jsp.indexOf("$.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType'");
+        int successHandlerStart = jsp.indexOf(".done(function () {", saveRequestStart);
+        int failHandlerStart = jsp.indexOf(".fail(function () {", saveRequestStart);
         int cancelButtonStart = jsp.indexOf("cancel:", saveRequestStart);
 
         assertThat(saveRequestStart).isGreaterThanOrEqualTo(0);
-        assertThat(cancelButtonStart).isGreaterThan(saveRequestStart);
-        assertThat(jsp.substring(saveRequestStart, cancelButtonStart))
-                .contains(".done(function () {")
+        assertThat(successHandlerStart).isGreaterThan(saveRequestStart);
+        assertThat(failHandlerStart).isGreaterThan(successHandlerStart);
+        assertThat(cancelButtonStart).isGreaterThan(failHandlerStart);
+        assertThat(jsp.substring(successHandlerStart, failHandlerStart))
                 .contains("listJobs();")
-                .contains("$dialog.dialog(\"close\");")
-                .contains(".fail(function () {")
-                .contains("window.alert(jobTypesSaveErrorLabel);");
+                .contains("$dialog.dialog(\"close\");");
+        assertThat(jsp.substring(failHandlerStart, cancelButtonStart))
+                .contains("window.alert(jobTypesSaveErrorLabel);")
+                .doesNotContain("$dialog.dialog(\"close\");");
     }
 
     private static int countOccurrences(String text, String needle) {

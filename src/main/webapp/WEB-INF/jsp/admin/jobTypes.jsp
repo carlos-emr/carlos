@@ -84,6 +84,7 @@
             const jobTypesCancelLabel = "${carlos:forJavaScript(jobTypesCancelLabel)}";
             const jobTypesSaveErrorLabel = "${carlos:forJavaScript(jobTypesSaveErrorLabel)}";
             let jobTypeTable;
+            let jobTypeSavePending = false;
 
             function editJobType(jobTypeId) {
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/jobType/" + jobTypeId, {},
@@ -151,7 +152,7 @@
                         var table = initiate();
                         table.clear();
                         table.rows.add(rows);
-                        table.draw();
+                        table.draw(false);
                     });
             }
 
@@ -175,9 +176,27 @@
                     modal: true,
                     buttons: {
                         saveJobType: {
-                            class: "btn btn-primary", text: jobTypesSaveLabel, click: function () {
+                            class: "btn btn-primary job-types-save", text: jobTypesSaveLabel, click: function () {
+                                if (jobTypeSavePending) {
+                                    return;
+                                }
                                 var $dialog = $(this);
-                                $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', $('#jobTypeForm').serialize())
+                                var $saveButton = $dialog.dialog("widget").find(".job-types-save");
+                                function restoreSaveButton() {
+                                    jobTypeSavePending = false;
+                                    $saveButton.button("enable");
+                                }
+                                jobTypeSavePending = true;
+                                $saveButton.button("disable");
+                                var saveRequest;
+                                try {
+                                    saveRequest = $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', $('#jobTypeForm').serialize());
+                                } catch (error) {
+                                    restoreSaveButton();
+                                    window.alert(jobTypesSaveErrorLabel);
+                                    return;
+                                }
+                                saveRequest.always(restoreSaveButton)
                                     .done(function () {
                                         listJobs();
                                         $dialog.dialog("close");
