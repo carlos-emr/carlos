@@ -36,6 +36,7 @@
     "test:rx-stash-patient-isolation-playwright": "node scripts/rx-stash-patient-isolation-playwright-checks.js",
     "test:echart-two-patient-isolation-playwright": "node scripts/echart-two-patient-isolation-playwright-checks.js",
     "test:echart-forms-latest-item-playwright": "node scripts/echart-forms-latest-item-playwright-checks.js",
+    "test:chart-entry-appointment-ownership-playwright": "node scripts/chart-entry-appointment-ownership-playwright-checks.js",
     "test:legacy-encounter-editor-isolation-playwright": "node scripts/legacy-encounter-editor-isolation-playwright-checks.js",
     "test:session-state-two-window-isolation-playwright": "node scripts/session-state-two-window-isolation-playwright-checks.js",
     "test:billing-bc-two-window-isolation-playwright": "node scripts/billing-bc-two-window-isolation-playwright-checks.js",

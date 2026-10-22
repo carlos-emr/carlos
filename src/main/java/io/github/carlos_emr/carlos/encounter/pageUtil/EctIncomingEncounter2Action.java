@@ -59,6 +59,8 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -87,6 +89,20 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Opens one patient's legacy encounter page ({@code /encounter/IncomingEncounter}) and remembers
+ * that chart's entry metadata (provider, appointment, reason, encounter type) for this login.
+ *
+ * <p>The request names its own patient ({@code demographicNo}) and, optionally, an appointment of
+ * that patient ({@code appointmentNo}; {@code 0} or absent for none). The appointment is checked
+ * against its row before any chart is loaded or remembered: one that does not exist or is booked
+ * for another patient is refused (400). The entry used to accept any appointment number, so a
+ * hand-built request could make another patient's visit a chart's remembered appointment; and the
+ * legacy {@code appointmentList} branch, which no page called, loaded the named appointment's
+ * patient into the bean and overwrote that patient's remembered entry before the page refused to
+ * render it (issue #4676). A request that still carries {@code appointmentList} is an ordinary
+ * entry for its own patient.</p>
+ */
 public class EctIncomingEncounter2Action extends ActionSupport {
 
     private static Logger log = MiscUtils.getLogger();
@@ -98,9 +114,24 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     // Any character except ASCII control chars (allows Unicode for bilingual Canadian EMR)
     private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
     private static final Set<String> VALID_SOURCES = Set.of("encounter", "messenger");
-    private CaseManagementNoteDAO caseManagementNoteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
-    private CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final CaseManagementNoteDAO caseManagementNoteDao;
+    private final CaseManagementManager caseManagementMgr;
+    private final SecurityInfoManager securityInfoManager;
+    private final OscarAppointmentDao appointmentDao;
+
+    /** Struts object-factory constructor. */
+    public EctIncomingEncounter2Action() {
+        this(SpringUtils.getBean(CaseManagementNoteDAO.class), SpringUtils.getBean(CaseManagementManager.class),
+                SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(OscarAppointmentDao.class));
+    }
+
+    EctIncomingEncounter2Action(CaseManagementNoteDAO caseManagementNoteDao, CaseManagementManager caseManagementMgr,
+                                SecurityInfoManager securityInfoManager, OscarAppointmentDao appointmentDao) {
+        this.caseManagementNoteDao = caseManagementNoteDao;
+        this.caseManagementMgr = caseManagementMgr;
+        this.securityInfoManager = securityInfoManager;
+        this.appointmentDao = appointmentDao;
+    }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -134,16 +165,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         }
 
         EctSessionBean bean;
-        if (request.getParameter("appointmentList") != null) {
-            bean = newEntryBean(request, loggedInInfo);
-            String apptListNo = request.getParameter("appointmentNo");
-            if (apptListNo != null && !apptListNo.matches("\\d{1,9}")) {
-                log.warn("Invalid non-numeric appointmentNo in appointmentList branch");
-                return "failure";
-            }
-            bean.setUpEncounterPage(loggedInInfo, apptListNo);
-            bean.template = "";
-        } else if (request.getParameter("demographicSearch") != null) {
+        // The legacy appointmentList switch is gone (#4676): such a request is an ordinary entry
+        // for its own demographicNo, and its appointmentNo must be that patient's.
+        if (request.getParameter("demographicSearch") != null) {
             // Coming in from the demographicSearch page
             bean = newEntryBean(request, loggedInInfo);
             // Use pre-validated demoNo (validated at method entry)
@@ -194,6 +218,15 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             } else if (!bean.appointmentNo.matches("\\d{1,9}")) {
                 log.warn("Invalid appointmentNo");
                 return "failure";
+            } else {
+                // Before the chart is loaded or remembered: the chart's eForm and billing links and
+                // the legacy encounter save start from the remembered appointment (#4676).
+                bean.appointmentNo = ownAppointment(demoNo, bean.appointmentNo);
+                if (bean.appointmentNo == null) {
+                    log.warn("Refused encounter entry: the requested appointment is not this patient's");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "The appointment is not this patient's");
+                    return NONE;
+                }
             }
             bean.curProviderNo = request.getParameter("curProviderNo");
             if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
@@ -329,6 +362,25 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         response.sendRedirect(request.getContextPath() + "/encounter/IncomingEncounter?demographicNo=" + client
                 + "&appointmentNo=0");
         return NONE;
+    }
+
+    /**
+     * The appointment an entry for {@code demographicNo} may remember, read from the appointment
+     * row rather than echoed from the request.
+     *
+     * @param demographicNo the request's canonical patient number
+     * @param appointmentNo the requested appointment number, already checked to be 1 to 9 digits
+     * @return {@code "0"} when the request names no appointment, the appointment's own number when
+     *         it is booked for this patient, or null when it does not exist or is another patient's
+     */
+    private String ownAppointment(String demographicNo, String appointmentNo) {
+        int id = Integer.parseInt(appointmentNo);
+        if (id == 0) {
+            return "0";
+        }
+        Appointment appointment = appointmentDao.find(id);
+        return appointment != null && Integer.toString(appointment.getDemographicNo()).equals(demographicNo)
+                ? Integer.toString(appointment.getId()) : null;
     }
 
     /** Starts a legacy entry without borrowing another chart window's mutable bean. */
