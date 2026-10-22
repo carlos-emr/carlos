@@ -34,7 +34,6 @@ const { submitAndClose } = require('./gap-provider-preferences-save-all-playwrig
 
 const TIMEOUT = 30000;
 const NAME_LENGTH = 18;
-const HC_TYPE = 'BC';
 
 async function workflow(s) {
   const { sql, config, recorder, marker, patient } = s;
@@ -88,6 +87,7 @@ async function workflow(s) {
 
   let control;
   let sex;
+  let hcType;
   await s.step('controls: before any of the three is set, the day sheet and the add form show their defaults', async () => {
     const name = await shownName();
     h.assert(name.includes(cut(7)), `The day sheet does not show the owned appointment's name: ${JSON.stringify(name)}`);
@@ -95,7 +95,9 @@ async function workflow(s) {
       `The day sheet already cuts the name to ${NAME_LENGTH} characters, so the setting could not be told apart`);
     control = await addFormDefaults();
     sex = control.sex === 'F' ? 'M' : 'F';
-    h.assert(control.hcType !== HC_TYPE, `The add form already preselects HC type ${HC_TYPE}, so the setting could not be told apart`);
+    // An untouched BC install legitimately defaults to BC. Pick a different
+    // supported type so the saved preference is observable in every province.
+    hcType = control.hcType === 'BC' ? 'ON' : 'BC';
   });
 
   await s.step('Preferences ▸ Save All stores the patient name length, default sex and HC type', async () => {
@@ -109,14 +111,14 @@ async function workflow(s) {
     };
     await (await field('patient_name_length')).fill(String(NAME_LENGTH));
     await (await field('default_sex')).selectOption(sex);
-    await (await field('HC_Type')).selectOption(HC_TYPE);
+    await (await field('HC_Type')).selectOption(hcType);
     await schedule.evaluate(() => { window.__beforePreferenceSave = true; });
     await submitAndClose(recorder, prefs, prefs.locator('.footer-bar button[type="submit"]'));
     if (reloadsSchedule) {
       await schedule.waitForFunction(() => !window.__beforePreferenceSave && document.readyState === 'complete', null, { timeout: TIMEOUT });
     }
     const stored = { patient_name_length: property('patient_name_length'), default_sex: property('default_sex'), HC_Type: property('HC_Type') };
-    h.assert(stored.patient_name_length === String(NAME_LENGTH) && stored.default_sex === sex && stored.HC_Type === HC_TYPE,
+    h.assert(stored.patient_name_length === String(NAME_LENGTH) && stored.default_sex === sex && stored.HC_Type === hcType,
       `Save All stored ${JSON.stringify(stored)}`);
   });
 
@@ -129,8 +131,8 @@ async function workflow(s) {
 
   await s.step('Create Demographic preselects the saved default sex and HC type', async () => {
     const after = await addFormDefaults();
-    h.assert(after.sex === sex && after.hcType === HC_TYPE,
-      `The add form preselects sex ${JSON.stringify(after.sex)} and HC type ${JSON.stringify(after.hcType)}, not ${sex} and ${HC_TYPE} `
+    h.assert(after.sex === sex && after.hcType === hcType,
+      `The add form preselects sex ${JSON.stringify(after.sex)} and HC type ${JSON.stringify(after.hcType)}, not ${sex} and ${hcType} `
         + `(before: ${JSON.stringify(control)})`);
   });
 }
