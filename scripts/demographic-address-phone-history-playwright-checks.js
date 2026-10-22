@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
- * Master Record address and phone history. The read view's "History" links next to the address and the home phone
- * open a popup listing the earlier values with the date each was entered; no other check reads them.
+ * Master Record address and phone history. The read view's "History" links next to the address and the home, work
+ * and cell phones open a popup listing the earlier values with the date each was entered; no other check reads them.
  * User path: Master Record ▸ Edit ▸ a new address ▸ Update Record (twice); ▸ Edit ▸ a new home phone ▸ Update Record
- * (twice); point at Address History and Home phone History.
+ * (twice); the same for the work phone (the second with an extension) and the cell phone; point at Address History,
+ * Home phone History, Work phone History and cell phone History.
  * Asserts: the address history lists each address the patient had, dated; the home phone history lists each home
- * phone; LAST, an address or phone that did not change is listed once, not again for every save that changed something
- * else, and a phone without an extension shows no "x".
+ * phone; the work phone history lists each work phone, the one with an extension followed by "x" and the extension;
+ * the cell phone history lists each cell phone once; LAST, an address or phone that did not change is listed once,
+ * not again for every save that changed something else, and a phone without an extension shows no "x".
  * Fixtures: the runWorkflow FAKE- patient (FAKE addresses and 555 phones); the update's ext-archive and custom rows are
  * removed before the harness removes the patient's ext and archive rows.
  */
@@ -64,6 +66,24 @@ async function workflow(s) {
     const rows = await history('Home phone History');
     for (const phone of ['613-555-0177', '613-555-0188']) {
       h.assert(rows.some(([date, value]) => date === today && value.startsWith(phone)), `The home phone history does not list ${phone}: ${JSON.stringify(rows)}`);
+    }
+  });
+
+  await s.step('the work phone history lists each work phone, with an extension after an "x"', async () => {
+    await update({ phone2: '613-555-0130' });
+    await update({ phone2: '613-555-0131', wPhoneExt: '123' });
+    const rows = await history('Work phone History');
+    for (const phone of ['613-555-0130', '613-555-0131x123']) {
+      h.assert(rows.some(([date, value]) => date === today && value === phone), `The work phone history does not list ${phone}: ${JSON.stringify(rows)}`);
+    }
+  });
+
+  await s.step('the cell phone history lists each cell phone once', async () => {
+    await update({ demo_cell: '613-555-0140' });
+    await update({ demo_cell: '613-555-0141' });
+    const cells = (await history('cell phone History')).map(([, value]) => value);
+    for (const phone of ['613-555-0140', '613-555-0141']) {
+      h.assert(cells.filter(value => value === phone).length === 1, `The cell phone history does not list ${phone} once: ${JSON.stringify(cells)}`);
     }
   });
 

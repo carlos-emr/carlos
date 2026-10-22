@@ -125,7 +125,23 @@ done
 for k in "${OAUTH_ACCESS_MIGRATIONS[@]}"; do
     value=$(grep -F "$k=" "$CARLOS_ETC_DIR/carlos.properties" | grep -E "^$(printf '%s' "$k" | sed 's/\./\\./g')=" | sed 's/%/%25/g; s/;/%3B/g' | paste -sd';' - || true); emit "cfg.oauthAccess.$k" "$value"
 done
-value=$(grep -vE "$migrated_keys_re" "$CARLOS_ETC_DIR/carlos.properties" | sha256sum) || exit 1
+# The Query by Example reporting account (#3372): carlos-ctl db-users appends
+# db_reporting_username/db_reporting_password on the first upgrade whose package
+# ships the grant list. The verifier checks the two keys one by one, so they are
+# left out of both digests; the password only ever leaves this file as a digest.
+reporting_keys_re='^[[:space:]]*db_reporting_(username|password)[[:space:]]*[=:]'
+value=$({ grep -E '^[[:space:]]*db_reporting_username[[:space:]]*[=:]' "$CARLOS_ETC_DIR/carlos.properties" || true; } \
+    | sed -E 's/^[[:space:]]*([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/; s/[[:space:]]+$//; s/%/%25/g; s/;/%3B/g' | paste -sd';' -)
+emit cfg.reportingUser "$value"
+value=$({ grep -E '^[[:space:]]*db_reporting_password[[:space:]]*[=:]' "$CARLOS_ETC_DIR/carlos.properties" || true; } \
+    | sed -E 's/^[^=:]*[=:][[:space:]]*//; s/[[:space:]]+$//')
+if [ -z "$value" ]; then
+    emit cfg.reportingPassword none
+else
+    value=$(printf '%s' "$value" | sha256sum); emit cfg.reportingPassword "${value:0:16}"
+fi
+emit cfg.reportingGrantList "$([ -r "$CARLOS_SHARE_DIR/webapp/carlos/WEB-INF/classes/db/reporting/carlos_report_grants.sql" ] && echo present || echo absent)"
+value=$(grep -vE "$migrated_keys_re" "$CARLOS_ETC_DIR/carlos.properties" | { grep -vE "$reporting_keys_re" || true; } | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
 # The ACTIVE settings, independent of layout: comments and blank lines dropped,
 # whitespace around '=' normalised, sorted. carlos-ctl's prop_comment/prop_set
@@ -137,7 +153,7 @@ emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
 # those keys one by one.
 value=$(sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' "$CARLOS_ETC_DIR/carlos.properties" \
     | grep -vE '^([#!]|$)' | sed -E 's/^([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/' \
-    | grep -vE "$migrated_keys_re" | LC_ALL=C sort | sha256sum) || exit 1
+    | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | LC_ALL=C sort | sha256sum) || exit 1
 emit cfg.carlos.properties.active.sha "${value:0:16}"
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
 for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .help-url-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do

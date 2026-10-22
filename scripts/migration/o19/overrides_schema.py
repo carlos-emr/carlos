@@ -708,6 +708,14 @@ NOT_RENAMES = {
         "are additions",
         ("oneIdKey", "oneIdEmail", "delegateOneIdEmail", "usingMfa",
          "mfaSecret")),
+    # The archive mirrors `security`, so the same pair recurs one table
+    # over. CARLOS's archived usingMfa (V1.0.59, #5120) is the MFA on/off
+    # setting O19 never had; an imported O19 archive row keeps NULL there
+    # ("not recorded"), which is the truth about it.
+    ("SecurityArchive", "storageVersion"): (
+        "O19 storage-scheme marker; CARLOS's archived usingMfa is an "
+        "addition",
+        ("usingMfa",)),
 }
 
 # The same question one level up: (o19_table, carlos_table) -> why the pair

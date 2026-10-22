@@ -37,8 +37,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.SxmlMisc;
 
+import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020Dao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020DataDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020TextDao;
+import io.github.carlos_emr.carlos.form.model.FormBCAR2020;
 import io.github.carlos_emr.carlos.form.model.FormBCAR2020Data;
 import io.github.carlos_emr.carlos.form.model.FormBCAR2020Text;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -130,6 +132,8 @@ public class FrmBCAR2020Record extends FrmRecord {
             }
 
         } else {
+            // The pages and print name the patient and the stored form separately.
+            requireFormOfPatient(SpringUtils.getBean(FormBCAR2020Dao.class), existingID, demographicNo);
             records.addAll(bcar2020DataDao.findFieldsForPage(existingID, pageNo));
             textRecords.addAll(bcar2020TextDao.findFieldsForPage(existingID, pageNo));
             props = getRecordValuesAsProperties(records, textRecords);
@@ -281,5 +285,20 @@ public class FrmBCAR2020Record extends FrmRecord {
                 "</td>\n" +
                 "</tr>";
         return row;
+    }
+
+    /**
+     * Refuses a stored BC-AR 2020 form (formId above 0) that is not this patient's; 0 is a new, empty form. Every
+     * reader of a stored form goes through it: the pages and print through {@link #getFormRecord}, and save, which
+     * copies the earlier version's rows.
+     */
+    static void requireFormOfPatient(FormBCAR2020Dao formDao, int formId, int demographicNo) {
+        if (formId <= 0) {
+            return;
+        }
+        FormBCAR2020 form = formDao.find(formId);
+        if (form == null || form.getDemographicNo() == null || form.getDemographicNo() != demographicNo) {
+            throw new SecurityException("BC-AR 2020 form is not this patient's");
+        }
     }
 }

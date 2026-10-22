@@ -96,7 +96,8 @@
         <script>
             function popupPage(varpage, windowname) {
                 var page = "" + varpage;
-                windowprops = "height=700,width=800,location=no,"
+                // 900 wide: the report page needs about 870 px, so 800 scrolled sideways (#3711).
+                windowprops = "height=700,width=900,location=no,"
                     + "scrollbars=yes,menubars=no,status=yes,toolbars=no,resizable=yes,top=10,left=200";
                 var popup = window.open(page, windowname, windowprops);
                 if (popup != null) {

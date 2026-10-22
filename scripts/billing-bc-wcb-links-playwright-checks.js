@@ -15,7 +15,8 @@
  *   - Chart ▸ Forms ▸ BC-WCB opens a new WCB form for the patient;
  *   - the simulation lists the owned WCB claim, and its invoice link opens that claim's correction page;
  *   - Settle Bill on the correction page comes back to it, and the claim is settled (status S, one history row);
- *   - LAST: Select Forms removes BC-WCB again, and every encounterForm row is as the check found it.
+ *   - LAST: Select Forms removes BC-WCB again, and the form list is as the check found it (the shown forms and
+ *     their order; Select Forms renumbers the shown forms 1..n, #4952, so the numbers themselves can change).
  * Fixtures: the owned FAKE- patient made a BC patient; one billing physician made BEFORE login, because the
  * simulation lists the cached active providers and that cache fills at login (a fresh Tomcat per run, as the live
  * wrapper starts); one open WCB claim for them (billing, billingmaster and a wcb row for fee item 19937). BC-WCB is
@@ -29,6 +30,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const bc = require('./lib/bc-billing-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
+const { encounterForms, formListAsSeen } = require('./lib/encounter-form-list');
 
 const TIMEOUT = 30000;
 const WCB_FORM = 'BC-WCB';
@@ -44,11 +46,6 @@ const STEP = {
   settle: 'Settle Bill on the correction page comes back to it, and the claim is settled',
   restored: 'Select Forms removes BC-WCB again, and the form list is as it was',
 };
-
-/** Every encounterForm row, so the end state can be compared with the start, display order included. */
-function encounterForms(sql) {
-  return sql.rows('SELECT form_name,form_value,form_table,hidden FROM encounterForm ORDER BY form_name,form_value');
-}
 
 async function openSelectForms(page, s) {
   await h.gotoApp(page, s.config.baseUrl, '/administration');
@@ -273,8 +270,8 @@ async function workflow(s) {
       h.assert(!lists.selected.includes(WCB_FORM) && lists.available.includes(WCB_FORM), 'Select Forms did not remove BC-WCB');
       await admin.close();
     }
-    h.assert(JSON.stringify(encounterForms(sql)) === JSON.stringify(before),
-      'Removing BC-WCB did not leave every encounterForm row, display order included, as it was');
+    h.assert(formListAsSeen(encounterForms(sql)) === formListAsSeen(before),
+      'Removing BC-WCB did not leave the form list as it was (the shown forms and their order)');
   });
 }
 

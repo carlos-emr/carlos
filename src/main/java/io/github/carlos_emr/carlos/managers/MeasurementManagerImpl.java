@@ -233,12 +233,10 @@ public class MeasurementManagerImpl implements MeasurementManager {
     @Override
     public void removeMeasurementGroupDS(String propKey) {
         PropertyDao propertyDao = (PropertyDao) SpringUtils.getBean(PropertyDao.class);
-        boolean propertyExists = isProperty(propKey);
-        if (propertyExists) {
-            Property p = propertyDao.checkByName(propKey);
-            Integer value = p.getId();
-
-            propertyDao.remove(value);
+        // Looked up once: a remove that overlapped another one finds nothing left, and the removal is already done.
+        Property p = propertyDao.checkByName(propKey);
+        if (p != null) {
+            propertyDao.remove(p.getId());
         }
     }
 

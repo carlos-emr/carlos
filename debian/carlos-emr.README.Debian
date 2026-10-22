@@ -465,7 +465,7 @@ log setting in the drop-in is therefore RELATIVE (log_bin = binlog) so that it
 follows the datadir; an absolute /var/lib/mysql/binlog stops the server from
 starting on this release.
 
-MariaDB runs on this host, listening on loopback only, with three
+MariaDB runs on this host, listening on loopback only, with four
 least-privilege accounts and no application ever connecting as root:
 
   carlos    ALL PRIVILEGES on the EMR schema, nothing anywhere else
@@ -475,6 +475,19 @@ least-privilege accounts and no application ever connecting as root:
             it stream binary logs off the server without being able to read
             the datadir. Deliberately no PROCESS: a leak of backup.env must
             not let someone watch clinicians' live SQL.
+  carlos_report
+            the account Query by Example runs as: SELECT on the reportable
+            tables of the EMR schema only, never on the tables holding
+            passwords, PINs, tokens, keys, session identifiers or integration
+            settings, and never on a table no one has classified yet. At most
+            6 connections and 30 seconds per statement. Its grants come from
+            the list this package ships
+            (webapp/carlos/WEB-INF/classes/db/reporting/carlos_report_grants.sql)
+            and are re-applied by `carlos-ctl db-users` and after every
+            `carlos-ctl db-migrate`; `carlos-ctl check` reports any drift.
+            Query by Example refuses to run without it, and never falls back
+            to the carlos account. See docs/query-by-example-least-privilege.md
+            in the source for the threat model, rollback and rotation.
 
 Administrative access is root@localhost over the unix socket, which on Ubuntu
 authenticates by uid. That is why this package never asks for, and never

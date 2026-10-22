@@ -89,4 +89,11 @@ class LabPopupLinkJspRegressionTest {
                 .doesNotContain("href=\"javascript:reportWindow(")
                 .contains("<a href=\"<%=SafeEncode.forHtmlAttribute(labUrl)%>\" onclick=\"reportWindow(this.href); return false;\">");
     }
+    @Test
+    void shouldReadHl7PrefillOnlyForHl7_whenLegacyIdsOverlap() throws IOException {
+        String jsp = Files.readString(JSP.resolve("../oscarMDS/PatientSearch.jsp").normalize(), StandardCharsets.UTF_8);
+        assertThat(jsp).contains("if (!p_labNo.isEmpty() && \"HL7\".equals(p_labType)) {");
+        assertThat(jsp.indexOf("\"HL7\".equals(p_labType)")).isLessThan(jsp.indexOf("Factory.getHandler(p_labNo)"));
+    }
+
 }

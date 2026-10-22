@@ -354,7 +354,8 @@ public class DemographicUpdate2Action extends ActionSupport {
         demographic.setFirstName(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("first_name")));
         demographic.setMiddleNames(normalizeOptionalMiddleNames(request.getParameter("middleNames")));
         demographic.setAlias(request.getParameter("nameUsed"));
-        demographic.setPrefName(request.getParameter("nameUsed"));
+        // Name Used is kept whole in the alias; pref_name holds only what fits its column (#5128).
+        demographic.setPrefName(Demographic.prefNameForNameUsed(request.getParameter("nameUsed")));
         demographic.setAddress(request.getParameter("address"));
         demographic.setCity(request.getParameter("city"));
         demographic.setProvince(request.getParameter("province"));

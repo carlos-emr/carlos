@@ -610,6 +610,10 @@
             <result name="addDSHTML">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDSadd.jsp</result>
             <result name="removeDSHTML">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDSremove.jsp</result>
         </action>
+        <!-- Adds or removes a group's decision support from the Add and Remove pages' POST forms (POST only). -->
+        <action name="encounter/oscarMeasurements/MeasurementGroupDecisionSupport" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurementGroupDecisionSupport2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDScomplete.jsp</result>
+        </action>
         <action name="encounter/oscarMeasurements/SetupEditMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupEditMeasurementGroup2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/EditMeasurementGroup.jsp</result>
         </action>
@@ -731,6 +735,12 @@
             <result name="HRM">/encounter/displayHRM</result>
             <result name="eams">/eaaps/displayEctEaaps</result>
         </action>
+
+        <action name="encounter/chartspace" class="viewChartSpace2Action">
+            <result name="success">/WEB-INF/jsp/chartspace/chartSpace.jsp</result>
+        </action>
+
+        <action name="encounter/chartspace/allergies" class="chartSpaceAllergies2Action"/>
 
     </package>
 </struts>
