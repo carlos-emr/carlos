@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.demographic;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -30,6 +31,8 @@ public final class PatientReadAccess {
         return requestedPatient(request, false, true);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: "All Clients" is the tickler page's literal no-patient selection, compared without case; not an authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of the literal 'All Clients' selection; not a security or authorization decision")
     private static int requestedPatient(HttpServletRequest request, boolean required, boolean allClients) {
         Integer selected = null;
         for (String alias : List.of("demographicNo", "demographic_no")) {

@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.lab.gate;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
@@ -40,6 +41,8 @@ public final class ViewLabDisplay2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     @Override
+    // FindSecBugs IMPROPER_UNICODE: "null".equalsIgnoreCase(all) matches the page's legacy literal sentinel, not an authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of the page's legacy 'null' sentinel; not a security or authorization decision")
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

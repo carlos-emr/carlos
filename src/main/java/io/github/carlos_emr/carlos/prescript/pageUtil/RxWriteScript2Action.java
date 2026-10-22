@@ -1869,6 +1869,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         return NONE;
     }
 
+    // FindSecBugs XSS_SERVLET: an application/json error body; field is only the literal "DATE" or "TIME" from the callers.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "application/json error body; field is a caller literal (DATE or TIME), never request data")
     private String reportInvalidPickup(String field) throws IOException {
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         response.setContentType("application/json");
