@@ -746,7 +746,9 @@ public class RxUtil {
         //do we have some policies/restrictions we want to run?
         List<String> policyViolations = RxInstructionPolicy.checkInstructions(instructions.trim());
 
-        String[] prns = {"\\s(?i)prn$", "^(?i)prn\\s+", "\\s+(?i)prn\\s+"};
+        // Only whether "prn" stands as a word matters. The last pattern starts where a run of
+        // whitespace starts, so a long run of spaces is scanned once, not once per position.
+        String[] prns = {"\\s(?i)prn$", "^(?i)prn\\s", "(?<!\\s)\\s++(?i)prn\\s"};
         for (String s : prns) {
             Pattern prnP = Pattern.compile(s);
             Matcher prnM = prnP.matcher(instructions);
@@ -770,7 +772,10 @@ public class RxUtil {
         // A duration unit ends at whitespace, punctuation or the end of the text ("x 7 days, take
         // with food"), never inside a longer word ("daily", "months" against "m") and never before a
         // slash: "w/" (with) and "d/c" (discontinue) are abbreviations, not a week or a day.
-        String[] durationUnits = {"\\s+(?i)days(?![a-z/])", "\\s+(?i)weeks(?![a-z/])", "\\s+(?i)months(?![a-z/])", "\\s+(?i)day(?![a-z/])", "\\s+(?i)week(?![a-z/])", "\\s+(?i)month(?![a-z/])", "\\s+(?i)d(?![a-z/])", "\\s+(?i)w(?![a-z/])", "\\s+(?i)m(?![a-z/])", "\\s+(?i)mo(?![a-z/])"};
+        // A unit pattern starts only where a run of whitespace starts and takes the whole run at
+        // once, so a long run of spaces in the directions is scanned in linear time; a pattern that
+        // could start anywhere in the run backtracked over the rest of it at every position.
+        String[] durationUnits = {"(?<!\\s)\\s++(?i)days(?![a-z/])", "(?<!\\s)\\s++(?i)weeks(?![a-z/])", "(?<!\\s)\\s++(?i)months(?![a-z/])", "(?<!\\s)\\s++(?i)day(?![a-z/])", "(?<!\\s)\\s++(?i)week(?![a-z/])", "(?<!\\s)\\s++(?i)month(?![a-z/])", "(?<!\\s)\\s++(?i)d(?![a-z/])", "(?<!\\s)\\s++(?i)w(?![a-z/])", "(?<!\\s)\\s++(?i)m(?![a-z/])", "(?<!\\s)\\s++(?i)mo(?![a-z/])"};
         String[] durUnits2 = {"\\s[0-9]+(?i)days(?![a-z/])", "\\s[0-9]+(?i)weeks(?![a-z/])", "\\s[0-9]+(?i)months(?![a-z/])", "\\s[0-9]+(?i)day(?![a-z/])", "\\s[0-9]+(?i)week(?![a-z/])", "\\s[0-9]+(?i)month(?![a-z/])", "\\s[0-9]+(?i)d(?![a-z/])", "\\s[0-9]+(?i)w(?![a-z/])", "\\s[0-9]+(?i)m(?![a-z/])", "\\s[0-9]+(?i)mo(?![a-z/])"};
 
         for (String s : routes) {
@@ -974,7 +979,8 @@ public class RxUtil {
                 // The number and its unit must come from one match: in "on alternate days x 10
                 // days" the first unit word carries no number, and cutting the text between the
                 // two matches threw when the number came after that first word.
-                Pattern p1 = Pattern.compile("([0-9]+)" + s);
+                // The number likewise starts where its digits start and takes them all at once.
+                Pattern p1 = Pattern.compile("(?<![0-9])([0-9]++)" + s);
                 Matcher m1 = p1.matcher(instructionToCheck);
                 if (m1.find()) {
                     durationSpec = m1.group(1);

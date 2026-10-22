@@ -24,6 +24,9 @@ package io.github.carlos_emr.carlos.prescript.util;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.within;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+
+import java.time.Duration;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -836,6 +839,24 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
     @Nested
     @DisplayName("duration phrases")
     class DurationPhrases {
+
+        /**
+         * The duration scan reads every unit word with a pattern that starts at a run of spaces. A
+         * pattern that could also start inside the run backtracked over the rest of it at every
+         * position, so 60,000 spaces typed into the directions held the request for half a minute
+         * (CodeQL "polynomial regular expression used on uncontrolled data").
+         */
+        @Test
+        @DisplayName("should parse directions holding a long run of spaces in linear time")
+        void shouldParseQuickly_whenDirectionsHoldLongRunOfSpaces() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po tid" + " ".repeat(60_000) + "x 2 days");
+
+            assertTimeoutPreemptively(Duration.ofSeconds(5), () -> RxUtil.instrucParser(rx));
+
+            assertThat(rx.getDuration()).isEqualTo("2");
+            assertThat(rx.getDurationUnit()).isEqualTo("D");
+            assertThat(rx.getQuantity()).isEqualTo("6");
+        }
 
         /**
          * "days" first appears in "alternate days"; the number belongs to the later "10 days". The
