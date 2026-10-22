@@ -447,6 +447,8 @@
             // If WT, HT and BMI exists then allow the link
             const rowWT = document.getElementById('row-WT');
             const rowHT = document.getElementById('row-HT');
+            const rowWAIS = document.getElementById('row-WAIS');
+            const rowWHtR = document.getElementById('row-WHtR');
             const rowBMI = document.getElementById('row-BMI');
 
             if (rowWT) {
@@ -471,6 +473,17 @@
                 }
             }
 
+            if (rowWAIS) {
+                const waisInput = rowWAIS.querySelectorAll('td')[2]?.querySelector('input');
+                if (waisInput) {
+                    waisInput.title = "Double click to convert inches to cm";
+                    waisInput.style.backgroundColor = "#d9e6f2";
+                    waisInput.addEventListener('dblclick', function () {
+                        htEnglish2Metric("0'"+this);
+                    });
+                }
+            }
+
             if (rowWT && rowHT && rowBMI) {
                 const wtInput = rowWT.querySelectorAll('td')[2]?.querySelector('input');
                 const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
@@ -486,6 +499,22 @@
                 }
             }
 
+
+            if (rowWAIS && rowHT && rowWHtR) {
+                const waisInput = rowWAIS.querySelectorAll('td')[2]?.querySelector('input');
+                const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
+
+                if (waisInput && htInput) {
+                    waisInput.addEventListener('blur', function () {
+                        calcWHtR(this.value, htInput.value);
+                    });
+
+                    htInput.addEventListener('blur', function () {
+                        calcWHtR(waisInput.value, this.value);
+                    });
+                }
+            }
+
             // Set today's date for all date fields
             const utc = new Date().toJSON().slice(0, 10);
             document.querySelectorAll('[id^="date-"]').forEach(function(elem) {
@@ -495,16 +524,33 @@
 
         function calcBMI(w, h) {
             let b = '';
-
-            if (!isNaN(parseFloat(w)) && !isNaN(parseFloat(h)) && h !== "" && w !== "") {
+            w = parseFloat(w);
+            h = parseFloat(h);
+            if (!isNaN(w) && !isNaN(h)) {
                 if (h > 0) {
                     b = (w / Math.pow(h / 100, 2)).toFixed(1);
                     const bmiInput = document.getElementById('row-BMI')?.querySelectorAll('td')[2]?.querySelector('input');
-                    const rowBMI = document.getElementById('row-BMI');
                     
                     if (bmiInput) {
                         bmiInput.value = b;
                         bmiInput.style.backgroundColor = "#d9e6f2";
+                    }
+                }
+            }
+        }
+
+        function calcWHtR(wais, h) {
+            let b = '';
+            wais = parseFloat(wais);
+            h = parseFloat(h);
+            if (!isNaN(wais) && !isNaN(h)) {
+                if (h > 0) {
+                    b = (wais / h).toFixed(2);
+                    const whtrInput = document.getElementById('row-WHtR')?.querySelectorAll('td')[2]?.querySelector('input');
+                    
+                    if (whtrInput) {
+                        whtrInput.value = b;
+                        whtrInput.style.backgroundColor = "#d9e6f2";
                     }
                 }
             }
