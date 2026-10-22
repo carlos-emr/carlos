@@ -1001,6 +1001,72 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertDoseAndQuantity(rx, minimum, maximum, quantity);
         }
 
+        /**
+         * The count of a written daily frequency belongs to the frequency: "3 times daily take 1 tab"
+         * is one tablet three times a day, not three tablets (read as the dose, the count was also
+         * multiplied by the frequency it names: 3 / 63).
+         */
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '|', value = {
+            "3 times daily take 1 tab x 7 days | 1 | 1 | 21",
+            "3 times daily: take 1 tab x 7 days | 1 | 1 | 21",
+            "2x daily take 2 tabs x 7 days | 2 | 2 | 28",
+            "4 times a day take 2 puffs x 7 days | 2 | 2 | 56",
+            "3 times daily take 1/2 tab x 7 days | 0.5 | 0.5 | 11",
+            "1 tab 3 times daily x 7 days | 1 | 1 | 21"
+        })
+        @DisplayName("should read the dose apart from the count of a written daily frequency")
+        void shouldReadDoseApartFromDailyCount_whenFrequencyIsWrittenOut(String instructions, float minimum,
+                float maximum, String quantity) {
+            assertParsedDose(instructions, minimum, maximum, quantity);
+        }
+
+        /**
+         * Where the count stands in the place of the dose, no dose is written: nothing is calculated,
+         * as for "tid x 7 days" and "tid 1 tab", and the number after the count (a duration, an
+         * interval) is not read in its place.
+         */
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '|', value = {
+            "Take 3 times daily x 7 days",
+            "Take three times daily x 7 days",
+            "apply 3 times daily x 7 days",
+            "3 times daily x 7 days",
+            "2 x daily x 7 days",
+            "3 times daily 1 tab x 7 days",
+            "Take once daily 7 days",
+            "Take twice a day 14 days",
+            "3 times daily 10 days",
+            "twice a day 30 minutes before meals"
+        })
+        @DisplayName("should read no dose when the count of a written daily frequency stands where the dose would be")
+        void shouldReadNoDose_whenDailyCountStandsInPlaceOfDose(String instructions) {
+            assertParsedDose(instructions, 0f, 0f, "0");
+        }
+
+        /**
+         * A shorthand duration written straight after a daily count ("3 times daily 2/52", two weeks)
+         * is the duration, and neither it nor the count is the dose: nothing is calculated, as for
+         * "tid 2/52".
+         */
+        @ParameterizedTest(name = "{0} lasts {1} {2}")
+        @CsvSource(delimiter = '|', value = {
+            "3 times daily 2/52 | 2 | W",
+            "4x daily 2/52 | 2 | W",
+            "3 times daily 5/7 | 5 | D",
+            "twice a day 1/12 | 1 | M"
+        })
+        @DisplayName("should read a shorthand duration after a written daily count as the duration, not the dose")
+        void shouldReadShorthandAsDuration_whenWrittenAfterDailyCount(String instructions, String duration,
+                String durationUnit) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getDuration()).isEqualTo(duration);
+            assertThat(rx.getDurationUnit()).isEqualTo(durationUnit);
+            assertDoseAndQuantity(rx, 0f, 0f, "0");
+        }
+
         @Test
         @DisplayName("should read a method word after a leading frequency when no dose comes before it")
         void shouldReadMethodWord_whenFrequencyIsWrittenFirst() {

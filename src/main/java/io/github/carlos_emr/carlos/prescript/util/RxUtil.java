@@ -752,6 +752,7 @@ public class RxUtil {
         String durationSpec = "";
         int quantity = 0;
         int frequencyStart = -1;
+        int frequencyEnd = -1;
         NumberToken fractionBeforeFrequency = null;
 
         //do we have some policies/restrictions we want to run?
@@ -836,6 +837,7 @@ public class RxUtil {
                 matchedFrequencyPhrase = matchedFrequency;
                 frequency = frequencyCodeForPhrase(matchedFrequency);
                 frequencyStart = matcher.start();
+                frequencyEnd = matcher.end();
                 //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
                 NumberRange frequencyRange = findRangeBeforeFrequency(instructions, matcher.start());
@@ -890,7 +892,11 @@ public class RxUtil {
         //check if method is specified, if yes, check the number after method, which maybe the number to take for a frequency.
 		//if no, check if a number is specified at beginning.
 		if (!instructions.isEmpty()) {
-			InstructionSegment instructionSegment = scanInstruction(instructions, methods, route, rx, frequencyStart);
+            // The count of a written daily frequency ("3 times daily", "2x a day") belongs to the
+            // frequency and is never read as the dose (review of #5077).
+            int dailyCountEnd = DAILY_COUNT_PHRASE.matcher(matchedFrequencyPhrase).matches() ? frequencyEnd : -1;
+			InstructionSegment instructionSegment = scanInstruction(instructions, methods, route, rx, frequencyStart,
+                    dailyCountEnd);
             // A strength describes the product, not a count of its units: it becomes units per
             // administration (issue #3876). A product-only lead (a concentration, a dose per body
             // size) supplies no amount, so nothing is assumed for it. Explicit amounts written
@@ -2134,11 +2140,15 @@ public class RxUtil {
      *
      * @param frequencyStart where the parsed frequency starts, or -1 when none was found; a method
      *        word after it opens the dose only when nothing before it could be a dose
+     * @param dailyCountEnd where the frequency ends when it is a written daily count ("3 times
+     *        daily"), or -1; its count is never read as the dose
      */
     private static InstructionSegment scanInstruction(String instructions, String[] methods, String route,
-            RxPrescriptionData.Prescription rx, int frequencyStart) {
+            RxPrescriptionData.Prescription rx, int frequencyStart, int dailyCountEnd) {
         InstructionSegment segment = new InstructionSegment();
         segment.route = route;
+        segment.frequencyStart = frequencyStart;
+        segment.dailyCountEnd = dailyCountEnd;
         // What the selected product is decides how an IU or gram amount with no route is read.
         segment.solidProductInInternationalUnits = isSolidProductInInternationalUnits(rx);
         segment.topicalProduct = isTopicalProduct(rx);
@@ -2146,7 +2156,7 @@ public class RxUtil {
         for (String s : methods) {
             Pattern p = Pattern.compile(s);
             Matcher m = p.matcher(instructions);
-            if (m.find() && opensDose(instructions, m.start(), frequencyStart)) {
+            if (m.find() && opensDose(instructions, m.start(), segment)) {
                 segment.method = instructions.substring(m.start(), m.end()).trim();
                 scanForFrequencyAndUpdateInstructionSegment(segment, instructions, segment.method, m.end());
                 break;
@@ -2171,16 +2181,27 @@ public class RxUtil {
     /**
      * True when the method word at {@code methodStart} opens the dose: it comes before the
      * frequency ("Amoxicillin 250 mg/5 mL: take 7.5 mL po tid"), no frequency was found, or nothing
-     * before it could be a dose ("Twice daily take 1 tab"). After the frequency and a written dose
-     * it is advice ("1 tab po bid x 7 days, take with food"), and the dose is read from the start.
+     * before it could be a dose ("Twice daily take 1 tab"; in "3 times daily take 1 tab" the count
+     * belongs to the frequency). After the frequency and a written dose it is advice ("1 tab po bid
+     * x 7 days, take with food"), and the dose is read from the start.
      */
-    private static boolean opensDose(String instructions, int methodStart, int frequencyStart) {
-        return frequencyStart < 0 || methodStart < frequencyStart
-                || !DOSE_NUMBER.matcher(instructions).region(0, methodStart).find();
+    private static boolean opensDose(String instructions, int methodStart, InstructionSegment segment) {
+        int frequencyStart = segment.frequencyStart;
+        if (frequencyStart < 0 || methodStart < frequencyStart) {
+            return true;
+        }
+        int afterDailyCount = Math.clamp(segment.dailyCountEnd, frequencyStart, methodStart);
+        Matcher number = DOSE_NUMBER.matcher(instructions);
+        return !number.region(0, frequencyStart).find() && !number.region(afterDailyCount, methodStart).find();
     }
 
     private static void scanForFrequencyAndUpdateInstructionSegment(InstructionSegment segment, String instructions, String method, int methodEnd) {
         int amountStart = skipWhitespaceForward(instructions, methodEnd);
+        // "Take 3 times daily", "3 times daily x 7 days": the number is the count of the frequency,
+        // and no dose is written here.
+        if (segment.inDailyCount(amountStart - segment.textOffset)) {
+            return;
+        }
         if (setRangeAfterMethod(segment, instructions, amountStart)) {
             return;
         }
@@ -2449,6 +2470,10 @@ public class RxUtil {
         int productEnd = -1;
         /** How far positions in the scanned text are shifted from the original instructions. */
         int textOffset;
+        /** Where the parsed frequency starts in the original instructions, or -1 when none was found. */
+        int frequencyStart = -1;
+        /** Where the frequency ends when it is a written daily count ("3 times daily"), or -1. */
+        int dailyCountEnd = -1;
         /** True when the selected product is a tablet or capsule with one strength in IU, so it is taken by mouth. */
         boolean solidProductInInternationalUnits;
         /** True when the selected product is a cream, ointment, gel or similar, applied by the gram. */
@@ -2463,6 +2488,11 @@ public class RxUtil {
         /** True when the leading amount is an explicit count or administered amount rather than a product amount. */
         boolean hasLeadingAmount() {
             return takeMin != null || amountMethod != null || amountFrequency != null;
+        }
+
+        /** True when a position in the original instructions falls inside a written daily count. */
+        boolean inDailyCount(int position) {
+            return position >= frequencyStart && position < dailyCountEnd;
         }
     }
 
