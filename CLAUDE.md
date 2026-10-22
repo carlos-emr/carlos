@@ -66,6 +66,19 @@
   `scripts/build-eform-scoped-bootstrap.js`; new chrome goes inside an element with
   `class="carlos-eform-ui"`. See `docs/eform-chrome-bootstrap-scope.md`.
 
+## eForm Signature Data URIs and the WAF
+
+- Signature pads store data URIs in author-named eForm fields, which the packaged WAF cannot name.
+  `eform_floating_toolbar.js` moves each image data URI into the fixed `carlos-data-uri` argument
+  while the save request is built (leaving `carlos-data-uri:<nonce>:<n>` in the field, with a
+  per-submission nonce in `carlos-data-uri-nonce` so typed text is never taken for a reference), and
+  `AddEForm2Action` restores it through `EFormDataUriCarrier` before anything is stored (#3552).
+- WAF rule 1040 exempts only `ARGS:carlos-data-uri`; never return to a request-wide
+  `ruleRemoveById`. `EFormDataUriCarrier` is the boundary: it accepts only padded Base64
+  PNG/JPEG/GIF/WebP (file signature checked) and jSignature base30, never SVG. The page and server
+  rules must stay identical: `scripts/fixtures/eform/data-uri-carrier-cases.json` drives both sides'
+  tests, and `scripts/waf/check-clinical-policy.py` (`data-uri-*`) pins the real-engine behaviour.
+
 ## Query by Example Reporting Account
 
 - Query by Example runs every query as the read-only database account `carlos_report`

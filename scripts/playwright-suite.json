@@ -12765,13 +12765,13 @@
       ],
       "timeoutSec": 240,
       "env": [
-        "DOCUMENT_DIR"
+        "BASE_DOCUMENT_DIR"
       ],
-      "notes": "Administration > Upload Agreement (admin/uploadEntryText): the upload stores the validity as a new aua_valid_duration property and writes the text to DOCUMENT_DIR/OSCARloginText.txt; the page shows the saved validity again; a GET carrying the fields is refused with 405. SKIP without DOCUMENT_DIR, or when the menu has no entry (shown only with LOGINTEST=yes).",
-      "fixtures": "No rows created by the check itself; the aua_* property rows are snapshotted and restored and the text file is put back as it was (or removed). The agreement settings are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Administration > Upload Agreement (admin/uploadEntryText): the upload stores the validity as a new aua_valid_duration property and writes the uploaded bytes to BASE_DOCUMENT_DIR/login/AcceptableUseAgreement.txt, the file the login page reads; the preview keeps the agreement's formatting and drops its script, image and event handler, none of which runs; the page shows the saved validity again; a GET carrying the fields is refused with 405. SKIP without BASE_DOCUMENT_DIR, or when the menu has no entry (shown only with LOGINTEST=yes).",
+      "fixtures": "No rows created by the check itself; the aua_* property rows are snapshotted and restored and the agreement file is put back as it was, with its owner and mode (or removed, with a login/ directory the upload created). The agreement settings are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "property:aua_valid_duration",
-        "file:OSCARloginText.txt"
+        "file:AcceptableUseAgreement.txt"
       ]
     },
     {
@@ -15856,6 +15856,24 @@
       "notes": "Verifies image transport through save/reopen and the packaged WAF."
     },
     {
+      "name": "eform-signature-data-uri",
+      "script": "scripts/eform-signature-data-uri-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "EXPECT_FRONT_DOOR"
+      ],
+      "fixtures": "Owned synthetic patient and an owned eForm template inserted by unique name; its revisions, values and the template are deleted by name and asserted gone, then the patient. Must not run concurrently with other checks.",
+      "notes": "Issue #3552: a drawn canvas signature and jSignature strokes save through the toolbar as carlos-data-uri references, eform_values and the reopened form hold the signatures themselves, an SVG carried value is refused with 400 before storage and the same rendering then saves once, and through the packaged front door data:text/html or an uncarried signature in an ordinary field gets the WAF's 403 (WAF rule 1040 is per-argument)."
+    },
+    {
       "name": "demographic-add-relation",
       "script": "scripts/demographic-add-relation-playwright-checks.js",
       "tiers": [
@@ -15883,6 +15901,75 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "admin-security-workflow",
+      "script": "scripts/admin-security-workflow-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "email-compose-send",
+      "script": "scripts/email-compose-send-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "admin-login-text",
+      "script": "scripts/admin-login-text-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "BASE_DOCUMENT_DIR",
+        "PLAYWRIGHT_ALLOW_LOGIN_TEXT_WRITE"
+      ],
+      "notes": "Administration > Upload Agreement, opt-in (PLAYWRIGHT_ALLOW_LOGIN_TEXT_WRITE=true): an empty upload and an invalid agreement date are refused visibly without changing the agreement or its validity; a GET carrying the fields is refused with 405 and Allow: POST; a valid upload stores the exact bytes in BASE_DOCUMENT_DIR/login/AcceptableUseAgreement.txt and reopens with its text and the 17-days validity. SKIP when the menu has no entry (shown only with LOGINTEST=yes).",
+      "fixtures": "No rows created beyond its own aua_valid_duration '17 days' rows, which it deletes; the original agreement bytes, owner and mode are restored (or the file removed), and a change made by someone else during the run is left in place and fails the cleanup. The agreement settings are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "property:aua_valid_duration",
+        "file:AcceptableUseAgreement.txt"
+      ]
+    },
+    {
+      "name": "login-agreement-display",
+      "script": "scripts/login-agreement-display-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "BASE_DOCUMENT_DIR",
+        "LOGIN_AGREEMENT_EXPECT"
+      ],
+      "notes": "The login page's acceptable-use agreement, opened in a session-less browser after the check writes a synthetic BASE_DOCUMENT_DIR/login/AcceptableUseAgreement.txt carrying a heading, emphasis, script, an image with an event handler and a style attribute. LOGIN_AGREEMENT_EXPECT=shown (show_aua=true or always): the page shows the text, heading and emphasis without the script, image, handler or style, nothing in it runs, and Show/Hide reveals it. LOGIN_AGREEMENT_EXPECT=hidden (show_aua off, the packaged default): no agreement block and none of its text. show_aua is read at startup, so run once per setting. SKIP without either variable.",
+      "fixtures": "The agreement file only, no rows: an existing agreement is put back byte-exact with its owner and mode, otherwise the file and a login/ directory the check created are removed; a file changed by someone else meanwhile is left in place and fails the cleanup. The login page is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "file:AcceptableUseAgreement.txt"
+      ]
     },
     {
       "name": "rx-reprint-authorization",
