@@ -6628,6 +6628,22 @@
       "fixtures": "Owned synthetic patient and one marker-named encounterForm registration of formadfv2; cleanup deletes the owned patient's formAdfV2 rows and the registration, and asserts both gone. The registration is clinic-wide (the shipped row is hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "form-consultant-print-no-save",
+      "script": "scripts/form-consultant-print-no-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "mutates": [],
+      "notes": "Issue #4370, the consultant letter (Letterhead, form/formConsultant): OK on the \"Do you wish to make changes?\" question after Print used to send the form with submit=save, saving the letter unasked. A new letter is opened for the owned patient, Comments typed, Print answered OK (the editor and buttons return, nothing is posted or stored) and then Cancel (the print view stays with the buttons shown, nothing is posted or stored), and Save then stores the letter once with the typed Comments. window.print is stubbed and counted.",
+      "fixtures": "Owned synthetic patient and the letter Save stores; cleanup deletes the owned patient's formConsult rows and asserts them gone. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
+    },
+    {
       "name": "form-checkbox-reopen",
       "script": "scripts/form-checkbox-reopen-playwright-checks.js",
       "tiers": [
