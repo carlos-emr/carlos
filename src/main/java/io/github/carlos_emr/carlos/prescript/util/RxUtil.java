@@ -135,8 +135,12 @@ public class RxUtil {
     /** More units than this per administration means the strength and the product do not match. */
     private static final BigDecimal MAX_UNITS_PER_DOSE = BigDecimal.valueOf(20);
     private static final Pattern CONCENTRATION_SEPARATOR = Pattern.compile("(?:/|per\\b)\\s*", Pattern.CASE_INSENSITIVE);
-    /** The tail of a written daily count: "x daily", "times a day", "times per day", "x/day". */
-    private static final String TIMES_A_DAY = "\\s*(?:x|times?)\\s*(?:/|per|a)?\\s*(?:daily|day)(?![a-z])";
+    /**
+     * The tail of a written daily count: "x daily", "times a day", "times per day", "x/day". The
+     * optional separator carries its own trailing spaces, so no two space runs are adjacent (a
+     * run of spaces then has one parse and the pattern stays linear).
+     */
+    private static final String TIMES_A_DAY = "\\s*(?:x|times?)\\s*(?:(?:/|per|a)\\s*)?(?:daily|day)(?![a-z])";
     /**
      * Daily counts written out, one pattern per code so that "3 times daily" is TID rather than the
      * "daily" it ends with: "3 times daily", "2x a day", "4 times per day", "3x/day", "once a day",
@@ -157,9 +161,13 @@ public class RxUtil {
      */
     private static final Pattern SHORTHAND_DURATION = Pattern.compile(
             "(?:^|\\s)(?:(x|for)\\s*)?([0-9]+)\\s*/\\s*(7|52|12)(?![0-9/])", Pattern.CASE_INSENSITIVE);
-    /** Joins the segments of a tapering course: "then", ", then", "followed by". */
+    /**
+     * The word that joins the segments of a tapering course: "then", ", then", "followed by". Only
+     * the word is matched; the spaces and comma around it stay on the segments and are trimmed
+     * there, so that scanning a long run of spaces costs one step per character.
+     */
     private static final Pattern TAPER_SEPARATOR = Pattern.compile(
-            "\\s*,?\\s*\\b(?:then|followed by)\\b\\s*", Pattern.CASE_INSENSITIVE);
+            "\\b(?:then|followed by)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern PER_DOSE = Pattern.compile("(?:/|per\\b)\\s*dose\\b", Pattern.CASE_INSENSITIVE);
     /** A figure or a number word: anything in the directions that could be the dose. */
     private static final Pattern DOSE_NUMBER = Pattern.compile(
@@ -1194,7 +1202,7 @@ public class RxUtil {
         boolean firstPrn = false;
         try {
             for (int i = 0; i < segments.length; i++) {
-                String segment = segments[i].trim();
+                String segment = stripTrailingCommas(segments[i]);
                 if (segment.isEmpty()) {
                     return false;
                 }
@@ -1235,6 +1243,15 @@ public class RxUtil {
         }
         rx.setPolicyViolations(RxInstructionPolicy.checkInstructions(instructions.trim()));
         return true;
+    }
+
+    /** Trims a taper segment and removes the comma that preceded "then" (", then 2 tabs"). */
+    private static String stripTrailingCommas(String segment) {
+        String trimmed = segment.trim();
+        while (trimmed.endsWith(",")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
+        }
+        return trimmed;
     }
 
     /** True when the quantity was typed with its own unit ("30 mL"), which the parser never recalculates. */
