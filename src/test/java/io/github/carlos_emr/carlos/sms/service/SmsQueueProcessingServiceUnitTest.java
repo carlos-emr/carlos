@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
@@ -16,15 +17,19 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -118,7 +123,7 @@ class SmsQueueProcessingServiceUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages schedules retry for failed SMS provider attempts")
+    @DisplayName("processDueMessages schedules a retry, keeping the reason as a CARLOS code, for a failure worth retrying")
     void shouldScheduleRetry_whenProviderFailsBeforeMaxAttempts() {
         SmsTransaction transaction = queuedTransaction();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
@@ -135,10 +140,51 @@ class SmsQueueProcessingServiceUnitTest {
         assertThat(processed).isEqualTo(1);
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
-                .containsExactly(SmsStatus.QUEUED, 1, "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED");
-        assertThat(transaction.getErrorMessage())
-                .isEqualTo("SMS queued provider failure recorded; retry scheduled.");
+                .containsExactly(SmsStatus.QUEUED, 1, "REJECTED_OTHER");
+        assertThat(transaction.getErrorMessage()).as("never the provider's own wording")
+                .isEqualTo(SmsProviderErrorCode.REJECTED_OTHER.message());
         assertThat(transaction.getNextAttemptAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("a permanent failure is recorded with its CARLOS code and never retried")
+    void shouldNotRetry_whenProviderFailureIsPermanent() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(SmsProviderErrorCode.INVALID_RECIPIENT))),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> CONSENTED
+        );
+
+        worker.processDueMessages(25);
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode,
+                        SmsTransaction::getNextAttemptAt)
+                .containsExactly(SmsStatus.FAILED, 1, "INVALID_RECIPIENT", null);
+    }
+
+    @Test
+    @DisplayName("a failure worth retrying keeps its CARLOS code while it waits for the next attempt")
+    void shouldKeepCarlosCode_whenRetryingFailureWorthRetrying() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(SmsProviderErrorCode.ACCOUNT_LIMIT))),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> CONSENTED
+        );
+
+        worker.processDueMessages(25);
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly(SmsStatus.QUEUED, "ACCOUNT_LIMIT", SmsProviderErrorCode.ACCOUNT_LIMIT.message());
     }
 
     @Test
@@ -169,8 +215,8 @@ class SmsQueueProcessingServiceUnitTest {
                 .containsExactly(
                         SmsStatus.FAILED,
                         3,
-                        "QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED",
-                        "SMS queued provider failure reached retry limit; no further retry scheduled.",
+                        "REJECTED_OTHER",
+                        SmsProviderErrorCode.REJECTED_OTHER.message(),
                         null
                 );
     }
@@ -366,6 +412,363 @@ class SmsQueueProcessingServiceUnitTest {
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
                 .containsExactly(SmsStatus.FAILED, 1, "QUEUE_STALE_STATUS_LOOKUP_EXCEPTION");
+    }
+
+    @Test
+    @DisplayName("a stale send the provider reports as failed is recorded with a CARLOS code, never its wording")
+    void shouldRecordCarlosCode_whenStaleLookupFindsAFailure() {
+        SmsTransaction transaction = queuedTransaction();
+        transaction.markSending(new Date(0));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new LookupAnsweringProviderClient(SmsProviderMessageStatusDto.found(
+                        SmsProviderSendResultDto.failed("undeliverable", "carrier says 4165551212 is unreachable"))))),
+                new SmsRetryCalculator(), providerType -> false, command -> CONSENTED);
+
+        worker.processDueMessages(25);
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly(SmsStatus.FAILED, "REJECTED_OTHER", SmsProviderErrorCode.REJECTED_OTHER.message());
+    }
+
+    @Test
+    @DisplayName("a stale-send lookup that cannot tell is recorded with CARLOS's own code and message")
+    void shouldRecordFixedLookupText_whenProviderCannotTell() {
+        SmsTransaction transaction = queuedTransaction();
+        transaction.markSending(new Date(0));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new LookupAnsweringProviderClient(
+                        SmsProviderMessageStatusDto.unavailable("lookup_failed", "no record for 4165551212")))),
+                new SmsRetryCalculator(), providerType -> false, command -> CONSENTED);
+
+        worker.processDueMessages(25);
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly(SmsStatus.FAILED, "QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE",
+                        "SMS stale send status lookup was unavailable; marked failed for manual review.");
+    }
+
+    @Test
+    @DisplayName("a failure that affects every text ends the run's sending, so one outage costs one text an attempt")
+    void shouldStopDraining_whenFailureAffectsEveryText() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(SmsProviderErrorCode.ACCOUNT_LIMIT))),
+                new SmsRetryCalculator(), providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(1);
+
+        assertThat(first).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.QUEUED, "ACCOUNT_LIMIT");
+        assertThat(second).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .as("not tried, so its retries are kept").containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    @Test
+    @DisplayName("an unclear answer ends the run's sending, so a provider that hangs leaves one text unknown")
+    void shouldStopDraining_whenOutcomeIsUnknown() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new ThrowingProviderClient())),
+                new SmsRetryCalculator(), providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(1);
+
+        assertThat(first.getStatus()).isEqualTo(SmsStatus.SENDING);
+        assertThat(second).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    @Test
+    @DisplayName("a provider with no lookup is recorded with the fixed message, whatever its client says")
+    void shouldRecordFixedMessage_whenLookupIsUnsupported() {
+        SmsTransaction transaction = queuedTransaction();
+        transaction.markSending(new Date(0));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new LookupAnsweringProviderClient(SmsProviderMessageStatusDto
+                        .unavailable(SmsProviderMessageStatusDto.LOOKUP_UNSUPPORTED_CODE, "no lookup for 4165551212")))),
+                new SmsRetryCalculator(), providerType -> false, command -> CONSENTED);
+
+        worker.processDueMessages(25);
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly(SmsProviderMessageStatusDto.LOOKUP_UNSUPPORTED_CODE,
+                        SmsProviderMessageStatusDto.LOOKUP_UNSUPPORTED_MESSAGE);
+    }
+
+    @Test
+    @DisplayName("a failure about one text lets the run go on to the next")
+    void shouldContinueDraining_whenFailureIsAboutOneText() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(SmsProviderErrorCode.INVALID_RECIPIENT))),
+                new SmsRetryCalculator(), providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(2);
+
+        assertThat(List.of(first.getStatus(), second.getStatus())).containsOnly(SmsStatus.FAILED);
+    }
+
+    @Test
+    @DisplayName("an unrecognised refusal uses one of that text's attempts and the run goes on to the next")
+    void shouldCountAttemptAndContinue_whenProviderRefusesForUnrecognisedReason() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(SmsProviderErrorCode.REJECTED_OTHER))),
+                new SmsRetryCalculator(), providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(2);
+
+        assertThat(List.of(first, second)).allSatisfy(row -> {
+            assertThat(row).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                    SmsTransaction::getErrorCode).containsExactly(SmsStatus.QUEUED, 1, "REJECTED_OTHER");
+            assertThat(row.getNextAttemptAt()).isNotNull();
+        });
+    }
+
+    @ParameterizedTest
+    @MethodSource("failuresForEveryTextThatUseAnAttempt")
+    @DisplayName("a failure for every text, other than a request to slow down, uses an attempt and ends the run")
+    void shouldCountAttemptAndStopDraining_whenFailureAffectsEveryText(SmsProviderErrorCode code) {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(code))),
+                new SmsRetryCalculator(), providerType -> true, command -> CONSENTED);
+        Date startedAt = new Date();
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(1);
+
+        assertThat(first)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.QUEUED, 1, code.name());
+        assertThat(first.getNextAttemptAt()).isAfter(startedAt);
+        assertThat(second).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .as("not tried").containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    static List<SmsProviderErrorCode> failuresForEveryTextThatUseAnAttempt() {
+        List<SmsProviderErrorCode> codes = Arrays.stream(SmsProviderErrorCode.values())
+                .filter(SmsProviderErrorCode::affectsEveryText)
+                .filter(code -> code != SmsProviderErrorCode.RATE_LIMITED)
+                .toList();
+        assertThat(codes).contains(SmsProviderErrorCode.ACCOUNT_LIMIT, SmsProviderErrorCode.PROVIDER_UNAVAILABLE);
+        return codes;
+    }
+
+    @Test
+    @DisplayName("a request to send more slowly hands the text back without using an attempt and ends the run")
+    void shouldHandBackWithoutUsingAttempt_whenProviderAsksToSendMoreSlowly() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second));
+        SmsProviderClient client = rateLimitedClient();
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(client)), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED);
+        Instant before = Instant.ofEpochMilli(System.currentTimeMillis());
+
+        try (LogCapture logs = LogCapture.forLogger(SmsQueueProcessingService.class)) {
+            assertThat(worker.processDueMessages(25)).as("not processed").isZero();
+
+            assertThat(logs.events()).anySatisfy(event -> assertThat(event.getMessage().getFormattedMessage())
+                    .contains("RATE_LIMITED", "handed back without using an attempt"));
+        }
+
+        assertThat(first)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+        assertThat(first.getNextAttemptAt().toInstant())
+                .isAfterOrEqualTo(before.plus(SmsQueueProcessingService.RATE_LIMITED_HAND_BACK_DELAY));
+        assertThat(first).as("the hand-back says why the text waits")
+                .extracting(SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly("RATE_LIMITED", SmsProviderErrorCode.RATE_LIMITED.message());
+        assertThat(recorder.releaseReasons).containsExactly(SmsProviderErrorCode.RATE_LIMITED);
+        assertThat(second).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .as("not tried").containsExactly(SmsStatus.QUEUED, 0);
+        verify(client, times(1)).send(any(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("a text handed back after a request to slow down is not sent again by an immediate run")
+    void shouldNotResendInNextImmediateRun_whenTextWasHandedBackAfterRateLimit() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsProviderClient client = rateLimitedClient();
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(client)), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(1)).isZero();
+        assertThat(worker.processDueMessages(1)).isZero();
+
+        verify(client, times(1)).send(any(), anyString(), any());
+        assertThat(transaction).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    @Test
+    @DisplayName("a request to slow down on a text's last attempt hands it back with that attempt restored")
+    void shouldHandBackWithAttemptRestored_whenRateLimitedOnLastAttempt() {
+        SmsTransaction transaction = queuedTransaction();
+        scheduleTwoFailedAttempts(transaction);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(SmsProviderErrorCode.RATE_LIMITED))),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(25)).isZero();
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .as("not failed at the retry limit, and showing why it waits")
+                .containsExactly(SmsStatus.QUEUED, 2, "RATE_LIMITED");
+    }
+
+    @Test
+    @DisplayName("a request to slow down whose hand-back fails leaves the row for stale recovery and logs no PHI")
+    void shouldLeaveRowSendingWithoutLoggingPhi_whenRateLimitHandBackFails() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedSecondTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second)) {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction row, Date dueAt, SmsProviderErrorCode reason) {
+                throw new IllegalStateException("synthetic-hin-9876543210 row cannot be written");
+            }
+        };
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new FailingProviderClient(SmsProviderErrorCode.RATE_LIMITED))),
+                new SmsRetryCalculator(), providerType -> true, command -> CONSENTED);
+
+        try (LogCapture logs = LogCapture.forLogger(SmsQueueProcessingService.class)) {
+            assertThat(worker.processDueMessages(25)).isZero();
+
+            assertThat(logs.events()).anySatisfy(event -> assertThat(event.getMessage().getFormattedMessage())
+                    .contains("RATE_LIMITED", "could not be handed back"));
+            assertThat(logs.events()).allSatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).doesNotContain("synthetic-hin-9876543210");
+                assertThat(event.getThrown()).isNull();
+            });
+        }
+
+        assertThat(first)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.SENDING, 1, null);
+        assertThat(second).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .as("not tried").containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    @Test
+    @DisplayName("an unclear answer carrying the slow-down code is still an unknown outcome, never handed back")
+    void shouldAwaitStatusLookup_whenUnclearAnswerCarriesRateLimitCode() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction)) {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction row, Date dueAt) {
+                throw new AssertionError("the text may have gone out, so its claim must not be handed back");
+            }
+
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction row, Date dueAt, SmsProviderErrorCode reason) {
+                throw new AssertionError("the text may have gone out, so its claim must not be handed back");
+            }
+        };
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        when(client.send(any(), anyString(), any()))
+                .thenReturn(SmsProviderSendResultDto.uncertain(SmsProviderErrorCode.RATE_LIMITED.name()));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(client)), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(1);
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.SENDING, 1, "RATE_LIMITED");
+    }
+
+    @Test
+    @DisplayName("a claim handed back for want of a rate-limit permit keeps the reason it already had")
+    void shouldRecordNoReason_whenPermitIsDenied() {
+        SmsTransaction transaction = queuedAfterCountedRefusal();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())), new SmsRetryCalculator(),
+                providerType -> false, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(5)).isZero();
+
+        assertHandedBackWithoutReason(transaction, recorder);
+    }
+
+    @Test
+    @DisplayName("a claim handed back because the settings changed before dispatch keeps the reason it already had")
+    void shouldRecordNoReason_whenSettingsChangeBeforeDispatch() {
+        SmsTransaction transaction = queuedAfterCountedRefusal();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        AtomicInteger reads = new AtomicInteger();
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED, () -> SmsProviderType.STUB,
+                type -> reads.getAndIncrement() == 0 ? SmsProviderSettings.none(type)
+                        : SmsProviderSettings.of(type, "+16135550100", Map.of("api_user", "fake-user")));
+
+        assertThat(worker.processDueMessages(5)).isZero();
+
+        assertThat(transaction.getProviderMessageId()).as("nothing sent").isNull();
+        assertHandedBackWithoutReason(transaction, recorder);
+    }
+
+    @Test
+    @DisplayName("a claim handed back after its renewal could not be written keeps the reason it already had")
+    void shouldRecordNoReason_whenClaimRenewalCannotBeWritten() {
+        SmsTransaction transaction = queuedAfterCountedRefusal();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction)) {
+            @Override
+            public SmsTransaction renewClaim(SmsTransaction row, Date attemptAt) {
+                throw new IllegalStateException("database unavailable");
+            }
+        };
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(5)).isZero();
+
+        assertHandedBackWithoutReason(transaction, recorder);
+    }
+
+    @Test
+    @DisplayName("a former provider's row handed back after it could not be failed keeps the reason it already had")
+    void shouldRecordNoReason_whenInactiveRowCannotBeFailed() {
+        SmsTransaction transaction = queuedAfterCountedRefusal();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction)) {
+            @Override
+            public SmsTransaction markProviderResult(SmsTransaction row, SmsProviderSendResultDto result) {
+                throw new IllegalStateException("row cannot be written");
+            }
+        };
+
+        assertThat(voipMsActiveWorker(recorder, providerType -> true, command -> CONSENTED).processDueMessages(5))
+                .isZero();
+
+        assertHandedBackWithoutReason(transaction, recorder);
     }
 
     @Test
@@ -1032,6 +1435,32 @@ class SmsQueueProcessingServiceUnitTest {
                 SmsProviderSettings::none);
     }
 
+    /** A queued STUB row whose one counted attempt the provider refused with ACCOUNT_LIMIT; due again now. */
+    private static SmsTransaction queuedAfterCountedRefusal() {
+        SmsTransaction transaction = queuedTransaction();
+        transaction.markSending(dateAt(FIRST_ATTEMPT_AT));
+        transaction.markRetryScheduled(SmsProviderSendResultDto.failed(SmsProviderErrorCode.ACCOUNT_LIMIT),
+                dateAt(RETRY_SCHEDULED_AT));
+        return transaction;
+    }
+
+    /** The row is waiting again, unsent, with its attempt given back and the reason it had before untouched. */
+    private static void assertHandedBackWithoutReason(SmsTransaction row, RecordingSmsTransactionService recorder) {
+        assertThat(row).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                        SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly(SmsStatus.QUEUED, 1, "ACCOUNT_LIMIT", SmsProviderErrorCode.ACCOUNT_LIMIT.message());
+        assertThat(recorder.releaseReasons).as("no hand-back but a request to slow down records a reason").isEmpty();
+    }
+
+    /** A STUB client whose every send is refused with a request to send more slowly. */
+    private static SmsProviderClient rateLimitedClient() {
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        when(client.send(any(), anyString(), any()))
+                .thenReturn(SmsProviderSendResultDto.failed(SmsProviderErrorCode.RATE_LIMITED));
+        return client;
+    }
+
     private static void scheduleTwoFailedAttempts(SmsTransaction transaction) {
         transaction.markSending(dateAt(FIRST_ATTEMPT_AT));
         transaction.markRetryScheduled(
@@ -1049,6 +1478,16 @@ class SmsQueueProcessingServiceUnitTest {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.patientMessage(456, "416-555-3434", "Appointment reminder", "999998"),
                 SmsProviderType.VOIPMS
+        );
+        assignId(transaction, 2L);
+        transaction.recordConsentDecision(CONSENTED);
+        return transaction;
+    }
+
+    private static SmsTransaction queuedSecondTransaction() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(124, "416-555-3434", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
         );
         assignId(transaction, 2L);
         transaction.recordConsentDecision(CONSENTED);
@@ -1075,6 +1514,7 @@ class SmsQueueProcessingServiceUnitTest {
 
     private static class RecordingSmsTransactionService implements SmsTransactionService {
         private final List<SmsTransaction> transactions;
+        private final List<SmsProviderErrorCode> releaseReasons = new ArrayList<>();
         private int consentDecisionWrites;
 
         private RecordingSmsTransactionService(List<SmsTransaction> transactions) {
@@ -1133,6 +1573,13 @@ class SmsQueueProcessingServiceUnitTest {
         @Override
         public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
             transaction.markClaimReleased(dueAt);
+            return transaction;
+        }
+
+        @Override
+        public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt, SmsProviderErrorCode reason) {
+            releaseReasons.add(reason);
+            transaction.markClaimReleased(dueAt, reason);
             return transaction;
         }
 
@@ -1211,17 +1658,18 @@ class SmsQueueProcessingServiceUnitTest {
         }
 
         @Override
-        public boolean validateCallback(String payload, Map<String, String> headers, String secret) {
+        public boolean validateCallback(SmsWebhookRequest request, String webhookSecret,
+                                        SmsProviderSettings settings) {
             return false;
         }
 
         @Override
-        public Optional<SmsInboundWebhookDto> parseInboundWebhook(String payload, Map<String, String> headers) {
+        public Optional<SmsInboundWebhookDto> parseInboundWebhook(SmsWebhookRequest request) {
             return Optional.empty();
         }
 
         @Override
-        public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(String payload, Map<String, String> headers) {
+        public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(SmsWebhookRequest request) {
             return Optional.empty();
         }
     }
@@ -1239,9 +1687,21 @@ class SmsQueueProcessingServiceUnitTest {
     }
 
     private static class FailingProviderClient extends AcceptingProviderClient {
+        private final SmsProviderErrorCode code;
+
+        FailingProviderClient() {
+            this(null);
+        }
+
+        /** @param code the CARLOS code to fail with, or {@code null} for a provider's own unmapped code */
+        FailingProviderClient(SmsProviderErrorCode code) {
+            this.code = code;
+        }
+
         @Override
         public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
-            return SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message");
+            return code == null ? SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message")
+                    : SmsProviderSendResultDto.failed(code);
         }
     }
 
@@ -1249,6 +1709,20 @@ class SmsQueueProcessingServiceUnitTest {
         @Override
         public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
             throw new IllegalStateException("provider unavailable");
+        }
+    }
+
+    private static class LookupAnsweringProviderClient extends AcceptingProviderClient {
+        private final SmsProviderMessageStatusDto answer;
+
+        LookupAnsweringProviderClient(SmsProviderMessageStatusDto answer) {
+            this.answer = answer;
+        }
+
+        @Override
+        public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String providerMessageId,
+                                                               SmsProviderSettings settings) {
+            return answer;
         }
     }
 
