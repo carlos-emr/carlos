@@ -396,6 +396,16 @@ class ReportingConnectionServiceUnitTest {
                     .hasValueSatisfying(reason -> assertThat(reason).contains("casemgmt_note.Password"));
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "GRANT SELECT (`note)x`) ON `carlos`.`casemgmt_note` TO `carlos_report`@`localhost`",
+                "GRANT SELECT (`note`,`password`) ON `carlos`.`casemgmt_note` TO `carlos_report`@`localhost`",
+                "GRANT SELECT (`note`, password) ON `carlos`.`casemgmt_note` TO `carlos_report`@`localhost`"})
+        @DisplayName("refuses a column list it cannot split into quoted names")
+        void shouldRefuse_whenColumnListCannotBeRead(String grant) {
+            assertThat(ReportingConnectionService.refusalReason(grant, audit)).isPresent();
+        }
+
         @Test
         @DisplayName("refuses a table-wide grant on a table with hidden columns")
         void shouldRefuseTableWideGrant_whenTableHasHiddenColumns() {

@@ -63,7 +63,7 @@ final class ReportingGrantList {
             "INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) VALUES";
     private static final Pattern ROW = Pattern.compile(
             "^\\('(?<table>[A-Za-z0-9_]+)', '(?<access>reportable|restricted)', "
-                    + "(?:NULL|'(?<columns>[A-Za-z0-9_]+(?:,[A-Za-z0-9_]+)*+)'), "
+                    + "(?:NULL|'(?<columns>[A-Za-z0-9_,]+)'), "
                     + "(?:NULL|'(?<reason>[^']+)')\\)(?<end>[,;])$");
 
     // Two tables whose names differ only in case. Under lower_case_table_names they would be one
@@ -160,10 +160,13 @@ final class ReportingGrantList {
         Map<String, Entry> rows = new LinkedHashMap<>();
         for (int i = start + 1; i < lines.size(); i++) {
             Matcher row = ROW.matcher(lines.get(i));
-            if (!row.matches()) {
+            boolean wellFormed = row.matches();
+            String columns = wellFormed ? row.group("columns") : null;
+            // The pattern takes the column list as one run of names and commas; an empty name
+            // (",a", "a,,b", "a,") makes the row malformed too.
+            if (!wellFormed || (columns != null && List.of(columns.split(",", -1)).contains(""))) {
                 throw new IllegalArgumentException(source + " line " + (i + 1) + " is not a classification row");
             }
-            String columns = row.group("columns");
             Entry entry = new Entry(row.group("table"), row.group("access"),
                     columns == null ? Set.of()
                             : Collections.unmodifiableSet(new LinkedHashSet<>(List.of(columns.split(",")))),

@@ -83,14 +83,15 @@ public class ReportingConnectionService {
     private static final int ER_ACCESS_DENIED = 1045;
     private static final int ER_DB_ACCESS_DENIED = 1044;
 
-    // Every repetition over a group is possessive: Java matches a backtracking repetition of a
-    // group by recursion, one frame per iteration, so a long grant line could overflow the stack.
-    // Possessive matching gives up nothing here, since a quoted name always ends at its quote.
+    // Every repetition over a group is possessive, and no quantified group sits inside another:
+    // Java matches a backtracking repetition of a group by recursion, one frame per iteration, so
+    // a long grant line could overflow the stack. Possessive matching gives up nothing here, since
+    // a quoted name always ends at its quote. The column list is matched flat and split in code.
     private static final String IDENTIFIER = "(?:[^`]|``)++";
     private static final Pattern USAGE_GRANT = Pattern.compile("^GRANT USAGE ON \\*\\.\\* TO (?<grantee>.+)$");
     private static final Pattern SELECT_GRANT = Pattern.compile(
-            "^GRANT SELECT(?: \\((?<columns>`" + IDENTIFIER + "`(?:, `" + IDENTIFIER + "`)*+)\\))?+"
-                    + " ON `(?<schema>" + IDENTIFIER + ")`\\.`(?<table>" + IDENTIFIER + ")` TO (?<grantee>.+)$");
+            "^GRANT SELECT(?<columns> \\([^)]++\\)|) ON `(?<schema>" + IDENTIFIER + ")`\\.`(?<table>"
+                    + IDENTIFIER + ")` TO (?<grantee>.+)$");
     private static final Pattern COLUMN = Pattern.compile("`(" + IDENTIFIER + ")`");
     // MariaDB 10.4+ and MySQL 8 quote the grantee with backticks, older releases with single quotes.
     private static final Pattern GRANTEE = Pattern.compile("`(?<user>(?:[^`]|``)*+)`@`(?<host>(?:[^`]|``)*+)`");
@@ -409,11 +410,16 @@ public class ReportingConnectionService {
         if (row.get().excludedColumns().isEmpty()) {
             return Optional.empty();
         }
-        if (columnList == null) {
+        if (columnList.isEmpty()) {
             return Optional.of("SELECT on every column of " + table + ", hidden columns included");
         }
-        Matcher column = COLUMN.matcher(columnList);
-        while (column.find()) {
+        // " (`a`, `b`)": a name holding ", " or ")" does not split into quoted names, and an
+        // unreadable list is refused rather than guessed at.
+        for (String quoted : columnList.substring(2, columnList.length() - 1).split(", ", -1)) {
+            Matcher column = COLUMN.matcher(quoted);
+            if (!column.matches()) {
+                return Optional.of("a column list on " + table + " that cannot be read");
+            }
             String name = unescapeBackticks(column.group(1));
             if (row.get().hides(name)) {
                 return Optional.of("SELECT on the hidden column " + table + "." + name);

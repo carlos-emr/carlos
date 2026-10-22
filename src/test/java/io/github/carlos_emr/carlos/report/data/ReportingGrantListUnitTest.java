@@ -109,6 +109,16 @@ class ReportingGrantListUnitTest {
     }
 
     @Test
+    @DisplayName("rejects a hidden-column list with an empty name")
+    void shouldReject_whenHiddenColumnListHasEmptyName() {
+        for (String columns : List.of(",password", "password,", "password,,lock_key")) {
+            assertThatThrownBy(() -> parse("('casemgmt_note', 'reportable', '" + columns + "', 'Note-lock');"))
+                    .as(columns)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
     @DisplayName("rejects a table listed twice")
     void shouldReject_whenTableIsListedTwice() {
         assertThatThrownBy(() -> parse("('security', 'restricted', NULL, 'x'),", "('security', 'reportable', NULL, NULL);"))
