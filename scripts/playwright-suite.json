@@ -3989,7 +3989,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Seeds and removes one marker-named provider, its security row (hash/PIN copied from the test login) and a doctor role; edits, deletes and re-logs-in through Administration > User Management.",
-      "notes": "Fails on 2026.08: the edit page loads a missing admin/bcArStyle.css (console MIME error) and Delete Record throws DetachedObjectException, leaving the login in place."
+      "notes": "The rename writes one SecurityArchive row holding the pre-edit state (SecurityManager.updateSecurityRecord); where legacy PINs are offered, a new PIN is stored only as a salted hash and signs in. Delete Record removes the login (issue #4225)."
     },
     {
       "name": "provider-record-admin",
@@ -9338,7 +9338,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "One owned custom medication seeded by SQL for the owned FAKE- patient; cleanup deletes the drugs row and the discontinue chart notes with their links and asserts nothing remains. Two sessions of the shared test login.",
-      "notes": "Fails at the last step: the stale second Discontinue overwrites archived_reason/archived_date and files a second chart note (RxDeleteRx2Action.java:397-408 only checks the drug belongs to the patient)."
+      "notes": "The stale second Discontinue is refused with HTTP 409 and an alert; the first reason and date stand and the chart keeps one discontinue note (issue #4225: RxDeleteRx2Action claims the active row with a conditional archive and files the note in the same transaction)."
     },
     {
       "name": "concurrency-chart-note-takeover",
@@ -9383,7 +9383,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "One marker-named provider with a security row (password hash and PIN copied from the test login) and a doctor role, seeded by SQL and removed by cleanup, which asserts them gone. No demo row touched. The edit page's known missing admin/bcArStyle.css (ISSUES L19) is consumed explicitly.",
-      "notes": "Fails at the last step: session A's stale Update Record clears the Force password reset session B had just set (securityupdate.jsp:103-123 copies every posted control onto the row with no comparison against the rendered state). Delete-while-editing is not driven because Delete Record itself fails (known, L20)."
+      "notes": "Session A's stale Update Record is refused with HTTP 409, keeps its draft and cannot clear the force-password-reset session B set; a reviewed retry succeeds, each accepted edit archives once and a refused one archives nothing, and saving a deleted login answers 404 without resurrecting it (issue #4225)."
     },
     {
       "name": "xss-poison-master-record",

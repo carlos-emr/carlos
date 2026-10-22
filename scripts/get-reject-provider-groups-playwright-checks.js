@@ -20,7 +20,9 @@
  *   2. the same Delete sent straight to provider/ViewProviderNewGroup;
  *   3. the captured Save replayed as GET/HEAD for a new member (providercontrol ▸
  *      SaveMyGroup; the outer controller must propagate the included gate's 405);
- *   4. that Save replayed through displaymode=vary into providersavemygroup.jsp.
+ *   4. that Save replayed through displaymode=vary into providersavemygroup.jsp. The vary
+ *      mode is retired (#4381): providercontrol answers 404 for every method before any
+ *      include, so only "no write" can be asserted for it, not a GET-specific 405.
  *
  * Fixtures: one group named from the run marker (10-char limit) seeded by SQL with the
  * test provider and three active demo providers (names copied from `provider`, exactly as
@@ -114,7 +116,8 @@ async function workflow(s) {
     await ledger.probe(s, { label: 'provider/providercontrol displaymode=vary -> providersavemygroup.jsp',
       path: saved.path,
       params: forMember(d6, { displaymode: 'vary', displaymodevariable: '/WEB-INF/jsp/provider/providersavemygroup.jsp' }),
-      snapshot: () => sql.value(member(d6)) });
+      // Retired mode: a 404 for every method, so no refusal status is specific to GET/HEAD.
+      snapshot: () => sql.value(member(d6)), requireStatus: false });
   });
 
   await s.step('every provider-group mutation refused GET/HEAD and left the owned group unchanged', async () => {

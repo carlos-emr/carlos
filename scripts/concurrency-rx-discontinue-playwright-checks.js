@@ -65,7 +65,7 @@ async function workflow(s) {
 
   const b = await openSecondSession(s, { label: 'second-session' });
   const openRx = async (context, master, label) => {
-    const rx = await clickOpensPopup(master, master.locator('a[onclick*="/rx/choosePatient"]').first(), { context, recorder: s.recorder, label, timeout: 20000 });
+    const rx = await clickOpensPopup(master, master.locator('.patient-nav a[href*="/rx/choosePatient"], a[onclick*="/rx/choosePatient"]').first(), { context, recorder: s.recorder, label, timeout: 20000 });
     h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
     await rx.locator('#searchString').waitFor({ state: 'visible' });
     await rx.waitForLoadState('networkidle');

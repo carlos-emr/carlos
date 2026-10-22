@@ -24,7 +24,7 @@ function seedTickler(s, tag) {
 
 /** Master Record > Tickler: the patient's tickler list, as a popup. */
 async function openPatientTicklerList(context, master, recorder, label) {
-  const page = await ui.clickOpensPopup(master, master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(),
+  const page = await ui.clickOpensPopup(master, master.locator('.patient-nav a[href*="/tickler/ViewTicklerMain"], a[onclick*="/tickler/ViewTicklerMain"]').first(),
     { context, recorder, label, timeout: 20000 });
   await page.waitForLoadState('domcontentloaded', { timeout: 20000 });
   await h.assertNotErrorPage(page, 'the patient tickler list');

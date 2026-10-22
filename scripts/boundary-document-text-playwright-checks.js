@@ -133,7 +133,7 @@ async function workflow(s) {
     const before = sql.rows(`SELECT * FROM document WHERE document_no=${id}`);
     const filePath = path.join(store, path.basename(file));
     const content = fs.readFileSync(filePath);
-    const report = await s.popup(s.master, s.master.locator('a[onclick*="/documentManager/ViewDocumentReport"]').first(), 'document-boundary-report');
+    const report = await s.popup(s.master, s.master.locator('.patient-nav a[href*="/documentManager/ViewDocumentReport"], a[onclick*="/documentManager/ViewDocumentReport"]').first(), 'document-boundary-report');
     const row = report.locator('tr', { has: report.locator(`#docNo${id}`) });
     const editor = await s.popup(report, row.locator('a[onclick*="/documentManager/ViewEditDocument"]'), 'document-boundary-edit');
     await editor.locator('input[name="docDesc"]').fill(full + 'x');

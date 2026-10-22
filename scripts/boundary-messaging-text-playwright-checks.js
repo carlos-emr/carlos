@@ -81,7 +81,7 @@ async function workflow(s) {
   // allowRefusal exercises an oversized message: require a 400, a length warning, and an editable draft.
   // Returns {list, refusal} with refusal the alert text or null for successful saves.
   async function addTickler(text, { allowRefusal = false } = {}) {
-    const list = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'patient-tickler-list');
+    const list = await s.popup(s.master, s.master.locator('.patient-nav a[href*="/tickler/ViewTicklerMain"], a[onclick*="/tickler/ViewTicklerMain"]').first(), 'patient-tickler-list');
     const add = await s.popup(list, list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
     await add.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
     await add.locator('textarea[name="ticklerMessage"]').fill(text);

@@ -9,11 +9,10 @@
  * session B both open the allergy list while the original is active. A amends it (severity 1); B,
  * whose list still shows the original as active, amends it too (severity 3).
  *
- * Asserted: A's amendment lands and archives the original (control); after B's amendment the chart
- * carries exactly ONE active version of that allergy (a refusal or a merge are both fine). The action
- * only checks that the archive target belongs to the patient, not that it is still active, so B's
- * stale form adds a second active allergy with the same description and a different severity and the
- * archive of an already-archived row is a silent no-op. The check fails at that last step.
+ * Asserted: A's amendment lands and archives the original (control); B's stale amendment is refused
+ * with exactly HTTP 409 and stores no replacement, so the chart carries exactly ONE active version of
+ * that allergy, with A's severity (issue #4410: RxAddAllergy2Action archives the original only while
+ * it is still active, in the same transaction as the replacement).
  *
  * Fixtures: one owned allergy seeded by SQL (marker description) for the owned FAKE- patient; cleanup
  * deletes every allergies row of the owned patient and asserts none remain. Session B takes the chart
