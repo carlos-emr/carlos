@@ -66,6 +66,22 @@
   `scripts/build-eform-scoped-bootstrap.js`; new chrome goes inside an element with
   `class="carlos-eform-ui"`. See `docs/eform-chrome-bootstrap-scope.md`.
 
+## Query by Example Reporting Account
+
+- Query by Example runs every query as the read-only database account `carlos_report`
+  (`db_reporting_username` / `db_reporting_password`), never as `db_username`, and refuses to run
+  without it (issue #3372). There is no fallback to the application account.
+- `src/main/resources/db/reporting/carlos_report_grants.sql` lists every table as `reportable` or
+  `restricted` and rebuilds the account's grants. A migration that creates a table must add its
+  row there; `QueryByExampleReportingClassificationUnitTest` fails the build until it does, and
+  when the restricted rows differ from `QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES`.
+- The application reads the same file from the WAR (`ReportingGrantList`) and refuses an account
+  whose `SHOW GRANTS` reach past it, so keep its one-row-per-line format: a row the reader cannot
+  parse closes Query by Example rather than being skipped.
+- Provisioning: `carlos-ctl db-users` / `db-migrate` on packaged installs; `populate_db.sh` and
+  the `qbe-reporting-account` helper in the devcontainer. See
+  `docs/query-by-example-least-privilege.md`.
+
 ## Debian Packaging and carlos-ctl
 
 The single-host deployment is three Debian packages (plus a transitional one):

@@ -4728,6 +4728,23 @@
       "notes": "Through the packaged front door the Run Query POST is blocked by CRS 942100; against Tomcat directly the favourite Delete answers 500 (DetachedObjectException). Both are application defects; the check asserts the correct behaviour."
     },
     {
+      "name": "report-query-by-example-least-privilege",
+      "script": "scripts/report-query-by-example-least-privilege-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned patient; one throwaway table named qbe_unclassified_<run> with a planted secret, dropped in cleanup; history rows carrying the marker or that table removed in cleanup.",
+      "notes": "Issue #3372. Needs the carlos_report account provisioned (carlos-ctl db-users on a packaged install, populate_db.sh or qbe-reporting-account in the devcontainer) and MYSQL_USER able to read the mysql schema (root in both documented environments). Reads the grant list from the source tree, or from the deployed webapp on a packaged install."
+    },
+    {
       "name": "fax-queue-admin",
       "script": "scripts/fax-queue-admin-playwright-checks.js",
       "tiers": [

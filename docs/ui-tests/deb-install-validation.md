@@ -3308,3 +3308,66 @@ match needs matching DOB or full name, and absent HINs require matching DOB plus
 Conflicting HINs or insufficient source evidence block chain-wide mutations and require source
 review, including corrections that change all corroborating identity fields. The resolver does
 not silently omit an uncertain sibling. Other lab sources retain their existing membership rules.
+
+### Query by Example reporting account (2026-10-22, issue #3372)
+
+Query by Example now runs every query as the read-only `carlos_report` account that carlos-ctl 1.2.0 provisions from the grant list
+the WAR ships (`WEB-INF/classes/db/reporting/carlos_report_grants.sql`); see `docs/query-by-example-least-privilege.md`. The branch
+(`claude/issue-3372-20261022`, WAR from `89f982f8`) was packaged unstamped as `2026.09.0~snapshot26`: the CARLOS WAR compiled on the host
+with JDK 25, DrugRef from `debian/drugref.pin`, `dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` builder with `CARLOS_WAR` and
+`DRUGREF_WAR`. carlos-ctl was built from its PR branch (carlos-emr/carlos-ctl#10) as `1.2.0`. Docker Hub rate-limited the `ubuntu:26.04`
+pull, so `BASE_IMAGE` named a local image built from it earlier the same day.
+
+**Fresh install** (Ontario, demo dataset, `scripts/deb-docker-validation.sh up`): `carlos-ctl check` passed, including "Query by Example
+runs as carlos_report: SELECT on 409 reportable table(s), nothing else". `SHOW GRANTS` lists `casemgmt_note` and `DigitalSignature`
+column by column, without `password` and `signatureImage`, and no restricted table.
+
+| Run | Result |
+|---|---|
+| `report-query-by-example-least-privilege` (new), `report-query-by-example`, `report-query-by-example-front-door` | **PASS**, 3 of 3 through `:443`: a reportable table answers; a table created after provisioning (with a planted secret) is refused by MariaDB in the outer query and in a subquery, the secret never reaches the page and no history row is written; every hidden column is refused by name and through `SELECT *` while the other columns answer; in MariaDB the account holds SELECT only, no table with hidden columns as a whole, no schema, global or role privilege |
+| `--tier smoke` | **PASS**, 12 of 12 |
+| server-log audit | **PASS**, no unexplained signature (6 known) |
+
+Drift, introduced by hand on the running install and then repaired (`/root/qbe-drift-scenarios.sh`, 22 assertions, all pass with the
+final carlos-ctl):
+
+| Drift | `carlos-ctl check` | Repair |
+|---|---|---|
+| table-wide `SELECT` on `DigitalSignature` | FAIL: "DigitalSignature (every column, hidden ones included)" | `db-users` |
+| `SELECT (password)` on `casemgmt_note` | FAIL: "casemgmt_note.password" | `db-users` |
+| `SELECT` on `security` | FAIL: "security (restricted)" | `db-users` |
+| `PROXY ON ''@'%'` | FAIL: privileges beyond SELECT (proxy) | `db-users` revokes the PROXY grant |
+| `appointment` revoked on `127.0.0.1` only | FAIL: "1 reportable table(s) are not granted to carlos_report@127.0.0.1" | `db-users` |
+| `casemgmt_note.note` revoked on `localhost` only | FAIL: "casemgmt_note.note for localhost" | `db-users` |
+| an extra `carlos_report@'%'` login | FAIL: "also exists for host(s) %" | `DROP USER` |
+| the account's password changed in MariaDB | FAIL: the recorded password "does not log in as carlos_report@localhost" | `db-users` |
+| a `PUBLIC` grant on the schema plus a stale `SELECT, INSERT` on `security` | FAIL: PUBLIC holds privileges | `db-users` reports the refused list; the refused run had already revoked the stale grant; revoke from PUBLIC, `db-users` |
+
+With the table-wide `DigitalSignature` grant in place, the application refused the account before running anything: the
+`report-query-by-example` check failed at its first query, as intended, and the log read "Query-by-Example refused the reporting
+account: it holds a privilege other than SELECT on reportable tables of carlos". MariaDB prints a table grant and a column grant on
+one table as a single `GRANT SELECT, SELECT (...)` line, which the audit refuses as unrecognised; `carlos-ctl check` names the
+table. After `db-users` both checks passed again.
+
+One defect was found and fixed here: when the grant list refused to run, `db-users` warned with the first 400 characters of the
+client's stderr, which the client fills with the echoed `BEGIN NOT ATOMIC` block, so MariaDB's message was cut off. carlos-ctl now
+reports the last `ERROR` line (carlos-ctl `b98c931`).
+
+**Upgrade from `2026.08.0~alpha20`** (carlos-ctl 1.1.2, no reporting account) to the same packages: `deb-upgrade-baseline.sh`, then
+`apt-get install` of `carlos-ctl_1.2.0`, `carlos-emr` and `carlos-emr-drugref`. The transaction created `carlos_report` on both hosts
+and granted 409 tables; Flyway applied exactly `1.0.58` (45 in all); `carlos-ctl check` passed. `deb-upgrade-verify.sh` first scored
+44 of 45: `carlos.properties` changed, because provisioning records `db_reporting_username` and `db_reporting_password`. The baseline
+now snapshots those two keys (the password as a digest only) apart from its other digests, and the verifier accepts exactly that
+addition. Re-run against the same PRE snapshot (alpha20 had neither key, so its digests are identical under both script versions):
+**46 passed, 0 failed**. On the upgraded install the three Query by Example checks pass 3 of 3, `--tier smoke` passes 12 of 12 and the
+server-log audit reports no unexplained signature; the install also came back healthy after its container was restarted mid-run.
+
+A review of carlos-ctl#10 then found the login probe ignoring `CARLOS_DB_PORT` and calling any failed login a wrong password. With
+carlos-ctl `607c24e` installed on the upgraded container, `check` still passed; changing the account's password on `127.0.0.1` alone
+was reported as "does not log in as carlos_report@127.0.0.1", and `db-users` repaired it. A second review found `check` printing its
+OK line beside a login it could not try (a busy account, or MariaDB not answering on the port). With carlos-ctl `325482a` installed
+(OK only after a login that worked), `check` still passed on the same container. The 22 drift assertions passed again, and so did the
+three Query by Example checks (3 of 3).
+
+The installer printed "NOT ready to use" during both the fresh `snapshot26` and the `alpha20` transactions (an nginx reload while
+`carlos-emr` configures); no marker remained and `check` passed, so it predates this change.
