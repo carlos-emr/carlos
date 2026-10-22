@@ -13,6 +13,8 @@ async function workflow(s) {
   }
   h.assert(process.env.BASE_DOCUMENT_DIR, 'Set BASE_DOCUMENT_DIR to the disposable deployment base document directory');
   const target = path.join(fs.realpathSync(process.env.BASE_DOCUMENT_DIR), 'login', 'AcceptableUseAgreement.txt');
+  // The upload creates login/ when it is missing; remove it again only if this run created it.
+  const dirBefore = fs.existsSync(path.dirname(target));
   const stat = fs.existsSync(target) ? fs.lstatSync(target) : null;
   h.assert(!stat || stat.isFile(), 'Agreement fixture refuses a non-regular target');
   const original = stat ? fs.readFileSync(target) : null;
@@ -30,7 +32,11 @@ async function workflow(s) {
       fs.writeFileSync(target, original); fs.chmodSync(target, stat.mode & 0o777);
       if (fs.statSync(target).uid !== stat.uid || fs.statSync(target).gid !== stat.gid) fs.chownSync(target, stat.uid, stat.gid);
       h.assert(fs.readFileSync(target).equals(original), 'Agreement text restoration failed');
-    } else if (fs.existsSync(target)) fs.unlinkSync(target);
+    } else {
+      if (fs.existsSync(target)) fs.unlinkSync(target);
+      const dir = path.dirname(target);
+      if (!dirBefore && fs.existsSync(dir) && fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
+    }
     const rows = s.sql.rows(`SELECT name,value FROM property WHERE ${added}`);
     h.assert(rows.every(([name,value]) => name === 'aua_valid_duration' && value === '17 days'),
       'Unexpected concurrent agreement changes require recovery');
