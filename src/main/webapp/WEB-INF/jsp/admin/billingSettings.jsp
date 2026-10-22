@@ -81,7 +81,7 @@
      * TODO: not really the best method, but will work until there is time to refactor.
      */
     if (request.getParameter("dboperation") != null && !request.getParameter("dboperation").isEmpty() && request.getParameter("dboperation").equals("Save")
-            && "POST".equalsIgnoreCase(request.getMethod())) {
+            && "POST".equals(request.getMethod()) && "BC".equals(billRegion)) {
 
         request.setAttribute("success", false);
 
@@ -259,7 +259,7 @@
                         <br>
                         <textarea style="resize: none;" rows="5" id="invoice_custom_clinic_info"
                                   name="invoice_custom_clinic_info" maxlength="250"
-                            ${empty dataBean["invoice_use_custom_clinic_info"] ? "disabled" : ""} >${"on" eq dataBean["invoice_use_custom_clinic_info"] ? dataBean["invoice_custom_clinic_info"] : clinicData.label }</textarea>
+                            ${empty dataBean["invoice_use_custom_clinic_info"] ? "disabled" : ""} >${carlos:forHtmlContent("on" eq dataBean["invoice_use_custom_clinic_info"] ? dataBean["invoice_custom_clinic_info"] : clinicData.label)}</textarea>
                     </td>
                 </tr>
             </oscar:oscarPropertiesCheck>
@@ -271,9 +271,11 @@
             </oscar:oscarPropertiesCheck>
             </tbody>
         </table>
+        <oscar:oscarPropertiesCheck property="billregion" value="BC">
         <input type="button"
                onclick="document.forms['billingSettingsForm'].dboperation.value='Save'; document.forms['billingSettingsForm'].submit();"
                name="saveBillingSettings" value="<fmt:message key='global.save'/>"/>
+        </oscar:oscarPropertiesCheck>
         <%
             Boolean success = (Boolean) request.getAttribute("success");
             if (success != null && success) {

@@ -24,40 +24,62 @@ package io.github.carlos_emr.carlos.admin.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Security gate for the Security Update admin page.
  *
- * <p>Requires either {@code _admin} or {@code _admin.userAdmin} read privilege.
+ * <p>Requires either {@code _admin} or {@code _admin.userAdmin} write privilege.
  * POST method is enforced; non-POST requests receive HTTP 405.
  * All update logic is handled by the JSP.</p>
+ *
+ * <p>The gate also rejects a {@code security_no} that is not a positive integer. The
+ * JSP behind this route parses that parameter with {@code Integer.parseInt} before it
+ * loads the record, so an unparseable value would otherwise surface as a raw
+ * {@code NumberFormatException} error page instead of a 400.</p>
  *
  * @since 2026-04-05
  */
 public class SecurityUpdate2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient CarlosMethodSecurity methodSecurity;
 
+    public SecurityUpdate2Action() {
+        this(SpringUtils.getBean(CarlosMethodSecurity.class));
+    }
+
+    @Autowired
+    public SecurityUpdate2Action(CarlosMethodSecurity methodSecurity) {
+        this.methodSecurity = methodSecurity;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "r", null)) {
+        if (!methodSecurity.hasAdminWrite()) {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
+        // -1 sentinel covers missing, blank, non-numeric and out-of-range input alike.
+        if (NumberUtils.toInt(request.getParameter("security_no"), -1) <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "security_no is required and must be a positive integer");
             return NONE;
         }
 

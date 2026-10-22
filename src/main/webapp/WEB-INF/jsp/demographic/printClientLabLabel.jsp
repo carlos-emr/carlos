@@ -27,6 +27,14 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays the patient label PDF and the current provider's printer preferences.
+    Parameters: demographic_no identifies the patient; optional label/appointment
+    parameters are forwarded to the PDF action, which enforces patient read access.
+    Unset or null printer settings use interactive printing without a default printer.
+    @since 2026-09-17
+--%>
+
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -64,7 +72,7 @@
     }
     prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_CLIENT_LAB_LABEL_SILENT_PRINT);
     if (prop != null) {
-        if (prop.getValue().equalsIgnoreCase("yes")) {
+        if ("yes".equalsIgnoreCase(prop.getValue())) {
             silentPrint = true;
         }
     }
@@ -75,18 +83,19 @@
         <title><fmt:message key="report.printLabel.title"/></title>
     </head>
     <body>
-    <% if (!defaultPrinterName.isEmpty()) {
+    <% if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
         if (silentPrint == true) {%>
     <fmt:message key="report.printLabel.SilentlyPrintToDefaultPrinter"/>
     <%} else {%>
     <fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
-    <%=defaultPrinterName%>
+    <carlos:encode value='<%= defaultPrinterName %>' context="html"/>
     <%}%>
     <br>
-    <object id="pdf" type="application/pdf"
-            data="printClientLabLabelAction?demographic_no=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>" height="80%"
-            width="100%"></object>
+    <%-- The packaged CSP intentionally blocks object/embed (object-src 'none').
+         A same-origin frame allows the browser's PDF viewer without weakening it. --%>
+    <iframe id="pdf" title="Lab Label"
+            src="printClientLabLabelAction?demographic_no=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>"
+            style="width: 100%; height: 80vh; min-height: 240px; border: 0;"></iframe>
     </body>
 </html>
-

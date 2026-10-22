@@ -230,6 +230,34 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(result).isNull();
             assertThat(mergedDrug).isNull();
         }
+
+        @Test
+        @DisplayName("should not archive another patient's drug when a foreign drug id is supplied")
+        void shouldNotArchiveDrug_whenDemographicDoesNotMatch() {
+            // A victim's drug that belongs to demographic 9.
+            Drug victim = new Drug();
+            victim.setId(3);
+            victim.setDemographicId(9);
+            victim.setGenericName("ASA"); // so addNewDrug would succeed IF the guard were reached
+            victim.setArchived(false);
+            ((MockDrugDao) drugDao).seed(victim);
+
+            // Attacker is authorized for their own demographic (1, which passes writeCheck's <5 rule)
+            // but points the drug id at the victim's drug (3).
+            LoggedInInfo info = new LoggedInInfo();
+            Drug request = new Drug();
+            request.setDemographicId(1);
+            request.setId(3);
+            request.setGenericName("ASA");
+
+            // The cross-patient attempt must be DENIED EXPLICITLY (throw), not laundered into a null
+            // that prescribe() reinterprets as "drug not in the DB, add it" — which would create a
+            // phantom medication and report success.
+            assertThatThrownBy(() -> updateDrug(info, request))
+                    .isInstanceOf(io.github.carlos_emr.carlos.commn.exception.AccessDeniedException.class);
+            assertThat(mergedDrug).isNull();         // no drug archived
+            assertThat(victim.isArchived()).isFalse(); // victim's drug untouched
+        }
     }
 
     @Nested
@@ -526,6 +554,45 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
     }
 
+    /**
+     * Ownership contract for {@code archiveDrug}. Callers such as the re-prescribe flow stage drug
+     * ids from the request and rely on this method to refuse ids belonging to another patient, so
+     * both of its {@code false} branches are pinned here rather than trusted from the caller side.
+     */
+    @Nested
+    @DisplayName("archiveDrug")
+    class ArchiveDrug {
+
+        @Test
+        @DisplayName("should return false when the drug belongs to another demographic")
+        void shouldReturnFalse_whenDrugBelongsToAnotherDemographic() {
+            // A victim's drug, owned by demographic 9.
+            Drug victim = new Drug();
+            victim.setId(3);
+            victim.setDemographicId(9);
+            victim.setBrandName("Aspirin");
+            victim.setArchived(false);
+            ((MockDrugDao) drugDao).seed(victim);
+
+            // The caller is authorized for demographic 1 (passes writeCheck's <5 rule) but points
+            // the drug id at the victim's drug.
+            LoggedInInfo info = new LoggedInInfo();
+
+            assertThat(archiveDrug(info, 3, 1, Drug.REPRESCRIBED)).isFalse();
+            assertThat(mergedDrug).isNull();
+            assertThat(victim.isArchived()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false when no drug matches the id")
+        void shouldReturnFalse_whenDrugNotFound() {
+            LoggedInInfo info = new LoggedInInfo();
+
+            assertThat(archiveDrug(info, 20, 1, Drug.REPRESCRIBED)).isFalse();
+            assertThat(mergedDrug).isNull();
+        }
+    }
+
     // =========== HELPER METHODS =================
 
     private Drug createTestDrug() {
@@ -617,6 +684,11 @@ class RxManagerUnitTest extends RxManagerImpl {
             d2.setBrandName("Tylenol");
             d2.setArchived(false);
             drugs.add(d2);
+        }
+
+        /** Seed an extra drug (e.g. one belonging to a different demographic) for a single test. */
+        void seed(Drug d) {
+            this.drugs.add(d);
         }
 
         @Override

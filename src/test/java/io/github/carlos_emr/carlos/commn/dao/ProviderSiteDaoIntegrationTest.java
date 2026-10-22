@@ -41,7 +41,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link ProviderSiteDao} covering create,
- * findByProviderNo, and findActiveProvidersWithSites.
+ * findByProviderNo, findActiveProvidersWithSites, and
+ * findActiveProvidersBySharedSites.
  *
  * <p>Migrated from legacy {@code ProviderSiteDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -65,9 +66,20 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
      * Creates a provider record in the database to satisfy FK constraints on providersite.
      */
     private void ensureProviderExists(String providerNo) {
-        String sql = "MERGE INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status) KEY(provider_no) VALUES (?, 'Test', 'Provider', 'doctor', 'M', 'GP', '1')";
+        ensureProviderExists(providerNo, "Test", "Provider", "1");
+    }
+
+    /**
+     * Creates a provider record in the database to satisfy FK constraints on providersite.
+     */
+    private void ensureProviderExists(String providerNo, String firstName, String lastName, String status) {
+        String sql = "MERGE INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status) "
+                + "KEY(provider_no) VALUES (?, ?, ?, 'doctor', 'M', 'GP', ?)";
         entityManager.createNativeQuery(sql)
                 .setParameter(1, providerNo)
+                .setParameter(2, firstName)
+                .setParameter(3, lastName)
+                .setParameter(4, status)
                 .executeUpdate();
         entityManager.flush();
     }
@@ -80,6 +92,18 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
         entityManager.createNativeQuery(sql)
                 .setParameter(1, siteId)
                 .executeUpdate();
+        entityManager.flush();
+    }
+
+    /**
+     * Creates a providersite record in the database to satisfy site-scoped provider lookups.
+     */
+    private void ensureProviderSiteExists(String providerNo, int siteId) {
+        ensureSiteExists(siteId);
+
+        ProviderSite providerSite = new ProviderSite();
+        providerSite.setId(new ProviderSitePK(providerNo, siteId));
+        dao.persist(providerSite);
         entityManager.flush();
     }
 
@@ -192,6 +216,47 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             List<Provider> result = dao.findActiveProvidersWithSites("100");
 
             assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("findActiveProvidersBySharedSites")
+    class FindActiveProvidersBySharedSites {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return active same-site providers without requiring a billing number")
+        void shouldReturnActiveProviders_whenProvidersShareSites() {
+            String currentProvider = "710001";
+            String sameSiteProvider = "710002";
+            String inactiveSameSiteProvider = "710003";
+            String otherSiteProvider = "710004";
+            String systemSameSiteProvider = "-71005";
+
+            ensureProviderExists(currentProvider, "Current", "Provider", "1");
+            ensureProviderExists(sameSiteProvider, "Blank", "Billing", "1");
+            ensureProviderExists(inactiveSameSiteProvider, "Inactive", "Provider", "0");
+            ensureProviderExists(otherSiteProvider, "Other", "Site", "1");
+            ensureProviderExists(systemSameSiteProvider, "System", "Provider", "1");
+
+            ensureSiteExists(7101);
+            ensureSiteExists(7102);
+            ensureProviderSiteExists(currentProvider, 7101);
+            ensureProviderSiteExists(sameSiteProvider, 7101);
+            ensureProviderSiteExists(inactiveSameSiteProvider, 7101);
+            ensureProviderSiteExists(otherSiteProvider, 7102);
+            ensureProviderSiteExists(systemSameSiteProvider, 7101);
+
+            List<Provider> result = dao.findActiveProvidersBySharedSites(currentProvider);
+
+            assertThat(result)
+                    .extracting(Provider::getProviderNo)
+                    .contains(currentProvider, sameSiteProvider)
+                    .doesNotContain(inactiveSameSiteProvider, otherSiteProvider, systemSameSiteProvider);
+            assertThat(result)
+                    .filteredOn(provider -> sameSiteProvider.equals(provider.getProviderNo()))
+                    .singleElement()
+                    .satisfies(provider -> assertThat(provider.getOhipNo()).isBlank());
         }
     }
 }

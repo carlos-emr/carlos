@@ -45,6 +45,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxCodesData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RxUtil {
 
@@ -71,7 +72,7 @@ public class RxUtil {
             SimpleDateFormat df = new SimpleDateFormat(pattern, locale);
 
             return df.parse(Expression);
-        } catch (Exception e) {
+        } catch (Exception _) {
             return null;
         }
     }
@@ -205,6 +206,8 @@ public class RxUtil {
         return (int) Math.round(Clcr);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static double findNDays(String durationUnit) {
         double nDays = 0d;
         if (durationUnit.equalsIgnoreCase("D")) {
@@ -217,6 +220,8 @@ public class RxUtil {
         return nDays;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Double findNPerDay(String frequency) {
         double nPerDay = 0d;
         if (frequency.equalsIgnoreCase("od")) {
@@ -361,7 +366,6 @@ public class RxUtil {
     public static String findDuration(RxPrescriptionData.Prescription rx) {//calculate duration based on quantity, takemax, takemin, frequency, durationUnit.
         //get frequency, takemax, takemin, durationUnit by parsing special.
         instrucParser(rx);
-        MiscUtils.getLogger().debug("after  instrucParser, quantity=" + rx.getQuantity());
         String qStr = rx.getQuantity();
         if (rx.getUnitName() == null) {
             qStr = qStr.trim();
@@ -412,6 +416,8 @@ public class RxUtil {
         rx.setSpecial("");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String changeToStandardFrequencyCode(String str) {
         String retVal = str;
         if (str.equalsIgnoreCase("daily")) {
@@ -436,6 +442,8 @@ public class RxUtil {
         return retVal;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String convertWordToNumerical(String s) {
 
         s = s.trim();
@@ -481,6 +489,8 @@ public class RxUtil {
         return retVal;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void instrucParser(RxPrescriptionData.Prescription rx) {
         if (rx == null) {
             return;
@@ -569,69 +579,50 @@ public class RxUtil {
         }
 
         p("route", route);
-        if (route.equals("")) {
-            MiscUtils.getLogger().debug("route is not set");
-        }
 
         //find frequency
         for (String s : frequences) {
             Pattern p = Pattern.compile(s);
             Matcher matcher = p.matcher(instructions);
             if (matcher.find()) {
-                frequency = (instructions.substring(matcher.start(), matcher.end())).trim();
-                frequency = changeToStandardFrequencyCode(frequency);
-                String origFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
-
-                Pattern p2 = Pattern.compile("\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+" + Pattern.quote(origFrequency)); //allow to detect decimal number.
-                Matcher m2 = p2.matcher(instructions);
-
-                Pattern p4 = Pattern.compile("\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+" + Pattern.quote(frequency)); //use * after the first \s because "1 OD", 1 doesn't have a space in front.
-                Matcher m4 = p4.matcher(instructions);
+                String matchedFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
+                frequency = changeToStandardFrequencyCode(matchedFrequency);
                 //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
-                if (m4.find()) {
-                    String str2 = instructions.substring(m4.start(), m4.end());
-                    Pattern p5 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-                    Matcher m5 = p5.matcher(str2);
-                    if (m5.find()) {
-                        String str3 = str2.substring(m5.start(), m5.end());
-                        //       p("here str3", str3);
-                        takeMinFrequency = str3.split("-")[0];
-                        takeMaxFrequency = str3.split("-")[1];
-                    }
-                } else if (m2.find()) {
-                    String str = instructions.substring(m2.start(), m2.end());
-                    Pattern p3 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-                    Matcher m3 = p3.matcher(str);
-                    //     p("here22", str);
-                    if (m3.find()) {
-                        amountFrequency = str.substring(m3.start(), m3.end());
-                    }
+                NumberRange frequencyRange = findRangeBeforeFrequency(instructions, matcher.start());
+                if (frequencyRange != null) {
+                    takeMinFrequency = frequencyRange.min;
+                    takeMaxFrequency = frequencyRange.max;
                 } else {
-                    p("word amount");
-                    for (String word : zeroToTen) {
-                        String r1 = "\\s" + word + "\\s*" + Pattern.quote(frequency);
-                        String r2 = "^" + word + "\\s*" + Pattern.quote(frequency); //start at the begin of instructions
-                        Pattern p5 = Pattern.compile(r1);
-                        Matcher m5 = p5.matcher(instructions);
-                        p("pattern word =" + r1);
-                        if (m5.find()) {
-                            amountFrequency = instructions.substring(m5.start(), m5.end());
-                            amountFrequency = amountFrequency.replace(frequency, "").trim();
-                            p("amountFreq=" + amountFrequency);
-                            amountFrequency = convertWordToNumerical(amountFrequency);
-                            p("num amountFreq=" + amountFrequency);
-                            break;
-                        }
-                        p5 = Pattern.compile(r2);
-                        m5 = p5.matcher(instructions);
-                        if (m5.find()) {
-                            amountFrequency = instructions.substring(m5.start(), m5.end());
-                            amountFrequency = amountFrequency.replace(frequency, "").trim();
-                            p("amountFreq=" + amountFrequency);
-                            amountFrequency = convertWordToNumerical(amountFrequency);
-                            p("num amountFreq=" + amountFrequency);
-                            break;
+                    NumberToken frequencyAmount = findDecimalBeforeFrequency(instructions, matcher.start());
+                    if (frequencyAmount != null) {
+                        amountFrequency = frequencyAmount.value;
+                    } else {
+                        p("word amount");
+                        for (String word : zeroToTen) {
+                            String r1 = "\\s" + word + "\\s*" + Pattern.quote(frequency);
+                            String r2 = "^" + word + "\\s*" + Pattern.quote(frequency); //start at the begin of instructions
+                            Pattern p5 = Pattern.compile(r1);
+                            Matcher m5 = p5.matcher(instructions);
+                            p("pattern word =" + r1);
+                            if (m5.find()) {
+                                amountFrequency = instructions.substring(m5.start(), m5.end());
+                                amountFrequency = amountFrequency.replace(frequency, "").trim();
+                                p("amountFreq=" + amountFrequency);
+                                amountFrequency = convertWordToNumerical(amountFrequency);
+                                p("num amountFreq=" + amountFrequency);
+                                break;
+                            }
+                            p5 = Pattern.compile(r2);
+                            m5 = p5.matcher(instructions);
+                            if (m5.find()) {
+                                amountFrequency = instructions.substring(m5.start(), m5.end());
+                                amountFrequency = amountFrequency.replace(frequency, "").trim();
+                                p("amountFreq=" + amountFrequency);
+                                amountFrequency = convertWordToNumerical(amountFrequency);
+                                p("num amountFreq=" + amountFrequency);
+                                break;
+                            }
                         }
                     }
                 }
@@ -724,7 +715,6 @@ public class RxUtil {
 
         //match the pattern when there is no space between number and durationUnit.
         if (durationUnitSpec.equals("")) {
-            MiscUtils.getLogger().debug("no space between duration and duration unit.");
             for (String s : durUnits2) {
                 String instructionToCheck = checkInstructionStr(instructions);
                 Pattern p = Pattern.compile(s);
@@ -735,15 +725,12 @@ public class RxUtil {
                     p("instructionToCheck=" + instructionToCheck);
                     p(s);
                     String str1 = instructionToCheck.substring(m.start(), m.end());
-                    MiscUtils.getLogger().debug("str1=" + str1);
                     //get numUnit out
                     Pattern p1 = Pattern.compile("[0-9]+");
                     Matcher m1 = p1.matcher(str1);
                     if (m1.find()) {
                         duration = str1.substring(m1.start(), m1.end());
                         durationUnitSpec = (str1.substring(m1.end())).trim();
-                        MiscUtils.getLogger().debug("duration=" + duration);
-                        MiscUtils.getLogger().debug("durationUnitSpec=" + durationUnitSpec);
                         break;
                     }
                 }
@@ -817,12 +804,10 @@ public class RxUtil {
         double nPerDay = 0d; //number of drugs per day
         double nDays = 0d; //number of days per duration unit
 
-        MiscUtils.getLogger().debug("in instrucParser, unitName=" + rx.getUnitName());
         boolean isUnitNameUsed = true;
         if (rx.getUnitName() == null || rx.getUnitName().trim().length() == 0) isUnitNameUsed = false;
         else if (rx.getUnitName().equalsIgnoreCase("null")) isUnitNameUsed = false;
         else isUnitNameUsed = true;
-        MiscUtils.getLogger().debug("isUnitNameUsed=" + isUnitNameUsed);
         //if duration is 0 or null or length==0, it means duration is not specified by user
         //if quantity, frequency, durationUnit are valid values, isUnitNameUsed==false
         //yes, calculate duration based on quantity because duration is not specified
@@ -851,11 +836,9 @@ public class RxUtil {
             if (!isUnitNameUsed && !durationUnit.equals("") && !takeMin.equals("0") && !takeMax.equals("0") && !frequency.equals("")) {
                 nPerDay = findNPerDay(frequency);
                 nDays = findNDays(durationUnit);
-                MiscUtils.getLogger().debug("in instrucParser duration=" + duration);
                 //quantity=takeMax * nDays * duration * nPerDay
                 double quantityD = (Double.parseDouble(takeMax)) * nPerDay * nDays * (Double.parseDouble(duration));
                 quantity = (int) quantityD;
-                MiscUtils.getLogger().debug("in instrucParser, else=" + quantity + "-- " + takeMax + " --" + nPerDay + "-- " + nDays + "-- " + duration);
             }
 
         }
@@ -871,7 +854,6 @@ public class RxUtil {
         rx.setFrequencyCode(frequency);
         rx.setDurationUnit(durationUnit);
         rx.setPrn(prn);
-        MiscUtils.getLogger().debug("in instrucParser, quantity=" + quantity + "; unitName=" + rx.getUnitName());
         if (!isUnitNameUsed && quantity != 0) {
             rx.setQuantity(Integer.toString(quantity));
         }
@@ -898,151 +880,351 @@ public class RxUtil {
         hm.put("quantity", rx.getQuantity());
         hm.put("policyViolations", policyViolations);
 
-        MiscUtils.getLogger().debug("in parse instruction: " + hm);
         return;
     }
 
     public static boolean isStringToNumber(String s) {//see if string contains decimal or integer
-        boolean retBool = false;
-        Pattern p1 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-        Matcher m1 = p1.matcher(s);
-        if (m1.find()) {
-            String numStr = s.substring(m1.start(), m1.end());
-            String restStr = s.replace(numStr, "").trim();
-            if (restStr != null && restStr.length() > 0) retBool = false;
-            else retBool = true;
-        } else retBool = false;
+        if (s == null) {
+            return false;
+        }
+        String trimmed = s.trim();
+        NumberToken token = findDecimalAt(trimmed, 0);
+        return token != null && token.start == 0 && token.end == trimmed.length();
+    }
 
-        return retBool;
+    private static NumberRange findRangeBeforeFrequency(String text, int frequencyStart) {
+        return findRangeBefore(text, frequencyStart);
+    }
+
+    private static NumberToken findDecimalBeforeFrequency(String text, int frequencyStart) {
+        return findDecimalBefore(text, frequencyStart);
+    }
+
+    private static NumberRange findRangeBefore(String text, int endExclusive) {
+        int end = skipWhitespaceBackward(text, endExclusive);
+        NumberToken max = findDecimalBefore(text, end, false);
+        if (max == null || max.end != end) {
+            return null;
+        }
+
+        int hyphenIndex = skipWhitespaceBackward(text, max.start) - 1;
+        if (hyphenIndex < 0 || text.charAt(hyphenIndex) != '-') {
+            return null;
+        }
+
+        NumberToken min = findDecimalBefore(text, hyphenIndex);
+        if (min == null || min.end != hyphenIndex) {
+            return null;
+        }
+
+        return new NumberRange(min.value, max.value, max.end);
+    }
+
+    private static NumberRange findRangeAt(String text, int start) {
+        NumberToken min = findDecimalAt(text, start);
+        if (min == null || min.end >= text.length() || text.charAt(min.end) != '-') {
+            return null;
+        }
+
+        int maxStart = skipWhitespaceForward(text, min.end + 1);
+        NumberToken max = findDecimalAt(text, maxStart);
+        if (max == null) {
+            return null;
+        }
+
+        return new NumberRange(min.value, max.value, max.end);
+    }
+
+    private static NumberToken findDecimalBefore(String text, int endExclusive) {
+        return findDecimalBefore(text, endExclusive, true);
+    }
+
+    private static NumberToken findDecimalBefore(String text, int endExclusive, boolean requireBoundaryBefore) {
+        int end = skipWhitespaceBackward(text, endExclusive);
+        if (end == 0 || !isDigit(text.charAt(end - 1))) {
+            return null;
+        }
+
+        int start = end;
+        while (start > 0 && isDigit(text.charAt(start - 1))) {
+            start--;
+        }
+
+        if (start > 0 && text.charAt(start - 1) == '.') {
+            int dotIndex = start - 1;
+            int tokenStart = dotIndex;
+            while (tokenStart > 0 && isDigit(text.charAt(tokenStart - 1))) {
+                tokenStart--;
+            }
+            if (requireBoundaryBefore && !hasTokenBoundaryBefore(text, tokenStart)) {
+                return null;
+            }
+            return new NumberToken(text, tokenStart, end);
+        }
+
+        if (requireBoundaryBefore && !hasTokenBoundaryBefore(text, start)) {
+            return null;
+        }
+        return new NumberToken(text, start, end);
+    }
+
+    private static NumberToken findDecimalAt(String text, int start) {
+        if (start < 0 || start >= text.length()) {
+            return null;
+        }
+
+        int index = start;
+        while (index < text.length() && isDigit(text.charAt(index))) {
+            index++;
+        }
+
+        if (index < text.length() && text.charAt(index) == '.') {
+            int decimalPoint = index;
+            index++;
+            int fractionStart = index;
+            while (index < text.length() && isDigit(text.charAt(index))) {
+                index++;
+            }
+            if (index > fractionStart) {
+                return new NumberToken(text, start, index);
+            }
+            if (decimalPoint > start) {
+                return new NumberToken(text, start, decimalPoint);
+            }
+            return null;
+        }
+
+        if (index > start) {
+            return new NumberToken(text, start, index);
+        }
+
+        return null;
+    }
+
+    private static String findFractionAt(String text, int start) {
+        if (start < 0 || start >= text.length() || !isDigit(text.charAt(start))) {
+            return null;
+        }
+
+        int index = start;
+        while (index < text.length() && isDigit(text.charAt(index))) {
+            index++;
+        }
+
+        if (index >= text.length() || text.charAt(index) != '/') {
+            return null;
+        }
+
+        index++;
+        int denominatorStart = index;
+        while (index < text.length() && isDigit(text.charAt(index))) {
+            index++;
+        }
+        if (index == denominatorStart) {
+            return null;
+        }
+        if (!hasTokenBoundaryAt(text, index)) {
+            return null;
+        }
+
+        return text.substring(start, index);
+    }
+
+    private static int skipWhitespaceBackward(String text, int endExclusive) {
+        int index = Math.min(endExclusive, text.length());
+        while (index > 0 && Character.isWhitespace(text.charAt(index - 1))) {
+            index--;
+        }
+        return index;
+    }
+
+    private static int skipWhitespaceForward(String text, int start) {
+        int index = Math.max(0, start);
+        while (index < text.length() && Character.isWhitespace(text.charAt(index))) {
+            index++;
+        }
+        return index;
+    }
+
+    private static boolean hasTokenBoundaryAt(String text, int index) {
+        return index >= text.length() || Character.isWhitespace(text.charAt(index));
+    }
+
+    private static boolean hasTokenBoundaryBefore(String text, int index) {
+        return index <= 0 || Character.isWhitespace(text.charAt(index - 1));
+    }
+
+    private static boolean isDigit(char c) {
+        return c >= '0' && c <= '9';
     }
 
 
-	private static InstructionSegment scanInstruction(String instructions, String[] methods) {
-		InstructionSegment segment = new InstructionSegment();
+    private static InstructionSegment scanInstruction(String instructions, String[] methods) {
+        InstructionSegment segment = new InstructionSegment();
 
-		for (String s : methods) {
-			Pattern p = Pattern.compile(s);
-			Matcher m = p.matcher(instructions);
-			if (m.find()) {
-				p("must be here");
+        for (String s : methods) {
+            Pattern p = Pattern.compile(s);
+            Matcher m = p.matcher(instructions);
+            if (m.find()) {
+                p("must be here");
+                segment.method = instructions.substring(m.start(), m.end());
+                scanForFrequencyAndUpdateInstructionSegment(segment, instructions, segment.method, m.end());
+                break;
+            }
+        }
 
-				segment.method = instructions.substring(m.start(), m.end());
-				scanForFrequencyAndUpdateInstructionSegment(segment, instructions, segment.method);
-				break;
-			}
-		}
+        if (segment.method == null) {
+            String placeholderMethod = "<NO_METHOD>";
+            String instructionWithPlaceholderMethod = placeholderMethod + " " + instructions;
+            Pattern p = Pattern.compile("(?i)" + placeholderMethod);
+            Matcher m = p.matcher(instructionWithPlaceholderMethod);
+            if (m.find()) {
+                scanForFrequencyAndUpdateInstructionSegment(segment, instructionWithPlaceholderMethod, placeholderMethod, m.end());
+            }
+        }
 
-		if (segment.method == null) {
-			String placeholderMethod = "<NO_METHOD>";
-			String instructionWithPlaceholderMethod = placeholderMethod + " " + instructions;
-			Pattern p = Pattern.compile("(?i)" + placeholderMethod);
-			Matcher m = p.matcher(instructionWithPlaceholderMethod);
-			if (m.find())
-				scanForFrequencyAndUpdateInstructionSegment(segment, instructionWithPlaceholderMethod, placeholderMethod);
-		}
+        return segment;
+    }
 
-		return segment;
-	}
+    private static void scanForFrequencyAndUpdateInstructionSegment(InstructionSegment segment, String instructions, String method, int methodEnd) {
+        int amountStart = skipWhitespaceForward(instructions, methodEnd);
+        if (setRangeAfterMethod(segment, instructions, amountStart)) {
+            return;
+        }
+        if (setDecimalAfterMethod(segment, instructions, amountStart)) {
+            return;
+        }
+        if (setFractionAfterMethod(segment, instructions, amountStart)) {
+            return;
+        }
 
-	private static void scanForFrequencyAndUpdateInstructionSegment(InstructionSegment segment, String instructions, String method) {
-		String takeMinMethod = null;
-		String takeMaxMethod = null;
-		String amountMethod = null;
-		String amountFrequency = null;
+        segment.amountMethod = findWordAmountAfterMethod(instructions, method);
+    }
 
-		Pattern p2 = Pattern.compile(Pattern.quote(method) + "\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+");
-		Matcher m2 = p2.matcher(instructions);
+    private static boolean setRangeAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
+        NumberRange methodRange = findRangeAt(instructions, amountStart);
+        if (methodRange == null || !hasTokenBoundaryAt(instructions, methodRange.end)) {
+            return false;
+        }
 
-		Pattern pF1 = Pattern.compile(Pattern.quote(method) + "\\s*[0-9]+(?:\\/[0-9]+)?\\s+");
-		Matcher mF1 = pF1.matcher(instructions);
+        p("else if 1");
+        segment.takeMin = methodRange.min;
+        segment.takeMax = methodRange.max;
+        return true;
+    }
 
-		Pattern p4 = Pattern.compile(Pattern.quote(method) + "\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+");
-		Matcher m4 = p4.matcher(instructions);
+    private static boolean setDecimalAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
+        NumberToken methodAmount = findDecimalAt(instructions, amountStart);
+        if (methodAmount == null || !hasTokenBoundaryAt(instructions, methodAmount.end)) {
+            return false;
+        }
 
-		//since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
-		if (m4.find()) {
-			p("else if 1");
-			String str2 = instructions.substring(m4.start(), m4.end());
-			Pattern p5 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-			Matcher m5 = p5.matcher(str2);
-			if (m5.find()) {
-				String str3 = str2.substring(m5.start(), m5.end());
-				//           p("str3", str3);
-				takeMinMethod = str3.split("-")[0];
-				takeMaxMethod = str3.split("-")[1];
-			}
-		} else if (m2.find()) {
-			p("if 1");
-			String str = instructions.substring(m2.start(), m2.end());
-			p("str1 ", str);
-			Pattern p3 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-			Matcher m3 = p3.matcher(str);
-			if (m3.find()) {
-				p("found1");
-				amountMethod = str.substring(m3.start(), m3.end());
-				//      p("amountMethod", amountMethod);
-			}
-		} else if (mF1.find()) {
-			String partInstructions = instructions.substring(mF1.start(), mF1.end());
-			Pattern pF2 = Pattern.compile("[0-9]+(?:\\/[0-9]+)?");
-			Matcher mF2 = pF2.matcher(partInstructions);
+        p("if 1");
+        p("str1 ", instructions.substring(amountStart, methodAmount.end));
+        p("found1");
+        segment.amountMethod = methodAmount.value;
+        //      p("amountMethod", amountMethod);
+        return true;
+    }
 
-			if (mF2.find()) {
-				String fraction = partInstructions.substring(mF2.start(), mF2.end());
-				amountFrequency = "0";
-				if (fraction.equals("1/2"))
-					amountFrequency = "0.5";
-				else if (fraction.equals("1/4"))
-					amountFrequency = "0.25";
-			}
-		} else {
-			p("word amount");
-			for (String word : zeroToTen) {
-                String safeMethod = Pattern.quote(method);
-                String safeWord = Pattern.quote(word);
-				String r1 = safeMethod + "\\s+" + safeWord + "\\s";
-				String r2 = safeMethod + "\\s+" + safeWord + "$";
-				Pattern p5 = Pattern.compile(r1);
-				Matcher m5 = p5.matcher(instructions);
-				p("pattern word =" + r1);
-				if (m5.find()) {
-					amountMethod = instructions.substring(m5.start(), m5.end());
-					amountMethod = amountMethod.replace(method, "").trim();
-					p("amountMethod=" + amountMethod);
-					amountMethod = convertWordToNumerical(amountMethod);
-					p("num amountMethod=" + amountMethod);
-					break;
-				} else {
-					p5 = Pattern.compile(r2);
-					m5 = p5.matcher(instructions);
-					p("pattern word =" + r2);
-					if (m5.find()) {
-						amountMethod = instructions.substring(m5.start(), m5.end());
-						amountMethod = amountMethod.replace(method, "").trim();
-						p("amountMethod=" + amountMethod);
-						amountMethod = convertWordToNumerical(amountMethod);
-						p("num amountMethod=" + amountMethod);
-						break;
-					}
-				}
-			}
-		}
+    private static boolean setFractionAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
+        String fraction = findFractionAt(instructions, amountStart);
+        if (fraction == null) {
+            return false;
+        }
 
-		segment.takeMax = takeMaxMethod;
-		segment.takeMin = takeMinMethod;
-		segment.amountMethod = amountMethod;
-		segment.amountFrequency = amountFrequency;
-	}
+        segment.amountFrequency = convertFractionToAmount(fraction);
+        return true;
+    }
 
-	private static class InstructionSegment {
-		String method;
-		String takeMin;
-		String takeMax;
-		String amountMethod;
-		String amountFrequency;
-	}
+    private static String convertFractionToAmount(String fraction) {
+        int separator = fraction.indexOf('/');
+        if (separator <= 0 || separator == fraction.length() - 1) {
+            return "0";
+        }
+
+        try {
+            double numerator = Double.parseDouble(fraction.substring(0, separator));
+            double denominator = Double.parseDouble(fraction.substring(separator + 1));
+            if (denominator == 0d || !Double.isFinite(numerator) || !Double.isFinite(denominator)) {
+                return "0";
+            }
+
+            double amount = numerator / denominator;
+            return Double.isFinite(amount) ? Double.toString(amount) : "0";
+        } catch (NumberFormatException _) {
+            return "0";
+        }
+    }
+
+    private static String findWordAmountAfterMethod(String instructions, String method) {
+        p("word amount");
+        for (String word : zeroToTen) {
+            String amountMethod = findWordAmountAfterMethod(instructions, method, word, "\\s");
+            if (amountMethod != null) {
+                return amountMethod;
+            }
+            amountMethod = findWordAmountAfterMethod(instructions, method, word, "$");
+            if (amountMethod != null) {
+                return amountMethod;
+            }
+        }
+        return null;
+    }
+
+    private static String findWordAmountAfterMethod(String instructions, String method, String word, String suffix) {
+        String safeMethod = Pattern.quote(method);
+        String regex = safeMethod + "\\s+" + word + suffix;
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(instructions);
+        p("pattern word =" + regex);
+        if (!matcher.find()) {
+            return null;
+        }
+
+        String amountMethod = instructions.substring(matcher.start(), matcher.end());
+        amountMethod = amountMethod.replace(method, "").trim();
+        p("amountMethod=" + amountMethod);
+        amountMethod = convertWordToNumerical(amountMethod);
+        p("num amountMethod=" + amountMethod);
+        return amountMethod;
+    }
+
+    private static class InstructionSegment {
+        String method;
+        String takeMin;
+        String takeMax;
+        String amountMethod;
+        String amountFrequency;
+    }
+
+    private static class NumberToken {
+        final int start;
+        final int end;
+        final String value;
+
+        NumberToken(String text, int start, int end) {
+            this.start = start;
+            this.end = end;
+            this.value = text.substring(start, end);
+        }
+    }
+
+    private static class NumberRange {
+        final String min;
+        final String max;
+        final int end;
+
+        NumberRange(String min, String max, int end) {
+            this.min = min;
+            this.max = max;
+            this.end = end;
+        }
+    }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String trimSpecial(RxPrescriptionData.Prescription rx) {
         String special = rx.getSpecial();
         if (special == null || special.trim().length() == 0) return "";
@@ -1088,12 +1270,10 @@ public class RxUtil {
             regex5 = regex5.trim();
             special = special.replace(regex5, "");
         }
-        MiscUtils.getLogger().debug("before trimming mitte=" + special);
         String regex6 = "Mitte:\\s*[0-9]+\\s*\\w+";
         p = Pattern.compile(regex6);
         m = p.matcher(special);
         special = m.replaceAll("");
-        MiscUtils.getLogger().debug("after trimming mitte special=" + special);
         //assume drug name is before method and drug name is the first part of the instruction.
         String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
         //rx_enhance changes the behavior by not deleting anything up to the words Take, apply..
@@ -1125,26 +1305,15 @@ public class RxUtil {
 
     }
 
+    /**
+     * Retains compatibility with legacy diagnostic callers without logging clinical data.
+     *
+     * @param bean prescription session; its clinical contents are not inspected
+     * @deprecated prescription contents must not be written to application logs
+     */
+    @Deprecated
     public static void printStashContent(RxSessionBean bean) {
-        p("***drugs in present stash, stash size", "" + bean.getStashSize());
-        for (int j = 0; j < bean.getStashSize(); j++) {
-            try {
-                RxPrescriptionData.Prescription rxTemp = bean.getStashItem(j);
-                p("stash index", "" + j);
-                p("randomId", "" + rxTemp.getRandomId());
-                p("generic name", rxTemp.getGenericName());
-                p("special", rxTemp.getSpecial());
-                p("quantity", rxTemp.getQuantity());
-                p("repeat=" + rxTemp.getRepeat());
-                p("atccode", rxTemp.getAtcCode());
-                p("regional identifier", rxTemp.getRegionalIdentifier());
-                p("---");
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
-            }
-        }
-        p("***done***");
-
+        // Deliberate compatibility no-op: staged prescriptions contain clinical information.
     }
 
     public static void setDefaultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx) {
@@ -1161,7 +1330,7 @@ public class RxUtil {
     }
 
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
-        String qStr = d.getQuantity();
+        String qStr = d.getQuantity() == null ? "" : d.getQuantity();
         Pattern p1 = Pattern.compile("\\d+");
         Matcher m1 = p1.matcher(qStr);
         if (m1.find()) {
@@ -1170,13 +1339,12 @@ public class RxUtil {
             //get the quantity unit
             String qUnit = qStr.replace(qNum, "").trim();
             if (qUnit != null && qUnit.length() > 0) {
-                MiscUtils.getLogger().debug("changing unitName in setResultSpecialQuantityRepeat ");
                 rx.setUnitName(qUnit);
             }
         }
         rx.setUnitName(d.getUnitName());
 
-        rx.setRepeat(d.getRepeat());
+        rx.setRepeat(d.getRepeat() == null ? 0 : d.getRepeat());
         rx.setSpecial(d.getSpecial());
         rx.setSpecial(trimSpecial(rx));
     }
@@ -1192,7 +1360,6 @@ public class RxUtil {
             retList.add(hm);
         }
 
-        MiscUtils.getLogger().debug("in drugsTableQuery, retList=" + retList);
         return retList;
     }
 
@@ -1231,6 +1398,8 @@ public class RxUtil {
         return retList;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static List<HashMap<String, String>> trimMedHistoryList(RxPrescriptionData.Prescription rx, List<HashMap<String, String>> l) {
 
         String customName = rx.getCustomName();
@@ -1255,7 +1424,7 @@ public class RxUtil {
                     retList.add(h);
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                logger.error("Prescription utility operation failed ({})", e.getClass().getSimpleName());
             }
             retList = commonUniqueMedHistory(retList);
         }
@@ -1265,7 +1434,6 @@ public class RxUtil {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static List<HashMap<String, String>> commonUniqueMedHistory(List<HashMap<String, String>> l) {
-        MiscUtils.getLogger().debug("in commonUniqueMedHistory l=" + l);
 
         if (l != null && l.size() > 0) {
             HashMap<HashMap, Integer> elementCount = new HashMap<HashMap, Integer>();
@@ -1291,9 +1459,8 @@ public class RxUtil {
                     }
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                logger.error("Prescription utility operation failed ({})", e.getClass().getSimpleName());
             }
-            MiscUtils.getLogger().debug("in commonUniqueMedHistory retList=" + retList);
             return retList;
         } else return l;
     }
@@ -1301,27 +1468,20 @@ public class RxUtil {
     private static String removeQuantityMitteRepeat(String s) {
         Pattern p;
         Matcher m;
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat s=" + s);
         String regex2 = "Repeats:\\s*[0-9]*\\.?[0-9]*\\s*";
         p = Pattern.compile(regex2);
         m = p.matcher(s);
         s = m.replaceAll("");
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat regex=" + regex2);
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat after remove repeat s=" + s);
 
         String regex1 = "Qty:\\s*[0-9]*\\.?[0-9]*\\s*\\w*";
         p = Pattern.compile(regex1);
         m = p.matcher(s);
         s = m.replaceAll("");
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat regex=" + regex1);
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat after remove quantity =" + s);
 
         String regex6 = "Mitte:\\s*[0-9]*\\.?[0-9]*\\s*\\w*";
         p = Pattern.compile(regex6);
         m = p.matcher(s);
         s = m.replaceAll("");
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat regex=" + regex6);
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat after remove mitte =" + s);
         s = s.trim();
         return s;
     }
@@ -1387,7 +1547,6 @@ public class RxUtil {
 
         if (lastId != null) {
             int compareId = lastId.intValue();
-            MiscUtils.getLogger().debug("compareId: " + compareId);
             if (drugId > compareId) {
                 lastPrescribed = true;
             } else {
@@ -1429,7 +1588,6 @@ public class RxUtil {
                 discontinuedLatest = true;
             } else {
                 discontinuedLatest = false;
-                MiscUtils.getLogger().debug("not last drug ");
             }
         } else {
             discontinuedLatest = false;
@@ -1439,6 +1597,8 @@ public class RxUtil {
     }
 
     //check to see if a represcription of a med is clicked twice.
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isRxUniqueInStash(final RxSessionBean beanRx, final RxPrescriptionData.Prescription rx) {
         boolean unique = true;
         if (rx.isCustom()) {
@@ -1457,7 +1617,7 @@ public class RxUtil {
                         unique = false;
                     }
                 } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
+                    logger.error("Prescription utility operation failed ({})", e.getClass().getSimpleName());
                 }
             }
         } else {
@@ -1474,7 +1634,7 @@ public class RxUtil {
                         unique = false;
                     }
                 } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
+                    logger.error("Prescription utility operation failed ({})", e.getClass().getSimpleName());
                 }
             }
         }
@@ -1514,26 +1674,44 @@ public class RxUtil {
 
     // External drug interaction service removed - local MediSpan used via DrugrefUtil
 
-    private static final Logger log2 = MiscUtils.getLogger();
 
     // MyDrugRef callWebserviceLite method removed - no longer needed
 
     public static <T> HashMap<Long, T> createKeyValPair(List<T> lst) {
         HashMap<Long, T> ret = new HashMap<Long, T>();
-        Long rand;
         for (T t : lst) {
-            rand = Math.round(Math.random() * 1000000);
+            // Draw until the key is unused: a repeated key silently replaced an earlier entry (#3908).
+            long rand;
+            do {
+                rand = io.github.carlos_emr.carlos.prescript.pageUtil.RxStashIds.next(
+                        io.github.carlos_emr.carlos.prescript.pageUtil.RxStashIds.DEFAULT_BOUND);
+            } while (ret.containsKey(rand));
             ret.put(rand, t);
         }
         return ret;
     }
 
+    /**
+     * Retains the legacy diagnostic API without recording potentially clinical values.
+     *
+     * @param str legacy diagnostic label
+     * @param s legacy diagnostic value
+     * @deprecated clinical debug values must not be written to application logs
+     */
+    @Deprecated
     public static void p(String str, String s) {
-        MiscUtils.getLogger().debug(str + "=" + s);
+        // Deliberate compatibility no-op: callers may supply clinical information.
     }
 
+    /**
+     * Retains the legacy diagnostic API without recording potentially clinical text.
+     *
+     * @param str legacy diagnostic text
+     * @deprecated clinical debug text must not be written to application logs
+     */
+    @Deprecated
     public static void p(String str) {
-        MiscUtils.getLogger().debug(str);
+        // Deliberate compatibility no-op: callers may supply clinical information.
     }
 
     public static final java.util.Date combineDateTime(final java.util.Date date,

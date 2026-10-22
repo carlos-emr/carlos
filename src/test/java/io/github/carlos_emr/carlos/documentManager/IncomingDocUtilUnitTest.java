@@ -1,0 +1,809 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.documentManager;
+
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
+
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+/**
+ * Regression tests for the incoming-docs queue flows behind issue #3238: a never-used
+ * queue must render as empty rather than erroring, and queued documents must be
+ * resolvable under their exact on-disk names.
+ */
+@DisplayName("IncomingDocUtil incoming queue listing and name resolution")
+@Tag("unit")
+@Tag("fast")
+@Tag("document")
+class IncomingDocUtilUnitTest {
+
+    /** On-disk name shaped like a browser download copy — spaces and parentheses included. */
+    private static final String PARENTHESIZED_NAME = "2026_07_08_scan (1).pdf";
+
+    private static final String ALLOWED_FOLDERS_PROPERTY = "ALLOWED_INCOMING_DOC_FOLDERS";
+
+    @TempDir
+    Path incomingRoot;
+
+    private String previousIncomingDocumentDir;
+    private String previousAllowedFolders;
+    private String previousRecycleBin;
+
+    @BeforeEach
+    void setUp() {
+        previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        previousAllowedFolders = CarlosProperties.getInstance().getProperty(ALLOWED_FOLDERS_PROPERTY);
+        previousRecycleBin = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_RECYCLEBIN");
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incomingRoot.toString());
+        CarlosProperties.getInstance().remove(ALLOWED_FOLDERS_PROPERTY);
+    }
+
+    @AfterEach
+    void tearDown() {
+        restoreProperty("INCOMINGDOCUMENT_DIR", previousIncomingDocumentDir);
+        restoreProperty("INCOMINGDOCUMENT_RECYCLEBIN", previousRecycleBin);
+        restoreProperty(ALLOWED_FOLDERS_PROPERTY, previousAllowedFolders);
+    }
+
+    private static void restoreProperty(String name, String previous) {
+        if (previous == null) {
+            CarlosProperties.getInstance().remove(name);
+        } else {
+            CarlosProperties.getInstance().setProperty(name, previous);
+        }
+    }
+
+    /** The recycle directory the delete operations would use; it must not appear when recycling is off. */
+    private Path recycleDirectory() {
+        return incomingRoot.resolve("1").resolve("Fax_deleted");
+    }
+
+    @Test
+    @DisplayName("Page-count admission refusal propagates instead of becoming a zero-page document")
+    void shouldPropagatePageCountCapacityRefusal() throws Exception {
+        Path directory = Files.createDirectories(incomingRoot.resolve("1").resolve("Fax"));
+        Files.writeString(directory.resolve("busy.pdf"), "not parsed before admission");
+        try (var bounded = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.class)) {
+            bounded.when(() -> io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.runWithin(
+                    org.mockito.Mockito.eq(30), org.mockito.Mockito.eq("incoming-document-pagecount"),
+                    org.mockito.Mockito.<java.util.concurrent.Callable<Integer>>any()))
+                    .thenThrow(new io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException());
+            assertThatThrownBy(() -> IncomingDocUtil.getNumOfPages("1", "Fax", "busy.pdf"))
+                    .isInstanceOf(io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException.class);
+        }
+    }
+
+    @Test
+    void shouldPropagatePageCountExecutionFailureInsteadOfZero() throws Exception {
+        java.nio.file.Path incoming = incomingRoot.resolve("1/Fax");
+        java.nio.file.Files.createDirectories(incoming);
+        java.nio.file.Files.writeString(incoming.resolve("failed.pdf"), "owned");
+
+        try (org.mockito.MockedStatic<io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask> tasks = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.class)) {
+            tasks.when(() -> io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.runWithin(org.mockito.ArgumentMatchers.eq(30),
+                    org.mockito.ArgumentMatchers.eq("incoming-document-pagecount"), org.mockito.Mockito.<java.util.concurrent.Callable<Integer>>any()))
+                    .thenThrow(new java.io.IOException("synthetic execution deadline"));
+            assertThatThrownBy(() -> IncomingDocUtil.getNumOfPages("1", "Fax", "failed.pdf"))
+                    .isInstanceOf(java.io.IOException.class).hasMessage("synthetic execution deadline");
+        }
+        if (previousAllowedFolders == null) {
+            CarlosProperties.getInstance().remove(ALLOWED_FOLDERS_PROPERTY);
+        } else {
+            CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY, previousAllowedFolders);
+        }
+    }
+
+    @Test
+    @DisplayName("should return an empty doc list when the queue directory does not exist yet")
+    void shouldReturnEmptyDocList_whenQueueDirectoryDoesNotExist() {
+        // A queue subdirectory is only created by the first upload or fax import; browsing
+        // a fresh queue used to throw SecurityException and land on the error page.
+        String missingDirectory = incomingRoot.resolve("1").resolve("Fax").toString();
+
+        List<String> docList = new IncomingDocUtil().getDocList(missingDirectory);
+
+        assertThat(docList).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should create a missing queue directory when a write path is requested")
+    void shouldCreateMissingDirectory_whenWritePathRequested() {
+        String path = IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", "Refile");
+
+        assertThat(Path.of(path)).isDirectory();
+    }
+
+    @Test
+    @DisplayName("should fail when a write path cannot be created as a directory")
+    void shouldFail_whenWritePathIsExistingFile() throws Exception {
+        Files.createFile(incomingRoot.resolve("1"));
+
+        assertThatThrownBy(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", "Refile"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Failed to create incoming document directory");
+    }
+
+    @Test
+    @DisplayName("should fail loudly instead of recreating a missing incoming document root")
+    void shouldFailLoudly_whenWriteRootMissing() {
+        Path missingRoot = incomingRoot.resolve("missing-root");
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", missingRoot.toString());
+
+        assertThatThrownBy(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", "Refile"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("Configured path is not a directory");
+        assertThat(missingRoot).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("should reject a doc list directory that resolves outside the incoming root")
+    void shouldRejectDocListDirectory_whenOutsideIncomingRoot(@TempDir Path outsideRoot) {
+        // The containment check must run before any filesystem probe; without it the
+        // empty-queue early return would happily probe arbitrary paths.
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+        String outsideDirectory = outsideRoot.toString();
+
+        assertThatThrownBy(() -> incomingDocUtil.getDocList(outsideDirectory))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @DisplayName("should fail loudly when the incoming root itself is missing")
+    void shouldFailLoudly_whenIncomingRootMissing() {
+        // Only a missing queue SUBDIRECTORY is an empty queue. A missing base directory
+        // (config typo, unmounted volume) rendering every queue as empty would hide
+        // accumulating incoming documents from intake staff.
+        Path missingBase = incomingRoot.resolve("missing-base");
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", missingBase.toString());
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+        String missingQueueDirectory = missingBase.resolve("1").resolve("Fax").toString();
+
+        assertThatThrownBy(() -> incomingDocUtil.getDocList(missingQueueDirectory))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @DisplayName("should throw an illegal state when the incoming root is not configured")
+    void shouldThrowIllegalState_whenIncomingRootUnconfigured() {
+        CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+        String queueDirectory = incomingRoot.resolve("1").resolve("Fax").toString();
+
+        assertThatThrownBy(() -> incomingDocUtil.getDocList(queueDirectory))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("INCOMINGDOCUMENT_DIR");
+    }
+
+    @Test
+    @DisplayName("should list queued PDF files when the queue directory exists")
+    void shouldListQueuedPdfFiles_whenQueueDirectoryExists() throws Exception {
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        assertThat(faxDir.mkdirs()).isTrue();
+        Files.createFile(faxDir.toPath().resolve("first.pdf"));
+        Files.createFile(faxDir.toPath().resolve(PARENTHESIZED_NAME));
+        Files.createFile(faxDir.toPath().resolve(".hidden.pdf"));
+        Files.createFile(faxDir.toPath().resolve("notes.txt"));
+
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+        List<String> docList = incomingDocUtil.getDocList(faxDir.getPath());
+
+        assertThat(docList)
+                .describedAs("only PDF files are listed, under their exact on-disk names")
+                .containsExactlyInAnyOrder("first.pdf", PARENTHESIZED_NAME);
+        assertThat(incomingDocUtil.getPdfListModifiedDate()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("should omit queued PDFs whose names cannot be read safely")
+    void shouldOmitQueuedPdfFiles_whenNameFailsReadValidation() throws Exception {
+        // These are legal single filenames on Unix but validatePathComponent correctly
+        // treats them as path-bearing input. Listing them created rows that always failed
+        // when selected. Windows cannot create these fixture names in the first place.
+        assumeTrue(File.separatorChar == '/');
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        assertThat(faxDir.mkdirs()).isTrue();
+        Files.createFile(faxDir.toPath().resolve("nested\\report.pdf"));
+        Files.createFile(faxDir.toPath().resolve("C:report.pdf"));
+
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+
+        assertThat(incomingDocUtil.getDocList(faxDir.getPath())).isEmpty();
+        assertThat(incomingDocUtil.getPdfListModifiedDate()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should omit queued PDF symlinks whose targets are outside the incoming root")
+    void shouldOmitQueuedPdfSymlink_whenTargetOutsideIncomingRoot(@TempDir Path outsideRoot) throws Exception {
+        assumeTrue(File.separatorChar == '/');
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        assertThat(faxDir.mkdirs()).isTrue();
+        Files.createFile(faxDir.toPath().resolve("local.pdf"));
+        Path outsidePdf = Files.createFile(outsideRoot.resolve("outside.pdf"));
+        Files.createSymbolicLink(faxDir.toPath().resolve("linked.pdf"), outsidePdf);
+
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+
+        assertThat(incomingDocUtil.getDocList(faxDir.getPath())).containsExactly("local.pdf");
+        assertThat(incomingDocUtil.getPdfListModifiedDate()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should not expose mutable modification-date state")
+    void shouldNotExposeMutableModificationDates() throws Exception {
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        assertThat(faxDir.mkdirs()).isTrue();
+        Files.createFile(faxDir.toPath().resolve("first.pdf"));
+
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+        incomingDocUtil.getDocList(faxDir.getPath());
+
+        assertThatThrownBy(() -> incomingDocUtil.getPdfListModifiedDate().add("injected"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThat(incomingDocUtil.getPdfListModifiedDate()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should preserve the exact on-disk name when resolving a queued document path")
+    void shouldPreserveExactFileName_whenResolvingQueuedDocumentPath() {
+        // The listing exposes real on-disk names; normalizing them on the read path made
+        // every name with spaces or parentheses unresolvable ("The PDF could be corrupted").
+        String path = IncomingDocUtil.getIncomingDocumentFilePathName("1", "Fax", PARENTHESIZED_NAME);
+
+        assertThat(path).isEqualTo(
+                incomingRoot.resolve("1").resolve("Fax").resolve(PARENTHESIZED_NAME).toString());
+    }
+
+    @Test
+    @DisplayName("should resolve the page count for a queued PDF whose name contains parentheses")
+    void shouldResolvePageCount_forPdfNameWithParentheses() throws Exception {
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        assertThat(faxDir.mkdirs()).isTrue();
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            document.save(new File(faxDir, PARENTHESIZED_NAME));
+        }
+
+        int numOfPages = IncomingDocUtil.getNumOfPages("1", "Fax", PARENTHESIZED_NAME);
+
+        assertThat(numOfPages).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should still reject a pdf name containing a parent directory traversal")
+    void shouldRejectPdfName_withParentDirectoryTraversal() {
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePathName("1", "Fax", "../escape.pdf"))
+                .isInstanceOf(FileValidationException.class);
+    }
+
+    @Test
+    @DisplayName("should still reject a pdf name containing a path separator")
+    void shouldRejectPdfName_withPathSeparator() {
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePathName("1", "Fax", "sub/escape.pdf"))
+                .isInstanceOf(FileValidationException.class);
+    }
+
+    @Test
+    @DisplayName("should reject a queued document name that is not a pdf")
+    void shouldRejectPdfName_withNonPdfExtension() {
+        // Preserving the exact name costs the normalizing validator's extension allowlist,
+        // so the queue keeps its own: request-supplied names cannot address a .jsp or any
+        // other non-PDF sitting in the queue directory.
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePathName("1", "Fax", "shell.jsp"))
+                .isInstanceOf(FileValidationException.class);
+    }
+
+    @Test
+    @DisplayName("should accept an uppercase pdf extension as a queued document name")
+    void shouldAcceptPdfName_withUppercaseExtension() {
+        // getDocList lists names case-insensitively, so resolution must agree with it.
+        String path = IncomingDocUtil.getIncomingDocumentFilePathName("1", "Fax", "SCAN.PDF");
+
+        assertThat(path).isEqualTo(incomingRoot.resolve("1").resolve("Fax").resolve("SCAN.PDF").toString());
+    }
+
+    @Test
+    @DisplayName("should delete one page from a queued document with an uppercase pdf extension")
+    void shouldDeletePage_fromPdfNameWithUppercaseExtension() throws Exception {
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        assertThat(faxDir.mkdirs()).isTrue();
+        File pdf = new File(faxDir, "SCAN.PDF");
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            document.addPage(new PDPage());
+            document.save(pdf);
+        }
+
+        IncomingDocUtil.deletePage("1", "Fax", pdf.getName(), "1");
+
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", pdf.getName())).isEqualTo(1);
+    }
+
+    private File queuedPdf(String name, int pages) throws Exception {
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        if (!faxDir.isDirectory()) {
+            assertThat(faxDir.mkdirs()).isTrue();
+        }
+        File pdf = new File(faxDir, name);
+        try (PDDocument document = new PDDocument()) {
+            for (int page = 0; page < pages; page++) {
+                document.addPage(new PDPage());
+            }
+            document.save(pdf);
+        }
+        return pdf;
+    }
+
+    private File queuedBytes(String name, String content) throws Exception {
+        File file = incomingRoot.resolve("1").resolve("Fax").resolve(name).toFile();
+        Files.writeString(file.toPath(), content, StandardCharsets.UTF_8);
+        return file;
+    }
+
+    private long scratchFilesLeft() throws Exception {
+        try (Stream<Path> files = Files.list(incomingRoot.resolve("1").resolve("Fax"))) {
+            return files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count();
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse an extraction whose output name is already queued, leaving both files as they were")
+    void shouldRefuseExtraction_whenExtractedNameAlreadyQueued() throws Exception {
+        File source = queuedPdf("fax.pdf", 3);
+        byte[] before = Files.readAllBytes(source.toPath());
+        File existing = queuedBytes("faxE3.pdf", "an unfiled document");
+
+        assertThatThrownBy(() -> IncomingDocUtil.extractPage("1", "Fax", "fax.pdf", "2"))
+                .hasMessageContaining("already in this queue");
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.readString(existing.toPath(), StandardCharsets.UTF_8)).isEqualTo("an unfiled document");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should leave the source writable and unchanged when the extraction range is invalid")
+    void shouldLeaveSourceWritable_whenExtractionRangeInvalid() throws Exception {
+        File source = queuedPdf("scan.pdf", 3);
+        byte[] before = Files.readAllBytes(source.toPath());
+
+        assertThatThrownBy(() -> IncomingDocUtil.extractPage("1", "Fax", "scan.pdf", "1-3"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(new File(source.getParentFile(), "scanE3.pdf")).doesNotExist();
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should extract pages without touching a queued document named like the old scratch file")
+    void shouldExtractPages_withoutTouchingDocumentNamedLikeOldScratchFile() throws Exception {
+        queuedPdf("fax.pdf", 3);
+        File lookalike = queuedBytes("Tfax.pdf", "a different patient's fax");
+
+        IncomingDocUtil.extractPage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "faxE3.pdf")).isEqualTo(1);
+        assertThat(Files.readString(lookalike.toPath(), StandardCharsets.UTF_8)).isEqualTo("a different patient's fax");
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should rotate and delete pages without touching a queued document named like the old scratch file")
+    void shouldRotateAndDeletePages_withoutTouchingDocumentNamedLikeOldScratchFile() throws Exception {
+        File source = queuedPdf("fax.pdf", 2);
+        File lookalike = queuedBytes("Tfax.pdf", "a different patient's fax");
+
+        IncomingDocUtil.rotatePage("1", "Fax", "fax.pdf", "1", 90);
+        IncomingDocUtil.rotateAlPages("1", "Fax", "fax.pdf", 180);
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(source)) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+            assertThat(document.getPage(0).getRotation()).isEqualTo(270);
+        }
+        assertThat(Files.readString(lookalike.toPath(), StandardCharsets.UTF_8)).isEqualTo("a different patient's fax");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should leave the queue and an older recycle entry untouched when a page delete fails")
+    void shouldLeaveQueueAndRecycleEntryUntouched_whenPageDeleteFails() throws Exception {
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] before = Files.readAllBytes(source.toPath());
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path olderEntry = deleteDir.resolve("faxd5of2.pdf");
+        Files.writeString(olderEntry, "an earlier recycled page", StandardCharsets.UTF_8);
+
+        // Page 5 of a two-page document leaves the removed-page copy empty, which OpenPDF refuses.
+        assertThatThrownBy(() -> IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "5"))
+                .isInstanceOf(Exception.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(Files.readString(olderEntry, StandardCharsets.UTF_8)).isEqualTo("an earlier recycled page");
+        assertThat(scratchFilesLeft()).isZero();
+        try (Stream<Path> files = Files.list(deleteDir)) {
+            assertThat(files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count()).isZero();
+        }
+    }
+
+    @Test
+    @DisplayName("should put a read-only source's own permissions back, not writable ones, when a page delete fails")
+    void shouldRestoreReadOnlyPermissions_whenPageDeleteFails() throws Exception {
+        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] before = Files.readAllBytes(source.toPath());
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r-----");
+        Files.setPosixFilePermissions(source.toPath(), readOnly);
+
+        assertThatThrownBy(() -> IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "5"))
+                .isInstanceOf(Exception.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should keep a read-only source read-only after its pages are rewritten")
+    void shouldKeepReadOnlyPermissions_whenPageOperationsSucceed() throws Exception {
+        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+        File source = queuedPdf("fax.pdf", 3);
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r-----");
+        Files.setPosixFilePermissions(source.toPath(), readOnly);
+
+        IncomingDocUtil.rotatePage("1", "Fax", "fax.pdf", "1", 90);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        IncomingDocUtil.rotateAlPages("1", "Fax", "fax.pdf", 90);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "3");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        IncomingDocUtil.extractPage("1", "Fax", "fax.pdf", "2");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(source)) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+            assertThat(document.getPage(0).getRotation()).isEqualTo(180);
+        }
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "faxE2.pdf")).isEqualTo(1);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    /** A scratch file left by a process killed mid-rewrite: named like one, and hours old. */
+    private Path staleScratchFile(Path dir, String name) throws Exception {
+        Path stale = dir.resolve(name);
+        Files.writeString(stale, "a partial copy of a queued document", StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(stale, FileTime.fromMillis(System.currentTimeMillis() - 48L * 60 * 60 * 1000));
+        return stale;
+    }
+
+    @Test
+    @DisplayName("should remove a stale scratch file, and only that, when the queue is listed")
+    void shouldRemoveStaleScratchFile_whenQueueListed() throws Exception {
+        File pdf = queuedPdf("fax.pdf", 1);
+        Path faxDir = pdf.getParentFile().toPath();
+        Path stale = staleScratchFile(faxDir, ".carlos-1234.tmp");
+        Path inFlight = faxDir.resolve(".carlos-5678.tmp");
+        Files.writeString(inFlight, "an operation still writing", StandardCharsets.UTF_8);
+        Path unrelated = staleScratchFile(faxDir, "notes.tmp");
+
+        List<String> docList = new IncomingDocUtil().getDocList(faxDir.toString());
+
+        assertThat(docList).containsExactly("fax.pdf");
+        assertThat(stale).doesNotExist();
+        assertThat(inFlight).exists();
+        assertThat(unrelated).exists();
+    }
+
+    @Test
+    @DisplayName("should remove a stale scratch file from the queue and recycle directories when a page operation runs")
+    void shouldRemoveStaleScratchFiles_whenPageOperationRuns() throws Exception {
+        File pdf = queuedPdf("fax.pdf", 2);
+        Path faxDir = pdf.getParentFile().toPath();
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path staleQueued = staleScratchFile(faxDir, ".carlos-1234.tmp");
+        Path staleRecycled = staleScratchFile(deleteDir, ".carlos-4321.tmp");
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(staleQueued).doesNotExist();
+        assertThat(staleRecycled).doesNotExist();
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(1);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should delete a page without creating or needing the recycle directory when the recycle bin is off")
+    void shouldDeletePageWithoutRecycleDirectory_whenRecycleBinOff() throws Exception {
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_RECYCLEBIN", "false");
+        queuedPdf("fax.pdf", 3);
+        assertThat(recycleDirectory()).doesNotExist();
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        assertThat(recycleDirectory()).doesNotExist();
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should reject a page outside the document, leaving it untouched, when the recycle bin is off")
+    void shouldRejectPageOutsideDocument_whenRecycleBinOff() throws Exception {
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_RECYCLEBIN", "false");
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] before = Files.readAllBytes(source.toPath());
+
+        assertThatThrownBy(() -> IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "5"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(recycleDirectory()).doesNotExist();
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should delete a queued document without creating the recycle directory when the recycle bin is off")
+    void shouldDeleteDocumentWithoutRecycleDirectory_whenRecycleBinOff() throws Exception {
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_RECYCLEBIN", "false");
+        File source = queuedPdf("fax.pdf", 1);
+
+        IncomingDocUtil.DeletePDF("1", "Fax", "fax.pdf");
+
+        assertThat(source).doesNotExist();
+        assertThat(recycleDirectory()).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("whole-document recycling preserves an older fax with the same incoming name")
+    void shouldPreserveOlderWholeDocument_whenIncomingNameIsReused() throws Exception {
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] incomingBytes = Files.readAllBytes(source.toPath());
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path historical = deleteDir.resolve("fax.pdf");
+        Files.writeString(historical, "historical recycled document", StandardCharsets.UTF_8);
+
+        IncomingDocUtil.DeletePDF("1", "Fax", "fax.pdf");
+
+        assertThat(source).doesNotExist();
+        assertThat(Files.readString(historical, StandardCharsets.UTF_8)).isEqualTo("historical recycled document");
+        assertThat(Files.readAllBytes(deleteDir.resolve("fax-2.pdf"))).isEqualTo(incomingBytes);
+        try (Stream<Path> children = Files.list(deleteDir)) {
+            assertThat(children.map(path -> path.getFileName().toString()))
+                    .containsExactlyInAnyOrder("fax.pdf", "fax-2.pdf");
+        }
+    }
+
+    @Test
+    @DisplayName("should file the removed page in the recycle directory after a successful delete")
+    void shouldFileRemovedPageInRecycleDirectory_whenDeleteSucceeds() throws Exception {
+        queuedPdf("fax.pdf", 3);
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        Path recycled = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax")).resolve("faxd2of3.pdf");
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(recycled.toFile())) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+        }
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should keep an older recycle entry of the same name and file the new page beside it")
+    void shouldKeepOlderRecycleEntry_whenSameNameAlreadyRecycled() throws Exception {
+        queuedPdf("fax.pdf", 3);
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path olderEntry = deleteDir.resolve("faxd2of3.pdf");
+        Files.writeString(olderEntry, "an earlier recycled page", StandardCharsets.UTF_8);
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(Files.readString(olderEntry, StandardCharsets.UTF_8)).isEqualTo("an earlier recycled page");
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(deleteDir.resolve("faxd2of3-2.pdf").toFile())) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+        }
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        try (Stream<Path> files = Files.list(deleteDir)) {
+            assertThat(files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count()).isZero();
+        }
+    }
+    @Test
+    void shouldReapOnlyAbandonedScratch_whenQueueIsListed() throws Exception {
+        File source = queuedPdf("fax.pdf", 3);
+        Path directory = source.toPath().getParent();
+        FileTime old = FileTime.from(Instant.now().minus(2, ChronoUnit.DAYS));
+        Path stale = Files.writeString(directory.resolve(".carlos-123.tmp"), "abandoned PDF");
+        Files.setLastModifiedTime(stale, old);
+        Path recent = Files.writeString(directory.resolve(".carlos-124.tmp"), "recent work");
+        Path unrelated = Files.writeString(directory.resolve(".carlos-operator.tmp"), "operator file");
+        Files.setLastModifiedTime(unrelated, old);
+        Path link = Files.createSymbolicLink(directory.resolve(".carlos-125.tmp"), stale);
+        try (IncomingDocumentScratch active = IncomingDocumentScratch.create(directory.toFile())) {
+            Files.setLastModifiedTime(active.file().toPath(), old);
+            assertThat(new IncomingDocUtil().getDocList(directory.toString())).containsExactly("fax.pdf");
+            assertThat(stale).doesNotExist();
+            assertThat(recent).exists();
+            assertThat(unrelated).exists();
+            assertThat(Files.isSymbolicLink(link)).isTrue();
+            assertThat(active.file()).exists();
+        }
+        assertThat(Files.readAllBytes(source.toPath())).isNotEmpty();
+    }
+
+    @Test
+    void shouldBoundScratchCleanup_whenManyFilesAreAbandoned() throws Exception {
+        File source = queuedPdf("fax.pdf", 3);
+        Path directory = source.toPath().getParent();
+        FileTime old = FileTime.from(Instant.now().minus(2, ChronoUnit.DAYS));
+        for (int index = 0; index < 105; index++) {
+            Path stale = Files.writeString(directory.resolve(".carlos-" + index + ".tmp"), "abandoned PDF");
+            Files.setLastModifiedTime(stale, old);
+        }
+        new IncomingDocUtil().getDocList(directory.toString());
+        assertThat(scratchFilesLeft()).isEqualTo(5);
+        new IncomingDocUtil().getDocList(directory.toString());
+        assertThat(scratchFilesLeft()).isZero();
+        assertThat(source).exists();
+    }
+
+    @Test
+    @DisplayName("should allow the shipped queue folders when no allowlist is configured")
+    void shouldAllowShippedFolders_whenAllowlistUnconfigured() {
+        assertThat(IncomingDocUtil.getAllowedIncomingDocFolders())
+                .containsExactly("Fax", "Mail", "File", "Refile");
+        assertThat(IncomingDocUtil.getDefaultIncomingDocFolder()).isEqualTo("Fax");
+    }
+
+    @Test
+    @DisplayName("should resolve a queue path for every shipped folder")
+    void shouldResolveQueuePath_forEveryShippedFolder() {
+        for (String folder : IncomingDocUtil.getAllowedIncomingDocFolders()) {
+            assertThat(IncomingDocUtil.getIncomingDocumentFilePath("1", folder))
+                    .isEqualTo(incomingRoot.resolve("1").resolve(folder).toString());
+        }
+    }
+
+    @Test
+    @DisplayName("should resolve a queue path for a configured folder")
+    void shouldResolveQueuePath_forConfiguredFolder() {
+        CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY, "Portal, Mailbox");
+
+        assertThat(IncomingDocUtil.getAllowedIncomingDocFolders()).containsExactly("Portal", "Mailbox");
+        assertThat(IncomingDocUtil.getIncomingDocumentFilePath("1", "Portal"))
+                .isEqualTo(incomingRoot.resolve("1").resolve("Portal").toString());
+    }
+
+    @Test
+    @DisplayName("should reject a shipped folder when the configured allowlist drops it")
+    void shouldRejectShippedFolder_whenConfiguredAllowlistDropsIt() {
+        // A configured list replaces the shipped one rather than extending it, so an install
+        // can narrow where intake writes land.
+        CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY, "Portal,Mailbox");
+
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("Fax")).isFalse();
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("1", "Fax"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid pdfDir");
+    }
+
+    @Test
+    @DisplayName("should follow the configured allowlist when choosing the default folder")
+    void shouldFollowConfiguredAllowlist_whenChoosingDefaultFolder() {
+        // The incoming-docs screen falls back to this folder on first load; a default the
+        // allowlist rejects would throw before the page rendered.
+        CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY, "Portal,Mailbox");
+
+        String defaultFolder = IncomingDocUtil.getDefaultIncomingDocFolder();
+
+        assertThat(defaultFolder).isEqualTo("Portal");
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder(defaultFolder)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should drop configured folder names that are not a single path component")
+    void shouldDropConfiguredFolderNames_whenNotASinglePathComponent() {
+        // Configuration must not be able to turn one path component into a subtree, and the
+        // surviving names have to stay usable: callers take the first one as the UI default.
+        CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY,
+                "Fax/Archive,Mail\\Archive,../escape,Portal");
+
+        assertThat(IncomingDocUtil.getAllowedIncomingDocFolders()).containsExactly("Portal");
+        assertThat(IncomingDocUtil.getDefaultIncomingDocFolder()).isEqualTo("Portal");
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("Fax/Archive")).isFalse();
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("Mail\\Archive")).isFalse();
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("../escape")).isFalse();
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("1", "Fax/Archive"))
+                .isInstanceOf(FileValidationException.class);
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("1", "../escape"))
+                .isInstanceOf(FileValidationException.class);
+    }
+
+    @Test
+    @DisplayName("should keep the shipped folders when the configured allowlist has nothing usable")
+    void shouldKeepShippedFolders_whenConfiguredAllowlistUnusable() {
+        // A typo that empties the list must not lock intake staff out of every queue.
+        CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY, " , ,");
+
+        assertThat(IncomingDocUtil.getAllowedIncomingDocFolders())
+                .containsExactly("Fax", "Mail", "File", "Refile");
+    }
+
+    @Test
+    @DisplayName("should reject a folder that is not on the allowlist")
+    void shouldRejectFolder_whenNotOnAllowlist() {
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("Unknown")).isFalse();
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("1", "Unknown"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid pdfDir");
+    }
+
+    @Test
+    @DisplayName("should reject a blank folder name for the allowlist check")
+    void shouldRejectBlankFolderName_forAllowlistCheck() {
+        // getIncomingDocumentFilePath treats null/empty as "the queue root"; the boolean check
+        // callers use to pick a UI default must not report that as an allowed folder.
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder(null)).isFalse();
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should label the shipped folders and leave configured folders unlabelled")
+    void shouldLabelShippedFolders_andLeaveConfiguredFoldersUnlabelled() {
+        assertThat(IncomingDocUtil.getIncomingDocFolderLabelKey("Fax")).isEqualTo("dms.incomingDocs.fax");
+        assertThat(IncomingDocUtil.getIncomingDocFolderLabelKey("Refile")).isEqualTo("dms.incomingDocs.refile");
+        assertThat(IncomingDocUtil.getIncomingDocFolderLabelKey("Portal")).isNull();
+    }
+}

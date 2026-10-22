@@ -44,7 +44,11 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.cxf.jaxrs.utils.JAXRSUtils;
+import org.apache.cxf.message.Message;
+import org.apache.cxf.transport.http.AbstractHTTPDestination;
 
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.login.OAuthData; // model used by 3rdpartyLogin.jsp
@@ -56,6 +60,9 @@ public class AuthorizeResource {
     @Context private HttpServletResponse response;
 
     @Inject  private OscarOAuthDataProvider provider;
+
+    /** The CXF message being served. A field so a unit test can supply one outside a CXF chain. */
+    private Supplier<Message> currentMessage = JAXRSUtils::getCurrentMessage;
 
     private String getLoggedInProviderNo() {
         HttpSession session = request.getSession(false);
@@ -92,6 +99,11 @@ public class AuthorizeResource {
                 ? java.util.Collections.emptyList()
                 : rt.getScopes().stream().map(OAuth1Permission::getPermission).collect(Collectors.toList());
         od.setPermissions(scopes);
+        // Without enforcement the listed scopes limit nothing; the page must say what does (#4419):
+        // the legacy endpoint list (the default), or nothing at all.
+        OAuthScopeEnforcement.Mode mode = OAuthScopeEnforcement.mode();
+        od.setScopesEnforced(mode == OAuthScopeEnforcement.Mode.SCOPED);
+        od.setLegacyRestricted(mode == OAuthScopeEnforcement.Mode.LEGACY_RESTRICTED);
 
         request.setAttribute("oauthData", od);
 
@@ -99,7 +111,26 @@ public class AuthorizeResource {
         // the tail-interactive migration; RequestDispatcher can still reach
         // it via internal dispatch (see follow-up validation ticket #1731).
         RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/jsp/login/3rdpartyLogin.jsp");
-        rd.forward(request, response); // response committed by forward
+        rd.forward(request, response);
+        markResponseWritten();
+    }
+
+    /**
+     * Tells CXF that the forwarded consent page is the response.
+     *
+     * <p>The forward does not commit the page. Response wrappers in the filter chain
+     * (PrivacyStatementAppendingFilter, LogoutBroadcastFilter, ResponseSanitizationFilter) hold the
+     * output until the chain unwinds. CXF then finished this void method as 204 with
+     * Content-Length 0, which discarded the page, and the browser showed nothing (issue #3446).
+     * With {@link AbstractHTTPDestination#REQUEST_REDIRECTED} on the exchange,
+     * {@code AbstractHTTPDestination.flushHeaders} leaves the status, headers and body alone. CXF
+     * uses the same flag when a servlet redirect has already produced the response.
+     */
+    private void markResponseWritten() {
+        Message message = currentMessage.get();
+        if (message != null && message.getExchange() != null) {
+            message.getExchange().put(AbstractHTTPDestination.REQUEST_REDIRECTED, Boolean.TRUE);
+        }
     }
 
     /** POST /ws/oauth/authorize — approve and redirect (or OOB) */
@@ -110,38 +141,97 @@ public class AuthorizeResource {
                             @FormParam("session_authenticity_token") String submittedNonce,
                             @FormParam("oauthDecision") String oauthDecision) {
         if (tokenId == null || tokenId.isEmpty()) {
-            return Response.status(400).entity("missing oauth_token").type(MediaType.TEXT_PLAIN).build();
+            return textResponse(400, "missing oauth_token");
         }
 
         RequestToken rt = provider.getRequestToken(tokenId);
         if (rt == null) {
-            return Response.status(400).entity("invalid_request_token").type(MediaType.TEXT_PLAIN).build();
+            return textResponse(400, "invalid_request_token");
         }
         if (!"allow".equals(oauthDecision)) {
-            return Response.status(403).entity("authorization_denied").type(MediaType.TEXT_PLAIN).build();
+            return textResponse(403, "authorization_denied");
         }
         if (!OAuthAuthorizationSessionState.consumeNonce(request.getSession(false), tokenId, submittedNonce)) {
-            return Response.status(403).entity("invalid_authorization_nonce").type(MediaType.TEXT_PLAIN).build();
+            return textResponse(403, "invalid_authorization_nonce");
         }
 
         String providerNo = getLoggedInProviderNo();
         if (providerNo == null || providerNo.isEmpty()) {
-            return Response.status(401).entity("login_required").type(MediaType.TEXT_PLAIN).build();
+            return textResponse(401, "login_required");
+        }
+
+        URI callbackUri;
+        try {
+            callbackUri = callbackRedirectUri(rt.getCallback());
+        } catch (OAuth1Exception e) {
+            return textResponse(e.getHttpCode(), e.getMessage());
         }
 
         String verifier = provider.finalizeAuthorization(rt, providerNo);
 
-        // nosemgrep: open-redirect -- callback comes from the server-persisted request token
-        // (set during /initiate by OscarRequestTokenService), not from user input in this POST.
-        String cb = rt.getCallback();
-        if (cb != null && !"oob".equalsIgnoreCase(cb)) {
-            String sep = cb.contains("?") ? "&" : "?";
-            String loc = cb + sep + "oauth_token=" + enc(tokenId) + "&oauth_verifier=" + enc(verifier);
-            return Response.seeOther(URI.create(loc)).build(); // 303 redirect
+        if (callbackUri != null) {
+            return redirectToCallback(callbackUri, tokenId, verifier);
         }
 
         // OOB: show verifier
         return Response.ok("oauth_verifier=" + enc(verifier)).type(MediaType.TEXT_PLAIN).build();
+    }
+
+    private static URI callbackRedirectUri(String callback) {
+        if (callback == null || isOutOfBandCallback(callback)) {
+            return null;
+        }
+        URI callbackUri;
+        try {
+            callbackUri = URI.create(callback);
+        } catch (IllegalArgumentException e) {
+            throw new OAuth1Exception(400, "invalid_callback");
+        }
+        String scheme = callbackUri.getScheme();
+        if (!isHttpScheme(scheme)) {
+            throw new OAuth1Exception(400, "invalid_callback_scheme");
+        }
+        String host = callbackUri.getHost();
+        if (host == null || host.isBlank()) {
+            throw new OAuth1Exception(400, "invalid_callback");
+        }
+        return callbackUri;
+    }
+
+    private static Response redirectToCallback(URI callbackUri, String tokenId, String verifier) {
+        URI loc = UriBuilder.fromUri(callbackUri)
+                .queryParam("oauth_token", tokenId)
+                .queryParam("oauth_verifier", verifier)
+                .build();
+        // nosemgrep: open-redirect -- callback comes from the server-persisted request token
+        // (set during /initiate by OscarRequestTokenService), not from user input in this POST.
+        return Response.seeOther(loc).build(); // 303 redirect
+    }
+
+    private static Response textResponse(int status, String entity) {
+        return Response.status(status).entity(entity).type(MediaType.TEXT_PLAIN).build();
+    }
+
+    private static boolean isOutOfBandCallback(String callback) {
+        return asciiEqualsIgnoreCase(callback, "oob");
+    }
+
+    private static boolean isHttpScheme(String scheme) {
+        return asciiEqualsIgnoreCase(scheme, "http") || asciiEqualsIgnoreCase(scheme, "https");
+    }
+
+    private static boolean asciiEqualsIgnoreCase(String actual, String expected) {
+        if (actual == null || actual.length() != expected.length()) {
+            return false;
+        }
+        for (int i = 0; i < actual.length(); i++) {
+            char c = actual.charAt(i);
+            char lowered = c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
+            if (lowered != expected.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static String enc(String v) { return URLEncoder.encode(v, StandardCharsets.UTF_8); }

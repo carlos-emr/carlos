@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmDischargeSummaryRecord extends FrmRecord {
     private static Logger logger = MiscUtils.getLogger();
@@ -239,6 +240,8 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
         return ((new FrmRecordHelp()).saveFormRecord(props, sql, demographic_no));
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String findActionValue(String submit) throws SQLException {
         if (submit != null && submit.equalsIgnoreCase("print")) {
             return "print";
@@ -251,6 +254,8 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String createActionURL(String where, String action, String demoId, String formId) throws SQLException {
         String temp = null;
 

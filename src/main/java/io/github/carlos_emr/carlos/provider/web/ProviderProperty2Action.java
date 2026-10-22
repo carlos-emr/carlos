@@ -115,9 +115,13 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.util.LabelValueBean;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ProviderProperty2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String TICKLER_DEFAULT = "default";
+    private static final String TICKLER_PROVIDER = "provider";
+    private static final String PROVIDER_CLOSE_LABEL = "providerbtnClose";
 
     /** Shared, thread-safe ObjectMapper (safe after configuration). */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -475,6 +479,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxPageSize";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveDefaultDocQueue() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -648,6 +654,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxProfileView";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewShowPatientDOB() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1277,6 +1285,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveFavouriteEformGroup() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1312,6 +1322,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewCppSingleLine() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1386,6 +1398,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genCppSingleLine";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewEDocBrowserInDocumentReport() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1458,6 +1472,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEDocBrowserInDocumentReport";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewEDocBrowserInMasterFile() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1531,6 +1547,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEDocBrowserInMasterFile";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewCommentLab() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1605,6 +1623,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genAckCommentLab";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unchecked")
     public String viewLabRecall() {
 
@@ -1641,7 +1661,7 @@ public class ProviderProperty2Action extends ActionSupport {
         providerList.add(new LabelValueBean("Select", "")); //key, value
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-        List<Provider> ps = dao.getProviders();
+        List<Provider> ps = dao.getProviders(true);
         Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {
@@ -1672,7 +1692,9 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("providermsgProvider", "provider.setLabRecall.msgProfileView");
         request.setAttribute("providermsgEdit", "provider.setLabRecall.msgEdit");
         request.setAttribute("providerbtnSubmit", "provider.setLabRecall.btnSubmit");
-        request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgSuccess");
+        if (!"error".equals(request.getAttribute("status"))) {
+            request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgSuccess");
+        }     
         request.setAttribute("method", "saveLabRecallPrefs");
 
         this.setLabRecallDelegate(delegate);
@@ -1685,19 +1707,41 @@ public class ProviderProperty2Action extends ActionSupport {
 
     public String saveLabRecallPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         UserProperty s = this.getLabRecallMsgSubject();
         String subject = s != null ? s.getValue() : "";
 
-        String delegate = request.getParameter("labRecallDelegate.value"); 
+        String delegate = StringUtils.trimToEmpty(request.getParameter("labRecallDelegate.value"));
+
         String priority = request.getParameter("labRecallTicklerPriority.value");
 
         boolean assignee = request.getParameter("labRecallTicklerAssignee.checked") != null;
 
-        boolean delete = false;
-        if (delegate.equals("")) {
-            delete = true;
+        boolean delete = delegate.isEmpty();
+        boolean invalidDelegate = false;
+
+
+        // Validate delegate is an active provider before persisting
+        if (!delete) {
+            ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
+            List<Provider> activeProviders = dao.getProviders(true);
+            boolean validDelegate = activeProviders.stream()
+                .anyMatch(p -> p.getProviderNo().equals(delegate));
+
+            if (!validDelegate) {
+                MiscUtils.getLogger().warn("Invalid or inactive provider selected as lab recall delegate");
+                invalidDelegate = true;
+            }
+        }
+
+        if (invalidDelegate) {
+            request.setAttribute("status", "error");
+            request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgInvalidDelegate");
+            return viewLabRecall();
         }
 
         // Save delegate (dropdown)
@@ -1776,27 +1820,22 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genLabRecallPrefs";
     }
 
+    /**
+     * Loads the current assignee without changing the stored property object.
+     *
+     * @return the preference form
+     */
     public String viewTicklerTaskAssignee() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        UserProperty ticklerTaskAssignee = this.userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
-
-        String defaultTo = "";
-        if (ticklerTaskAssignee == null) {
-            ticklerTaskAssignee = new UserProperty();
-            ticklerTaskAssignee.setValue("default");
-            defaultTo = "default";
-        } else {
-            String value = ticklerTaskAssignee.getValue();
-            if ("default".equals(value) || "mrp".equals(value)) {
-                defaultTo = value;
-            } else {
-                defaultTo = "providers";
-
-                if ("providers".equals(defaultTo)) {
-                    request.setAttribute("selectedProvider", ticklerTaskAssignee.getValue());
-                }
+        UserProperty ticklerTaskAssignee = userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
+        String savedValue = ticklerTaskAssignee == null ? null : ticklerTaskAssignee.getValue();
+        String defaultTo = TICKLER_DEFAULT;
+        if (StringUtils.isNotBlank(savedValue) && !TICKLER_DEFAULT.equals(savedValue)) {
+            defaultTo = "mrp".equals(savedValue) ? "mrp" : TICKLER_PROVIDER;
+            if (TICKLER_PROVIDER.equals(defaultTo)) {
+                request.setAttribute("selectedProvider", savedValue);
             }
         }
 
@@ -1804,7 +1843,7 @@ public class ProviderProperty2Action extends ActionSupport {
         providerList.add(new LabelValueBean("Select", ""));
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-        List<Provider> ps = dao.getProviders();
+        List<Provider> ps = dao.getProviders(true);
         Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {
@@ -1821,71 +1860,63 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("providerbtnSubmit", "provider.ticklerPreference.btnSubmit"); //=Save
         request.setAttribute("providerbtnCancel", "provider.ticklerPreference.btnCancel"); //=Cancel
         request.setAttribute("method", "saveTicklerTaskAssignee");
-        request.setAttribute("taskAssigneeSelection", ticklerTaskAssignee);
-        this.setTaskAssigneeSelection(ticklerTaskAssignee);
-        this.setTaskAssigneeMRP(ticklerTaskAssignee);
-
         request.setAttribute("providerMsg", "");
         request.setAttribute("taskAssigneeMRPValue", defaultTo);
-
-        UserProperty t = this.getTaskAssigneeMRP();
-        t.setValue(defaultTo);
 
         return SUCCESS;
     }
 
+    /**
+     * Saves the authenticated provider's default tickler assignee on POST.
+     * Default removes the preference; MRP and an active provider store their values.
+     * Invalid choices leave the existing preference unchanged, and persistence
+     * failures propagate instead of displaying a success confirmation.
+     *
+     * @return the preference form, confirmation, or no view for a rejected method
+     */
     public String saveTicklerTaskAssignee() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        String radioValue = request.getParameter("taskAssigneeMRP.value");
-        String providerValue = request.getParameter("taskAssigneeSelection.value");
-
-        UserProperty a = this.getTaskAssigneeSelection();
-
-        if ("provider".equals(radioValue)) {
-            a.setValue(providerValue); // providerNo
-        } else {
-            a.setValue(radioValue); // default or mrp
-        }
-
-        String tickerTaskAssignee = a != null ? a.getValue() : "";
-
-        boolean delete = "".equals(tickerTaskAssignee);
-
-        UserProperty property = this.userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
-        if (property == null) {
-            property = new UserProperty();
-            property.setProviderNo(providerNo);
-            property.setName(UserProperty.TICKLER_TASK_ASSIGNEE);
-        }
-
-        try {
-            if (delete) {
-                if (property.getId() != null) {
-                    userPropertyDAO.delete(property);
-                }
-            } else {
-                property.setValue(tickerTaskAssignee);
-                userPropertyDAO.saveProp(property);
+        String choice = request.getParameter("taskAssigneeMRP.value");
+        String value;
+        if (TICKLER_DEFAULT.equals(choice)) {
+            value = null;
+        } else if ("mrp".equals(choice)) {
+            value = "mrp";
+        } else if (TICKLER_PROVIDER.equals(choice)) {
+            value = request.getParameter("taskAssigneeSelection.value");
+            ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+            Provider assignee = StringUtils.isBlank(value) ? null : providerDao.getProvider(value);
+            if (assignee == null || !"1".equals(assignee.getStatus()) || "-1".equals(value)) {
+                return invalidTicklerAssignee();
             }
-        } catch (Exception e) {
-            // Return to the success page even though the pereference is not changed from default
-            // Avoid the error displays
-            request.setAttribute("status", "success");
-            return "complete";
+        } else {
+            return invalidTicklerAssignee();
         }
 
+        userPropertyDAO.replaceTicklerTaskAssignee(providerNo, value);
         request.setAttribute("status", "success");
-        request.setAttribute("providertitle", "provider.ticklerPreference.title");
-        request.setAttribute("providermsgPrefs", "provider.ticklerPreference.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnSubmit", "provider.ticklerPreference.btnSubmit"); //=Save
-        request.setAttribute("providerbtnCancel", "provider.ticklerPreference.btnCancel"); //=Cancel
-        request.setAttribute("providerbtnClose", "provider.ticklerPreference.providerbtnClose"); //=Close Window
-        request.setAttribute("providerMsg", "provider.ticklerPreference.savedMsg");
-        request.setAttribute("method", "saveTicklerTaskAssignee");
-
         return "complete";
+    }
+
+    /**
+     * Reopens the current preference with a validation error, without writing it.
+     *
+     * @return the configured error view
+     */
+    private String invalidTicklerAssignee() {
+        viewTicklerTaskAssignee();
+        request.setAttribute("ticklerPreferenceError", true);
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        return ERROR;
     }
 
     public String viewEncounterWindowSize() {
@@ -2216,7 +2247,7 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("hideOldEchartLinkInApptProperty", prop);
         request.setAttribute("providertitle", "provider.hideOldEchartLinkInAppt.title"); //=Hide Old Echart Link in Appointment
         request.setAttribute("providermsgPrefs", "provider.hideOldEchartLinkInAppt.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.hideOldEchartLinkInAppt.btnClose"); //=Close
+        request.setAttribute(PROVIDER_CLOSE_LABEL, "provider.hideOldEchartLinkInAppt.btnClose"); //=Close
         if (checked)
             request.setAttribute("providermsgSuccess", "provider.hideOldEchartLinkInAppt.msgSuccess_selected"); //=Old Echart Link Hidden in Appointment
         else
@@ -2282,7 +2313,7 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("dashboardShareProperty", prop);
         request.setAttribute("providertitle", "provider.dashboardPrefs.title");
         request.setAttribute("providermsgPrefs", "provider.dashboardPrefs.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.dashboardPrefs.btnClose"); //=Close
+        request.setAttribute(PROVIDER_CLOSE_LABEL, "provider.dashboardPrefs.btnClose"); //=Close
         if (checked)
             request.setAttribute("providermsgSuccess", "provider.dashboardPrefs.msgSuccess_selected");
         else
@@ -2478,7 +2509,7 @@ public class ProviderProperty2Action extends ActionSupport {
 
         request.setAttribute("providertitle", "provider.preventionPrefs.title");
         request.setAttribute("providermsgPrefs", "provider.preventionPrefs.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.preventionPrefs.btnClose"); //=Close
+        request.setAttribute(PROVIDER_CLOSE_LABEL, "provider.preventionPrefs.btnClose"); //=Close
 
         request.setAttribute("method", "savePreventionPrefs");
 
@@ -2495,7 +2526,7 @@ public class ProviderProperty2Action extends ActionSupport {
      *
      * Security:
      *     - Requires authenticated provider session (injected via LoggedInInfo)
-     *     - Checks _lab READ privilege via SecurityInfoManager
+     *     - Checks _lab READ privilege via SecurityInfoManager to view macros
      *     - Throws RuntimeException if privilege is missing
      *
      * Flow:

@@ -35,6 +35,8 @@ import org.openpdf.text.Image;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.w3c.dom.Element;
 import org.xhtmlrenderer.extend.FSImage;
 import org.xhtmlrenderer.extend.ReplacedElement;
@@ -46,6 +48,7 @@ import org.xhtmlrenderer.pdf.*;
 import org.xhtmlrenderer.render.BlockBox;
 import org.xhtmlrenderer.simple.extend.FormSubmissionListener;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -137,9 +140,11 @@ public class ReplacedElementFactoryImpl implements ReplacedElementFactory {
      * @throws IOException if the image file cannot be read
      * @throws BadElementException if the image data cannot be parsed by OpenPDF
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: image path comes from the img src attribute of server-rendered (template-generated) XHTML, not request input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "image path comes from the img src attribute of server-rendered (template-generated) XHTML, not request input")
     protected final FSImage imageForPDF(String attribute, UserAgentCallback uac) throws IOException, BadElementException {
         FSImage fsImage;
-        try (InputStream input = new FileInputStream(attribute)) {
+        try (InputStream input = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(attribute)))) {
             byte[] bytes = IOUtils.toByteArray(input);
             Image image = Image.getInstance(bytes);
             fsImage = new ITextFSImage(image);

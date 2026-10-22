@@ -41,6 +41,7 @@ import org.apache.cxf.phase.Phase;
 import org.apache.cxf.transport.http.AbstractHTTPDestination;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
@@ -57,13 +58,9 @@ public class AuthenticationInInterceptor extends AbstractPhaseInterceptor<Messag
 
     @Override
     public void handleMessage(Message message) throws Fault {
-        // allows WADL requests for unauthenticated users
-        String messageQueryString = String.valueOf(message.get(Message.QUERY_STRING));
-        boolean isServiceRequest = "_wadl".equalsIgnoreCase(messageQueryString);
-        if (isServiceRequest) {
-            return;
-        }
-
+        // WADL / service metadata is NOT exempt from authentication. Serving it
+        // to anonymous callers enumerates every REST resource and its paths;
+        // an authenticated client still receives it through the check below.
         LoggedInInfo info = getLoggedInInfo(message);
         boolean isAuthenticated = info != null && (info.getLoggedInProvider() != null || info.getLoggedInSecurity() != null);
         if (isAuthenticated) {
@@ -85,7 +82,8 @@ public class AuthenticationInInterceptor extends AbstractPhaseInterceptor<Messag
         if (request != null) {
             oscarLog.setIp(request.getRemoteAddr());
             oscarLog.setContent(request.getRequestURL().toString());
-            oscarLog.setData(request.getParameterMap().toString());
+            String consumerKey = request.getParameter("oauth_consumer_key");
+            oscarLog.setData("oauth_consumer_key=" + (consumerKey == null ? "" : LogSafe.sanitize(consumerKey)));
         }
 
         LogAction.addLogSynchronous(oscarLog);

@@ -367,7 +367,7 @@ DATA Model for Outside Use Report (Patients with Signed Consent)
 Models with Descriptions on Reports for Family Health Network and Family
 Health Organization Models (continued)
 PATIENT
-PATIENT-HEALTHNUMBER
+PATIENT-HEALTH-NUMBER
 PATIENT -LAST-NAME
 PATIENT-FIRST-NAME
 PATIENT –BIRTHDATE
@@ -495,7 +495,7 @@ for Family Health Network and Family Health Organization Models
 June 2014 Page 19 of 26 Version 1.0
 APPENDIX G: XML Schema
 <?xml version="1.0" encoding="utf-8"?>
-<xs:schema id="REPORT" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemasmicrosoft-com:xml-msdata">
+<xs:schema id="REPORT" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
 <!--XSD specification created by Don Wood-->
 <xs:annotation>
  <xs:documentation>PCRP60R1-C Outside Use (Patients with Signed Consent)</xs:documentation>

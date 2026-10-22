@@ -134,7 +134,7 @@
     <table style="width:100%">
         <tr>
             <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>:
-                <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/>
+                <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             </td>
         </tr>
     </table>
@@ -169,8 +169,7 @@
                 <a href='${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity?keyword=<%=securityRecord.getId()%>'><carlos:encode value='<%= securityRecord.getUserName() %>' context="html"/>
                 </a></td>
             <td style="text-align:center">*********</td>
-            <td style="text-align:center"><%= securityRecord.getProviderNo() %>
-            </td>
+            <td style="text-align:center"><carlos:encode value='<%= securityRecord.getProviderNo() %>' context="html"/></td>
             <td style="text-align:center">****</td>
         </tr>
         <%

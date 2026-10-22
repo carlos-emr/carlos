@@ -31,11 +31,17 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.Hl7TextMessageTo1;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public class Hl7TextMessageConverter extends AbstractConverter<Hl7TextMessage, Hl7TextMessageTo1> {
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public Hl7TextMessage getAsDomainObject(LoggedInInfo loggedInInfo, Hl7TextMessageTo1 t) throws ConversionException {
         Hl7TextMessage d = new Hl7TextMessage();
         BeanUtils.copyProperties(t, d);
@@ -43,6 +49,11 @@ public class Hl7TextMessageConverter extends AbstractConverter<Hl7TextMessage, H
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public Hl7TextMessageTo1 getAsTransferObject(LoggedInInfo loggedInInfo, Hl7TextMessage d) throws ConversionException {
         Hl7TextMessageTo1 t = new Hl7TextMessageTo1();
         BeanUtils.copyProperties(d, t);

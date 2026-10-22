@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements DocumentResultsDao {
 
@@ -57,6 +58,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         super(Document.class);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isSentToValidProvider(String docNo) {//check if document attached to any existing providers
         if (docNo != null) {
             try {
@@ -112,6 +115,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<LabResultData> populateDocumentResultsDataOfAllProviders(String providerNo, String demographicNo,
                                                                               String status) {
 
@@ -231,6 +236,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
     }
 
     //retrieve documents belonging to a providers
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<LabResultData> populateDocumentResultsDataLinkToProvider(String providerNo, String demographicNo,
                                                                               String status) {
 
@@ -339,6 +346,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
     }
 
     //retrieve all documents from database
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String status) {
 
         if (providerNo == null) {

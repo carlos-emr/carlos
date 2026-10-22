@@ -1,0 +1,202 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+package io.github.carlos_emr.carlos.prescript;
+
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Source-level guardrails for the AJAX allergy form fragment. Runtime CSRF
+ * token rendering is covered by the application-level page flow, while this
+ * test keeps the JSP contract wired to CSRFGuard and the session patient.
+ *
+ * @since 2026-08-07
+ */
+@DisplayName("Rx allergy CSRF JSP regression")
+@Tag("unit")
+@Tag("rx")
+@Tag("security")
+class RxAllergyCsrfJspRegressionTest {
+
+    private static final Path ADD_REACTION_JSP = projectRoot()
+            .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "rx", "AddReaction2.jsp"));
+    private static final Path SHOW_ALLERGIES_JSP = projectRoot()
+            .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "rx", "ShowAllergies2.jsp"));
+    // Per-patient Rx state (#3875): the patient comes from the request's Rx bean, not a shared
+    // session attribute.
+    private static final String PATIENT_LOOKUP = "RxPatientData.Patient patient = "
+            + "RxSessionBeanResolver.resolvePatient(request);";
+    private static final String MISSING_PATIENT_GUARD = "if (patient == null) { "
+            + "response.sendError(HttpServletResponse.SC_FORBIDDEN); return; }";
+
+    @Test
+    @DisplayName("AJAX allergy form source should declare CSRFGuard tags and rendered patient context")
+    void shouldDeclareCsrfGuardTagsAndPatientContext_whenAddReactionJspSourceIsChecked() throws IOException {
+        Element form = addAllergyForm();
+        Elements hiddenInputs = form.select("input[type=hidden]");
+
+        assertThat(hiddenInputs)
+                .as("source-level CSRFGuard tag placeholder input")
+                .filteredOn(input -> "<csrf:tokenname/>".equals(input.attr("name"))
+                        && "<csrf:tokenvalue/>".equals(input.attr("value")))
+                .singleElement();
+        assertThat(hiddenInputs)
+                .filteredOn(input -> "formDemographicNo".equals(input.attr("name")))
+                .singleElement();
+    }
+
+    @Test
+    @DisplayName("AJAX-rendered allergy form should fail closed when the session patient is missing")
+    void shouldFailClosed_whenSessionPatientIsMissing() throws IOException {
+        String jsp = normalizeWhitespace(readAddReactionJsp());
+        int patientLookup = indexOfRequired(jsp, PATIENT_LOOKUP);
+        int missingPatientGuard = indexOfRequired(jsp, MISSING_PATIENT_GUARD);
+        int allergyForm = indexOfRequired(jsp, "id=\"RxAddAllergyForm\"");
+
+        assertThat(missingPatientGuard)
+                .as("missing-patient guard must run immediately after loading the session patient")
+                .isGreaterThan(patientLookup)
+                .isLessThan(allergyForm);
+    }
+
+    @Test
+    @DisplayName("AJAX-rendered allergy form should declare only one server-rendered CSRF field")
+    void shouldDeclareOnlyOneServerRenderedCsrfField_whenAddReactionJspIsRendered() throws IOException {
+        Elements hiddenInputs = addAllergyForm().select("input[type=hidden]");
+
+        assertThat(hiddenInputs)
+                .filteredOn(input -> "<csrf:tokenname/>".equals(input.attr("name")))
+                .singleElement();
+    }
+
+    @Test
+    @DisplayName("custom allergy confirmation should gate the add-reaction request")
+    void shouldNotRequestCustomAllergyForm_whenConfirmationIsCancelled() throws IOException {
+        String jsp = normalizeWhitespace(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
+
+        assertThat(jsp).contains("if (confirm(\"Adding custom allergy: \" + name)) { "
+                + "sendSearchRequest(\"${ pageContext.servletContext.contextPath }/rx/addReaction2\",");
+    }
+
+    @Test
+    @DisplayName("add-allergy form should carry a single-save token for idempotent retries (#3488)")
+    void shouldCarrySaveToken_whenAddReactionFormIsRendered() throws IOException {
+        Element form = addAllergyForm();
+
+        assertThat(form.select("input[name=saveToken]")).as("one-save token").hasSize(1);
+        // rx-allergy-dialog.js is the one submit handler; a second inline one would post twice.
+        assertThat(readAddReactionJsp()).doesNotContain("addEventListener(\"submit\"");
+    }
+
+    @Test
+    @DisplayName("allergy form should carry an alert region for a save the server did not confirm")
+    void shouldRenderSaveStatusAlert_whenAddReactionFormIsRendered() throws IOException {
+        Element form = addAllergyForm();
+        Elements regions = form.select(".allergySaveStatus");
+
+        assertThat(regions).singleElement()
+                .satisfies(region -> assertThat(region.attr("role")).isEqualTo("alert"));
+        String formHtml = form.outerHtml();
+        assertThat(formHtml.indexOf("allergySaveStatus"))
+                .as("the save status must sit above the Add Allergy button it reports on")
+                .isLessThan(formHtml.indexOf("value=\"Add Allergy\""));
+    }
+
+    @Test
+    @DisplayName("both allergy pages should load the dialogue failure handler and its localized messages")
+    void shouldLoadDialogueFailureHandler_whenAllergyPagesAreRendered() throws IOException {
+        String dialogScript = "/share/javascript/rx-allergy-dialog.js";
+        Document showAllergies = Jsoup.parse(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
+        Document addReaction = Jsoup.parse(readAddReactionJsp());
+
+        // The injected dialogue keeps nothing from AddReaction2.jsp's head, so the host page has to
+        // load the handler itself; the standalone AddReaction2.jsp page loads its own copy.
+        assertThat(showAllergies.select("script[src$=\"" + dialogScript + "\"]")).hasSize(1);
+        assertThat(addReaction.select("script[src$=\"" + dialogScript + "\"]")).hasSize(1);
+        assertThat(showAllergies.select("#allergyRequestStatus"))
+                .singleElement()
+                .satisfies(region -> assertThat(region.attr("role")).isEqualTo("alert"));
+        // ...and both publish the handler's messages in the page's locale.
+        String messagesInclude = "<%@ include file=\"allergyDialog.jspf\" %>";
+        assertThat(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8)).contains(messagesInclude);
+        assertThat(readAddReactionJsp()).contains(messagesInclude);
+    }
+
+    @Test
+    @DisplayName("allergy page AJAX requests should report failures instead of spinning silently")
+    void shouldReportFailedDialogueRequests_whenAllergyPageAjaxFails() throws IOException {
+        String jsp = normalizeWhitespace(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
+        int ajax = indexOfRequired(jsp, "$.ajax({ url: path,");
+        int errorHandler = indexOfRequired(jsp, "error: function (xhr) { reportAllergyRequestFailure(path,");
+
+        assertThat(errorHandler).as("the dialogue request needs an error handler").isGreaterThan(ajax);
+        assertThat(jsp).contains("if (found.length === 0) { reportAllergyRequestFailure(path, 200); return false; }");
+    }
+
+    private static Element addAllergyForm() throws IOException {
+        Document document = Jsoup.parse(readAddReactionJsp());
+        Element form = document.selectFirst("form#RxAddAllergyForm");
+
+        assertThat(form).as("AJAX add-allergy form").isNotNull();
+        assertThat(form.attr("action")).endsWith("/rx/addAllergy2");
+        assertThat(form.attr("method")).isEqualTo("post");
+        return form;
+    }
+
+    private static String readAddReactionJsp() throws IOException {
+        return Files.readString(ADD_REACTION_JSP, StandardCharsets.UTF_8);
+    }
+
+    private static String normalizeWhitespace(String value) {
+        return value.replaceAll("\\s+", " ").trim();
+    }
+
+    private static int indexOfRequired(String jsp, String token) {
+        int index = jsp.indexOf(token);
+        assertThat(index).as("required JSP contract: %s", token).isGreaterThanOrEqualTo(0);
+        return index;
+    }
+
+    private static Path projectRoot() {
+        try {
+            Path location = Path.of(RxAllergyCsrfJspRegressionTest.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .toURI());
+            Path current = Files.isRegularFile(location) ? location.getParent() : location;
+            while (current != null) {
+                if (Files.isRegularFile(current.resolve("src/main/webapp/WEB-INF/jsp/rx/AddReaction2.jsp"))
+                        && Files.isRegularFile(current.resolve("src/main/webapp/WEB-INF/jsp/rx/ShowAllergies2.jsp"))) {
+                    return current;
+                }
+                current = current.getParent();
+            }
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException("Unable to resolve test class location", e);
+        }
+        throw new IllegalStateException("Unable to locate CARLOS EMR project root from test classpath");
+    }
+}

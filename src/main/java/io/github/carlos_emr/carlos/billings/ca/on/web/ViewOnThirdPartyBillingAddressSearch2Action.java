@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * View gate for {@code billing/CA/ON/onSearch3rdBillAddr.jsp}. Enforces
@@ -89,6 +90,8 @@ public class ViewOnThirdPartyBillingAddressSearch2Action extends ActionSupport {
      * @param request the live servlet request — search parameters read from this
      * @return populated view model (never null)
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public OnThirdPartyBillingAddressSearchViewModel assembleViewModel(HttpServletRequest request) {
         String limit1Param = request.getParameter("limit1");
         String limit2Param = request.getParameter("limit2");

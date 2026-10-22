@@ -40,11 +40,13 @@ public class ConsultationAttachmentTo1 implements Serializable {
 
     private int documentNo;
     private String documentType;
+    private String labType;
     private String documentTypeDisplay;
     private boolean attached;
     private String displayName;
     private String shortName;
     private String url;
+    private String validationError;
 
     private DocumentTo1 document;
 
@@ -66,6 +68,11 @@ public class ConsultationAttachmentTo1 implements Serializable {
     public void setDocumentNo(int documentNo) {
         this.documentNo = documentNo;
     }
+
+    /** Optional for legacy clients; required when a lab number exists in multiple sources. */
+    public String getLabType() { return labType; }
+
+    public void setLabType(String labType) { this.labType = labType; }
 
     public String getDocumentType() {
         return documentType;
@@ -118,6 +125,14 @@ public class ConsultationAttachmentTo1 implements Serializable {
 
     public void setUrl(String url) {
         this.url = url;
+    }
+
+    public String getValidationError() {
+        return validationError;
+    }
+
+    public void setValidationError(String validationError) {
+        this.validationError = validationError;
     }
 
     public DocumentTo1 getDocument() {

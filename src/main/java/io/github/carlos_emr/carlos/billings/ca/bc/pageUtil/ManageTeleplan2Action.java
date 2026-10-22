@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
@@ -73,6 +74,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ManageTeleplan2Action extends ActionSupport {
     private static final Set<String> POST_ONLY_METHODS = Set.of(
@@ -103,6 +105,8 @@ public class ManageTeleplan2Action extends ActionSupport {
     public ManageTeleplan2Action() {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if (method != null && POST_ONLY_METHODS.contains(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
@@ -199,7 +203,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
             file = PathValidationUtils.validateExistingPath(file, allowedDir);
-        } catch (SecurityException e) {
+        } catch (SecurityException _) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                 throw new SecurityException("File access not allowed outside designated directory");
@@ -272,7 +276,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
             file = PathValidationUtils.validateExistingPath(file, allowedDir);
-        } catch (SecurityException e) {
+        } catch (SecurityException _) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                 throw new SecurityException("File access not allowed outside designated directory");
@@ -392,7 +396,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         int sequenceNumber = -1;
         try {
             sequenceNumber = Integer.parseInt(sequence);
-        } catch (Exception e) {
+        } catch (Exception _) {
             //TODO: ADDED ERROR MESSAGE ABOUT THE NUMBER NOT BEING A NUMBER!
             return SUCCESS;
         }
@@ -438,7 +442,11 @@ public class ManageTeleplan2Action extends ActionSupport {
 
 
         if (log.isDebugEnabled()) {
+            // File.canRead() returns a boolean.
+            // nosemgrep: carlos.crlf-injection-logs
             log.debug("File is Readable: {}", f.canRead());
+            // File.exists() returns a boolean.
+            // nosemgrep: carlos.crlf-injection-logs
             log.debug("File exists: {}", f.exists());
             log.debug("File Path {}", LogSafe.sanitize(f.getCanonicalPath()));
         }
@@ -524,6 +532,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String checkElig()
             throws Exception {
         log.debug("checkElig");
@@ -560,6 +570,8 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         TeleplanResponse tr = tAPI.checkElig(phn, dateofbirthyyyy, dateofbirthmm, dateofbirthdd, dateofserviceyyyy, dateofservicemm, dateofservicedd, patientvisitcharge, lasteyeexam, patientrestriction);
         log.debug("{}", LogSafe.sanitize(tr.getResult()));
+        // isSuccess() returns a boolean, not raw response text.
+        // nosemgrep: carlos.crlf-injection-logs
         log.debug("isSuccess: {}", tr.isSuccess());
         log.debug("{}", LogSafe.sanitize(tr.toString()));
         request.setAttribute("Result", tr.getResult());
@@ -573,32 +585,28 @@ public class ManageTeleplan2Action extends ActionSupport {
             File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
             try {
                 file = PathValidationUtils.validateExistingPath(file, allowedDir);
-            } catch (SecurityException e) {
+            } catch (SecurityException _) {
                 // File might be in temp directory from Teleplan API
                 if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                     throw new SecurityException("File access not allowed outside designated directory");
                 }
             }
 
-            StringBuilder sb = new StringBuilder();
+            List<String> msgLines = new ArrayList<>();
             String line = null;
 
             try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
                 while ((line = buff.readLine()) != null) {
-
                     if (line.startsWith("ELIG_ON_DOS:")) {
                         String el = line.substring(12).trim();
                         if (el.equalsIgnoreCase("no")) {
                             request.setAttribute("Result", "Failure");
-
-                            line = "<span style=\"color:red; font-weight:bold;\">" + line + "</span>";
                         }
                     }
-                    sb.append(line);
-                    sb.append("<br>");
+                    msgLines.add(line);
                 }
             }
-            request.setAttribute("Msgs", sb.toString()); //tr.getMsgs());
+            request.setAttribute("MsgsLines", msgLines);
 
         } else {
             request.setAttribute("Msgs", tr.getMsgs());

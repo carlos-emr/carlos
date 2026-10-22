@@ -82,7 +82,7 @@
                                       onClick="popupPage(450,900,'ar1risk_99_12.htm')"><font
                         color="#FFFF66"><%= bundle.getString("provider.obarchecklist.viewRiskNumber") %></font></a> <input type="button"
                                                                            name="Button"
-                                                                           value="&nbsp;<%=request.getParameter("submit")!=null?bundle.getString("provider.obarchecklist.exit"):bundle.getString("provider.obarchecklist.cancel")%>&nbsp;"
+                                                                           value="&nbsp;<%=request.getParameter("submit")!=null?bundle.getString("provider.obarchecklist.exit"):bundle.getString("provider.obarchecklist.cancel")%>&nbsp;"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                                                            onClick="onExit();">&nbsp;
                 </div>
             </th>

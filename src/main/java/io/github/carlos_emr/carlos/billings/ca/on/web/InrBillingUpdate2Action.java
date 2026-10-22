@@ -21,8 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import java.io.IOException;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -37,7 +35,7 @@ import org.apache.struts2.ServletActionContext;
 /**
  * View gate for {@code billing/CA/ON/inr/updateINRbilling.jsp}, the
  * INR-billing update form. Enforces {@code _billing} {@code w} privilege
- * AND POST-only before forwarding to the JSP. Populates an
+ * before forwarding GET/HEAD or legacy POST requests to the read-only JSP. Populates an
  * {@link InrBillingUpdateViewModel} as request attribute
  * {@code inrUpdateModel} so the JSP body is pure presentation —
  * replacing the legacy in-JSP {@code SpringUtils.getBean(DemographicDao.class)}
@@ -69,13 +67,12 @@ public class InrBillingUpdate2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            try {
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            } catch (IOException ignore) {
-                // Container is shutting down or response already committed.
-            }
+        // The report opens this form with GET. Saving/deleting remains POST-only
+        // in InrBillingRecordUpdate2Action, the form's separate submission target.
+        String method = request.getMethod();
+        if (!"GET".equals(method) && !"HEAD".equals(method) && !"POST".equals(method)) {
+            response.setHeader("Allow", "GET, HEAD, POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
 

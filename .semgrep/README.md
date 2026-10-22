@@ -1,23 +1,85 @@
 # CARLOS EMR — Custom Semgrep Rules
 
-This directory contains custom [Semgrep](https://semgrep.dev/) taint-mode rules
-that recognize project-specific sanitizers. Without these rules, Semgrep's
-built-in rules produce false positives because they cannot trace data flow
-through custom sanitizer methods.
+This directory contains custom [Semgrep](https://semgrep.dev/) rules that
+recognize project-specific sanitizers. Most are taint-mode replacements for
+built-in rules; the JSP scriptlet rule is a supplemental generic-mode rule
+because Semgrep OSS does not support taint-mode with generic JSP matching.
 
 ## Why Custom Rules?
 
 Semgrep's built-in taint rules flag data flowing from HTTP request parameters to
 logging calls (CRLF injection) or file operations (path traversal) without
 recognizing that the data has been sanitized by project utilities like
-`LogSanitizer.sanitize()`. Custom taint-mode rules declare these utilities as
+`LogSafe.sanitize()`. Custom taint-mode rules declare these utilities as
 `pattern-sanitizers`, allowing Semgrep to correctly model the data flow.
 
 ## Rules
 
 | File | Replaces | Sanitizer Recognized | False Positives Resolved |
 |------|----------|---------------------|------------------------:|
-| `crlf-injection-logs-carlos.yml` | 3 built-in CRLF log injection rules | `LogSanitizer.sanitize()`, `Encode.forJava(...)` | ~128 |
+| `crlf-injection-logs-carlos.yml` | 3 built-in CRLF log injection rules | `LogSafe.sanitize()`, `sanitizeUri()`, `sanitizeObject()`, `sanitizeForDisplay()`, `exceptionTrace()`, `Encode.forJava(...)` | 218 |
+| `path-traversal-carlos.yml` | 3 built-in path traversal rules | The 9 containment-enforcing `PathValidationUtils` helpers modeled as a barrier in the CodeQL `Customizations.qll` (the 3-argument `validateUpload` only — see note below), plus `validateUserFilePath` (modeled as a sanitizing taint summary in the Models-as-Data extension `.github/codeql/extensions/carlos-java-models/models/path-validation-sanitizers.yml`) and `validateApplicationTempPath` (not yet modeled in CodeQL) | latent — see note below |
+| `jsp-scriptlet-xss-carlos.yml` | Supplements the built-in JSP scriptlet XSS rule | `<carlos:encode>`, `${carlos:forXxx(...)}`, `SafeEncode.forXxx(...)`, `Encode.forXxx(...)`, `URLEncoder.encode(...)` | direct request-output FPs |
+
+> **Note on `sanitizeForDisplay()`.** That helper neutralizes by deletion, not
+> by escaping. Java's `\p{Cntrl}` is ASCII-only, so `LogSafe` strips U+0085 NEXT
+> LINE explicitly alongside U+2028/U+2029 — otherwise a Unicode-aware log reader
+> would still see a forged line break after sanitization, and modelling the
+> helper as a CWE-117 barrier here would be unsound.
+
+> **Note on `path-traversal-carlos.yml`.** Its sanitizer list was completed to
+> match the CodeQL barrier, but doing so removed **no** findings from the current
+> tree: the findings that remain do not flow through the newly-modelled helpers.
+> The value is correctness for future code and parity with CodeQL, not a
+> reduction today. Verified by fixture: a `validatePathComponent()`-guarded sink
+> is now suppressed, while a `resolveTrustedPath()`-guarded sink still reports —
+> that helper's own Javadoc says it is "not a security boundary". `validateUserFilePath()`
+> was folded into the same sanitizer set for the same reason: it applies the legacy
+> `validateFileName()` normalization and then `validateWithinDirectory()`, and is already
+> registered as a manual summary model in CodeQL's Models-as-Data extension
+> (`.github/codeql/extensions/carlos-java-models/models/path-validation-sanitizers.yml`).
+> It is called from `DocumentManagerImpl`, `ManageDocument2Action`, and
+> `DemographicExportAction42Action` — none of those call sites are among the current 19
+> findings, so this addition is the same latent correctness fix as the rest of this rule's
+> sanitizer list: parity with CodeQL for future code, not a reduction today.
+>
+> **`validateUpload` is arity-specific, not name-matched.** `validateUpload` has two
+> overloads with opposite sanitizer status: the three-argument form
+> `validateUpload(source, name, destDir)` bounds its return value to `destDir`
+> (Argument[2]) and is a real sanitizer, but the one-argument form
+> `validateUpload(source)` only confirms the file is an existing regular file inside
+> a *shared* system temp root (`java.io.tmpdir`, Tomcat work dirs) — it does not bind
+> the result to any endpoint-specific directory, and CodeQL's own Models-as-Data model
+> deliberately keeps taint flowing from `Argument[0]` to `ReturnValue` for that reason.
+> The rule therefore matches `validateUpload($SRC, $NAME, $DIR)` (exactly three
+> arguments) rather than a bare `validateUpload(...)`, so the one-argument overload is
+> never treated as clearing taint. Verified by fixture: a request-driven value through
+> the one-argument overload is still flagged; the three-argument overload still
+> suppresses. Full-repo count is unaffected (19 before and after) because no current
+> call site reaches the one-argument overload directly from this rule's modeled
+> request sources.
+>
+> Note for maintainers: `codeql/customizations/Customizations.qll`'s
+> `isContainmentValidator` predicate matches `validateUpload` by name only
+> (`m.hasName([...])`, no arity check), so it may have the same gap for the
+> `java/path-injection` CodeQL query — the Models-as-Data summary above only controls
+> what taint *summary* CodeQL infers for the method body, not whether the explicit QL
+> barrier class also treats the call as sanitizing. Out of scope for this PR (only
+> `.semgrep/` was touched here); worth a follow-up CodeQL-side check.
+>
+> **`validateApplicationTempPath(File)`** was added to the sanitizer list for the same
+> reason as `validateUserFilePath`: it canonicalizes the input, then requires the first
+> path segment past a registered temp root (`java.io.tmpdir`, Tomcat work dirs) to be a
+> CARLOS-owned subtree name (e.g. `carlos-temp`) — a real containment check, not merely
+> "exists somewhere shared" like the one-argument `validateUpload`. It is the
+> parse-don't-validate companion to the boolean guard `isInApplicationTempDirectory`
+> (already excluded above), and is called from real request-adjacent flows in
+> `FaxManagerImpl` and `EctConsultationFormFax2Action`. Unlike every other helper in
+> this list, it is not yet registered in either CodeQL mechanism
+> (`Customizations.qll` or the Models-as-Data extension) — that CodeQL-side parity gap
+> is a separate follow-up, not fixed here. Verified by fixture: a request-driven value
+> through this helper was flagged before this addition and is suppressed after; full
+> repo count is unaffected (19 before and after).
 
 ## Built-in Rules to Disable in Semgrep Cloud
 
@@ -32,6 +94,19 @@ to avoid duplicate alerts:
 - `java.servlets.security.crlf-injection-logs.crlf-injection-logs`
 - `java.lang.security.audit.crlf-injection-logs.crlf-injection-logs`
 
+### Path Traversal (`path-traversal-carlos.yml`)
+
+- `java.lang.security.httpservlet-path-traversal.httpservlet-path-traversal`
+- `java.servlets.security.httpservlet-path-traversal.httpservlet-path-traversal`
+- `java.servlets.security.httpservlet-path-traversal-deepsemgrep.httpservlet-path-traversal-deepsemgrep`
+
+### JSP Scriptlet XSS (`jsp-scriptlet-xss-carlos.yml`)
+
+Do **not** disable `java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss` while this
+rule is generic-mode. The CARLOS rule recognizes common encoded direct-output
+patterns and includes supplemental request-variable matching, but the built-in
+rule remains responsible for broader JSP data-flow coverage.
+
 ## Running Locally
 
 ```bash
@@ -43,24 +118,67 @@ semgrep --config .semgrep/ src/main/java/
 
 # Scan a specific file
 semgrep --config .semgrep/crlf-injection-logs-carlos.yml src/main/java/path/to/File.java
+
+# Scan JSPs with the CARLOS scriptlet XSS replacement rule
+semgrep --config .semgrep/jsp-scriptlet-xss-carlos.yml src/main/webapp/
 ```
 
 ## CI Integration
 
 The `semgrep ci` command (in `.github/workflows/semgrep.yml`) runs rules from the
-Semgrep Cloud policy. To include these local rules in CI scans, either:
+Semgrep Cloud policy. `semgrep ci` does not support `--config`, so local CARLOS
+rules that should run in GitHub Actions must be invoked with a separate
+`semgrep scan --config ...` step and uploaded as their own SARIF file.
 
-1. **Add to Semgrep Cloud**: Upload rules via the Semgrep Cloud dashboard
-   (Policies → Add Rule → Custom Rule), or
-2. **Append local config**: Add `--config .semgrep/` to the `semgrep ci` command
-   in the workflow file.
+The workflow runs `semgrep scan --config .semgrep/`, so **every** rule in this
+directory is executed and uploaded as `semgrep-carlos.sarif` under the
+`semgrep-carlos` Code Scanning category.
+
+Invoke the whole directory, not one file. `crlf-injection-logs-carlos.yml` and
+`path-traversal-carlos.yml` replace built-ins that this README tells maintainers
+to disable in the Semgrep Cloud policy; if those replacements are not themselves
+run in CI, disabling the built-ins leaves CWE-117 and CWE-22 with no coverage at
+all. For `jsp-scriptlet-xss-carlos.yml` the built-in Semgrep Cloud rule stays
+enabled and the CARLOS rule is supplemental.
+
+`nosemgrep` suppressions are honored by Semgrep CI, but Semgrep still writes
+suppressed results into SARIF with `result.suppressions`. GitHub Code Scanning
+creates PR annotations from uploaded SARIF results and does not treat those
+Semgrep suppressions as dismissals, so the workflow runs
+`scripts/filter_suppressed_sarif.py semgrep.sarif` before uploading the Semgrep
+Cloud SARIF. This keeps Semgrep Cloud as the triage source of truth while keeping
+GitHub Code Scanning focused on actionable unsuppressed findings.
+
+## Handling False Positives
+
+1. Prefer fixing the code or adding the missing sanitizer model to a CARLOS rule.
+2. If a built-in Semgrep rule is fully replaced by a CARLOS sanitizer-aware rule,
+   disable only that exact built-in rule in the Semgrep Cloud policy and document
+   it above.
+3. If the built-in rule still provides broader coverage, keep it enabled and use
+   narrow rule-specific `nosemgrep` comments only at already-safe findings.
+4. Do not use blanket file ignores, broad rule disables, or bare `nosemgrep`
+   comments unless a rule-specific suppression is impossible and the rationale is
+   documented in the surrounding code or PR.
 
 ## Maintenance
 
-- **Adding a new sanitizer**: Add a `- pattern: NewSanitizer.method(...)` entry
-  under `pattern-sanitizers` in the relevant rule file.
+- **Adding a new sanitizer**: For taint-mode rules, add a `- pattern: NewSanitizer.method(...)`
+  entry under `pattern-sanitizers`. For generic-mode rules, add a matching
+  `pattern-not-regex` exclusion and keep the built-in rule enabled unless local
+  tests prove equivalent flow coverage.
 - **Adding a new rule**: Create a new `.yml` file in this directory following the
   existing naming convention (`<vuln-type>-carlos.yml`). Document the replaced
   built-in rules in this README and disable them in Semgrep Cloud.
 - **Validating changes**: Always run `semgrep --config .semgrep/ --validate`
   after editing rule files.
+
+The document-path regression fixture checks ordinary, fully qualified, and static-import
+calls to `validateExistingDocumentPath`, which delegates to `validateExistingPath`
+against the required `DOCUMENT_DIR`. It also verifies raw request paths,
+canonicalization-only helpers, and one-argument `validateUpload` remain findings.
+Run it with:
+
+```bash
+semgrep --test --config .semgrep/path-traversal-carlos.yml src/test/semgrep/path-traversal-carlos.java
+```

@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.io.*;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.model.BillingONPremium;
 import org.springframework.stereotype.Repository;
 
@@ -41,6 +42,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -62,8 +64,9 @@ public class BillingONPremiumDaoImpl extends AbstractDaoImpl<BillingONPremium> i
         super(BillingONPremium.class);
     }
 
+    // payDate is a SQL DATE; both report calendar boundaries are inclusive.
     public List<BillingONPremium> getActiveRAPremiumsByPayDate(Date startDate, Date endDate, Locale locale) {
-        String sql = "select bPrem from BillingONPremium bPrem where payDate >= ?1 and payDate < ?2 and status=?3";
+        String sql = "select bPrem from BillingONPremium bPrem where payDate >= ?1 and payDate <= ?2 and status=?3";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, startDate);
         query.setParameter(2, endDate);
@@ -75,7 +78,7 @@ public class BillingONPremiumDaoImpl extends AbstractDaoImpl<BillingONPremium> i
     }
 
     public List<BillingONPremium> getActiveRAPremiumsByProvider(Provider p, Date startDate, Date endDate, Locale locale) {
-        String sql = "select bPrem from BillingONPremium bPrem where payDate >= ?1 and payDate < ?2 and status=?3 and providerNo=?4";
+        String sql = "select bPrem from BillingONPremium bPrem where payDate >= ?1 and payDate <= ?2 and status=?3 and providerNo=?4";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, startDate);
         query.setParameter(2, endDate);
@@ -97,6 +100,8 @@ public class BillingONPremiumDaoImpl extends AbstractDaoImpl<BillingONPremium> i
         return results;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void parseAndSaveRAPremiums(LoggedInInfo loggedInInfo, Integer raHeaderNo, Locale locale) {
 
         String filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR").trim();
@@ -110,7 +115,7 @@ public class BillingONPremiumDaoImpl extends AbstractDaoImpl<BillingONPremium> i
         StringBuilder msgText = new StringBuilder();
 
         try {
-            file = new FileInputStream(filepath + filename);
+            file = new FileInputStream(PathValidationUtils.validateExistingPath(new File(filepath, filename), new File(filepath)));
             reader = new InputStreamReader(file);
             input = new BufferedReader(reader);
 

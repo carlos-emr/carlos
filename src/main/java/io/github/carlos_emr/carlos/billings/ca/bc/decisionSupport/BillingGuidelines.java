@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
@@ -44,8 +45,10 @@ import io.github.carlos_emr.carlos.decisionSupport.model.DSGuidelineFactory;
 import io.github.carlos_emr.carlos.decisionSupport.model.DecisionSupportException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import java.io.InputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
@@ -135,6 +138,8 @@ public class BillingGuidelines {
     /**
      * Loads all the guidelines from preset files in this package.  This will probably change to load them from a table in the database.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     void loadGuidelines(String regionCode) {
         log.debug("LOADING GUIDELINES");
         billingGuideLines = new ArrayList<DSGuideline>();
@@ -154,7 +159,7 @@ public class BillingGuidelines {
                     if (isDefaultFileLocation) {
                         is = this.getClass().getClassLoader().getResourceAsStream(streamToGet);
                     } else {
-                        is = new FileInputStream(streamToGet);
+                        is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(streamToGet)));
                     }
                     in = new BufferedReader(new InputStreamReader(is));
                     String str;
@@ -173,12 +178,14 @@ public class BillingGuidelines {
                         try {
                             in.close();
                         } catch (IOException e) {
+                            // ignore: failure closing stream during cleanup is non-actionable
                         }
                     }
                     if (is != null) {
                         try {
                             is.close();
                         } catch (IOException e) {
+                            // ignore: failure closing stream during cleanup is non-actionable
                         }
                     }
                 }

@@ -36,9 +36,12 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
+import java.text.SimpleDateFormat;
 import java.util.Map;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -52,6 +55,7 @@ import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author toby
@@ -65,9 +69,13 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         super(Dxresearch.class);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<DxRegistedPTInfo> getPatientRegisted(List<Dxresearch> dList, List<String> doctorList) {
 
         List<DxRegistedPTInfo> rList = new ArrayList<DxRegistedPTInfo>();
+        SimpleDateFormat startDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
+        SimpleDateFormat updateDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
 
 
         Iterator<Dxresearch> i = dList.listIterator();
@@ -97,7 +105,8 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
                     rList.add(new DxRegistedPTInfo(demo.getFirstName(), demo.getLastName(), demo.getSex(),
                             demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth(),
                             demo.getPhone(), demo.getHin(), dxres.getCodingSystem(), dxres.getDxresearchCode(),
-                            dxres.getStartDate().toString(), dxres.getUpdateDate().toString(),
+                            startDateFormat.format(dxres.getStartDate()),
+                            updateDateFormat.format(dxres.getUpdateDate()),
                             dxres.getStatus().toString()));
             }
         }
@@ -193,20 +202,48 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         }
     }
 
+    /**
+     * Returns registry records whose status is active ({@code 'A'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedActive(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("A", searchItems, doctorList);
+        return patientRegistedStatus('A', searchItems, doctorList);
     }
 
+    /**
+     * Returns registry records whose status is resolved ({@code 'C'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedResolve(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("C", searchItems, doctorList);
+        return patientRegistedStatus('C', searchItems, doctorList);
     }
 
+    /**
+     * Returns registry records whose status is deleted ({@code 'D'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedDeleted(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("D", searchItems, doctorList);
+        return patientRegistedStatus('D', searchItems, doctorList);
     }
 
-
-    public List<DxRegistedPTInfo> patientRegistedStatus(String status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
+    /**
+     * Returns registry records matching one entity-level status code.
+     *
+     * @param status registry status stored by {@link Dxresearch}, normally {@code 'A'}, {@code 'C'}, or {@code 'D'}
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
+    private List<DxRegistedPTInfo> patientRegistedStatus(Character status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
         List<Dxresearch> dList = null;
 
         List<dxCodeSearchBean> listItems = searchItems;
@@ -343,6 +380,27 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         List<Dxresearch> items = query.getResultList();
 
         return !items.isEmpty();
+    }
+
+    @Override
+    public Integer persistActiveIfAbsent(Dxresearch diagnosis) {
+        // A patient row exists even when no matching diagnosis does. Lock it through
+        // the inherited DAO transaction so concurrent dashboard additions serialize.
+        if (entityManager.find(Demographic.class, diagnosis.getDemographicNo(), LockModeType.PESSIMISTIC_WRITE) == null) {
+            return null;
+        }
+        Query query = entityManager.createQuery("select d from Dxresearch d where d.status='A'"
+                + " and d.demographicNo=?1 and d.codingSystem=?2 and d.dxresearchCode=?3");
+        query.setParameter(1, diagnosis.getDemographicNo());
+        query.setParameter(2, diagnosis.getCodingSystem());
+        query.setParameter(3, diagnosis.getDxresearchCode());
+        // A locking read also observes committed additions under REPEATABLE READ.
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        if (!query.getResultList().isEmpty()) return null;
+        diagnosis.setStatus('A');
+        entityManager.persist(diagnosis);
+        entityManager.flush();
+        return diagnosis.getId();
     }
 
     public void removeAllAssociationEntries() {

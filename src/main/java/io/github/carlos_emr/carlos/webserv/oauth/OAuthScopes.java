@@ -1,0 +1,670 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.webserv.oauth;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Vocabulary and matching rules for OAuth 1.0a access-token scopes (issue #3083).
+ *
+ * <p>OAuth tokens persist the scopes a provider approved on the consent screen, but historically
+ * nothing read them: any valid token granted the full privileges of its provider across the entire
+ * {@code /ws/services/*} surface. This class is the single, side-effect-free source of truth used to
+ * close that gap, in two places:
+ *
+ * <ul>
+ *   <li>{@code OscarRequestTokenService} — to reject unknown/empty scopes at {@code /ws/oauth/initiate}
+ *       rather than persisting arbitrary strings; and</li>
+ *   <li>{@code OAuthInterceptor} — to require the scope a request needs before letting the call through.</li>
+ * </ul>
+ *
+ * <p><b>Read/write model.</b> Scopes are {@code <domain>.read} / {@code <domain>.write}. A {@code .write}
+ * grant implies the matching {@code .read} (see {@link #isSatisfiedBy}). Each JAX-RS service under
+ * {@code /ws/services} maps to a domain ({@link #DOMAIN_BY_PATH_ROOT}), and read vs. write is classified
+ * per endpoint rather than purely by HTTP method, so a read-only POST (e.g. {@code tickler/search}) maps to
+ * {@code .read} instead of forcing a {@code .write} grant (issue #3102).
+ *
+ * <p><b>Fail closed (#4419).</b> Only the roots in {@link #SCOPE_EXEMPT_ROOTS} resolve to
+ * {@link #NO_SCOPE_REQUIRED}. A root in neither map resolves to {@link #UNMAPPED_ENDPOINT}, which no grant
+ * satisfies, so a service added to {@code /ws/services} without a scope decision is refused under
+ * enforcement rather than reachable by every token. {@code OAuthScopesServiceMapUnitTest} fails the build
+ * when a published service's root is in neither map.
+ *
+ * <p>Whether to enforce at all is {@link OAuthScopeEnforcement}'s decision (off unless an operator turns it
+ * on); this class only computes what scope a request requires. Two further decisions do not depend on the
+ * mode: {@link #isAlwaysBlocked} names endpoints no OAuth client may call at all, and
+ * {@link #isLegacyRestrictedAllowed} names the few a legacy integration may call in the default, restricted
+ * legacy access.
+ *
+ * <p>All methods are pure functions of their arguments; this type holds no request state and is safe to
+ * call from any thread.
+ */
+public final class OAuthScopes {
+
+    /** Returned by {@link #requiredScope} for an explicitly scope-exempt endpoint ({@link #SCOPE_EXEMPT_ROOTS}). */
+    public static final String NO_SCOPE_REQUIRED = null;
+
+    /**
+     * Returned by {@link #requiredScope} for a {@code /services/} root that is neither mapped nor exempt. It
+     * contains a space, and granted scopes are space-delimited, so no persisted grant can ever equal it;
+     * {@link #isSatisfiedBy} also refuses it outright.
+     */
+    public static final String UNMAPPED_ENDPOINT = "unmapped endpoint";
+
+    /**
+     * Roots that deliberately need no scope. {@code oauth} is {@code OAuthStatusService}
+     * ({@code /services/oauth/info}): it describes the token's own provider and is how a client confirms its
+     * token works, so any valid token may call it.
+     */
+    private static final Set<String> SCOPE_EXEMPT_ROOTS = Set.of("oauth");
+
+    private static final String READ = "read";
+    private static final String WRITE = "write";
+
+    /**
+     * Path-root segment (the first path element under {@code /services/} in the servlet path info) → scope
+     * domain, covering the JAX-RS services wired into the {@code /ws/services} CXF endpoint. Roots are
+     * matched case-insensitively (the resolver lower-cases them). A request whose root is not listed here
+     * (nor in {@link #SCOPE_EXEMPT_ROOTS}) resolves to {@link #UNMAPPED_ENDPOINT}. Several roots intentionally share a domain (e.g. {@code rx}
+     * and {@code rxlookup} → {@code rx}, {@code reporting} and {@code reportbytemplate} → {@code report});
+     * the {@code /initiate} vocabulary de-duplicates them.
+     */
+    private static final Map<String, String> DOMAIN_BY_PATH_ROOT = Map.ofEntries(
+        Map.entry("allergies", "allergy"),
+        Map.entry("app", "app"),
+        Map.entry("billing", "billing"),
+        Map.entry("consentservice", "consent"),
+        Map.entry("consults", "consultation"),
+        Map.entry("demographics", "demographic"),
+        // NB: "dxregisty" intentionally matches DiseaseRegistryService's actual (misspelled)
+        // @Path("/dxRegisty"); "correcting" it to "dxregistry" would stop matching the routed path.
+        Map.entry("dxregisty", "diseaseregistry"),
+        Map.entry("document", "document"),
+        Map.entry("eform", "eform"),
+        Map.entry("eforms", "eform"),
+        Map.entry("forms", "form"),
+        Map.entry("inbox", "inbox"),
+        Map.entry("jobs", "job"),
+        Map.entry("labs", "lab"),
+        Map.entry("measurements", "measurement"),
+        Map.entry("messaging", "messaging"),
+        Map.entry("notes", "note"),
+        Map.entry("ocean", "ocean"),
+        Map.entry("patientdetailstatusservice", "patientstatus"),
+        Map.entry("persona", "persona"),
+        Map.entry("pharmacies", "pharmacy"),
+        Map.entry("preventions", "prevention"),
+        Map.entry("program", "program"),
+        Map.entry("providerservice", "provider"),
+        Map.entry("recordux", "recordux"),
+        Map.entry("reportbytemplate", "report"),
+        Map.entry("reporting", "report"),
+        Map.entry("resources", "resource"),
+        Map.entry("rx", "rx"),
+        Map.entry("rxlookup", "rx"),
+        Map.entry("schedule", "schedule"),
+        Map.entry("status", "status"),
+        Map.entry("tickler", "tickler")
+    );
+
+    /**
+     * Path roots whose entire non-safe-method surface is read-only (no create/update/delete operations), so a
+     * {@code POST} under them resolves to {@code .read}. Only {@code POST} qualifies (every read-only operation
+     * on these services is a {@code POST}); a {@code PUT}/{@code DELETE} stays a write. Revisit if a mutating
+     * endpoint is ever added to one of these services.
+     */
+    private static final Set<String> NONSAFE_READ_ROOTS = Set.of(
+        "measurements", "recordux", "rxlookup", "patientdetailstatusservice"
+    );
+
+    /**
+     * For mixed read/write services, the path templates (relative to the root, lower-cased) of read
+     * operations that use {@code POST}. Each template is matched <em>positionally</em> against the request's
+     * path segments, with {@code "*"} matching a single path-parameter segment. This is deliberately strict
+     * (exact length, static-segment equality) so a mutating endpoint cannot be misclassified as a read just
+     * because a path-parameter value happens to equal an operation name (#3102 review). Read overrides are
+     * also gated to {@code POST} (see {@link #requiredScope}); every read-only non-safe operation in CARLOS
+     * is a {@code POST}, so a {@code PUT}/{@code DELETE} to a matching path is never a read.
+     */
+    private static final Map<String, List<List<String>>> READ_OP_TEMPLATES_BY_ROOT = Map.ofEntries(
+        Map.entry("schedule", List.of(seg("getappointment"), seg("*", "appointmenthistory"))),
+        Map.entry("tickler", List.of(seg("search"))),
+        Map.entry("demographics", List.of(seg("search"))),
+        Map.entry("consults", List.of(seg("searchrequests"), seg("searchresponses"))),
+        Map.entry("dxregisty", List.of(seg("findlikeissue"))),   // misspelled root, matches @Path("/dxRegisty")
+        Map.entry("notes", List.of(
+            seg("*", "all"), seg("*", "getcurrentnote"),
+            seg("getissuenote", "*"), seg("getgroupnoteext", "*"),
+            seg("getissueid", "*"), seg("getissuebyid", "*"),
+            seg("searchissues"), seg("checkeditnotenew"))),
+        Map.entry("persona", List.of(
+            seg("hasrights"), seg("isallowedaccesstopatientrecord"), seg("preferences"))),
+        Map.entry("providerservice", List.of(seg("providers", "search"))),
+        Map.entry("reporting", List.of(
+            seg("demographicsets", "patientlist"),
+            seg("preventionreport", "getreport", "*"),
+            seg("preventionreport", "runreport", "*"))),
+        Map.entry("rx", List.of(seg("*", "print", "*")))
+    );
+
+    /**
+     * An endpoint rule: {@code operation} is a path template (as in {@link #READ_OP_TEMPLATES_BY_ROOT},
+     * with {@code "*"} for any one segment and {@code "#"} for one all-digit segment) relative to
+     * {@code root}; {@code prefix} makes it match that operation and everything below it (an empty prefix
+     * template is the whole root); {@code methods} limits it to those HTTP methods, or every method when
+     * empty.
+     */
+    private record EndpointRule(String root, List<String> operation, boolean prefix, Set<String> methods) {
+        boolean matches(String method, List<String> segments) {
+            if (!root.equals(segments.get(0))) {
+                return false;
+            }
+            if (!methods.isEmpty() && (method == null || !methods.contains(asciiLowerCase(method.trim())))) {
+                return false;
+            }
+            List<String> requested = segments.subList(1, segments.size());
+            if (prefix) {
+                return requested.size() >= operation.size()
+                        && matchesTemplate(operation, requested.subList(0, operation.size()));
+            }
+            return matchesTemplate(operation, requested);
+        }
+    }
+
+    private static final Set<String> ANY_METHOD = Set.of();
+    private static final Set<String> MUTATING_METHODS = Set.of("post", "put", "delete", "patch");
+
+    /**
+     * Endpoints no OAuth client may call, whatever its scopes and whatever
+     * {@link OAuthScopeEnforcement.Mode} the server runs in. They are server administration, account
+     * reconnaissance, or destructive record surgery: a provider's own session may do them in the UI, but an
+     * app approved by that provider must not inherit them, and turning enforcement off (which exists so a
+     * legacy integration keeps working) must not open them either.
+     *
+     * <ul>
+     *   <li>{@code jobs}: the scheduled-task configuration ({@code OscarJobService}); reading it reveals
+     *       server internals and writing it reschedules or disables jobs. Whole root; {@code job.*} is
+     *       therefore not a requestable scope.</li>
+     *   <li>{@code persona/rights}, {@code hasRight}, {@code hasRights}: a listing of what the approving
+     *       account may do, useful only to an attacker mapping it.</li>
+     *   <li>{@code demographics/merge} writes: merging and unmerging patient records is destructive and
+     *       belongs to a person in the UI. The read of merged ids stays available.</li>
+     *   <li>{@code providerService/settings/{no}/save}: rewrites the provider's own preferences.</li>
+     *   <li>{@code providerService/getRecentDemographicsViewed*}: the provider's record-browsing history,
+     *       PHI about who looked at which patient and not data an integration needs.</li>
+     * </ul>
+     */
+    private static final List<EndpointRule> ALWAYS_BLOCKED = List.of(
+        new EndpointRule("jobs", seg(), true, ANY_METHOD),
+        new EndpointRule("persona", seg("rights"), false, ANY_METHOD),
+        new EndpointRule("persona", seg("hasright"), false, ANY_METHOD),
+        new EndpointRule("persona", seg("hasrights"), false, ANY_METHOD),
+        new EndpointRule("demographics", seg("merge"), true, MUTATING_METHODS),
+        new EndpointRule("providerservice", seg("settings", "*", "save"), false, ANY_METHOD),
+        new EndpointRule("providerservice", seg("getrecentdemographicsviewed"), false, ANY_METHOD),
+        new EndpointRule("providerservice", seg("getrecentdemographicsviewedafterdateincluded"), false, ANY_METHOD)
+    );
+
+    /**
+     * The only {@code /ws/services} endpoints an OAuth client may call in
+     * {@link OAuthScopeEnforcement.Mode#LEGACY_RESTRICTED}: the REST calls a legacy patient-engagement
+     * integration makes (its remaining calls are SOAP, which OAuth does not gate). Scopes are not consulted
+     * in that mode, so this list is the whole grant: create a patient, update a patient, read one patient
+     * by number, and attach a document to a patient. Anything else answers 403 {@code restricted_endpoint}.
+     * {@code oauth/info} is exempt as always.
+     */
+    private static final List<EndpointRule> LEGACY_RESTRICTED_ALLOWED = List.of(
+        new EndpointRule("demographics", seg(), false, Set.of("post", "put")),
+        new EndpointRule("demographics", seg("#"), false, Set.of("get")),
+        new EndpointRule("document", seg("savedocumenttodemographic"), false, Set.of("post"))
+    );
+
+    /** The suffixes the {@code /services} server's {@code <jaxrs:extensionMappings>} strip before routing. */
+    // Package-private so OAuthScopesServiceMapUnitTest can hold it to applicationContextREST.xml.
+    static final List<String> EXTENSION_MAPPING_SUFFIXES = List.of(".json", ".xml");
+
+    /** Readable constructor for a path template (a list of lower-cased segments; {@code "*"} = wildcard). */
+    private static List<String> seg(String... parts) {
+        return List.of(parts);
+    }
+
+    /** The complete set of scope strings a client may request at {@code /initiate}. */
+    private static final Set<String> KNOWN_SCOPES = buildKnownScopes();
+
+    private OAuthScopes() {
+        // static-utility holder; not instantiable
+    }
+
+    private static Set<String> buildKnownScopes() {
+        Set<String> scopes = new HashSet<>();
+        for (Map.Entry<String, String> entry : DOMAIN_BY_PATH_ROOT.entrySet()) {
+            if (isWhollyBlockedRoot(entry.getKey())) {
+                continue;  // no endpoint is left for the scope to grant, so /initiate must not offer it
+            }
+            scopes.add(entry.getValue() + "." + READ);
+            scopes.add(entry.getValue() + "." + WRITE);
+        }
+        return Set.copyOf(scopes);
+    }
+
+    private static boolean isWhollyBlockedRoot(String root) {
+        for (EndpointRule rule : ALWAYS_BLOCKED) {
+            if (rule.root().equals(root) && rule.prefix() && rule.operation().isEmpty() && rule.methods().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether no OAuth client may make this request, in any enforcement mode ({@link #ALWAYS_BLOCKED}).
+     * Evaluated on the path CXF routes (extension mapping removed); with a matrix parameter, on the
+     * unstripped path too, so the request is blocked if either form is.
+     *
+     * @param httpMethod              the request method
+     * @param servicePath             the request's servlet path info
+     * @param pathHasMatrixParameters whether the raw request URI's path contains {@code ;}
+     * @return {@code true} if the request must be refused outright
+     */
+    public static boolean isAlwaysBlocked(String httpMethod, String servicePath, boolean pathHasMatrixParameters) {
+        List<String> original = serviceSegments(servicePath);
+        if (original == null || original.isEmpty()) {
+            return false;
+        }
+        List<String> stripped = lowerCase(stripExtensionMapping(original));
+        List<String> unstripped = lowerCase(original);
+        for (EndpointRule rule : ALWAYS_BLOCKED) {
+            if (rule.matches(httpMethod, stripped) || (pathHasMatrixParameters && rule.matches(httpMethod, unstripped))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether {@link OAuthScopeEnforcement.Mode#LEGACY_RESTRICTED} admits this request: a non-{@code /services}
+     * path or a scope-exempt root always, otherwise only an endpoint in {@link #LEGACY_RESTRICTED_ALLOWED}.
+     * With a matrix parameter both the stripped and unstripped path must be allowed, since CXF may route
+     * either. {@link #isAlwaysBlocked} is checked first by the caller and is not repeated here.
+     *
+     * @param httpMethod              the request method
+     * @param servicePath             the request's servlet path info
+     * @param pathHasMatrixParameters whether the raw request URI's path contains {@code ;}
+     * @return {@code true} if the restricted legacy grant covers the request
+     */
+    public static boolean isLegacyRestrictedAllowed(String httpMethod, String servicePath, boolean pathHasMatrixParameters) {
+        List<String> original = serviceSegments(servicePath);
+        if (original == null) {
+            return true;
+        }
+        if (original.isEmpty()) {
+            return false;
+        }
+        List<String> stripped = lowerCase(stripExtensionMapping(original));
+        List<String> unstripped = lowerCase(original);
+        if (SCOPE_EXEMPT_ROOTS.contains(stripped.get(0))) {
+            return true;
+        }
+        return isLegacyAllowed(httpMethod, stripped)
+                && (!pathHasMatrixParameters || isLegacyAllowed(httpMethod, unstripped));
+    }
+
+    private static boolean isLegacyAllowed(String httpMethod, List<String> segments) {
+        for (EndpointRule rule : LEGACY_RESTRICTED_ALLOWED) {
+            if (rule.matches(httpMethod, segments)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The scope a request must carry to be authorized: {@link #NO_SCOPE_REQUIRED} for an explicitly exempt
+     * root or a path with no {@code /services/} root, and {@link #UNMAPPED_ENDPOINT} for a root in neither
+     * {@link #DOMAIN_BY_PATH_ROOT} nor {@link #SCOPE_EXEMPT_ROOTS}.
+     *
+     * <p>The domain comes from the first path segment under {@code /services/}. The read/write qualifier is
+     * per-endpoint: safe methods ({@code GET}/{@code HEAD}/{@code OPTIONS}) are reads; non-safe methods are
+     * writes <em>unless</em> the request is a {@code POST} to a known read operation (a {@link #NONSAFE_READ_ROOTS}
+     * root, or a path matching a {@link #READ_OP_TEMPLATES_BY_ROOT} template — e.g. {@code tickler/search} or
+     * {@code schedule/getAppointment}). This avoids forcing a {@code .write} grant to call a read-only POST.
+     *
+     * <p>The read override is restricted to {@code POST} and matched against explicit path templates so it
+     * cannot escalate a mutating request: a {@code PUT}/{@code DELETE} (or a {@code null}/blank method) is
+     * always a write, and a {@code POST} whose path-parameter value merely equals an operation name does not
+     * match a template (parameters are wildcards, not literals).
+     *
+     * @param httpMethod  the request method (case-insensitive); {@code null}/blank and any non-{@code POST}
+     *                    mutating method are treated as writes for fail-safe behaviour
+     * @param servicePath the request's servlet path info (e.g. {@code /services/schedule/day/2026-06-29}
+     *                    from {@code HttpServletRequest.getPathInfo()}); the segment after {@code /services/}
+     *                    selects the domain
+     * @return the required scope string, {@link #NO_SCOPE_REQUIRED}, or {@link #UNMAPPED_ENDPOINT}
+     */
+    public static String requiredScope(String httpMethod, String servicePath) {
+        // Without the raw URI, assume a matrix parameter may be present: the stricter answer.
+        return requiredScope(httpMethod, servicePath, true);
+    }
+
+    /**
+     * {@link #requiredScope(String, String)} for a caller that knows whether the raw request path carried a
+     * matrix parameter ({@code ;}). CXF's extension mapping strips {@code .json}/{@code .xml} only when the
+     * path has none, so without one the stripped path is exactly the routed operation and decides read vs
+     * write ({@code POST tickler/search.json} is the {@code search} read). With one, CXF may route either
+     * form, and a {@code POST} is a read only when both the stripped and unstripped paths are reads.
+     *
+     * @param httpMethod              the request method
+     * @param servicePath             the request's servlet path info
+     * @param pathHasMatrixParameters whether the raw request URI's path contains {@code ;}
+     * @return the required scope string, {@link #NO_SCOPE_REQUIRED}, or {@link #UNMAPPED_ENDPOINT}
+     */
+    public static String requiredScope(String httpMethod, String servicePath, boolean pathHasMatrixParameters) {
+        List<String> original = serviceSegments(servicePath);
+        if (original == null) {
+            return NO_SCOPE_REQUIRED;  // not a /services path at all
+        }
+        if (original.isEmpty()) {
+            return UNMAPPED_ENDPOINT;  // /services itself (e.g. ?_wadl): no root, no scope decision
+        }
+        // The segments CXF routes on (extension mapping removed) decide the domain. A matrix parameter,
+        // which getPathInfo() has already removed, stops CXF's strip, so in that case a POST counts as a
+        // read only when the path is a read operation whether or not the suffix was stripped.
+        List<String> segments = lowerCase(stripExtensionMapping(original));
+        List<String> unstripped = lowerCase(original);
+        String root = segments.get(0);
+        if (SCOPE_EXEMPT_ROOTS.contains(root)) {
+            return NO_SCOPE_REQUIRED;
+        }
+        String domain = DOMAIN_BY_PATH_ROOT.get(root);
+        if (domain == null) {
+            return UNMAPPED_ENDPOINT;
+        }
+        boolean read = isSafeMethod(httpMethod)
+            || (isPostMethod(httpMethod) && isNonSafeRead(root, segments)
+                && (!pathHasMatrixParameters || isNonSafeRead(unstripped.get(0), unstripped)));
+        return domain + "." + (read ? READ : WRITE);
+    }
+
+    private static boolean isPostMethod(String httpMethod) {
+        return httpMethod != null && asciiLowerCase(httpMethod.trim()).equals("post");
+    }
+
+    /**
+     * Whether a {@code POST} request under {@code root} is nonetheless a read — either because the whole
+     * service is read-only on non-safe methods, or because the request path positionally matches a known
+     * read-operation template. Path-parameter values cannot trigger a false read because templates are
+     * matched segment-by-segment with {@code "*"} wildcards for parameters and exact length.
+     */
+    private static boolean isNonSafeRead(String root, List<String> segments) {
+        if (NONSAFE_READ_ROOTS.contains(root)) {
+            return true;
+        }
+        List<List<String>> templates = READ_OP_TEMPLATES_BY_ROOT.get(root);
+        if (templates == null) {
+            return false;
+        }
+        List<String> operation = segments.subList(1, segments.size());
+        for (List<String> template : templates) {
+            if (matchesTemplate(template, operation)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Positional match: same length, and every template segment equals the request segment, except that
+     * {@code "*"} matches any one segment and {@code "#"} any one non-empty all-ASCII-digit segment.
+     */
+    private static boolean matchesTemplate(List<String> template, List<String> operation) {
+        if (template.size() != operation.size()) {
+            return false;
+        }
+        for (int i = 0; i < template.size(); i++) {
+            String t = template.get(i);
+            if (t.equals("*")) {
+                continue;
+            }
+            if (t.equals("#") ? !isAsciiDigits(operation.get(i)) : !t.equals(operation.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isAsciiDigits(String s) {
+        if (s.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Splits a scope string into its scopes: the {@code /initiate} request value and the space-delimited
+     * value stored on a token both go through here, so the two readings cannot drift apart (#4419).
+     *
+     * <p>The value is percent-decoded once first. OAuth1ParamParser leaves query and Authorization-header
+     * values encoded, so a multi-scope request arrives as {@code demographic.read%20provider.read}, and
+     * tokens minted before #4419 stored it that way. Scopes are plain ASCII tokens, so one decode is safe
+     * whichever form the value is in, and the result is still matched exactly against the vocabulary.
+     *
+     * @param raw the scope string; may be {@code null} or blank
+     * @return the non-empty, whitespace-separated scopes, in order; empty when there are none
+     */
+    public static List<String> parseScopeString(String raw) {
+        List<String> scopes = new ArrayList<>();
+        if (raw == null || raw.isBlank()) {
+            return scopes;
+        }
+        for (String scope : percentDecode(raw).trim().split("\\s+")) {
+            if (!scope.isEmpty()) {
+                scopes.add(scope);
+            }
+        }
+        return scopes;
+    }
+
+    /** RFC 3986 percent-decoding of single-byte escapes; a malformed escape is kept as-is. */
+    private static String percentDecode(String s) {
+        if (s.indexOf('%') < 0) {
+            return s;
+        }
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '%' && i + 2 < s.length()) {
+                int hi = Character.digit(s.charAt(i + 1), 16);
+                int lo = Character.digit(s.charAt(i + 2), 16);
+                if (hi >= 0 && lo >= 0) {
+                    out.append((char) ((hi << 4) + lo));
+                    i += 2;
+                    continue;
+                }
+            }
+            out.append(c);
+        }
+        return out.toString();
+    }
+
+    /**
+     * Whether the scopes granted on a token satisfy a {@code requiredScope}. A {@code null}
+     * {@code requiredScope} ({@link #NO_SCOPE_REQUIRED}) is always satisfied and {@link #UNMAPPED_ENDPOINT}
+     * never is. Matching is exact, except that a {@code <domain>.write} grant also satisfies
+     * {@code <domain>.read}.
+     *
+     * @param requiredScope the scope the request needs, or {@link #NO_SCOPE_REQUIRED}
+     * @param grantedScopes the scopes present on the token (may be {@code null}/empty)
+     * @return {@code true} if the request is permitted by the granted scopes
+     */
+    public static boolean isSatisfiedBy(String requiredScope, Collection<String> grantedScopes) {
+        if (requiredScope == null) {
+            return true;
+        }
+        if (UNMAPPED_ENDPOINT.equals(requiredScope)) {
+            return false;
+        }
+        if (grantedScopes == null || grantedScopes.isEmpty()) {
+            return false;
+        }
+        String required = normalize(requiredScope);
+        for (String granted : grantedScopes) {
+            String g = normalize(granted);
+            if (g == null) {
+                continue;
+            }
+            if (g.equals(required)) {
+                return true;
+            }
+            // write implies read on the same domain
+            if (required.endsWith("." + READ)
+                    && g.equals(required.substring(0, required.length() - READ.length()) + WRITE)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a scope string is part of the recognised vocabulary. Used to reject arbitrary scope strings
+     * at {@code /initiate} when enforcement is enabled.
+     *
+     * @param scope a single scope token
+     * @return {@code true} if {@code scope} is a known {@code <domain>.read}/{@code .write} value
+     */
+    public static boolean isKnownScope(String scope) {
+        String normalized = normalize(scope);
+        return normalized != null && KNOWN_SCOPES.contains(normalized);
+    }
+
+    /** The RFC 7231 safe (read-only) methods. {@code TRACE} is included for completeness even though the
+     *  container normally rejects it and no JAX-RS resource handles it. */
+    private static boolean isSafeMethod(String httpMethod) {
+        if (httpMethod == null) {
+            return false;
+        }
+        String m = asciiLowerCase(httpMethod.trim());
+        return m.equals("get") || m.equals("head") || m.equals("options") || m.equals("trace");
+    }
+
+    /**
+     * The non-empty path segments after the {@code /services} prefix, in their original case (the first is
+     * the domain root, the rest identify the operation): {@code null} if the path is not under
+     * {@code /services}, empty if nothing follows it.
+     *
+     * <p>The caller passes the request's <em>servlet path info</em>
+     * ({@link jakarta.servlet.http.HttpServletRequest#getPathInfo()}), which the servlet container has already
+     * URL-decoded and canonicalized — dot-segments collapsed, matrix/path parameters stripped — and which is
+     * the exact path JAX-RS/CXF route on. This method therefore does no decoding or normalization of its own:
+     * doing it here would only risk diverging from how the request is actually routed.
+     *
+     * <p>Verified live on the CARLOS stack (Tomcat 11 + CXF 4.1.5): inside a {@code PRE_INVOKE} interceptor,
+     * {@code getPathInfo()} is the raw container request's value, and for every routed request it is
+     * {@code /services/<domain>/...} regardless of how the client percent-encoded the URI; matrix params and
+     * {@code .}/{@code ..} segments are already resolved, and an encoded slash ({@code %2F}) is rejected by
+     * the container (HTTP 400) before the interceptor runs. So an encoded mount prefix or domain segment
+     * cannot reach a mapped resource while looking unmapped here.
+     */
+    private static List<String> serviceSegments(String servicePath) {
+        if (servicePath == null) {
+            return null;
+        }
+        String marker = "/services";
+        int idx = servicePath.indexOf(marker);
+        int end = idx + marker.length();
+        if (idx < 0 || (end < servicePath.length() && servicePath.charAt(end) != '/')) {
+            return null;
+        }
+        List<String> segments = new ArrayList<>();
+        for (String seg : servicePath.substring(end).split("/")) {
+            if (!seg.isEmpty()) {
+                segments.add(seg);
+            }
+        }
+        return segments;
+    }
+
+    private static List<String> lowerCase(List<String> segments) {
+        List<String> lowered = new ArrayList<>(segments.size());
+        for (String seg : segments) {
+            lowered.add(asciiLowerCase(seg));
+        }
+        return lowered;
+    }
+
+    /**
+     * Mirrors the {@code <jaxrs:extensionMappings>} of the {@code /services} server in
+     * applicationContextREST.xml. CXF's {@code RequestPreprocessor} removes a trailing {@code .json} or
+     * {@code .xml} from the path before routing, so {@code /services/tickler.json} reaches the
+     * {@code /tickler} resource. {@code getPathInfo()} still carries the suffix, and without this the root
+     * would read as {@code tickler.json}, a root in neither map (#4419). As in CXF, only the end of the path
+     * is affected and the match is case-sensitive ({@code .JSON} is not stripped, and CXF does not route it
+     * either); a segment that is nothing but the suffix is left alone.
+     *
+     * @param segments the original-case segments after {@code /services}
+     * @return a new list with the extension removed from the last segment, if it carried one
+     */
+    private static List<String> stripExtensionMapping(List<String> segments) {
+        List<String> stripped = new ArrayList<>(segments);
+        int last = stripped.size() - 1;
+        String seg = stripped.get(last);
+        for (String suffix : EXTENSION_MAPPING_SUFFIXES) {
+            if (seg.length() > suffix.length() && seg.endsWith(suffix)) {
+                stripped.set(last, seg.substring(0, seg.length() - suffix.length()));
+                break;
+            }
+        }
+        return stripped;
+    }
+
+    private static String normalize(String scope) {
+        if (scope == null) {
+            return null;
+        }
+        String trimmed = asciiLowerCase(scope.trim());
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /**
+     * ASCII-only lower-casing. Scopes and HTTP methods are ASCII tokens, and folding them with the
+     * locale-sensitive {@code String.toLowerCase} adds no value while tripping locale/Unicode scanners; a
+     * fixed ASCII fold mirrors the existing OAuth helpers in this package.
+     */
+    static String asciiLowerCase(String value) {
+        StringBuilder lowered = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            lowered.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return lowered.toString();
+    }
+}

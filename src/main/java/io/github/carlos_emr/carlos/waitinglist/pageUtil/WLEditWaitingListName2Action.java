@@ -39,6 +39,7 @@ import java.util.Date;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class WLEditWaitingListName2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -50,6 +51,8 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute()
             throws Exception {
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): just entering.");

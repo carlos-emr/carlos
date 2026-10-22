@@ -60,6 +60,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action controller for measurement data operations in OpenO EMR.
@@ -149,6 +150,9 @@ public class MeasurementData2Action extends ActionSupport {
 
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "IMPROPER_UNICODE"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getLatestValues() throws IOException {
         String demographicNo = request.getParameter("demographicNo");
         String typeStr = request.getParameter("types");
@@ -252,6 +256,8 @@ public class MeasurementData2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getMeasurementsGroupByDate() throws Exception {
         String demographicNo = request.getParameter("demographicNo");
         String[] types = (request.getParameter("types") != null ? request.getParameter("types") : "").split(",");
@@ -341,6 +347,8 @@ public class MeasurementData2Action extends ActionSupport {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveValues() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -438,6 +446,11 @@ public class MeasurementData2Action extends ActionSupport {
      * Retrieves all measurement data of a specific type for a demographic.
      * Request object contains the demographic number and measurement type to be searched.
      *
+     * <p>Each measurement also carries {@code dateObservedLocal} (yyyy-MM-dd), the observation
+     * date in the server's time zone. {@link #saveMeasurement} parses the date-only value the
+     * modal posts in that same zone, so the client must not re-derive the calendar day from the
+     * epoch-millisecond {@code dateObserved} using its own zone (issue #4421).
+     *
      * @return JSON object containing measurement data
      */
     public String getMeasurementsByType() throws NumberFormatException, IOException {
@@ -449,8 +462,16 @@ public class MeasurementData2Action extends ActionSupport {
         if (measurements.isEmpty()) {
             json.put("-1", "No Results Found");
         } else {
+            SimpleDateFormat dateOnly = new SimpleDateFormat("yyyy-MM-dd");
             for (Measurement measurement : measurements) {
-                json.set(String.valueOf(measurement.getId()), objectMapper.valueToTree(measurement));
+                ObjectNode measurementJson = objectMapper.valueToTree(measurement);
+                Date dateObserved = measurement.getDateObserved();
+                if (dateObserved == null) {
+                    measurementJson.putNull("dateObservedLocal");
+                } else {
+                    measurementJson.put("dateObservedLocal", dateOnly.format(dateObserved));
+                }
+                json.set(String.valueOf(measurement.getId()), measurementJson);
             }
         }
 

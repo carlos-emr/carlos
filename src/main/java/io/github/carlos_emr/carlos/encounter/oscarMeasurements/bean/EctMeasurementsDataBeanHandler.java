@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementTypes;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctMeasurementsDataBeanHandler {
 
@@ -77,6 +78,8 @@ public class EctMeasurementsDataBeanHandler {
         return true;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean init(Integer demo, String type) {
         MeasurementTypes mt = MeasurementTypes.getInstance();
         EctMeasurementTypesBean mBean = mt.getByType(type);
@@ -189,21 +192,36 @@ public class EctMeasurementsDataBeanHandler {
         return toHashTable(m, mt, p);
     }
 
+    /**
+     * Flattens one reading for the legacy Hashtable callers (the add/edit measurement page, eForm
+     * measurement prefill, renal dosing, the Rh immune globulin form).
+     *
+     * <p>{@code measurements.comments} and {@code dateObserved} are nullable columns, and
+     * {@code Hashtable} rejects null values, so a reading with no comment used to make these
+     * callers fail with a 500. A null value is now left out, which is what every caller already
+     * reads back through {@code get(...)}: {@code null}.
+     */
     private static Hashtable<String, Object> toHashTable(Measurement m, MeasurementType mt, Provider p) {
         Hashtable<String, Object> data = new Hashtable<String, Object>();
-        data.put("type", mt.getTypeDisplayName());
-        data.put("typeDisplayName", mt.getTypeDisplayName());
-        data.put("typeDescription", mt.getTypeDescription());
-        data.put("value", m.getDataField());
-        data.put("measuringInstruction", m.getMeasuringInstruction());
-        data.put("comments", m.getComments());
-        data.put("dateObserved", ConversionUtils.toTimestampString(m.getDateObserved()));
-        data.put("dateObserved_date", m.getDateObserved());
-        data.put("dateEntered", ConversionUtils.toTimestampString(m.getCreateDate()));
-        data.put("dateEntered_date", m.getCreateDate());
-        data.put("provider_first", p.getFirstName());
-        data.put("provider_last", p.getLastName());
+        putIfPresent(data, "type", mt.getTypeDisplayName());
+        putIfPresent(data, "typeDisplayName", mt.getTypeDisplayName());
+        putIfPresent(data, "typeDescription", mt.getTypeDescription());
+        putIfPresent(data, "value", m.getDataField());
+        putIfPresent(data, "measuringInstruction", m.getMeasuringInstruction());
+        putIfPresent(data, "comments", m.getComments());
+        putIfPresent(data, "dateObserved", ConversionUtils.toTimestampString(m.getDateObserved()));
+        putIfPresent(data, "dateObserved_date", m.getDateObserved());
+        putIfPresent(data, "dateEntered", ConversionUtils.toTimestampString(m.getCreateDate()));
+        putIfPresent(data, "dateEntered_date", m.getCreateDate());
+        putIfPresent(data, "provider_first", p.getFirstName());
+        putIfPresent(data, "provider_last", p.getLastName());
         return data;
+    }
+
+    private static void putIfPresent(Hashtable<String, Object> data, String key, Object value) {
+        if (value != null) {
+            data.put(key, value);
+        }
     }
 
     public static class EctMeasurementsDataBeanComparator implements Comparator<EctMeasurementsDataBean> {

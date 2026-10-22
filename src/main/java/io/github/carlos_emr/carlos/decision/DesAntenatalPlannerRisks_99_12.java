@@ -170,7 +170,7 @@ public class DesAntenatalPlannerRisks_99_12 {
      */
     public static void main(String args[]) {
         DesAntenatalPlannerRisks_99_12 aE = new DesAntenatalPlannerRisks_99_12();
-        MiscUtils.getLogger().info(aE.doStuff("desantenatalplannerrisks_99_12.xml"));
+        MiscUtils.getLogger().info(aE.doStuff(AntenatalConfigLocation.RISK_FILE_NAME));
     }
 
 }

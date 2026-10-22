@@ -38,6 +38,7 @@ import java.util.Deque;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
 
@@ -57,6 +58,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * of returning JDBC cursors.</p>
  */
 public final class LegacyJdbcQuery {
+    private static final Pattern FILE_ACCESS_CLAUSE = Pattern.compile(
+            "\\binto\\s+(?:outfile|dumpfile)\\b|\\bload_file\\b|\\bload\\s+data\\b");
     private static final int MAX_THREAD_RESOURCES_BEFORE_WARNING = 10;
     private static final int MAX_THREAD_RESOURCES_BEFORE_EXCEPTION = 50;
     private static final ThreadLocal<Deque<AutoCloseable>> THREAD_RESOURCES = new ThreadLocal<>();
@@ -175,7 +178,7 @@ public final class LegacyJdbcQuery {
         PreparedStatement ps = null;
         try {
             // codeql[java/sql-injection] -- TrustedSql is constructed only after legacy SELECT validation; values are bound below.
-            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_SENSITIVE, // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- TrustedSql is constructed only after legacy SELECT validation; values are bound below
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
@@ -193,7 +196,7 @@ public final class LegacyJdbcQuery {
         PreparedStatement ps = null;
         try {
             // codeql[java/sql-injection] -- Raw legacy overload is restricted to caller-owned SQL shape; request-driven SQL uses TrustedSql or ParameterizedSql.
-            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- raw legacy overload is restricted to caller-owned SQL shape; values are bound below
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
@@ -207,15 +210,15 @@ public final class LegacyJdbcQuery {
 
     public static void procExecute(String procName, String[] params) throws SQLException {
         validateProcName(procName);
-        StringBuilder sql = new StringBuilder("{call ").append(procName);
+        StringBuilder sql = new StringBuilder("{call ").append(procName).append('(');
         if (params != null && params.length > 0) {
             StringBuilder prms = new StringBuilder();
             for (int i = 0; i < params.length; i++) {
                 prms.append("?,");
             }
-            sql.append("(").append(prms.substring(0, prms.length() - 1)).append(")");
+            sql.append(prms.substring(0, prms.length() - 1));
         }
-        sql.append("}");
+        sql.append(")}");
 
         DataSource dataSource = dataSource();
         Connection connection = getRequiredConnection(dataSource);
@@ -332,23 +335,21 @@ public final class LegacyJdbcQuery {
             throw new SQLException("Potential SQL injection pattern detected");
         }
 
-        if (containsSqlWord(normalized, "union")) {
+        String normalizedSqlSyntax = stripQuotedSqlSections(sql).toLowerCase(Locale.ROOT);
+        if (containsSqlWord(normalizedSqlSyntax, "union")) {
             throw new SQLException("Unsafe SQL detected: UNION not permitted");
         }
 
         String[] blockedWords = {"insert", "update", "delete", "drop", "alter", "create", "truncate",
                 "grant", "revoke", "exec", "execute", "call", "merge", "commit", "rollback"};
         for (String word : blockedWords) {
-            if (containsSqlWord(normalized, word)) {
+            if (containsSqlWord(normalizedSqlSyntax, word)) {
                 throw new SQLException("Unsafe SQL detected: prohibited keyword");
             }
         }
 
-        String[] blockedPhrases = {"into outfile", "into dumpfile", "load_file", "load data"};
-        for (String phrase : blockedPhrases) {
-            if (normalized.contains(phrase)) {
-                throw new SQLException("Unsafe SQL detected: prohibited keyword");
-            }
+        if (containsFileAccessClause(normalizedSqlSyntax)) {
+            throw new SQLException("Unsafe SQL detected: prohibited keyword");
         }
     }
 
@@ -372,12 +373,24 @@ public final class LegacyJdbcQuery {
             throw new SQLException("Unsafe SQL detected: comment or statement separator");
         }
 
-        String[] blockedPhrases = {"into outfile", "into dumpfile", "load_file", "load data"};
-        for (String phrase : blockedPhrases) {
-            if (normalized.contains(phrase)) {
-                throw new SQLException("Unsafe SQL detected: prohibited keyword");
-            }
+        // Quoted literals are data ("SELECT 'load_file' AS label" reads no file), as in the
+        // generic validator; the control-token scan above already refused anything ambiguous.
+        if (containsFileAccessClause(stripQuotedSqlSections(sql).toLowerCase(Locale.ROOT))) {
+            throw new SQLException("Unsafe SQL detected: prohibited keyword");
         }
+    }
+
+    /**
+     * File reads and writes the SELECT validators refuse. MariaDB accepts any whitespace
+     * between the words of {@code INTO OUTFILE}, {@code INTO DUMPFILE} and {@code LOAD DATA}
+     * (a newline or a tab as readily as one space), so they are matched as tokens separated by
+     * whitespace, not as literal single-spaced phrases. Comments, the other separator MariaDB
+     * accepts there, are refused before this runs.
+     *
+     * @param lowerCaseSql SQL already folded to lower case
+     */
+    private static boolean containsFileAccessClause(String lowerCaseSql) {
+        return FILE_ACCESS_CLAUSE.matcher(lowerCaseSql).find();
     }
 
     private static Object[] toObjects(LegacyJdbcParameter[] params) {
@@ -395,6 +408,10 @@ public final class LegacyJdbcQuery {
      * because the bundled AP SQL historically included it. Semicolons inside
      * quoted literals, such as {@code GROUP_CONCAT(... SEPARATOR ';')}, are data
      * and are not treated as stacked statements.</p>
+     *
+     * <p>A backslash escape is unsafe only where it could escape the literal's
+     * closing quote, because only then does the literal end in a different place
+     * under {@code NO_BACKSLASH_ESCAPES}. Escapes such as {@code '\n'} are data.</p>
      */
     public static boolean containsUnsafeSqlControlToken(String sql) {
         if (sql == null) {
@@ -417,6 +434,12 @@ public final class LegacyJdbcQuery {
                 char current = sql.charAt(position);
                 char next = nextChar();
                 if (insideQuotedLiteral()) {
+                    if (isStringLiteralBackslash(current)) {
+                        if (backslashRunEscapesClosingQuote()) {
+                            return true;
+                        }
+                        continue;
+                    }
                     skipQuotedLiteralToken(current, next);
                 } else if (opensQuotedLiteral(current)) {
                     quote = current;
@@ -436,13 +459,44 @@ public final class LegacyJdbcQuery {
         }
 
         private void skipQuotedLiteralToken(char current, char next) {
-            if (quote != '`' && current == '\\' && next != '\0') {
-                position++;
-            } else if (current == quote && next == quote) {
+            if (current == quote && next == quote) {
                 position++;
             } else if (current == quote) {
                 quote = '\0';
             }
+        }
+
+        /** A backslash inside a string literal; backtick identifiers have no escapes in any mode. */
+        private boolean isStringLiteralBackslash(char current) {
+            return quote != '`' && current == '\\';
+        }
+
+        /**
+         * Consumes the run of backslashes starting at {@code position} and reports whether it makes
+         * the end of the literal depend on the server's sql_mode.
+         *
+         * <p>Under the default sql_mode each backslash escapes the character after it; under
+         * {@code NO_BACKSLASH_ESCAPES} it is plain text. The two readings end the literal in
+         * different places only when an ODD run sits directly before the literal's own quote: the
+         * default mode reads an escaped quote and keeps going, while {@code NO_BACKSLASH_ESCAPES}
+         * ends the literal there and parses the rest as SQL ({@code 'safe\' union select ...}).
+         * Any other run, such as the {@code '\n'} separators the bundled eForm AP queries join rows
+         * with, or an escaped backslash before the closing quote, ends the literal at the same quote
+         * in both modes and changes only its content, so it is not a control token. Refusing those
+         * as well blanked every AP field built on them.</p>
+         *
+         * @return true when the literal's end depends on the sql_mode
+         */
+        private boolean backslashRunEscapesClosingQuote() {
+            int runEnd = position;
+            while (runEnd < sql.length() && sql.charAt(runEnd) == '\\') {
+                runEnd++;
+            }
+            boolean oddRun = (runEnd - position) % 2 == 1;
+            boolean beforeClosingQuote = runEnd < sql.length() && sql.charAt(runEnd) == quote;
+            // Resume on the character after the run: the loop increment moves past runEnd - 1.
+            position = runEnd - 1;
+            return oddRun && beforeClosingQuote;
         }
 
         private static boolean opensQuotedLiteral(char current) {
@@ -613,6 +667,49 @@ public final class LegacyJdbcQuery {
             index = sql.indexOf(word, index + 1);
         }
         return false;
+    }
+
+    /**
+     * Masks quoted sections while preserving input length for keyword checks.
+     * The control-token scanner rejects, before this method is called, every string literal whose
+     * end depends on MySQL's {@code NO_BACKSLASH_ESCAPES} mode: an odd run of backslashes directly
+     * before the closing quote. Any other backslash (one inside the literal, such as {@code '\n'},
+     * or an even run before the quote) leaves the closing quote where both modes put it, so this
+     * method treats backslashes as ordinary characters and masks the same span either way.
+     * This intentionally differs from the Query-by-Example validator's scanner, which must match
+     * JSqlParser's configured parsing. The two scanners must not be merged.
+     */
+    private static String stripQuotedSqlSections(String sql) {
+        StringBuilder stripped = new StringBuilder(sql.length());
+        char quote = '\0';
+        int i = 0;
+        while (i < sql.length()) {
+            char current = sql.charAt(i);
+            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
+            if (quote == '\0') {
+                quote = sqlQuoteDelimiter(current);
+                stripped.append(quote == '\0' ? current : ' ');
+                i++;
+            } else if (isSqlEscapedPair(quote, current, next)) {
+                stripped.append("  ");
+                i += 2;
+            } else {
+                if (current == quote) {
+                    quote = '\0';
+                }
+                stripped.append(' ');
+                i++;
+            }
+        }
+        return stripped.toString();
+    }
+
+    private static boolean isSqlEscapedPair(char quote, char current, char next) {
+        return current == quote && next == quote;
+    }
+
+    private static char sqlQuoteDelimiter(char candidate) {
+        return candidate == '\'' || candidate == '"' || candidate == '`' ? candidate : '\0';
     }
 
     private static boolean startsWithSqlWord(String sql, String word) {

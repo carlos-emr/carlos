@@ -59,6 +59,7 @@ import ca.uhn.hl7v2.model.Structure;
 import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author wrighd
@@ -226,6 +227,8 @@ public class MDSHandler implements MessageHandler {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getMsgPriority() {
 
         int obrCount = getOBRCount();
@@ -367,6 +370,12 @@ public class MDSHandler implements MessageHandler {
         return (getOBXField("3-3", i, j));
     }
 
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
+    @Override
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return terser.getSegment((String) ((ArrayList<?>) obrGroups.get(i)).get(j));
+    }
+
     public String getOBXResult(int i, int j) {
         return (getOBXField("5-1", i, j));
     }
@@ -433,6 +442,8 @@ public class MDSHandler implements MessageHandler {
         return (resultStatus);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public int getOBXFinalResultCount() {
         int obrCount = getOBRCount();
         int obxCount;
@@ -595,6 +606,8 @@ public class MDSHandler implements MessageHandler {
         }
     }
 
+    // FindSecBugs POTENTIAL_XML_INJECTION: MDS comments must remain raw in the parser; direct lab/PDF/measurement display sinks encode or render as plain text.
+    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "MDS parser returns raw HL7 comment text; direct lab/PDF/measurement display sinks encode or render as plain text, so parser-layer escaping double-encodes clinical comments")
     public String getOBXComment(int i, int j, int k) {
         try {
             // For MDS messages with RESPONSE group structure
@@ -1257,6 +1270,8 @@ public class MDSHandler implements MessageHandler {
      * @param j OBX index (unused, blocked status applies to entire message)
      * @return true if the test result is blocked, false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isTestResultBlocked(int i, int j) {
         Segment zpd;
         try {

@@ -116,7 +116,7 @@
                                onclick="document.forms['searchlotnr'].keyword.focus();"><fmt:message key="admin.lotnrsearch.prevention"/></font></td>
                     <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
                                                                         NAME="keyword" SIZE="17" MAXLENGTH="100"
-                                                                        value="<%=request.getParameter("keyword") != null ? SafeEncode.forHtmlAttribute(request.getParameter("keyword")) : ""%>">
+                                                                        value="<%=request.getParameter("keyword") != null ? SafeEncode.forHtmlAttribute(request.getParameter("keyword")) : ""%>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                         <INPUT
                                 TYPE="hidden" NAME="orderby" VALUE="prevention_type"> <INPUT
                                 TYPE="hidden" NAME="dboperation" VALUE="lotnr_search_prevention">
@@ -133,7 +133,7 @@
         <table width="100%" border="0">
             <tr>
                 <td align="left"><i><fmt:message key="admin.search.keywords"/></i>
-                    : <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/>
+                    : <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 </td>
             </tr>
         </table>
@@ -182,11 +182,11 @@
                 nLastPage = limit1 - limit2;
                 if (nLastPage >= 0) {
             %> <a
-                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%><%
             }
             if (nItems == limit2) {
         %> <a
-                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%><%
             }
         %>
             <p><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>

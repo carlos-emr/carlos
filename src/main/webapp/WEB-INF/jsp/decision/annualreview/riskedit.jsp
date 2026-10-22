@@ -47,7 +47,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>CHECK LIST</title>
-    <link rel="stylesheet" href="antenatalrecord.css">
+    <link rel="stylesheet" href="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/decision/antenatal/antenatalrecord.css">
     <script language="JavaScript">
         <!--
 
@@ -86,7 +86,7 @@
             <th width="25%" nowrap>
                 <div align="right"><input type='submit' name='submit'
                                           value=' Save '> <input type="button" name="Button"
-                                                                 value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"
+                                                                 value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                                                  onClick="onExit();">&nbsp;
                 </div>
             </th>

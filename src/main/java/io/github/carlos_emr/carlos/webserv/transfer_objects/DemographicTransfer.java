@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.webserv.transfer_objects;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 import java.util.ArrayList;
@@ -72,6 +73,7 @@ public final class DemographicTransfer {
     private Date rosterDate;
     private Date rosterTerminationDate;
     private String rosterTerminationReason;
+    private String rosterEnrolledTo;
     private String links;
     private String alias;
     private String previousAddress;
@@ -354,6 +356,26 @@ public final class DemographicTransfer {
         this.rosterTerminationReason = rosterTerminationReason;
     }
 
+    /**
+     * Provider number ({@code demographic.roster_enrolled_to}) the patient is rostered/enrolled to,
+     * as the raw provider number rather than a resolved provider. Copied by {@link #filter} only
+     * when the {@code rosterEnrolledTo} field is requested.
+     *
+     * @return the enrolled-to provider number, or {@code null} when not enrolled to a provider
+     */
+    public String getRosterEnrolledTo() {
+        return (rosterEnrolledTo);
+    }
+
+    /**
+     * Sets the enrolled-to provider number. Stored as given; {@code null} is accepted.
+     *
+     * @param rosterEnrolledTo the enrolled-to provider number, or {@code null}
+     */
+    public void setRosterEnrolledTo(String rosterEnrolledTo) {
+        this.rosterEnrolledTo = rosterEnrolledTo;
+    }
+
     public String getLinks() {
         return (links);
     }
@@ -538,6 +560,11 @@ public final class DemographicTransfer {
         this.pronounId = pronounId;
     }
 
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public static DemographicTransfer toTransfer(Demographic demographic) {
         if (demographic == null) return (null);
 
@@ -610,6 +637,7 @@ public final class DemographicTransfer {
                 dto.setRosterTerminationDate(this.getRosterTerminationDate());
             else if ("rosterTerminationReason".equals(field))
                 dto.setRosterTerminationReason(this.getRosterTerminationReason());
+            else if ("rosterEnrolledTo".equals(field)) dto.setRosterEnrolledTo(this.getRosterEnrolledTo());
             else if ("sex".equals(field)) dto.setSex(this.getSex());
             else if ("sexDesc".equals(field)) dto.setSexDesc(this.getSexDesc());
             else if ("sin".equals(field)) dto.setSin(this.getSin());

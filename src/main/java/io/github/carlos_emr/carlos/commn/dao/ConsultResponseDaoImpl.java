@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse> implements ConsultResponseDao {
@@ -50,6 +51,11 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
 
     public ConsultResponseDaoImpl() {
         super(ConsultationResponse.class);
+    }
+
+    @Override
+    public ConsultationResponse lockForAttachmentSync(Integer id) {
+        return entityManager.find(ConsultationResponse.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
     }
 
     public int getConsultationCount(ConsultationResponseSearchFilter filter) {
@@ -116,7 +122,7 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         if (filter.getDemographicNo() != null && filter.getDemographicNo() > 0) {
             sql.append("and cr.demographicNo = :demographicNo ");
         }
-        if (filter.getMrpNo() != null && filter.getMrpNo() > 0) {
+        if (StringUtils.isNotBlank(filter.getMrpNo())) {
             sql.append("and d.providerNo = :mrpNo ");
         }
 
@@ -160,11 +166,13 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         if (filter.getDemographicNo() != null && filter.getDemographicNo() > 0) {
             query.setParameter("demographicNo", filter.getDemographicNo());
         }
-        if (filter.getMrpNo() != null && filter.getMrpNo() > 0) {
+        if (StringUtils.isNotBlank(filter.getMrpNo())) {
             query.setParameter("mrpNo", filter.getMrpNo());
         }
     }
     
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getSafeOrderDirection(Object sortDir) {
         if (sortDir != null) {
             String dir = sortDir.toString().toLowerCase();

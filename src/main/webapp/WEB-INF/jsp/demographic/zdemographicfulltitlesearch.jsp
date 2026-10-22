@@ -41,7 +41,8 @@
     - Multi-mode patient search (name, phone, DOB, address, HIN, chart, demographic #)
     - Ontario health card barcode scanner support (%b610054 format)
     - Global keyboard listener for hands-free barcode scanning
-    - Real-time DOB format validation and formatting
+    - Real-time DOB formatting and validation (YYYY, YYYY-MM or YYYY-MM-DD; % wildcards as a
+      whole segment) via share/javascript/dobSearchKeyword.js
     - Inactive/All patient search options
     - Most Recent Patients quick access
     - Out-of-domain search (with appropriate security)
@@ -53,6 +54,7 @@
 
     @since 2006-01-01 (original OSCAR implementation)
     @since 2026-02-09 (CARLOS enhancement: barcode scanner support)
+    @since 2026-09-26 (CARLOS enhancement: partial and wildcard DOB search, issue #3956)
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -62,7 +64,10 @@
     boolean fromMessenger = request.getParameter("fromMessenger") == null ? false : (request.getParameter("fromMessenger")).equalsIgnoreCase("true") ? true : false;
     String roleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
 %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -71,7 +76,11 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
+<fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
 <script type="application/javascript">
+    var DOB_FORMAT_MESSAGE = '${carlos:forJavaScript(dobFormatMessage)}';
+
     /**
      * Extracts Health Identification Number (HIN) from Ontario health card barcode format.
      * Ontario health card barcodes follow the %b610054 prefix format with HIN at positions 8-18.
@@ -211,25 +220,11 @@
         if (checkTypeIn()) document.titlesearch.submit();
     }
 
+    // DOB formatting/validation lives in share/javascript/dobSearchKeyword.js so the
+    // grammar (YYYY, YYYY-MM, YYYY-MM-DD, % as a whole-segment wildcard) can be unit
+    // tested against the server-side DobSearchPattern parser (issue #3956).
     function formatDateInput(input) {
-        // Remove any non-digit characters
-        let value = input.value.replace(/\D/g, '');
-
-        // Format as YYYY-MM-DD
-        if (value.length > 0) {
-            // Ensure we only take the first 8 digits
-            value = value.substring(0, Math.min(8, value.length));
-
-            // Add hyphens
-            if (value.length > 4) {
-                value = value.substring(0, 4) + '-' + value.substring(4);
-            }
-            if (value.length > 7) {
-                value = value.substring(0, 7) + '-' + value.substring(7);
-            }
-        }
-
-        input.value = value;
+        CarlosDobSearch.formatInput(input);
     }
 
     function checkTypeIn() {
@@ -250,14 +245,17 @@
             document.titlesearch.keyword.value = keyword.value.toLowerCase();
         }
 
-        // DOB format validation
+        // DOB format validation. An empty keyword is left to the server as before;
+        // anything else must be YYYY, YYYY-MM or YYYY-MM-DD with optional % segments.
         if (document.titlesearch.search_mode.value === 'search_dob') {
-            // Remove hyphens for validation
-            const dobValue = keyword.value.replace(/-/g, '');
-
-            // Check if we have enough digits
-            if (dobValue.length > 0 && dobValue.length < 8) {
-                alert("Date format must be YYYY-MM-DD");
+            let dobValue = keyword.value.trim();
+            // Preserve compact dates restored/populated without an input event.
+            if (/^[0-9]{8}$/.test(dobValue)) {
+                keyword.value = CarlosDobSearch.format(dobValue);
+                dobValue = keyword.value;
+            }
+            if (dobValue.length > 0 && !CarlosDobSearch.isValid(dobValue)) {
+                alert(DOB_FORMAT_MESSAGE);
                 typeInOK = false;
             }
         }
@@ -277,8 +275,9 @@
             </h4>
         </div>
     </div>
-    <form method="get" name="titlesearch" action="<%=request.getContextPath()%>/demographic/DemographicSearch"
+    <form method="post" name="titlesearch" action="<%=request.getContextPath()%>/demographic/DemographicSearch"
           onsubmit="return checkTypeIn()">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
         <% String searchMode = request.getParameter("search_mode");
             String keyWord = request.getParameter("keyword");

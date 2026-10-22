@@ -59,8 +59,9 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
     public String execute()
             throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin or _report)");
         }
 
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler(startDate, endDate);
@@ -76,7 +77,6 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 
     String sql;
-    String selectedRecentSearch;
     DateUtils dateUtils = new DateUtils();
     String startDate = dateUtils.NextDay(curDay, curMonth, curYear - 1);
     String endDate = dateUtils.NextDay(curDay, curMonth, curYear);
@@ -88,15 +88,6 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
     @StrutsParameter
     public void setSql(String sql) {
         this.sql = sql;
-    }
-
-    public String getSelectedRecentSearch() {
-        return selectedRecentSearch;
-    }
-
-    @StrutsParameter
-    public void setSelectedRecentSearch(String selectedRecentSearch) {
-        this.selectedRecentSearch = selectedRecentSearch;
     }
 
     public String getStartDate() {

@@ -35,6 +35,7 @@ import java.util.Date;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * This is the object class that relates to the program table. Any customizations belong here.
@@ -275,6 +276,7 @@ public class Program extends AbstractModel<Integer> {
      * @return true if user defined, false otherwise
      */
     @jakarta.persistence.Column(name = "userDefined")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyProgramUserDefinedConverter.class)
     public boolean isUserDefined() {
         return userDefined;
     }
@@ -313,6 +315,8 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program type is "external", false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @jakarta.persistence.Transient
     public boolean isExternal() {
         return EXTERNAL_TYPE.equalsIgnoreCase(getType());
@@ -324,6 +328,8 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program type is "community", false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @jakarta.persistence.Transient
     public boolean isCommunity() {
         return COMMUNITY_TYPE.equalsIgnoreCase(getType());
@@ -334,6 +340,8 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program type is "Service", false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @jakarta.persistence.Transient
     public boolean isService() {
         return SERVICE_TYPE.equalsIgnoreCase(getType());
@@ -624,6 +632,7 @@ public class Program extends AbstractModel<Integer> {
      * @return true if this is a holding tank program, false otherwise
      */
     @jakarta.persistence.Column(name = "holdingTank")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter.class)
     public boolean isHoldingTank() {
         return holdingTank;
     }
@@ -643,6 +652,7 @@ public class Program extends AbstractModel<Integer> {
      * @return true if batch admission is allowed, false otherwise
      */
     @jakarta.persistence.Column(name = "allowBatchAdmission")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter.class)
     public boolean isAllowBatchAdmission() {
         return allowBatchAdmission;
     }
@@ -662,6 +672,7 @@ public class Program extends AbstractModel<Integer> {
      * @return true if batch discharge is allowed, false otherwise
      */
     @jakarta.persistence.Column(name = "allowBatchDischarge")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter.class)
     public boolean isAllowBatchDischarge() {
         return allowBatchDischarge;
     }
@@ -681,6 +692,7 @@ public class Program extends AbstractModel<Integer> {
      * @return true if a HIC is required, false otherwise
      */
     @jakarta.persistence.Column(name = "hic")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter.class)
     public boolean isHic() {
         return hic;
     }

@@ -34,7 +34,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Multi-step service for {@code billingShortcutPg2.jsp}, the fast-track
@@ -182,6 +183,8 @@ public class BillingShortcutPg2Service {
         return "Next".equals(submit) || "Save".equals(submit) || "Save and Back".equals(submit);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private DemoContext loadDemographic(String demoNo) {
         DemoContext ctx = new DemoContext();
         if (demoNo == null || demoNo.isEmpty()) {
@@ -225,8 +228,8 @@ public class BillingShortcutPg2Service {
             ctx.refDoctor = "N/A";
             ctx.refDoctorOhip = "000000";
         } else {
-            String rd = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
-            String rdohip = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip");
+            String rd = DemographicXml.referralDoctor(demo.getFamilyDoctor());
+            String rdohip = DemographicXml.referralDoctorOhip(demo.getFamilyDoctor());
             ctx.refDoctor = rd == null ? "" : rd;
             ctx.refDoctorOhip = rdohip == null ? "" : rdohip;
         }
@@ -337,6 +340,8 @@ public class BillingShortcutPg2Service {
         return s.substring(s.indexOf('|') + 1);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private CalcResult calculate(HttpServletRequest request) {
         // Resolve the per-row service codes pulled out of `serviceDate{i}` /
         // `serviceUnit{i}` request params. Same loop unrolled the legacy JSP

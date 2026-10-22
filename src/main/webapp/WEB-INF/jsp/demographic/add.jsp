@@ -1,3 +1,4 @@
+<%-- Modifications by CARLOS Contributors, 2026. --%>
 <%-- add.jsp - Add Patient Demographic Form (Master Page)
     Served by DemographicAdd2Action. Split into fragments to avoid JVM VerifyError.
     @since 2026-04-04
@@ -142,6 +143,7 @@
                 formatPhoneNum(document.adddemographic.phone2);
                 formatPhoneNum(document.adddemographic.demo_cell);
                 syncInputDobParts();
+                syncDateFields();
                 if (document.getElementById("eform_iframe") != null) {
                     var eformDocument = document.getElementById("eform_iframe").contentWindow.document;
                     if (eformDocument.forms && eformDocument.forms.length > 0) {
@@ -256,14 +258,14 @@
             function parseHINforVC(){
               if (!document.adddemographic || !document.adddemographic.hin) return;
               const hin = document.adddemographic.hin.value;
-            	if (checkHINforVC(hin)) {
-            		const firstTen = hin.substring(0, 10);
-            		const lastTwo = hin.substring(10);
-            		document.adddemographic.hin.value = firstTen;
+					if (checkHINforVC(hin)) {
+						const firstTen = hin.substring(0, 10);
+						const lastTwo = hin.substring(10);
+						document.adddemographic.hin.value = firstTen;
                     if (document.adddemographic.ver) {
                         document.adddemographic.ver.value = lastTwo;
                     }
-            	}
+				}
             }
 
             function formatPhoneNum(el) {
@@ -293,7 +295,7 @@
                 var typeInOK = false;
                 if (document.adddemographic.last_name.value != "" && document.adddemographic.first_name.value != "" && document.adddemographic.last_name.value != " " && document.adddemographic.first_name.value != " ") {
                     typeInOK = true;
-                } 
+                }
                 return typeInOK;
             }
 
@@ -560,22 +562,28 @@
                 }
             }
 
+            function syncDateFields() {
+                ['roster_date', 'date_joined', 'end_date', 'hc_renew_date', 'eff_date'].forEach(parseDateField);
+            }
+
             function parseDateField(fieldId) {
-                const input = document.getElementById(fieldId).value;
-            
+                const field = document.getElementById(fieldId);
+                if (!field) return;
+                const input = field.value;
+
                 let year = "";
                 let month = "";
                 let day = "";
-            
+
                 if (input) {
                     const [y, m, d] = input.split("-");
                     year = y || "";
                     month = m || "";
                     day = d || "";
                 }
-                const yearField = document.querySelector(`input[name="${fieldId}_year"]`);
-                const monthField = document.querySelector(`input[name="${fieldId}_month"]`);
-                const dateField = document.querySelector(`input[name="${fieldId}_date"]`);
+                const yearField = document.querySelector('input[name="' + fieldId + '_year"]');
+                const monthField = document.querySelector('input[name="' + fieldId + '_month"]');
+                const dateField = document.querySelector('input[name="' + fieldId + '_date"]');
                 if (yearField) yearField.value = year;
                 if (monthField) monthField.value = month;
                 if (dateField) dateField.value = day;

@@ -45,6 +45,7 @@ import jakarta.persistence.*;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Entity
 @Table(name = "tickler")
@@ -119,12 +120,12 @@ public class Tickler extends AbstractModel<Integer> {
     @Fetch(FetchMode.SELECT)
     private TicklerCategory ticklerCategory;
 
-    @OneToMany(fetch = FetchType.LAZY)
+    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
     @BatchSize(size = 25)
     private Set<TicklerUpdate> updates = new HashSet<TicklerUpdate>();
 
-    @OneToMany(fetch = FetchType.LAZY)
+    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
     @OrderBy("updateDate ASC")
     @Fetch(FetchMode.SELECT)
@@ -331,6 +332,8 @@ public class Tickler extends AbstractModel<Integer> {
             throw new IllegalArgumentException("Invalid status");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setPriorityAsString(String p) {
         if (p != null && p.equalsIgnoreCase("Normal"))
             setPriority(Tickler.PRIORITY.Normal);

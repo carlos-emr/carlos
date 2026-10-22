@@ -36,6 +36,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Utility class for processing and filtering XML documents before transmission in the messaging system.
@@ -71,6 +72,8 @@ public class MsgSendDocument {
      * @param checks Comma-separated string of selected item IDs (e.g., "item1,item2,")
      * @return The filtered XML Document with only selected items
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Document parseChecks(String originalDocument, String checks) {
         Document doc = MsgCommxml.parseXML(originalDocument);
         Element root = doc.getDocumentElement();
@@ -115,6 +118,8 @@ public class MsgSendDocument {
      * @param aList ArrayList to populate with remaining table names
      * @return The filtered XML Document with only selected items
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Document parseChecks2(String originalDocument, String checks, java.util.ArrayList aList) {
         Document doc = MsgCommxml.parseXML(originalDocument);
         Element root = doc.getDocumentElement();

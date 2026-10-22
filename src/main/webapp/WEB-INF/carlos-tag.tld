@@ -32,7 +32,8 @@
             renders null as the literal word "null".
 
             Default context = "html" (HTML element content). Valid contexts:
-            html, htmlContent, htmlAttribute, htmlUnquotedAttribute, forHtml,
+            html, htmlContent, htmlWithBreakMarkers, htmlAttribute,
+            htmlUnquotedAttribute, forHtml,
             javaScript, javaScriptAttribute, javaScriptBlock, javaScriptSource,
             uri, uriComponent, cssString, cssUrl,
             xml, xmlAttribute, xmlContent, xmlComment, cdata, java.
@@ -89,6 +90,13 @@
         <name>forHtmlContentWithBreaks</name>
         <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
         <function-signature>java.lang.String forHtmlContentWithBreaks(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe HTML content encoding that renders &lt;br&gt; line-break markers (HL7 lab text) and newlines as &lt;br/&gt;; all other markup stays escaped.</description>
+        <name>forHtmlContentWithBreakMarkers</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forHtmlContentWithBreakMarkers(java.lang.String)</function-signature>
     </function>
 
     <function>

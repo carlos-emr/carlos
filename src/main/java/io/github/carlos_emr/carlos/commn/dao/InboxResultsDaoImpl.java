@@ -28,14 +28,12 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
-import io.github.carlos_emr.carlos.util.StringUtils;
 
 public class InboxResultsDaoImpl implements InboxResultsDao {
 
@@ -222,7 +220,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
         int hinLoc = -1;
         int sexLoc = -1;
         int moduleLoc = -1;
-        int obsDateLoc = -1;
         int descriptionLoc = -1;
         int updateDateLoc = -1;
         try {
@@ -240,7 +237,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     hinLoc = 6;
                     sexLoc = 7;
                     moduleLoc = 8;
-                    obsDateLoc = 9;
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = " SELECT X.id, X.lab_no as document_no, X.status, X.lab_type as doctype, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id, "
@@ -285,7 +281,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     hinLoc = 5;
                     sexLoc = 6;
                     moduleLoc = 7;
-                    obsDateLoc = 8;
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = " SELECT plr.id, doc.document_no, plr.status, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id,"
@@ -325,9 +320,11 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     hinLoc = 5;
                     sexLoc = 6;
                     moduleLoc = 7;
-                    obsDateLoc = 8;
                     descriptionLoc = 10;
                     updateDateLoc = 11;
+                    // Patient-search columns are COALESCEd: a NULL HIN or name (uninsured, newborn,
+                    // out-of-province or imported patients) never satisfies LIKE, so a blank search
+                    // field ("%%") would otherwise drop those patients from every Inbox search.
                     sql = " SELECT plr.id, doc.document_no, plr.status, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id, "
                         + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
                         + " FROM demographic d, providerLabRouting plr, document doc,  "
@@ -336,7 +333,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "		(SELECT DISTINCT plr.id, plr.lab_type, d.demographic_no "
                         + "			FROM providerLabRouting plr, ctl_document cd, demographic d "
                         + "			WHERE 	 "
-                        + "			(d.first_name like :patientFirstName AND d.last_name like :patientLastName AND d.hin like :patientHealthNumber "
+                        + " (COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "		AND cd.module_id = d.demographic_no 	AND cd.document_no = plr.lab_no	AND plr.lab_type = 'DOC' "
                         + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
@@ -346,7 +343,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "		(SELECT DISTINCT plr.id, plr.lab_type, d.demographic_no "
                         + "		FROM providerLabRouting plr, patientLabRouting plr2, demographic d"
                         + (isAbnormal != null ? ", hl7TextInfo info " : " ")
-                        + "		WHERE d.first_name like :patientFirstName AND d.last_name like :patientLastName AND d.hin like :patientHealthNumber "
+                        + " WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "		AND	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
                         + (isAbnormal != null ? " AND plr.lab_no = info.lab_no AND (info.result_status IS NULL OR info.result_status != 'A') "
                         : " ")
@@ -371,7 +368,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     hinLoc = 4;
                     sexLoc = 5;
                     moduleLoc = 6;
-                    obsDateLoc = 7;
                     descriptionLoc = 9;
                     updateDateLoc = 10;
                     // N
@@ -401,7 +397,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     hinLoc = 8;
                     sexLoc = 9;
                     moduleLoc = 3;
-                    obsDateLoc = 4;
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = "SELECT plr.id, doc.document_no, plr.status, demographic_no as module_id,"
@@ -427,7 +422,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     hinLoc = 5;
                     sexLoc = 6;
                     moduleLoc = 7;
-                    obsDateLoc = 8;
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = "SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
@@ -454,13 +448,15 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     hinLoc = 5;
                     sexLoc = 6;
                     moduleLoc = 7;
-                    obsDateLoc = 8;
                     descriptionLoc = 10;
                     updateDateLoc = 11;
+                    // Patient-search columns are COALESCEd: a NULL HIN or name (uninsured, newborn,
+                    // out-of-province or imported patients) never satisfies LIKE, so a blank search
+                    // field ("%%") would otherwise drop those patients from every Inbox search.
                     sql = "SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
                         + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
                         + "FROM ctl_document cd, demographic d, providerLabRouting plr, document doc "
-                        + "WHERE d.first_name like :patientFirstName AND d.last_name like :patientLastName AND d.hin like :patientHealthNumber "
+                        + "WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "	AND cd.module_id = d.demographic_no "
                         + "	AND cd.document_no = plr.lab_no "
                         + "	AND plr.lab_type = 'DOC' "
@@ -481,7 +477,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     hinLoc = 5;
                     sexLoc = 6;
                     moduleLoc = 7;
-                    obsDateLoc = 8;
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = " SELECT * "
@@ -522,9 +517,11 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
 
             Query query = entityManager.createNativeQuery(sql);
 
-            // Setting parameters for the query based on the presence of placeholders in the SQL string
-            if (startDate != null && sql.contains(":startDate")) query.setParameter("startDate", dateSqlFormatter.format(startDate));
-            if (endDate != null && sql.contains(":endDate")) query.setParameter("endDate", dateSqlFormatter.format(endDate));
+            // Bind temporal values as timestamps, not strings: DATE/TIMESTAMP columns must
+            // not depend on database-specific VARCHAR coercion.
+            // Set other parameters based on the presence of placeholders in the SQL string.
+            if (startDate != null && sql.contains(":startDate")) query.setParameter("startDate", new java.sql.Timestamp(startDate.getTime()));
+            if (endDate != null && sql.contains(":endDate")) query.setParameter("endDate", new java.sql.Timestamp(endDate.getTime()));
             if (providerNo != null && sql.contains(":providerNo")) query.setParameter("providerNo", providerNo);
             if (status != null && sql.contains(":status")) query.setParameter("status", status);
             if (demographicNo != null && sql.contains(":demographicNo")) query.setParameter("demographicNo", demographicNo);
@@ -576,20 +573,20 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 lbData.resultStatus = document.isAbnormal() ? "A" : "N";
                 lbData.abn = document.isAbnormal();
 
-                if (!StringUtils.isNullOrEmpty(getStringValue(r[obsDateLoc]))) {
-                    //if observation is not null, set that as date
-                    lbData.dateTime = getStringValue(r[obsDateLoc]);
-                    lbData.setDateObj(DateUtils.parseDate(getStringValue(r[obsDateLoc]), new String[]{
-                        "yyyy-MM-dd"
-                    }));
-                } else if (!StringUtils.isNullOrEmpty(getStringValue(r[updateDateLoc]))) {
-                    //elseif updateDate is not null, set that as date
-                    lbData.dateTime = getStringValue(r[updateDateLoc]);
-                    lbData.setDateObj(DateUtils.parseDate(getStringValue(r[updateDateLoc]), new String[]{
-                        "yyyy-MM-dd"
-                    }));
+                // Native query dates can be LocalDate/LocalDateTime in Hibernate 7.
+                // The document is already loaded above: use its mapped date values rather
+                // than parsing driver-dependent strings and silently dropping inbox rows.
+                Date selectedDate = dateSearchType.equals("receivedCreated")
+                        ? contentDateTime : document.getObservationdate();
+                SimpleDateFormat dateOnlyFormatter = new SimpleDateFormat("yyyy-MM-dd");
+                if (selectedDate != null) {
+                    lbData.dateTime = dateSearchType.equals("receivedCreated")
+                            ? dateSqlFormatter.format(selectedDate) : dateOnlyFormatter.format(selectedDate);
+                    lbData.setDateObj(selectedDate);
+                } else if (document.getUpdatedatetime() != null) {
+                    lbData.dateTime = dateOnlyFormatter.format(document.getUpdatedatetime());
+                    lbData.setDateObj(document.getUpdatedatetime());
                 } else if (contentDateTime != null) {
-                    //elseif contentDate is not null, set that as date
                     lbData.dateTime = dateSqlFormatter.format(contentDateTime);
                     lbData.setDateObj(contentDateTime);
                 }

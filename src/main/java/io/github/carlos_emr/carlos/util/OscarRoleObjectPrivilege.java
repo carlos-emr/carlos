@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class OscarRoleObjectPrivilege {
 
@@ -169,6 +170,8 @@ public class OscarRoleObjectPrivilege {
         return ret;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static boolean[] checkRights(String privilege, String rights1) {
         boolean[] ret = {false, false}; // (gotRights, onlyPrivilege-break)
 

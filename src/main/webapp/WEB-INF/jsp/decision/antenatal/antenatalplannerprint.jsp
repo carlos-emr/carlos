@@ -45,6 +45,7 @@
              class="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerChecklist_99_12" scope="page"/>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.decision.AntenatalConfigLocation" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Desaprisk" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesapriskDao" %>
 <%@ page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
@@ -109,16 +110,14 @@
 <%
 
 
-        String riskFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerrisks_99_12.xml");
-
-        File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
-        if (file.isFile() || file.canRead()) {
-            riskFilePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml";
-        }
+        String riskFileLocation = AntenatalConfigLocation.readableResourceLocation(
+                AntenatalConfigLocation.RISK_FILE_NAME,
+                application.getResource(
+                        "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME));
 
 
         //set the riskdata bean from xml file
-        Properties savedar1risk1 = risks.getRiskName(riskFilePath); //risk_55
+        Properties savedar1risk1 = risks.getRiskName(riskFileLocation); //risk_55
         StringBuffer tt;
 
         for (Enumeration e = savedar1risk1.propertyNames(); e.hasMoreElements(); ) {

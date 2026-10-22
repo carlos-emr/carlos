@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.mds.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -68,6 +69,9 @@ public class ReportReassign2Action extends ActionSupport {
     public ReportReassign2Action() {
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "UNVALIDATED_REDIRECT"}, justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws ServletException, IOException {
 

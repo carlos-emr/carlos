@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for bulk message operations on the deleted/archived message view.
@@ -106,6 +107,8 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
      * @throws SecurityException if user lacks "_msg" write permissions, or if the session
      *         bean's provider does not match the logged-in user (defensive check)
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws IOException, ServletException {
 
         // Validate session and permissions

@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Mutation gate for {@code billing/CA/ON/genreport.jsp}. The JSP's scriptlet
@@ -54,6 +55,8 @@ public class ViewGenReport2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
         this.service = service;
     }
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -73,7 +76,7 @@ public class ViewGenReport2Action extends ActionSupport {
         }
 
         java.util.List<OhipReportGenerationService.FailedProvider> skipped =
-                service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
+                service.generateReport(loggedInInfo, request, OhipReportGenerationService.Mode.SOLO_REPORT);
         // Surface per-provider rollbacks to the success page so the
         // operator can re-run for the named providers; without this the
         // page renders as if every selected provider's report shipped.

@@ -32,10 +32,12 @@
 
 package io.github.carlos_emr.carlos.PMmodule.service;
 
+import io.github.carlos_emr.carlos.utility.SafeEncode;
+
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.CriteriaDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.CriteriaSelectionOptionDao;
@@ -53,52 +55,48 @@ import io.github.carlos_emr.carlos.PMmodule.model.Vacancy;
 import io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public interface VacancyTemplateManager {
-    static VacancyTemplateDao vacancyTemplateDAO = SpringUtils.getBean(VacancyTemplateDao.class);
-    static CriteriaDao criteriaDAO = SpringUtils.getBean(CriteriaDao.class);
-    static CriteriaTypeDao criteriaTypeDAO = SpringUtils.getBean(CriteriaTypeDao.class);
-    static CriteriaTypeOptionDao criteriaTypeOptionDAO = SpringUtils.getBean(CriteriaTypeOptionDao.class);
-    static CriteriaSelectionOptionDao criteriaSelectionOptionDAO = SpringUtils.getBean(CriteriaSelectionOptionDao.class);
-    static ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
-    static VacancyDao vacancyDAO = SpringUtils.getBean(VacancyDao.class);
+    // Resolve DAOs from the active context at each operation. Interface fields are
+    // implicitly static final and otherwise retain beans from an obsolete context.
 
     public static List<Program> getPrograms(Integer facilityId) {
-        return programDao.getProgramsByFacilityId(facilityId);
+        return SpringUtils.getBean(ProgramDao.class).getProgramsByFacilityId(facilityId);
     }
 
     public static List<VacancyTemplate> getVacancyTemplateByWlProgramId(Integer wlProgramId) {
-        List<VacancyTemplate> results = vacancyTemplateDAO.getVacancyTemplateByWlProgramId(wlProgramId);
+        List<VacancyTemplate> results = SpringUtils.getBean(VacancyTemplateDao.class).getVacancyTemplateByWlProgramId(wlProgramId);
         return (results);
     }
 
     public static List<Vacancy> getVacanciesByWlProgramId(Integer wlProgramId) {
-        List<Vacancy> results = vacancyDAO.getVacanciesByWlProgramId(wlProgramId);
+        List<Vacancy> results = SpringUtils.getBean(VacancyDao.class).getVacanciesByWlProgramId(wlProgramId);
         return (results);
     }
 
     public static List<Vacancy> getVacanciesByWlProgramIdAndStatus(Integer wlProgramId, String status) {
-        List<Vacancy> results = vacancyDAO.getVacanciesByWlProgramIdAndStatus(wlProgramId, status);
+        List<Vacancy> results = SpringUtils.getBean(VacancyDao.class).getVacanciesByWlProgramIdAndStatus(wlProgramId, status);
         return (results);
     }
 
     public static List<CriteriaTypeOption> getCriteriaTypeOptions(Integer typeId) {
-        List<CriteriaTypeOption> results = criteriaTypeOptionDAO.getCriteriaTypeOptionByTypeId(typeId);
+        List<CriteriaTypeOption> results = SpringUtils.getBean(CriteriaTypeOptionDao.class).getCriteriaTypeOptionByTypeId(typeId);
         return (results);
     }
 
     public static List<CriteriaTypeOption> getAllCriteriaTypeOptions() {
-        List<CriteriaTypeOption> results = criteriaTypeOptionDAO.findAll();
+        List<CriteriaTypeOption> results = SpringUtils.getBean(CriteriaTypeOptionDao.class).findAll();
         return (results);
     }
 
     public static VacancyTemplate getVacancyTemplateByTemplateId(Integer templateId) {
-        VacancyTemplate vacancyTemplate = vacancyTemplateDAO.find(templateId);
+        VacancyTemplate vacancyTemplate = SpringUtils.getBean(VacancyTemplateDao.class).find(templateId);
         return (vacancyTemplate);
     }
 
     public static Criteria getCriteriaByCriteriaId(Integer id) {
-        Criteria c = criteriaDAO.find(id);
+        Criteria c = SpringUtils.getBean(CriteriaDao.class).find(id);
         return (c);
     }
 
@@ -109,59 +107,70 @@ public interface VacancyTemplateManager {
         if (vacancyId == null && typeId == null)
             return null;
         if (vacancyId != null && typeId != null)
-            return criteriaDAO.getCriteriaByTemplateIdVacancyIdTypeId(null, vacancyId, typeId);
+            return SpringUtils.getBean(CriteriaDao.class).getCriteriaByTemplateIdVacancyIdTypeId(null, vacancyId, typeId);
         else if (templateId != null && typeId != null)
-            return criteriaDAO.getCriteriaByTemplateIdVacancyIdTypeId(templateId, null, typeId);
+            return SpringUtils.getBean(CriteriaDao.class).getCriteriaByTemplateIdVacancyIdTypeId(templateId, null, typeId);
         else
-            return criteriaDAO.getCriteriaByTemplateIdVacancyIdTypeId(templateId, vacancyId, typeId);
+            return SpringUtils.getBean(CriteriaDao.class).getCriteriaByTemplateIdVacancyIdTypeId(templateId, vacancyId, typeId);
     }
 
     public static List<CriteriaType> getAllCriteriaTypes() {
-        return criteriaTypeDAO.getAllCriteriaTypes();
+        return SpringUtils.getBean(CriteriaTypeDao.class).getAllCriteriaTypes();
     }
 
     public static List<CriteriaType> getAllCriteriaTypesByWlProgramId(Integer programId) {
-        return criteriaTypeDAO.getAllCriteriaTypesByWlProgramId(programId);
+        return SpringUtils.getBean(CriteriaTypeDao.class).getAllCriteriaTypesByWlProgramId(programId);
     }
 
     public static List<Criteria> getRefinedCriteriasByVacancyId(Integer vacancyId) {
-        return criteriaDAO.getRefinedCriteriasByVacancyId(vacancyId);
+        return SpringUtils.getBean(CriteriaDao.class).getRefinedCriteriasByVacancyId(vacancyId);
     }
 
     public static List<Criteria> getCriteriasByVacancyId(Integer vacancyId) {
-        return criteriaDAO.getCriteriasByVacancyId(vacancyId);
+        return SpringUtils.getBean(CriteriaDao.class).getCriteriasByVacancyId(vacancyId);
     }
 
     public static List<Criteria> getRefinedCriteriasByTemplateId(Integer templateId) {
-        return criteriaDAO.getRefinedCriteriasByTemplateId(templateId);
+        return SpringUtils.getBean(CriteriaDao.class).getRefinedCriteriasByTemplateId(templateId);
     }
 
     public static List<VacancyTemplate> getActiveVacancyTemplatesByWlProgramId(Integer programId) {
         if (programId == null)
             return null;
-        return vacancyTemplateDAO.getActiveVacancyTemplatesByWlProgramId(programId);
+        return SpringUtils.getBean(VacancyTemplateDao.class).getActiveVacancyTemplatesByWlProgramId(programId);
     }
 
     public static CriteriaType getCriteriaTypeById(Integer id) {
-        return criteriaTypeDAO.find(id);
+        return SpringUtils.getBean(CriteriaTypeDao.class).find(id);
+    }
+
+    /**
+     * Stable form-field key shared by the generated vacancy-template controls
+     * and {@link io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action}
+     * request parsing.
+     */
+    public static String criteriaFieldKey(String fieldName) {
+        return fieldName.toLowerCase(Locale.ROOT).replace(" ", "_");
     }
 
     public static Vacancy getVacancyById(Integer id) {
-        return vacancyDAO.find(id);
+        return SpringUtils.getBean(VacancyDao.class).find(id);
     }
 
     public static Vacancy getVacancyByName(String vacancyName) {
-        List<Vacancy> v = vacancyDAO.getVacanciesByName(vacancyName);
+        List<Vacancy> v = SpringUtils.getBean(VacancyDao.class).getVacanciesByName(vacancyName);
         if (v.isEmpty())
             return null;
         else
-            return vacancyDAO.getVacanciesByName(vacancyName).get(0);
+            return SpringUtils.getBean(VacancyDao.class).getVacanciesByName(vacancyName).get(0);
     }
 
     /**
      * This method is meant to return a bunch of html <option> tags for each list element.
      */
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String renderAllSelectOptions(Integer templateId, Integer vacancyId, Integer typeId) {
         Criteria criteria = new Criteria();
         criteria = getSelectedCriteria(templateId, vacancyId, typeId);
@@ -179,22 +188,27 @@ public interface VacancyTemplateManager {
             //getCanBeAdhoc=0:never, 1:mandatory and not changeable 2: optional
             required = (criteria.getCanBeAdhoc() == 1 ? "disabled" : "");
 
-            selectedOptions = criteriaSelectionOptionDAO.getCriteriaSelectedOptionsByCriteriaId(criteria.getId());
+            selectedOptions = SpringUtils.getBean(CriteriaSelectionOptionDao.class).getCriteriaSelectedOptionsByCriteriaId(criteria.getId());
         }
         if (vacancyId != null)
             required = "disabled";  //disabled all fields when view vacancy.
 
         //get type
-        CriteriaType ctype = criteriaTypeDAO.find(typeId);
+        CriteriaType ctype = SpringUtils.getBean(CriteriaTypeDao.class).find(typeId);
         String type = ctype.getFieldName();
-        List<CriteriaTypeOption> options = criteriaTypeOptionDAO.getCriteriaTypeOptionByTypeId(typeId);
+        String fieldKey = criteriaFieldKey(type);
+        String attrFieldKey = SafeEncode.forHtmlAttribute(fieldKey);
+        String htmlType = SafeEncode.forHtmlContent(type);
+        String jsType = SafeEncode.forJavaScriptAttribute(type);
+        String jsFieldKey = SafeEncode.forJavaScript(fieldKey);
+        List<CriteriaTypeOption> options = SpringUtils.getBean(CriteriaTypeOptionDao.class).getCriteriaTypeOptionByTypeId(typeId);
 
         StringBuilder sb = new StringBuilder();
 
         sb.append("<table width=\"100%\" border=\"1\" cellspacing=\"2\" cellpadding=\"3\"> ");
         sb.append("<tr class=\"b\">");
         sb.append("<td width=\"30%\" class=\"beright\">Requires ");
-        sb.append(type);
+        sb.append(htmlType);
         sb.append(":</td>");
 	/*
 		sb.append("<td><input type=\"checkbox\" value=\"on\" ");
@@ -208,7 +222,7 @@ public interface VacancyTemplateManager {
             sb.append("<input type=\"radio\" value=\"");
             sb.append(String.valueOf(ii));
             sb.append("\" name=\"");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));  //
+            sb.append(attrFieldKey);
             sb.append("Required\" ");
             if (criteria != null && criteria.getCanBeAdhoc() == ii)
                 sb.append("checked ");
@@ -228,12 +242,12 @@ public interface VacancyTemplateManager {
         if (ctype.getFieldType().equalsIgnoreCase("number")) {
             sb.append("<tr class=\"b\">");
             sb.append("<td class=\"beright\">");
-            sb.append(type);
+            sb.append(htmlType);
             sb.append(" Value:</td>");
-            sb.append("<td><input type=\"text\" size=\"50\" maxlength=\"50\" value=\" ");
-            sb.append(value);
+            sb.append("<td><input type=\"text\" size=\"50\" maxlength=\"50\" value=\"");
+            sb.append(SafeEncode.forHtmlAttribute(value));
             sb.append("\" name=\"");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("Number\"");
             sb.append(required);
             sb.append("></td>");
@@ -247,13 +261,13 @@ public interface VacancyTemplateManager {
             sb.append("<td colspan=\"2\" style=\"padding-left: 10%;\">");
             sb.append("<div class=\"horizonton\">");
             sb.append("<div style=\"margin-bottom: 3px;\">");
-            sb.append(type);
+            sb.append(htmlType);
             sb.append(" List</div>");
             sb.append("<div>");
             sb.append("<select id=\"sourceOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" name=\"sourceOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\"");
 
             if (ctype.getFieldType().equalsIgnoreCase("select_multiple") || ctype.getFieldType().equalsIgnoreCase("select_multiple_narrowing")) {
@@ -261,7 +275,7 @@ public interface VacancyTemplateManager {
             }
 
             sb.append(" onchange='changeVacancyTemplateType(this,\"");
-            sb.append(type);
+            sb.append(jsType);
             sb.append("\");' style=\"width: 200px;\" ");
             sb.append(required);
             sb.append(">");
@@ -272,8 +286,8 @@ public interface VacancyTemplateManager {
             for (CriteriaTypeOption option : options) {
                 boolean skip = false;
                 String label = option.getOptionLabel();
-                String htmlEscapedLabel = Encode.forHtml(label);
-                String attrEscapedLabel = Encode.forHtmlAttribute(label);
+                String htmlEscapedLabel = SafeEncode.forHtml(label);
+                String attrEscapedLabel = SafeEncode.forHtmlAttribute(label);
                 String selectedOrNot = "";
                 if (option.getOptionValue() != null && option.getOptionValue().equalsIgnoreCase(value))
                     //if(option.getId()!=null && String.valueOf(option.getId()).equalsIgnoreCase(value))
@@ -292,7 +306,7 @@ public interface VacancyTemplateManager {
                 if (skip)
                     continue;
 
-                sb.append("<option " + selectedOrNot + " value=\"" + Encode.forHtmlAttribute(option.getOptionValue()) + "\" title=\"" + attrEscapedLabel + "\">" + htmlEscapedLabel + "</option>");
+                sb.append("<option " + selectedOrNot + " value=\"" + SafeEncode.forHtmlAttribute(option.getOptionValue()) + "\" title=\"" + attrEscapedLabel + "\">" + htmlEscapedLabel + "</option>");
 
             }
 
@@ -308,32 +322,32 @@ public interface VacancyTemplateManager {
             if (criteria != null) {
                 //results from selection of type will go into this block
                 sb.append("<div id=\"block_");
-                sb.append(type.toLowerCase().replaceAll(" ", "_"));
+                sb.append(attrFieldKey);
                 sb.append("\">");
                 sb.append("<div id=\"block_vacancyType_");
-                sb.append(type.toLowerCase().replaceAll(" ", "_"));
+                sb.append(attrFieldKey);
                 sb.append("\">");
                 sb.append("<table>");
                 sb.append("<tr class=\"b\">");
                 sb.append("<td class=\"beright\">");
-                sb.append(type);
+                sb.append(htmlType);
                 sb.append(" Range Minimum:</td>");
                 sb.append("<td><input type=\"text\" size=\"50\" maxlength=\"50\" value=\"");
-                sb.append(min);
+                sb.append(SafeEncode.forHtmlAttribute(min));
                 sb.append("\" name=\"");
-                sb.append(type.toLowerCase().replaceAll(" ", "_"));
+                sb.append(attrFieldKey);
                 sb.append("Minimum\" ");
                 sb.append(required);
                 sb.append("></td>");
                 sb.append("</tr>");
                 sb.append("<tr class=\"b\">");
                 sb.append("<td class=\"beright\">");
-                sb.append(type);
+                sb.append(htmlType);
                 sb.append(" Range Maximum:</td>");
                 sb.append("<td><input type=\"text\" size=\"50\" maxlength=\"50\" value=\"");
-                sb.append(max);
+                sb.append(SafeEncode.forHtmlAttribute(max));
                 sb.append("\" name=\"");
-                sb.append(type.toLowerCase().replaceAll(" ", "_"));
+                sb.append(attrFieldKey);
                 sb.append("Maximum\" ");
                 sb.append(required);
                 sb.append("></td>");
@@ -344,7 +358,7 @@ public interface VacancyTemplateManager {
             } else {
                 //results from selection of type will go into this block
                 sb.append("<div id=\"block_");
-                sb.append(type.toLowerCase().replaceAll(" ", "_"));
+                sb.append(attrFieldKey);
                 sb.append("\">");
                 sb.append("</div>");
             }
@@ -353,18 +367,18 @@ public interface VacancyTemplateManager {
             sb.append("<div class=\"horizonton\" style=\"padding-top: 40px;\">");
             sb.append("<div>");
             sb.append("<input type=\"button\" id=\"add_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" name=\"add_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" value=\">>\" ");
             sb.append(required);
             sb.append(">");
             sb.append("</div>");
             sb.append("<div>");
             sb.append("<input type=\"button\" id=\"remove_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" name=\"remove_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" value=\"<<\" ");
             sb.append(required);
             sb.append(">");
@@ -373,13 +387,13 @@ public interface VacancyTemplateManager {
 
             sb.append("<div class=\"horizonton\">");
             sb.append("<div style=\"margin-bottom: 3px;\">Required ");
-            sb.append(type);
+            sb.append(htmlType);
             sb.append("</div>");
             sb.append("<div>");
             sb.append("<select id=\"targetOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" name=\"targetOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" multiple=\"multiple\" size=\"7\" ");
             sb.append("style=\"width: 200px;\" ");
             sb.append(required);
@@ -388,16 +402,16 @@ public interface VacancyTemplateManager {
             for (CriteriaSelectionOption cso : selectedOptions) {
                 //criteria_type_option's value is unique?
                 //value in criteria_selection_option is the same value in criteria_type_option?
-                CriteriaTypeOption option2 = criteriaTypeOptionDAO.getByValueAndTypeId(cso.getOptionValue(), ctype.getId());
+                CriteriaTypeOption option2 = SpringUtils.getBean(CriteriaTypeOptionDao.class).getByValueAndTypeId(cso.getOptionValue(), ctype.getId());
 
                 //value in criteria_selection_option is the id in criteria_type_option, this makes more sense as the value may not be unique or may be null
-                //CriteriaTypeOption option2 = criteriaTypeOptionDAO.getCriteriaTypeOptionByOptionId(Integer.parseInt(cso.getOptionValue()));
+                //CriteriaTypeOption option2 = SpringUtils.getBean(CriteriaTypeOptionDao.class).getCriteriaTypeOptionByOptionId(Integer.parseInt(cso.getOptionValue()));
                 String label = option2.getOptionLabel();
-                String htmlEscapedLabel = Encode.forHtml(label);
-                String attrEscapedLabel = Encode.forHtmlAttribute(label);
+                String htmlEscapedLabel = SafeEncode.forHtml(label);
+                String attrEscapedLabel = SafeEncode.forHtmlAttribute(label);
                 //String selected = (CdsClientFormData.containsAnswer(existingAnswers, option.getCdsDataCategory()) ? "selected=\"selected\"" : "");
                 String selected = "selected";
-                sb.append("<option " + selected + " value=\"" + Encode.forHtmlAttribute(option2.getOptionValue()) + "\" title=\"" + attrEscapedLabel + "\">" + htmlEscapedLabel + "</option>");
+                sb.append("<option " + selected + " value=\"" + SafeEncode.forHtmlAttribute(option2.getOptionValue()) + "\" title=\"" + attrEscapedLabel + "\">" + htmlEscapedLabel + "</option>");
             }
 
             sb.append("</select>");
@@ -415,29 +429,27 @@ public interface VacancyTemplateManager {
             sb.append("<script type=\"text/javascript\">");
             sb.append(" $(document).ready(");
             sb.append("function () { ");
-            sb.append("$('#");
-            sb.append("remove_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append("').click(");
+            sb.append("$(document.getElementById('remove_");
+            sb.append(jsFieldKey);
+            sb.append("')).click(");
             sb.append("function (e) {");
-            sb.append("$('#targetOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append(" > option:selected').appendTo('#sourceOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append("');");
+            sb.append("$(document.getElementById('targetOf");
+            sb.append(jsFieldKey);
+            sb.append("')).find('option:selected').appendTo(document.getElementById('sourceOf");
+            sb.append(jsFieldKey);
+            sb.append("'));");
             sb.append("e.preventDefault();");
             sb.append("});");
 
-            sb.append("$('#");
-            sb.append("add_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append("').click(");
+            sb.append("$(document.getElementById('add_");
+            sb.append(jsFieldKey);
+            sb.append("')).click(");
             sb.append("function (e) {");
-            sb.append("$('#sourceOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append(" > option:selected').appendTo('#targetOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append("');");
+            sb.append("$(document.getElementById('sourceOf");
+            sb.append(jsFieldKey);
+            sb.append("')).find('option:selected').appendTo(document.getElementById('targetOf");
+            sb.append(jsFieldKey);
+            sb.append("'));");
             sb.append("e.preventDefault();");
             sb.append("});");
 
@@ -448,30 +460,32 @@ public interface VacancyTemplateManager {
         return (sb.toString());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static VacancyTemplate createVacancyTemplate(String templateId) {
         if (StringUtils.isBlank(String.valueOf(templateId)) || "0".equals(templateId) || templateId.equalsIgnoreCase("null")) {
             VacancyTemplate vt = new VacancyTemplate();
             vt.setActive(true);
             return vt;
         } else {
-            return vacancyTemplateDAO.getVacancyTemplate(Integer.valueOf(templateId));
+            return SpringUtils.getBean(VacancyTemplateDao.class).getVacancyTemplate(Integer.valueOf(templateId));
         }
     }
 
     public static void saveVacancy(Vacancy v) {
         if (v.getId() != null) {
-            vacancyDAO.merge(v);
+            SpringUtils.getBean(VacancyDao.class).merge(v);
         } else {
-            vacancyDAO.persist(v);
+            SpringUtils.getBean(VacancyDao.class).persist(v);
         }
 
     }
 
     public static void saveVacancyTemplate(VacancyTemplate vt) {
         if (vt.getId() != null) {
-            vacancyTemplateDAO.merge(vt);
+            SpringUtils.getBean(VacancyTemplateDao.class).merge(vt);
         } else {
-            vacancyTemplateDAO.persist(vt);
+            SpringUtils.getBean(VacancyTemplateDao.class).persist(vt);
         }
 
     }
@@ -479,25 +493,25 @@ public interface VacancyTemplateManager {
     public static Criteria createCriteria(LoggedInInfo loggedInInfo, String criteriaId) {
         Criteria c = new Criteria();
         if (!(StringUtils.isBlank(criteriaId) || "0".equals(criteriaId))) {
-            c = criteriaDAO.find(Integer.valueOf(criteriaId));
+            c = SpringUtils.getBean(CriteriaDao.class).find(Integer.valueOf(criteriaId));
         }
         return (c);
     }
 
     public static void saveCriteria(Criteria c) {
         if (c.getId() != null) {
-            criteriaDAO.merge(c);
+            SpringUtils.getBean(CriteriaDao.class).merge(c);
         } else {
-            criteriaDAO.persist(c);
+            SpringUtils.getBean(CriteriaDao.class).persist(c);
         }
 
     }
 
     public static void saveCriteriaSelectedOption(CriteriaSelectionOption c) {
         if (c.getId() != null) {
-            criteriaSelectionOptionDAO.merge(c);
+            SpringUtils.getBean(CriteriaSelectionOptionDao.class).merge(c);
         } else {
-            criteriaSelectionOptionDAO.persist(c);
+            SpringUtils.getBean(CriteriaSelectionOptionDao.class).persist(c);
         }
 
     }

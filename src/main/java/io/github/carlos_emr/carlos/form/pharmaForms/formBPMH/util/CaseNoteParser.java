@@ -32,6 +32,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 
 /*
  * Author: Dennis Warren
@@ -89,6 +91,8 @@ public class CaseNoteParser {
      * @param key  relationship to value desired.
      * @return
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getValue(String note, final String key) {
 
         String value = "";
@@ -99,7 +103,9 @@ public class CaseNoteParser {
 
             matcher = DEMO_NOTES_PATTERN.matcher(note);
             if (matcher.find()) {
-                note = matcher.group(1);
+                // Note text is XML-escaped on write (DemographicXml.userNotes); decode it
+                // before splitting so an escaped "&" does not break key/value parsing.
+                note = DemographicXml.unescapeXmlTextOrEmpty(matcher.group(1));
             }
 
             if (note.contains(COMMA)) {

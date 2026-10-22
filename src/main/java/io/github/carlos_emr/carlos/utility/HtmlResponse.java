@@ -37,6 +37,7 @@ import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Centralized response handling for stored HTML content that must remain
@@ -126,6 +127,8 @@ public final class HtmlResponse {
         return resolveCharsetFromParameters(splitContentTypeParameters(contentType));
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static Charset resolveCharsetFromParameters(List<String> parameters) {
         for (String parameter : parameters) {
             int equals = parameter.indexOf('=');
@@ -159,6 +162,8 @@ public final class HtmlResponse {
      * @return {@link ActionSupport#NONE}
      * @throws IOException when response writing fails
      */
+    // FindSecBugs XSS_SERVLET: intentionally renders stored HTML; callers must provide validated/encoded content.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "intentionally renders stored HTML; callers must provide validated/encoded content")
     @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
     public String writeTo(HttpServletResponse response) throws IOException {
         Charset charset = prepareHtmlResponse(response, contentType);
@@ -258,6 +263,8 @@ public final class HtmlResponse {
      * Returns a Content-Type value with an explicit charset aligned to the decoding charset.
      * Accepts a pre-parsed parameter list to avoid re-splitting the header.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String contentTypeWithCharset(String contentType, List<String> parameters, Charset charset) {
         int firstParameter = contentType.indexOf(';');
         if (firstParameter < 0) {

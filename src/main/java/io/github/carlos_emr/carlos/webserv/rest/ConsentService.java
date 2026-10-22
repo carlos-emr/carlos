@@ -210,6 +210,10 @@ public class ConsentService extends AbstractServiceImpl {
         } catch (jakarta.ws.rs.WebApplicationException e) {
             // propagate JAX-RS errors (e.g. 400 Bad Request)
             throw e;
+        } catch (SecurityException e) {
+            // A permission denial is not a server error: answer 403 and keep it out of the error log.
+            logger.warn("Consent type add denied: {}", e.getMessage());
+            throw new jakarta.ws.rs.WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         } catch (Exception e) {
             // log full stack trace internally
             logger.error("Error adding consent type {}", consentType, e);

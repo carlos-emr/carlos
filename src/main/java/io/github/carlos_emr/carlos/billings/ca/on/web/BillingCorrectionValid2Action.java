@@ -25,10 +25,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionRev
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionReviewPreparationService;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
@@ -74,10 +76,18 @@ public class BillingCorrectionValid2Action extends ActionSupport {
             return NONE;
         }
 
-        BillingCorrectionReviewDraft draft = preparationService.prepareReviewDraft(toCommand(request));
-        BillingCorrectionReviewViewModel model = reviewViewModelAssembler.assemble(draft);
-        request.setAttribute("reviewModel", model);
-        return REVIEW;
+        try {
+            BillingCorrectionReviewDraft draft = preparationService.prepareReviewDraft(toCommand(request));
+            BillingCorrectionReviewViewModel model = reviewViewModelAssembler.assemble(draft);
+            request.setAttribute("reviewModel", model);
+            return REVIEW;
+        } catch (BillingValidationException e) {
+            MiscUtils.getLogger().warn("Billing correction review rejected by validation: {}",
+                    e.getClass().getSimpleName());
+            request.setAttribute("correctionError", Boolean.TRUE);
+            request.setAttribute("correctionErrorMessage", e.getMessage());
+            return ERROR;
+        }
     }
 
     private static BillingCorrectionValidationCommand toCommand(HttpServletRequest request) {
@@ -116,7 +126,7 @@ public class BillingCorrectionValid2Action extends ActionSupport {
         Enumeration<String> names = request.getParameterNames();
         while (names.hasMoreElements()) {
             String name = names.nextElement();
-            if (name.contains("xml_")) {
+            if (name.startsWith("xml_")) {
                 values.put(name, request.getParameter(name));
             }
         }

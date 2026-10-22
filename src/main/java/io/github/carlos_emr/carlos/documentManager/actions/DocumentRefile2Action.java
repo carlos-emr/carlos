@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * POST-only endpoint that refiles a document to a different queue. Replaces
@@ -57,6 +58,9 @@ public class DocumentRefile2Action extends ActionSupport {
     private String categorykey;
     private String viewstatus;
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -78,6 +82,9 @@ public class DocumentRefile2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid refileDocumentNo or queueId");
                 return NONE;
             }
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(sim, loggedInInfo, queueId);
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireRefileSourceAccess(
+                    sim, loggedInInfo, Integer.parseInt(refileDocumentNo));
             try {
                 refileDocument(refileDocumentNo, queueId);
             } catch (SecurityException | Error e) {
@@ -115,11 +122,7 @@ public class DocumentRefile2Action extends ActionSupport {
     }
 
     private static boolean isPositiveInteger(String s) {
-        if (s == null || s.isEmpty()) return false;
-        for (int i = 0; i < s.length(); i++) {
-            if (!Character.isDigit(s.charAt(i))) return false;
-        }
-        return true;
+        return io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.positiveId(s);
     }
 
     public String getRefileDocumentNo() { return refileDocumentNo; }

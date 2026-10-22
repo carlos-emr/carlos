@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all;
 
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -71,6 +73,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Hl7textResultsData {
 
@@ -90,6 +93,8 @@ public class Hl7textResultsData {
         // no one should instantiate this
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
@@ -120,8 +125,8 @@ public class Hl7textResultsData {
                 measurementsDeletedList.add(measurementsDeleted);
                 measurementsToRemove.add(m);
             }
-            measurementsDeletedDao.batchPersist(measurementsDeletedList);
-            measurementDao.batchRemove(measurementsToRemove);
+            measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
+            measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
         // loop through the measurements for the lab and add them
 
@@ -362,7 +367,7 @@ public class Hl7textResultsData {
                 }
             }
         }
-        measurementsExtDao.batchPersist(measurementsExts, 50);
+        measurementsExtDao.batchPersistAtomically(measurementsExts, 50);
     }
 
     public static String getMatchingLabs_CLS(String lab_no) {
@@ -457,6 +462,7 @@ public class Hl7textResultsData {
     public static ArrayList<LabResultData> populateHL7ResultsData(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
+            if (!"HL7".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             ConsultDocs c = (ConsultDocs) o[0];
             LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
             lbData.labPatientId = ConversionUtils.toIntString(c.getDocumentNo());
@@ -469,6 +475,7 @@ public class Hl7textResultsData {
     public static ArrayList<LabResultData> populateHL7ResultsDataEForm(String demographicNo, String fdid, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
+            if (!"HL7".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             EFormDocs c = (EFormDocs) o[0];
             LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
             lbData.labPatientId = ConversionUtils.toIntString(c.getDocumentNo());
@@ -482,6 +489,7 @@ public class Hl7textResultsData {
     public static ArrayList<LabResultData> populateHL7ResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
+            if (!"HL7".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             ConsultResponseDoc c = (ConsultResponseDoc) o[0];
             LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
             lbData.labPatientId = ConversionUtils.toIntString(c.getDocumentNo());
@@ -782,7 +790,7 @@ public class Hl7textResultsData {
             String sex = String.valueOf(i[2]);
             String health_no = String.valueOf(i[3]);
             String result_status = String.valueOf(i[4]);
-            String obr_date = String.valueOf(i[5]);
+            String observationDate = String.valueOf(NativeQueryValues.asString(i[5]));
             String priority = String.valueOf(i[6]);
             String requesting_client = String.valueOf(i[7]);
             String discipline = String.valueOf(i[8]);
@@ -817,7 +825,7 @@ public class Hl7textResultsData {
                 lbData.abn = true;
             }
 
-            lbData.dateTime = obr_date;
+            lbData.dateTime = observationDate;
 
             if (priority != null && !priority.equals("")) {
                 switch (priority.charAt(0)) {

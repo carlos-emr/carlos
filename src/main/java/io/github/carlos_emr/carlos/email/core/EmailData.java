@@ -1,6 +1,6 @@
 package io.github.carlos_emr.carlos.email.core;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -8,6 +8,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Data Transfer Object (DTO) for email composition and transmission in the OpenO EMR system.
@@ -24,6 +25,10 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  * through optional email encryption with password protection and encrypted attachments. All
  * email transactions are logged for audit trail purposes and can be linked to specific patient
  * charts and healthcare providers.</p>
+ *
+ * <p>Optional fields that downstream email handling expects to be non-null are initialized to
+ * safe defaults. In particular, attachments default to a mutable empty list and chart display defaults
+ * to {@link ChartDisplayOption#WITHOUT_NOTE}.</p>
  * 
  * <p>Typical usage:</p>
  * <pre>
@@ -45,30 +50,98 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  * @since 2026-01-14
  */
 public class EmailData {
+    /** Maximum persisted length of a consent override justification. */
+    public static final int CONSENT_OVERRIDE_REASON_MAX_LENGTH = 255;
+    /**
+     * Maximum length of the footer sent below the message (issue #3981), counted in the characters
+     * of its plain-text version ({@link EmailFooterHtml#visibleLength}); its HTML may not exceed
+     * {@link EmailFooterHtml#MAX_HTML_LENGTH}.
+     */
+    public static final int FOOTER_MAX_LENGTH = 2000;
+
     private Integer senderConfigId;
     private String sender;
     private String[] recipients;
     private String subject;
     private String body;
-    private String encryptedMessage;
+    private ClinicEmailFooterSnapshot clinicFooterSnapshot;
+    private boolean footerFrozen;
+    private String sentPersonalFooter;
+    private String frozenFooterHtml;
+
+    private String footer = "";
+    // Derived state; absent in older objects and rebuilt safely on the first read.
+    private transient String sentFooter;
+    private EmailInlineImage footerLogo;
+    private String encryptedMessage = "";
     private String password;
     private String passwordClue;
     private boolean isEncrypted;
     private boolean isAttachmentEncrypted;
-    private ChartDisplayOption chartDisplayOption;
-    private String internalComment;
+    private ChartDisplayOption chartDisplayOption = ChartDisplayOption.WITHOUT_NOTE;
+    private String internalComment = "";
     private TransactionType transactionType;
     private Integer demographicNo;
     private String providerNo;
     private String additionalParams;
-    private List<EmailAttachment> attachments;
+    private List<EmailAttachment> attachments = new ArrayList<>();
+    private boolean consentOverride;
+    private String consentOverrideReason;
+    private EmailComposeWorkingDirectory workingDirectory;
+    private List<String> archiveRedactions = List.of();
 
     /**
      * Default constructor for creating an empty EmailData instance.
-     * All fields are initialized to their default values (null for objects, false for booleans).
-     * Use setter methods to populate the email data fields.
      */
     public EmailData() {
+    }
+
+    /**
+     * Merges the two legacy content channels ({@code body} and {@code encryptedMessage}) back into
+     * the single "Message" value the compose screen now displays (issue #3118).
+     *
+     * <p>The compose UI has one message field whose delivery is governed by the encryption toggle,
+     * but the underlying EmailLog still stores the cleartext body and the encrypted-PDF
+     * content in separate columns. When seeding the composer (fresh compose or resend), this picks
+     * the channel matching the already-resolved encryption state. If both channels are populated,
+     * only that preferred channel can be represented in the unified field; the protected channel
+     * therefore wins for encrypted drafts. The encrypted channel is never copied into an
+     * encryption-off draft; callers must first use
+     * {@link #resolveMergedMessageEncryption(boolean, String, String)} so legacy protected content
+     * fails closed instead of becoming cleartext.</p>
+     *
+     * @param isEncrypted      whether the email is (or defaults to) encrypted
+     * @param body             the cleartext body channel value (may be null)
+     * @param encryptedMessage the encrypted-PDF message channel value (may be null)
+     * @return the single message value to seed into the compose field, never null
+     */
+    public static String mergeMessage(boolean isEncrypted, String body, String encryptedMessage) {
+        String preferred = isEncrypted ? encryptedMessage : body;
+        if (!StringUtils.isNullOrEmpty(preferred)) {
+            return preferred;
+        }
+        if (isEncrypted && body != null) {
+            return body;
+        }
+        return "";
+    }
+
+    /**
+     * Resolves the encryption state used when legacy body/encrypted-message fields are merged.
+     *
+     * <p>An explicitly unencrypted draft remains unencrypted when its body is populated. If its
+     * body is empty but the legacy encrypted-message channel contains content, encryption is forced
+     * on so resending or reopening the draft cannot move that content into the cleartext body.</p>
+     *
+     * @param isEncrypted      the stored or requested encryption state
+     * @param body             the cleartext body channel value (may be null)
+     * @param encryptedMessage the encrypted-PDF message channel value (may be null)
+     * @return {@code true} when encryption was already enabled or protected content is the only
+     *         message available
+     */
+    public static boolean resolveMergedMessageEncryption(boolean isEncrypted, String body, String encryptedMessage) {
+        return isEncrypted
+                || (StringUtils.isNullOrEmpty(body) && !StringUtils.isNullOrEmpty(encryptedMessage));
     }
 
     /**
@@ -183,6 +256,159 @@ public class EmailData {
     }
 
     /**
+     * Gets the footer sent to the recipient below the body (issue #3981), as posted: formatted
+     * HTML, not yet cleaned. {@link #getSentFooter()} is what is stored and sent.
+     *
+     * @return String the footer, or empty string if not set
+     * @since 2026-09-29
+     */
+    public String getFooter() {
+        return footer != null ? footer : "";
+    }
+
+    /**
+     * Sets the footer sent to the recipient below the body. The footer is not part of the body,
+     * so it is never written into the chart note and never put inside the encrypted PDF.
+     *
+     * @param footer String the footer as formatted HTML (plain text must first go through
+     *        {@link EmailFooterHtml#fromPlainText}); null values are converted to empty string
+     * @since 2026-09-29
+     */
+    public void setFooter(String footer) {
+        requireUnfrozenFooter();
+        this.footer = footer != null ? footer : "";
+        this.sentFooter = EmailFooterHtml.clean(this.footer);
+    }
+
+    /** Binds trusted authoring-time clinic content; HTTP footer fields only set personal text. */
+    public void setClinicFooterSnapshot(ClinicEmailFooterSnapshot snapshot) {
+        requireUnfrozenFooter();
+        this.clinicFooterSnapshot = snapshot;
+        this.sentFooter = null;
+    }
+
+    public ClinicEmailFooterSnapshot getClinicFooterSnapshot() {
+        return clinicFooterSnapshot;
+    }
+
+    /** Freeze the combined sanitized snapshot and reject a value the existing BLOB cannot store. */
+    public void freezeFooter(ClinicEmailFooterSnapshot snapshot) {
+        if (footerFrozen && clinicFooterSnapshot.equals(snapshot)) {
+            return;
+        }
+        requireUnfrozenFooter();
+        if (snapshot == null || snapshot.missingRequiredFooter()) {
+            throw new IllegalStateException("Clinic email footer is required");
+        }
+        String personal = EmailFooterHtml.clean(footer);
+        if (personal.length() > EmailFooterHtml.MAX_HTML_LENGTH
+                || EmailFooterHtml.visibleLength(personal) > FOOTER_MAX_LENGTH) {
+            throw new IllegalArgumentException("Personal email footer is too long");
+        }
+        // With the clinic footer turned off, the user's own footer is all there is.
+        String combined = personal.isEmpty() ? snapshot.html()
+                : snapshot.html().isEmpty() ? personal
+                : "<div>" + personal + "</div><br><div>" + snapshot.html() + "</div>";
+        combined = EmailFooterHtml.clean(combined);
+        int bytes = combined.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        // EmailLog stores Base64 in a BLOB whose maximum is 65,535 bytes.
+        if (4L * ((bytes + 2L) / 3L) > 65_535) {
+            throw new IllegalArgumentException("Combined email footers exceed storage capacity");
+        }
+        clinicFooterSnapshot = snapshot;
+        sentFooter = combined;
+        frozenFooterHtml = combined;
+        footerLogo = snapshot.logo();
+        sentPersonalFooter = personal;
+        footerFrozen = true;
+    }
+
+    public boolean isFooterFrozen() { return footerFrozen; }
+
+    private void requireUnfrozenFooter() {
+        if (footerFrozen) {
+            throw new IllegalStateException("Sent email footers are immutable");
+        }
+    }
+
+    /**
+     * Returns the plain-text body the transport sends: the body, then one blank line, then the
+     * footer as plain text ({@link EmailFooterHtml#toPlainText}).
+     *
+     * <p>Without a footer the body is returned unchanged. EmailManager refuses a send while no
+     * clinic footer is saved (issue #3981), so a new email always carries one; the footer-less
+     * result only applies to an EmailData built outside that send path. With encryption on, the body is the fixed secure-message notice, so the footer follows the notice
+     * in clear text; it is never part of the encrypted PDF.</p>
+     *
+     * @return String the transmitted body
+     * @since 2026-09-29
+     */
+    public String getTransmittedBody() {
+        String sentFooter = getSentFooter();
+        if (sentFooter.isEmpty()) {
+            return body;
+        }
+        String visibleBody = body != null ? body : "";
+        return visibleBody.stripTrailing() + "\n\n" + EmailFooterHtml.toPlainText(sentFooter);
+    }
+
+    /**
+     * Returns the formatted (HTML) version the transport sends alongside the plain-text body: the
+     * body, the clinic logo when one is attached ({@link #getFooterLogo()}), then the footer.
+     *
+     * @return the HTML document, or null for an EmailData without a footer (never a new send, which
+     *         always carries the clinic footer)
+     * @since 2026-10-08
+     */
+    public String getTransmittedHtml() {
+        String sentFooter = getSentFooter();
+        if (sentFooter.isEmpty()) {
+            return null;
+        }
+        if (footerFrozen) {
+            return EmailFooterHtml.toHtmlDocument(body, sentPersonalFooter,
+                    clinicFooterSnapshot.html(), footerLogo == null ? null : footerLogo.contentId());
+        }
+        return EmailFooterHtml.toHtmlDocument(body, sentFooter, footerLogo == null ? null : footerLogo.contentId());
+    }
+
+    /**
+     * Returns the footer as the recipient receives it: cleaned against the footer's allow-list
+     * ({@link EmailFooterHtml#clean}), and empty when it has no visible text. The email log stores
+     * this, so the log and a resend carry exactly the footer that was sent.
+     *
+     * @return String the sent footer HTML, never null
+     * @since 2026-09-29
+     */
+    public String getSentFooter() {
+        if (footerFrozen) {
+            return frozenFooterHtml;
+        }
+        if (sentFooter == null) {
+            sentFooter = EmailFooterHtml.clean(footer);
+        }
+        return sentFooter;
+    }
+
+    /**
+     * @return the clinic logo carried inline above the footer, or null for none; only an email with
+     *         a footer carries it
+     * @since 2026-10-08
+     */
+    public EmailInlineImage getFooterLogo() {
+        return footerFrozen ? clinicFooterSnapshot.logo() : getSentFooter().isEmpty() ? null : footerLogo;
+    }
+
+    /**
+     * @param footerLogo the clinic logo to carry inline above the footer, or null for none
+     * @since 2026-10-08
+     */
+    public void setFooterLogo(EmailInlineImage footerLogo) {
+        requireUnfrozenFooter();
+        this.footerLogo = footerLogo;
+    }
+
+    /**
      * Gets the encrypted version of the email message.
      * Used when email encryption is enabled to store the encrypted content.
      * 
@@ -222,20 +448,18 @@ public class EmailData {
     }
 
     /**
-     * Gets the password hint/clue for the encrypted email.
+     * Gets the non-secret password delivery instruction for the encrypted email.
      * 
-     * @return String the password clue, or empty string if not set
+     * @return String the password delivery instruction, or empty string if not set
      */
     public String getPasswordClue() {
         return passwordClue;
     }
 
     /**
-     * Sets the password hint/clue for the encrypted email.
-     * This clue is sent to the recipient to help them remember or derive the password
-     * needed to decrypt the email content.
+     * Sets the non-secret password delivery instruction for the encrypted email.
      * 
-     * @param passwordClue String the password hint/clue; null values are converted to empty string
+     * @param passwordClue String the password delivery instruction; null values are converted to empty string
      */
     public void setPasswordClue(String passwordClue) {
         this.passwordClue = passwordClue != null ? passwordClue : "";
@@ -318,7 +542,7 @@ public class EmailData {
      * @param chartDisplayOption ChartDisplayOption the chart display setting
      */
     public void setChartDisplayOption(ChartDisplayOption chartDisplayOption) {
-        this.chartDisplayOption = chartDisplayOption;
+        this.chartDisplayOption = chartDisplayOption != null ? chartDisplayOption : ChartDisplayOption.WITHOUT_NOTE;
     }
 
     /**
@@ -326,11 +550,13 @@ public class EmailData {
      * Convenience method for parsing request parameters.
      * 
      * @param chartDisplayOption String "doNotAddAsNote" to exclude from chart, 
-     *                          any other value (including null) defaults to WITH_FULL_NOTE
+     *                          null defaults to WITHOUT_NOTE; other non-null values select WITH_FULL_NOTE
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setChartDisplayOption(String chartDisplayOption) {
         if (chartDisplayOption == null) {
-            chartDisplayOption = "addFullNote";
+            chartDisplayOption = "doNotAddAsNote";
         }
         this.chartDisplayOption = "doNotAddAsNote".equalsIgnoreCase(chartDisplayOption) ? ChartDisplayOption.WITHOUT_NOTE : ChartDisplayOption.WITH_FULL_NOTE;
     }
@@ -381,22 +607,32 @@ public class EmailData {
      *                       (including null) which defaults to DIRECT
      */
     public void setTransactionType(String transactionType) {
+        this.transactionType = parseTransactionType(transactionType);
+    }
+
+    /**
+     * Parses a transaction type string, defaulting to DIRECT for null or unrecognized values.
+     *
+     * @param transactionType String one of "EFORM", "CONSULTATION", "TICKLER", or any other value
+     *                       (including null) which defaults to DIRECT
+     * @return parsed transaction type
+     * @since 2026-07-22
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    public static TransactionType parseTransactionType(String transactionType) {
         if (transactionType == null) {
             transactionType = "DIRECT";
         }
-        switch (transactionType.toUpperCase()) {
+        switch (transactionType.toUpperCase(java.util.Locale.ROOT)) {
             case "EFORM":
-                this.transactionType = TransactionType.EFORM;
-                break;
+                return TransactionType.EFORM;
             case "CONSULTATION":
-                this.transactionType = TransactionType.CONSULTATION;
-                break;
+                return TransactionType.CONSULTATION;
             case "TICKLER":
-                this.transactionType = TransactionType.TICKLER;
-                break;
+                return TransactionType.TICKLER;
             default:
-                this.transactionType = TransactionType.DIRECT;
-                break;
+                return TransactionType.DIRECT;
         }
     }
 
@@ -481,8 +717,63 @@ public class EmailData {
      * @param attachments List&lt;EmailAttachment&gt; the list of attachments; null values are converted to empty list
      */
     public void setAttachments(List<EmailAttachment> attachments) {
-        this.attachments = attachments != null ? attachments : Collections.emptyList();
+        this.attachments = attachments != null ? attachments : new ArrayList<>();
+    }
+
+    /** @return whether the provider requested an unknown-consent override */
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    /** Returns the server-only owner for temporary files created while sending this email. */
+    public EmailComposeWorkingDirectory getWorkingDirectory() {
+        return workingDirectory;
+    }
+    /** @param consentOverride whether the provider requested an unknown-consent override */
+    public void setConsentOverride(boolean consentOverride) {
+        this.consentOverride = consentOverride;
+    }
+
+    /** Sets the server-only owner for generated compose and encryption artifacts. */
+    public void setWorkingDirectory(EmailComposeWorkingDirectory workingDirectory) {
+        this.workingDirectory = workingDirectory;
+    }
+
+    /** @return values the outbound archive must not keep; empty for an ordinary email */
+    public List<String> getArchiveRedactions() {
+        return archiveRedactions;
+    }
+
+    /**
+     * Names values the message carries that the outbound archive must not keep, such as a one-time
+     * credential that stays usable after the send. The archived copy has each replaced with
+     * {@code [redacted]}; the message itself is sent unchanged. Server-only: never bound from a request.
+     */
+    public void setArchiveRedactions(List<String> archiveRedactions) {
+        this.archiveRedactions = archiveRedactions == null ? List.of() : List.copyOf(archiveRedactions);
+    }
+    /** @param consentOverride request value; only the exact value {@code true} enables override */
+    public void setConsentOverride(String consentOverride) {
+        this.consentOverride = "true".equals(consentOverride);
+    }
+
+    /** @return the trimmed provider-entered override reason, never {@code null} after assignment */
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    /**
+     * Stores a trimmed consent override reason without losing audit content.
+     *
+     * @param consentOverrideReason provider-entered justification
+     * @throws IllegalArgumentException when the trimmed reason exceeds 255 characters
+     */
+    public void setConsentOverrideReason(String consentOverrideReason) {
+        String reason = consentOverrideReason != null ? consentOverrideReason.trim() : "";
+        if (reason.length() > CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
+            throw new IllegalArgumentException("Consent override reason must not exceed "
+                    + CONSENT_OVERRIDE_REASON_MAX_LENGTH + " characters");
+        }
+        this.consentOverrideReason = reason;
     }
 }
-
-

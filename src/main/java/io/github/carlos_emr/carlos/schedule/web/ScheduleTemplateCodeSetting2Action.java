@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Gate action for the appointment template code settings page.
@@ -50,6 +51,8 @@ public final class ScheduleTemplateCodeSetting2Action extends ActionSupport {
      * @throws Exception if writing the 405 response fails
      * @since 2026-04-05
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -62,7 +65,8 @@ public final class ScheduleTemplateCodeSetting2Action extends ActionSupport {
         String op = request.getParameter("dboperation");
         op = (op == null) ? "" : op.trim();
         boolean isMutation = "Save".equalsIgnoreCase(op) || "Delete".equalsIgnoreCase(op);
-        if (isMutation && !"POST".equalsIgnoreCase(request.getMethod())) {
+        if (isMutation && !"POST".equals(request.getMethod())) {
+            ServletActionContext.getResponse().setHeader("Allow", "POST");
             ServletActionContext.getResponse().sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

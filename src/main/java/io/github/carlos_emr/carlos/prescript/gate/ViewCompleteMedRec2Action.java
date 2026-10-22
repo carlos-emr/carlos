@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Mutation gate for {@code rx/completeMedRec.jsp}. Enforces {@code _measurement} w
@@ -32,6 +33,8 @@ public final class ViewCompleteMedRec2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -46,6 +49,16 @@ public final class ViewCompleteMedRec2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+
+        // completeMedRec.jsp records a measurement for the patient the request names
+        // (demographicNo); authorise a write on that patient, not only the module (#3908).
+        String rawPatient = request.getParameter("demographicNo");
+        int patient = io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver.requestedDemographicNo(request);
+        if (rawPatient == null || !rawPatient.matches("[0-9]{1,10}") || patient <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo, patient, "_measurement", "w");
 
         return SUCCESS;
     }

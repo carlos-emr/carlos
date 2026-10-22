@@ -1,0 +1,282 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.pageUtil;
+
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+
+import org.apache.struts2.ActionSupport;
+import org.junit.jupiter.api.*;
+import org.mockito.MockitoAnnotations;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+/**
+ * Test suite for {@link DemographicSearch2Action}.
+ *
+ * <p>Covers security enforcement (null session, missing privilege) and the
+ * routing logic that distinguishes general search from appointment-context
+ * search via a trailing-space convention in the {@code displaymode} parameter.
+ *
+ * @since 2026-04-04
+ */
+@DisplayName("DemographicSearch2Action Tests")
+@Tag("unit")
+@Tag("web")
+@Tag("demographic")
+class DemographicSearch2ActionUnitTest extends CarlosWebTestBase {
+
+    private static final String TEST_PROVIDER = "999998";
+    private static final File WEBAPP_ROOT = PathValidationUtils.resolveTrustedPath(
+            new File("src/main/webapp"), "test webapp root");
+    private static final File GENERAL_RESULTS_JSP =
+            validatedTemplate("WEB-INF/jsp/demographic/demographicsearchresults.jsp");
+    private static final File APPOINTMENT_RESULTS_JSP =
+            validatedTemplate("WEB-INF/jsp/demographic/demographicsearch2apptresults.jsp");
+    private DemographicSearch2Action action;
+
+    private static File validatedTemplate(String relativePath) {
+        return PathValidationUtils.validateExistingPath(
+                new File(WEBAPP_ROOT, relativePath), WEBAPP_ROOT);
+    }
+
+    private static String readTemplate(File template) throws IOException {
+        File validatedTemplate =
+                PathValidationUtils.validateExistingPath(template, WEBAPP_ROOT);
+        return Files.readString(validatedTemplate.toPath(), StandardCharsets.UTF_8);
+    }
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
+
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
+        setSessionAttribute("user", TEST_PROVIDER);
+        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+        setSessionAttribute(key, mockLoggedInInfo);
+
+        action = new DemographicSearch2Action(mockSecurityInfoManager);
+
+    }
+
+    @Nested
+    @DisplayName("Security Enforcement")
+    class SecurityEnforcement {
+
+        @Test
+        @DisplayName("should throw SecurityException when session is null")
+        void shouldThrowSecurityException_whenSessionIsNull() {
+            // Remove LoggedInInfo from session
+            String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+            setSessionAttribute(key, null);
+
+            assertThatThrownBy(() -> executeAction(action))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required session");
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when user lacks demographic read privilege")
+        void shouldThrowSecurityException_whenUserLacksDemographicReadPrivilege() {
+            denyPrivilege("_demographic", "r");
+
+            assertThatThrownBy(() -> executeAction(action))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object (_demographic)");
+
+            verifySecurityCheck("_demographic", "r");
+        }
+
+        @Test
+        @DisplayName("should return success when user has demographic read privilege")
+        void shouldReturnSuccess_whenUserHasReadPrivilege() throws Exception {
+            allowPrivilege("_demographic", "r");
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        }
+    }
+
+    @Nested
+    @DisplayName("Search Routing Logic")
+    class SearchRouting {
+
+        @BeforeEach
+        void allowAccess() {
+            allowPrivilege("_demographic", "r");
+        }
+
+        @Test
+        @DisplayName("should return SUCCESS for general search (displaymode=Search)")
+        void shouldReturnSuccess_whenDisplaymodeIsSearch() throws Exception {
+            addRequestParameter("displaymode", "Search");
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        @Test
+        @DisplayName("should return apptResults for appointment-context search (displaymode='Search ')")
+        void shouldReturnApptResults_whenDisplaymodeHasTrailingSpace() throws Exception {
+            addRequestParameter("displaymode", "Search ");
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo("apptResults");
+        }
+
+        @Test
+        @DisplayName("should return SUCCESS when displaymode is null")
+        void shouldReturnSuccess_whenDisplaymodeIsNull() throws Exception {
+            // No displaymode parameter set
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        @Test
+        @DisplayName("should return SUCCESS for unexpected displaymode values")
+        void shouldReturnSuccess_whenDisplaymodeIsUnexpected() throws Exception {
+            addRequestParameter("displaymode", "SomethingElse");
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        @Test
+        @DisplayName("should return SUCCESS when displaymode is empty string")
+        void shouldReturnSuccess_whenDisplaymodeIsEmptyString() throws Exception {
+            addRequestParameter("displaymode", "");
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        @Test
+        @DisplayName("should not route to apptResults when trailing space is trimmed")
+        void shouldNotReturnApptResults_whenSearchHasNoTrailingSpace() throws Exception {
+            // This test protects against someone "fixing" the trailing space
+            addRequestParameter("displaymode", "Search");
+
+            String result = executeAction(action);
+
+            assertThat(result).isNotEqualTo("apptResults");
+        }
+    }
+
+    @Nested
+    @DisplayName("Patient List Mode")
+    class PatientListMode {
+
+        @BeforeEach
+        void allowAccess() {
+            allowPrivilege("_demographic", "r");
+        }
+
+        @Test
+        @DisplayName("should show recent patients for a blank active search")
+        void shouldShowRecentPatients_forBlankActiveSearch() throws Exception {
+            addRequestParameter("keyword", "");
+            addRequestParameter("ptstatus", "active");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(true);
+        }
+
+        @Test
+        @DisplayName("should preserve recent patients for a blank search with default status")
+        void shouldShowRecentPatients_forBlankSearchWithDefaultStatus() throws Exception {
+            addRequestParameter("keyword", "");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(true);
+        }
+
+        @Test
+        @DisplayName("should search all patients for a blank all-status search")
+        void shouldSearchAllPatients_forBlankAllStatusSearch() throws Exception {
+            addRequestParameter("keyword", "");
+            addRequestParameter("ptstatus", "");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(false);
+        }
+
+        @Test
+        @DisplayName("should search inactive patients for a blank inactive search")
+        void shouldSearchInactivePatients_forBlankInactiveSearch() throws Exception {
+            addRequestParameter("keyword", "");
+            addRequestParameter("ptstatus", "inactive");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(false);
+        }
+
+        @Test
+        @DisplayName("should search matching patients for a populated active search")
+        void shouldSearchMatchingPatients_forPopulatedActiveSearch() throws Exception {
+            addRequestParameter("keyword", "fake");
+            addRequestParameter("ptstatus", "active");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(false);
+        }
+
+        @Test
+        @DisplayName("should use the controller patient-list mode in every results view")
+        void shouldUseControllerPatientListMode_inEveryResultsView() throws Exception {
+            String attributeLookup = "request.getAttribute(\""
+                    + DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE + "\")";
+
+            assertThat(readTemplate(GENERAL_RESULTS_JSP))
+                    .contains(attributeLookup)
+                    .doesNotContain("request.getParameter(\"keyword\").length() == 0");
+            assertThat(readTemplate(APPOINTMENT_RESULTS_JSP))
+                    .contains(attributeLookup)
+                    .doesNotContain("request.getParameter(\"keyword\").length() == 0");
+        }
+    }
+}

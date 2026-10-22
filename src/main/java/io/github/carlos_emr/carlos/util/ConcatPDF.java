@@ -51,7 +51,6 @@ package io.github.carlos_emr.carlos.util;
 
 import java.io.*;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -60,12 +59,17 @@ import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ConcatPDF {
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static void concat(ArrayList<Object> alist, String filename) {
-        try (OutputStream os = new FileOutputStream(filename)) {
+        File outputFile = PathValidationUtils.resolveTrustedPath(new File(filename));
+        try (OutputStream os = new FileOutputStream(outputFile)) {
             concat(alist, os);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to concatenate {} PDF documents to file: {}", alist.size(), filename, e);
@@ -73,10 +77,28 @@ public class ConcatPDF {
     }
 
     /**
-     * This class can be used to concatenate existing PDF files.
+     * Concatenates the given PDF inputs (file paths or InputStreams) into {@code outputStream}.
+     * Inputs that cannot be opened/read are skipped rather than aborting the whole merge.
      * (This was an example known as PdfCopy.java)
+     *
+     * @return the number of inputs that were skipped; {@code 0} means every input was included
      */
-    public static void concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream) {
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
+    public static int concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream) {
+        return concat(fileOrInputStreamPdfList, outputStream, false);
+    }
+
+    /**
+     * Merges required clinical sections. Any unreadable input fails before writing the destination,
+     * so a chart or lab report cannot look complete while omitting a requested attachment.
+     */
+    public static void concatRequired(List<Object> inputs, OutputStream outputStream) {
+        concat(inputs, outputStream, true);
+    }
+
+    private static int concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream,
+                              boolean requireAll) {
         PDFMergerUtility pdfMerger = new PDFMergerUtility();
         PDDocument documentReader;
         int totalFiles = fileOrInputStreamPdfList.size();
@@ -88,7 +110,7 @@ public class ConcatPDF {
                 if (o instanceof InputStream) {
                     documentReader = Loader.loadPDF(((InputStream) o).readAllBytes());
                 } else {
-                    Path fileName = Paths.get((String) o);
+                    Path fileName = PathValidationUtils.resolveTrustedPath(new File((String) o)).toPath();
                     documentReader = Loader.loadPDF(fileName.toFile());
                 }
 
@@ -96,9 +118,11 @@ public class ConcatPDF {
                 if (documentReader != null && documentReader.isEncrypted()) {
                     documentReader.setAllSecurityToBeRemoved(true);
                 }
-            } catch (IOException e) {
+            } catch (IOException | SecurityException e) {
+                // SecurityException covers PathValidationUtils rejecting a malformed entry path; skip that
+                // entry and continue merging the rest rather than aborting the whole concatenation.
                 skippedFiles++;
-                MiscUtils.getLogger().error("Failed to open file for concatenation: " + o, e);
+                MiscUtils.getLogger().error("Failed to open PDF input ({})", e.getClass().getSimpleName());
                 continue;
             }
 
@@ -113,7 +137,7 @@ public class ConcatPDF {
                 }
             } catch (IOException e) {
                 skippedFiles++;
-                MiscUtils.getLogger().error("Document could not be added to merge " + o, e);
+                MiscUtils.getLogger().error("PDF input could not be added to merge ({})", e.getClass().getSimpleName());
             }
         }
 
@@ -122,13 +146,22 @@ public class ConcatPDF {
                     skippedFiles, totalFiles);
         }
 
+        if (requireAll && skippedFiles > 0) {
+            // No response bytes have been written. Callers can still return a real error.
+            throw new IllegalStateException("Required PDF inputs could not be included");
+        }
+
         try {
             pdfMerger.setDestinationStream(outputStream);
             pdfMerger.mergeDocuments(null);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Document merge failed.", e);
-            throw new RuntimeException("PDF merge failed after processing " + totalFiles + " documents", e);
+            MiscUtils.getLogger().error("Document merge failed ({})", e.getClass().getSimpleName());
+            throw new RuntimeException("PDF merge failed after processing " + totalFiles + " documents");
         }
+
+        // Return how many inputs were skipped (bad path / unreadable / corrupt) so direct-response
+        // callers can surface "N document(s) could not be included" instead of a silently truncated PDF.
+        return skippedFiles;
     }
 
 }

@@ -1,0 +1,15 @@
+# CodeQL customization (library) pack for CARLOS EMR.
+#
+# Provides Customizations.qll, which adds PathValidationUtils as a path-injection
+# sanitizer so the standard java/path-injection query stops emitting false positives
+# on paths that have been containment-validated by PathValidationUtils.
+#
+# This is a LIBRARY pack (no queries of its own). The standard CodeQL Java queries
+# import `semmle.code.java.Customizations`, which resolves to the Customizations.qll
+# made available on the analysis search path by this pack — so once this pack is on
+# the path, the sanitizer applies to the shipped queries automatically.
+name: carlos-emr/carlos-codeql-customizations
+version: 0.0.1
+library: true
+dependencies:
+  codeql/java-all: "*"

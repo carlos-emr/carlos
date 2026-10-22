@@ -41,6 +41,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author Jef King
@@ -179,6 +180,8 @@ public class WcbSb {
         this.formNeeded = "" + w.getFormNeeded();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String validate() {
         StringBuilder m = new StringBuilder();
         if (billamountforfeeitem1 == null || billamountforfeeitem1.equalsIgnoreCase("NULL")) {
@@ -215,11 +218,7 @@ public class WcbSb {
             }
         }
 
-        String ret = "<tr bgcolor='red'><td colspan='11'>" + "<a href='#' onClick=\"openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=" + Misc.forwardZero(this.billing_no, 7) + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" + m.toString() + "</a>" + "</td></tr>";
-        if ("".equals(m.toString())) {
-            return "";
-        }
-        return ret;
+        return HtmlTeleplanHelper.wcbCorrectionErrorRow(this.billing_no, m.toString());
     }
 
     public BigDecimal getBillingAmountForFee1BigDecimal() {
@@ -389,10 +388,12 @@ public class WcbSb {
 
     }
 
+    /**
+     * Builds one encoded WCB claim row; delegates to {@link HtmlTeleplanHelper#wcbHtmlLine} so worker
+     * name, PHN, codes and the {@code billing_no} placed in the correction-popup URL are all encoded.
+     */
     public String getHtmlLine(String billingMasterNo, String invNo, String demoName, String phn, String serviceDate, String billingCode, String billAmount, String dx1, String dx2, String dx3) {
-        String htmlContent = "<tr>" + "<td class='bodytext'>" + "<a href='#' onClick=\"openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=" + Misc.forwardZero(billingMasterNo, 7) + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" + invNo + "</a>" + "</td>" + "<td class='bodytext'>" + demoName + "</td>" + "<td class='bodytext'>" + w_phn + "</td>" + "<td class='bodytext'>" + dateFormat(serviceDate) + "</td>" + "<td class='bodytext'>" + billingCode + "</td>"
-                + "<td align='right' class='bodytext'>" + billAmount + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx1, 5) + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx2, 5) + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx3, 5) + "</td>" + "<td class='bodytext'>" + Misc.forwardZero(billingMasterNo, 7) + "</td>" + "<td class='bodytext'>&nbsp;</td>" + "</tr>";
-        return htmlContent;
+        return HtmlTeleplanHelper.wcbHtmlLine(billingMasterNo, invNo, demoName, phn, dateFormat(serviceDate), billingCode, billAmount, dx1, dx2, dx3);
     }
 
     boolean isFormNeeded() {

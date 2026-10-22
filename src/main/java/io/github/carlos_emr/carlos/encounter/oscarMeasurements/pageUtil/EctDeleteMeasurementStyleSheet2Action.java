@@ -61,6 +61,11 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws ServletException, IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
 
@@ -84,7 +89,9 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
                             return "error";
                         }
 
-                        dao.remove(style);
+                        // The query's DAO transaction has ended. Reload by ID
+                        // inside remove's transaction instead of deleting its detached result.
+                        dao.remove(style.getId());
                     }
                 }
             }

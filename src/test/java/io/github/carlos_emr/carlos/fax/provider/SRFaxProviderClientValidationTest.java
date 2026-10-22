@@ -84,7 +84,7 @@ class SRFaxProviderClientValidationTest extends CarlosUnitTestBase {
         // When/Then
         assertThatThrownBy(() -> invokeValidateCredentials(config))
                 .isInstanceOf(FaxProviderException.class)
-                .hasMessageContaining("SRFax username")
+                .hasMessageContaining("SRFax account number")
                 .hasMessageContaining("not configured");
     }
 
@@ -99,7 +99,7 @@ class SRFaxProviderClientValidationTest extends CarlosUnitTestBase {
         // When/Then
         assertThatThrownBy(() -> invokeValidateCredentials(config))
                 .isInstanceOf(FaxProviderException.class)
-                .hasMessageContaining("SRFax username")
+                .hasMessageContaining("SRFax account number")
                 .hasMessageContaining("not configured");
     }
 

@@ -44,6 +44,8 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -66,6 +68,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
     // Execute on struts action call — routes to saveImage or deleteImage based on method parameter
     public String execute() {
         validateWritePrivilege();
+        if (!isPostRequest()) return NONE;
 
         String method = request.getParameter("method");
         if ("deleteImage".equals(method)) {
@@ -76,6 +79,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
     public String saveImage() {
         validateWritePrivilege();
+        if (!isPostRequest()) return NONE;
         return doSaveImage();
     }
 
@@ -138,6 +142,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
     public String deleteImage() {
         validateWritePrivilege();
+        if (!isPostRequest()) return NONE;
         return doDeleteImage();
     }
 
@@ -167,6 +172,14 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         return SUCCESS;
     }
 
+    /** Refuses photo mutations from safe-method requests, including direct action entry points. */
+    private boolean isPostRequest() {
+        if ("POST".equals(request.getMethod())) return true;
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
+    }
+
     /**
      * Validates that the current session has demographic write access before
      * allowing client photo changes.
@@ -190,6 +203,8 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
      *
      * @param uploadedFiles List<UploadedFile> the uploaded files supplied by Struts
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {

@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import static io.github.carlos_emr.carlos.billings.ca.on.support.BillingDomIdTokens.sanitize;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Composer for the service-code grid + adjacent menu / dx-codes structures.
@@ -160,6 +161,8 @@ public class BillingOnFormServiceGridComposer {
         this.diagnosticCodeDao = diagnosticCodeDao;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     void compose(BillingOnFormViewModel.Builder b,
                  String ctlBillForm,
                  java.util.Date filterDate,
@@ -177,6 +180,15 @@ public class BillingOnFormServiceGridComposer {
         // a second time during the same render.
         List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> serviceTypeRows =
                 ctlBillingServiceDao.findServiceTypesByStatus("A");
+        // The shared default_view=GP belongs to the BC catalogue. Ontario's
+        // shipped General Practice form is MFP. Preserve a clinic's actual GP
+        // form when present; never choose an unrelated form or billing type.
+        if ("GP".equals(ctlBillForm)
+                && serviceTypeRows.stream().noneMatch(row -> "GP".equals(row.serviceType()))
+                && serviceTypeRows.stream().anyMatch(row -> "MFP".equals(row.serviceType()))) {
+            ctlBillForm = "MFP";
+            b.ctlBillForm(ctlBillForm);
+        }
         for (io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow typeRow : serviceTypeRows) {
             // Skip rows where the code column is empty — would render id="" in
             // the DOM and billForm= in click-through URLs.

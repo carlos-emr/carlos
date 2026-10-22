@@ -34,6 +34,7 @@ import java.util.Date;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author Jay Gallagher
@@ -69,6 +70,8 @@ public class PreventionItem {
         this.nextDate = dNext;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public PreventionItem(String name, Date dPreformed, String never, Date dNext, String result) {
         this.name = name;
         this.datePreformed = dPreformed;

@@ -52,22 +52,26 @@ public class FormForwardNamed2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographic_no");
         String internalView = FormViewRoutes.resolveInternalViewFromFormLink(formLink);
         if (internalView == null) {
-            MiscUtils.getLogger().warn(
+            MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "form/forwardname: blocked invalid form_link parameter: {}",
                     LogSafe.sanitize(formLink));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form link");
             return NONE;
         }
         if (demographicNo == null || !demographicNo.matches("\\d+")) {
-            MiscUtils.getLogger().warn(
+            MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "form/forwardname: blocked invalid demographic_no parameter: {}",
                     LogSafe.sanitize(demographicNo));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic number");
             return NONE;
         }
 
+        // Redisplay through the same FORWARD filters as a newly opened form.
+        // An INCLUDE bypasses CSRFGuard script injection, leaving the next Save
+        // without its token. Keep the HTML media type explicit as well.
+        response.setContentType("text/html;charset=UTF-8");
         request.getRequestDispatcher(internalView + "?demographic_no=" + demographicNo)
-                .include(request, response);
+                .forward(request, response);
         return NONE;
     }
 }

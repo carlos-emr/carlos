@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
 import io.github.carlos_emr.carlos.commn.model.Admission;
+import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.CountryCode;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicArchive;
@@ -75,6 +76,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that loads all data needed by the demographic edit page
@@ -96,8 +98,18 @@ public class DemographicEdit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
 
+    public DemographicEdit2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public DemographicEdit2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -233,7 +245,15 @@ public class DemographicEdit2Action extends ActionSupport {
         // --- Patient consent module ---
         if (oscarProps.getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
             PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
-            request.setAttribute("consentTypes", patientConsentManager.getActiveConsentTypes());
+            List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();
+            request.setAttribute("consentTypes", consentTypes);
+            // Set when the save that led here refused a consent change made against a record that
+            // had since changed. Only names looked up here reach the page, never the parameter.
+            List<String> consentNotSavedNames = ConsentNotSavedNotice.consentTypeNames(
+                    request.getParameter(ConsentNotSavedNotice.PARAMETER), consentTypes);
+            if (!consentNotSavedNames.isEmpty()) {
+                request.setAttribute(ConsentNotSavedNotice.NAMES_ATTRIBUTE, consentNotSavedNames);
+            }
             request.setAttribute("patientConsents", patientConsentManager.getAllConsentsByDemographic(
                     loggedInInfo, Integer.parseInt(demographic_no)));
         }
@@ -274,7 +294,7 @@ public class DemographicEdit2Action extends ActionSupport {
             nurse = StringUtils.defaultString(demographicCust.getNurse());
             alert = StringUtils.defaultString(demographicCust.getAlert());
             midwife = StringUtils.defaultString(demographicCust.getMidwife());
-            notes = SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes");
+            notes = DemographicXml.userNotesText(demographicCust.getNotes());
             notes = notes == null ? "" : notes;
         }
 
@@ -283,11 +303,11 @@ public class DemographicEdit2Action extends ActionSupport {
         if (demographic != null) {
             String fd = demographic.getFamilyDoctor();
             if (fd != null) {
-                rd = SxmlMisc.getXmlContent(StringUtils.trimToEmpty(fd), "rd");
+                rd = DemographicXml.referralDoctor(StringUtils.trimToEmpty(fd));
                 rd = (rd != null && !"null".equals(rd)) ? rd : "";
-                rdohip = SxmlMisc.getXmlContent(StringUtils.trimToEmpty(fd), "rdohip");
+                rdohip = DemographicXml.referralDoctorOhip(StringUtils.trimToEmpty(fd));
                 rdohip = (rdohip != null && !"null".equals(rdohip)) ? rdohip : "";
-                family_doc = SxmlMisc.getXmlContent(StringUtils.trimToEmpty(fd), "family_doc");
+                family_doc = DemographicXml.familyDoc(StringUtils.trimToEmpty(fd));
                 family_doc = family_doc != null ? family_doc : "";
             }
         }
@@ -343,6 +363,8 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("userlastname", session.getAttribute("userlastname"));
         request.setAttribute("apptProvider", request.getParameter("apptProvider"));
         request.setAttribute("appointment", request.getParameter("appointment"));
+        request.setAttribute(PatientNavModel.REQUEST_ATTRIBUTE,
+                PatientNavModel.forRequest(request, demographic, PatientNavModel.Page.RECORD));
         request.setAttribute("oscarProps", oscarProps);
         request.setAttribute("firstNationCommunities", firstNationCommunities);
         request.setAttribute("phuLookupList", phuLookupList);

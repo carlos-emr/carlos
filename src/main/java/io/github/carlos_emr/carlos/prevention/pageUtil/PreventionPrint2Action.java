@@ -79,7 +79,7 @@ public class PreventionPrint2Action extends ActionSupport {
     /**
      * Validates security privileges and generates the prevention PDF.
      *
-     * @return String {@code null} on success (response written directly), or {@code "error"} if
+     * @return String {@code NONE} on success (response written directly), or {@code "error"} if
      *         PDF generation fails due to a {@link DocumentException} or {@link IOException}
      * @throws SecurityException if the logged-in user lacks {@code _prevention} read privilege
      */
@@ -104,7 +104,7 @@ public class PreventionPrint2Action extends ActionSupport {
             return "error";
         }
 
-        return null;
+        return NONE;
     }
 
 }

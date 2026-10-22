@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.commn.service;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
@@ -58,6 +60,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
@@ -94,6 +97,7 @@ import java.io.IOException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Generic clinical record PDF printer for patient encounter summaries.
@@ -176,7 +180,7 @@ public class PdfRecordPrinter {
     /**
      * Initializes the PDF document, fonts, and writer. Must be called before any print methods.
      *
-     * <p>Creates Helvetica fonts (normal and bold at 10pt), opens a US Letter-sized document,
+     * <p>Creates embedded Unicode DejaVu Sans fonts (normal and bold at 10pt), opens a US Letter-sized document,
      * and configures strict image sequencing for proper photo/diagram ordering.</p>
      *
      * @throws DocumentException if the PDF writer cannot be initialized
@@ -184,7 +188,7 @@ public class PdfRecordPrinter {
      */
     public void start() throws DocumentException, IOException {
         //Create the font we are going to print to
-        bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         font = new Font(bf, FONTSIZE, Font.NORMAL);
         boldFont = new Font(bf, FONTSIZE, Font.BOLD);
 
@@ -237,7 +241,7 @@ public class PdfRecordPrinter {
         this.newPage = b;
     }
 
-    /** @return BaseFont the Helvetica base font used for PDF rendering */
+    /** @return BaseFont the embedded Unicode base font used for PDF rendering */
     public BaseFont getBaseFont() {
         return bf;
     }
@@ -330,6 +334,8 @@ public class PdfRecordPrinter {
      * @param invoiceNo Integer the billing invoice number to render
      * @param locale Locale for date formatting
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void printBillingInvoice(Integer invoiceNo, Locale locale) {
         CarlosProperties props = CarlosProperties.getInstance();
         InputStream is = null;
@@ -340,7 +346,7 @@ public class PdfRecordPrinter {
             if (templateFilepath.isEmpty())
                 is = this.getClass().getClassLoader().getResourceAsStream(BILLING_INVOICE_TEMPLATE_FILE);
             else
-                is = new FileInputStream(templateFilepath);
+                is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(templateFilepath)));
             //get Jasper Report
 
             JasperReport jasperReport = JasperCompileManager.compileReport(is);
@@ -367,7 +373,7 @@ public class PdfRecordPrinter {
                                 if (imagePath.isEmpty()) {
                                     //DO NOTHING imageIS = this.getClass().getClassLoader().getResourceAsStream(OSCAR_LOGO_FILE);
                                 } else {
-                                    imageIS = new FileInputStream(imagePath);
+                                    imageIS = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(imagePath)));
                                 }
                                 parameters.put(paramName, imageIS);
                             } else if (paramName.equals("billing_print_date")) {
@@ -900,11 +906,16 @@ public class PdfRecordPrinter {
             File tempFile = null;
             try {
                 tempFile = File.createTempFile("graphicImg", ".png");
-                FileOutputStream fos = new FileOutputStream(tempFile);
-                convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
+                // try-with-resources so the stream is closed even when convertToImage throws
+                // (e.g. SecurityException for a missing image), avoiding a FileOutputStream leak.
+                try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tempFile))) {
+                    convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
+                }
                 logger.debug("converted image is " + tempFile.getName());
-                fos.close();
-            } catch (IOException e) {
+            } catch (IOException | SecurityException e) {
+                // SecurityException is thrown by PathValidationUtils.validateConfiguredFile when the
+                // referenced eForm diagram image is missing/invalid. Skip that one diagram (as the
+                // legacy FileNotFoundException path did) rather than aborting the whole record PDF.
                 logger.error("Error", e);
                 if (tempFile != null) {
                     tempFile.delete();
@@ -931,6 +942,8 @@ public class PdfRecordPrinter {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getRefName(Demographic d) {
         String referral = d.getFamilyDoctor();
 

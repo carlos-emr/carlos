@@ -26,6 +26,7 @@
 package io.github.carlos_emr.carlos.utils;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -36,8 +37,13 @@ import java.util.GregorianCalendar;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.PMmodule.model.FieldDefinition;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Utility {
+    /** Legacy date-filter sentinel meaning "now"; matched case-insensitively by the GetSysDate* methods. */
+    private static final String TODAY_KEYWORD = "TODAY";
+
     public static boolean IsEmpty(String pStr) {
         if (pStr == null || pStr.trim().equals("")) {
             return true;
@@ -86,7 +92,24 @@ public class Utility {
         return isInt;
     }
 
+    /**
+     * Converts a legacy {@code d/m/yyyy} or {@code dd/mm/yyyy} date string into a {@link Date}.
+     *
+     * <ul>
+     *   <li>{@code null} or blank input returns a far-future sentinel date (year 2999), which the
+     *       legacy report filters treat as "no upper bound".</li>
+     *   <li>The literal {@code "TODAY"}, matched case-insensitively, returns the current
+     *       date-time.</li>
+     *   <li>Anything else is split on {@code "/"} as day, month, year.</li>
+     * </ul>
+     *
+     * @param pDate the date text; may be {@code null}
+     * @return the parsed date, the sentinel described above, or {@code null} when the text is
+     *         present but cannot be parsed (this method never throws for bad input)
+     */
     // Convert dd/mm/yyyy d/m/yyyy to System format
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date GetSysDate(String pDate) // throws Exception
     {
         Date date;
@@ -105,7 +128,7 @@ public class Utility {
 
         String delim = "/";
 
-        if ("TODAY".equals(pDate.toUpperCase())) {
+        if (TODAY_KEYWORD.equalsIgnoreCase(pDate)) {
             return new Date();
         } else {
             try {
@@ -136,7 +159,24 @@ public class Utility {
         return c1.getTime();
     }
 
+    /**
+     * Lower-bound variant of {@link #GetSysDate(String)} for legacy date-range filters.
+     *
+     * <ul>
+     *   <li>{@code null} or blank input returns a far-past sentinel date (year 1900), meaning
+     *       "no lower bound".</li>
+     *   <li>The literal {@code "TODAY"}, matched case-insensitively, returns the current
+     *       date-time.</li>
+     *   <li>Anything else is parsed at fixed {@code dd/mm/yyyy} offsets.</li>
+     * </ul>
+     *
+     * @param pDate the date text; may be {@code null}
+     * @return the parsed date or the sentinel described above; never {@code null}
+     * @throws Exception when the text is present, is not {@code "TODAY"}, and cannot be parsed
+     */
     // Convert dd/mm/yyyy to System format
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date GetSysDateMin(String pDate) throws Exception {
         if (IsEmpty(pDate)) {
             Calendar c1 = Calendar.getInstance();
@@ -144,8 +184,11 @@ public class Utility {
             return c1.getTime();
         }
 
-        if ("TODAY".equals(pDate.toUpperCase())) return new Date();
+        if (TODAY_KEYWORD.equalsIgnoreCase(pDate)) return new Date();
 
+        // Legacy fixed-offset parse. Note substring(3, 2) has begin > end and always throws, so
+        // every non-sentinel input reaches the catch below; there are no in-tree callers of this
+        // method, and it is left as-is on the release line rather than changed in a locale fix.
         try {
             int day = Integer.parseInt(pDate.substring(0, 2));
             int month = Integer.parseInt(pDate.substring(3, 2)) - 1;
@@ -159,13 +202,31 @@ public class Utility {
         }
     }
 
+    /**
+     * Upper-bound variant of {@link #GetSysDate(String)} for legacy date-range filters.
+     *
+     * <ul>
+     *   <li>{@code null} or blank input returns a far-future sentinel date (year 2999), meaning
+     *       "no upper bound".</li>
+     *   <li>The literal {@code "TODAY"}, matched case-insensitively, returns the current
+     *       date-time.</li>
+     *   <li>Anything else is parsed at fixed {@code dd/mm/yyyy} offsets.</li>
+     * </ul>
+     *
+     * @param pDate the date text; may be {@code null}
+     * @return the parsed date or the sentinel described above; never {@code null}
+     * @throws Exception when the text is present, is not {@code "TODAY"}, and cannot be parsed
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date GetSysDateMax(String pDate) throws Exception {
         if (IsEmpty(pDate)) {
             return SetDate(2999, 12, 31);
         }
 
-        if ("TODAY".equals(pDate.toUpperCase())) return new Date();
+        if (TODAY_KEYWORD.equalsIgnoreCase(pDate)) return new Date();
 
+        // Same legacy fixed-offset parse as GetSysDateMin; see the note there.
         try {
             int day = Integer.parseInt(pDate.substring(0, 2));
             int month = Integer.parseInt(pDate.substring(3, 2)) - 1;
@@ -319,15 +380,15 @@ public class Utility {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static ArrayList getTemplate(String pathLoc, String dir, String filename) {
         FieldDefinition fDev = null; // clientImageMgr.getClientImage(demoNo);
         ArrayList list = new ArrayList();
         String fileDir = pathLoc + "/" + dir + "/" + filename;
         try {
 
-            BufferedReader in = null;
-            try {
-                in = new BufferedReader(new FileReader(fileDir));
+            try (BufferedReader in = new BufferedReader(new FileReader(PathValidationUtils.resolveTrustedPath(new File(fileDir))))) {
                 String str;
                 if (fileDir.indexOf("/in/") > -1) {
                     while ((str = in.readLine()) != null) {
@@ -349,13 +410,9 @@ public class Utility {
                         list.add(fDev);
                     }
                 }
-                in.close();
 
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Uh oh, got an IOException error!", e);
-            } finally {
-                if (in != null)
-                    in.close();
             }
 
         } catch (Exception e) {

@@ -29,159 +29,183 @@
 
 --%>
 
+<%--
+    setTicklerPreferences.jsp
+
+    POSTs to setTicklerPreferences via method 
+
+    Provides UI for provider Tickler settings
+
+    @param method       
+    @since 2017-07-28
+	
+--%>
+
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="java.util.*" %>
-<%@ page import="java.util.ResourceBundle"%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
-<%
-    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
-
-    String providertitle = (String) request.getAttribute("providertitle");
-    String providermsgPrefs = (String) request.getAttribute("providermsgPrefs");
-    String providerbtnCancel = (String) request.getAttribute("providerbtnCancel");
-    String providerMsg = (String) request.getAttribute("providerMsg");
-    String providerbtnSubmit = (String) request.getAttribute("providerbtnSubmit");
-    String providerbtnClose = (String) request.getAttribute("providerbtnClose");
-%>
-<html>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
     <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+        <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <%--    The global-head.jspf fragment provides:
+        - Viewport meta tag for responsive design
+        - global.js (legacy focus/refresh helpers)
+        - jQuery 3.7.1
+        - Bootstrap 5.3.3 (JS bundle + CSS)
+        - jQuery UI 1.14.2 CSS (JS must be included page-specifically where dialogs/widgets are needed)
+        - Font Awesome 6.7.2 (icon library)
+        - searchBox.css (shared search/form styles)
+        - global.css (CARLOS design tokens and common classes)
+    --%>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><%=bundle.getString(providertitle)%></title>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
-
-        <style>
-            input[type="radio"] {
-                margin-left: 20px
-            }
-        </style>
+        <title><fmt:message key="provider.providerpreference.link.ticklerPrefs"/></title>
     </head>
+    <body>
+    <div class="container">
 
-    <body class="BodyStyle" vlink="#0000FF">
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" style="width:135px">
-                <%=bundle.getString(providermsgPrefs)%>
-            </td>
-            <td style="color: white" class="MainTableTopRowRightColumn"></td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn"></td>
-            <td class="MainTableRightColumn">
-                <%if (request.getAttribute("status") == null) {%>
-                <form action="${pageContext.request.contextPath}/setTicklerPreferences" method="post">
-                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
+    <!-- ============================================================
+         PAGE HEADER BAR — short title + long title (icon optional).
+         Mirrors the OSCAR MainTableTopRow / TopStatusBar pattern.
+         Structure:
+           [icon?] [Short Title]   [Long Title .....................]
+         ============================================================ -->
+    <div class="page-header-bar d-flex align-items-center justify-content-between
+                py-2 mb-3 border-bottom" id="header">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-user-gear" aria-hidden="true"></i>
+            <span class="fw-semibold"><fmt:message key="provider.providerpreference.link.ticklerPrefs"/></span>
+        </div>
+        <div class="text-muted small"><fmt:message key="provider.setTicklerPreferences.header"/></div>
+    </div>
+        <%if (request.getAttribute("status") == null) {%>
+            <c:if test="${ticklerPreferenceError}">
+                <div class="alert alert-danger" role="alert"><fmt:message key="provider.ticklerPreference.invalidAssignee"/></div>
+            </c:if>
+            <form action="${pageContext.request.contextPath}/setTicklerPreferences" method="post">
+                <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
+    <!-- ============================================================
+         MAIN CONTENT WRAPPER — light background card to separate
+         page content from the body background.
+         ============================================================ -->
+    <div class="bg-light border rounded p-2">
 
-                    <h2><%=bundle.getString("provider.setTicklerPreferences.header")%></h2>
-                    <h3>${carlos:forHtml(providerMsg)}</h3>
+            <!-- ==================================================
+                 CONTENT ROW — two-column layout:
+                   col-12 col-md-2 : left sidebar  (OSCAR left col)
+                   col-12 col-md-10: right content (OSCAR right col)
+                 On small screens both columns stack vertically.
+                 ================================================== -->
+            <div class="row g-2">
 
-                    <input type="radio" id="taskAssigneeDefault" name="taskAssigneeMRP.value" value="default"
-                        <c:if test="${taskAssigneeMRPValue == 'default'}">checked</c:if> onclick="checkAssignee()" /> <%=bundle.getString("provider.setTicklerPreferences.defaultOption")%>
+                <!-- LEFT SIDEBAR COLUMN
+                     Mirrors: MainTableLeftColumn
+                     Contains navigation links / contextual actions. -->
+                <div class="col-12 col-md-2">
 
-                    <input type="radio" id="taskAssigneeMRP" name="taskAssigneeMRP.value" value="mrp"
-                        <c:if test="${taskAssigneeMRPValue == 'mrp'}">checked</c:if> onclick="checkAssignee()" /> <%=bundle.getString("tickler.ticklerMain.MRP")%>
+                </div>
+                <!-- RIGHT CONTENT COLUMN
+                     Mirrors: MainTableRightColumn
+                     Contains the primary form and data entry area. -->
+                <div class="col-12 col-md-10">
 
-                    <input type="radio" id="taskAssigneeProvider" name="taskAssigneeMRP.value" value="provider"
-                        <c:if test="${taskAssigneeMRPValue == 'providers'}">checked</c:if> onclick="checkAssignee()" /> <%=bundle.getString("provider.setTicklerPreferences.setProviderOption")%>
+                    <!-- input group -->
+                    <div class="mb-3">
+                    	<span><fmt:message key="provider.setLabRecallPrefs.delegate"/></span>
+                    	<div class="form-check">
+                        <input type="radio" id="taskAssigneeDefault" name="taskAssigneeMRP.value" 
+                        value="default"
+                        <c:if test="${taskAssigneeMRPValue == 'default'}">checked</c:if> onclick="checkAssignee()" /> <fmt:message key="provider.setTicklerPreferences.defaultOption"/>
+			</div>
+			<div class="form-check">
+                    	<input type="radio" id="taskAssigneeMRP" name="taskAssigneeMRP.value" 
+                    	title="<fmt:message key="provider.setTicklerPreferences.mrpDescription"/>"
+                    	value="mrp"
+                        <c:if test="${taskAssigneeMRPValue == 'mrp'}">checked</c:if> onclick="checkAssignee()" /> <fmt:message key="tickler.ticklerMain.MRP"/>
+			</div>
+			<div class="form-check">
+                    	<input type="radio" id="taskAssigneeProvider" name="taskAssigneeMRP.value" 
+                    	value="provider"
+                        <c:if test="${taskAssigneeMRPValue == 'provider'}">checked</c:if> onclick="checkAssignee()" /> <fmt:message key="provider.setTicklerPreferences.setProviderOption"/>
 
-                    <input type="hidden" id="taskAssignee" name="taskAssigneeSelection.value" />
-
-                    <div style="margin-top:20px;margin-bottom:20px;padding-left:20px;height:50px">
+                    	<input type="hidden" id="taskAssignee" name="taskAssigneeSelection.value" />
+			</div>
+                    </div>
+                    <div class="mb-3">
                         <div style="display:none;" id="taskAssigneeDefaultContainer">
-                            <h3><%=bundle.getString("provider.setTicklerPreferences.noPreference")%></h3>
+                            <span><fmt:message key="provider.setTicklerPreferences.noPreference"/></span>
                         </div>
 
                         <div style="display:none;" id="taskAssigneeMRPContainer">
-                            <h3><%=bundle.getString("provider.setTicklerPreferences.mrpDescription")%></h3>
+                            <span><fmt:message key="provider.setTicklerPreferences.mrpDescription"/></span>
                         </div>
 
                         <div style="display:none;" id="taskAssigneeProviderContainer">
-                            <h3><%=bundle.getString("provider.setTicklerPreferences.providerDescription")%></h3>
+                            <label for="assigneeSelect"><fmt:message key="provider.setTicklerPreferences.providerDescription"/></label>
                             <br>
-                            <select name="taskAssigneeSelection.value" onchange="updateTaskAssignee(this.value)">
+                            <select id="assigneeSelect" onchange="updateTaskAssignee(this.value)" class="form-select form-select-sm" title="<fmt:message key='admin.jobs.choose'/>">
                                 <c:forEach var="provider" items="${providerSelect}">
-                                    <option value="${provider.value}"
+                                    <option value="${carlos:forHtmlAttribute(provider.value)}"
                                         <c:if test="${fn:trim(selectedProvider) == fn:trim(provider.value)}">selected</c:if>>
-                                        ${provider.label}
+                                        ${carlos:forHtmlContent(provider.label)}
                                     </option>
                                 </c:forEach>
                             </select>
                         </div>
                     </div>
+                          
+                    <!-- Primary action -->
+                    <div class="mb-2">
+			<input type="submit" class="btn btn-primary btn-sm" value=" <fmt:message key="global.btnSubmit"/>">
+                        <input type="button" class="btn btn-secondary btn-sm" value="<fmt:message key="global.btnCancel"/>" onclick="window.close();">
+                    </div>
 
-                    <input type="submit" value="<%=bundle.getString(providerbtnSubmit)%>"/>
-                    <input type="button" value="<%=bundle.getString(providerbtnCancel)%>"
-                           onclick="window.close();"/>
-                </form>
-                <%} else {%>
-                <h1><%=bundle.getString(providerMsg)%></h1>
-                <br/><br/>
-                <input type="button" value="<%=bundle.getString(providerbtnClose)%>" onclick="window.close();"/>
-                <%}%>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+                </div><!-- end right column -->
 
+            </div><!-- end .row -->
+
+    </div><!-- end .bg-light -->                           
+        </form> <%} else {%>
+		<div id="AlertBanner"
+			class="alert alert-success alert-dismissible"
+			role="alert">
+			<span id="AlertText"><fmt:message key="provider.ticklerPreference.savedMsg"/></span>
+			<button type="button"
+			class="btn-close"
+			onclick="this.closest('.alert').style.display='none'"
+			aria-label="<fmt:message key="global.btnClose"/>"></button>
+		</div>
+        <br/><br/>
+                <input type="button" class="btn btn-primary btn-sm" value="<fmt:message key="global.btnClose"/>" onclick="window.close();"/>
+<% } %>
+
+    <%if (request.getAttribute("status") == null) {%>
     <script>
+        function updateTaskAssignee(value) {
+            document.getElementById("taskAssignee").value = value;
+        }
+
         function checkAssignee() {
-            one = document.getElementById("taskAssigneeDefault");
-            divDefault = document.getElementById("taskAssigneeDefaultContainer");
-
-            if (one.checked) {
-                divDefault.style.display = "block";
-                updateTaskAssignee('');//clear
-            } else {
-                divDefault.style.display = "none";
-            }
-
-            mrp = document.getElementById("taskAssigneeMRP");
-            divMRP = document.getElementById("taskAssigneeMRPContainer");
-
-            if (mrp.checked) {
-                divMRP.style.display = "block";
-                updateTaskAssignee('mrp');
-            } else {
-                divMRP.style.display = "none";
-            }
-
-            provider = document.getElementById("taskAssigneeProvider");
-            divProvider = document.getElementById("taskAssigneeProviderContainer");
-
-            if (provider.checked) {
-                divProvider.style.display = "block";
-            } else {
-                divProvider.style.display = "none";
-            }
+            const defaultSelected = document.getElementById("taskAssigneeDefault").checked;
+            const mrpSelected = document.getElementById("taskAssigneeMRP").checked;
+            const providerSelected = document.getElementById("taskAssigneeProvider").checked;
+            const select = document.getElementById("assigneeSelect");
+            document.getElementById("taskAssigneeDefaultContainer").style.display = defaultSelected ? "block" : "none";
+            document.getElementById("taskAssigneeMRPContainer").style.display = mrpSelected ? "block" : "none";
+            document.getElementById("taskAssigneeProviderContainer").style.display = providerSelected ? "block" : "none";
+            select.disabled = !providerSelected;
+            updateTaskAssignee(providerSelected ? select.value : mrpSelected ? "mrp" : "");
         }
 
-        function updateTaskAssignee(v) {
-            el = document.getElementById("taskAssignee");
-            el.value = v;
-        }
-
-        function updateProviderSelect() {
-            var savedAssignee = document.forms[0]['taskAssigneeSelection.value'].value;
-            if (savedAssignee.length > 0 && savedAssignee != 'mrp') {
-                document.forms[0]['taskAssigneeProvider.value'].value = savedAssignee;
-            }
-        }
-
-        updateProviderSelect();
-
-        window.onload = function () {
-            checkAssignee();
-        };
+        checkAssignee();
     </script>
+    <%}%>
 
     </body>
 </html>

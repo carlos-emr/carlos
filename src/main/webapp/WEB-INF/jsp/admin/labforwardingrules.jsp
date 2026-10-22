@@ -28,6 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Administration > Labs/Inbox > Lab Forwarding Rules: view and change any provider's
+        incoming-lab forwarding rules (admin/labForwardingRules, saved via admin/ForwardingRules).
+
+    Features:
+        Choosing a provider reloads the rules for that provider, into the administration panel
+        (#dynamic-content) or, when opened as a stand-alone popup, by navigating the window;
+        only the latest request may fill the panel.
+
+    Parameters:
+        providerNo  the provider whose rules are shown ("0" or absent: none chosen yet).
+
+    @since CARLOS heritage page; documented 2026-10 for issue #4131
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -146,9 +161,9 @@
             <% ArrayList providers = ProviderData.getProviderList();
                 for (int i = 0; i < providers.size(); i++) {
                     String prov_no = (String) ((ArrayList) providers.get(i)).get(0);%>
-            <option value="<%= prov_no %>"
-                    <% if (prov_no.equals(providerNo)) {%> <%="selected"%> <%}%>><%= (String) ((ArrayList) providers.get(i)).get(1) %>
-                <%= (String) ((ArrayList) providers.get(i)).get(2) %>
+            <option value="<carlos:encode value='<%= prov_no %>' context="htmlAttribute"/>"
+                    <% if (prov_no.equals(providerNo)) {%> <%="selected"%> <%}%>><carlos:encode value='<%= (String) ((ArrayList) providers.get(i)).get(1) %>' context="html"/>
+                <carlos:encode value='<%= (String) ((ArrayList) providers.get(i)).get(2) %>' context="html"/>
             </option>
             <% }%>
         </select>
@@ -189,13 +204,13 @@
             <tbody>
                 <%for (int i=0; i < frwdProviders.size(); i++){%>
             <tr>
-                <td><%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %> <%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>
+                <td><carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context="html"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context="html"/>
                 </td>
                 <td><%= status.equals("N") ? oscarRec.getString("oscarMDS.search.formReportStatusNew") : oscarRec.getString("inbox.inboxmanager.msgFiled") %>
                 </td>
                 <td>
                     <button type="submit" class="btn btn-sm"
-                            onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context="javaScript"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context="javaScript"/>')"
+                            onclick="return removeProvider('<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context="javaScriptAttribute"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context="javaScriptAttribute"/>')"
                             title="<fmt:message key='admin.labFwdRules.removeTitle'/>"><i class="fa-solid fa-trash"></i> <fmt:message key="admin.labFwdRules.remove"/>
                     </button>
                 </td>
@@ -247,8 +262,8 @@
                     for (int i = 0; i < providers.size(); i++) {
                         String prov_no = (String) ((ArrayList) providers.get(i)).get(0);
                         if (!providerNo.equals(prov_no) && !frwdProviders.contains(providers.get(i))) {%>
-                <option value="<%= prov_no %>"><%= (String) ((ArrayList) providers.get(i)).get(1) %>
-                    <%= (String) ((ArrayList) providers.get(i)).get(2) %>
+                <option value="<carlos:encode value='<%= prov_no %>' context="htmlAttribute"/>"><carlos:encode value='<%= (String) ((ArrayList) providers.get(i)).get(1) %>' context="html"/>
+                    <carlos:encode value='<%= (String) ((ArrayList) providers.get(i)).get(2) %>' context="html"/>
                 </option>
                 <% }
                 } %>
@@ -272,16 +287,35 @@
         registerFormSubmit('ForwardRulesForm', 'dynamic-content');
     }
 
-    $("#providers-selection").change(function (e) {
+    // The select is #provider-selection (singular). The handler was bound to a non-existent
+    // "providers-" (plural) id, so choosing a provider never reloaded the rules: providerNo stayed
+    // "0" and confirmUpdate() refused every save (issue #4131, previously #2626).
+    $("#provider-selection").on('change', function (e) {
         e.preventDefault();
-        $("#dynamic-content").load('${ctx}/admin/labForwardingRules?providerNo=' + $("#providers-selection").val(),
-            function (response, status, xhr) {
-                if (status == "error") {
-                    var msg = "Sorry but there was an error: ";
-                    $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+        var url = '${ctx}/admin/labForwardingRules?providerNo=' + encodeURIComponent($(this).val());
+        var panel = $("#dynamic-content");
+        if (panel.length === 0) {
+            // Opened as a stand-alone popup (admin.jsp): there is no administration panel to
+            // inject into, so navigate the window itself.
+            window.location.href = url;
+            return;
+        }
+        // Only the latest provider's response may fill the panel: switching providers quickly
+        // could otherwise let a slower, earlier response show another provider's rules. The
+        // counter lives on window because this script is re-run by every panel load.
+        var request = window.labForwardingRulesRequest = (window.labForwardingRulesRequest || 0) + 1;
+        $.ajax({ url: url, dataType: 'html' })
+            .done(function (html) {
+                if (request === window.labForwardingRulesRequest) {
+                    panel.html(html);
                 }
-            }
-        );
+            })
+            .fail(function (xhr) {
+                if (request === window.labForwardingRulesRequest) {
+                    var msg = "Sorry but there was an error: ";
+                    panel.text(msg + xhr.status + " " + xhr.statusText);
+                }
+            });
     });
 
 

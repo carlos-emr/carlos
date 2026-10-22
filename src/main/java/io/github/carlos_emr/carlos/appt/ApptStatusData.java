@@ -41,6 +41,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 
 import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -49,8 +50,11 @@ import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgr
  */
 public final class ApptStatusData {
 
+    /** getStr kind for the next status in the schedule click-through cycle. */
+    private static final String NEXT_STATUS = "nextstatus";
+
     CarlosProperties pros = CarlosProperties.getInstance();
-    String strEditable = pros.getProperty("ENABLE_EDIT_APPT_STATUS");
+    boolean statusEditable = pros.isAppointmentStatusEditingEnabled();
     String apptStatus = null;
     String[] aStatus = {"t", "T", "H", "P", "E", "N", "C", "B", "tS", "TS", "HS", "PS", "ES", "NS", "CS", "BS", "tV", "TV", "HV", "PV", "EV", "NV", "CV", "BV"};
     String[] aNextStatus = {"T", "H", "P", "E", "N", "C", "t", "", "TS", "HS", "PS", "ES", "NS", "CS", "tS", "", "TV", "HV", "PV", "EV", "NV", "CV", "tV", ""};
@@ -90,24 +94,30 @@ public final class ApptStatusData {
         apptStatus = status;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getImageName() {
-        if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
+        if (statusEditable)
             return getStr("icon");
         else
             return getStr(aStatus, aImageName);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getNextStatus() {
         if ("h".equals(apptStatus)) {
             return "H";
-        } else if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
-            return getStr("nextstatus");
+        } else if (statusEditable)
+            return getStr(NEXT_STATUS);
         else
             return getStr(aStatus, aNextStatus);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getTitle() {
-        if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
+        if (statusEditable)
             return getStr("desc");
         else
             return getStr(aStatus, aTitle);
@@ -118,11 +128,15 @@ public final class ApptStatusData {
      *
      * @return
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getTitleString(Locale locale) {
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale);
 
-        if (strEditable != null && strEditable.equalsIgnoreCase("yes")) {
-            return getStr("desc");
+        if (statusEditable) {
+            // Callers (the day sheet) call length() on this; an unknown status has no row.
+            String desc = getStr("desc");
+            return desc == null ? "" : desc;
         }
         String value = "";
         if (bundle != null) {
@@ -135,8 +149,10 @@ public final class ApptStatusData {
         return value;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getBgColor() {
-        if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
+        if (statusEditable)
             return getStr("color");
         else
             return getStr(aStatus, aBgColor);
@@ -222,13 +238,20 @@ public final class ApptStatusData {
         return temp;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getStr(String kind) {
         String rstr = null;
         String strOtherIcon = "";
         String strStatus = "";
 
 
-        List<AppointmentStatus> apptStatuses = AppointmentStatusMgrImpl.getCachedActiveStatuses();
+        // The status cycle walks active rows only; display metadata (icon, title, colour,
+        // short letters) must also resolve a status that was deactivated after appointments
+        // were booked with it, or the day sheet renders null metadata.
+        List<AppointmentStatus> apptStatuses = kind.equals(NEXT_STATUS)
+                ? AppointmentStatusMgrImpl.getCachedActiveStatuses()
+                : AppointmentStatusMgrImpl.getCachedAllStatuses();
 
 
         // Collections.sort(apptStatuses, new BeanComparator("id"));
@@ -244,7 +267,7 @@ public final class ApptStatusData {
         while (i < apptStatuses.size()) {
             AppointmentStatus s = apptStatuses.get(i);
 
-            if (kind.equals("nextstatus")) {
+            if (kind.equals(NEXT_STATUS)) {
                 if (strStatus.equals("C")) {
                     i = 0;
                     s = apptStatuses.get(i);
@@ -261,13 +284,17 @@ public final class ApptStatusData {
                 }
 
                 if (strStatus.equals(s.getStatus())) {
-                    i++;
-                    s = apptStatuses.get(i);
-
-                    while (s.getActive() == 0 && i < apptStatuses.size()) {
-                        i++;
-                        s = apptStatuses.get(i);
+                    // Next active row; past the last one the cycle wraps to the first, as the
+                    // Cancelled branch above does. Bounds-checked: with status editing on by
+                    // default, a custom terminal status (anything but B) is the last row.
+                    AppointmentStatus next = null;
+                    for (int j = i + 1; j < apptStatuses.size(); j++) {
+                        if (apptStatuses.get(j).getActive() != 0) {
+                            next = apptStatuses.get(j);
+                            break;
+                        }
                     }
+                    s = next != null ? next : apptStatuses.get(0);
 
                     rstr = s.getStatus();
 

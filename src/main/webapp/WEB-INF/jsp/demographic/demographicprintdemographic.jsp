@@ -44,6 +44,14 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="demographic.demographicprintdemographic.title"/></title>
+        <style>
+            .print-controls { position: fixed; top: 8px; right: 8px; z-index: 3; }
+            .print-controls input { display: block; margin-bottom: 4px; }
+            @media print {
+                .print-controls { display: none; }
+                body { background: white; }
+            }
+        </style>
         <script language="JavaScript">
             <!--
 
@@ -72,10 +80,9 @@
 
         for (int i = 0; i < b1; i++) {
     %>
-    <div ID="blockDiv1"
+    <div class="label-block"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <%--    <tr><td><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("label1")) %>' /></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono" size="2"><b><carlos:encode value='<%= StringUtils.noNull(request.getParameter("last_name")) %>' context="html"/>
                     ,&nbsp;<carlos:encode value='<%= StringUtils.noNull(request.getParameter("first_name")) %>' context="html"/>
@@ -97,10 +104,9 @@
         for (int i = 0; i < b2; i++) {
     %>
 
-    <div ID="blockDiv1"
+    <div class="label-block"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+b1*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <%--<tr><td><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("label2")) %>' /></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono" size="2"><b><carlos:encode value='<%= StringUtils.noNull(request.getParameter("last_name")) %>' context="html"/>
                     ,&nbsp;<carlos:encode value='<%= StringUtils.noNull(request.getParameter("first_name")) %>' context="html"/>&nbsp;<carlos:encode value='<%= StringUtils.noNull(request.getParameter("chart_no")) %>' context="html"/>
@@ -120,10 +126,9 @@
         for (int i = 0; i < b3; i++) {
     %>
 
-    <div ID="blockDiv1"
+    <div class="label-block"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+(b1+b2)*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <%--  <tr><td><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("label3")) %>' /></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono" size="2"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("last_name")) %>' context="html"/>
                     ,&nbsp;<carlos:encode value='<%= StringUtils.noNull(request.getParameter("first_name")) %>' context="html"/><br><carlos:encode value='<%= StringUtils.noNull(request.getParameter("address")) %>' context="html"/>
@@ -138,10 +143,9 @@
         for (int i = 0; i < b4; i++) {
     %>
 
-    <div ID="blockDiv1"
+    <div class="label-block"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+(b1+b2+b3)*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <%--  <tr><td><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("label4")) %>' /></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono"
                           size="2"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("first_name")) %>' context="html"/>&nbsp;<carlos:encode value='<%= StringUtils.noNull(request.getParameter("last_name")) %>' context="html"/>
@@ -155,10 +159,9 @@
         }
         for (int i = 0; i < b5; i++) {
     %>
-    <div ID="blockDiv1"
+    <div class="label-block"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+(b1+b2+b3+b4)*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <%--  <tr><td><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("label5")) %>' /></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono"
                           size="2"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("chart_no")) %>' context="html"/>&nbsp;&nbsp;<carlos:encode value='<%= StringUtils.noNull(request.getParameter("last_name")) %>' context="html"/>
@@ -175,16 +178,11 @@
     <%
         }
     %>
-    <div ID="blockDiv1"
-         STYLE="position: absolute; visibility: visible; z-index: 2; left: 620px; top: 0px; width: 70px; height: 20px;">
-        <input type="button" name="button"
-               value="<fmt:message key='global.btnPrint'/>" onClick="window.print();">
+    <div class="print-controls">
+        <input type="button" value="<fmt:message key='global.btnPrint'/>" onClick="window.print();">
+        <input type="button" value="<fmt:message key='global.btnBack'/>"
+               onClick="history.go(-1);return false;">
     </div>
-    <div ID="blockDiv1"
-         STYLE="position: absolute; visibility: visible; z-index: 2; left: 620px; top: 24px; width: 70px; height: 20px;">
-        <input type="button" name="button"
-               value="<fmt:message key='global.btnBack'/>"
-               onClick="javascript:history.go(-1);return false;"></div>
 
     </body>
 </html>

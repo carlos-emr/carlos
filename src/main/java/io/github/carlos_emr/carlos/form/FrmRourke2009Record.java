@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.dao.forms.Rourke2009DAO;
 import io.github.carlos_emr.carlos.form.model.FormRourke2009;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRourke2009Record extends FrmRecord {
     private static final String HEAD_CIRCUMFERENCE_GRAPH = "HEAD_CIRC";
@@ -155,6 +156,8 @@ public class FrmRourke2009Record extends FrmRecord {
     }
 
     //////////////new/ Done By Jay////
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isFemale(LoggedInInfo loggedInInfo, int demoNo) {
         boolean retval = false;
         Demographic demo = demographicManager.getDemographic(loggedInInfo, demoNo);

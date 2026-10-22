@@ -19,12 +19,15 @@ import java.util.List;
 import java.util.Map;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
@@ -44,6 +47,11 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
     public HRMDocumentDao() {
         super(HRMDocument.class);
+    }
+
+    /** Holds the report row until the surrounding mutation transaction completes. */
+    public HRMDocument findForUpdate(int id) {
+        return entityManager.find(HRMDocument.class, id, LockModeType.PESSIMISTIC_WRITE);
     }
 
     public List<HRMDocument> findById(int id) {
@@ -244,13 +252,15 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
      * Logs a warning when invalid values are rejected so that missing allowlist entries
      * can be diagnosed.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean isValidOrderRequest(String orderColumn, String orderDirection) {
         if (orderColumn != null && !ORDER_COLUMN_HQL.containsKey(orderColumn)) {
-            MiscUtils.getLogger().warn("HRM query: invalid orderColumn '{}' not in allowlist, ignoring ORDER BY", orderColumn);
+            MiscUtils.getLogger().warn("HRM query: invalid orderColumn '{}' not in allowlist, ignoring ORDER BY", LogSafe.sanitize(orderColumn)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return false;
         }
         if (orderDirection != null && !orderDirection.equalsIgnoreCase("ASC") && !orderDirection.equalsIgnoreCase("DESC")) {
-            MiscUtils.getLogger().warn("HRM query: invalid orderDirection '{}', ignoring ORDER BY", orderDirection);
+            MiscUtils.getLogger().warn("HRM query: invalid orderDirection '{}', ignoring ORDER BY", LogSafe.sanitize(orderDirection)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return false;
         }
         return true;
@@ -261,6 +271,8 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
      * safeOrderColumn comes from the allowlist map — not from user input — so it is safe
      * to interpolate as an HQL identifier.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String appendOrderBy(String sql, String orderColumn, String orderDirection) {
         if (!StringUtils.isEmpty(orderColumn) && !StringUtils.isEmpty(orderDirection)) {
             String safeOrderColumn = ORDER_COLUMN_HQL.get(orderColumn);

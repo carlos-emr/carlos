@@ -62,7 +62,7 @@ public class CssStyleDeletionService {
         }
         List<CssStyle> styles = cssStylesDao.findAll();
         for (CssStyle current : styles) {
-            if (styleId.equalsIgnoreCase(current.getStyle())) {
+            if (styleId.equals(String.valueOf(current.getId()))) {
                 current.setStatus(CssStyle.DELETED);
                 cssStylesDao.merge(current);
 

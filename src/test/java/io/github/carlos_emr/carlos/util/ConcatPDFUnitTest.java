@@ -98,6 +98,28 @@ class ConcatPDFUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("required merge refuses a corrupt section before writing any partial PDF")
+    void shouldRejectIncompleteRequiredMerge_beforeWritingOutput() throws Exception {
+        String good = savePdfFile(createPdf(1, "Required chart"), "required.pdf");
+        String corrupt = savePdfFile("not a PDF".getBytes(java.nio.charset.StandardCharsets.UTF_8), "corrupt.pdf");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> ConcatPDF.concatRequired(List.of(good, corrupt), out))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(out.size()).isZero();
+    }
+
+    @Test
+    @DisplayName("required merge includes every page of valid sections in order")
+    void shouldIncludeEveryRequiredSection_whenAllInputsAreValid() throws Exception {
+        String first = savePdfFile(createPdf(2, "First"), "first-required.pdf");
+        String second = savePdfFile(createPdf(3, "Second"), "second-required.pdf");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ConcatPDF.concatRequired(List.of(first, second), out);
+        assertThat(countPages(out.toByteArray())).isEqualTo(5);
+    }
+
     @Nested
     @DisplayName("Single file merge")
     class SingleFileMerge {
@@ -296,6 +318,44 @@ class ConcatPDFUnitTest {
             assertThat(result).isNotEmpty();
             assertThat(result).startsWith(new byte[]{'%', 'P', 'D', 'F'});
             assertThat(countPages(result)).isEqualTo(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("Skipped-input count")
+    class SkippedCount {
+
+        @Test
+        @DisplayName("should return 0 when every input is included")
+        void shouldReturnZero_whenAllInputsIncluded() throws Exception {
+            String file1 = savePdfFile(createPdf(1, "A"), "a.pdf");
+            String file2 = savePdfFile(createPdf(1, "B"), "b.pdf");
+
+            int skipped = ConcatPDF.concat(new ArrayList<>(List.of((Object) file1, file2)), new ByteArrayOutputStream());
+
+            assertThat(skipped).isZero();
+        }
+
+        @Test
+        @DisplayName("should return the number of unreadable inputs that were skipped")
+        void shouldReturnSkippedCount_whenSomeInputsUnreadable() throws Exception {
+            String good = savePdfFile(createPdf(1, "Good"), "good.pdf");
+            String bad = savePdfFile("not a pdf".getBytes(), "bad.pdf");
+
+            int skipped = ConcatPDF.concat(new ArrayList<>(List.of((Object) good, bad)), new ByteArrayOutputStream());
+
+            assertThat(skipped).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should return the full count when every input is unreadable")
+        void shouldReturnFullCount_whenAllInputsUnreadable() throws Exception {
+            String bad1 = savePdfFile("garbage".getBytes(), "bad1.pdf");
+            String bad2 = savePdfFile("more garbage".getBytes(), "bad2.pdf");
+
+            int skipped = ConcatPDF.concat(new ArrayList<>(List.of((Object) bad1, bad2)), new ByteArrayOutputStream());
+
+            assertThat(skipped).isEqualTo(2);
         }
     }
 }

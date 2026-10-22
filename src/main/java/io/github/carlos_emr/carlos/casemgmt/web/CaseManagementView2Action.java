@@ -61,6 +61,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.CppUtils;
 import io.github.carlos_emr.carlos.utility.JsDateSerializer;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -68,7 +69,7 @@ import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDi
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
-import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
@@ -82,6 +83,7 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CaseManagementView2Action extends ActionSupport {
 
@@ -260,6 +262,8 @@ public class CaseManagementView2Action extends ActionSupport {
     /*
      * Session variables : case_program_id casemgmt_DemoNo casemgmt_VlCountry casemgmt_msgBeans readonly
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String view() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -464,10 +468,10 @@ public class CaseManagementView2Action extends ActionSupport {
             request.setAttribute("Prescriptions", prescriptions);
 
             // Setup RX bean start
-            RxSessionBean bean = new RxSessionBean();
-            bean.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-            bean.setDemographicNo(Integer.parseInt(demoNo));
-            request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            // Make sure this patient has an Rx bean without replacing it (#3875): rendering the
+            // eChart tab used to overwrite the one shared bean, wiping a stash staged in another
+            // window and repointing that window at this patient.
+            RxSessionBeanResolver.ensure(request, Integer.parseInt(demoNo), loggedInInfo.getLoggedInProviderNo());
             // Setup RX end
         }
 
@@ -535,6 +539,8 @@ public class CaseManagementView2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void viewCurrentIssuesTab_oldCme(String demoNo, String programId) throws Exception {
         long startTime = System.currentTimeMillis();
 
@@ -685,6 +691,8 @@ public class CaseManagementView2Action extends ActionSupport {
     /**
      * New CME
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void viewCurrentIssuesTab_newCmeNotes(String demoNo, String programId) throws Exception {
         int demographicId = Integer.parseInt(demoNo);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -706,6 +714,8 @@ public class CaseManagementView2Action extends ActionSupport {
             notes = caseManagementMgr.getNotes(demoNo);
         }
 
+        // only a collection size is logged; it cannot contain control characters.
+        // nosemgrep: carlos.crlf-injection-logs
         logger.debug("FETCHED {} NOTES", notes.size());
 
         startTime = System.currentTimeMillis();
@@ -1008,6 +1018,8 @@ public class CaseManagementView2Action extends ActionSupport {
         return issueDisplay;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewNote() {
         String nId = request.getParameter("noteId");
         CaseManagementNote note = this.caseManagementMgr.getNote(nId);
@@ -1017,6 +1029,8 @@ public class CaseManagementView2Action extends ActionSupport {
         return "displayNote";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String listNotes() throws Exception {
         logger.debug("List Notes start");
 
@@ -1146,7 +1160,11 @@ public class CaseManagementView2Action extends ActionSupport {
         // listNotes() applies the per-issue-code hasReadAccess("_" + codes[0], ...)
         // check above before populating the request attributes the JSP reads, so the
         // include does not widen authorization.
-        if ("XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"))) {
+        // RequestNegotiation.isAjax, not an exact header match: CSRFGuard's client script
+        // appends its own marker to X-Requested-With, so a jQuery $.ajax call arrives as
+        // "XMLHttpRequest, OWASP CSRFGuard Project" and an equals check would fall through
+        // to the named result, reinstating the truncation this branch exists to avoid.
+        if (RequestNegotiation.isAjax(request)) {
             request.getRequestDispatcher("/WEB-INF/jsp/casemgmt/viewNotes.jsp").include(request, response);
             return NONE;
         }
@@ -1573,6 +1591,8 @@ public class CaseManagementView2Action extends ActionSupport {
         if (logger.isDebugEnabled()) {
             logger.debug("FOUND: {}", LogSafe.sanitize(String.valueOf(result)));
             for (NoteDisplay nd : result.getNotes()) {
+                // the note ID is LogSafe-sanitized; the other value is a Java class name.
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("   {} noteId={}", nd.getClass().getSimpleName(), LogSafe.sanitize(String.valueOf(nd.getNoteId())));
             }
         }
@@ -1898,7 +1918,7 @@ public class CaseManagementView2Action extends ActionSupport {
         } else if (!demono.matches("\\d+")) {
             // Reject tainted value (don't store in session) but fall back to session value
             // to avoid crashing 36+ callers that pass the return value to Integer.parseInt()
-            logger.error("Invalid non-numeric demographicNo rejected, falling back to session: {}", LogSafe.sanitize(demono));
+            logger.error("Invalid non-numeric demographicNo rejected, falling back to session: {}", LogSafe.sanitize(demono)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             demono = (String) request.getSession().getAttribute("casemgmt_DemoNo"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback read of own-session demographic scope (regex-validated on store)
         } else {
             // demographicNo validated as numeric

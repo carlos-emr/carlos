@@ -42,6 +42,15 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 /**
  * Manages the various consents required from patients for participation in specific programs
  * or to share health information with other providers.
+ *
+ * <p><b>Transaction contract for all writes:</b> call {@code setConsent}, every
+ * {@code addConsent} and {@code optoutConsent} overload, {@code addEditConsentRecord},
+ * {@code recordExplicitConsent}, {@code saveChartConsent}, {@code deleteConsent}, and
+ * {@code addConsentType} outside an existing transaction.
+ * Writes start a REQUIRED transaction at READ COMMITTED and serialize patient changes
+ * with a patient-row lock. Joining a caller's transaction inherits its isolation;
+ * REPEATABLE READ can reintroduce deadlock or stale-snapshot failures on MariaDB.
+ * Read methods may participate in an existing transaction without starting their own.</p>
  */
 public interface PatientConsentManager {
 
@@ -59,6 +68,8 @@ public interface PatientConsentManager {
      * <p>
      * This method sets the boolean "explicit" ( patient gave direct consent = true; patient consent was implied or assumed = false)
      * to a default TRUE.
+     *
+     * @throws SecurityException if the user lacks write privilege on the patient
      */
     void setConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean consented);
 
@@ -75,9 +86,16 @@ public interface PatientConsentManager {
      * to a default TRUE.
      * <p>
      * Sets default optout to FALSE.
+     *
+     * @throws SecurityException if the user lacks write privilege on the patient
      */
     void addConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId);
 
+    /**
+     * Adds or updates consent with the supplied explicit flag and opt-out set to false.
+     *
+     * @throws SecurityException if the user lacks write privilege on the patient
+     */
     void addConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean explicit);
 
     /**
@@ -93,13 +111,19 @@ public interface PatientConsentManager {
      * The Explicit parameter will not accept a null value.
      * EXPLICIT CONSENT: patient gave direct consent. explicit = true;
      * IMPLIED CONSENT: patient consent was implied or assumed. explicit = false
+     *
+     * @throws SecurityException if the user lacks write privilege on the patient
      */
     boolean addConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean explicit, boolean optOut);
 
     /**
      * Creates a new demographic consent record for the consent policy
      * identified by consentTypeId if one doesn't already exist, or updates
-     * the existing demographic consent record if a record already does exist
+     * the existing demographic consent record if a record already does exist.
+     * <p>
+     * When the patient has several live records of this type, the deciding one
+     * ({@link io.github.carlos_emr.carlos.commn.dao.ConsentRecords#effective}) is updated and the
+     * others are soft-deleted, each audit-logged, so one live record remains.
      *
      * @param loggedinInfo   the user information for the current OSCAR user
      * @param demographic_no the demographic number of the patient
@@ -107,6 +131,8 @@ public interface PatientConsentManager {
      * @param explicit       did the patient give explicit consent, or is consent implied?
      * @param optOut         is the patient refusing this consent policy/form or agreeing to it? A null value indicates the absence of a decision
      * @return true if the consent record was either added or updated, false otherwise
+     *
+     * @throws SecurityException if the user lacks write privilege on the patient
      */
     boolean addEditConsentRecord(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean explicit, boolean optOut);
 
@@ -114,19 +140,38 @@ public interface PatientConsentManager {
      * Used for removing consent from a patient Consent that was previously consented.
      * Ignored if the patient has never consented.
      * The normal state for consent is FALSE
+     * <p>
+     * The deciding record opts out and any other live duplicates are retired, as a chart save
+     * does. Requires write privilege on the patient.
+     *
+     * @throws SecurityException if the user lacks write privilege on the patient
      */
     void optoutConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId);
 
     /**
-     * Used for removing consent from a patient that previously consented.
+     * Opts out the supplied record by ID and retires its live duplicates, as
+     * {@link #optoutConsent(LoggedInInfo, int)} does. A null record is ignored.
+     *
+     * @throws SecurityException if the user lacks write privilege on the patient
      */
     void optoutConsent(LoggedInInfo loggedinInfo, Consent consent);
 
     /**
-     * Used for removing consent from a patient that previously consented. For a Consent object.
+     * Opts out the named live record and retires other live records for its patient and type,
+     * preserving each retired record's author and edit date and auditing each retirement.
+     * A deleted record or a record without a patient is left unchanged. A record without a
+     * consent type can be opted out, but cannot be grouped for duplicate retirement.
+     *
+     * @throws SecurityException if the user lacks write privilege on the patient
      */
     void optoutConsent(LoggedInInfo loggedinInfo, int consentId);
 
+    /**
+     * Creates a consent type. Consent types are clinic configuration, so this requires write
+     * privilege on {@code _admin}.
+     *
+     * @throws SecurityException if the user lacks write privilege on {@code _admin}
+     */
     ConsentType addConsentType(LoggedInInfo loggedinInfo, ConsentType consentType);
 
 
@@ -164,9 +209,44 @@ public interface PatientConsentManager {
     Consent getConsentByDemographicAndConsentType(LoggedInInfo loggedinInfo, int demographic_no, ConsentType consentType);
 
     /**
-     * Returns a list of all the consentTypes/programs this patient has consented.
+     * Returns the patient's consent for each consent type they have a live record for: one
+     * deciding record per type, as chosen by {@link io.github.carlos_emr.carlos.commn.dao.ConsentRecords#effective}.
+     * Live records with no consent type are preserved individually.
      */
     List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no);
+
+    /**
+     * Records that the patient confirmed this consent directly: marks the deciding opt-in record
+     * explicit and stamps its consent date, edit date and author. Staff must ask for this
+     * deliberately; re-saving the chart never changes whether an existing record is explicit (#3858).
+     *
+     * @return true if the record is now explicit (including when it already was); false when there
+     *         is no live opt-in record to confirm or the consent type is inactive
+     * @throws SecurityException when the caller lacks {@code _demographic} write privilege on the patient
+     */
+    boolean recordExplicitConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId);
+
+    /**
+     * Applies a chart save's consent choice for one consent type, in one transaction under the
+     * patient's consent lock.
+     *
+     * <p>Every chart save re-posts the choice the page showed. When the request carries the record
+     * the page showed ({@link ChartConsentRequest#shownSent()}), the patient's current deciding
+     * record ({@link io.github.carlos_emr.carlos.commn.dao.ConsentRecords#effective}) must still be
+     * that record: both absent, or the same id with the same opt-out value. If it is not, nothing
+     * is changed (no opt-in or opt-out, no explicit confirmation, no clear), the refusal is
+     * audit-logged against the patient, and {@link ChartConsentOutcome#STALE} is returned.</p>
+     *
+     * <p>Otherwise the choice is applied as {@link #addEditConsentRecord}, then
+     * {@link #recordExplicitConsent} when an opt-in was posted with the confirmation ticked, or
+     * {@link #deleteConsent} for a clear. A request that does not carry the shown record is
+     * applied without the check.</p>
+     *
+     * @return what was done with the choice
+     * @throws SecurityException when the caller lacks {@code _demographic} write privilege on the patient
+     */
+    ChartConsentOutcome saveChartConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId,
+                                         ChartConsentRequest request);
 
     /**
      * A boolean determination for if the patient has consented to the given ConsentType/program.
@@ -183,8 +263,12 @@ public interface PatientConsentManager {
      * Update Consent status to "deleted".
      * Just in case someone clicks the "Clear" button in the demographic interface because they changed their mind or
      * entered the Opt-in or Opt-out consent by mistake.
-     * It is assumed that a record of this should be kept. So this method will delete the consent and update the edit date.
+     * It is assumed that a record of this should be kept. So this method soft-deletes every live record of the
+     * type, duplicates included, setting its edit date and author, and audit-logs each one.
      * A new entry will be inserted into the table should the user change their mind again.
+     * Requires write privilege on the patient. An unknown or inactive consent type changes nothing.
+     *
+     * @throws SecurityException if the user lacks write privilege on the patient
      */
     void deleteConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId);
 

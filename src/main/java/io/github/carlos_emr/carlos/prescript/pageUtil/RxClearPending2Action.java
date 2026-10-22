@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -51,8 +53,26 @@ public final class RxClearPending2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise): clears the named patient's staged cards
+     * and pending ReRx selections together, leaving saved chart prescriptions intact.
+     *
+     * @return {@code close}, {@code success}, or {@code NONE} after a 405/409 refusal
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String execute()
             throws IOException, ServletException {
+        // Clearing the stash discards the patient's staged prescriptions. CSRFGuard does not check
+        // GET, so a link or image tag could otherwise clear it; ViewScript2's form POSTs (#3908).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
             throw new SecurityException("missing required sec object (_rx)");
@@ -62,16 +82,21 @@ public final class RxClearPending2Action extends ActionSupport {
 
         // Setup variables
 
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // Clears staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
 
+        RxReprintWorkspace.Entry previousReprint = RxReprintWorkspace.find(request.getSession(), bean.getDemographicNo());
         bean.clearStash();
+        // End the reprint that belonged to the discarded work, preserving a newer reprint
+        // opened during this reset. Session workspace access stays outside the bean monitor.
+        RxReprintWorkspace.clearIfSame(request.getSession(), bean.getDemographicNo(), previousReprint);
 
-        if (action.equals("close")) {
+        if ("close".equals(action)) {
             return "close";
         }
 

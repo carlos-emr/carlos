@@ -59,6 +59,7 @@ import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CDLHandler implements MessageHandler {
 
@@ -216,6 +217,12 @@ public class CDLHandler implements MessageHandler {
     }
 
 
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
+    @Override
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX();
+    }
+
     public String getOBXResult(int i, int j) {
         try {
             return (getString(Terser.get(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX(), 5, 0, 1, 1)));
@@ -240,6 +247,8 @@ public class CDLHandler implements MessageHandler {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getOBXResultStatus(int i, int j) {
         String status = "";
         try {

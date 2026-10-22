@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2Action;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Assembles {@link BillingOnStatusViewModel} for {@code billingONStatus.jsp}.
@@ -141,8 +142,9 @@ public class BillingOnStatusViewModelAssembler {
         // scriptlet's behavior. Once normalized to "%"/"---" the original
         // intent is no longer recoverable, so capture it before defaulting.
         String rawServiceCode = request.getParameter("serviceCode");
-        boolean serviceCodeFilterAbsent = rawServiceCode == null || rawServiceCode.isEmpty();
-        String serviceCode = serviceCodeFilterAbsent ? "%" : rawServiceCode;
+        boolean serviceCodeFilterAbsent = rawServiceCode == null;
+        // A cleared form control means any service code, just like the displayed wildcard.
+        String serviceCode = rawServiceCode == null || rawServiceCode.isBlank() ? "%" : rawServiceCode;
 
         // Legacy "any billing form" sentinel is three dashes; a single "-" is a
         // real value in some installations and would mis-filter the search.
@@ -425,6 +427,8 @@ public class BillingOnStatusViewModelAssembler {
             String totalDebit,
             int unreadableTotalRowCount) { }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private BillRowAggregate buildBillRows(
             List<BillingClaimHeaderDto> bList, boolean multisitesEnabled, String selectedSite,
             boolean siteAccessPrivacy, String raCode, String serviceCode,

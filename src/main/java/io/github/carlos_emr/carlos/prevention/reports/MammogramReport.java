@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasureme
 import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author jay
@@ -63,7 +64,9 @@ public class MammogramReport implements PreventionReport {
     public MammogramReport() {
     }
 
-    public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
         int inList = 0;
         double done = 0, doneWithGrace = 0;
         ArrayList<PreventionReportDisplay> returnReport = new ArrayList<PreventionReportDisplay>();
@@ -124,7 +127,7 @@ public class MammogramReport implements PreventionReport {
 
                 String result = PreventionData.getExtValue((String) h.get("id"), "result");
 
-                if (prevDate != null && !refused && bonusStartDate.before(prevDate) && asofDate.after(prevDate) && !result.equalsIgnoreCase("pending")) {
+                if (prevDate != null && !refused && bonusStartDate.before(prevDate) && !asofDate.before(prevDate) && !result.equalsIgnoreCase("pending")) {
                     prd.bonusStatus = "Y";
                     prd.billStatus = "Y";
                     done++;
@@ -236,7 +239,7 @@ public class MammogramReport implements PreventionReport {
                 log.error("Error parsing prevention date: " + prevDateStr, e);
             }
 
-            if (prevDate != null && prevDate.before(asOfDate)) {
+            if (prevDate != null && !prevDate.after(asOfDate)) {
                 noFutureItems.add(h);
             }
         }

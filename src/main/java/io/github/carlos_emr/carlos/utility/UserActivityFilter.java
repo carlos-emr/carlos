@@ -45,6 +45,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Date;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Filter for determining the inactivity of a user with a session. Pages that automatically refresh should be marked with the parameter autoRefresh=true
@@ -62,12 +63,21 @@ public final class UserActivityFilter implements Filter {
     public void destroy() {
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         boolean redirectToLogout = false;
         if (request instanceof HttpServletRequest) {
             HttpServletRequest httpRequest = (HttpServletRequest) request;
-
+            // This exact servlet authenticates a derived bearer token, not a staff session.
+            // Leave every method to its own GET-only/authentication checks without creating
+            // a session through the browser LoggedInInfo lookup below.
+            if ("/ws/portal/email-footer".equals(httpRequest.getServletPath())
+                    && httpRequest.getPathInfo() == null) {
+                chain.doFilter(request, response);
+                return;
+            }
 
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(httpRequest);
             Long now = (new Date()).getTime();

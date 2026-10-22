@@ -88,7 +88,7 @@
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.socialSupport.q1"/></FONT><BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.socialSupport.q2"/></FONT></TD>
         <TD VALIGN="TOP"
-            WIDTH="50%"><%= request.getParameter("xml_ff_socialsupport") == null || request.getParameter("xml_ff_socialsupport").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_ff_socialsupport")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%>
+            WIDTH="50%"><%= request.getParameter("xml_ff_socialsupport") == null || request.getParameter("xml_ff_socialsupport").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_ff_socialsupport")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </TD>
     </TR>
     <TR>
@@ -97,7 +97,7 @@
             WA, PD,</I></B> <FONT SIZE="-1">PI</FONT>)<BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.stressfulLifeEvents.q1"/></FONT><BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.stressfulLifeEvents.q2"/></FONT></TD>
-        <TD VALIGN="TOP"><%= request.getParameter("xml_ff_recentstressfullifeevents") == null || request.getParameter("xml_ff_recentstressfullifeevents").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_ff_recentstressfullifeevents")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%>
+        <TD VALIGN="TOP"><%= request.getParameter("xml_ff_recentstressfullifeevents") == null || request.getParameter("xml_ff_recentstressfullifeevents").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_ff_recentstressfullifeevents")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </TD>
     </TR>
     <TR>
@@ -106,7 +106,7 @@
             PD,</I></B> <FONT SIZE="-1">WA, CA</FONT>)<BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.coupleRelationship.q1"/></FONT><BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.coupleRelationship.q2"/></FONT></TD>
-        <TD VALIGN="TOP"><%= request.getParameter("xml_ff_couplerelationship") == null || request.getParameter("xml_ff_couplerelationship").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_ff_couplerelationship")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%>
+        <TD VALIGN="TOP"><%= request.getParameter("xml_ff_couplerelationship") == null || request.getParameter("xml_ff_couplerelationship").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_ff_couplerelationship")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </TD>
     </TR>
     <TR bgcolor="#f9f9f9">
@@ -117,7 +117,7 @@
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial, Helvetica"
                                            Size="-1"><B><fmt:message key="provider.formALPHAprint.prenatalCareLateOnset"/></B></FONT> (<B><I>WA</I></B>)<BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.prenatalCareLateOnset.q1"/></FONT></TD>
-        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_prenatalcare") == null || request.getParameter("xml_mf_prenatalcare").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_prenatalcare")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%>
+        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_prenatalcare") == null || request.getParameter("xml_mf_prenatalcare").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_prenatalcare")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </TD>
     </TR>
     <TR>
@@ -125,7 +125,7 @@
                                               Size="-1"><fmt:message key="provider.formALPHAprint.prenatalEducation"/></FONT></B>
             (<B><I>CA</I></B>)<BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.prenatalEducation.q1"/></FONT></TD>
-        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_prenataleducation") == null || request.getParameter("xml_mf_prenataleducation").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_prenataleducation")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%>
+        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_prenataleducation") == null || request.getParameter("xml_mf_prenataleducation").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_prenataleducation")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </TD>
     </TR>
     <TR>
@@ -134,7 +134,7 @@
             WA</I></B>)<BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.feelingsTowardPregnancy20Weeks.q1"/></FONT><BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.feelingsTowardPregnancy20Weeks.q2"/></FONT></TD>
-        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_feelingstopregnancy20") == null || request.getParameter("xml_mf_feelingstopregnancy20").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_feelingstopregnancy20")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%>
+        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_feelingstopregnancy20") == null || request.getParameter("xml_mf_feelingstopregnancy20").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_feelingstopregnancy20")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </TD>
     </TR>
     <TR>
@@ -142,7 +142,7 @@
                                               Size="-1"><fmt:message key="provider.formALPHAprint.relationshipWithParentsChildhood"/></FONT></B> (<B><I>CA</I></B>)<BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.relationshipWithParentsChildhood.q1"/></FONT><BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.relationshipWithParentsChildhood.q2"/></FONT></TD>
-        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_relationshipwithparents") == null || request.getParameter("xml_mf_relationshipwithparents").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_relationshipwithparents")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%>
+        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_relationshipwithparents") == null || request.getParameter("xml_mf_relationshipwithparents").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_relationshipwithparents")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </TD>
     </TR>
     <TR>
@@ -150,7 +150,7 @@
                                               Size="-1"><fmt:message key="provider.formALPHAprint.selfEsteem"/></FONT></B> (<B><I>CA,</I></B> <FONT
                 SIZE="-1">WA</FONT>)<BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.selfEsteem.q1"/></FONT></TD>
-        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_selfesteem") == null || request.getParameter("xml_mf_selfesteem").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_selfesteem")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%>
+        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_selfesteem") == null || request.getParameter("xml_mf_selfesteem").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_selfesteem")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </TD>
     </TR>
     <TR>
@@ -159,14 +159,14 @@
             WA,</I></B> <FONT SIZE="-1">PD</FONT>)<BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.historyPsychiatricEmotionalProblems.q1"/></FONT><BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.historyPsychiatricEmotionalProblems.q2"/></FONT></TD>
-        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_historypsychiatricemaotional") == null || request.getParameter("xml_mf_historypsychiatricemaotional").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_historypsychiatricemaotional")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%>
+        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_historypsychiatricemaotional") == null || request.getParameter("xml_mf_historypsychiatricemaotional").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_historypsychiatricemaotional")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </TD>
     </TR>
     <TR>
         <TD WIDTH="50%" VALIGN="TOP"><B><FONT FACE="Arial, Helvetica"
                                               Size="-1"><fmt:message key="provider.formALPHAprint.depressionThisPregnancy"/></FONT></B> (<B><I>PD</I></B>)<BR>
             <FONT SIZE="-1" FACE="Arial, Helvetica"><fmt:message key="provider.formALPHAprint.depressionThisPregnancy.q1"/></FONT></TD>
-        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_depression") == null || request.getParameter("xml_mf_depression").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_depression")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%>
+        <TD VALIGN="TOP"><%= request.getParameter("xml_mf_depression") == null || request.getParameter("xml_mf_depression").isEmpty() ? "&nbsp;" : SafeEncode.forHtml(request.getParameter("xml_mf_depression")) %> <%-- NOSONAR java:S5131 — encoded via Encode.forHtml() --%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </TD>
     </TR>
     <TR>

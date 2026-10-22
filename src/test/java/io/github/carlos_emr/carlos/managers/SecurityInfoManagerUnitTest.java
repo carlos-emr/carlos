@@ -124,7 +124,7 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
         when(mockLoggedInInfo.getSession()).thenReturn(mockSession);
 
         // Default: provider has "doctor" role
-        when(mockSecuserroleDao.findByProviderNo(TEST_PROVIDER_NO))
+        when(mockSecuserroleDao.findActiveByProviderNo(TEST_PROVIDER_NO))
             .thenReturn(Collections.singletonList(createRole(TEST_PROVIDER_NO, ROLE_DOCTOR)));
 
         // Default: no privilege data (prevents NPE in OscarRoleObjectPrivilege.getPrivilegeProp)
@@ -245,7 +245,7 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
             List<Secuserrole> roles = securityInfoManager.getRoles(null);
 
             assertThat(roles).isEmpty();
-            verify(mockSecuserroleDao, never()).findByProviderNo(any());
+            verify(mockSecuserroleDao, never()).findActiveByProviderNo(any());
         }
 
         @Test
@@ -256,7 +256,7 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
             List<Secuserrole> roles = securityInfoManager.getRoles(mockLoggedInInfo);
 
             assertThat(roles).isEmpty();
-            verify(mockSecuserroleDao, never()).findByProviderNo(any());
+            verify(mockSecuserroleDao, never()).findActiveByProviderNo(any());
         }
 
         @Test
@@ -264,25 +264,35 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
         void shouldReturnRolesFromDao_whenProviderIsValid() {
             Secuserrole doctorRole = createRole(TEST_PROVIDER_NO, ROLE_DOCTOR);
             Secuserrole adminRole = createRole(TEST_PROVIDER_NO, ROLE_ADMIN);
-            when(mockSecuserroleDao.findByProviderNo(TEST_PROVIDER_NO))
+            when(mockSecuserroleDao.findActiveByProviderNo(TEST_PROVIDER_NO))
                 .thenReturn(Arrays.asList(doctorRole, adminRole));
 
             List<Secuserrole> roles = securityInfoManager.getRoles(mockLoggedInInfo);
 
             assertThat(roles).hasSize(2);
             assertThat(roles).containsExactly(doctorRole, adminRole);
-            verify(mockSecuserroleDao).findByProviderNo(TEST_PROVIDER_NO);
+            verify(mockSecuserroleDao).findActiveByProviderNo(TEST_PROVIDER_NO);
         }
 
         @Test
         @DisplayName("should return empty list when provider has no roles")
         void shouldReturnEmptyList_whenProviderHasNoRoles() {
-            when(mockSecuserroleDao.findByProviderNo(TEST_PROVIDER_NO))
+            when(mockSecuserroleDao.findActiveByProviderNo(TEST_PROVIDER_NO))
                 .thenReturn(Collections.emptyList());
 
             List<Secuserrole> roles = securityInfoManager.getRoles(mockLoggedInInfo);
 
             assertThat(roles).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should resolve roles through the active-only lookup so inactive roles never grant access")
+        void shouldResolveRolesThroughActiveOnlyLookup_soInactiveRolesNeverGrantAccess() {
+            securityInfoManager.getRoles(mockLoggedInInfo);
+
+            // Authorization must read only active assignments; the all-rows lookup must never be used here.
+            verify(mockSecuserroleDao).findActiveByProviderNo(TEST_PROVIDER_NO);
+            verify(mockSecuserroleDao, never()).findByProviderNo(any());
         }
     }
 
@@ -581,6 +591,32 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
             }
 
             @Test
+            @DisplayName("should require exact patient-specific role match before skipping general fallback")
+            void shouldRequireExactPatientSpecificRoleMatch_beforeSkippingGeneralFallback() {
+                // Patient-specific role "doc" must not match provider role "doctor" by substring.
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege("doc", patientObjName, "r", 0));
+                    }
+                    if (names.contains(TEST_OBJECT_NAME)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, TEST_OBJECT_NAME, "w", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.WRITE,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
             @DisplayName("should grant read access for patient-specific READ privilege (not lock account)")
             void shouldGrantReadAccess_forPatientSpecificReadPrivilege() {
                 // Patient-specific has READ privilege for doctor; must NOT lock account
@@ -770,7 +806,7 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
             @DisplayName("should grant access through secondary role when primary has no privilege")
             void shouldGrantAccess_throughSecondaryRole() {
                 // Provider has both doctor and admin roles
-                when(mockSecuserroleDao.findByProviderNo(TEST_PROVIDER_NO))
+                when(mockSecuserroleDao.findActiveByProviderNo(TEST_PROVIDER_NO))
                     .thenReturn(Arrays.asList(
                         createRole(TEST_PROVIDER_NO, ROLE_DOCTOR),
                         createRole(TEST_PROVIDER_NO, ROLE_ADMIN)));

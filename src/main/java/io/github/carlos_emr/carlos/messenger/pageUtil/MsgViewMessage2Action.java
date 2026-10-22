@@ -52,6 +52,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for viewing individual messages with full details and attachments.
@@ -148,6 +149,9 @@ public class MsgViewMessage2Action extends ActionSupport {
      * @throws SecurityException if the session is missing or the user lacks
      *         {@code _msg} read privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -168,6 +172,17 @@ public class MsgViewMessage2Action extends ActionSupport {
         String linkMsgDemo = request.getParameter("linkMsgDemo");
         String demographic_no = request.getParameter("demographic_no");
         String boxType = request.getParameter("boxType") == null ? "" : request.getParameter("boxType");
+
+        // Linking a patient writes a msgDemoMap row, so it is POST-only: CSRFGuard does not
+        // validate GET, and a crafted ViewMessage link must not attach a patient to a message.
+        // Viewing a message stays a GET.
+        boolean linkRequested = linkMsgDemo != null && demographic_no != null
+                && linkMsgDemo.equalsIgnoreCase("true");
+        if (linkRequested && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         // Validate messagePosition as a non-negative integer to prevent trust boundary violation
         int parsedPosition = 0;
@@ -222,6 +237,15 @@ public class MsgViewMessage2Action extends ActionSupport {
             return NONE;
         }
 
+        // Handle demographic linking if requested. Done before the attached-patient list below is
+        // read, so the page shown after Link to Patient already lists the patient just linked.
+        if (linkRequested) {
+            Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
+            if (parsedDemoNo > 0) {
+                messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageNo, parsedDemoNo);
+            }
+        }
+
         // Get demographics already attached to this message
         Integer msgId = ConversionUtils.fromIntString(msgDisplayMessage.getMessageId());
         Map<Integer, String> attachedDemographics = (msgId > 0)
@@ -258,16 +282,6 @@ public class MsgViewMessage2Action extends ActionSupport {
             Long msgIdLong = ConversionUtils.fromLongString(msgDisplayMessage.getMessageId());
             if (msgIdLong > 0L) {
                 messagingManager.setMessageRead(loggedInInfo, msgIdLong, providerNo);
-            }
-        }
-
-        // Handle demographic linking if requested
-        if (linkMsgDemo != null && demographic_no != null) {
-            if (linkMsgDemo.equalsIgnoreCase("true")) {
-                Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
-                if (parsedDemoNo > 0) {
-                    messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageNo, parsedDemoNo);
-                }
             }
         }
 

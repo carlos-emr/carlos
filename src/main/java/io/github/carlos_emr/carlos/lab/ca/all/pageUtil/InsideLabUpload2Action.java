@@ -40,12 +40,9 @@
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
 import java.io.File;
-import java.io.FileInputStream;
+
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -54,9 +51,11 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -145,12 +144,18 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
 
     private FileStatus processUploadedFile(LoggedInInfo loggedInInfo, File file, String fileName, String contentType) {
         // Convert File to InputStream and process
-        try (InputStream inputStream = new FileInputStream(file)) {
+        try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(file)) {
             String filePath = Utilities.saveFile(inputStream, fileName);
+            if (filePath == null) {
+                MiscUtils.getLogger().error("Unable to save uploaded lab file");
+                return FileStatus.FAILED;
+            }
             // Continue with your existing processing logic
             return processFile(loggedInInfo, ServletActionContext.getRequest(), filePath, getFileType(ServletActionContext.getRequest()));
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Error processing file: " + fileName, e);
+        } catch (IOException | SecurityException e) {
+            // SecurityException covers PathValidationUtils rejecting a misconfigured DOCUMENT_DIR or a
+            // bad saved path; fail just this file (like an IOException) instead of aborting the batch.
+            MiscUtils.getLogger().error("Error processing uploaded lab file", e);
             return FileStatus.FAILED;
         }
     }
@@ -169,26 +174,45 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     }
 
     private FileStatus processFile(LoggedInInfo loggedInInfo, HttpServletRequest request, String filePath, String fileType) {
-        Path path = Paths.get(filePath);
-        String fileName = path.getFileName().toString();
-        int checkFileUploadedSuccessfully;
-
-        try (InputStream localFileInputStream = Files.newInputStream(path)) {
-            String providerNumber = (String) request.getSession().getAttribute("user");
-            checkFileUploadedSuccessfully = FileUploadCheck.addFile(fileName, localFileInputStream, providerNumber);
-            if (checkFileUploadedSuccessfully == FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                return FileStatus.EXISTS;
-            }
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Error occurred while processing " + fileName + " file", e);
+        File savedFile;
+        File documentDir;
+        String fileName;
+        try {
+            savedFile = PathValidationUtils.validateExistingDocumentPath(filePath);
+            documentDir = PathValidationUtils.getRequiredDocumentDirectory();
+            fileName = savedFile.getName();
+        } catch (IOException | SecurityException e) {
+            MiscUtils.getLogger().error("Invalid saved lab file path", e);
             return FileStatus.FAILED;
         }
-
-        MessageHandler msgHandler = HandlerClassFactory.getHandler(fileType);
-        if ((msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, request.getRemoteAddr())) != null) {
-            return FileStatus.COMPLETED;
+        String providerNumber = (String) request.getSession().getAttribute("user");
+        FileUploadCheck.StoreOutcome stored;
+        try {
+            // The handler stores the lab inside storeIfNew's transaction, with the checksum it links
+            // its rows to. A handler that fails or returns null rolls both back, so the file can be
+            // uploaded again instead of being reported "Already uploaded" forever; a concurrent upload
+            // of the same file waits on the checksum lock instead of seeing this one in flight. The
+            // saved copy is removed unless the stored lab may reference it.
+            stored = FileUploadCheck.storeSavedFileIfNew(savedFile, documentDir, fileName, providerNumber,
+                    checksumId -> {
+                        MessageHandler msgHandler = HandlerClassFactory.getHandler(fileType);
+                        return msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checksumId,
+                                request.getRemoteAddr()) != null;
+                    });
+        } catch (Exception e) {
+            // exceptionTrace: content-read failures carry the validated path, whose
+            // basename comes from the uploaded lab filename.
+            MiscUtils.getLogger().error("Error occurred while processing uploaded lab file: {}", LogSafe.exceptionTrace(e));
+            return FileStatus.FAILED;
         }
-        return FileStatus.INVALID;
+        switch (stored) {
+            case ALREADY_RECORDED:
+                return FileStatus.EXISTS;
+            case STORED:
+                return FileStatus.COMPLETED;
+            default:
+                return FileStatus.INVALID;
+        }
     }
 
     public List<File> getImportFiles() 

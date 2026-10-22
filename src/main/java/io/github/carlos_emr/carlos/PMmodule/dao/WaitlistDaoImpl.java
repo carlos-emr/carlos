@@ -31,10 +31,10 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import java.sql.Timestamp;
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
+
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.match.client.ClientData;
 import io.github.carlos_emr.carlos.match.vacancy.VacancyData;
 import io.github.carlos_emr.carlos.match.vacancy.VacancyTemplateData;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class WaitlistDaoImpl implements WaitlistDao {
@@ -162,7 +163,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             EFormData f = new EFormData();
             f.setId((Integer) cols[0]);
             f.setDemographicId((Integer) cols[1]);
-            f.setFormDate((Timestamp) cols[2]);
+            f.setFormDate(NativeQueryValues.asDate(cols[2]));
             EFormData prior = forms.get(f.getId());
             if (prior == null || prior.getFormDate().getTime() < f.getFormDate().getTime()) {
                 forms.put(f.getId(), f);
@@ -187,7 +188,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             VacancyDisplayBO bo = new VacancyDisplayBO();
             bo.setVacancyID((Integer) cols[0]);
             bo.setVacancyTemplateName((String) cols[1]);
-            bo.setCreated((Date) cols[2]);
+            bo.setCreated(NativeQueryValues.asDate(cols[2]));
             bos.add(bo);
         }
         return bos;
@@ -209,7 +210,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             VacancyDisplayBO bo = new VacancyDisplayBO();
             bo.setVacancyID((Integer) cols[0]);
             bo.setVacancyTemplateName((String) cols[1]);
-            bo.setCreated((Date) cols[2]);
+            bo.setCreated(NativeQueryValues.asDate(cols[2]));
             bo.setProgramName((String) cols[3]);
             bo.setVacancyName((String) cols[4]);
             bo.setProgramId((Integer) cols[5]);
@@ -236,7 +237,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             VacancyDisplayBO bo = new VacancyDisplayBO();
             bo.setVacancyID((Integer) cols[0]);
             bo.setVacancyTemplateName((String) cols[1]);
-            bo.setCreated((Date) cols[2]);
+            bo.setCreated(NativeQueryValues.asDate(cols[2]));
             bo.setProgramName((String) cols[3]);
             bo.setVacancyName((String) cols[4]);
             bo.setProgramId((Integer) cols[5]);
@@ -271,7 +272,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
         if (cols != null) {
             bo.setVacancyName((String) cols[0]);
             bo.setVacancyTemplateName((String) cols[1]);
-            bo.setCreated((Date) cols[2]);
+            bo.setCreated(NativeQueryValues.asDate(cols[2]));
             bo.setProgramName((String) cols[3]);
             bo.setVacancyName((String) cols[4]);
         }
@@ -344,7 +345,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             bo.setProgramId((Integer) cols[0]);
             bo.setNoOfVacancy(((Number) cols[1]).intValue());
             bo.setVacancyName((String) cols[2]);
-            bo.setCreated((java.util.Date) cols[3]);
+            bo.setCreated(NativeQueryValues.asDate(cols[3]));
             bo.setVacancyID((Integer) cols[4]);
             bos.add(bo);
         }
@@ -366,7 +367,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             VacancyDisplayBO bo = new VacancyDisplayBO();
             bo.setProgramId((Integer) cols[0]);
             bo.setVacancyName((String) cols[1]);
-            bo.setCreated((java.util.Date) cols[2]);
+            bo.setCreated(NativeQueryValues.asDate(cols[2]));
             bo.setVacancyID((Integer) cols[3]);
             bo.setVacancyTemplateName((String) cols[4]);
             bos.add(bo);
@@ -390,6 +391,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
             + " ef.var_name in ('age-years','gender','current-housing','preferred-language','location-preferences','referrer-contact-province','contact-province','Age category','prepared-live-toronto','bed_community_program_id','has-mental-illness-primary','current-legal-involvements')"
             + "and LENGTH(ef.var_value)>0 AND not exists (select * from eform_values where ef.demographic_no=demographic_no and var_name=ef.var_name and fdid>ef.fdid)";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<ClientData> getAllClientsData() {
         Map<Integer, ClientData> clientsDataList = new HashMap<Integer, ClientData>();
@@ -431,6 +434,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
         return new ArrayList<ClientData>(clientsDataList.values());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<ClientData> getAllClientsDataByProgramId(int wlProgramId) {
         Map<Integer, ClientData> clientsDataList = new HashMap<Integer, ClientData>();
@@ -473,6 +478,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
         return new ArrayList<ClientData>(clientsDataList.values());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String[] intakeVarToCriteriaFiled(String varName, String varValue) {
         if ("age-years".equalsIgnoreCase(varName) || "age category".equalsIgnoreCase(varName)) {
             return new String[]{"age", varValue};
@@ -514,6 +521,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
         return new String[]{varName, varValue};
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public ClientData getClientData(int clientId) {
         ClientData clientData = new ClientData();
@@ -571,6 +580,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
     // private static final String field_type_one = "select_one";
     // private static final String field_type_number = "number";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public VacancyData loadVacancyData(final int vacancyId) {
         VacancyData vacancyData = new VacancyData();
@@ -621,6 +632,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
         return vacancyData;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public VacancyData loadVacancyData(final int vacancyId, final int wlProgramId) {
         VacancyData vacancyData = new VacancyData();
