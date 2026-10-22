@@ -162,6 +162,10 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <style>
+            /* The injection panel's Delete acts rather than navigates, so it is a button drawn as the former link. */
+            .rh-injection-delete { background: none; border: 0; padding: 0; color: blue; text-decoration: underline; cursor: pointer; font: inherit; }
+        </style>
     </head>
 
 

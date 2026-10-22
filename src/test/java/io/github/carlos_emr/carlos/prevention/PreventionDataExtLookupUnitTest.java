@@ -48,8 +48,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * How the RH form's injection panel finds the preventions recorded against a workflow (issue #4992, findings 288 and
- * 290). {@link PreventionData#getPreventionDataFromExt(String, String)} passed the prevention entity's reflection-based
+ * How the RH form's injection panel finds the preventions recorded against a workflow (issue #4992, findings 291 and
+ * 293). {@link PreventionData#getPreventionDataFromExt(String, String)} passed the prevention entity's reflection-based
  * {@code toString()} to {@link PreventionData#getPreventionById(String)}, which expects a number: every injection was
  * dropped from the panel, and the failed parse wrote the patient's prevention, lot, dose and reason to the error log.
  *

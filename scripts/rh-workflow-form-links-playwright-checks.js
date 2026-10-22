@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
-// Issue #4992, the Rh immune globulin (RH) workflow around the RH form:
-//   284  the WorkFlow queue's RH link left the application (../form/... against a context-root base) and named a
+// Issue #4992, the Rh immune globulin (RH) workflow around the RH form. Finding numbers are the findings log's
+// (docs/ui-tests/app-findings-log.md); the issue numbers the same findings 284 to 290.
+//   287  the WorkFlow queue's RH link left the application (../form/... against a context-root base) and named a
 //        Forms-menu shortcut no shipped install registers;
-//   285  the RH form's Add Injection button opened addRhInjection without form/ (the error page);
-//   287  the injection editor's Save handler ended with an undefined name, a script error on every Save;
-//   288  the RH form's injection panel stayed empty: the lookup passed the prevention entity's toString() as its id.
+//   288  the RH form's Add Injection button opened addRhInjection without form/ (the error page);
+//   290  the injection editor's Save handler ended with an undefined name, a script error on every Save;
+//   291  the RH form's injection panel stayed empty: the lookup passed the prevention entity's toString() as its id.
 // The panel prints what was recorded for each injection, so once it shows again its values must be encoded and only
-// the chart's own patient's injections listed. Finding 290 (the entity written to the error log) is covered by
+// the chart's own patient's injections listed. Finding 293 (the entity written to the error log) is covered by
 // PreventionDataExtLookupUnitTest.
 //
 // User path: a saved RH form opened for the owned patient (form/formRhImmuneGlobulin?demographic_no=&formId=), its

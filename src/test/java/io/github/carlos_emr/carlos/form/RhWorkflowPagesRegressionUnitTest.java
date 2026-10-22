@@ -45,9 +45,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 /**
- * The RH workflow's pages (issue #4992): the WorkFlow queue's link (finding 284), the RH form's Add Injection button
- * (285), the injection editor's Save handler (287) and the injection panel, which shows again once the panel's lookup is
- * fixed (288) and so must encode what it prints and list only the chart's own patient.
+ * The RH workflow's pages (issue #4992): the WorkFlow queue's link (finding 287), the RH form's Add Injection button
+ * (288), the injection editor's Save handler (290) and the injection panel, which shows again once the panel's lookup is
+ * fixed (291) and so must encode what it prints and list only the chart's own patient.
  *
  * @since 2026-10-22
  */
@@ -141,5 +141,7 @@ class RhWorkflowPagesRegressionUnitTest {
         }
         assertThat(panel).contains("demographicNo.trim().equals(String.valueOf(hdata.get(\"demographicNo\")))");
         assertThat(panel).contains("deleteInjection('<%= SafeEncode.forJavaScriptAttribute(preventionId) %>')");
+        // Delete acts rather than navigates: a button, not an anchor with a javascript: href.
+        assertThat(panel).contains("<button type=\"button\" class=\"rh-injection-delete\"").doesNotContain("href=\"javascript:");
     }
 }

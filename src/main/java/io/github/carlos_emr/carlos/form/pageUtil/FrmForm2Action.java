@@ -426,13 +426,15 @@ public class FrmForm2Action extends ActionSupport {
     int saveFormAndMeasurements(String trustedFormName, Properties props, String demographicNo, String providerNo,
                                 List<PendingMeasurement> measurements) throws SQLException {
         TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        // The callback's result is nullable in TransactionTemplate's signature; carrying the id out
+        // of a void callback keeps the int contract without a null check that can never fire.
+        int[] savedFormId = new int[1];
         try {
-            Integer savedFormId = transaction.execute(status -> {
-                int formRowId;
+            transaction.executeWithoutResult(status -> {
                 try {
                     FrmRecordHelp frh = new FrmRecordHelp();
                     frh.setDateFormat(_dateFormat);
-                    formRowId = frh.saveFormRecord(props, setupFormSaveSql(trustedFormName), demographicNo);
+                    savedFormId[0] = frh.saveFormRecord(props, setupFormSaveSql(trustedFormName), demographicNo);
                 } catch (SQLException e) {
                     throw new FormRecordSaveFailure(e);
                 }
@@ -440,12 +442,8 @@ public class FrmForm2Action extends ActionSupport {
                     write2MeasurementTable(demographicNo, providerNo, measurement.type(), measurement.value(),
                             measurement.observationDate(), measurement.comments());
                 }
-                return formRowId;
             });
-            if (savedFormId == null) {
-                throw new SQLException("The form save returned no record id");
-            }
-            return savedFormId;
+            return savedFormId[0];
         } catch (FormRecordSaveFailure failure) {
             throw failure.getCause();
         }

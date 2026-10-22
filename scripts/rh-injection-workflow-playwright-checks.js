@@ -92,7 +92,7 @@ async function workflow(s) {
       'The RH injection panel lost stored details');
   });
   await s.step('Delete Injection archives only that injection and removes it from the form panel', async () => {
-    const remove = rh.page.locator('#injectionInfo a[onclick*="deleteInjection"]');
+    const remove = rh.page.locator('#injectionInfo [onclick*="deleteInjection"]');
     h.assert(await remove.count() === 1, 'The owned pregnancy has an unexpected number of injection Delete links');
     await remove.click();
     await expectValue(s.sql, `SELECT deleted FROM preventions WHERE id=${id}`, '1', 'Delete Injection did not archive the record');
