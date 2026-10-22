@@ -71,6 +71,8 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmForm2Action extends ActionSupport {
@@ -242,140 +244,146 @@ public class FrmForm2Action extends ActionSupport {
             // parse the checkbox value
             inputValue = parseCheckBoxValue(inputValue, validation.getName());
 
-            // validate
-            valid = validate(inputValue, observationDate, mt, validation, request);
+            // Accumulate: an invalid value must block the save even when a later value, or the
+            // visit date, is valid. Assigning each result let the last check decide (issue #4674).
+            valid &= validate(inputValue, observationDate, mt, validation, request);
         }
-        valid = ectValidation.isDate((String) this.getValue("visitCod"));
+        String visitCod = (String) this.getValue("visitCod");
+        if (visitCod == null || !ectValidation.isDate(visitCod)) {
+            addValidationError("errors.invalidDate", getText("form.vt.visitDate"));
+            valid = false;
+        }
 
         logger.debug("current mem 6 " + currentMem());
         long endTime = System.currentTimeMillis();
         long delTime = endTime - startTime;
         logger.debug("Time spent on validation: " + Long.toString(delTime));
 
+        if (!valid) {
+            // Nothing has been written. Show the form again with what was typed and why it was
+            // refused; the redirect to a fresh SetupForm used to drop both (issue #4674).
+            return redisplayInvalid(trustedFormName, formId, demographicNo,
+                    submittedFormValues(trustedFormName, measurementTypes));
+        }
+
+        boolean saveAndExit = "exit".equalsIgnoreCase(submit);
         int savedFormId;
-        if (valid) {
-            DemographicData demoData = new DemographicData();
-            Demographic demo = demoData
-                    .getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
-            if (demo == null) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
-                return NONE;
+        DemographicData demoData = new DemographicData();
+        Demographic demo = demoData
+                .getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
+        if (demo == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
+            return NONE;
+        }
+        logger.debug("is valid, procede write to table");
+        // Store form information as properties for saving to form table
+        props.setProperty("demographic_no", demographicNo);
+        props.setProperty("provider_no", providerNo);
+        props.setProperty("visitCod", (String) this.getValue("visitCod"));
+        props.setProperty("dob", DemographicData.getDob(demo, "-"));
+        props.setProperty("gender", StringUtils.defaultString(demo.getSex()));
+        props.setProperty("surname", demo.getLastName());
+        props.setProperty("givenName", demo.getFirstName());
+
+        String diagnosisVT = (String) this.getValue("diagnosisVT");
+
+        String subjective = (String) this.getValue("subjective");
+        String objective = (String) this.getValue("objective");
+        String assessment = (String) this.getValue("assessment");
+        String plan = (String) this.getValue("plan");
+
+        // for VTForm
+        props.setProperty("Diagnosis", diagnosisVT);
+        props.setProperty("Subjective", subjective);
+        props.setProperty("Objective", objective);
+        props.setProperty("Assessment", assessment);
+        props.setProperty("Plan", plan);
+
+        List<PendingMeasurement> measurementWrites = new ArrayList<>();
+        startTime = System.currentTimeMillis();
+        for (int i = 0; i < measurementTypes.size(); i++) {
+            logger.debug("current mem 7.1." + i + " " + currentMem());
+            mt = (EctMeasurementTypesBean) measurementTypes.elementAt(i);
+            String type = mt.getType();
+            if (isRetainedVtType(trustedFormName, type)) {
+                retainStoredTriplet(props, currentRecord, type);
+                continue;
             }
-            logger.debug("is valid, procede write to table");
-            // Store form information as properties for saving to form table
-            props.setProperty("demographic_no", demographicNo);
-            props.setProperty("provider_no", providerNo);
-            props.setProperty("visitCod", (String) this.getValue("visitCod"));
-            props.setProperty("dob", DemographicData.getDob(demo, "-"));
-            props.setProperty("gender", StringUtils.defaultString(demo.getSex()));
-            props.setProperty("surname", demo.getLastName());
-            props.setProperty("givenName", demo.getFirstName());
+            validation = (EctValidationsBean) mt.getValidationRules().elementAt(0);
+            String inputValue = (String) this.getValue(type + "Value");
+            String lastData = (String) this.getValue(type + "LastData");
+            String lastDataEnteredDate = (String) this.getValue(type + "LastDataEnteredDate");
 
-            String diagnosisVT = (String) this.getValue("diagnosisVT");
+            String observationDate = (String) this.getValue(type + "Date");
+            if (observationDate == null) {
+                observationDate = today;
+            } else if (observationDate.compareTo("") == 0) {
+                observationDate = today;
+            }
 
-            String subjective = (String) this.getValue("subjective");
-            String objective = (String) this.getValue("objective");
-            String assessment = (String) this.getValue("assessment");
-            String plan = (String) this.getValue("plan");
+            String comments = (String) this.getValue(type + "Comments");
 
-            // for VTForm
-            props.setProperty("Diagnosis", diagnosisVT);
-            props.setProperty("Subjective", subjective);
-            props.setProperty("Objective", objective);
-            props.setProperty("Assessment", assessment);
-            props.setProperty("Plan", plan);
+            logger.debug("type: " + type + " inputValue: " + inputValue);
+            // parse the checkbox value
+            inputValue = parseCheckBoxValue(inputValue, validation.getName());
 
-            startTime = System.currentTimeMillis();
-            for (int i = 0; i < measurementTypes.size(); i++) {
-                logger.debug("current mem 7.1." + i + " " + currentMem());
-                mt = (EctMeasurementTypesBean) measurementTypes.elementAt(i);
-                String type = mt.getType();
-                if (isRetainedVtType(trustedFormName, type)) {
-                    retainStoredTriplet(props, currentRecord, type);
-                    continue;
-                }
-                validation = (EctValidationsBean) mt.getValidationRules().elementAt(0);
-                String inputValue = (String) this.getValue(type + "Value");
-                String lastData = (String) this.getValue(type + "LastData");
-                String lastDataEnteredDate = (String) this.getValue(type + "LastDataEnteredDate");
+            // Save & Exit also records each value in the measurements table. The writes run
+            // with the form row's insert below, in one transaction (issue #4674).
+            if (saveAndExit && inputValue != null && !inputValue.isEmpty()) {
+                measurementWrites.add(new PendingMeasurement(mt, inputValue, observationDate, comments));
+            }
 
-                String observationDate = (String) this.getValue(type + "Date");
-                if (observationDate == null) {
-                    observationDate = today;
-                } else if (observationDate.compareTo("") == 0) {
-                    observationDate = today;
-                }
+            // Store all input value as properties for saving to form table
+            if (lastData != null)
+                props.setProperty(type + "LastData", lastData);
+            if (lastDataEnteredDate != null)
+                props.setProperty(type + "LastDataEnteredDate", lastDataEnteredDate);
 
-                String comments = (String) this.getValue(type + "Comments");
+            props.setProperty(type + "Date", observationDate == null ? dateEntered : observationDate);
+            props.setProperty(type + "Comments", comments == null ? "" : comments);
 
-                logger.debug("type: " + type + " inputValue: " + inputValue);
-                // parse the checkbox value
-                inputValue = parseCheckBoxValue(inputValue, validation.getName());
+            if (!GenericValidator.isBlankOrNull(inputValue)) {
+                props.setProperty(type + "Value", inputValue);
 
-                // Write to Measurement Table
-
-                if (inputValue != null) {
-                    if (submit.equalsIgnoreCase("exit") && !inputValue.equalsIgnoreCase(""))
-                        write2MeasurementTable(demographicNo, providerNo, mt, inputValue, observationDate, comments);
-                }
-
-                // Store all input value as properties for saving to form table
-                if (lastData != null)
-                    props.setProperty(type + "LastData", lastData);
-                if (lastDataEnteredDate != null)
-                    props.setProperty(type + "LastDataEnteredDate", lastDataEnteredDate);
-
-                props.setProperty(type + "Date", observationDate == null ? dateEntered : observationDate);
-                props.setProperty(type + "Comments", comments == null ? "" : comments);
-
-                if (!GenericValidator.isBlankOrNull(inputValue)) {
-                    props.setProperty(type + "Value", inputValue);
-
-                    if (type.equalsIgnoreCase("BP")) {
-                        // extract SBP and DBP for blood pressure
-                        String bp = inputValue;
-                        if (bp != null) {
-                            int sbpIndex = bp.indexOf("/");
-                            if (sbpIndex >= 0) {
-                                String sbp = bp.substring(0, sbpIndex);
-                                String dbp = bp.substring(sbpIndex + 1);
-                                props.setProperty("SBPValue", sbp);
-                                props.setProperty("DBPValue", dbp);
-                            }
+                if (type.equalsIgnoreCase("BP")) {
+                    // extract SBP and DBP for blood pressure
+                    String bp = inputValue;
+                    if (bp != null) {
+                        int sbpIndex = bp.indexOf("/");
+                        if (sbpIndex >= 0) {
+                            String sbp = bp.substring(0, sbpIndex);
+                            String dbp = bp.substring(sbpIndex + 1);
+                            props.setProperty("SBPValue", sbp);
+                            props.setProperty("DBPValue", dbp);
                         }
                     }
                 }
-                logger.debug("current mem 7.2." + i + " " + currentMem());
             }
-            endTime = System.currentTimeMillis();
-            delTime = endTime - startTime;
-            logger.debug("Time spent on write2Measurements: " + Long.toString(delTime));
+            logger.debug("current mem 7.2." + i + " " + currentMem());
+        }
+        endTime = System.currentTimeMillis();
+        delTime = endTime - startTime;
+        logger.debug("Time spent on write2Measurements: " + Long.toString(delTime));
 
-            // Store the the form table for keeping the current record
-            logger.debug("current mem 8 " + currentMem());
-            try {
-                String sql = setupFormSaveSql(trustedFormName);
-                FrmRecordHelp frh = new FrmRecordHelp();
-                frh.setDateFormat(_dateFormat);
-                savedFormId = frh.saveFormRecord(props, sql, demographicNo);
-            } catch (SQLException e) {
-                logger.error("Error ({})", e.getClass().getSimpleName());
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to save form record");
-                return NONE;
-            }
-
-            logger.debug("current mem 9 " + currentMem());
-        } else {
-            // return to the orignal form
-            response.sendRedirect(setupLocation(trustedFormName, formId, demographicNo));
+        // Store the the form table for keeping the current record
+        logger.debug("current mem 8 " + currentMem());
+        try {
+            savedFormId = saveFormAndMeasurements(trustedFormName, props, demographicNo, providerNo,
+                    measurementWrites);
+        } catch (SQLException | RuntimeException e) {
+            logger.error("Form save rolled back ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "Unable to save form record. No measurements were saved.");
             return NONE;
         }
+
+        logger.debug("current mem 9 " + currentMem());
 
         // return SUCCESS;
         // forward to the for with updated formId
 
         logger.debug("submit value: {}", LogSafe.sanitize(submit));
-        if (submit.equalsIgnoreCase("exit")) {
+        if (saveAndExit) {
             request.setAttribute("demographicNo", demographicNo);
             request.setAttribute("diagnosisVT", "See Vascular Tracker Template");
             request.getRequestDispatcher("/WEB-INF/jsp/form/formSaveAndExit.jsp").forward(request, response);
@@ -390,6 +398,121 @@ public class FrmForm2Action extends ActionSupport {
                 + "&formId=" + formId + "&demographic_no=" + demographicNo;
     }
 
+    /** One measurement Save &amp; Exit records, written with the form row in {@link #saveFormAndMeasurements}. */
+    record PendingMeasurement(EctMeasurementTypesBean type, String value, String observationDate, String comments) {
+    }
+
+    /** Carries a form-row {@link SQLException} out of the transaction callback, which may only throw unchecked. */
+    private static final class FormRecordSaveFailure extends RuntimeException {
+        FormRecordSaveFailure(SQLException cause) {
+            super(cause);
+        }
+
+        @Override
+        public synchronized SQLException getCause() {
+            return (SQLException) super.getCause();
+        }
+    }
+
+    /**
+     * Inserts the form row and records the measurements in one transaction, so a failure of either
+     * leaves neither (issue #4674). The legacy form insert runs through {@link FrmRecordHelp}, whose
+     * JDBC connection comes from {@code DataSourceUtils} and so joins the transaction the JPA
+     * transaction manager binds; the measurement DAO writes through the same transaction.
+     *
+     * @return the new form row's id
+     * @throws SQLException when the form row cannot be inserted; nothing is written
+     */
+    int saveFormAndMeasurements(String trustedFormName, Properties props, String demographicNo, String providerNo,
+                                List<PendingMeasurement> measurements) throws SQLException {
+        TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        try {
+            Integer savedFormId = transaction.execute(status -> {
+                int formRowId;
+                try {
+                    FrmRecordHelp frh = new FrmRecordHelp();
+                    frh.setDateFormat(_dateFormat);
+                    formRowId = frh.saveFormRecord(props, setupFormSaveSql(trustedFormName), demographicNo);
+                } catch (SQLException e) {
+                    throw new FormRecordSaveFailure(e);
+                }
+                for (PendingMeasurement measurement : measurements) {
+                    write2MeasurementTable(demographicNo, providerNo, measurement.type(), measurement.value(),
+                            measurement.observationDate(), measurement.comments());
+                }
+                return formRowId;
+            });
+            if (savedFormId == null) {
+                throw new SQLException("The form save returned no record id");
+            }
+            return savedFormId;
+        } catch (FormRecordSaveFailure failure) {
+            throw failure.getCause();
+        }
+    }
+
+    /**
+     * The values the clinician typed, keyed as the form page names them ({@code WTValue},
+     * {@code visitCod}, ...), for showing a refused form again. Only the form's own fields are kept;
+     * the VT history carriers it has no editor for are left to the stored record.
+     */
+    Map<String, String> submittedFormValues(String trustedFormName, List<EctMeasurementTypesBean> measurementTypes) {
+        List<String> fields = new ArrayList<>(List.of("visitCod", "diagnosisVT", "subjective", "objective",
+                "assessment", "plan"));
+        for (EctMeasurementTypesBean mt : measurementTypes) {
+            if (isRetainedVtType(trustedFormName, mt.getType())) {
+                continue;
+            }
+            for (String suffix : List.of("Value", "Date", "Comments")) {
+                fields.add(mt.getType() + suffix);
+            }
+        }
+        Map<String, String> submitted = new LinkedHashMap<>();
+        for (String field : fields) {
+            Object value = getValue(field);
+            if (value instanceof String text) {
+                submitted.put(field, text);
+            }
+        }
+        return submitted;
+    }
+
+    /** Renders the refused form with its errors and typed values through the form's setup view. */
+    String redisplayInvalid(String trustedFormName, String formId, String demographicNo,
+                            Map<String, String> submitted) throws ServletException, IOException {
+        request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+        try {
+            return new FrmSetupForm2Action().redisplay(trustedFormName, formId, demographicNo, submitted);
+        } catch (ServletException | IOException | RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServletException("Unable to show the refused form again", e);
+        }
+    }
+
+    /**
+     * Adds a validation message for the clinician. The shared bundle wraps these messages in
+     * {@code <li>} for the old error tag; the form page lists and encodes them itself, so the
+     * wrapper is dropped here rather than printed as text.
+     */
+    private void addValidationError(String key, String... args) {
+        addActionError(withoutListMarkup(getText(key, args)));
+    }
+
+    static String withoutListMarkup(String message) {
+        if (message == null) {
+            return "";
+        }
+        String text = message.strip();
+        if (text.regionMatches(true, 0, "<li>", 0, 4)) {
+            text = text.substring(4);
+        }
+        if (text.regionMatches(true, Math.max(0, text.length() - 5), "</li>", 0, 5)) {
+            text = text.substring(0, text.length() - 5);
+        }
+        return text.strip();
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean validate(String inputValue, String observationDate, EctMeasurementTypesBean mt,
@@ -397,9 +520,8 @@ public class FrmForm2Action extends ActionSupport {
         EctValidation ectValidation = new EctValidation();
         boolean valid = true;
 
-        String inputTypeDisplay = mt.getTypeDesc();
-        String inputValueName = mt.getType() + "Value";
-        String inputDateName = mt.getType() + "Date";
+        // The clinician sees the measurement's own description ("Weight"), not the form field name.
+        String inputValueName = StringUtils.defaultIfBlank(mt.getTypeDesc(), mt.getType());
         String regExp = validation.getRegularExp();
 
         double dMax = Double.parseDouble(validation.getMaxValue() == null ? "0" : validation.getMaxValue());
@@ -411,31 +533,32 @@ public class FrmForm2Action extends ActionSupport {
 
         if (!GenericValidator.isBlankOrNull(inputValue)) {
             if (iIsNumeric == 1 && !ectValidation.isInRange(dMax, dMin, inputValue)) {
-                addActionError(getText("errors.range", new String[]{inputValueName}));
+                addValidationError("errors.range", inputValueName, StringUtils.defaultString(validation.getMinValue()),
+                        StringUtils.defaultString(validation.getMaxValue()));
                 valid = false;
             }
             if (!ectValidation.maxLength(iMax, inputValue)) {
-                addActionError(getText("errors.maxlength", new String[]{inputValueName}));
+                addValidationError("errors.maxlength", inputValueName, StringUtils.defaultString(validation.getMaxLength()));
                 valid = false;
             }
             if (!ectValidation.minLength(iMin, inputValue)) {
-                addActionError(getText("errors.minlength", new String[]{inputValueName}));
+                addValidationError("errors.minlength", inputValueName, StringUtils.defaultString(validation.getMinLength()));
                 valid = false;
             }
             if (!ectValidation.matchRegExp(regExp, inputValue)) {
-                addActionError(getText("errors.invalid", new String[]{inputValueName}));
+                addValidationError("errors.invalid", inputValueName);
                 valid = false;
             }
             if (mt.getType().equalsIgnoreCase("BP") && !ectValidation.isValidBloodPressure(regExp, inputValue)) {
-                addActionError(getText("errors.bloodPressure", new String[]{inputValueName}));
+                addValidationError("errors.bloodPressure", inputValueName);
                 valid = false;
             }
             if (iIsDate == 1 && !ectValidation.isDate(inputValue)) {
-                addActionError(getText("errors.invalidDate", new String[]{inputValueName}));
+                addValidationError("errors.invalidDate", inputValueName);
                 valid = false;
             }
             if (!ectValidation.isDate(observationDate)) {
-                addActionError(getText("errors.invalidDate", new String[]{inputValueName}));
+                addValidationError("errors.invalidDate", inputValueName);
                 valid = false;
             }
         }

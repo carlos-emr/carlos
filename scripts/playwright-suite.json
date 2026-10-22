@@ -6644,6 +6644,22 @@
       "fixtures": "Owned synthetic patient and the letter Save stores; cleanup deletes the owned patient's formConsult rows and asserts them gone. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
     },
     {
+      "name": "form-vt-save-refusal",
+      "script": "scripts/form-vt-save-refusal-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "mutates": [],
+      "notes": "Issue #4674, the Vascular Tracker save: the validation result was overwritten by each later check (so an invalid value was saved whenever the visit date was valid), a refused save redirected to a fresh form without the typed values or the reason, and Save & Exit committed its measurements before the form row. A new VT form is opened by its Setup route for the owned patient (the registration is hidden by default), blood pressure 120/80 and a weight of 999 kg are typed and Update VT is pressed: the form comes back listing the weight's 0 to 300 range, both values are still in their boxes and nothing is stored. The weight is corrected and Save & Exit is confirmed: one VT record and the BP and WT measurements are stored. Rollback of a failed write is covered by FrmVtSaveIntegrityIntegrationTest.",
+      "fixtures": "Owned synthetic patient and the VT record and measurements Save & Exit stores; cleanup deletes the owned patient's formVTForm and measurements rows and asserts them gone. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
+    },
+    {
       "name": "form-checkbox-reopen",
       "script": "scripts/form-checkbox-reopen-playwright-checks.js",
       "tiers": [
