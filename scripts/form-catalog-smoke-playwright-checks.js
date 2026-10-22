@@ -350,14 +350,26 @@ async function workflow(s, { select = validatePin() } = {}) {
   /** Open the form from its Forms-menu entry. The entry being there is a precondition; the form opening is the test. */
   async function openFromMenu(entry) {
     const { form } = entry;
-    const link = await claims.asPrecondition(async () => {
-      await ui.openFormsMenu(chart);
-      const found = chart.getByRole('link', { name: entry.name, exact: true });
-      const listed = await found.count();
-      claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
-      return found;
-    }, 'the Forms-menu entry');
-    entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.code}`));
+    // Closing a form window makes the chart rebuild its Forms module (the menu and its anchors are replaced), so
+    // a hover, count or click can race that rebuild and find no visible entry. Such a failure means no form window
+    // opened, so it is retried on the rebuilt menu, at most three times; any other failure is the form's own.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await chart.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        const link = await claims.asPrecondition(async () => {
+          await ui.openFormsMenu(chart);
+          const found = chart.getByRole('link', { name: entry.name, exact: true });
+          const listed = await found.count();
+          claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
+          return found;
+        }, 'the Forms-menu entry');
+        entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.code}`));
+        break;
+      } catch (error) {
+        if (attempt >= 3 || !(error instanceof claims.Precondition)) throw error;
+        await chart.waitForTimeout(1000);
+      }
+    }
     h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'the form opened for another patient');
     if (form.reveal) await claims.asPrecondition(() => form.reveal(entry.page), 'revealing the questions');
     await entry.page.getByRole('button', { name: form.ready || 'Save', exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
