@@ -170,7 +170,8 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
                 .then(invocation -> null);
 
         eFormLoaderMock = mockStatic(EFormLoader.class);
-        eFormLoaderMock.when(EFormLoader::getInstance).thenReturn(mock(EFormLoader.class));
+        EFormLoader loader = mock(EFormLoader.class);
+        eFormLoaderMock.when(EFormLoader::getInstance).thenReturn(loader);
         eFormLoaderMock.when(EFormLoader::getOpener).thenReturn("oscarOPEN=");
 
         // EctProgram resolves its manager from the servlet context, not SpringUtils.
@@ -236,7 +237,7 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldStoreSignatureItself_whenFieldCarriesReference() throws Exception {
+    void shouldStoreSignatureItself_whenFieldCarriesReference() {
         mockRequest.setParameter("SignatureBox", ref(0));
         mockRequest.setParameter("StoreSignature1", ref(1));
         mockRequest.setParameter("MirrorSignature", ref(0));
@@ -260,7 +261,7 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
 
     @SuppressWarnings("unchecked")
     @Test
-    void shouldHandTemplateWriteRestoredValues_forChartEntries() throws Exception {
+    void shouldHandTemplateWriteRestoredValues_forChartEntries() {
         // The template's chart writes (notes, ticklers, consults) read the same lists.
         mockRequest.setParameter("SignatureBox", ref(0));
         mockRequest.setParameter(EFormDataUriCarrier.PARAMETER, PNG);
@@ -275,7 +276,7 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldStoreFieldUnchanged_whenRequestCarriesNothing() throws Exception {
+    void shouldStoreFieldUnchanged_whenRequestCarriesNothing() {
         // An older page, or a form without a signature: nothing is rewritten.
         mockRequest.setParameter("SignatureBox", PNG);
         mockRequest.setParameter("clinicalNote", ref(0));
@@ -305,7 +306,7 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAllowRetry_afterRefusedCarriedValue() throws Exception {
+    void shouldAllowRetry_afterRefusedCarriedValue() {
         // Nothing was stored, so the same rendering's token must still save once corrected.
         mockRequest.setParameter("SignatureBox", ref(3));
         mockRequest.setParameter(EFormDataUriCarrier.PARAMETER, PNG);

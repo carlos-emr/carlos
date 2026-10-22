@@ -106,12 +106,12 @@ public final class EFormDataUriCarrier {
     // 128 random bits, as the page script writes them.
     private static final Pattern NONCE = Pattern.compile("[0-9a-f]{32}");
     // At most three digits (MAX_VALUES is 256; restore() checks the index); no leading zeros.
-    private static final Pattern INDEX = Pattern.compile("0|[1-9][0-9]{0,2}");
+    private static final Pattern INDEX = Pattern.compile("0|[1-9]\\d{0,2}");
     // Lower case only, exactly as canvas.toDataURL() and jSignature write them; the page script
     // matches the same shapes, so a value either side would not carry is never sent here.
     private static final Pattern RASTER_PREFIX = Pattern.compile("data:image/(png|jpeg|gif|webp);base64,");
     private static final String JSIGNATURE_PREFIX = "data:image/jsignature;base30,";
-    private static final Pattern BASE30_PAYLOAD = Pattern.compile("[0-9A-Za-z_]*");
+    private static final Pattern BASE30_PAYLOAD = Pattern.compile("\\w*");
 
     private EFormDataUriCarrier() {
     }
@@ -148,19 +148,7 @@ public final class EFormDataUriCarrier {
         if (carried == null || carried.length == 0) {
             return 0;
         }
-        if (carried.length > MAX_VALUES) {
-            throw new InvalidCarriedValueException("too many carried values");
-        }
-        if (nonce == null || !NONCE.matcher(nonce).matches()) {
-            throw new InvalidCarriedValueException("missing or malformed carried value nonce");
-        }
-        // Every carried value is checked, referenced or not: the page sends none it does not use, so
-        // an invalid one is a tampered request, and refusing it keeps the rule simple to audit.
-        for (String value : carried) {
-            if (!isAcceptedDataUri(value)) {
-                throw new InvalidCarriedValueException("carried value is not an accepted image data URI");
-            }
-        }
+        requireValidCarrier(carried, nonce);
         String bound = REFERENCE_PREFIX + nonce + ":";
         int restored = 0;
         for (int i = 0; i < fieldValues.size(); i++) {
@@ -181,6 +169,22 @@ public final class EFormDataUriCarrier {
             restored++;
         }
         return restored;
+    }
+
+    // Every carried value is checked, referenced or not: the page sends none it does not use, so an
+    // invalid one is a tampered request, and refusing it keeps the rule simple to audit.
+    private static void requireValidCarrier(String[] carried, String nonce) throws InvalidCarriedValueException {
+        if (carried.length > MAX_VALUES) {
+            throw new InvalidCarriedValueException("too many carried values");
+        }
+        if (nonce == null || !NONCE.matcher(nonce).matches()) {
+            throw new InvalidCarriedValueException("missing or malformed carried value nonce");
+        }
+        for (String value : carried) {
+            if (!isAcceptedDataUri(value)) {
+                throw new InvalidCarriedValueException("carried value is not an accepted image data URI");
+            }
+        }
     }
 
     /**
@@ -214,7 +218,7 @@ public final class EFormDataUriCarrier {
             // The basic decoder rejects every character outside the Base64 alphabet, including
             // whitespace, quotes and angle brackets, and misplaced padding.
             image = Base64.getDecoder().decode(payload);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             return false;
         }
         return image.length <= MAX_DECODED_BYTES && hasFileSignature(format, image);

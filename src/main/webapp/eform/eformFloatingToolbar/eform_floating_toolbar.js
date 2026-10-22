@@ -332,7 +332,7 @@ const eformDataUriCarrier = (function () {
     const MAX_VALUES = 256;
     const MAX_PAYLOAD_CHARS = 6990504;
     const RASTER = /^data:image\/(png|jpeg|gif|webp);base64,([A-Za-z0-9+/]+={0,2})$/;
-    const JSIGNATURE = /^data:image\/jsignature;base30,([0-9A-Za-z_]*)$/;
+    const JSIGNATURE = /^data:image\/jsignature;base30,(\w*)$/;
     const FILE_SIGNATURES = {
         png: [[0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]]],
         jpeg: [[0, [0xFF, 0xD8, 0xFF]]],
@@ -350,7 +350,7 @@ const eformDataUriCarrier = (function () {
         }
         return FILE_SIGNATURES[format].every(function (part) {
             const offset = part[0];
-            return part[1].every(function (byte, i) { return head.charCodeAt(offset + i) === byte; });
+            return part[1].every(function (byte, i) { return head.codePointAt(offset + i) === byte; });
         });
     }
 
@@ -380,7 +380,7 @@ const eformDataUriCarrier = (function () {
             return false;
         }
         const overrides = function (name) {
-            return !!submitter && typeof submitter.hasAttribute === "function" && submitter.hasAttribute(name);
+            return typeof submitter?.hasAttribute === "function" && submitter.hasAttribute(name);
         };
         const method = overrides("formmethod") ? submitter.getAttribute("formmethod") : form.getAttribute("method");
         if (String(method || "").toLowerCase() !== "post") {
@@ -483,7 +483,7 @@ const eformDataUriCarrier = (function () {
                 // Directly after the control it stands in for, so a repeated name keeps its value
                 // order (the server stores a name's first value), and in the same form.
                 if (after.hasAttribute("form")) input.setAttribute("form", after.getAttribute("form"));
-                after.insertAdjacentElement("afterend", input);
+                after.after(input);
             } else {
                 form.appendChild(input);
             }
@@ -538,7 +538,7 @@ const eformDataUriCarrier = (function () {
         }, true);
         // Bubble phase on document, after the template's own submit handlers have written the pads.
         document.addEventListener("submit", function (event) {
-            const submitter = event.submitter || (clicked && clicked.form === event.target ? clicked : null);
+            const submitter = event.submitter || (clicked?.form === event.target ? clicked : null);
             if (!event.defaultPrevented && postsToEFormSave(event.target, submitter)) {
                 carryControls(event.target);
             }

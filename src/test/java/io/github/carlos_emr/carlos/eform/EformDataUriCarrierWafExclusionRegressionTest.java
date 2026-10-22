@@ -102,7 +102,7 @@ class EformDataUriCarrierWafExclusionRegressionTest {
         // If any side renames the argument the rule silently stops applying and every signature
         // save is refused again (or the action stops restoring the signature).
         assertThat(EFormDataUriCarrier.PARAMETER).isEqualTo("carlos-data-uri");
-        assertThat(EFormDataUriCarrier.REFERENCE_PREFIX).isEqualTo(EFormDataUriCarrier.PARAMETER + ":");
+        assertThat(EFormDataUriCarrier.REFERENCE_PREFIX).isEqualTo("carlos-data-uri:");
         // The nonce argument is scored like any other field: the rule must not name it.
         assertThat(EFormDataUriCarrier.NONCE_PARAMETER).isEqualTo("carlos-data-uri-nonce");
         String toolbar = Files.readString(TOOLBAR_JS, StandardCharsets.UTF_8);
