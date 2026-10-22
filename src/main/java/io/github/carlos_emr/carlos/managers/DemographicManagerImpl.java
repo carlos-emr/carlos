@@ -433,6 +433,16 @@ public class DemographicManagerImpl implements DemographicManager {
     /**
      * Creates the patient, its program admission and its extensions in one transaction: if any
      * write fails (for example an extension that collides on the per-patient key), nothing is kept.
+     *
+     * <p>Every extension is saved as a new row linked to the new patient. Any {@code id} or
+     * {@code demographicNo} the caller put on an extension is discarded, so a create request can
+     * never update or re-link an extension that belongs to another patient.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the provider creating the patient; needs demographic write access
+     * @param demographic Demographic the new patient; receives the generated demographic number
+     * @param admissionProgramId Integer the program the patient is admitted to
+     * @throws SecurityException if the provider lacks demographic write access
+     * @throws IllegalArgumentException if the birth date cannot be parsed
      */
     @Override
     @Transactional
@@ -462,6 +472,9 @@ public class DemographicManagerImpl implements DemographicManager {
 
         if (demographic.getExtras() != null) {
             for (DemographicExt ext : demographic.getExtras()) {
+                // A create always inserts: a client-sent id would make saveEntity merge into
+                // (and re-link) an existing row, possibly another patient's.
+                ext.setId(null);
                 ext.setDemographicNo(demographic.getDemographicNo());
                 createExtension(loggedInInfo, ext);
             }

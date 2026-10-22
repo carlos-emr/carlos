@@ -25,6 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import javax.sql.DataSource;
 
@@ -72,6 +75,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * test adds an equivalent test-only constraint for its duration and sends two extras with the
  * same key (the reported bug). The test seeds its own program because
  * {@code admission.program_id} has a foreign key.</p>
+ *
+ * @since 2026-10-21
  */
 @DisplayName("DemographicManagerImpl transactional integration tests")
 @Tag("integration")
@@ -79,7 +84,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 class DemographicManagerImplTransactionIntegrationTest extends CarlosTestBase {
 
     private static final String PROVIDER_NO = "999998";
-    /** Test-only copy of production's per-patient key index, which the H2 schema lacks. */
+    /** Name of the test-only copy of production's per-patient key index, which the H2 schema lacks. */
     private static final String TEST_UNIQUE_KEY_CONSTRAINT = "test_uk_demo_ext";
     private static final String DUPLICATE_KEY = "demo_cell";
 
@@ -99,6 +104,7 @@ class DemographicManagerImplTransactionIntegrationTest extends CarlosTestBase {
     private TransactionTemplate transactionTemplate;
     private DemographicManager manager;
     private Demographic demographicUnderTest;
+    private Demographic otherPatient;
     private Integer programId;
 
     @BeforeEach
@@ -111,10 +117,14 @@ class DemographicManagerImplTransactionIntegrationTest extends CarlosTestBase {
     @AfterEach
     void removeCreatedRows() {
         dropPerPatientKeyConstraint();
-        Integer demographicNo = demographicUnderTest == null ? null : demographicUnderTest.getDemographicNo();
+        List<Integer> demographicNos = Stream.of(demographicUnderTest, otherPatient)
+                .filter(Objects::nonNull)
+                .map(Demographic::getDemographicNo)
+                .filter(Objects::nonNull)
+                .toList();
         // Children first, in their own committed transaction, so the parent delete below sees them gone.
         transactionTemplate.executeWithoutResult(status -> {
-            if (demographicNo != null) {
+            for (Integer demographicNo : demographicNos) {
                 demographicExtDao.getDemographicExtByDemographicNo(demographicNo)
                         .forEach(ext -> demographicExtDao.removeDemographicExt(ext.getId()));
                 admissionDao.getAdmissions(demographicNo)
@@ -122,7 +132,7 @@ class DemographicManagerImplTransactionIntegrationTest extends CarlosTestBase {
             }
         });
         transactionTemplate.executeWithoutResult(status -> {
-            if (demographicNo != null) {
+            for (Integer demographicNo : demographicNos) {
                 // DemographicDao has no delete method.
                 new JdbcTemplate(dataSource).update("DELETE FROM demographic WHERE demographic_no = ?", demographicNo);
             }
@@ -177,6 +187,39 @@ class DemographicManagerImplTransactionIntegrationTest extends CarlosTestBase {
         assertThat(extensionCount(demographicNo)).as("demographicExt rows").isZero();
     }
 
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("should leave another patient's extension alone when a create request reuses its id")
+    void shouldLeaveOtherPatientsExtension_whenCreateReusesItsId() {
+        otherPatient = newSamplePatient();
+        manager.createDemographic(loggedInProvider(), otherPatient, programId);
+        DemographicExt existing = extension(DUPLICATE_KEY, "555-0111");
+        existing.setDemographicNo(otherPatient.getDemographicNo());
+        transactionTemplate.executeWithoutResult(status -> demographicExtDao.saveEntity(existing));
+        Integer existingId = existing.getId();
+        assertThat(existingId).as("seeded extension id").isNotNull();
+
+        demographicUnderTest = newSamplePatient();
+        DemographicExt reusedId = extension(DUPLICATE_KEY, "555-0199");
+        reusedId.setId(existingId);
+        reusedId.setDemographicNo(otherPatient.getDemographicNo());
+        demographicUnderTest.setExtras(new DemographicExt[] { reusedId });
+
+        manager.createDemographic(loggedInProvider(), demographicUnderTest, programId);
+
+        DemographicExt untouched = demographicExtDao.find(existingId);
+        assertThat(untouched.getDemographicNo()).as("existing row keeps its patient")
+            .isEqualTo(otherPatient.getDemographicNo());
+        assertThat(untouched.getValue()).as("existing row keeps its value").isEqualTo("555-0111");
+        assertThat(demographicExtDao.getDemographicExtByDemographicNo(demographicUnderTest.getDemographicNo()))
+            .as("new patient gets its own new row")
+            .singleElement()
+            .satisfies(ext -> {
+                assertThat(ext.getId()).isNotEqualTo(existingId);
+                assertThat(ext.getValue()).isEqualTo("555-0199");
+            });
+    }
+
     /**
      * A real DemographicManagerImpl with only the collaborators createDemographic uses, wrapped in
      * the same annotation-driven transaction advice production applies.
@@ -210,13 +253,11 @@ class DemographicManagerImplTransactionIntegrationTest extends CarlosTestBase {
 
     private void addPerPatientKeyConstraint() {
         new JdbcTemplate(dataSource).execute(
-                "ALTER TABLE demographicExt ADD CONSTRAINT " + TEST_UNIQUE_KEY_CONSTRAINT
-                        + " UNIQUE (demographic_no, key_val)");
+                "ALTER TABLE demographicExt ADD CONSTRAINT test_uk_demo_ext UNIQUE (demographic_no, key_val)");
     }
 
     private void dropPerPatientKeyConstraint() {
-        new JdbcTemplate(dataSource).execute(
-                "ALTER TABLE demographicExt DROP CONSTRAINT IF EXISTS " + TEST_UNIQUE_KEY_CONSTRAINT);
+        new JdbcTemplate(dataSource).execute("ALTER TABLE demographicExt DROP CONSTRAINT IF EXISTS test_uk_demo_ext");
     }
 
     private static String rootCauseMessage(Throwable throwable) {

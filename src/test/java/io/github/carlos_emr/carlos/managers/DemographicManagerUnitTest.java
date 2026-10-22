@@ -893,6 +893,30 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
+        @DisplayName("should save extensions as new rows when the client sends an extension id on create")
+        void shouldDiscardClientExtensionId_whenCreating() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            demographic.setExtras(new DemographicExt[] {
+                createTestDemographicExtWithId(42, 999, "demo_cell", "555-0100")
+            });
+            doAnswer(invocation -> {
+                invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
+                return null;
+            }).when(mockDemographicDao).save(demographic);
+            List<Integer> extensionIdAtSave = new ArrayList<>();
+            doAnswer(invocation -> {
+                DemographicExt ext = invocation.getArgument(0);
+                extensionIdAtSave.add(ext.getId());
+                return ext;
+            }).when(mockDemographicExtDao).saveEntity(any(DemographicExt.class));
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            assertThat(extensionIdAtSave).containsExactly((Integer) null);
+        }
+
+        @Test
         @DisplayName("should throw exception when birth date invalid")
         void shouldThrowException_whenBirthDateInvalid() {
             Demographic demographic = createTestDemographic();
