@@ -7,6 +7,14 @@ carlos-emr (2026.09.0~snapshot26) resolute; urgency=medium
     but apt now removes the old package instead of upgrading it: run that
     upgrade without --no-remove. A transitional copy already installed owns
     no files and can stay or be removed.
+  * Query by Example runs every query as a new read-only database account,
+    carlos_report, instead of the application account, and refuses to run
+    without it (#3372). carlos-ctl 1.2.0 (now the Depends floor) creates it
+    in db-users and grants it SELECT only on the tables the grant list
+    shipped in this package calls reportable, re-applying that list after
+    every db-migrate; check reports drift. Tables holding passwords, PINs,
+    tokens, keys, live session identifiers or integration settings are never
+    granted, nor is a table no one has classified yet.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 28 Sep 2026 23:06:10 +0000
 
