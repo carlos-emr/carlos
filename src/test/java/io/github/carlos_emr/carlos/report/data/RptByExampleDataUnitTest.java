@@ -41,6 +41,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLSyntaxErrorException;
 import java.sql.SQLTimeoutException;
 import java.sql.Types;
 import java.util.Properties;
@@ -53,6 +54,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.MockedStatic;
 
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 @Tag("unit")
@@ -72,7 +74,7 @@ class RptByExampleDataUnitTest {
         statement = mock(PreparedStatement.class);
         resultSet = mock(ResultSet.class);
         metadata = mock(ResultSetMetaData.class);
-        reportData = new RptByExampleData(() -> connection);
+        reportData = new RptByExampleData(ignored -> connection);
         properties = new Properties();
         properties.setProperty("db_name", "oscar_mcmaster?useUnicode=true");
 
@@ -318,6 +320,103 @@ class RptByExampleDataUnitTest {
 
         assertThat(result.rowCount()).isEqualTo(1);
         assertThat(result.rowLimitReached()).isFalse();
+    }
+
+    @Test
+    @DisplayName("reports a database privilege refusal as access denied and audits it as denied")
+    void shouldReportAccessDenied_whenDatabaseRefusesTable() throws SQLException {
+        SQLSyntaxErrorException refused = new SQLSyntaxErrorException(
+                "SELECT command denied to user 'carlos_report'@'localhost' for table `carlos`.`security`", "42000", 1142);
+        when(statement.executeQuery()).thenThrow(refused);
+        Logger logger = mock(Logger.class);
+        when(logger.isWarnEnabled()).thenReturn(true);
+
+        try (MockedStatic<MiscUtils> miscUtils = mockStatic(MiscUtils.class)) {
+            miscUtils.when(MiscUtils::getLogger).thenReturn(logger);
+
+            assertThatThrownBy(() -> reportData.execute(
+                    "select demographic_no from demographic", properties, "999998"))
+                    .isInstanceOf(QueryByExampleAccessDeniedException.class)
+                    .hasCause(refused)
+                    .satisfies(thrown -> assertThat(thrown.getMessage()).doesNotContain("carlos_report"));
+        }
+
+        verify(connection).close();
+        verify(logger).warn(
+                eq("Query-by-Example refused by reporting account privileges provider={} queryHash={} errorCode={}"),
+                eq("999998"), anyString(), eq(1142));
+        verify(logger).info(
+                eq("Query-by-Example audit provider={} queryHash={} queryLength={} durationMs={} rowCount={} outcome={}"),
+                eq("999998"), anyString(), eq(38), anyLong(), eq(0), eq("denied"));
+    }
+
+    @Test
+    @DisplayName("recognizes column, FILE and H2 rights refusals as access denied")
+    void shouldRecognizeAccessDenied_forPrivilegeErrorCodes() {
+        assertThat(QueryByExampleAccessDeniedException.isAccessDenied(new SQLException("column", "42000", 1143))).isTrue();
+        assertThat(QueryByExampleAccessDeniedException.isAccessDenied(new SQLException("file", "42000", 1227))).isTrue();
+        assertThat(QueryByExampleAccessDeniedException.isAccessDenied(new SQLException("h2", "90096", 90096))).isTrue();
+        assertThat(QueryByExampleAccessDeniedException.isAccessDenied(
+                new SQLException("wrapped", new SQLException("table", "42000", 1142)))).isTrue();
+        assertThat(QueryByExampleAccessDeniedException.isAccessDenied(new SQLException("syntax", "42000", 1064))).isFalse();
+        assertThat(QueryByExampleAccessDeniedException.isAccessDenied(null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("audits an unavailable reporting account without running the query")
+    void shouldAuditUnavailable_whenReportingAccountCannotBeUsed() throws SQLException {
+        ReportingAccountUnavailableException unavailable =
+                new ReportingAccountUnavailableException("db_reporting_username is not set");
+        RptByExampleData unprovisioned = new RptByExampleData(ignored -> {
+            throw unavailable;
+        });
+        Logger logger = mock(Logger.class);
+        when(logger.isWarnEnabled()).thenReturn(true);
+
+        try (MockedStatic<MiscUtils> miscUtils = mockStatic(MiscUtils.class)) {
+            miscUtils.when(MiscUtils::getLogger).thenReturn(logger);
+
+            assertThatThrownBy(() -> unprovisioned.execute(
+                    "select demographic_no from demographic", properties, "999998"))
+                    .isSameAs(unavailable);
+        }
+
+        verify(logger).info(
+                eq("Query-by-Example audit provider={} queryHash={} queryLength={} durationMs={} rowCount={} outcome={}"),
+                eq("999998"), anyString(), eq(38), anyLong(), eq(0), eq("unavailable"));
+        verify(logger).warn(
+                eq("Query-by-Example unavailable provider={} reason={}; see docs/query-by-example-least-privilege.md"),
+                eq("999998"), eq("db_reporting_username is not set"));
+        verify(connection, never()).prepareStatement(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("never falls back to the application account when no reporting account is configured")
+    void shouldNotUseApplicationAccount_whenReportingAccountIsNotConfigured() {
+        try (MockedStatic<LegacyJdbcQuery> legacy = mockStatic(LegacyJdbcQuery.class,
+                org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            assertThatThrownBy(() -> new RptByExampleData().execute(
+                    "select demographic_no from demographic", properties, "999998"))
+                    .isInstanceOf(ReportingAccountUnavailableException.class);
+
+            legacy.verify(LegacyJdbcQuery::getConnection, never());
+        }
+    }
+
+    @Test
+    @DisplayName("runs the query a substituted validator accepts, so the database boundary can be tested alone")
+    void shouldUseSubstitutedValidator_whenOneIsProvided() throws SQLException {
+        when(connection.prepareStatement("select * from security",
+                ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)).thenReturn(statement);
+        RptByExampleData withoutDenylist = new RptByExampleData(ignored -> connection,
+                (sql, ignoredProperties) -> LegacyJdbcQuery.trustedSelectSql(sql));
+
+        RptByExampleData.QueryResult result = withoutDenylist.execute("select * from security", properties, "999998");
+
+        assertThat(result.rowCount()).isEqualTo(1);
+        assertThatThrownBy(() -> reportData.execute("select * from security", properties, "999998"))
+                .isInstanceOf(QueryByExampleValidationException.class);
     }
 
     @Test

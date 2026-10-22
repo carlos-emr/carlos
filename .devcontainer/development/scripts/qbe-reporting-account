@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+#
+# qbe-reporting-account -- create or refresh the read-only database account that Query by
+# Example runs as (issue #3372), for a devcontainer database that was built before the account
+# existed, or after a migration adds a table.
+#
+# A fresh devcontainer database gets the account from .devcontainer/db/scripts/populate_db.sh.
+# Packaged installs get it from `carlos-ctl db-users` and `carlos-ctl db-migrate`; this script is
+# the devcontainer equivalent and is safe to re-run. It reads the account's password from
+# db_reporting_password in /root/carlos.properties so the account and the application agree,
+# then applies the grant list the WAR ships (src/main/resources/db/reporting/carlos_report_grants.sql).
+#
+# Usage: qbe-reporting-account            (then: server restart, if carlos.properties changed)
+set -euo pipefail
+
+PROPERTIES="${CARLOS_PROPERTIES:-/root/carlos.properties}"
+GRANTS="${CARLOS_REPORT_GRANTS:-/workspace/src/main/resources/db/reporting/carlos_report_grants.sql}"
+DB_HOST="${DB_HOST:-db}"
+DB_NAME="${DB_NAME:-carlos}"
+
+prop() {
+    sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" "$PROPERTIES" | tail -n 1 | tr -d '\r'
+}
+
+user="$(prop db_reporting_username)"
+password="$(prop db_reporting_password)"
+if [ -z "$user" ] || [ -z "$password" ]; then
+    user="carlos_report"
+    password="${CARLOS_REPORT_DB_PASSWORD:-carlos-report-dev}"
+    printf 'db_reporting_username=%s\ndb_reporting_password=%s\n' "$user" "$password" >> "$PROPERTIES"
+    echo "Added db_reporting_username/db_reporting_password to $PROPERTIES; run 'server restart' afterwards."
+fi
+case "$user$password" in
+    *"'"*|*'\'*) echo "qbe-reporting-account: quotes and backslashes are not supported in the dev account" >&2; exit 1 ;;
+esac
+[ -f "$GRANTS" ] || { echo "qbe-reporting-account: $GRANTS not found" >&2; exit 1; }
+
+# The root password travels in MYSQL_PWD and the account DDL on stdin, never on argv.
+export MYSQL_PWD="${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-password}}"
+mariadb -h "$DB_HOST" -u root <<EOSQL
+CREATE USER IF NOT EXISTS '${user}'@'%' IDENTIFIED BY '${password}';
+ALTER USER '${user}'@'%' IDENTIFIED BY '${password}';
+EOSQL
+{ printf "SET @carlos_report_user = '%s';\n" "$user"; cat "$GRANTS"; } | mariadb -h "$DB_HOST" -u root "$DB_NAME"
+granted="$(mariadb -h "$DB_HOST" -u root -N -B -e \
+    "SELECT COUNT(DISTINCT Table_name) FROM mysql.tables_priv WHERE User='${user}' AND Db='${DB_NAME}'")"
+echo "Query by Example now runs as '${user}', granted SELECT on ${granted} reportable tables of ${DB_NAME}."

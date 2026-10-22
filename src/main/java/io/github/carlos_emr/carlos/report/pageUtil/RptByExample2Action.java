@@ -42,6 +42,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.report.data.QueryByExampleAccessDeniedException;
+import io.github.carlos_emr.carlos.report.data.ReportingAccountUnavailableException;
+import io.github.carlos_emr.carlos.report.data.ReportingConnectionService;
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
 import io.github.carlos_emr.carlos.report.data.QueryByExampleValidationException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -62,6 +65,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Struts2 action for the Query-by-Example report tool. Allows authorized report users
  * to execute custom read-only SQL queries, persist successful searches, and display results.
+ *
+ * <p>Queries run as the read-only reporting database account, never the application account
+ * (issue #3372). When that account is not provisioned the page says so as soon as it opens, and a
+ * submitted query is not run.</p>
  *
  * @since 2003-07-22
  */
@@ -106,11 +113,15 @@ public class RptByExample2Action extends ActionSupport {
         sql = sql == null ? "" : sql;
         request.setAttribute("submittedSql", sql);
 
+        Properties properties = CarlosProperties.getInstance();
         if (!"POST".equals(request.getMethod())) {
+            // Settings only, no database call: tell the user up front rather than after they type.
+            if (isEnabled(properties) && !ReportingConnectionService.isConfigured(properties)) {
+                request.setAttribute("queryReportingUnavailable", true);
+            }
             return SUCCESS;
         }
 
-        Properties properties = CarlosProperties.getInstance();
         if (!isEnabled(properties)) {
             request.setAttribute("queryDisabled", true);
             RptByExampleData.audit(providerNo, sql, 0, 0, "disabled");
@@ -128,6 +139,12 @@ public class RptByExample2Action extends ActionSupport {
             result = new RptByExampleData().execute(sql, properties, providerNo);
         } catch (QueryByExampleValidationException e) {
             request.setAttribute("queryValidationError", true);
+            return SUCCESS;
+        } catch (ReportingAccountUnavailableException e) {
+            request.setAttribute("queryReportingUnavailable", true);
+            return SUCCESS;
+        } catch (QueryByExampleAccessDeniedException e) {
+            request.setAttribute("queryAccessDenied", true);
             return SUCCESS;
         } catch (SQLTimeoutException e) {
             request.setAttribute("queryTimeout", true);

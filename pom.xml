@@ -1548,6 +1548,9 @@
                         <nonFilteredFileExtension>xsd</nonFilteredFileExtension>
                         <nonFilteredFileExtension>jasper</nonFilteredFileExtension>
                         <nonFilteredFileExtension>doc</nonFilteredFileExtension>
+                        <!-- SQL resources (db/reporting/carlos_report_grants.sql) use @session
+                             variables and must reach the WAR byte for byte, like the migrations. -->
+                        <nonFilteredFileExtension>sql</nonFilteredFileExtension>
                     </nonFilteredFileExtensions>
                 </configuration>
             </plugin>
