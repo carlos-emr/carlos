@@ -272,7 +272,10 @@ Calendar._doSetup = function (params) {
     // its key and blur handlers read a .value a link does not have. Give it a
     // hidden stand-in field beside the trigger, placed at the trigger, instead.
     // Hidden by style, not type="hidden": Flatpickr turns its field into a text box.
-    if (!inputEl && buttonEl && buttonEl.parentNode) {
+    // Only for a page that takes the dates in its own hook: with no field and no
+    // hook, a calendar that opened would have nowhere to put the pick.
+    var pageTakesDates = typeof params.onClose === "function" || typeof params.onUpdate === "function";
+    if (!inputEl && buttonEl && buttonEl.parentNode && pageTakesDates) {
         target = document.createElement("input");
         target.type = "text";
         target.style.display = "none";

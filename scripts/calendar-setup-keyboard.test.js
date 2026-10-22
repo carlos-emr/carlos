@@ -43,7 +43,7 @@ function element(document, tagName, attributes = {}, textContent = '') {
  * Runs Calendar.setup on box `d` with trigger `dcal`; returns the page.
  * @param {Object} opts trigger: { tagName, attributes, text }; params: extra Calendar.setup params; tt: Calendar._TT
  */
-function setUp({ trigger = { tagName: 'IMG' }, params = {}, tt = {}, guardedClose = true } = {}) {
+function setUp({ trigger = { tagName: 'IMG' }, params = {}, tt = {}, guardedClose = true, field = true } = {}) {
   const document = { activeElement: null };
   document.body = element(document, 'BODY');
   document.activeElement = document.body;
@@ -51,7 +51,16 @@ function setUp({ trigger = { tagName: 'IMG' }, params = {}, tt = {}, guardedClos
   const button = element(document, trigger.tagName, { id: 'dcal', ...(trigger.attributes || {}) }, trigger.text || '');
   const other = element(document, 'INPUT', { type: 'text', id: 'other' });
   const days = { selected: element(document, 'SPAN', {}, '5'), today: element(document, 'SPAN', {}, '19') };
-  document.getElementById = (id) => ({ d: box, dcal: button, other }[id] || null);
+  document.getElementById = (id) => ({ d: field ? box : null, dcal: button, other }[id] || null);
+  // A trigger with no field gets a stand-in field inserted beside it (#5055).
+  const inserted = [];
+  document.createElement = (tagName) => {
+    const el = element(document, tagName.toUpperCase());
+    el.style = {};
+    return el;
+  };
+  button.parentNode = { insertBefore: (el, before) => { inserted.push({ el, before }); } };
+  button.nextSibling = other;
   const calendarContainer = {
     querySelector: (selector) => (/\.selected/.test(selector) ? days.selected : /\.today/.test(selector) ? days.today : null),
     contains: (el) => el === days.selected || el === days.today,
@@ -83,7 +92,7 @@ function setUp({ trigger = { tagName: 'IMG' }, params = {}, tt = {}, guardedClos
   vm.runInContext(SHIM, context);
   context.Calendar.setup({ inputField: 'd', ifFormat: '%Y-%m-%d', button: 'dcal', ...params });
   assert.ok(instance, 'Calendar.setup did not initialise flatpickr');
-  return { document, box, button, other, days, fp: instance, Calendar: context.Calendar };
+  return { document, box, button, other, days, inserted, fp: instance, Calendar: context.Calendar };
 }
 
 test('shouldMakeAnImgTriggerAFocusableNamedButton_whenItHasNoName', () => {
@@ -197,6 +206,31 @@ test('shouldStillCallThePagesOnClose_beforeTheFocusReturns', () => {
   page.fp.close();
   assert.deepEqual(calls, ['function'], 'the page\'s onClose still gets the legacy calendar object');
   assert.equal(page.document.activeElement, page.button);
+});
+
+test('shouldBindAHiddenStandInAtTheTrigger_whenThereIsNoFieldAndThePageTakesTheDates', () => {
+  // billingShortcutPg1.jsp: the trigger's field is a textarea named, not identified, billDate.
+  const page = setUp({ field: false, trigger: { tagName: 'A', attributes: { href: '#' }, text: '[Service Date]' },
+    params: { multiple: [], onClose: () => {} } });
+  assert.equal(page.inserted.length, 1, 'one stand-in field is inserted');
+  const { el, before } = page.inserted[0];
+  assert.equal(page.fp.input, el, 'Flatpickr is bound to the stand-in, not to the trigger');
+  assert.equal(before, page.other, 'the stand-in goes right after the trigger');
+  assert.equal(el.tagName, 'INPUT');
+  assert.equal(el.style.display, 'none');
+  assert.equal(el.getAttribute('aria-hidden'), 'true');
+  assert.equal(page.fp.options.positionElement, page.button, 'the calendar opens at the trigger');
+  assert.deepEqual([...page.fp.options.ignoredFocusElements], [page.button], 'a press on the trigger does not count as leaving');
+  page.button.fire('click', { detail: 1 });
+  assert.equal(page.fp.isOpen, true, 'one click on the trigger opens it');
+  page.button.fire('click', { detail: 1 });
+  assert.equal(page.fp.isOpen, false, 'and the next closes it');
+});
+
+test('shouldKeepBindingToTheTrigger_whenThereIsNoFieldAndNoHookForTheDates', () => {
+  const page = setUp({ field: false });
+  assert.equal(page.inserted.length, 0, 'no stand-in: there would be nowhere to put the pick');
+  assert.equal(page.fp.input, page.button);
 });
 
 test('shouldCloseOnce_whenThePagesOnCloseEndsWithCalHide', () => {
