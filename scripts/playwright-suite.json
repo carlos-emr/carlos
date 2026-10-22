@@ -7302,6 +7302,21 @@
       }
     },
     {
+      "name": "eform-fax-handoff",
+      "script": "scripts/eform-fax-handoff-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "fixtures": "Owns the synthetic patient, one marker eForm template and one owned active SRFax sender with a random number (rx-fax-account-fixture; it only enables the toolbar Fax button and lets preparation reach the cover page, nothing is sent). Like double-submit-eform it may move the eform_data id counter past the demo database's stale EFormDocs ids. Both staged previews are cancelled through the application; cleanup deletes the instances (eform_values + eform_data), the template and the sender, asserts them gone, and asserts no faxes row names the sender line.",
+      "notes": "PR #2474 / issue #2466: toolbar Fax saves the eForm once (HTTP 200 preparation page, Cache-Control no-store, no redirect), then EFormFaxPreparation.jsp sends exactly one POST to /fax/faxAction?method=prepareFax naming the saved fdid, the owned patient and the typed recipient, with only a CSRF token in the body; no GET reaches prepareFax. The cover page carries the same references and renders the staged preview. A bare GET of the preparation URL is refused 405 with Allow: POST; a replayed save is refused 409 and a replayed preparation (what a cover-page reload sends) renders a cover page again, and neither adds an eform_data row. Cancel returns to the saved eForm with nothing queued."
+    },
+    {
       "name": "double-submit-lab-manual",
       "script": "scripts/double-submit-lab-manual-playwright-checks.js",
       "tiers": [
