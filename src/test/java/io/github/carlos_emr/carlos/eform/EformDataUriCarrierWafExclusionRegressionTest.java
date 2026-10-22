@@ -103,16 +103,20 @@ class EformDataUriCarrierWafExclusionRegressionTest {
         // save is refused again (or the action stops restoring the signature).
         assertThat(EFormDataUriCarrier.PARAMETER).isEqualTo("carlos-data-uri");
         assertThat(EFormDataUriCarrier.REFERENCE_PREFIX).isEqualTo(EFormDataUriCarrier.PARAMETER + ":");
+        // The nonce argument is scored like any other field: the rule must not name it.
+        assertThat(EFormDataUriCarrier.NONCE_PARAMETER).isEqualTo("carlos-data-uri-nonce");
         String toolbar = Files.readString(TOOLBAR_JS, StandardCharsets.UTF_8);
         assertThat(toolbar)
                 .contains("const PARAMETER = \"carlos-data-uri\";")
+                .contains("const NONCE_PARAMETER = \"carlos-data-uri-nonce\";")
                 .contains("const REFERENCE_PREFIX = \"carlos-data-uri:\";")
                 .contains("const MAX_VALUES = " + EFormDataUriCarrier.MAX_VALUES + ";")
                 .contains("const MAX_PAYLOAD_CHARS = " + EFormDataUriCarrier.MAX_BASE64_CHARS + ";");
         String action = Files.readString(ACTION, StandardCharsets.UTF_8);
         assertThat(action)
                 .contains("request.getParameterValues(EFormDataUriCarrier.PARAMETER)")
-                .contains("EFormDataUriCarrier.restore(paramValues, carriedDataUris)");
+                .contains("request.getParameter(EFormDataUriCarrier.NONCE_PARAMETER)")
+                .contains("EFormDataUriCarrier.restore(paramValues, carriedDataUris, carriedDataUriNonce)");
     }
 
     private static String activeLines(String text) {

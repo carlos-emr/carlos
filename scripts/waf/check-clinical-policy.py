@@ -370,15 +370,18 @@ def build_cases(phrases, corpus):
     cases.append(request_case("image-link-wrong-route", 3352, LETTER + "Evil", "carlos-image-link", image_source, **rce))
 
     # Exclusion 1040 (#3552): the page moves signature data URIs out of the eForm's own
-    # (author-named) fields into ARGS:carlos-data-uri and leaves "carlos-data-uri:<n>" behind.
+    # (author-named) fields into ARGS:carlos-data-uri and leaves "carlos-data-uri:<nonce>:<n>"
+    # behind, the nonce in ARGS:carlos-data-uri-nonce (scored like any field).
     # A signature-sized carried value passes; the same value left in an author-named field, and
     # every attribute-XSS vector the old request-wide 941130/941170 removal let through, is
     # scored again; and the carrier itself is still scored off its route/method and by the
     # families it does not unhook.
     png, jsignature = signature_png(), "data:image/jsignature;base30,3E13Z5Y5_1O24Z66_1O1Z3_3E2Z4"
+    nonce = "0123456789abcdef0123456789abcdef"
     cases.append(Case("data-uri-carried-save", 3552, "POST", LETTER, urlencode([
-        ("SignatureBox", "carlos-data-uri:0"), ("StoreSignature1", "carlos-data-uri:1"),
-        ("clinicalNote", "Routine follow up."), ("carlos-data-uri", png), ("carlos-data-uri", jsignature)])))
+        ("SignatureBox", f"carlos-data-uri:{nonce}:0"), ("StoreSignature1", f"carlos-data-uri:{nonce}:1"),
+        ("clinicalNote", "Routine follow up."), ("carlos-data-uri", png), ("carlos-data-uri", jsignature),
+        ("carlos-data-uri-nonce", nonce)])))
     data_uri_xss = {"expect": "inbound", "signatures": ("941130", "941170")}
     for name, value in (("png", png), ("jsignature", jsignature)):
         cases.append(request_case(f"data-uri-in-author-field-{name}", 3552, LETTER, "SignatureBox", value, **data_uri_xss))
@@ -398,7 +401,8 @@ def build_cases(phrases, corpus):
     # value really does score 932140 on an argument 1040 does not name.
     rce_shaped = "data:image/png;base64,iVBORw0KGgoAAAA/if+AAAAAAAAAAAAAAA=="
     cases.append(Case("data-uri-carried-rce-shaped", 3552, "POST", LETTER, urlencode([
-        ("SignatureBox", "carlos-data-uri:0"), ("carlos-data-uri", rce_shaped)])))
+        ("SignatureBox", f"carlos-data-uri:{nonce}:0"), ("carlos-data-uri", rce_shaped),
+        ("carlos-data-uri-nonce", nonce)])))
     cases.append(request_case("data-uri-rce-shaped-control", 3552, LETTER, "carlos-data-uri-x", rce_shaped,
                               expect="inbound", signatures=("932140",)))
     carrier_probe = "data:image/png;base64,AQID"
@@ -408,8 +412,9 @@ def build_cases(phrases, corpus):
     for suffix in ("Evil", "/child"):
         cases.append(request_case(f"data-uri-carrier-route-{suffix.replace('/', '-')}", 3552, LETTER + suffix,
                                   "carlos-data-uri", carrier_probe, **data_uri_xss))
-    cases.append(request_case("data-uri-carrier-similar-name", 3552, LETTER, "carlos-data-uri-x", carrier_probe,
-                              **data_uri_xss))
+    for similar in ("carlos-data-uri-x", "carlos-data-uri-nonce"):
+        cases.append(request_case(f"data-uri-carrier-similar-name-{similar}", 3552, LETTER, similar, carrier_probe,
+                                  **data_uri_xss))
     for family, value, signatures in (("lfi", TRAVERSAL, ("930100", "930110")),
                                       ("rfi", RFI, ("931100",)),
                                       ("php", "<?php echo 1;", ("933100",))):

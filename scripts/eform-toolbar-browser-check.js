@@ -106,12 +106,13 @@ const server = http.createServer((req, res) => {
     }
     // Signature pads (#3552): a canvas pad writes canvas.toDataURL() into an author-named hidden
     // field, a jSignature-style field holds base30 strokes and a mirrored pad repeats the PNG. The
-    // save must post each as carlos-data-uri:<n> with the values under carlos-data-uri, so the WAF
-    // exempts one known argument; SVG and ordinary fields post unchanged. Returns the PNG.
+    // save must post each as carlos-data-uri:<nonce>:<n> with the values under carlos-data-uri and
+    // the nonce under carlos-data-uri-nonce, so the WAF exempts one known argument; SVG, ordinary
+    // fields and typed text that reads like a reference post unchanged. Returns the PNG.
     const JSIGNATURE = 'data:image/jsignature;base30,3E13Z5Y5_1O24Z66';
     const SVG = 'data:image/svg+xml;base64,PHN2Zz4=';
     async function addSignaturePads(writeOnSubmit = false) {
-      return page.evaluate(({jsignature, svg, writeOnSubmit}) => {
+      return page.evaluate(({jsignature, svg, writeOnSubmit}) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal and its arguments are this file's constants, structured-cloned rather than interpolated into page script
         const form = document.forms[0];
         const canvas = document.createElement('canvas');
         canvas.width = 160; canvas.height = 40;
@@ -122,7 +123,8 @@ const server = http.createServer((req, res) => {
         block.id = 'signatureBlock';
         block.innerHTML = '<img id="sigPreview" alt="signature"><input type="hidden" name="SignatureBox" id="SignatureBox">'
           + '<input type="hidden" name="StoreSignature1" id="StoreSignature1"><input type="hidden" name="MirrorSignature" id="MirrorSignature">'
-          + '<textarea name="clinicalNote" id="clinicalNote">Routine follow up.</textarea><input type="hidden" name="svgDrawing" id="svgDrawing">';
+          + '<textarea name="clinicalNote" id="clinicalNote">Routine follow up.</textarea><input type="hidden" name="svgDrawing" id="svgDrawing">'
+          + '<input name="typedNote" id="typedNote" value="carlos-data-uri:0">';
         block.prepend(canvas);
         form.prepend(block);
         document.getElementById('sigPreview').src = png;
@@ -140,11 +142,16 @@ const server = http.createServer((req, res) => {
     }
     function assertCarriedSignatures(request, png, label) {
       assert.match(png, /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/, `${label}: canvas wrote a PNG data URI`);
-      assert.equal(request.get('SignatureBox'), 'carlos-data-uri:0', label);
-      assert.equal(request.get('StoreSignature1'), 'carlos-data-uri:1', label);
-      assert.equal(request.get('MirrorSignature'), 'carlos-data-uri:0', label);
+      const nonces = request.getAll('carlos-data-uri-nonce');
+      assert.equal(nonces.length, 1, `${label}: one nonce`);
+      assert.match(nonces[0], /^[0-9a-f]{32}$/, `${label}: nonce shape`);
+      const ref = index => `carlos-data-uri:${nonces[0]}:${index}`;
+      assert.equal(request.get('SignatureBox'), ref(0), label);
+      assert.equal(request.get('StoreSignature1'), ref(1), label);
+      assert.equal(request.get('MirrorSignature'), ref(0), label);
       assert.deepEqual(request.getAll('carlos-data-uri'), [png, JSIGNATURE], label);
       assert.equal(request.get('clinicalNote'), 'Routine follow up.', label);
+      assert.equal(request.get('typedNote'), 'carlos-data-uri:0', `${label}: typed text is never a reference`);
       assert.equal(request.get('svgDrawing'), SVG, `${label}: SVG is never carried`);
       for (const [name, value] of request.entries()) {
         if (name === 'carlos-data-uri' || name === 'carlos-image-link') continue;
@@ -824,7 +831,8 @@ const server = http.createServer((req, res) => {
     // Building the request never touches the page: the fields keep their data URIs.
     await open();
     const keptPng = await addSignaturePads();
-    assert.equal(await page.evaluate(() => new FormData(document.forms[0]).get('SignatureBox')), 'carlos-data-uri:0');
+    assert.match(await page.evaluate(() => new FormData(document.forms[0]).get('SignatureBox')),
+      /^carlos-data-uri:[0-9a-f]{32}:0$/);
     assert.equal(await page.locator('#SignatureBox').inputValue(), keptPng);
     assert.equal(await page.locator('input[name="carlos-data-uri"]').count(), 0);
     await open();
@@ -966,7 +974,7 @@ const server = http.createServer((req, res) => {
       document.querySelector('input[name=SubmitButton]').click();
     });
     await page.waitForFunction(() => window.lateCancel === true);
-    await page.waitForFunction(() => document.querySelectorAll('input[name="carlos-data-uri"]').length === 0
+    await page.waitForFunction(() => document.querySelectorAll('input[name^="carlos-data-uri"]').length === 0
       && !document.getElementById('SignatureBox').disabled);
     assert.equal(requests.length, 0);
     assert.equal(await page.locator('#SignatureBox').inputValue(), cancelledPng);

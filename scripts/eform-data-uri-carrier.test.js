@@ -72,7 +72,7 @@ function load({ formDataEvent = true } = {}) {
       addEventListener: (type, listener, capture) => listeners.push({ type, listener, capture }),
     },
     window: { location: { origin: ORIGIN } },
-    atob, URL, Map, Set, Array,
+    atob, URL, Map, Set, Array, Uint8Array, crypto,
     setTimeout: callback => timers.push(callback),
   };
   vm.runInNewContext(carrierSource + '\nthis.carrier = eformDataUriCarrier;', context);
@@ -99,6 +99,16 @@ test('refuses non-strings and payloads past the shared size limit', () => {
   assert.equal(carrier.isCarriable('data:image/jsignature;base30,' + 'a'.repeat(6990505)), false);
 });
 
+const NONCED = /^carlos-data-uri:([0-9a-f]{32}):(\d+)$/;
+
+/** The nonce the request's references bear; asserts they all bear the posted one. */
+function postedNonce(data) {
+  const nonces = data.getAll('carlos-data-uri-nonce');
+  assert.equal(nonces.length, 1, 'exactly one nonce is posted');
+  assert.match(nonces[0], /^[0-9a-f]{32}$/);
+  return nonces[0];
+}
+
 test('rewrites the request: references in place, carried values appended once each', () => {
   const { carrier } = load();
   const data = new FormData();
@@ -112,19 +122,35 @@ test('rewrites the request: references in place, carried values appended once ea
 
   assert.equal(carrier.carryFormData(data), 2);
 
+  const nonce = postedNonce(data);
   assert.deepEqual(Array.from(data.entries()), [
     ['efmfid', '1'],
-    ['SignatureBox', 'carlos-data-uri:0'],
+    ['SignatureBox', `carlos-data-uri:${nonce}:0`],
     ['clinicalNote', 'Routine follow up.'],
-    ['StoreSignature1', 'carlos-data-uri:1'],
-    ['MirrorSignature', 'carlos-data-uri:0'],
+    ['StoreSignature1', `carlos-data-uri:${nonce}:1`],
+    ['MirrorSignature', `carlos-data-uri:${nonce}:0`],
     // The image placeholder has its own exemption (1030) and is JSON, never carried.
     ['carlos-image-link', JSON.stringify({ id: 'sig', value: PNG })],
     // SVG can hold script: posted where it is, so the WAF still scores it.
     ['svgDrawing', 'data:image/svg+xml;base64,PHN2Zz4='],
     ['carlos-data-uri', PNG],
     ['carlos-data-uri', JSIGNATURE],
+    ['carlos-data-uri-nonce', nonce],
   ]);
+});
+
+test('draws a fresh nonce for every request', () => {
+  const { carrier } = load();
+  const nonces = new Set();
+  for (let i = 0; i < 20; i++) {
+    const data = new FormData();
+    data.append('SignatureBox', PNG);
+    carrier.carryFormData(data);
+    const nonce = postedNonce(data);
+    assert.equal(data.get('SignatureBox'), `carlos-data-uri:${nonce}:0`);
+    nonces.add(nonce);
+  }
+  assert.equal(nonces.size, 20);
 });
 
 test('keeps repeated names and file entries in their places', () => {
@@ -136,8 +162,8 @@ test('keeps repeated names and file entries in their places', () => {
   data.append('pads', 'second value');
   carrier.carryFormData(data);
   const entries = Array.from(data.entries());
-  assert.deepEqual(entries.map(([name]) => name), ['pads', 'upload', 'pads', 'carlos-data-uri']);
-  assert.deepEqual(data.getAll('pads'), ['carlos-data-uri:0', 'second value']);
+  assert.deepEqual(entries.map(([name]) => name), ['pads', 'upload', 'pads', 'carlos-data-uri', 'carlos-data-uri-nonce']);
+  assert.deepEqual(data.getAll('pads'), [`carlos-data-uri:${postedNonce(data)}:0`, 'second value']);
   assert.equal(entries[1][1].name, 'scan.pdf');
 });
 
@@ -147,6 +173,7 @@ test('leaves a request with nothing to carry, or already carried, untouched', ()
   plain.append('clinicalNote', 'carlos-data-uri:0');
   assert.equal(carrier.carryFormData(plain), 0);
   assert.deepEqual(Array.from(plain.entries()), [['clinicalNote', 'carlos-data-uri:0']]);
+  assert.equal(plain.has('carlos-data-uri-nonce'), false);
 
   const carried = new FormData();
   carried.append('SignatureBox', PNG);
@@ -164,10 +191,11 @@ test('carries at most EFormDataUriCarrier.MAX_VALUES distinct values', () => {
     pads.push(['pad' + i, PNG.slice(0, 'data:image/png;base64,'.length + 12) + tail]);
   }
   assert.ok(pads.every(([, value]) => carrier.isCarriable(value)));
-  const plan = carrier.plan(pads);
+  const plan = carrier.plan(pads, '0123456789abcdef0123456789abcdef');
   assert.equal(plan.carried.length, 256);
   assert.equal(plan.replacements.size, 256);
   assert.equal(plan.replacements.has(256), false);
+  assert.equal(plan.replacements.get(255), 'carlos-data-uri:0123456789abcdef0123456789abcdef:255');
 });
 
 test('only an eForm save form is rewritten', () => {
@@ -196,7 +224,7 @@ test('with the formdata event, rewrites each eForm save request as it is built',
   const save = new FormData();
   save.append('SignatureBox', PNG);
   formdata[0].listener({ target: new FakeForm(), formData: save });
-  assert.equal(save.get('SignatureBox'), 'carlos-data-uri:0');
+  assert.match(save.get('SignatureBox'), NONCED);
 
   const other = new FormData();
   other.append('SignatureBox', PNG);

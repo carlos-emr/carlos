@@ -70,7 +70,8 @@
 
 - Signature pads store data URIs in author-named eForm fields, which the packaged WAF cannot name.
   `eform_floating_toolbar.js` moves each image data URI into the fixed `carlos-data-uri` argument
-  while the save request is built (leaving `carlos-data-uri:<n>` in the field), and
+  while the save request is built (leaving `carlos-data-uri:<nonce>:<n>` in the field, with a
+  per-submission nonce in `carlos-data-uri-nonce` so typed text is never taken for a reference), and
   `AddEForm2Action` restores it through `EFormDataUriCarrier` before anything is stored (#3552).
 - WAF rule 1040 exempts only `ARGS:carlos-data-uri`; never return to a request-wide
   `ruleRemoveById`. `EFormDataUriCarrier` is the boundary: it accepts only padded Base64

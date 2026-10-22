@@ -303,10 +303,13 @@ document.addEventListener("formdata", function (event) {
  * checking every other field.
  *
  * While the browser builds an eForm save, each such value moves into the fixed "carlos-data-uri"
- * argument (the only one the WAF excludes for this), and its field posts "carlos-data-uri:<n>", n
- * being the value's position among the carlos-data-uri values. AddEForm2Action, through
- * EFormDataUriCarrier, puts every value back before the eForm is stored. The page itself never
- * changes: the fields keep their data URIs.
+ * argument (the only one the WAF excludes for this), and its field posts
+ * "carlos-data-uri:<nonce>:<n>", n being the value's position among the carlos-data-uri values and
+ * nonce a random value drawn for this submission and posted as "carlos-data-uri-nonce". The server
+ * treats only values bearing that nonce as references, so a field whose own text happens to read
+ * "carlos-data-uri:0" is stored as typed. AddEForm2Action, through EFormDataUriCarrier, puts every
+ * value back before the eForm is stored. The page itself never changes: the fields keep their data
+ * URIs.
  *
  * Only exactly what EFormDataUriCarrier accepts moves: lower-case PNG, JPEG, GIF or WebP Base64 data
  * URIs whose bytes start with that format's signature, and jSignature base30 strokes. Anything else
@@ -316,11 +319,14 @@ document.addEventListener("formdata", function (event) {
  *
  * Like newForm above, the formdata event covers every submission (requestSubmit, a native click, the
  * toolbar's form.submit()) after all submit handlers. Browsers without it (Safari before 15) get the
- * same request from temporary hidden inputs instead.
+ * same request from temporary hidden inputs instead. The event also fires for a template script's
+ * own new FormData(form) on the save form; it gets the same rewritten entries, which is what an
+ * AJAX post of that form to addEForm needs.
  */
 // <eform-data-uri-carrier>
 const eformDataUriCarrier = (function () {
     const PARAMETER = "carlos-data-uri";
+    const NONCE_PARAMETER = "carlos-data-uri-nonce";
     const REFERENCE_PREFIX = "carlos-data-uri:";
     // EFormDataUriCarrier.MAX_VALUES and MAX_BASE64_CHARS (at most 5 MiB decoded).
     const MAX_VALUES = 256;
@@ -381,11 +387,19 @@ const eformDataUriCarrier = (function () {
         return action.origin === window.location.origin && /\/eform\/addEForm(?:;[^/]*)?$/.test(action.pathname);
     }
 
+    /** 128 random bits as 32 lower-case hex digits: EFormDataUriCarrier's nonce shape. */
+    function newNonce() {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes, function (b) { return (b < 16 ? "0" : "") + b.toString(16); }).join("");
+    }
+
     /**
      * Plans one submission: for [name, value] entries in posting order, returns the replacement value
-     * for each carried entry (by entry index) and the carried values, an identical value carried once.
+     * for each carried entry (by entry index), the carried values (an identical value carried once)
+     * and the nonce the references bear.
      */
-    function plan(entries) {
+    function plan(entries, nonce) {
         const replacements = new Map();
         const carried = [];
         const positions = new Map();
@@ -399,16 +413,16 @@ const eformDataUriCarrier = (function () {
                 positions.set(value, position);
                 carried.push(value);
             }
-            replacements.set(i, REFERENCE_PREFIX + position);
+            replacements.set(i, REFERENCE_PREFIX + nonce + ":" + position);
         });
-        return {replacements: replacements, carried: carried};
+        return {replacements: replacements, carried: carried, nonce: nonce};
     }
 
     /** Rewrites a FormData in place, keeping every entry's position. Returns the number carried. */
     function carryFormData(formData) {
         if (formData.getAll(PARAMETER).length > 0) return 0;
         const entries = Array.from(formData.entries());
-        const result = plan(entries);
+        const result = plan(entries, newNonce());
         if (result.carried.length === 0) return 0;
         new Set(entries.map(function (entry) { return entry[0]; })).forEach(function (name) {
             formData.delete(name);
@@ -417,6 +431,7 @@ const eformDataUriCarrier = (function () {
             formData.append(entry[0], result.replacements.has(i) ? result.replacements.get(i) : entry[1]);
         });
         result.carried.forEach(function (value) { formData.append(PARAMETER, value); });
+        formData.append(NONCE_PARAMETER, result.nonce);
         return result.carried.length;
     }
 
@@ -433,7 +448,8 @@ const eformDataUriCarrier = (function () {
                 && (tag === "TEXTAREA" || (tag === "INPUT"
                     && !/^(?:button|checkbox|file|image|radio|reset|submit)$/i.test(control.type)));
         });
-        const result = plan(controls.map(function (control) { return [control.name, control.value]; }));
+        const result = plan(controls.map(function (control) { return [control.name, control.value]; }),
+            newNonce());
         if (result.carried.length === 0) return 0;
         const added = [];
         function addHidden(name, value) {
@@ -452,6 +468,7 @@ const eformDataUriCarrier = (function () {
             addHidden(control.name, reference);
         });
         result.carried.forEach(function (value) { addHidden(PARAMETER, value); });
+        addHidden(NONCE_PARAMETER, result.nonce);
         setTimeout(function () {
             added.forEach(function (input) { input.remove(); });
             disabled.forEach(function (control) { control.disabled = false; });

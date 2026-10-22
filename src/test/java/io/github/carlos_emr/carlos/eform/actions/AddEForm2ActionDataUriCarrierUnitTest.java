@@ -79,7 +79,7 @@ import static org.mockito.Mockito.when;
  * (#3552).
  *
  * <p>The page moves a signature pad's data URI out of its author-named field into
- * {@link EFormDataUriCarrier#PARAMETER} and leaves {@code carlos-data-uri:<n>} in the field, so the
+ * {@link EFormDataUriCarrier#PARAMETER} and leaves {@code carlos-data-uri:<nonce>:<n>} in the field, so the
  * WAF can exclude one known argument. The stored eForm values and the template's chart writes must
  * see the signature itself, never the reference, and never the carrier argument as a field. A
  * carried value that is not an image refuses the save before storage starts, which keeps the
@@ -100,6 +100,11 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
     private static final String PNG = "data:image/png;base64,"
             + "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=";
     private static final String JSIGNATURE = "data:image/jsignature;base30,3E13Z5Y5_1O24Z66";
+    private static final String NONCE = "00112233445566778899aabbccddeeff";
+
+    private static String ref(int index) {
+        return EFormDataUriCarrier.REFERENCE_PREFIX + NONCE + ":" + index;
+    }
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -222,11 +227,14 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldStoreSignatureItself_whenFieldCarriesReference() throws Exception {
-        mockRequest.setParameter("SignatureBox", "carlos-data-uri:0");
-        mockRequest.setParameter("StoreSignature1", "carlos-data-uri:1");
-        mockRequest.setParameter("MirrorSignature", "carlos-data-uri:0");
+        mockRequest.setParameter("SignatureBox", ref(0));
+        mockRequest.setParameter("StoreSignature1", ref(1));
+        mockRequest.setParameter("MirrorSignature", ref(0));
         mockRequest.setParameter("clinicalNote", "Routine follow up.");
+        // Typed text that only reads like a reference is stored as typed.
+        mockRequest.setParameter("typedNote", "carlos-data-uri:0");
         mockRequest.setParameter(EFormDataUriCarrier.PARAMETER, PNG, JSIGNATURE);
+        mockRequest.setParameter(EFormDataUriCarrier.NONCE_PARAMETER, NONCE);
 
         assertThat(new AddEForm2Action().execute()).isEqualTo("missingContent");
 
@@ -234,42 +242,46 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
         assertThat(storedValue("StoreSignature1")).isEqualTo(JSIGNATURE);
         assertThat(storedValue("MirrorSignature")).isEqualTo(PNG);
         assertThat(storedValue("clinicalNote")).isEqualTo("Routine follow up.");
-        assertThat(storedFields().get(0)).doesNotContain(EFormDataUriCarrier.PARAMETER);
-        assertThat(storedFields().get(1)).noneMatch(value -> value.startsWith(EFormDataUriCarrier.REFERENCE_PREFIX));
+        assertThat(storedValue("typedNote")).isEqualTo("carlos-data-uri:0");
+        assertThat(storedFields().get(0))
+                .doesNotContain(EFormDataUriCarrier.PARAMETER, EFormDataUriCarrier.NONCE_PARAMETER);
+        assertThat(storedFields().get(1)).noneMatch(value -> value.contains(NONCE));
     }
 
     @SuppressWarnings("unchecked")
     @Test
     void shouldHandTemplateWriteRestoredValues_forChartEntries() throws Exception {
         // The template's chart writes (notes, ticklers, consults) read the same lists.
-        mockRequest.setParameter("SignatureBox", "carlos-data-uri:0");
+        mockRequest.setParameter("SignatureBox", ref(0));
         mockRequest.setParameter(EFormDataUriCarrier.PARAMETER, PNG);
+        mockRequest.setParameter(EFormDataUriCarrier.NONCE_PARAMETER, NONCE);
 
         new AddEForm2Action().execute();
 
         ArgumentCaptor<ArrayList<String>> values = ArgumentCaptor.forClass(ArrayList.class);
         eFormUtilMock.verify(() -> EFormUtil.writeEformTemplate(any(), any(), values.capture(), any(),
                 anyString(), anyString(), anyString()));
-        assertThat(values.getValue()).contains(PNG).doesNotContain("carlos-data-uri:0");
+        assertThat(values.getValue()).contains(PNG).doesNotContain(ref(0));
     }
 
     @Test
     void shouldStoreFieldUnchanged_whenRequestCarriesNothing() throws Exception {
         // An older page, or a form without a signature: nothing is rewritten.
         mockRequest.setParameter("SignatureBox", PNG);
-        mockRequest.setParameter("clinicalNote", "carlos-data-uri:0");
+        mockRequest.setParameter("clinicalNote", ref(0));
 
         assertThat(new AddEForm2Action().execute()).isEqualTo("missingContent");
 
         assertThat(storedValue("SignatureBox")).isEqualTo(PNG);
-        assertThat(storedValue("clinicalNote")).isEqualTo("carlos-data-uri:0");
+        assertThat(storedValue("clinicalNote")).isEqualTo(ref(0));
     }
 
     @Test
     void shouldRefuseSaveBeforeStorage_whenCarriedValueIsNotAnImage() throws Exception {
-        mockRequest.setParameter("SignatureBox", "carlos-data-uri:0");
+        mockRequest.setParameter("SignatureBox", ref(0));
         mockRequest.setParameter(EFormDataUriCarrier.PARAMETER,
                 "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==");
+        mockRequest.setParameter(EFormDataUriCarrier.NONCE_PARAMETER, NONCE);
 
         assertThat(new AddEForm2Action().execute()).isEqualTo("error");
 
@@ -283,11 +295,12 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldAllowRetry_afterRefusedCarriedValue() throws Exception {
         // Nothing was stored, so the same rendering's token must still save once corrected.
-        mockRequest.setParameter("SignatureBox", "carlos-data-uri:3");
+        mockRequest.setParameter("SignatureBox", ref(3));
         mockRequest.setParameter(EFormDataUriCarrier.PARAMETER, PNG);
+        mockRequest.setParameter(EFormDataUriCarrier.NONCE_PARAMETER, NONCE);
         assertThat(new AddEForm2Action().execute()).isEqualTo("error");
 
-        mockRequest.setParameter("SignatureBox", "carlos-data-uri:0");
+        mockRequest.setParameter("SignatureBox", ref(0));
         mockResponse = new MockHttpServletResponse();
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
         assertThat(new AddEForm2Action().execute()).isEqualTo("missingContent");

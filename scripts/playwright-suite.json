@@ -15757,6 +15757,24 @@
       "notes": "Verifies image transport through save/reopen and the packaged WAF."
     },
     {
+      "name": "eform-signature-data-uri",
+      "script": "scripts/eform-signature-data-uri-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "EXPECT_FRONT_DOOR"
+      ],
+      "fixtures": "Owned synthetic patient and an owned eForm template inserted by unique name; its revisions, values and the template are deleted by name and asserted gone, then the patient. Must not run concurrently with other checks.",
+      "notes": "Issue #3552: a drawn canvas signature and jSignature strokes save through the toolbar as carlos-data-uri references, eform_values and the reopened form hold the signatures themselves, an SVG carried value is refused with 400 before storage and the same rendering then saves once, and through the packaged front door data:text/html or an uncarried signature in an ordinary field gets the WAF's 403 (WAF rule 1040 is per-argument)."
+    },
+    {
       "name": "demographic-add-relation",
       "script": "scripts/demographic-add-relation-playwright-checks.js",
       "tiers": [

@@ -301,6 +301,7 @@ public class AddEForm2Action extends ActionSupport {
          * exclude one known argument instead of the whole save (#3552); restored below.
          */
         String[] carriedDataUris = request.getParameterValues(EFormDataUriCarrier.PARAMETER);
+        String carriedDataUriNonce = request.getParameter(EFormDataUriCarrier.NONCE_PARAMETER);
 
         /*
          * An eform developer may add these to the eForm in order to auto
@@ -324,7 +325,8 @@ public class AddEForm2Action extends ActionSupport {
              * These values do not need to be saved into the eform_values table.
              */
             if (curField.equalsIgnoreCase("carlos-image-link")
-                    || curField.equals(EFormDataUriCarrier.PARAMETER)) {
+                    || curField.equals(EFormDataUriCarrier.PARAMETER)
+                    || curField.equals(EFormDataUriCarrier.NONCE_PARAMETER)) {
                 continue;
             }
 
@@ -338,7 +340,7 @@ public class AddEForm2Action extends ActionSupport {
         // Before anything reads paramValues: the stored values, the rendered form and the template's
         // chart writes must all see the signature itself, never the reference the page left behind.
         try {
-            EFormDataUriCarrier.restore(paramValues, carriedDataUris);
+            EFormDataUriCarrier.restore(paramValues, carriedDataUris, carriedDataUriNonce);
         } catch (EFormDataUriCarrier.InvalidCarriedValueException e) {
             // Nothing is stored yet, so the claim stays retryable. The reason names the failed rule
             // only; the value is a signature and is never logged.

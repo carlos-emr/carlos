@@ -208,12 +208,17 @@ class EFormDataUriCarrierUnitTest {
     @DisplayName("restore")
     class Restore {
 
+        private static final String NONCE = "0123456789abcdef0123456789abcdef";
+
+        private String ref(int index) {
+            return EFormDataUriCarrier.REFERENCE_PREFIX + NONCE + ":" + index;
+        }
+
         @Test
         void shouldReplaceEachReference_withItsCarriedValue() throws Exception {
-            List<String> values = new ArrayList<>(List.of(
-                    "Routine follow up.", "carlos-data-uri:1", "carlos-data-uri:0", "carlos-data-uri:1"));
+            List<String> values = new ArrayList<>(List.of("Routine follow up.", ref(1), ref(0), ref(1)));
 
-            int restored = EFormDataUriCarrier.restore(values, new String[] {PNG, JSIGNATURE});
+            int restored = EFormDataUriCarrier.restore(values, new String[] {PNG, JSIGNATURE}, NONCE);
 
             assertThat(restored).isEqualTo(3);
             assertThat(values).containsExactly("Routine follow up.", JSIGNATURE, PNG, JSIGNATURE);
@@ -221,41 +226,66 @@ class EFormDataUriCarrierUnitTest {
 
         @Test
         void shouldLeaveValuesUnchanged_whenNothingIsCarried() throws Exception {
-            // Text that merely reads like a reference stays exactly as the clinician typed it.
-            List<String> values = new ArrayList<>(List.of("carlos-data-uri:0", "carlos-data-uri:x"));
+            List<String> values = new ArrayList<>(List.of(ref(0), "carlos-data-uri:x"));
 
-            assertThat(EFormDataUriCarrier.restore(values, null)).isZero();
-            assertThat(EFormDataUriCarrier.restore(values, new String[0])).isZero();
-            assertThat(values).containsExactly("carlos-data-uri:0", "carlos-data-uri:x");
+            assertThat(EFormDataUriCarrier.restore(values, null, NONCE)).isZero();
+            assertThat(EFormDataUriCarrier.restore(values, new String[0], null)).isZero();
+            assertThat(values).containsExactly(ref(0), "carlos-data-uri:x");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"carlos-data-uri:0", "carlos-data-uri:notes", "carlos-data-uri:",
+            "carlos-data-uri:fedcba9876543210fedcba9876543210:0", "carlos-data-uri:0123456789abcdef0123456789abcde:0"})
+        void shouldStoreOrdinaryValueAsTyped_whenItOnlyReadsLikeAReference(String typed) throws Exception {
+            // Clinician text or an author default is never taken for a reference: only a value
+            // bearing this submission's nonce is one.
+            List<String> values = new ArrayList<>(List.of(typed, ref(0)));
+
+            assertThat(EFormDataUriCarrier.restore(values, new String[] {PNG}, NONCE)).isEqualTo(1);
+            assertThat(values).containsExactly(typed, PNG);
         }
 
         @Test
         void shouldIgnoreUnreferencedValidValue_whenNoFieldNamesIt() throws Exception {
             List<String> values = new ArrayList<>(List.of("Routine follow up."));
 
-            assertThat(EFormDataUriCarrier.restore(values, new String[] {PNG})).isZero();
+            assertThat(EFormDataUriCarrier.restore(values, new String[] {PNG}, NONCE)).isZero();
             assertThat(values).containsExactly("Routine follow up.");
         }
 
         @Test
         void shouldRefuseSubmission_whenAnyCarriedValueIsNotAnImage() {
             // Referenced or not: the page never sends an invalid value, so one means tampering.
-            List<String> values = new ArrayList<>(List.of("carlos-data-uri:0"));
+            List<String> values = new ArrayList<>(List.of(ref(0)));
 
             assertThatThrownBy(() -> EFormDataUriCarrier.restore(values,
-                    new String[] {PNG, "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=="}))
+                    new String[] {PNG, "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=="}, NONCE))
                     .isInstanceOf(EFormDataUriCarrier.InvalidCarriedValueException.class)
                     .hasMessageNotContaining("PHNjcmlwdD5");
-            assertThat(values).containsExactly("carlos-data-uri:0");
+            assertThat(values).containsExactly(ref(0));
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {"carlos-data-uri:2", "carlos-data-uri:01", "carlos-data-uri:-1",
-            "carlos-data-uri:", "carlos-data-uri:0 ", "carlos-data-uri:1000"})
-        void shouldRefuseSubmission_whenReferenceIsMissingOrMalformed(String reference) {
-            List<String> values = new ArrayList<>(List.of(reference));
+        @ValueSource(strings = {":2", ":01", ":-1", ":", ":0 ", ":1000", ":x"})
+        void shouldRefuseSubmission_whenNoncedReferenceIsMissingOrMalformed(String suffix) {
+            List<String> values = new ArrayList<>(List.of(EFormDataUriCarrier.REFERENCE_PREFIX + NONCE + suffix));
 
-            assertThatThrownBy(() -> EFormDataUriCarrier.restore(values, new String[] {PNG, JSIGNATURE}))
+            assertThatThrownBy(() -> EFormDataUriCarrier.restore(values, new String[] {PNG, JSIGNATURE}, NONCE))
+                    .isInstanceOf(EFormDataUriCarrier.InvalidCarriedValueException.class);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"", "0123456789ABCDEF0123456789ABCDEF", "0123456789abcdef", "not-a-nonce-at-all-but-32-chars!"})
+        void shouldRefuseSubmission_whenNonceIsMalformed(String nonce) {
+            List<String> values = new ArrayList<>(List.of(ref(0)));
+
+            assertThatThrownBy(() -> EFormDataUriCarrier.restore(values, new String[] {PNG}, nonce))
+                    .isInstanceOf(EFormDataUriCarrier.InvalidCarriedValueException.class);
+        }
+
+        @Test
+        void shouldRefuseSubmission_whenValuesAreCarriedWithoutNonce() {
+            assertThatThrownBy(() -> EFormDataUriCarrier.restore(new ArrayList<>(List.of(ref(0))), new String[] {PNG}, null))
                     .isInstanceOf(EFormDataUriCarrier.InvalidCarriedValueException.class);
         }
 
@@ -264,7 +294,7 @@ class EFormDataUriCarrierUnitTest {
             String[] carried = new String[EFormDataUriCarrier.MAX_VALUES + 1];
             Arrays.fill(carried, PNG);
 
-            assertThatThrownBy(() -> EFormDataUriCarrier.restore(new ArrayList<>(), carried))
+            assertThatThrownBy(() -> EFormDataUriCarrier.restore(new ArrayList<>(), carried, NONCE))
                     .isInstanceOf(EFormDataUriCarrier.InvalidCarriedValueException.class);
         }
 
@@ -272,9 +302,9 @@ class EFormDataUriCarrierUnitTest {
         void shouldAcceptMaximumCarriedCount_atLimit() throws Exception {
             String[] carried = new String[EFormDataUriCarrier.MAX_VALUES];
             Arrays.fill(carried, PNG);
-            List<String> values = new ArrayList<>(List.of("carlos-data-uri:255"));
+            List<String> values = new ArrayList<>(List.of(ref(255)));
 
-            assertThat(EFormDataUriCarrier.restore(values, carried)).isEqualTo(1);
+            assertThat(EFormDataUriCarrier.restore(values, carried, NONCE)).isEqualTo(1);
             assertThat(values).containsExactly(PNG);
         }
     }

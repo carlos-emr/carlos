@@ -37,10 +37,17 @@ import java.util.regex.Pattern;
  * the CRS attribute-XSS rules 941130/941170. The WAF used to remove those two rules for the whole save
  * request, which also stopped them checking every other eForm field. The eForm page script
  * ({@code eform_floating_toolbar.js}) now moves each such value into the fixed {@value #PARAMETER}
- * argument while the browser builds the request, and leaves {@value #REFERENCE_PREFIX}{@code <n>}
- * in the field, where {@code n} is the value's position among the {@value #PARAMETER} values. The
- * WAF then excludes only {@value #PARAMETER}, and the save restores each field to what the page held.
- * The stored eForm and its values are the same as if the field had been posted directly.</p>
+ * argument while the browser builds the request, and leaves
+ * {@value #REFERENCE_PREFIX}{@code <nonce>:<n>} in the field, where {@code n} is the value's position
+ * among the {@value #PARAMETER} values. The WAF then excludes only {@value #PARAMETER}, and the save
+ * restores each field to what the page held. The stored eForm and its values are the same as if the
+ * field had been posted directly.</p>
+ *
+ * <p><b>Which fields are references.</b> The page draws a random {@code nonce} (32 lower-case hex
+ * digits) for each submission and posts it in {@value #NONCE_PARAMETER}. Only a value that starts
+ * with {@value #REFERENCE_PREFIX} followed by that nonce and a colon is a reference. Any other value,
+ * including clinician text or an author default that happens to read {@code carlos-data-uri:0}, is
+ * stored exactly as posted.</p>
  *
  * <p><b>Security boundary.</b> {@value #PARAMETER} is the one eForm argument the WAF does not score
  * for XSS, SQL injection or command injection, so this class is what keeps it from carrying anything
@@ -57,11 +64,10 @@ import java.util.regex.Pattern;
  * only name an image. SVG ({@code image/svg+xml}), which can carry script, is never accepted here:
  * a field holding one is posted as it is and stays subject to the full XSS rules.</p>
  *
- * <p>Any invalid carried value, an over-long list, or a field that names a carried value that does
- * not exist rejects the whole submission rather than saving the eForm without its signature: the
+ * <p>Any invalid carried value, an over-long list, a missing or malformed nonce, or a reference that
+ * is malformed or names a carried value that does not exist rejects the whole submission rather than saving the eForm without its signature: the
  * page never produces those, so they mean a tampered or broken request. When the request carries no
- * {@value #PARAMETER} value at all, field values are left untouched, including one that happens to
- * read like a reference.</p>
+ * {@value #PARAMETER} value at all, field values are left untouched.</p>
  *
  * @since 2026-10-22
  */
@@ -70,7 +76,13 @@ public final class EFormDataUriCarrier {
     /** The request argument the eForm page moves field data URIs into. Must match the WAF rule 1040. */
     public static final String PARAMETER = "carlos-data-uri";
 
-    /** The prefix of the value left in a field whose data URI was moved; followed by its index. */
+    /** The argument holding the submission's nonce, which binds references to this request. */
+    public static final String NONCE_PARAMETER = "carlos-data-uri-nonce";
+
+    /**
+     * The prefix of the value left in a field whose data URI was moved; followed by the submission's
+     * nonce, a colon and the carried value's index.
+     */
     public static final String REFERENCE_PREFIX = "carlos-data-uri:";
 
     /**
@@ -91,8 +103,10 @@ public final class EFormDataUriCarrier {
     /** jSignature strokes are far smaller than an image; the bound only limits a hostile value. */
     static final int MAX_BASE30_CHARS = MAX_BASE64_CHARS;
 
+    // 128 random bits, as the page script writes them.
+    private static final Pattern NONCE = Pattern.compile("[0-9a-f]{32}");
     // At most three digits (MAX_VALUES is 256; restore() checks the index); no leading zeros.
-    private static final Pattern REFERENCE = Pattern.compile(Pattern.quote(REFERENCE_PREFIX) + "(0|[1-9][0-9]{0,2})");
+    private static final Pattern INDEX = Pattern.compile("0|[1-9][0-9]{0,2}");
     // Lower case only, exactly as canvas.toDataURL() and jSignature write them; the page script
     // matches the same shapes, so a value either side would not carry is never sent here.
     private static final Pattern RASTER_PREFIX = Pattern.compile("data:image/(png|jpeg|gif|webp);base64,");
@@ -117,21 +131,28 @@ public final class EFormDataUriCarrier {
     /**
      * Replaces each field value that references a carried data URI with that data URI, in place.
      *
-     * @param fieldValues the posted eForm field values, in posting order; each one that is exactly
-     *                    {@value #REFERENCE_PREFIX}{@code <n>} is replaced by carried value {@code n}
+     * @param fieldValues the posted eForm field values, in posting order; each one that starts with
+     *                    {@value #REFERENCE_PREFIX}{@code <nonce>:} is replaced by the carried value
+     *                    its index names; every other value is left exactly as posted
      * @param carried     the {@value #PARAMETER} values in posting order, or {@code null} when the
      *                    request has none (then {@code fieldValues} is left unchanged)
+     * @param nonce       the {@value #NONCE_PARAMETER} value; required when anything is carried
      * @return the number of field values replaced
      * @throws InvalidCarriedValueException when a carried value is not an accepted image data URI,
-     *                                      there are more than {@link #MAX_VALUES}, or a field
-     *                                      references an index with no carried value
+     *                                      there are more than {@link #MAX_VALUES}, the nonce is
+     *                                      missing or malformed, or a reference bearing the nonce is
+     *                                      malformed or names an index with no carried value
      */
-    public static int restore(List<String> fieldValues, String[] carried) throws InvalidCarriedValueException {
+    public static int restore(List<String> fieldValues, String[] carried, String nonce)
+            throws InvalidCarriedValueException {
         if (carried == null || carried.length == 0) {
             return 0;
         }
         if (carried.length > MAX_VALUES) {
             throw new InvalidCarriedValueException("too many carried values");
+        }
+        if (nonce == null || !NONCE.matcher(nonce).matches()) {
+            throw new InvalidCarriedValueException("missing or malformed carried value nonce");
         }
         // Every carried value is checked, referenced or not: the page sends none it does not use, so
         // an invalid one is a tampered request, and refusing it keeps the rule simple to audit.
@@ -140,17 +161,19 @@ public final class EFormDataUriCarrier {
                 throw new InvalidCarriedValueException("carried value is not an accepted image data URI");
             }
         }
+        String bound = REFERENCE_PREFIX + nonce + ":";
         int restored = 0;
         for (int i = 0; i < fieldValues.size(); i++) {
             String value = fieldValues.get(i);
-            if (value == null || !value.startsWith(REFERENCE_PREFIX)) {
+            if (value == null || !value.startsWith(bound)) {
                 continue;
             }
-            Matcher reference = REFERENCE.matcher(value);
-            if (!reference.matches()) {
+            // Only the page writes this nonce, so a value bearing it is a reference or a tampered one.
+            String position = value.substring(bound.length());
+            if (!INDEX.matcher(position).matches()) {
                 throw new InvalidCarriedValueException("malformed carried value reference");
             }
-            int index = Integer.parseInt(reference.group(1));
+            int index = Integer.parseInt(position);
             if (index >= carried.length) {
                 throw new InvalidCarriedValueException("reference to a missing carried value");
             }
