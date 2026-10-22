@@ -123,7 +123,7 @@ test('shouldRejectTheMentalHealthTypo_whenItOccursDuringReopen', () => {
   // When
   const problems = takeProblems(recorder, ['reopen-MHC'], undefined, leaveKnownProblem);
   const result = claims.outcomeOf(null, problems);
-  const failure = claims.claimFailure(result, 'Mental Health: reopen', mentalHealthForm.known.reopen);
+  const failure = claims.claimFailure(result, 'Mental Health: reopen', mentalHealthForm.known && mentalHealthForm.known.reopen);
 
   // Then
   assert.notEqual(failure, null, 'The error must cause a failure.');
