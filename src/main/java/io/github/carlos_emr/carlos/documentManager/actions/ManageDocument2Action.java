@@ -120,6 +120,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2008-09-10
  */
 public class ManageDocument2Action extends ActionSupport {
+
+    /** Suggestions the description typeahead returns. */
+    private static final int DESCRIPTION_SUGGESTIONS = 20;
+    /** Candidate documents read per description page (the DAO's maximum). */
+    private static final int DESCRIPTION_PAGE_SIZE = 100;
+    /** Pages a single typeahead request may authorize before answering with what it found. */
+    static final int DESCRIPTION_SCAN_PAGES = 10;
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -2365,7 +2372,7 @@ public class ManageDocument2Action extends ActionSupport {
     public void searchDocumentDescriptions() throws IOException {
         LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (info == null || !securityInfoManager.hasPrivilege(info, "_edoc", "w", null)) {
-            throw new SecurityException("missing required security object (_edoc)");
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         String keyword = request.getParameter("term");
@@ -2377,12 +2384,17 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(info, "_edoc", "r", (String) null)) {
-            throw new SecurityException("Document read access is required");
+            throw new SecurityException("missing required sec object (_edoc)");
         }
+        // Every suggestion must come from a document this user may read, so candidates are
+        // authorized one by one, newest first. A typeahead answers each keystroke, so the scan
+        // is bounded: a description already offered is not authorized again, and after
+        // DESCRIPTION_SCAN_PAGES pages the suggestions found so far are returned.
         LinkedHashSet<String> visibleDescriptions = new LinkedHashSet<>();
         Integer beforeDocumentNo = null;
-        while (visibleDescriptions.size() < 20) {
-            List<Document> candidates = documentDao.findDocumentDescriptionCandidates(keyword, beforeDocumentNo, 100);
+        for (int page = 0; page < DESCRIPTION_SCAN_PAGES && visibleDescriptions.size() < DESCRIPTION_SUGGESTIONS; page++) {
+            List<Document> candidates = documentDao.findDocumentDescriptionCandidates(keyword, beforeDocumentNo,
+                    DESCRIPTION_PAGE_SIZE);
             if (candidates == null || candidates.isEmpty()) break;
             for (Document candidate : candidates) {
                 if (candidate == null || candidate.getDocumentNo() == null || candidate.getDocumentNo() <= 0
@@ -2390,14 +2402,17 @@ public class ManageDocument2Action extends ActionSupport {
                     throw new IllegalStateException("Invalid document description page order");
                 }
                 beforeDocumentNo = candidate.getDocumentNo();
+                String description = candidate.getDocdesc();
+                if (description == null || description.isEmpty() || visibleDescriptions.contains(description)) {
+                    continue;
+                }
                 if (io.github.carlos_emr.carlos.documentManager.DocumentListAccess.mayReadDocument(
                         info, securityInfoManager, candidate.getDocumentNo())) {
-                    String description = candidate.getDocdesc();
-                    if (description != null && !description.isEmpty()) visibleDescriptions.add(description);
-                    if (visibleDescriptions.size() == 20) break;
+                    visibleDescriptions.add(description);
+                    if (visibleDescriptions.size() == DESCRIPTION_SUGGESTIONS) break;
                 }
             }
-            if (candidates.size() < 100) break;
+            if (candidates.size() < DESCRIPTION_PAGE_SIZE) break;
         }
         List<String> descriptions = new ArrayList<>(visibleDescriptions);
 

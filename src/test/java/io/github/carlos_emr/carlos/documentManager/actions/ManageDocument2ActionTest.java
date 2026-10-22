@@ -55,6 +55,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -1883,6 +1884,39 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(json.get(19).get("label").asText()).isEqualTo("Open-181");
         assertThat(response.getContentAsString()).doesNotContain("LOCKED");
         verify(documentDao).findDocumentDescriptionCandidates("%", 201, 100);
+    }
+
+    @Test
+    void shouldStopScanning_afterTheDescriptionPageLimit() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of());
+        int pages = ManageDocument2Action.DESCRIPTION_SCAN_PAGES + 3;
+        for (int page = 0; page < pages; page++) {
+            java.util.List<Document> rows = new java.util.ArrayList<>();
+            int newest = 100_000 - page * 100;
+            for (int id = newest; id > newest - 100; id--) rows.add(descriptionCandidate(id, "LOCKED-" + id));
+            when(documentDao.findDocumentDescriptionCandidates("%", page == 0 ? null : newest + 1, 100)).thenReturn(rows);
+        }
+        action.searchDocumentDescriptions();
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString()).size()).isZero();
+        verify(documentDao, Mockito.times(ManageDocument2Action.DESCRIPTION_SCAN_PAGES))
+                .findDocumentDescriptionCandidates(anyString(), any(), anyInt());
+    }
+
+    @Test
+    void shouldAuthorizeEachOfferedDescriptionOnce_whenNewerDocumentsRepeatIt() throws Exception {
+        java.util.Map<Integer, Integer> owners = new java.util.HashMap<>();
+        java.util.List<Document> rows = new java.util.ArrayList<>();
+        for (int id = 200; id > 150; id--) { owners.put(id, 10); rows.add(descriptionCandidate(id, "Repeated")); }
+        authorizeDescriptionSearch(owners);
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100)).thenReturn(rows);
+        action.searchDocumentDescriptions();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.size()).isEqualTo(1);
+        assertThat(json.get(0).get("label").asText()).isEqualTo("Repeated");
+        // Only the newest document carrying the description is authorized; older repeats are skipped.
+        verify(ctlDocumentDao, Mockito.atLeastOnce()).findByDocumentNoAndModule(eq(200), eq("demographic"));
+        verify(ctlDocumentDao, Mockito.never()).findByDocumentNoAndModule(
+                ArgumentMatchers.intThat(number -> number < 200), eq("demographic"));
     }
 
     @Test
