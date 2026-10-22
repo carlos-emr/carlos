@@ -24,24 +24,23 @@ const { runWorkflow } = require('./lib/workflow-session');
 const CLIENT_CHOSEN_NO = 2147480000;
 
 async function workflow(s) {
-  const quote = h.sqlString;
   const endpoint = `${s.config.baseUrl}/ws/rs/demographics`;
-  const programId = s.sql.value('SELECT id FROM program ORDER BY id LIMIT 1');
+  const programId = s.sql.value('SELECT id FROM program ORDER BY id LIMIT 1', []);
   h.assert(/^[1-9]\d*$/.test(programId), 'The install has no program to admit the new patient to');
 
   const cellA = `${s.marker}-cellA`;
   const cellB = `${s.marker}-cellB`;
-  const likeMarker = quote(`${s.marker}%`);
+  const likeMarker = `${s.marker}%`;
   s.cleanup(() => {
     // Extensions are matched by this run's marker value, wherever they were stored (the new patient,
     // the client-chosen number, or no patient at all); patients and admissions by the marker last name.
-    const owned = `(SELECT demographic_no FROM demographic WHERE last_name LIKE ${likeMarker})`;
-    s.sql.execute(`DELETE FROM demographicExt WHERE value LIKE ${likeMarker};
-      DELETE FROM admission WHERE client_id IN ${owned};
-      DELETE FROM demographic WHERE last_name LIKE ${likeMarker}`);
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE last_name LIKE ${likeMarker}`) === '0',
+    s.sql.execute('DELETE FROM demographicExt WHERE value LIKE ?', [likeMarker]);
+    s.sql.execute(`DELETE FROM admission WHERE client_id IN
+      (SELECT demographic_no FROM demographic WHERE last_name LIKE ?)`, [likeMarker]);
+    s.sql.execute('DELETE FROM demographic WHERE last_name LIKE ?', [likeMarker]);
+    h.assert(s.sql.value('SELECT COUNT(*) FROM demographic WHERE last_name LIKE ?', [likeMarker]) === '0',
       'Owned REST patients were not removed');
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM demographicExt WHERE value LIKE ${likeMarker}`) === '0',
+    h.assert(s.sql.value('SELECT COUNT(*) FROM demographicExt WHERE value LIKE ?', [likeMarker]) === '0',
       'Owned extension rows were not removed');
   });
 
@@ -52,7 +51,7 @@ async function workflow(s) {
     extras,
   });
   const extra = (key, value, demographicNo) => ({ key, value, demographicNo, providerNo: s.provider });
-  const count = sql => Number(s.sql.value(sql));
+  const count = (sql, parameters) => Number(s.sql.value(sql, parameters));
 
   await s.step('an extra is linked to the new patient even when the client sent another number', async () => {
     const lastName = `${s.marker}-A`;
@@ -65,13 +64,13 @@ async function workflow(s) {
     const patient = Number(saved.demographicNo);
     h.assert(Number.isSafeInteger(patient) && patient > 0 && patient !== CLIENT_CHOSEN_NO,
       'The create response carries no new demographic number');
-    h.assert(count(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}
-      AND last_name=${quote(lastName)}`) === 1, 'The patient row was not created');
-    const linked = s.sql.rows(`SELECT key_val,value FROM demographicExt WHERE demographic_no=${patient}`);
+    h.assert(count('SELECT COUNT(*) FROM demographic WHERE demographic_no=? AND last_name=?',
+      [patient, lastName]) === 1, 'The patient row was not created');
+    const linked = s.sql.rows('SELECT key_val,value FROM demographicExt WHERE demographic_no=?', [patient]);
     h.assert(linked.length === 1 && linked[0][0] === 'demo_cell' && linked[0][1] === cellA,
       `The new patient's extension rows are ${JSON.stringify(linked)}, expected one demo_cell row`);
-    h.assert(count(`SELECT COUNT(*) FROM demographicExt WHERE demographic_no=${CLIENT_CHOSEN_NO}
-      AND value LIKE ${likeMarker}`) === 0, 'An extension row was stored under the demographic number the client chose');
+    h.assert(count('SELECT COUNT(*) FROM demographicExt WHERE demographic_no=? AND value LIKE ?',
+      [CLIENT_CHOSEN_NO, likeMarker]) === 0, 'An extension row was stored under the demographic number the client chose');
     const summary = await s.context.request.get(`${s.config.baseUrl}/ws/rs/demographics/summary/${patient}`);
     h.assert(summary.status() === 200, `summary expected HTTP 200, received ${summary.status()}`);
     h.assert((await summary.json()).alternativePhone === cellA,
@@ -88,7 +87,7 @@ async function workflow(s) {
     const patient = Number((await response.json()).demographicNo);
     await response.dispose();
     h.assert(Number.isSafeInteger(patient) && patient > 0, 'The create response carries no new demographic number');
-    const rows = s.sql.rows(`SELECT demographic_no FROM demographicExt WHERE value=${quote(cellB)}`);
+    const rows = s.sql.rows('SELECT demographic_no FROM demographicExt WHERE value=?', [cellB]);
     h.assert(rows.length === 1 && rows[0][0] === String(patient),
       `The extra was stored as ${JSON.stringify(rows)}, expected one row linked to the new patient ${patient}`);
   });
@@ -100,13 +99,13 @@ async function workflow(s) {
     });
     h.assert(response.status() >= 400, `a duplicate-key create expected an error status, received ${response.status()}`);
     await response.dispose();
-    const kept = s.sql.rows(`SELECT demographic_no FROM demographic WHERE last_name=${quote(lastName)}`);
+    const kept = s.sql.rows('SELECT demographic_no FROM demographic WHERE last_name=?', [lastName]);
     h.assert(kept.length === 0, `The failed create left the patient behind: ${JSON.stringify(kept)}`);
     h.assert(count(`SELECT COUNT(*) FROM admission a JOIN demographic d ON d.demographic_no=a.client_id
-      WHERE d.last_name LIKE ${quote(`${s.marker}-C%`)}`) === 0, 'The failed create left an admission behind');
+      WHERE d.last_name LIKE ?`, [`${s.marker}-C%`]) === 0, 'The failed create left an admission behind');
     // Found by value, not through a surviving demographic row: an extension orphaned by the rollback
     // (patient gone, extension kept) is exactly what this step must catch.
-    h.assert(count(`SELECT COUNT(*) FROM demographicExt WHERE value LIKE ${quote(`${s.marker}-dup%`)}`) === 0,
+    h.assert(count('SELECT COUNT(*) FROM demographicExt WHERE value LIKE ?', [`${s.marker}-dup%`]) === 0,
       'The failed create left an extension behind');
   });
 }
