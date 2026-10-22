@@ -161,6 +161,8 @@ async function workflow(s) {
     ['patient search results (name, DOB, address, HIN, chart no.)', (ids, demoNo) => `demographic/DemographicSearch?search_mode=search_name&keyword=${encodeURIComponent(demoNo === openIds.demo ? marker : lockedName)}&ptstatus=active&displaymode=Search&orderby=last_name&limit1=0&limit2=20&dboperation=search_titlename`, 'search'],
     ['note revision history by note id', (ids, demoNo) => `CaseManagementEntry?method=history&noteId=${ids.note}&${patientQuery(demoNo)}`, 'note'],
     ['document description search (all patients)', () => `documentManager/ManageDocument?method=searchDocumentDescriptions&term=${encodeURIComponent(marker)}`, 'doc'],
+    ['patient tickler list page', (ids, demoNo) => `tickler/ViewTicklerDemoMain?demoview=${demoNo}`, 'tickler'],
+    ['schedule quick search (JSON name, DOB, HIN, phone, address)', (ids, demoNo) => `demographic/SearchDemographic?query=${encodeURIComponent(demoNo === openIds.demo ? marker : lockedName)}&outofdomain=true`, 'search'],
   ];
 
   await s.step('controls for the lock-bypass candidates: each one serves the OPEN patient\'s data to this doctor', async () => {
@@ -181,9 +183,10 @@ async function workflow(s) {
       `demographic/ViewEnrollmentHistory?${patientQuery(lockedIds.demo)}`,
       `demographic/ViewDemographicLabelPrintSetting?${patientQuery(lockedIds.demo)}`,
       `tickler/ListTicklers?${patientQuery(lockedIds.demo)}`,
+      `tickler/ViewTicklerDemoMain?demoview=${lockedIds.demo}`,
     ];
     for (const route of direct) {
-      const proof = route.startsWith('tickler/ListTicklers') ? `${lockedName}-tickler` : lockedName;
+      const proof = route.startsWith('tickler/') && !route.startsWith('tickler/ViewAddTickler') ? `${lockedName}-tickler` : lockedName;
       const asFull = await get(full(), route, [proof]);
       if (classify(asFull) !== 'served' || !asFull.found.includes(proof)) wrong.push(`full ${route} -> ${asFull.status} (no fixture marker)`);
       const denied = await get(doctor.context, route, [proof]);
