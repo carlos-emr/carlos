@@ -29,6 +29,24 @@ public final class LabPatientAccess {
         }
     }
 
+    /**
+     * Applies the patient lock to a page's optional, caller-supplied patient parameter before the
+     * page reads that patient's lab values. Absent values, the legacy "null"/"undefined" sentinels
+     * and 0 (the unassigned-lab bucket) name no patient and stay behind the caller's global gate.
+     *
+     * @param demographic raw request value
+     * @return false when a supplied value is not a patient identity, so the caller answers 400
+     * @throws SecurityException when the named patient's record is locked for the caller
+     */
+    public static boolean requireRequestedPatient(SecurityInfoManager security, LoggedInInfo info, String demographic) {
+        if (demographic == null || demographic.isEmpty() || "null".equals(demographic)
+                || "undefined".equals(demographic) || "0".equals(demographic)) return true;
+        Integer demographicNo = positiveIdentity(demographic);
+        if (demographicNo == null) return false;
+        requirePatient(security, info, demographicNo);
+        return true;
+    }
+
     public static boolean isAllowedLab(SecurityInfoManager security, PatientLabRoutingDao routings,
             LoggedInInfo info, int labNo, String labType) {
         // A source is part of a lab identity: HL7 and BCP can reuse the same lab number.
@@ -49,6 +67,29 @@ public final class LabPatientAccess {
         if (!isAllowedLab(security, routings, info, labNo, labType)) {
             throw new SecurityException("access to patient record is restricted");
         }
+    }
+
+    /**
+     * Authorizes the other versions a display page reads beside a selected report that the caller
+     * has already passed through {@link #requireLab}: version links, acknowledgement history and
+     * comments. {@code versions} must be the same server-resolved chain the page itself uses, never
+     * a request value. Empty entries (a legacy empty chain) name no report and are skipped.
+     *
+     * @return false when a resolved version is not a lab identity, so the caller answers 400
+     * @throws SecurityException when any version belongs to a locked patient
+     */
+    public static boolean requireOtherVersions(SecurityInfoManager security, PatientLabRoutingDao routings,
+            LoggedInInfo info, int selectedLabNo, String versions, String labType) {
+        if (versions == null) return true;
+        Set<Integer> checked = new LinkedHashSet<>();
+        checked.add(selectedLabNo);
+        for (String version : versions.split(",", -1)) {
+            if (version.isEmpty()) continue;
+            Integer versionNo = positiveIdentity(version);
+            if (versionNo == null) return false;
+            if (checked.add(versionNo)) requireLab(security, routings, info, versionNo, labType);
+        }
+        return true;
     }
 
     /** Preflight every selected version before a forwarded JSP parses its first report. */
