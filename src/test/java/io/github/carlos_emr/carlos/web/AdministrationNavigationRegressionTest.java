@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -186,6 +188,41 @@ class AdministrationNavigationRegressionTest {
                 .contains("<security:oscarSec roleName=\"<%=roleName$%>\" objectName=\"_admin.userAdmin\" rights=\"w\">")
                 .doesNotContain("rights=\"*\"")
                 .doesNotContainPattern("objectName=\"[^\"]*,");
+    }
+
+    @Test
+    @DisplayName("Schedule Administration link should check each admin object on its own")
+    void shouldGateScheduleAdministrationLink_withPerObjectReadChecks() throws IOException {
+        String gate = Files.readString(Path.of("src/main/webapp/WEB-INF/jspf/administration-menu-gate.jspf"));
+        String checks = gate.substring(gate.indexOf("<c:set var=\"canOpenAdministration\" value=\"${false}\" />"));
+        assertThat(checks).doesNotContainPattern("objectName=\"[^\"]*,");
+
+        // Everyone the Administration shell admits must be offered the link that opens it.
+        String action = Files.readString(Path.of(
+                "src/main/java/io/github/carlos_emr/carlos/administration/gate/ViewAdministrationIndex2Action.java"));
+        String admitted = action.substring(action.indexOf("ADMIN_PRIVS = {"), action.indexOf("};", action.indexOf("ADMIN_PRIVS = {")));
+        Matcher objects = Pattern.compile("\"(_admin[^\"]*)\"").matcher(admitted);
+        int count = 0;
+        while (objects.find()) {
+            count++;
+            assertThat(checks).contains("<security:oscarSec roleName=\"<%=roleName$%>\" objectName=\""
+                    + objects.group(1) + "\" rights=\"r\"><c:set var=\"canOpenAdministration\" value=\"${true}\" />");
+        }
+        assertThat(count).as("objects admitted by ViewAdministrationIndex2Action").isPositive();
+
+        for (String page : List.of("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp",
+                "src/main/webapp/WEB-INF/jsp/provider/mainMenu.jsp")) {
+            String jsp = Files.readString(Path.of(page));
+            int link = jsp.indexOf("id=\"admin-panel\"");
+            assertThat(link).as(page + " should offer the Administration link").isNotNegative();
+            int include = jsp.lastIndexOf("<%@ include file=\"/WEB-INF/jspf/administration-menu-gate.jspf\" %>", link);
+            int test = jsp.lastIndexOf("<c:if test=\"${canOpenAdministration}\">", link);
+            assertThat(include).as(page + " should include the per-object gate").isNotNegative();
+            assertThat(test).as(page + " should wrap the link in the gate's flag").isGreaterThan(include);
+            assertThat(jsp.indexOf("</c:if>", link)).as(page + " should close the gate after the link").isPositive();
+            assertThat(jsp).as(page + " should not keep the combined thirteen-object tag")
+                    .doesNotContain("objectName=\"_admin,_admin.userAdmin,_admin.schedule");
+        }
     }
 
     /**
