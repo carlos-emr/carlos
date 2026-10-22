@@ -56,14 +56,18 @@ async function workflow(s) {
   // pinning steps let them through and the LAST step lists them (a deliberate refusal is a 403).
   const errorGates = [];
   // Login/route pairs the role matrix authorizes, so they are not pinned as refusals: the seeded doctor role holds
-  // _admin.flowsheet r, which ViewAdmin2Action accepts (the Administration index gate does not list it).
+  // _admin.flowsheet r, which ViewAdmin2Action and the Administration index gate both accept (Manage Flowsheets
+  // opens read-only for it, #4623).
   const authorized = new Set();
   const get = (who, route) => probe(who === 'full' ? s.context : sessions[who].context, urlFor(config, route));
 
   await s.step('doctor, nurse and Field Note Admin logins hold the objects this check assumes and sign in', async () => {
     const doctor = fixture.rolePrivileges('doctor');
     const nurse = fixture.rolePrivileges('nurse');
-    if (doctor.some(entry => /^_admin\.flowsheet:/.test(entry))) authorized.add('doctor admin/ViewAdmin');
+    if (doctor.some(entry => /^_admin\.flowsheet:/.test(entry))) {
+      authorized.add('doctor admin/ViewAdmin');
+      authorized.add('doctor administration');
+    }
     h.assert(!doctor.some(entry => /^_admin\.(eform|fieldnote):/.test(entry)), 'doctor now holds _admin.eform or _admin.fieldnote');
     h.assert(doctor.includes('_eform:w'), 'doctor no longer holds _eform w');
     h.assert(!nurse.some(entry => /^_admin(\.measurements)?:/.test(entry)) && nurse.includes('_eChart:x'),
