@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -247,6 +250,60 @@ class JpaSmsTransactionServiceUnitTest {
         assertThatThrownBy(() -> recorder.renewClaim(claimed, renewedAt))
                 .isInstanceOf(SmsTransactionClaimConflictException.class);
         verify(smsTransactionDao, never()).flush();
+    }
+
+    @Test
+    @DisplayName("releaseClaim with a reason hands the claim back, gives the attempt back and says why the text waits")
+    void shouldRecordReason_whenReleasingClaimForRateLimit() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction claimed = claimedRowWithConsentSnapshot(42L, 3L);
+        SmsTransaction current = claimedRowWithConsentSnapshot(42L, 3L);
+        when(smsTransactionDao.find(42L)).thenReturn(current);
+        Date dueAt = Date.from(Instant.parse("2026-09-10T09:06:00Z"));
+
+        SmsTransaction released = recorder.releaseClaim(claimed, dueAt, SmsProviderErrorCode.RATE_LIMITED);
+
+        assertThat(released).isSameAs(current);
+        assertThat(current)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                        SmsTransaction::getNextAttemptAt, SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly(SmsStatus.QUEUED, 0, dueAt, "RATE_LIMITED",
+                        SmsProviderErrorCode.RATE_LIMITED.message());
+    }
+
+    @Test
+    @DisplayName("releaseClaim with a reason leaves a row another writer changed under the claim as it is")
+    void shouldKeepNewerRow_whenReleasingClaimForRateLimitAfterRowChanged() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction claimed = claimedRowWithConsentSnapshot(42L, 3L);
+        SmsTransaction current = claimedRowWithConsentSnapshot(42L, 4L);
+        when(smsTransactionDao.find(42L)).thenReturn(current);
+
+        SmsTransaction released = recorder.releaseClaim(claimed, new Date(), SmsProviderErrorCode.RATE_LIMITED);
+
+        assertThat(released).isSameAs(current);
+        assertThat(current)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.SENDING, 1, null);
+    }
+
+    @Test
+    @DisplayName("releaseClaim without a reason keeps the error the row already had")
+    void shouldKeepExistingError_whenReleasingClaimWithoutReason() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction claimed = claimedRowWithConsentSnapshot(42L, 3L);
+        SmsTransaction current = claimedRowWithConsentSnapshot(42L, 3L);
+        current.markRetryScheduled(SmsProviderSendResultDto.failed(SmsProviderErrorCode.ACCOUNT_LIMIT), new Date());
+        current.markSending(new Date());
+        assignVersion(current, 3L);
+        when(smsTransactionDao.find(42L)).thenReturn(current);
+
+        recorder.releaseClaim(claimed, new Date());
+
+        assertThat(current)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode,
+                        SmsTransaction::getErrorMessage)
+                .containsExactly(SmsStatus.QUEUED, 1, "ACCOUNT_LIMIT", SmsProviderErrorCode.ACCOUNT_LIMIT.message());
     }
 
     @Test
@@ -1025,6 +1082,58 @@ class JpaSmsTransactionServiceUnitTest {
                     .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED", 1);
         }
 
+        @ParameterizedTest
+        @EnumSource(value = SmsProviderErrorCode.class, mode = EnumSource.Mode.EXCLUDE,
+                names = {"INVALID_RECIPIENT", "RECIPIENT_OPTED_OUT", "MESSAGE_REJECTED"})
+        @DisplayName("a text waiting for its retry under a fixed provider code is moved")
+        void shouldMoveRow_whenRetiredTextWaitsUnderFixedProviderCode(SmsProviderErrorCode code) {
+            SmsTransaction retired = retiredRow(43L);
+            retired.markSending(new Date());
+            retired.markRetryScheduled(SmsProviderSendResultDto.failed(code.name(), code.message()),
+                    Date.from(Instant.now().plusSeconds(600)));
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(singleInsertedRow()).extracting(SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                    .containsExactly(0, null);
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED");
+        }
+
+        @Test
+        @DisplayName("a text handed back because its provider asked CARLOS to slow down is moved")
+        void shouldMoveRow_whenRetiredTextWaitsAfterRateLimitHandBack() {
+            SmsTransaction retired = retiredRow(45L);
+            retired.markSending(new Date());
+            retired.markRetryScheduled(SmsProviderSendResultDto.failed(SmsProviderErrorCode.PROVIDER_UNAVAILABLE),
+                    new Date());
+            retired.markSending(new Date());
+            retired.markClaimReleased(Date.from(Instant.now().plusSeconds(60)), SmsProviderErrorCode.RATE_LIMITED);
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                    SmsTransaction::getErrorCode).containsExactly(SmsStatus.QUEUED, 1, "RATE_LIMITED");
+            assertThat(SmsProviderRetirementService.movable(retired)).isTrue();
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(singleInsertedRow()).extracting(SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                    .containsExactly(0, null);
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED");
+        }
+
+        @Test
+        @DisplayName("every fixed code the queue retries counts as definitely unsent; no permanent code does")
+        void shouldTreatOnlyRetriedFixedCodes_asDefinitelyUnsent() {
+            for (SmsProviderErrorCode code : SmsProviderErrorCode.values()) {
+                SmsTransaction row = retiredRow(70L + code.ordinal());
+                row.markSending(new Date());
+                row.markRetryScheduled(SmsProviderSendResultDto.failed(code.name(), code.message()), new Date());
+                assertThat(SmsProviderRetirementService.movable(row)).as(code.name()).isEqualTo(!code.permanent());
+            }
+        }
+
         @Test
         @DisplayName("a text whose consent check failed before any provider call is moved")
         void shouldMoveRow_whenRetiredTextWaitsAfterConsentCheckFailure() {
@@ -1079,6 +1188,35 @@ class JpaSmsTransactionServiceUnitTest {
                     .containsExactly(SmsStatus.QUEUED, "QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED",
                             "SMS stale send was not found by SMS provider status lookup; retry scheduled.",
                             nextAttemptAt);
+
+            retiredQueue(SmsProviderType.CLOUDLI, retired);
+            recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);
+
+            assertThat(inserted).isEmpty();
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
+        }
+
+        @Test
+        @DisplayName("a rate-limited hand-back keeps the not-found mark, and the text is failed for review, not moved")
+        void shouldKeepNotFoundMark_whenRateLimitedHandBackFollowsIt() {
+            SmsTransaction retired = retiredRow(47L);
+            retired.markSending(new Date());
+            retired.markStaleRecoveryStarted(new Date());
+            retired.markRetryScheduled(SmsProviderSendResultDto.failed("QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED",
+                    "SMS stale send was not found by SMS provider status lookup; retry scheduled."), new Date());
+            retired.markSending(new Date());
+            int attemptsBeforeClaim = retired.getAttemptCount() - 1;
+            when(smsTransactionDao.find(47L)).thenReturn(retired);
+            Date dueAt = Date.from(Instant.now().plusSeconds(60));
+
+            recorder().releaseClaim(retired, dueAt, SmsProviderErrorCode.RATE_LIMITED);
+
+            assertThat(retired).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode,
+                            SmsTransaction::getAttemptCount, SmsTransaction::getNextAttemptAt)
+                    .containsExactly(SmsStatus.QUEUED, "QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED",
+                            attemptsBeforeClaim, dueAt);
+            assertThat(SmsProviderRetirementService.movable(retired)).isFalse();
 
             retiredQueue(SmsProviderType.CLOUDLI, retired);
             recorder().moveOrFailRetiredOutboundQueue(SmsProviderType.STUB, 10);

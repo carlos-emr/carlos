@@ -231,9 +231,11 @@
             }
         }
 
-        if (!isProviderActive && consultUtil.providerNo != null) {
+        // A saved consult with no provider has providerNo "", not null. getProvider builds a Provider with
+        // no number for "" or for a provider who no longer exists, and the provider list below needs a number.
+        if (!isProviderActive && !StringUtils.isNullOrEmpty(consultUtil.providerNo)) {
             Provider inactiveProvider = rx.getProvider(consultUtil.providerNo);
-            if (inactiveProvider != null) {
+            if (inactiveProvider != null && inactiveProvider.getProviderNo() != null) {
                 prList.add(inactiveProvider);
             }
         }
@@ -2093,6 +2095,10 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
                 };
                 signatureImgTag.src = "<%=storedImgUrl %>" + encodeURIComponent(signatureImg.value);
             } else if (!hasPendingManualSignature()) {
+                var signatureImgTag = document.getElementById('signatureImgTag');
+                if (!signatureImgTag || !signatureImgTag.getAttribute('src')) {
+                    return true;
+                }
                 var signatureProviderNo = document.getElementById('signatureProviderNo');
                 if (signatureProviderNo) {
                     updateSignatureProvider(signatureProviderNo.value);
@@ -2210,13 +2216,19 @@ if (userAgent != null) {
             if (btn) btn.disabled = disabled;
         }
 
+        <fmt:message key="consultation.attachments.previewConfirm" var="previewAttachmentsUnavailableMessage"/>
+        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPreviewRequestFailed" var="previewRequestFailedMessage"/>
+
         // If the user clicks the 'Print Preview' button, ensure that their unsaved changes are preserved, allowing them to stay on the same page. Achieve this by making an AJAX call.
-        function getConsultFormPrintPreview(form) {
-            form.submission.value = "And Print Preview";
+	        function getConsultFormPrintPreview(form, approvalToken) {
+	            var previewAttachmentsUnavailableMessage = '${carlos:forJavaScript(previewAttachmentsUnavailableMessage)}';
+	            var previewRequestFailedMessage = '${carlos:forJavaScript(previewRequestFailedMessage)}';
+	            form.submission.value = "And Print Preview";
             jQuery.ajax({
                 type: "POST",
                 url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
-                data: jQuery(form).serialize(),
+                data: jQuery(form).serialize() + (approvalToken
+                    ? '&confirmAttachmentOmissions=true&consultAttachmentApproval=' + encodeURIComponent(approvalToken) : ''),
                 dataType: "json",
                 success: function (data) {
                     HideSpin();
@@ -2233,19 +2245,37 @@ if (userAgent != null) {
                         if (newSignature) {
                             newSignature.value = 'false';
                         }
-                        isSignatureSaved = true;
-                    }
-                    showPreview(data.consultPDF, data.consultPDFName);
-                    if (data.warningMessage) {
-                        alert(data.warningMessage.replace(/\\n/g, '\n'));
-                    }
-                },
-                error: function (xhr, status, error) {
-                    HideSpin();
-                    alert("Preview request failed: " + status + ", " + error);
-                }
-            });
-        }
+	                        isSignatureSaved = true;
+	                    }
+	                    if (data.warningMessage) {
+	                        alert(data.warningMessage.replace(/\\n/g, '\n'));
+	                    }
+                        if (data.attachmentReviewRequired) {
+                            if (window.confirm(formatPreviewMessage(previewAttachmentsUnavailableMessage, data.attachmentWarnings.join("\n")))) {
+                                getConsultFormPrintPreview(form, data.consultAttachmentApproval);
+                            }
+                            return;
+                        }
+                        showPreview(data.consultPDF, data.consultPDFName);
+	                },
+	                error: function (xhr, status, error) {
+	                    HideSpin();
+	                    alert(formatPreviewMessage(previewRequestFailedMessage, status, error));
+	                }
+	            });
+	        }
+
+	        function formatPreviewMessage(template) {
+	            var formatted = template;
+	            for (var i = 1; i < arguments.length; i++) {
+	                var value = arguments[i];
+	                if (value === null || typeof value === 'undefined') {
+	                    value = '';
+	                }
+	                formatted = formatted.split('{' + (i - 1) + '}').join(value);
+	            }
+	            return formatted.replace(/\\n/g, '\n');
+	        }
 
         function showPreview(base64PDF, pdfName) {
             const pdfData = new Uint8Array(atob(base64PDF).split('').map(char => char.charCodeAt(0)));
@@ -2709,7 +2739,10 @@ if (userAgent != null) {
                                                     for (Provider p : prList) {
                                                         if (p.getProviderNo().compareTo("-1") != 0) {
                                                 %>
-                                                <option value="<%=p.getProviderNo() %>" <%=((consultUtil.providerNo != null && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (consultUtil.providerNo == null && referringProviderDefault.equalsIgnoreCase(p.getProviderNo())) ? "selected" : "") %>>
+                                                <%-- A consult saved with no referring provider has providerNo "" (EctConsultationFormRequestUtil
+                                                     normalizes null), so blank and null both take the default, as at the other two sites. The default
+                                                     itself is null when it should be the patient's MRP and there is none. --%>
+                                                <option value="<%=p.getProviderNo() %>" <%=((!StringUtils.isNullOrEmpty(consultUtil.providerNo) && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (StringUtils.isNullOrEmpty(consultUtil.providerNo) && p.getProviderNo().equalsIgnoreCase(referringProviderDefault)) ? "selected" : "") %>>
                                                     <carlos:encode value='<%= p.getFirstName().replace("Dr.", "") %>' context="html"/>&nbsp;<carlos:encode value='<%= p.getSurname() %>' context="html"/>
                                                 </option>
                                                 <% }

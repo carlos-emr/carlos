@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("DocumentAttachmentManagerImpl lab grouping by source")
 class DocumentAttachmentManagerImplLabGroupingUnitTest extends CarlosUnitTestBase {
 
-    private final DocumentAttachmentManagerImpl manager = new DocumentAttachmentManagerImpl();
+    private final DocumentAttachmentManagerImpl manager = new DocumentAttachmentManagerImpl(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.LabManager.class));
 
     private static LabResultData lab(String labType, String segmentId, String label, long time) {
         LabResultData lab = new LabResultData(labType);

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsDirection;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -404,6 +405,18 @@ public class SmsTransaction extends AbstractModel<Long> {
         nextAttemptAt = safeDueAt;
         clearClaim();
         touch();
+    }
+
+    /**
+     * Reverts a claim that was taken but never sent, as {@link #markClaimReleased(Date)} does, and records why
+     * the text waits: {@code reason}'s CARLOS code and fixed message. Used when the SMS provider asked CARLOS to
+     * send more slowly, which uses none of the text's attempts, so staff can see why it is still queued.
+     */
+    public void markClaimReleased(Date dueAt, SmsProviderErrorCode reason) {
+        Objects.requireNonNull(reason, "reason is required");
+        errorCode = trimTo(reason.name(), MAX_REASON_CODE_LENGTH);
+        errorMessage = trimTo(reason.message(), MAX_ERROR_MESSAGE_LENGTH);
+        markClaimReleased(dueAt);
     }
 
     public void markStaleRecoveryStarted(Date recoveryAt) {

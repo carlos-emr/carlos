@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -207,24 +208,53 @@ public class JpaSmsTransactionService implements SmsTransactionService {
      * @return {@code providerResult}, or the same result carrying the row's not-found code and message
      */
     static SmsProviderSendResultDto keepNotFoundMarker(SmsTransaction row, SmsProviderSendResultDto providerResult) {
-        if (!SmsQueueProcessingService.QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED_CODE.equals(row.getErrorCode())) {
+        if (!hasNotFoundMarker(row)) {
             return providerResult;
         }
         return new SmsProviderSendResultDto(providerResult.accepted(), providerResult.providerMessageId(),
                 providerResult.status(), row.getErrorCode(), row.getErrorMessage());
     }
 
+    /**
+     * Hands an unsent claim back and records why the text waits, except on a text that carries the not-found mark
+     * ({@link #keepNotFoundMarker}): that mark is kept, and the reason goes only to the worker's log.
+     */
+    static void releaseWithReason(SmsTransaction row, Date dueAt, SmsProviderErrorCode reason) {
+        if (hasNotFoundMarker(row)) {
+            row.markClaimReleased(dueAt);
+        } else {
+            row.markClaimReleased(dueAt, reason);
+        }
+    }
+
+    private static boolean hasNotFoundMarker(SmsTransaction row) {
+        return SmsQueueProcessingService.QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED_CODE.equals(row.getErrorCode());
+    }
+
     @Override
     @Transactional
     public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
+        return release(transaction, row -> row.markClaimReleased(dueAt));
+    }
+
+    @Override
+    @Transactional
+    public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt, SmsProviderErrorCode reason) {
+        Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
+        Objects.requireNonNull(reason, "reason is required");
+        return release(transaction, row -> releaseWithReason(row, dueAt, reason));
+    }
+
+    /** Hands an unsent claim back with a version check, or fails it unsent when its provider is retired. */
+    private SmsTransaction release(SmsTransaction transaction, Consumer<SmsTransaction> mutation) {
         if (retirementService != null) {
             retirementService.lockSelection();
             if (retirementService.retired(transaction)) {
                 return failRetiredUnsent(transaction, "retiredRelease");
             }
         }
-        return applyIfVersionMatches(transaction, "releaseClaim", row -> row.markClaimReleased(dueAt));
+        return applyIfVersionMatches(transaction, "releaseClaim", mutation);
     }
 
     @Override
