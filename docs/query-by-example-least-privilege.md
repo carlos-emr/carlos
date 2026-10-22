@@ -102,10 +102,11 @@ read becomes a reviewed list that the build checks.
 table (`reportable`, or `restricted` with a reason, optionally with hidden columns), followed by a
 MariaDB block that rebuilds the account's privileges from that list:
 
-1. It refuses to run if `PUBLIC` holds any privilege that reaches the schema, because every account
-   would inherit it.
-2. For each host entry of the account it revokes every privilege, revokes every granted role,
-   clears the default role, and sets `MAX_USER_CONNECTIONS 6` and `MAX_STATEMENT_TIME 30`.
+1. For each host entry of the account it revokes every privilege and every `PROXY` grant
+   (`REVOKE ALL` leaves those), revokes every granted role, clears the default role, and sets
+   `MAX_USER_CONNECTIONS 6` and `MAX_STATEMENT_TIME 30`.
+2. It refuses to go on if `PUBLIC` holds any privilege that reaches the schema, because every
+   account would inherit it. Step 1 has already run, so the refused account is left with nothing.
 3. It grants `SELECT` on each reportable table that exists in the selected schema. Where columns
    are hidden it grants `SELECT (every other column)` instead, so `SELECT *` on that table is
    refused and a report names its columns.
@@ -187,9 +188,11 @@ Nothing to do by hand. `carlos-emr` depends on `carlos-ctl (>= 1.2.0)`, whose:
 - `db-migrate` (and every other migrating path: the postinst, `finish-install`) applies it again
   after each successful migration, so a reportable table that a migration adds is granted once it
   exists. A list that fails to apply is reported and never fails the migration;
-- `check` reports the account: present, named in `carlos.properties`, and granted exactly the
-  reportable tables, with no restricted table, hidden column, write privilege, role or `PUBLIC`
-  grant, and none missing.
+- `check` reports the account: present on exactly its two hosts, named in `carlos.properties`,
+  able to log in with the recorded password, and granted on each host exactly what the list
+  gives it (every reportable table, the permitted columns of a table with hidden columns),
+  with no restricted or unclassified table, hidden column, table-wide grant on a table with
+  hidden columns, write privilege, role, `PROXY` or `PUBLIC` grant.
 
 ### Devcontainer
 
@@ -272,7 +275,7 @@ keeps working without operator action. What users notice:
 |---|---|
 | Unit | `ReportingConnectionServiceUnitTest` (settings, login refusal, `SHOW GRANTS` audit against the grant list, no password hash in logs), `ReportingGrantListUnitTest` (the reader the audit and the build checks share), `RptByExampleDataUnitTest` (`denied` and `unavailable` outcomes, no fallback), `ReportActionSecurityMigrationUnitTest` (messages), `QueryByExampleSqlValidatorUnitTest`, `QueryByExampleReportingClassificationUnitTest` |
 | Integration (H2) | `RptByExampleDataReportingAccountIntegrationTest` |
-| Live MariaDB | carlos-ctl `tests/test_reporting.py` with `CARLOS_TEST_MARIADB_SOCKET` and `CARLOS_SRC`: the shipped list against a real server, including column grants, re-sync revoking hand-made grants, and the `PUBLIC` refusal |
+| Live MariaDB | carlos-ctl `tests/test_reporting.py` with `CARLOS_TEST_MARIADB_SOCKET` and `CARLOS_SRC`: the shipped list against a real server, including column grants, re-sync revoking hand-made and `PROXY` grants, and the `PUBLIC` refusal leaving no stale grant |
 | Browser, packaged install | `scripts/report-query-by-example-least-privilege-playwright-checks.js` through the front door |
 | Deployment | `sudo carlos-ctl check` |
 

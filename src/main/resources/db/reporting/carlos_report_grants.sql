@@ -35,7 +35,9 @@
 --     30 seconds. The application stops a query after 15 seconds; this limit is the fallback
 --     if that cancel fails.
 --   * Nothing else is granted: no writes, no DDL, no FILE, no PROCESS, no routines and no
---     other schema. Roles granted to the account are revoked.
+--     other schema. Roles and PROXY grants held by the account are revoked.
+--   * The run refuses to grant anything while PUBLIC holds privileges reaching the schema.
+--     It revokes the account's own privileges first, so a refused run leaves it with none.
 --
 -- ROW FORMAT (tests and tooling parse it, so keep one row per line)
 --   ('<table>', 'reportable', NULL, NULL),
@@ -558,27 +560,22 @@ BEGIN NOT ATOMIC
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'carlos_report_grants.sql: create the reporting account before granting it tables';
     END IF;
-    -- A privilege granted to PUBLIC applies to every account, this one included, and no revoke
-    -- below can take it back. Refuse rather than leave a boundary that is not really there.
-    IF EXISTS (SELECT 1 FROM mysql.global_priv
-                WHERE User = 'PUBLIC' AND COALESCE(JSON_VALUE(Priv, '$.access'), 0) <> 0)
-       OR EXISTS (SELECT 1 FROM mysql.db WHERE User = 'PUBLIC' AND v_schema LIKE Db)
-       OR EXISTS (SELECT 1 FROM mysql.tables_priv WHERE User = 'PUBLIC' AND Db = v_schema)
-       OR EXISTS (SELECT 1 FROM mysql.columns_priv WHERE User = 'PUBLIC' AND Db = v_schema)
-       OR EXISTS (SELECT 1 FROM mysql.procs_priv WHERE User = 'PUBLIC' AND Db = v_schema) THEN
-        SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'carlos_report_grants.sql: PUBLIC holds privileges that reach the CARLOS schema; revoke them (SHOW GRANTS FOR PUBLIC) and run this script again';
-    END IF;
-
     -- Every host entry of the account, captured before the grants below change anything.
     DROP TEMPORARY TABLE IF EXISTS carlos_report_hosts;
     CREATE TEMPORARY TABLE carlos_report_hosts ENGINE = MEMORY
         AS SELECT Host AS host FROM mysql.global_priv WHERE User = v_user;
 
-    -- Start from nothing: no privileges, no roles, no default role. Then the resource limits.
+    -- Start from nothing: no privileges, no proxy grants, no roles, no default role. Then the
+    -- resource limits. (REVOKE ALL leaves PROXY grants in place, so they go one by one.) This
+    -- runs before any refusal below, so a sync that stops still leaves nothing stale behind.
     FOR account IN (SELECT host FROM carlos_report_hosts) DO
         EXECUTE IMMEDIATE CONCAT('REVOKE ALL PRIVILEGES, GRANT OPTION FROM ',
             QUOTE(v_user), '@', QUOTE(account.host));
+        FOR proxied IN (SELECT Proxied_user AS proxied_user, Proxied_host AS proxied_host
+                          FROM mysql.proxies_priv WHERE User = v_user AND Host = account.host) DO
+            EXECUTE IMMEDIATE CONCAT('REVOKE PROXY ON ', QUOTE(proxied.proxied_user), '@',
+                QUOTE(proxied.proxied_host), ' FROM ', QUOTE(v_user), '@', QUOTE(account.host));
+        END FOR;
         FOR granted IN (SELECT Role AS role FROM mysql.roles_mapping
                          WHERE User = v_user AND Host = account.host) DO
             EXECUTE IMMEDIATE CONCAT('REVOKE `', REPLACE(granted.role, '`', '``'), '` FROM ',
@@ -588,6 +585,18 @@ BEGIN NOT ATOMIC
         EXECUTE IMMEDIATE CONCAT('ALTER USER ', QUOTE(v_user), '@', QUOTE(account.host),
             ' WITH MAX_USER_CONNECTIONS 6 MAX_STATEMENT_TIME 30');
     END FOR;
+
+    -- A privilege granted to PUBLIC applies to every account, this one included, and no revoke
+    -- above can take it back. Refuse rather than leave a boundary that is not really there.
+    IF EXISTS (SELECT 1 FROM mysql.global_priv
+                WHERE User = 'PUBLIC' AND COALESCE(JSON_VALUE(Priv, '$.access'), 0) <> 0)
+       OR EXISTS (SELECT 1 FROM mysql.db WHERE User = 'PUBLIC' AND v_schema LIKE Db)
+       OR EXISTS (SELECT 1 FROM mysql.tables_priv WHERE User = 'PUBLIC' AND Db = v_schema)
+       OR EXISTS (SELECT 1 FROM mysql.columns_priv WHERE User = 'PUBLIC' AND Db = v_schema)
+       OR EXISTS (SELECT 1 FROM mysql.procs_priv WHERE User = 'PUBLIC' AND Db = v_schema) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'carlos_report_grants.sql: PUBLIC holds privileges that reach the CARLOS schema; revoke them (SHOW GRANTS FOR PUBLIC) and run this script again';
+    END IF;
 
     -- SELECT on every reportable table that exists here, minus any excluded columns.
     FOR reportable IN (
@@ -627,6 +636,7 @@ BEGIN NOT ATOMIC
                 WHERE User = v_user AND COALESCE(JSON_VALUE(Priv, '$.access'), 0) <> 0)
        OR EXISTS (SELECT 1 FROM mysql.db WHERE User = v_user)
        OR EXISTS (SELECT 1 FROM mysql.procs_priv WHERE User = v_user)
+       OR EXISTS (SELECT 1 FROM mysql.proxies_priv WHERE User = v_user)
        OR EXISTS (SELECT 1 FROM mysql.roles_mapping WHERE User = v_user)
        OR EXISTS (SELECT 1 FROM mysql.tables_priv tp
                    WHERE tp.User = v_user
