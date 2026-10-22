@@ -7,8 +7,8 @@
  * The BC seed registers both forms but leaves them off the encounter's form list (encounterForm.hidden=0;
  * hidden is the display order, 0 means not shown). The check adds them through Administration > Select Forms,
  * the way a clinic switches them on, and removes them again at the end. It records every encounterForm row
- * first, asserts the exact normalized menu order after each mutation (#4945), and restores every
- * recorded raw display order in cleanup. The form list is clinic-wide, so the check must not run
+ * first, asserts the exact normalized menu order after each mutation (Select Forms renumbers the shown
+ * forms 1..n, #4945 fixed by #4952), and restores every recorded raw display order in cleanup. The form list is clinic-wide, so the check must not run
  * concurrently with other checks (live wrapper: EXCLUSIVE=1).
  *
  * Steps:
@@ -39,15 +39,11 @@ const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { scratchDir, saveDownload, requirePoppler, squash } = require('./lib/export-content-helpers');
 const { pageText } = require('./lib/pdf-graph');
 const { formsAfterSelection } = require('./billing-bc-wcb-links-playwright-checks');
+const { encounterForms } = require('./lib/encounter-form-list');
 
 const BCAR2020 = 'BC-AR 2020';
 const BCAR2012 = 'BC-AR 2012';
 const MIN_PANEL_CHARS = 500;
-
-/** Every encounterForm row, so the end state can be compared with the start, display order included. */
-function encounterForms(sql) {
-  return sql.rows('SELECT form_name,form_value,form_table,hidden FROM encounterForm ORDER BY form_name,form_value');
-}
 
 async function openSelectForms(page, s) {
   await h.gotoApp(page, s.config.baseUrl, '/administration');

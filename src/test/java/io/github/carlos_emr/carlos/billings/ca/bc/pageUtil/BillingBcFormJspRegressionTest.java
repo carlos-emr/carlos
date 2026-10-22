@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,9 +38,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The BC bill form and the private-bill receipt, as pages: what they must render for a bill to be
- * entered and an invoice to be updated (issues #4716 and #4717). The browser checks
- * {@code billing-bc-bill-create-save} and {@code billing-bc-private-bill-receipt} drive the same
- * paths live.
+ * entered and an invoice to be updated or printed (issues #4716, #4717 and #5068). The browser
+ * checks {@code billing-bc-bill-create-save}, {@code billing-bc-private-bill-receipt} and
+ * {@code billing-bc-receipt-print-notes} drive the same paths live.
  */
 @Tag("unit")
 @Tag("billing")
@@ -207,5 +209,42 @@ class BillingBcFormJspRegressionTest {
         assertThat(header).isPositive();
         String afterHeader = jsp.substring(header + "--%>".length());
         assertThat(afterHeader.substring(0, afterHeader.indexOf("<%")).trim()).isEmpty();
+    }
+
+    /**
+     * Issue #5068: the receipt's Edit Invoice, Print, Print With Notes and Cancel sit inside the
+     * Update Invoice form. A button with no type submits its form, so Print posted the update and
+     * reloaded the receipt before it could print. Only Update Invoice submits the form.
+     */
+    @Test
+    @DisplayName("should submit the receipt's form only from Update Invoice")
+    void shouldSubmitReceiptForm_onlyFromUpdateInvoice() throws IOException {
+        String page = read(BILL_RECEIPT_JSP);
+        int start = page.indexOf("<form action=\"${pageContext.request.contextPath}/billing/CA/BC/UpdateBilling\"");
+        assertThat(start).as("the Update Invoice form").isNotNegative();
+        int end = page.indexOf("</form>", start);
+        assertThat(end).isGreaterThan(start);
+        // Comments, scriptlets and custom tags out, so an attribute that holds one (Edit Invoice's
+        // onclick) does not end its button's start tag early.
+        String form = page.substring(start, end)
+                .replaceAll("(?s)<%--.*?--%>|<!--.*?-->", "")
+                .replaceAll("(?s)<%.*?%>", "")
+                .replaceAll("<\\w+:[^>]*>", "");
+
+        List<String> labels = new ArrayList<>();
+        List<String> submitting = new ArrayList<>();
+        Pattern typeButton = Pattern.compile("\\btype\\s*=\\s*\"button\"");
+        Matcher button = Pattern.compile("(?s)<button\\b([^>]*)>(.*?)</button>").matcher(form);
+        while (button.find()) {
+            String label = button.group(2).trim();
+            labels.add(label);
+            if (!typeButton.matcher(button.group(1)).find()) {
+                submitting.add(label);
+            }
+        }
+        assertThat(labels).containsExactly("Edit Invoice", "Print", "Print With Notes", "Cancel");
+        assertThat(submitting).as("buttons without type=\"button\", which submit the Update Invoice form").isEmpty();
+        assertThat(Pattern.compile("type=\"submit\"").matcher(form).results().count()).isEqualTo(1);
+        assertThat(form).contains("<input type=\"submit\" name=\"submit\" class=\"header\" value=\"Update Invoice\" />");
     }
 }

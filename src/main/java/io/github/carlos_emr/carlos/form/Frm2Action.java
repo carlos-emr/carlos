@@ -75,12 +75,15 @@ public final class Frm2Action extends ActionSupport {
         }
 
         String submitType = request.getParameter("submit");
-        // Graphs and saved-record printing are read-only. Every other branch saves or audits a write.
-        boolean readOnly = "graph".equals(submitType) || "printAll".equals(submitType)
-                || "printAllJasperReport".equals(submitType);
-        if (!readOnly && !"POST".equals(request.getMethod())) {
+        // Every save comes as the form page's POST. Only the read-only graph and print-all views
+        // open by GET. Refuse before the record class is constructed or any identifier is parsed.
+        if (!"POST".equals(request.getMethod()) && !isReadOnlySubmit(submitType)) {
             response.setHeader("Allow", "POST");
-            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (IOException e) {
+                log.error("Could not send 405 for a form save sent without POST", e);
+            }
             return NONE;
         }
 
@@ -401,7 +404,7 @@ public final class Frm2Action extends ActionSupport {
         String redirectUrl = StringUtils.defaultString(contextPath)
                 + "/form/forwardname?form_link="
                 + URLEncoder.encode(StringUtils.defaultString(formLink), StandardCharsets.UTF_8)
-                + "&" + actionForward.substring(SAVE_ACTION_PREFIX.length());
+                + "&" + actionForward.substring(SAVE_ACTION_PREFIX.length()) + "&saved=true";
         if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
             throw new IllegalArgumentException("Unsafe form forward redirect");
         }
@@ -445,4 +448,11 @@ public final class Frm2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Whether {@code submit} names a view that only reads the form record: the growth graph and the print-all views.
+     * Every other submission saves.
+     */
+    private static boolean isReadOnlySubmit(String submit) {
+        return "graph".equals(submit) || "printAll".equals(submit) || "printAllJasperReport".equals(submit);
+    }
 }

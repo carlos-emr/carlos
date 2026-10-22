@@ -25,11 +25,21 @@ function navbarGateGrants(privileges) {
 }
 
 /**
- * OscarRoleObjectPrivilege.checkRights for read: x, w, u or r, alone or with the "only" prefix
- * (`or`); a bare `o` is no rights. A value may hold several `|`-separated tokens.
+ * OscarRoleObjectPrivilege.checkPrivilege for read, in descending row priority: x, w, u or r
+ * grant read. A legacy "only" token stops evaluation even when it denies read (for example,
+ * `od|x` denies, while `x|od` grants). A bare `o` does not stop evaluation.
  */
 function moduleGateGrants(privileges) {
-  return privileges.some(privilege => String(privilege || '').split('|').some(token => /^o?[rwux]$/i.test(token.trim())));
+  for (const privilege of privileges) {
+    for (const token of String(privilege || '').split('|')) {
+      let right = token.trim().toLowerCase();
+      const only = right.length > 1 && right.startsWith('o');
+      if (only) right = right.slice(1);
+      if (['r', 'w', 'u', 'x'].includes(right)) return true;
+      if (only) return false;
+    }
+  }
+  return false;
 }
 
 const EPISODE_MODULE_GATES = [
@@ -41,13 +51,13 @@ const EPISODE_MODULE_GATES = [
 function loginPrivileges(sql, provider, objectName) {
   const P = sqlString(provider);
   return sql.rows(`SELECT privilege FROM secObjPrivilege WHERE objectName=${sqlString(objectName)}
-    AND (roleUserGroup=${P} OR roleUserGroup IN (SELECT role_name FROM secUserRole WHERE provider_no=${P}))`)
+    AND (roleUserGroup=${P} OR roleUserGroup IN (SELECT role_name FROM secUserRole WHERE provider_no=${P} AND activeyn=1))
+    ORDER BY priority DESC`)
     .map(([privilege]) => privilege);
 }
 
 /**
- * Whether the login's roles, or its provider number, already pass both gates. Counts inactive
- * role rows too, so a "not granted" answer is never optimistic about a role the login lacks.
+ * Whether the login's active roles, or its provider number, already pass both gates.
  */
 function episodeModuleGranted(sql, provider) {
   return EPISODE_MODULE_GATES.every(({ objectName, grants }) => grants(loginPrivileges(sql, provider, objectName)));

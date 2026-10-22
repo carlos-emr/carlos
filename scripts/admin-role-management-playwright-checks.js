@@ -220,8 +220,11 @@ async function workflow(s) {
           h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0,
             'Flowsheet access exposed the role-rights editor');
           h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Flowsheet access granted role-rights editing');
-          const flowsheets = await openItem(own, 'ManageFlowsheets', '#flowsheetActionForm');
+          // Read on _admin.flowsheet opens the list; the write controls are the writer's alone
+          // (manage-flowsheets-access pins both sides, issue #4623).
+          const flowsheets = await openItem(own, 'ManageFlowsheets', 'table.table');
           await h.assertNotErrorPage(flowsheets, 'doctor flowsheet administration');
+          h.assert(await flowsheets.locator('#flowsheetActionForm').count() === 0, 'A read-only doctor was handed the flowsheet enable/disable form');
         }
       }
     } finally { await ctx.close(); }

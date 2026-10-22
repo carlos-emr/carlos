@@ -15,7 +15,8 @@
  *   - Chart ▸ Forms ▸ BC-WCB opens a new WCB form for the patient;
  *   - the simulation lists the owned WCB claim, and its invoice link opens that claim's correction page;
  *   - Settle Bill on the correction page comes back to it, and the claim is settled (status S, one history row);
- *   - LAST: Select Forms removes BC-WCB again, preserving the original visible menu and its relative order.
+ *   - LAST: Select Forms removes BC-WCB again, preserving the original visible menu and its relative order
+ *     (Select Forms renumbers the shown forms 1..n, #4952, so the stored numbers themselves can change).
  * Fixtures: the owned FAKE- patient made a BC patient; one billing physician saved through Administration before
  * the simulation, so its active-provider cache sees the owned physician even on a warm install; one open WCB claim
  * for them (billing, billingmaster and a wcb row for fee item 19937). BC-WCB is
@@ -31,6 +32,7 @@ const ui = require('./lib/playwright-ui');
 const bc = require('./lib/bc-billing-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
 const { withProviderCleanup } = require('./billing-bc-simulation-encoding-playwright-checks');
+const { encounterForms } = require('./lib/encounter-form-list');
 
 const TIMEOUT = 30000;
 const WCB_FORM = 'BC-WCB';
@@ -46,11 +48,6 @@ const STEP = {
   settle: 'Settle Bill on the correction page comes back to it, and the claim is settled',
   restored: 'Select Forms removes BC-WCB again, preserving the original visible form order',
 };
-
-/** Every encounterForm row, so the end state can be compared with the start, display order included. */
-function encounterForms(sql) {
-  return sql.rows('SELECT form_name,form_value,form_table,hidden FROM encounterForm ORDER BY form_name,form_value');
-}
 
 /** Select Forms assigns distinct 1-based positions in the visible list; hidden forms have position 0. */
 function formsAfterSelection(before, selected) {

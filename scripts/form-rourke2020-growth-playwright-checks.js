@@ -610,7 +610,7 @@ async function workflow(s, { select = validatePin() } = {}) {
     // Getting to the menu entry and through it is what the check needs in order to look at the form: a menu that does not list
     // the registration or a window that does not open is a precondition, not a defect of the form under test.
     const link = await claims.asPrecondition(async () => {
-      await chart.locator('#menuTitle1 a').hover();
+      await ui.openFormsMenu(chart);
       // The menu entry (#menu1) opens a new record; the saved records of the same form are listed again in #formslist below it.
       const found = chart.locator('#menu1').getByRole('link', { name: entry.name, exact: true });
       const listed = await found.count();

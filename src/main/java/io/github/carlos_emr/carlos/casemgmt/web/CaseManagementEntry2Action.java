@@ -1503,7 +1503,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (bean.appointmentNo == null) {
                 bean.appointmentNo = "0";
             }
+            // casemgmt_oscar_baseurl is already the application root (Index2.jsp stores the context
+            // path, and navigation.jsp appends routes to it directly), so the context path must not
+            // be added again. An absent or blank base (session not entered through Index2) falls back
+            // to the request's own context path rather than rendering a literal "null/billing".
             String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
+            if (StringUtils.isBlank(bsurl)) {
+                bsurl = request.getContextPath();
+            }
             Date today = new Date();
             Calendar todayCal = Calendar.getInstance();
             todayCal.setTime(today);
@@ -1512,9 +1519,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             String Min = Integer.toString(todayCal.get(Calendar.MINUTE));
 
             String default_view = CarlosProperties.getInstance().getProperty("default_view", "");
-            String contextPath = request.getContextPath();
 
-            url = bsurl + contextPath + "/billing?billRegion=" + java.net.URLEncoder.encode(province, "UTF-8") + "&billForm=" + java.net.URLEncoder.encode(default_view, "UTF-8") + "&hotclick=" + java.net.URLEncoder.encode("", "UTF-8") + "&appointment_no=" + bean.appointmentNo + "&appointment_date=" + bean.appointmentDate + "&start_time=" + Hour + ":" + Min + "&demographic_name=" + java.net.URLEncoder.encode(bean.patientLastName + "," + bean.patientFirstName, "UTF-8") + "&demographic_no=" + bean.demographicNo
+            url = bsurl + "/billing?billRegion=" + java.net.URLEncoder.encode(province, "UTF-8") + "&billForm=" + java.net.URLEncoder.encode(default_view, "UTF-8") + "&hotclick=" + java.net.URLEncoder.encode("", "UTF-8") + "&appointment_no=" + bean.appointmentNo + "&appointment_date=" + bean.appointmentDate + "&start_time=" + Hour + ":" + Min + "&demographic_name=" + java.net.URLEncoder.encode(bean.patientLastName + "," + bean.patientFirstName, "UTF-8") + "&demographic_no=" + bean.demographicNo
                     + "&providerview=" + bean.curProviderNo + "&user_no=" + bean.providerNo + "&apptProvider_no=" + bean.curProviderNo + "&bNewForm=1&status=t";
 
             request.setAttribute("billing_url", url);

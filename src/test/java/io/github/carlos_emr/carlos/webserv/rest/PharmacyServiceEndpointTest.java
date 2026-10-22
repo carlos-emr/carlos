@@ -90,9 +90,9 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        PharmacyService service = new PharmacyService();
-        injectDependency(service, "pharmacyInfoDao", mockPharmacyInfoDao);
-        return service;
+        var security = authorizeEndpoint("r", "_rx");
+        grantEndpointPrivileges(security, "w", "_rx");
+        return new PharmacyService(mockPharmacyInfoDao, security);
     }
 
     @Nested

@@ -645,7 +645,11 @@ public class Contact2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String saveContact() {
-
+        // Directory, flag and pharmacy writes are POST-only like saveManage and
+        // removeContact: a GET or HEAD replay must not write (issue #3682).
+        if (!requireContactPost()) {
+            return NONE;
+        }
         String postMethod = request.getParameter("postMethod");
         String forward = "cForm";
 
@@ -713,8 +717,18 @@ public class Contact2Action extends ActionSupport {
      */
     @SuppressWarnings("unused")
     public String saveProContact() {
-
+        // Directory, flag and pharmacy writes are POST-only like saveManage and
+        // removeContact: a GET or HEAD replay must not write (issue #3682).
+        if (!requireContactPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // The same directory write right saveContact requires; this route writes
+        // ProfessionalContact, ProfessionalSpecialist and DemographicContact rows
+        // and previously checked nothing (issue #3682).
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
         //DynaValidatorForm dform = (DynaValidatorForm) form;
         ProfessionalContact contact = pcontact;
         String demographic_no = request.getParameter("demographic_no");
@@ -861,7 +875,11 @@ public class Contact2Action extends ActionSupport {
      */
     @SuppressWarnings("unused")
     public String setEmergencyContact() {
-
+        // Directory, flag and pharmacy writes are POST-only like saveManage and
+        // removeContact: a GET or HEAD replay must not write (issue #3682).
+        if (!requireContactPost()) {
+            return NONE;
+        }
         String contactId = request.getParameter(CONTACT_ID_PARAMETER);
         boolean toggle = Boolean.parseBoolean(request.getParameter("setting"));
 
@@ -888,7 +906,11 @@ public class Contact2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String setDNC() {
-
+        // Directory, flag and pharmacy writes are POST-only like saveManage and
+        // removeContact: a GET or HEAD replay must not write (issue #3682).
+        if (!requireContactPost()) {
+            return NONE;
+        }
         String contactId = request.getParameter(CONTACT_ID_PARAMETER);
         String contactGroup = request.getParameter("contactGroup");
 
@@ -913,7 +935,11 @@ public class Contact2Action extends ActionSupport {
      */
     @SuppressWarnings("unused")
     public String setMRP() {
-
+        // Directory, flag and pharmacy writes are POST-only like saveManage and
+        // removeContact: a GET or HEAD replay must not write (issue #3682).
+        if (!requireContactPost()) {
+            return NONE;
+        }
         String contactId = request.getParameter(CONTACT_ID_PARAMETER);
         int contactIdInt = Integer.parseInt(contactId);
 
@@ -969,7 +995,11 @@ public class Contact2Action extends ActionSupport {
      */
     @SuppressWarnings("unused")
     public String addPharmacy() {
-
+        // Directory, flag and pharmacy writes are POST-only like saveManage and
+        // removeContact: a GET or HEAD replay must not write (issue #3682).
+        if (!requireContactPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String pharmacyId = request.getParameter(CONTACT_ID_PARAMETER);
@@ -987,6 +1017,11 @@ public class Contact2Action extends ActionSupport {
      */
     @SuppressWarnings("unused")
     public String removePharmacy() {
+        // Directory, flag and pharmacy writes are POST-only like saveManage and
+        // removeContact: a GET or HEAD replay must not write (issue #3682).
+        if (!requireContactPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demographicPharmacyId = request.getParameter(CONTACT_ID_PARAMETER);
         String demographic_no = request.getParameter("demographic_no");
@@ -1034,6 +1069,11 @@ public class Contact2Action extends ActionSupport {
      */
     @SuppressWarnings("unused")
     public String savePharmacyInfo() {
+        // Directory, flag and pharmacy writes are POST-only like saveManage and
+        // removeContact: a GET or HEAD replay must not write (issue #3682).
+        if (!requireContactPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 //        DynaValidatorForm dform = (DynaValidatorForm) form;
 //        PharmacyInfo pharmacyInfo = (PharmacyInfo) dform.get("pharmacyInfo");

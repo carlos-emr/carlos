@@ -78,6 +78,7 @@ import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import java.io.File;
 import java.nio.file.Files;
 import java.io.FileOutputStream;
@@ -151,6 +152,9 @@ public class CaseManagementPrint {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public void doPrint(LoggedInInfo loggedInInfo, Integer demographicNo, boolean printAllNotes, String[] noteIds, boolean printCPP, boolean printRx, boolean printLabs, boolean printPreventions, boolean printAllergies, boolean useDateRange, Calendar startDate, Calendar endDate, HttpServletRequest request, OutputStream os) throws IOException, DocumentException {
 
+        // Extensions read servlet parameters rather than this method's patient argument. Bind every
+        // parameter view to the authorized patient so a query string cannot select a second chart.
+        request = patientScopedRequest(request, demographicNo);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         ChartPrintDateRange printRange = useDateRange ? ChartPrintDateRange.from(startDate, endDate) : null;
@@ -186,7 +190,9 @@ public class CaseManagementPrint {
             Long noteId = ConversionUtils.fromLongString(noteIdStr);
             if (noteId != null && noteId > 0) {
                 CaseManagementNote note = this.caseManagementMgr.getNote(noteId.toString());
-                if (note != null && note.getProviderNo() != null
+                // Callers authorize the print against demographicNo, but the note ids arrive from the
+                // request; a note of another patient must never ride into this patient's chart PDF.
+                if (note != null && demono.equals(note.getDemographic_no()) && note.getProviderNo() != null
                         && (note.getProviderNo().isEmpty() || Integer.parseInt(note.getProviderNo()) != -1)) {
                     notes.add(note);
                 }
@@ -429,6 +435,33 @@ public class CaseManagementPrint {
             }
         }
 
+    }
+
+    private static HttpServletRequest patientScopedRequest(HttpServletRequest request, Integer demographicNo) {
+        String patient = String.valueOf(demographicNo);
+        return new HttpServletRequestWrapper(request) {
+            @Override
+            public String getParameter(String name) {
+                return "demographicNo".equals(name) ? patient : super.getParameter(name);
+            }
+
+            @Override
+            public String[] getParameterValues(String name) {
+                return "demographicNo".equals(name) ? new String[]{patient} : super.getParameterValues(name);
+            }
+
+            @Override
+            public Map<String, String[]> getParameterMap() {
+                Map<String, String[]> parameters = new HashMap<>(super.getParameterMap());
+                parameters.put("demographicNo", new String[]{patient});
+                return Collections.unmodifiableMap(parameters);
+            }
+
+            @Override
+            public Enumeration<String> getParameterNames() {
+                return Collections.enumeration(getParameterMap().keySet());
+            }
+        };
     }
 
     /**

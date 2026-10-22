@@ -46,6 +46,8 @@
       marker, then drives the opener refresh and window close. On success, broadcasts
       to BroadcastChannel('carlos_tickler_refresh_' + demographicNo) so ticklerMain.jsp and
       newEncounterLayout.jsp for the same patient can reload without a full page refresh.
+      It also posts to 'carlos_tickler_refresh_all', the channel the provider-wide task
+      list listens on (#4993).
 
     Parameters:
     - demographic_no:       Patient demographic number. Ignored when ForwardDemographicTickler2Action
@@ -544,9 +546,12 @@
                     // Always broadcast for cross-window listeners (e.g. ticklerMain.jsp)
                     try {
                         var demoNo = '<carlos:encode value='<%= requestDemographicNo != null ? requestDemographicNo : "0" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                        var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
-                        bc.postMessage({ action: 'refresh' });
-                        bc.close();
+                        // Patient-scoped listeners (encounter, patient task list) and the provider-wide list ("all").
+                        ['all', demoNo].forEach(function (scope) {
+                            var bc = new BroadcastChannel('carlos_tickler_refresh_' + scope);
+                            bc.postMessage({ action: 'refresh' });
+                            bc.close();
+                        });
                     } catch (e) {
                         console.error('[ticklerAdd] BroadcastChannel broadcast failed:', e);
                         // Fallback: reload the opener directly so the tickler list stays current

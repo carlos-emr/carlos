@@ -56,9 +56,12 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.57`.
-`V1.0.48`–`V1.0.51` are claimed by open pull requests; the next unallocated number for ANY
-location — shared or province — is `V1.0.58`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59`.
+`V1.0.48`–`V1.0.51` are claimed by open pull requests. `develop` already uses `V1.0.60` and
+above, so before numbering a new migration here (ANY location — shared or province) check
+`develop` and the open pull requests and take a number above all of them; a collision found on
+a forward merge is resolved by renumbering the unreleased copy on the newer line
+(`docs/release-process.md`).
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
 The V1.0.31/V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;
@@ -212,7 +215,10 @@ adds `common/V1.0.46`. `common/V1.0.47` aligns the `measurementsDeleted` columns
 `measurements`. Provider signature identity is enforced by
 `common/V1.0.52__enforce_provider_signature_identity.sql`. Rourke 2020 page III/IV
 immunization notes (#4602) add `common/V1.0.57__preserve_rourke2020_immunization_notes.sql`.
-The next unallocated version is `V1.0.58`. Apply/merge these forward migrations in version order; if their merge
+On-behalf lab filing comments (#5084) add
+`common/V1.0.58__preserve_on_behalf_lab_filing_comments.sql`. Full linked-patient appointment
+names (#5067) add `common/V1.0.59__preserve_full_appointment_names.sql`; it was renumbered from
+an unreleased `V1.0.58` when it met #5084 on `release/2026.08`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized

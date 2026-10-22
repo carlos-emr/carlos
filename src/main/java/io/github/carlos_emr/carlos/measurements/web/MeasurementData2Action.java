@@ -134,6 +134,12 @@ public class MeasurementData2Action extends ActionSupport {
      */
     public String execute() throws Exception {
         String method = request.getParameter("action");
+        // The saves come only as the measurement form's POST; the reads stay open to GET.
+        if (("saveMeasurement".equals(method) || "saveValues".equals(method)) && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if ("getLatestValues".equals(method)) {
             return getLatestValues();
         } else if ("saveMeasurement".equals(method)) {

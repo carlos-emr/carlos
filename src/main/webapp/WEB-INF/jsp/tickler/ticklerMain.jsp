@@ -340,6 +340,7 @@
                         url: ctx + '/tickler/ListTicklers',
                         type: 'GET',
                         error: function(xhr, error, thrown) {
+                            syncStatusActions();
                             console.error('[ticklerMain] DataTables AJAX error (HTTP ' + xhr.status + '):', error, thrown);
                             jQuery('#ticklerResults_wrapper').prepend(
                                 '<div class="alert alert-danger alert-dismissible">' +
@@ -348,6 +349,8 @@
                             );
                         },
                         data: function(d) {
+                            // Keep checked rows from the previous result set inert until this request draws.
+                            syncStatusActions();
                             d.status = document.getElementById('ticklerview').value || 'A';
                             d.provider = document.getElementById('providerview') ? document.getElementById('providerview').value : '';
                             d.assignee = document.getElementById('assignedTo') ? document.getElementById('assignedTo').value : '';
@@ -482,12 +485,15 @@
                         });
 
                         localStorage.setItem('ticklerPageLength', api.page.len());
+                        syncStatusActions(settings);
                     }
                 });
 
                 document.getElementById('ticklerview').addEventListener('change', function () {
+                    syncStatusActions();
                     ticklerResultsTable.ajax.reload();
                 });
+                syncStatusActions();
 
                 jQuery("#formSubmitBtn").off('click').on('click', function(e) {
                     e.preventDefault();
@@ -495,6 +501,21 @@
                 });
 
             });
+
+            /**
+             * Only offers Complete/Delete after the latest request draws for the selected status.
+             * Loading or failed requests leave the previous rows on screen, so those rows must not
+             * become actionable when leaving Deleted. Deleted tasks have no further deletion action.
+             */
+            function syncStatusActions(settings) {
+                var status = document.getElementById('ticklerview').value || 'A';
+                var request = settings && settings.oAjaxData;
+                var response = settings && settings.json;
+                var ready = request && response && !response.error && !response.sError
+                    && Number(response.draw) === settings.iDraw
+                    && Number(request.draw) === settings.iDraw && request.status === status;
+                jQuery('.status-action-live').each(function () { this.hidden = !ready || status === 'D'; });
+            }
 
             /**
              * Opens the tickler edit popup and toggles the row's pencil icon to a
@@ -683,20 +704,25 @@
                     });
             }
 
-            // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
+            // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows.
+            // The popups post to the patient-scoped channel and to the shared "all" channel. The
+            // provider-wide list (demoview 0) spans every patient, so it listens on "all"; a
+            // patient-scoped list keeps its own channel. Each list listens on exactly one, so a
+            // save reloads it once (#4993).
             var ticklerChannel = null;
-            try {
-                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= demographic_no %>' context="javaScript"/>');
-                ticklerChannel.onmessage = function(event) {
-                    var data = event.data;
-                    if (data && (data === 'refresh' || data.action === 'refresh')) {
-                        if (typeof ticklerResultsTable !== 'undefined' && ticklerResultsTable) {
-                            ticklerResultsTable.ajax.reload(null, false);
-                        } else {
-                            location.reload();
-                        }
+            function onTicklerRefresh(event) {
+                var data = event.data;
+                if (data && (data === 'refresh' || data.action === 'refresh')) {
+                    if (typeof ticklerResultsTable !== 'undefined' && ticklerResultsTable) {
+                        ticklerResultsTable.ajax.reload(null, false);
+                    } else {
+                        location.reload();
                     }
-                };
+                }
+            }
+            try {
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= isDemoView ? demographic_no : "all" %>' context="javaScript"/>');
+                ticklerChannel.onmessage = onTicklerRefresh;
                 ticklerChannel.onmessageerror = function(event) {
                     console.error('[ticklerMain] BroadcastChannel message deserialization error:', event);
                 };
@@ -998,24 +1024,16 @@
                                          href="javascript:CheckAll();"><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a> - <a href="javascript:ClearAll();"><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
 
                         <input type="hidden" name="submit_form" value="">
-                        <%
-                            if (ticklerview.compareTo("D") == 0) {
-                        %>
-                        <input type="button" class="btn btn-secondary"
-                               value="<fmt:message key="tickler.ticklerMain.btnEraseCompletely"/>" class="sbttn"
-                               onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
-                        <%
-                        } else {
-                        %>
-                        <input type="button" class="btn btn-secondary" value="<fmt:message key="tickler.ticklerMain.btnComplete"/>"
-                               class="sbttn"
+                        <%-- Actions stay hidden until the first matching draw, and while requests are pending.
+                             Deleted tasks remain part of the clinical record (#4993). --%>
+                        <input type="button" class="btn btn-secondary status-action-live" id="completeButton"
+                               value="<fmt:message key="tickler.ticklerMain.btnComplete"/>"
+                               hidden
                                onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
-                        <input type="button" class="btn btn-danger"
-                               value="<fmt:message key="tickler.ticklerMain.btnDelete"/>" class="sbttn"
+                        <input type="button" class="btn btn-danger status-action-live" id="deleteButton"
+                               value="<fmt:message key="tickler.ticklerMain.btnDelete"/>"
+                               hidden
                                onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
-                        <%
-                            }
-                        %>
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
                                onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<carlos:encode value='<%= parentAjaxId != null ? parentAjaxId : "" %>' context="uriComponent"/>&bFirstDisp=false&messageID=null&demographic_no=<carlos:encode value='<%= demoviewParam != null ? demoviewParam : "" %>' context="uriComponent"/>')">

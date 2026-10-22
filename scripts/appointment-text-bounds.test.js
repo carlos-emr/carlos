@@ -112,7 +112,7 @@ test('every shipped locale contains complete plain validation messages with the 
 });
 const schema=fs.readFileSync(path.join(repo,'database/mysql/migration/common/V1__baseline_schema.sql'),'utf8');
 const baselineLimits=Object.fromEntries(['appointment','appointmentArchive'].map(table=>{const block=schema.match(new RegExp('CREATE TABLE `'+table+'` \\(([\\s\\S]*?)\\) ENGINE='))?.[1];assert(block);return[table,Object.fromEntries(['name','reason','notes','resources'].map(field=>{const n=block.match(new RegExp('`'+field+'` varchar\\((\\d+)\\)'))?.[1];assert(n);return[field,Number(n)];}))];}));
-const migrationName='V1.0.58__preserve_full_appointment_names.sql';
+const migrationName='V1.0.59__preserve_full_appointment_names.sql';
 const migration=fs.readFileSync(process.env.APPOINTMENT_NAME_MIGRATION_FILE||path.join(root,'database/mysql/migration/common',migrationName),'utf8');
 function selectFor(table){
  const matches=[...migration.matchAll(/SELECT CASE[\s\S]*?FROM information_schema\.columns\s+WHERE table_schema = DATABASE\(\) AND table_name = '([^']+)' AND column_name = 'name'/g)];

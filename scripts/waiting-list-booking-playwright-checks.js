@@ -27,7 +27,7 @@ async function workflow(s) {
   let selectedProvider;
   async function openSlot() {
     const today = s.sql.value('SELECT CURDATE()');
-    const links = flip.locator('a[onclick^="t("]');
+    const links = flip.locator('[onclick^="t("]');
     // Parse a real rendered slot, then check availability without creating or
     // changing a schedule. Choose a future free slot so no warning is ignored.
     const handlers = await links.evaluateAll(nodes => nodes.map(node => node.getAttribute('onclick')));
@@ -66,7 +66,7 @@ async function workflow(s) {
     flip = await s.popup(f.manager, row.locator('a[onclick*="popupPage("]'), 'waiting-list-flip-view');
     h.assert(new URL(flip.url()).searchParams.get('demographic_no') === s.patient, 'Flip View opened another patient');
     h.assert(new URL(flip.url()).searchParams.get('provider_no') === selectedProvider, 'Flip View opened another provider');
-    await flip.locator('a[onclick^="t("]').first().waitFor();
+    await flip.locator('[onclick^="t("]').first().waitFor();
   });
   if (mode === 'navigate') {
     await s.step('Next Month retains the waiting-list patient when a free slot is selected', async () => {

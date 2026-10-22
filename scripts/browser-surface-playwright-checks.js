@@ -31,6 +31,7 @@ const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { masterRecordLink } = require('./lib/master-record-link');
+const { clickOpensPopup } = require('./lib/playwright-ui');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -222,16 +223,10 @@ async function checkDemographicCrud(context) {
   }
 }
 
-async function clickPopupLink(context, link, label) {
-  // Resolve the visible opener first, so a missing link cannot leave an unobserved popup timeout.
-  await link.first().waitFor({ state: 'visible', timeout: 15000 });
-  const [popup] = await Promise.all([
-    context.waitForEvent('page'),
-    link.first().click(),
-  ]);
+async function clickPopupLink(context, page, fragment, label) {
+  const popup = await clickOpensPopup(page, masterRecordLink(page, fragment).first(),
+    { context, label, timeout: 30000 });
   wirePage(popup, label);
-  await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
-  await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return popup;
 }
 
@@ -249,7 +244,8 @@ async function assertDataTablesAvailable(page, label) {
 async function checkPatientPopups(context, patientPage) {
   const tickler = await clickPopupLink(
     context,
-    masterRecordLink(patientPage, '/tickler/ViewTicklerMain'),
+    patientPage,
+    '/tickler/ViewTicklerMain',
     'tickler'
   );
   assert(new URL(tickler.url()).searchParams.get('demoview') === String(demographicNo),
@@ -262,7 +258,8 @@ async function checkPatientPopups(context, patientPage) {
 
   const consultation = await clickPopupLink(
     context,
-    masterRecordLink(patientPage, 'ViewDisplayDemographicConsultationRequests'),
+    patientPage,
+    'ViewDisplayDemographicConsultationRequests',
     'consultation'
   );
   assert(new URL(consultation.url()).searchParams.get('de') === String(demographicNo),

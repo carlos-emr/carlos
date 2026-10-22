@@ -261,6 +261,9 @@ async function reportClinicBillStatus({ admin, frame }, { demographicNo, status,
       && new URL(response.url()).pathname.endsWith('/billing/CA/BC/reprocessBill')
       && new URL(response.url()).searchParams.get('billTypes') === status
       && new URL(response.url()).searchParams.get('demographicNo') === String(demographicNo), { timeout }),
+    // Response headers can arrive before the frame commits its new document.
+    // Wait for that commit before asking for the new document's load state.
+    admin.waitForEvent('framenavigated', { predicate: navigated => navigated === frame, timeout }),
     form.locator('input[type="submit"][value="Create Report"]').click(),
   ]);
   await frame.waitForLoadState('domcontentloaded');

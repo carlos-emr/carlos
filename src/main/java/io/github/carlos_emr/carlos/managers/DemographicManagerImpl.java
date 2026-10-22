@@ -650,6 +650,17 @@ public class DemographicManagerImpl implements DemographicManager {
 
     @Override
     public void mergeDemographics(LoggedInInfo loggedInInfo, Integer parentId, List<Integer> children) {
+        // Reject before the first write: merging a record into itself, or involving a record that is already
+        // merged into another, can close a loop in demographic_merged that getHead cannot resolve.
+        if (parentId == null || !demographicMergedDao.findCurrentByDemographicNo(parentId).isEmpty()) {
+            throw new IllegalArgumentException("Merge target must be an existing head record");
+        }
+        for (Integer child : children) {
+            if (child == null || child.equals(parentId)
+                    || !demographicMergedDao.findCurrentByDemographicNo(child).isEmpty()) {
+                throw new IllegalArgumentException("Merge source must be a head record other than the target");
+            }
+        }
         for (Integer child : children) {
             DemographicMerged dm = new DemographicMerged();
             dm.setDemographicNo(child);
