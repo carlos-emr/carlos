@@ -32,7 +32,9 @@ const crypto = require('node:crypto');
 const { readNativeClinicianCredentials, validateNativeImportedCredentials, proveNativeClinicianLogin, redactNativeAuthError } = require('./lib/o19-native-auth');
 const clinician = { userName: 'SyntheticClinician', pin: '1234' };
 const credentials = { user: clinician.userName, password: 'Public-Synthetic-Legacy!', pin: clinician.pin };
-function legacy(password) { return Array.from(crypto.createHash('sha1').update(password).digest(), x => String(x < 128 ? x : x - 256)).join(''); }
+// Builds the OSCAR 19 signed-decimal SHA-1 representation the helper verifies, for a public synthetic fixture.
+// codeql[js/insufficient-password-hash] -- reproduces the imported legacy format under test; nothing is stored.
+function legacy(password) { return Array.from(crypto.createHash('sha1').update(password).digest(), x => String(x < 128 ? x : x - 256)).join(''); } // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm -- legacy format fixture
 function initial(change = {}) { return { userName: clinician.userName, password: legacy(credentials.password), forcePasswordReset: '1', ...change }; }
 const adminRow = { forcePasswordReset: '1' };
 function fixture(t, contents = JSON.stringify(credentials)) {

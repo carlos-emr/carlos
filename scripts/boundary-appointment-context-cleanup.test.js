@@ -6,7 +6,6 @@ const {createHash}=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
 const {installOwnedBoundaryCleanup,nativeSlot}=require(process.env.BOUNDARY_APPOINTMENT_HELPER_FILE||'./boundary-appointment-text-playwright-checks');
 const {cleanupOwnedWorkflow}=require('./lib/workflow-session');
-const {captureScheduleContext}=require('./lib/native-schedule-context');
 const MARKER='FAKE-PW0123456789abcdef',BASE='https://127.0.0.1/carlos',SITE="North's & East";
 const LINK="popupPage(600,860,'/carlos/appointment/addappointment?provider_no=888888&bFirstDisp=true&year=2026&month=10&day=21&start_time=08%3A55&end_time=08%3A69&duration=15');return false;";
 const PAGE='888888|2026-10-21|08:55|09:09';

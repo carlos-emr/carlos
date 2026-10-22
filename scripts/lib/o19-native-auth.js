@@ -58,7 +58,10 @@ function validateNativeImportedCredentials(credentials, clinicianRow, adminRow) 
     'Native clinician must retain the real import forced-reset state');
   assert(adminRow.forcePasswordReset === '1', 'Native administrator must retain the real import forced-reset state');
   // Read-only compatibility verification of the carried legacy SHA1 format; never writes SHA1 credentials.
-  const legacy = Array.from(crypto.createHash('sha1').update(credentials.password).digest(),
+  // OSCAR 19 stored SHA-1 bytes as signed decimals; reproducing that exact value is the only way to prove the
+  // operator's private file names the imported clinician before the app's own forced reset replaces it with BCrypt.
+  // codeql[js/insufficient-password-hash] -- verifies an imported legacy hash; this harness never stores a hash.
+  const legacy = Array.from(crypto.createHash('sha1').update(credentials.password).digest(), // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm -- OSCAR 19 legacy format check, not a credential store
     value => String(value < 128 ? value : value - 256)).join('');
   assert(clinicianRow.password === legacy,
     'Native clinician credential does not match the imported legacy password representation');

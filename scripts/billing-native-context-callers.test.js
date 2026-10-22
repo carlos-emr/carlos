@@ -272,7 +272,6 @@ test('report-filter actual caller guards all callbacks under default finalizer a
 // Actual bill-form referral picker/native self-close and second-claim contract.
 {
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later. */
-'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
