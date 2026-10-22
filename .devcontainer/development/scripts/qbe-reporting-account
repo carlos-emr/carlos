@@ -23,18 +23,33 @@ prop() {
     sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" "$PROPERTIES" | tail -n 1 | tr -d '\r'
 }
 
+lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
 user="$(prop db_reporting_username)"
 password="$(prop db_reporting_password)"
+record=false
 if [ -z "$user" ] || [ -z "$password" ]; then
     user="carlos_report"
     password="${CARLOS_REPORT_DB_PASSWORD:-carlos-report-dev}"
-    printf 'db_reporting_username=%s\ndb_reporting_password=%s\n' "$user" "$password" >> "$PROPERTIES"
-    echo "Added db_reporting_username/db_reporting_password to $PROPERTIES; run 'server restart' afterwards."
+    record=true
 fi
 case "$user$password" in
     *"'"*|*'\'*) echo "qbe-reporting-account: quotes and backslashes are not supported in the dev account" >&2; exit 1 ;;
 esac
+# The grant list starts by revoking everything the account holds, and the DDL below resets its
+# password: pointed at root or at the application's own account (db_username, root in the
+# devcontainer), this would lock the application out. The application refuses either name as its
+# reporting account too.
+case "$(lower "$user")" in
+    root|"$(lower "$(prop db_username)")")
+        echo "qbe-reporting-account: db_reporting_username must name a dedicated read-only account, not root or db_username" >&2
+        exit 1 ;;
+esac
 [ -f "$GRANTS" ] || { echo "qbe-reporting-account: $GRANTS not found" >&2; exit 1; }
+if [ "$record" = true ]; then
+    printf 'db_reporting_username=%s\ndb_reporting_password=%s\n' "$user" "$password" >> "$PROPERTIES"
+    echo "Added db_reporting_username/db_reporting_password to $PROPERTIES; run 'server restart' afterwards."
+fi
 
 # The root password travels in MYSQL_PWD and the account DDL on stdin, never on argv.
 export MYSQL_PWD="${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-password}}"
