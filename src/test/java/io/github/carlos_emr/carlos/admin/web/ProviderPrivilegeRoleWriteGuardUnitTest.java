@@ -156,7 +156,8 @@ class ProviderPrivilegeRoleWriteGuardUnitTest extends CarlosUnitTestBase {
                     .thenReturn(false);
             request.setMethod("GET");
 
-            assertThatThrownBy(() -> new ProviderPrivilege2Action().execute())
+            ProviderPrivilege2Action action = new ProviderPrivilege2Action();
+            assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_admin or _admin.userAdmin)");
         }
@@ -208,7 +209,8 @@ class ProviderPrivilegeRoleWriteGuardUnitTest extends CarlosUnitTestBase {
             request.setMethod("POST");
             request.addParameter(param, "Add");
 
-            assertThatThrownBy(() -> new ProviderRole2Action().execute())
+            ProviderRole2Action action = new ProviderRole2Action();
+            assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_admin or _admin.userAdmin)");
         }
@@ -232,7 +234,8 @@ class ProviderPrivilegeRoleWriteGuardUnitTest extends CarlosUnitTestBase {
             request.setMethod("GET");
             request.addParameter("submit", "Add");
 
-            assertThatThrownBy(() -> new ProviderRole2Action().execute())
+            ProviderRole2Action action = new ProviderRole2Action();
+            assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class);
             assertThat(response.getStatus()).isEqualTo(200);
         }

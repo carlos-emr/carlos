@@ -23,10 +23,12 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -184,5 +186,6 @@ class MsgHandleMessages2ActionDeleteGuardUnitTest extends CarlosUnitTestBase {
 
         assertThat(execute()).isEqualTo("reply");
         assertThat(response.getStatus()).isEqualTo(200);
+        verify(messagingManager, never()).deleteMessage(any(), anyInt());
     }
 }

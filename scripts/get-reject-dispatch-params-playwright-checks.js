@@ -24,8 +24,10 @@
  *   2. "Assign Role to Provider" (admin/ProviderRole): filter by the throwaway provider, add a
  *      second role, then change the first with Update. Replays: Add, Update and Delete, and the
  *      Primary EMR Role form's buttonSetPrimaryRole.
- *   3. A message's view (messenger/ViewMessage) ▸ Delete deletes owned message A. Replay: the
- *      Delete for owned message B (the button posts an EMPTY `delete`, so the replay names it).
+ *   3. Messenger (from the schedule) ▸ owned message A ▸ Delete deletes it. Replay: the Delete for
+ *      owned message B (the button posts an EMPTY `delete`, so the replay names it). The inbox
+ *      must be opened first: the page Delete lands on redirects to the login page without the
+ *      messenger session bean the inbox creates.
  *   4. The Dx registry's code-description editor (oscarReport/ViewEditCodeDesc) saves an owned
  *      ICD-9 row's description. The page has no link that fills its hidden code fields (it reads
  *      them from a session nothing sets), so the check sets them on the page before Modify.
@@ -38,7 +40,7 @@
  * Risk sweep "get-reject" (STATE-CHANGING ACTIONS THAT ACCEPT GET).
  */
 const h = require('./lib/playwright-harness');
-const { clickAndAwaitReload } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { captureRequest, replayParams, createLedger } = require('./lib/get-reject-probe');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
@@ -242,13 +244,21 @@ async function workflow(s) {
   // ── 3. Message Delete ─────────────────────────────────────────────────────────────────────
   let messageDelete;
   await s.step(STEP.message, async () => {
-    const page = await openPage(s, `/messenger/ViewMessage?messageID=${messages.A}&boxType=0`, 'button[name="delete"]');
+    const { page } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('a:has(#oscar_new_msg)').first(),
+      { context: s.context, recorder: s.recorder, label: 'messenger-inbox', timeout: TIMEOUT });
+    await page.waitForLoadState('domcontentloaded', { timeout: TIMEOUT });
+    await h.assertNotErrorPage(page, 'messenger inbox');
+    await clickAndAwaitReload(page, page.locator(`a[href*="/messenger/ViewMessage?messageID=${messages.A}&"]`).first(),
+      { label: 'open message A' });
+    await page.locator('button[name="delete"]').waitFor({ timeout: TIMEOUT });
     messageDelete = await captureRequest(page, (url) => url.pathname.endsWith('/messenger/HandleMessages'),
       () => clickAndAwaitReload(page, page.locator('button[name="delete"]'), { label: 'message Delete' }));
     h.assert(messageDelete.status === 200 && messageDelete.params.has('delete')
       && messageDelete.params.get('messageNo') === messages.A, `Delete did not post message A (HTTP ${messageDelete.status})`);
     assertTokenPosted(messageDelete, 'The message Delete');
     await h.assertNotErrorPage(page, 'message list after Delete');
+    h.assert(new URL(page.url()).pathname.endsWith('/messenger/HandleMessages'),
+      `Delete did not land on the message list (left on ${new URL(page.url()).pathname})`);
     await expectValue(sql, `SELECT IFNULL(GROUP_CONCAT(status),'') FROM messagelisttbl WHERE message=${messages.A}
       AND provider_no=${q(provider)}`, 'del', 'Delete did not delete message A');
     h.assert(messageStatus('B') === 'new', 'Deleting message A changed message B');

@@ -652,6 +652,21 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
         }
 
         @Test
+        @DisplayName("should refuse a posted editDesc from a caller who may only read the report")
+        void shouldRefuseEditDesc_whenCallerLacksReportWrite() {
+            denyPrivilege("_report", "w");
+            getMockRequest().setMethod("POST");
+            addEditDescParameters();
+
+            try (MockedStatic<dxQuickListItemsHandler> handler = mockStatic(dxQuickListItemsHandler.class)) {
+                assertThatThrownBy(() -> executeAction(action))
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessage("missing required sec object (_report)");
+                handler.verifyNoInteractions();
+            }
+        }
+
+        @Test
         @DisplayName("should still open the report by GET")
         void shouldOpenReport_whenGetHasNoMethod() throws Exception {
             getMockRequest().setMethod("GET");

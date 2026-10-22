@@ -190,10 +190,16 @@ public class DxresearchReport2Action extends ActionSupport {
         // code, and its only form (editCodeDesc.jsp) posts it. The method name starts with no verb
         // HttpMethodGuardFilter knows, and a GET carries no CSRF token, so a link alone could reach the
         // write: refuse it before dispatch (issue #3394). The reports themselves stay open to GET.
-        if (EDIT_DESC_METHOD.equals(method) && !"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
+        if (EDIT_DESC_METHOD.equals(method)) {
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+            // Reading the report is not a licence to rewrite reference data every user sees.
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)) {
+                throw new SecurityException("missing required sec object (_report)");
+            }
         }
 
         String result = dispatch(method);
