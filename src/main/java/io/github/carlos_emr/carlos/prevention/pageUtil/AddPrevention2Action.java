@@ -383,12 +383,20 @@ public class AddPrevention2Action extends ActionSupport {
         return NONE;
     }
 
+    /**
+     * The type the RH form's injection editor ({@code form/addRhInjection}) and its panel's Delete
+     * post (issue #4992). RH injections are recorded as preventions but are not a Preventions-page
+     * item, so {@code PreventionItems.xml} does not list the type and the configured-type check
+     * alone refused every RH injection save and delete.
+     */
+    static final String RH_INJECTION_TYPE = "RH";
+
     private List<String> validate(String preventionType, String demographic_no, String id) {
         List<String> result = new ArrayList<String>();
 
         PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
         HashMap<String, String> prevention = pdc.getPrevention(preventionType);
-        if (prevention == null) {
+        if (prevention == null && !RH_INJECTION_TYPE.equals(preventionType)) {
             result.add("Invalid Prevention Type");
         }
 

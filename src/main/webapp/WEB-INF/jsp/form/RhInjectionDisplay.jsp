@@ -87,12 +87,12 @@
     </legend>
     <%if ("1".equals(refused)) { %> <fmt:message key="form.rhInjectionDisplay.refused"/> <button
         type="button" class="rh-injection-delete"
-        onclick="deleteInjection('<%= SafeEncode.forJavaScriptAttribute(preventionId) %>')"><fmt:message key="form.rhInjectionDisplay.delete"/></button> <%} else {%> <fmt:message key="form.rhInjectionDisplay.given"/>
+        onclick="deleteInjection('<%= SafeEncode.forJavaScriptAttribute(preventionId) %>', '<%= SafeEncode.forJavaScriptAttribute((String) hdata.get("preventionDate")) %>')"><fmt:message key="form.rhInjectionDisplay.delete"/></button> <%} else {%> <fmt:message key="form.rhInjectionDisplay.given"/>
     <fmt:message key="form.rhInjectionDisplay.by"/> <%= SafeEncode.forHtmlContent(ProviderData.getProviderName((String) hdata.get("provider_no"))) %>
     <fmt:message key="form.rhInjectionDisplay.location"/> <%= SafeEncode.forHtmlContent(hextended.get("location")) %> <fmt:message key="form.rhInjectionDisplay.lotNumber"/> <%= SafeEncode.forHtmlContent(hextended.get("lot")) %>
     <fmt:message key="form.rhInjectionDisplay.productNumber"/> <%= SafeEncode.forHtmlContent(hextended.get("product")) %> <fmt:message key="form.rhInjectionDisplay.dosage"/> <%= SafeEncode.forHtmlContent(hextended.get("dosage")) %>
     <button type="button" class="rh-injection-delete"
-       onclick="deleteInjection('<%= SafeEncode.forJavaScriptAttribute(preventionId) %>')"><fmt:message key="form.rhInjectionDisplay.delete"/></button> <br>
+       onclick="deleteInjection('<%= SafeEncode.forJavaScriptAttribute(preventionId) %>', '<%= SafeEncode.forJavaScriptAttribute((String) hdata.get("preventionDate")) %>')"><fmt:message key="form.rhInjectionDisplay.delete"/></button> <br>
     <fmt:message key="form.rhInjectionDisplay.reason"/> <%= SafeEncode.forHtmlContent(hextended.get("reason")) %> <%}%>
 </fieldset>
 <% }

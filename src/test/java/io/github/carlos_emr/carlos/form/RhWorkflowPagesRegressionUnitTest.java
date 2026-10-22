@@ -124,6 +124,18 @@ class RhWorkflowPagesRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should send the prevention type and date that prevention/AddPrevention requires from the panel's Delete")
+    void shouldSendPreventionTypeAndDate_whenPanelDeletesInjection() throws IOException {
+        // AddPrevention2Action answers 400 to a post without prevDate or a known prevention type,
+        // a delete included, so the RH form's delete form carries both.
+        String form = read("form/formRhImmuneGlobulin.jsp");
+        assertThat(form).contains("<input type=\"hidden\" name=\"prevention\" value=\"RH\"/>")
+                .contains("<input type=\"hidden\" name=\"prevDate\" id=\"deletePrevDate\"/>")
+                .contains("function deleteInjection(idval, prevDate) {")
+                .contains("document.getElementById('deletePrevDate').value = prevDate;");
+    }
+
+    @Test
     @DisplayName("should let the injection editor's Save submit without a script error")
     void shouldSubmitWithoutScriptError_fromInjectionEditor() throws IOException {
         String editor = read("form/addRhInjection.jsp");
@@ -140,7 +152,8 @@ class RhWorkflowPagesRegressionUnitTest {
             assertThat(panel).doesNotContain("<%=hextended.get(\"" + field + "\")");
         }
         assertThat(panel).contains("demographicNo.trim().equals(String.valueOf(hdata.get(\"demographicNo\")))");
-        assertThat(panel).contains("deleteInjection('<%= SafeEncode.forJavaScriptAttribute(preventionId) %>')");
+        assertThat(panel).contains("deleteInjection('<%= SafeEncode.forJavaScriptAttribute(preventionId) %>', "
+                + "'<%= SafeEncode.forJavaScriptAttribute((String) hdata.get(\"preventionDate\")) %>')");
         // Delete acts rather than navigates: a button, not an anchor with a javascript: href.
         assertThat(panel).contains("<button type=\"button\" class=\"rh-injection-delete\"").doesNotContain("href=\"javascript:");
     }

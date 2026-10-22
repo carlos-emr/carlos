@@ -7,6 +7,9 @@
 //   288  the RH form's Add Injection button opened addRhInjection without form/ (the error page);
 //   290  the injection editor's Save handler ended with an undefined name, a script error on every Save;
 //   291  the RH form's injection panel stayed empty: the lookup passed the prevention entity's toString() as its id.
+// Those defects hid two refusals that the packaged install showed once the editor's link was right: HttpMethodGuardFilter
+// answered the editor's GET with 405 (an add* route name), and prevention/AddPrevention refused every RH injection save
+// and delete with 400 (RH is not a Preventions-page type, and the panel's delete omitted the type and date).
 // The panel prints what was recorded for each injection, so once it shows again its values must be encoded and only
 // the chart's own patient's injections listed. Finding 293 (the entity written to the error log) is covered by
 // PreventionDataExtLookupUnitTest.

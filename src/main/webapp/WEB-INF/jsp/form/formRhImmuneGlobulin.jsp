@@ -593,6 +593,10 @@
 
         <input type="hidden" name="id" id="deleteId"/>
         <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
+        <%-- prevention/AddPrevention refuses any post without the prevention type and date, a delete included;
+             a delete uses only the id and patient, so the injection's own date is sent (#4992). --%>
+        <input type="hidden" name="prevention" value="RH"/>
+        <input type="hidden" name="prevDate" id="deletePrevDate"/>
 
         <input type="hidden" name="delete" value="delete"/>
         </form>
@@ -655,9 +659,10 @@
                 }).then(function() { getInjectionInformation(); });
             }
 
-            function deleteInjection(idval) {
+            function deleteInjection(idval, prevDate) {
                 var delId = document.getElementById('deleteId');
                 delId.value = idval;
+                document.getElementById('deletePrevDate').value = prevDate;
                 //console.log("calling deleteInjection "+idval);
 
                 deleteCall();
