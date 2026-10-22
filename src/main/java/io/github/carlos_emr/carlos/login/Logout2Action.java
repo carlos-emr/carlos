@@ -119,6 +119,8 @@ public class Logout2Action extends ActionSupport {
      *
      * @return String Struts2 result name (SUCCESS after POST; NONE after 405 for non-POST)
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an HTTP method constant; not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an HTTP method constant; not a security or authorization decision")
     @Override
     public String execute() throws IOException {
         // Logout invalidates the session and deletes cookies — reject non-POST to

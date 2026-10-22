@@ -549,6 +549,7 @@ public final class Login2Action extends ActionSupport {
         try {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
+            // nosemgrep: carlos.crlf-injection-logs -- the only argument not run through LogSafe is ajaxResponse, a primitive boolean that logs as true or false
             logger.error("Authentication provider failed during login: user={}, remote={}, ajax={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip), ajaxResponse, e);
             recordAuthenticationExceptionFailure(cl, ip, userName);

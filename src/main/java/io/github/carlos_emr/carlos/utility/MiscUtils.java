@@ -351,6 +351,8 @@ public final class MiscUtils {
     /**
      * This method should in most cases only be called by the context startup listener.
      */
+    // FindSecBugs USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION", justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public static synchronized void registerShutdownHook() {
         if (shutdownHookThread == null) {
             shutdownHookThread = new MiscUtils.ShutdownHookThread();
@@ -358,6 +360,8 @@ public final class MiscUtils {
         }
     }
 
+    // FindSecBugs USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION", justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public static synchronized void deregisterShutdownHook() {
         if (shutdownHookThread != null) {
             Runtime.getRuntime().removeShutdownHook(shutdownHookThread);

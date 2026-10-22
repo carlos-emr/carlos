@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class DemographicNameAgeTag extends TagSupport {
 
@@ -57,7 +58,7 @@ public class DemographicNameAgeTag extends TagSupport {
         DemographicNameAgeString demoNameAge = DemographicNameAgeString.getInstance();
         Integer intDemoNo = ConversionUtils.fromIntString(demoNo);
         if (intDemoNo == 0) {
-            MiscUtils.getLogger().error("Unable to parse demo no: " + demoNo);
+            MiscUtils.getLogger().error("Unable to parse demo no: {}", LogSafe.sanitize(demoNo));
             return SKIP_BODY;
         }
         String nameage = demoNameAge.getNameAgeString(LoggedInInfo.getLoggedInInfoFromSession(this.pageContext.getSession()), intDemoNo);

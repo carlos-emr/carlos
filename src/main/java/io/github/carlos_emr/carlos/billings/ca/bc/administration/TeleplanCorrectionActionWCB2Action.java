@@ -94,7 +94,11 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    // FindSecBugs HRS_REQUEST_PARAMETER_TO_HTTP_HEADER: the only request value in the redirect Location is the
+    // "id" parameter, which must match BILL_NUMBER (1-9 digits) before the save runs, so it cannot carry CR or LF.
+    @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "HRS_REQUEST_PARAMETER_TO_HTTP_HEADER"},
+            justification = "redirect target is a same-origin application path; the only request value in it is the id "
+                    + "parameter, validated as 1-9 digits by BILL_NUMBER, so it cannot inject a header")
     public String execute()
             throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

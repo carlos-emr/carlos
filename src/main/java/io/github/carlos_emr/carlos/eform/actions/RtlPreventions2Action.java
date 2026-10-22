@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Struts2 action that returns OWASP-encoded HTML-formatted prevention/immunization
@@ -155,7 +156,7 @@ public class RtlPreventions2Action extends ActionSupport {
                 out.print(html.toString());
             }
         } catch (Exception e) {
-            logger.error("Failed to retrieve preventions for demographic_no={}", demographicNo, e);
+            logger.error("Failed to retrieve preventions for demographic_no={}", LogSafe.sanitizeObject(demographicNo), e);
             // Guard against IllegalStateException if response was partially written
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to retrieve prevention data");

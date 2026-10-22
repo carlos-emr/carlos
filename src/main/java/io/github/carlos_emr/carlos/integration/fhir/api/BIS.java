@@ -41,10 +41,14 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.constants.FhirDest
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.Region;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 public class BIS {
 
     private static Settings settings = new Settings(FhirDestination.DHIR, Region.ON);
 
+    // FindSecBugs USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION", justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public static synchronized FhirCommunicationBuilder getFhirCommunicationBuilder(LoggedInInfo loggedInInfo, int demographicNo, String wbData, String wbCsdData, String arData, Clinic clinic) {
 
         OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, settings);

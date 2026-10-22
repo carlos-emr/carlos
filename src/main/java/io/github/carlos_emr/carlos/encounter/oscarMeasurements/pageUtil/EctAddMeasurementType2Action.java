@@ -50,6 +50,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Struts2 action for adding a new custom measurement type to the system.
  * Validates all input fields (type code, description, display name, measuring instruction),
@@ -64,6 +66,8 @@ public class EctAddMeasurementType2Action extends ActionSupport {
     private MeasurementTypeDao dao = SpringUtils.getBean(MeasurementTypeDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute()
             throws ServletException, IOException {
         // Writes only from the form's POST: a link, image tag or prefetch must never change the

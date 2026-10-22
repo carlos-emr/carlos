@@ -53,6 +53,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class OutcomesDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -98,7 +99,7 @@ public class OutcomesDashboard2Action extends ActionSupport {
             if (indicatorTemplate != null) {
                 OutcomesDashboardUtils.sendProviderIndicatorData(LoggedInInfo.getLoggedInInfoFromSession(request), provider, indicatorTemplate);
             } else {
-                logger.warn("shared indicator not found:" + metricSetName);
+                logger.warn("shared indicator not found: {}", LogSafe.sanitize(metricSetName));
             }
         }
 

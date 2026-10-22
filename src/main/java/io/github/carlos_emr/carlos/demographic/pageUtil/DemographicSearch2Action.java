@@ -30,6 +30,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Struts2 action for demographic search. Replaces the {@code demographiccontrol.jsp}
@@ -90,7 +91,7 @@ public class DemographicSearch2Action extends ActionSupport {
             return "apptResults";
         }
         if (displaymode != null && !"Search".equals(displaymode)) {
-            logger.debug("DemographicSearch2Action: unexpected displaymode='{}', falling through to general search", displaymode);
+            logger.debug("DemographicSearch2Action: unexpected displaymode='{}', falling through to general search", LogSafe.sanitize(displaymode));
         }
         return SUCCESS;
     }

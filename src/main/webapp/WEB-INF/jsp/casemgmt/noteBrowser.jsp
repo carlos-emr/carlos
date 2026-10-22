@@ -77,7 +77,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%
+<%-- nosemgrep: carlos.jsp-scriptlet-xss.variable-request -- the request value only reaches oscar:nameage's demographicNo attribute, which the tag parses as an integer; it prints the encoded name and age, never the value --%><%
     if (session.getAttribute("userrole") == null) {
         response.sendRedirect(request.getContextPath() + "/logoutPage");
     }

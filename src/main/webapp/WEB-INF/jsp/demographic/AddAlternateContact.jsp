@@ -45,7 +45,7 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%
+<%-- nosemgrep: carlos.jsp-scriptlet-xss.variable-request -- the request value only reaches oscar:nameage's demographicNo attribute, which the tag parses as an integer; it prints the encoded name and age, never the value --%><%
 
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
     String demographic_no = request.getParameter("demographic_no");

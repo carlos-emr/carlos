@@ -109,7 +109,7 @@ public class ForwardingRules2Action extends ActionSupport {
                     for (IncomingLabRules result : dao.findCurrentByProviderNoAndFrwdProvider(providerNo, "0")) {
                         result.setArchive("1");
                         dao.merge(result);
-                        logger.info("Archived rule: " + result);
+                        logger.info("Archived rule: {}", LogSafe.sanitizeObject(result));
                     }
 
                     for (int i = 0; i < providerNums.length; i++) {
@@ -124,7 +124,7 @@ public class ForwardingRules2Action extends ActionSupport {
 
                 ForwardingRules fr = new ForwardingRules();
                 ArrayList<ArrayList<String>> temp = fr.getProviders(providerNo);
-                logger.info("Found providers for frwd rules: " + temp);
+                logger.info("Found providers for frwd rules: {}", LogSafe.sanitizeObject(temp));
 
                 // check if there rules are set to forward the labs
                 if (temp == null || temp.size() <= 0) {

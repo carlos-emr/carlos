@@ -495,6 +495,8 @@ public class PDFController {
      * <p>
      * Credit: http://www.java2s.com/Code/Java/Reflection/GetsthegettersofapojoasamapofStringaskeyandMethodasvalue.htm
      */
+    // FindSecBugs USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION", justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public synchronized static Map<String, Method> getGetterMethods(Object data) {
         HashMap<String, Method> methods = new HashMap<String, Method>();
 

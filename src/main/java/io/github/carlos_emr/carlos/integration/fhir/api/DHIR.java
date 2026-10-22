@@ -46,6 +46,8 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.constants.FhirDest
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.Region;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 
 public class DHIR {
 
@@ -55,6 +57,8 @@ public class DHIR {
      * Get the FhirBundleBuilder Object for all immunizations
      * Useful for adding additional resources or adjusting the message structure.
      */
+    // FindSecBugs USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION", justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public static synchronized FhirBundleBuilder getFhirBundleBuilder(LoggedInInfo loggedInInfo, int demographicNo) {
         OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, SETTINGS);
         HashSet<AbstractOscarFhirResource<?, ?>> resourceList = new HashSet<AbstractOscarFhirResource<?, ?>>();
@@ -87,6 +91,8 @@ public class DHIR {
      * Get the FhirBundleBuilder Object for a specific immunization
      * Useful for adding additional resources or adjusting the message structure.
      */
+    // FindSecBugs USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION", justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public static synchronized FhirBundleBuilder getFhirBundleBuilder(LoggedInInfo loggedInInfo, int demographicNo, int preventionId) {
 
         //TODO this will be set in a properties file later. The default is false anyway.

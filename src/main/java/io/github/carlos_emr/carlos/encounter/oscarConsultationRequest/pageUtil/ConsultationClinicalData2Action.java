@@ -55,6 +55,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class ConsultationClinicalData2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -119,7 +120,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         try {
             demoId = Integer.parseInt(demographicNo);
         } catch (NumberFormatException e) {
-            logger.warn("fetchLongTermMedications: invalid demographicNo '{}'", demographicNo);
+            logger.warn("fetchLongTermMedications: invalid demographicNo '{}'", LogSafe.sanitize(demographicNo));
             return null;
         }
         List<Drug> medications = prescriptionManager.getLongTermDrugs(loggedInInfo, demoId);
@@ -147,7 +148,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         try {
             demoId = Integer.parseInt(demographicNo);
         } catch (NumberFormatException e) {
-            logger.warn("fetchAllergies: invalid demographicNo '{}'", demographicNo);
+            logger.warn("fetchAllergies: invalid demographicNo '{}'", LogSafe.sanitize(demographicNo));
             return null;
         }
         List<Allergy> allergies = allergyManager.getActiveAllergies(loggedInInfo, demoId);
@@ -261,7 +262,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         try {
             issueTypeEnum = IssueType.valueOf(issueType.toUpperCase());
         } catch (IllegalArgumentException e) {
-            logger.warn("fetchIssueNote: unrecognised issueType '{}'", issueType);
+            logger.warn("fetchIssueNote: unrecognised issueType '{}'", LogSafe.sanitize(issueType));
             return null;
         }
         Issue issue = caseManagementManager.getIssueByCode(issueTypeEnum);

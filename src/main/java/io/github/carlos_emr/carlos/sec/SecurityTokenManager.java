@@ -43,6 +43,8 @@ import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 
 import io.github.carlos_emr.CarlosProperties;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 public abstract class SecurityTokenManager {
 
     private static SecurityTokenManager instance = null;
@@ -58,6 +60,8 @@ public abstract class SecurityTokenManager {
      */
     private static final String ALLOWED_PACKAGE_PREFIX = ReflectionConstants.CARLOS_PACKAGE_PREFIX;
 
+    // FindSecBugs USO_UNSAFE_METHOD_SYNCHRONIZATION, USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = {"USO_UNSAFE_METHOD_SYNCHRONIZATION", "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION"}, justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public static synchronized SecurityTokenManager getInstance() {
         if (instance != null) {
             return instance;

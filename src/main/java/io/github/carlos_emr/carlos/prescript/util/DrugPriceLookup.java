@@ -111,6 +111,9 @@ public class DrugPriceLookup {
 	 *
 	 * @since 2026-03-22
 	 */
+	// FindSecBugs USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+	// The class monitor is deliberate: loadCostLookupInformation() takes the same lock with synchronized (DrugPriceLookup.class).
+	@SuppressFBWarnings(value = "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION", justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
 	static public synchronized void reLoadLookupInformation() {
 		loaded = false;
 		costLookup.clear();

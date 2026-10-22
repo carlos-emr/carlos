@@ -36,6 +36,8 @@ package io.github.carlos_emr.carlos.login;
 
 import java.util.Hashtable;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Class LoginList : an application level login list: ip/LoginInfoBean 2003-01-29
  */
@@ -46,6 +48,8 @@ public final class LoginList extends Hashtable {
     private LoginList() {
     }
 
+    // FindSecBugs USO_UNSAFE_METHOD_SYNCHRONIZATION, USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = {"USO_UNSAFE_METHOD_SYNCHRONIZATION", "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION"}, justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public synchronized static LoginList getLoginListInstance() {
         if (loginList == null) {
             loginList = new LoginList();

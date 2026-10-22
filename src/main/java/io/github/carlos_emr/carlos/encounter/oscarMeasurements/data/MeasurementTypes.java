@@ -43,6 +43,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * @deprecated use MeasurementTypeDao instead (2012-01-23)
  */
@@ -70,6 +72,8 @@ public class MeasurementTypes {
         return byId.get(type);
     }
 
+    // FindSecBugs USO_UNSAFE_METHOD_SYNCHRONIZATION, USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = {"USO_UNSAFE_METHOD_SYNCHRONIZATION", "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION"}, justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public static synchronized MeasurementTypes getInstance() {
         if (measurementTypes == null) {
             measurementTypes = new MeasurementTypes();
@@ -78,6 +82,8 @@ public class MeasurementTypes {
         return measurementTypes;
     }
 
+    // FindSecBugs USO_UNSAFE_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "USO_UNSAFE_METHOD_SYNCHRONIZATION", justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public synchronized void reInit() {
         byId.clear();
         byType.clear();

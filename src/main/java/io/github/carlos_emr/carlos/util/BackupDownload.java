@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class BackupDownload extends GenericDownload {
 
@@ -85,7 +86,7 @@ public class BackupDownload extends GenericDownload {
 
             download(true, res, dir, filename);
         } catch (FileValidationException e) {
-            log.warn("BackupDownload rejected invalid filename from {}", req.getRemoteAddr());
+            log.warn("BackupDownload rejected invalid filename from {}", LogSafe.sanitize(req.getRemoteAddr()));
             sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (IOException e) {
             throw e;

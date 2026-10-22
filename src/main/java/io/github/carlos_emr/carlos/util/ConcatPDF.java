@@ -83,8 +83,6 @@ public class ConcatPDF {
      *
      * @return the number of inputs that were skipped; {@code 0} means every input was included
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static int concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream) {
         return concat(fileOrInputStreamPdfList, outputStream, false);
     }
@@ -97,6 +95,9 @@ public class ConcatPDF {
         concat(inputs, outputStream, true);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    // The File is opened here, behind both public entry points, so the suppression sits on this overload.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private static int concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream,
                               boolean requireAll) {
         PDFMergerUtility pdfMerger = new PDFMergerUtility();

@@ -64,6 +64,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class PreventionReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -144,7 +145,7 @@ public class PreventionReport2Action extends ActionSupport {
         request.setAttribute("patientSet", patientSet);
         request.setAttribute("prevention", prevention);
 
-        log.debug("setting prevention type to " + prevention);
+        log.debug("setting prevention type to {}", LogSafe.sanitize(prevention));
 
         return SUCCESS;
     }

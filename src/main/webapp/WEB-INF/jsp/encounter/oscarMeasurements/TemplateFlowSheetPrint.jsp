@@ -83,7 +83,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 *************************************************************************************-->
 
 
-<%
+<%-- nosemgrep: carlos.jsp-scriptlet-xss.variable-request -- the request value only reaches oscar:nameage's demographicNo attribute, which the tag parses as an integer; it prints the encoded name and age, never the value --%><%
     String demographic_no = request.getParameter("demographic_no");
     String providerNo = (String) session.getAttribute("user");
     boolean printView = false;

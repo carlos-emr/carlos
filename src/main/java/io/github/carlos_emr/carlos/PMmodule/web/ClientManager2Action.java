@@ -758,13 +758,14 @@ public class ClientManager2Action extends ActionSupport {
         return false;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void setEditAttributes(HttpServletRequest request, String demographicNo) {
         setEditAttributes(request, demographicNo, clientManager.getClientByDemographicNo(demographicNo));
     }
 
     /** As {@link #setEditAttributes(HttpServletRequest, String)}, with the client already loaded. */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // The comparisons (program types "service" and "External") live in this overload, so the suppression does too.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void setEditAttributes(HttpServletRequest request, String demographicNo, Demographic client) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();

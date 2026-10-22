@@ -62,6 +62,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.fax.action.Fax2Action;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class ManageFaxes2Action extends Fax2Action {
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -151,7 +152,7 @@ public class ManageFaxes2Action extends Fax2Action {
         }
 
         FaxConfig faxConfig = faxConfigDao.getConfigByNumber(faxJob.getFax_line());
-        log.info("Cancel requested for fax row id {} (provider job id {})", faxJob.getId(), faxJob.getJobId());
+        log.info("Cancel requested for fax row id {} (provider job id {})", LogSafe.sanitizeObject(faxJob.getId()), LogSafe.sanitizeObject(faxJob.getJobId()));
 
         if (faxConfig == null) {
             // FaxJob.getId() returns an Integer, not request text.
@@ -191,7 +192,7 @@ public class ManageFaxes2Action extends Fax2Action {
                     result.put("message", "Unable to confirm fax cancellation. Check the fax status before retrying.");
                 }
             } else {
-                log.info("Fax row id {} not in a cancellable state ({})", faxJob.getId(), faxJob.getStatus());
+                log.info("Fax row id {} not in a cancellable state ({})", LogSafe.sanitizeObject(faxJob.getId()), LogSafe.sanitizeObject(faxJob.getStatus()));
             }
         }
 

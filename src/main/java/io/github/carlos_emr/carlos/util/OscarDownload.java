@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class OscarDownload extends GenericDownload {
 
@@ -65,7 +66,7 @@ public class OscarDownload extends GenericDownload {
                 return;
             }
             if (homepath == null || !ALLOWED_HOMEPATH_KEYS.contains(homepath)) {
-                log.warn("OscarDownload rejected invalid homepath key from {}", req.getRemoteAddr());
+                log.warn("OscarDownload rejected invalid homepath key from {}", LogSafe.sanitize(req.getRemoteAddr()));
                 res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download path key.");
                 return;
             }
@@ -80,9 +81,9 @@ public class OscarDownload extends GenericDownload {
             if (backupfilepath != null
                     && !backupfilepath.isEmpty()
                     && ((String) session.getAttribute("user")) != null) {
-                File downloadDir = new File(backupfilepath).getCanonicalFile();
+                File downloadDir = new File(backupfilepath).getCanonicalFile(); // nosemgrep: carlos.httpservlet-path-traversal -- backupfilepath is a server-side session value read under an ALLOWED_HOMEPATH_KEYS key, not request text; the filename is checked by validateStrictFileName
                 if (!downloadDir.isDirectory()) {
-                    log.warn("OscarDownload rejected non-directory path from {}", req.getRemoteAddr());
+                    log.warn("OscarDownload rejected non-directory path from {}", LogSafe.sanitize(req.getRemoteAddr()));
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
@@ -92,7 +93,7 @@ public class OscarDownload extends GenericDownload {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
             }
         } catch (FileValidationException e) {
-            log.warn("OscarDownload rejected invalid filename from {}", req.getRemoteAddr());
+            log.warn("OscarDownload rejected invalid filename from {}", LogSafe.sanitize(req.getRemoteAddr()));
             sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (IOException e) {
             throw e;

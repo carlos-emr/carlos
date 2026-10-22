@@ -45,6 +45,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * This class safely fetches static image resources for the login Index page.
@@ -104,7 +105,7 @@ public class LoginResourceAction extends HttpServlet {
                     File imagesDir = new File(getImagesDir());
                     image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
                 } catch (SecurityException e) {
-                    log.warn("Path validation rejected for filename: {}", sanitizedFilename);
+                    log.warn("Path validation rejected for filename: {}", LogSafe.sanitize(sanitizedFilename));
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
                     return;
                 }

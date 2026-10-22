@@ -407,6 +407,25 @@ the generated `_jspService` class name — note that such entries silently stop 
 renamed or migrated to a `2Action`, so prefer an in-source `@SuppressFBWarnings` once the sink moves
 to Java.
 
+##### `USO_UNSAFE_*_SYNCHRONIZATION` (exposed lock, CWE-412)
+
+`USO_UNSAFE_METHOD_SYNCHRONIZATION` and `USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION` fire on a
+`synchronized` method of a public class: other code can take the same monitor (the instance or the
+`Class` object) and hold it, starving the method. Only code running inside the CARLOS JVM can take
+a Java monitor. No request, eForm, report template or other user input can, and anything able to
+load new code into the JVM could already do far worse than hold a lock. The legacy singletons,
+caches and serialized writers that use this pattern are therefore suppressed per method with:
+
+> *"only code running inside the CARLOS JVM can acquire this monitor; no request or user input can
+> hold it."*
+
+New code should still prefer a `private static final Object` lock, as `ConvertToEdoc` does: it
+needs no suppression and keeps the lock's users visible in one class. Before converting an existing
+site, check for code that relies on the shared monitor. `DrugPriceLookup.reLoadLookupInformation()`
+and the `synchronized (DrugPriceLookup.class)` block in `loadCostLookupInformation()` must keep
+excluding each other. `USO_UNSAFE_OBJECT_SYNCHRONIZATION` (locking a public field) is different:
+make the field private, as `OscarTrackingBasicDataSource.debugMap` does, rather than suppressing it.
+
 ---
 
 ## Relationship to Other Analysis Tools

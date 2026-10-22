@@ -44,6 +44,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * @deprecated 2013-12-09 use io.github.carlos_emr.carlos.util.DateUtils instead
  */
@@ -133,6 +135,8 @@ public final class DateUtils {
      * @return if String is null will return null.
      * @throws ParseException
      */
+    // FindSecBugs USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION (CWE-412): only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "USO_UNSAFE_STATIC_METHOD_SYNCHRONIZATION", justification = "only code running inside the CARLOS JVM can acquire this monitor; no request or user input can hold it")
     public static synchronized GregorianCalendar parseDateAsCalendar(String s, Locale locale) throws ParseException {
         Date d = parseDate(s, locale);
 
