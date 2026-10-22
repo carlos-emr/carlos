@@ -3418,3 +3418,32 @@ three Query by Example checks (3 of 3).
 
 The installer printed "NOT ready to use" during both the fresh `snapshot26` and the `alpha20` transactions (an nginx reload while
 `carlos-emr` configures); no marker remained and `check` passed, so it predates this change.
+
+### Administration navigation gates (2026-10-22, PR #4328, issues #4238 and #4623)
+
+`release/2026.08` at `9982baba3e` merged into the PR branch, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04`
+container (JDK 25, `dpkg-buildpackage -us -uc -b`; DrugRef from its pin, the pinned Chromium; Maven Central through a mirror because
+`repo1` answered 429), with carlos-ctl built from the `debian/carlos-ctl.pin` fallback commit `325482a2` re-versioned
+`1.2.0+pr4328test1` locally, because `1.2.0` is unpublished and `1.2.0~dev1` sorts below the `Depends` floor. Installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean; the IPv6 nginx reload note above recurred).
+The six changed JSP files were compared byte for byte with the commit. Checks ran with `EXCLUSIVE=1`.
+
+| Run | Result |
+|---|---|
+| `manage-flowsheets-access`, 6 runs after the harness fix | PASS every run, 5 of 5 steps |
+| `admin-role-management`, 6 runs after the harness fix | PASS 29 of 29 in 4; 2 failed at the Access Control step on a deleted throwaway provider (cached list, fixed in the check) |
+| `admin-role-management` and `manage-flowsheets-access` back to back, twice, after the Access Control fix | PASS, PASS |
+| `admin-index-links`, `flowsheet-admin`, `get-reject-dispatch-params`, `gap-provider-flowsheet-upload` | PASS |
+| smoke tier | PASS, 12 of 12; `carlos-emr` did not restart |
+
+Before the harness fix, both checks failed on their own teardown: closing a context logs it out, LogoutBroadcastFilter sends every
+open page to the login page 500 ms later, and the close aborted those loads. With the `release/2026.08` pages compiled (the package
+runs Jasper with `development=false`, so a swapped JSP needs a restart), the same probe recorded the aborts in 2 of 4 runs with the
+previous harness and in 0 of 4 with the fixed one.
+
+Day-sheet gate, same install: a throwaway role holding `_admin.flowsheet r` plus an `o` row on a second day-sheet object. With the
+`release/2026.08` day sheet compiled, the link was hidden in exactly the three cases where the database returned the `o` row last
+(`_admin.reporting`, `_admin.misc`, `_admin.schedule`) and shown for `_admin.billing` and `_admin.fax`; `/administration`
+answered 200 in all five. With this PR's `administration-menu-gate.jspf` all five offer the link. With the `release/2026.08`
+Administration pages compiled, this PR's `admin-role-management` fails at "the granted throwaway opens Add A Role…": a login with
+`_admin.userAdmin` read was offered the Assign Role/Rights to Object card on the home page.

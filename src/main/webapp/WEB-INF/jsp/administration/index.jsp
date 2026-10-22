@@ -61,6 +61,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -374,14 +375,23 @@
                     </div>
                 </security:oscarSec>
 
-                <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r"
-                                   reverse="<%=false%>">
+                <%-- Assign Role/Rights to Object writes, so its card follows ProviderPrivilege2Action:
+                     write on _admin or on _admin.userAdmin, checked one object at a time (a combined
+                     tag keeps one privilege per role). Read alone would offer a card that answers 403. --%>
+                <c:set var="canAssignRoleRights" value="${false}" />
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w">
+                    <c:set var="canAssignRoleRights" value="${true}" />
+                </security:oscarSec>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="w">
+                    <c:set var="canAssignRoleRights" value="${true}" />
+                </security:oscarSec>
+                <c:if test="${canAssignRoleRights}">
                     <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderPrivilege"><i
                                 class="fa-solid fa-wrench fa-4x"></i>
                             <h5><fmt:message key="admin.admin.assignRightsObject"/></h5></a>
                     </div>
-                </security:oscarSec>
+                </c:if>
             </div>
 
             <%}%>

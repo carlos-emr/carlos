@@ -1335,6 +1335,33 @@ test('shouldLogEachContextOutOnce_beforeItOrTheBrowserCloses', async () => {
   assert.deepEqual(log.lines, []);
 });
 
+test('shouldIgnoreRequestFailures_whenTheTeardownLogoutAbandonsALoad', async () => {
+  // LogoutBroadcastFilter sends every open page to the login page 500 ms after the teardown
+  // logout broadcasts; closing the context then aborts those loads. They are not the check's.
+  const browser = fakeClosingBrowser();
+  const recorder = createRecorder();
+  const aborted = (path) => ({
+    url: () => `https://host/carlos${path}`, resourceType: () => 'script', failure: () => ({ errorText: 'net::ERR_ABORTED' }),
+  });
+  let page;
+  harness.logoutOnClose(browser, logoutConfig, {
+    log: warnings(),
+    logout: async () => { await page.emit('requestfailed', aborted('/library/jquery/jquery-3.7.1.min.js')); },
+  });
+  const context = await browser.newContext({ session: 'S1' });
+  page = fakePage();
+  page.context = () => context;
+  wireStrictPage(page, 'reader', recorder, { baseline: [] });
+
+  await page.emit('requestfailed', aborted('/js/app.js'));
+  await context.close();
+  await page.emit('requestfailed', aborted('/share/javascript/Oscar.js'));
+
+  assert.deepEqual(recorder.requestFailures.map((entry) => entry.url), ['https://host/carlos/js/app.js'],
+    'a failure while the check runs still counts; the teardown logout and close abandon loads harmlessly');
+  assert.throws(() => assertStrictPage(recorder), /1 JavaScript-layer problem/);
+});
+
 test('shouldStillCloseTheBrowser_whenALogoutThrows', async () => {
   const browser = fakeClosingBrowser();
   const log = warnings();
