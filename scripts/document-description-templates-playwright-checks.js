@@ -161,10 +161,12 @@ async function workflow(s) {
   context.setDefaultTimeout(TIMEOUT);
   context.on('page', page => h.wireStrictPage(page, 'doctor', recorder));
   let schedule;
+  let scheduleUrl;
   let own;
 
   await s.step(STEP.doctorOpens, async () => {
     schedule = await h.login(context, { ...config, testUser: fixture.username }, recorder, { label: 'doctor-login' });
+    scheduleUrl = schedule.url();
     const prefs = await clickOpensPopupOrNavigates(schedule, schedule.getByTitle(/Edit your personal setting/i).first(),
       { context, recorder, label: 'doctor-preferences', timeout: TIMEOUT }).then(outcome => outcome.page);
     const entry = prefs.locator(`a[href$="${PAGE}"]`).first();
@@ -223,10 +225,12 @@ async function workflow(s) {
     const mine = { description: `${marker} doctor shortcut`, shortcut: `m${shortcut}`.slice(0, 20) };
     sql.execute(`INSERT INTO documentDescriptionTemplate (doctype,description,descriptionShortcut,provider_no,lastUpdated)
       VALUES (${q(type)},${q(mine.description)},${q(mine.shortcut)},${q(fixture.providerNo)},NOW())`);
-    const { page: inbox } = await clickOpensPopupOrNavigates(schedule, schedule.locator('#inboxLink').first(),
+    const opened = await clickOpensPopupOrNavigates(schedule, schedule.locator('#inboxLink').first(),
       { context, recorder, label: 'doctor-inbox', timeout: TIMEOUT });
-    const incoming = await clickOpensPopupOrNavigates(inbox, inbox.locator('a[href*="ViewIncomingDocs"]').first(),
-      { context, recorder, label: 'doctor-incoming-docs', timeout: TIMEOUT }).then(outcome => outcome.page);
+    const inbox = opened.page;
+    const reached = await clickOpensPopupOrNavigates(inbox, inbox.locator('a[href*="ViewIncomingDocs"]').first(),
+      { context, recorder, label: 'doctor-incoming-docs', timeout: TIMEOUT });
+    const incoming = reached.page;
     await incoming.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
     await h.assertNotErrorPage(incoming, 'doctor incoming docs');
     if (await incoming.locator('#entryModeList').inputValue() !== 'Fast') {
@@ -260,8 +264,10 @@ async function workflow(s) {
     const clinicShortcuts = await shortcuts();
     h.assert(clinicShortcuts.includes(kept.shortcut), `Incoming Docs did not offer the clinic's shortcut: ${JSON.stringify(clinicShortcuts)}`);
     h.assert(!clinicShortcuts.includes(mine.shortcut), 'Incoming Docs offered the doctor\'s own shortcut while they use the clinic default');
-    await incoming.close();
-    await inbox.close();
+    // Close only what this step opened as a popup: the Inbox link can navigate the schedule page
+    // itself, and the last step reopens the schedule in a fresh tab either way.
+    if (reached.isPopup) await incoming.close();
+    if (opened.isPopup) await inbox.close();
   });
 
   await s.step(STEP.crossProvider, async () => {
@@ -296,7 +302,9 @@ async function workflow(s) {
   await s.step(STEP.doctorClinicList, async () => {
     h.assert(sql.value(`SELECT IFNULL(MAX(privilege),'none') FROM secObjPrivilege WHERE roleUserGroup='doctor' AND objectName='_admin.document'`) === 'x',
       'Precondition: the doctor role no longer holds the seeded _admin.document grant');
-    const doctorFrame = await openClinicList(schedule, context, recorder, 'doctor-administration');
+    const home = await context.newPage();
+    await home.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
+    const doctorFrame = await openClinicList(home, context, recorder, 'doctor-administration');
     await h.assertNotErrorPage(doctorFrame, 'doctor clinic description templates');
     await doctorFrame.locator('#docType').selectOption(type);
     await doctorFrame.locator(`#docDescList option[value="${keptId}"]`).waitFor({ state: 'attached', timeout: TIMEOUT });
