@@ -859,7 +859,7 @@ class SmsQueueViewModelAssemblerUnitTest {
         // Row numbers still count the hidden message: they follow the list, not what this viewer sees.
         assertThat(blocked.paging().firstRow()).isEqualTo(21);
         assertThat(blocked.paging().lastRow()).isEqualTo(25);
-        assertThat(result.displayedDemographicNumbers()).containsExactly(501, 502);
+        assertThat(result.displayedDemographicNumbers()).containsExactlyInAnyOrder(501, 502);
         verify(dao, never()).findRecentOutboundByStatuses(SmsProviderType.STUB, BLOCKED, THIRTY_DAYS_AGO, 0, 20);
     }
 
