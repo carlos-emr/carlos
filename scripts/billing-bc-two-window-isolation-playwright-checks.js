@@ -22,8 +22,8 @@
  *      that does not exist ▸ Continue ▸ Go Back ▸ Continue ▸ Another Bill ▸ Continue ▸ Save Bill: the
  *      refused Continue, Go Back and Another Bill each return to this window's own bill form, and
  *      both claims are saved for A on A's appointment.
- *   3. A private bill of two service lines for A ▸ Save & Print Receipt ▸ a private bill for B in
- *      the other window ▸ Save & Print Receipt ▸ Update Invoice on A's receipt: the receipt shown
+ *   3. A private bill of two service lines for A ▸ Save and Print Receipt ▸ a private bill for B in
+ *      the other window ▸ Save and Print Receipt ▸ Update Invoice on A's receipt: the receipt shown
  *      again is A's, with both lines.
  *   4. Schedule ▸ B on A's fifth appointment ▸ Bill WCB (the list of A's WCB forms) ▸ A's WCB form ▸
  *      B's bill form opened in the other window ▸ Continue in A's window with a service code that
@@ -305,8 +305,8 @@ function names(text, own, other) {
 }
 
 /**
- * Save Bill (or Save & Print Receipt) on a bill review. Save Bill's answer closes the bill window and
- * refreshes the day sheet that opened it; Save & Print Receipt turns the window into the receipt.
+ * Save Bill (or Save and Print Receipt) on a bill review. Save Bill's answer closes the bill window and
+ * refreshes the day sheet that opened it; Save and Print Receipt turns the window into the receipt.
  */
 async function save(page, label, button, daySheet = null) {
   const closed = button === 'Save Bill' ? page.waitForEvent('close', { timeout: TIMEOUT }) : null;
@@ -488,7 +488,7 @@ async function billInTwoWindows(s, A, B, physician) {
       // Private turns the billing form to the private one, reloading the code table in place.
       await changeAndAwaitReloads(form, '#xml_billtype', 'Pri', 1, 'choosing a private bill');
       await continueToReview(form, label, { physician: physician.providerNo, codes, dx: '780' });
-      await save(form, label, 'Save & Print Receipt');
+      await save(form, label, 'Save and Print Receipt');
       await form.waitForURL(url => url.pathname.endsWith('/billing/CA/BC/billingView'), { timeout: TIMEOUT });
       await settle(form, `${label}'s receipt`);
       return form;
@@ -497,7 +497,7 @@ async function billInTwoWindows(s, A, B, physician) {
     const billsA = sql.rows(`SELECT billing_no FROM billing WHERE appointment_no=${appointment.A3} ORDER BY billing_no`).map(([id]) => id);
     h.assert(billsA.length === 2, `A's private bill of two lines was saved as ${billsA.length} claims`);
     h.assert(new URL(receiptA.url()).searchParams.getAll('billing_no').join(',') === billsA.join(','),
-      'Save & Print Receipt did not open the receipt of both lines');
+      'Save and Print Receipt did not open the receipt of both lines');
     const receiptB = await privateReceipt(sheets[1], 'B3', ['00100']);
     await receiptB.close();
 

@@ -577,7 +577,9 @@
             <div class="container-fluid ">
                 <div class="float-end button-bar">
                     <%if ("pri".equalsIgnoreCase(bean.getBillingType())) {%>
-                    <input class="btn btn-primary" type="submit" name="submit" value="Save & Print Receipt"/>
+                    <%-- "and", not "&": the front door's WAF reads "& Print" as a Windows command (CRS 932115) and
+                         refused every receipt save with 403 (#4439). BillingSaveBilling2Action.RECEIPT_SUBMIT. --%>
+                    <input class="btn btn-primary" type="submit" name="submit" value="Save and Print Receipt"/>
                     <%}%>
                     <% if (request.getAttribute("GOBACKWCB") != null && request.getAttribute("GOBACKWCB").equals("true")) {%>
                     <input class="btn btn-warning" type="button" name="Submit3" value="Go Back"
