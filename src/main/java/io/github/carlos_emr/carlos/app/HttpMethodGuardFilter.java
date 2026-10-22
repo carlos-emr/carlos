@@ -179,7 +179,10 @@ public class HttpMethodGuardFilter implements Filter {
             // ViewMessage.jsp's Delete button; reply, replyAll and forward only open the compose page.
             "/messenger/HandleMessages", Set.of("delete"),
             // Select Forms: forward=add|delete|up|down reorders the encounter form list (#3377).
-            "/form/select", Set.of("forward")
+            "/form/select", Set.of("forward"),
+            // Generate Teleplan File: providers (the Create Report form's physician) writes an MSP batch; the menu
+            // item and the year archive links open the page without it (#4439 D3).
+            "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers")
     );
 
     /** {@link #MUTATION_INTENT_PARAMS_BY_ROUTE} with every path and name lowercased, for lookup. */

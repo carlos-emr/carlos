@@ -236,6 +236,18 @@
         bean.setBillForm(defaultBillingForm);
     }
 
+    // 5. Nothing above names a billing form this install has, and the bill carries none (or one it does not
+    // have): use the form the Billing form list shows first, which is what the list would show chosen anyway.
+    // The packaged default_view is the Ontario form code MFP, which no BC install has, so before this a new BC
+    // install opened the bill form with no form at all and its reload after choosing the billing physician
+    // answered HTTP 500 (bean.getBillForm() was null).
+    if (bean.getBillForm() == null || !billform.serviceExists(bean.getBillForm())) {
+        BillingFormData.BillingForm[] installedForms = billform.getFormList();
+        if (installedForms.length > 0) {
+            bean.setBillForm(installedForms[0].getFormCode());
+        }
+    }
+
     // 1. global default billing visit location: carlos properties
     String defaultServiceLocation = CarlosProperties.getInstance().getProperty("visittype");
 
@@ -1452,7 +1464,7 @@
                                                  table in place without changing the window's staged bill (#4673). --%>
                                             <select class="form-select" id="selectBillingForm" name="billForm">
                                                 <% for (int i = 0; i < billformlist.length; i++) { %>
-                                                <option <% if (bean.getBillForm().equalsIgnoreCase(billformlist[i].getFormCode())) {%>
+                                                <option <% if (billformlist[i].getFormCode().equalsIgnoreCase(bean.getBillForm())) {%>
                                                         selected
                                                         <% } %>
                                                         value="<carlos:encode value='<%= billformlist[i].getFormCode() %>' context="htmlAttribute"/>">

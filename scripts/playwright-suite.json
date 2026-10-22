@@ -3984,21 +3984,6 @@
       "fixtures": "Owned synthetic patient; its rows in the ten BC form tables go with it. One marker-named Forms-menu registration per form (encounterForm, clinic-wide), removed and asserted in cleanup, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
-      "name": "form-bc-add-form-defaults",
-      "script": "scripts/form-bc-add-form-defaults-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "BC"
-      ],
-      "timeoutSec": 240,
-      "env": [],
-      "notes": "Issue #5051: on a BC install whose four BC antenatal form rows are as bc/V1.0.59.3 leaves a new install, the E-Chart's Forms menu offers BC-AR 2020 and neither BC-AR nor BC-AR 2007, and a patient's saved BC-AR record is still listed in the chart and opens (hiding a form hides only its new-form entry). The rows still at the baseline values (BC-AR and BC-AR 2007 shown, BC-AR 2020 hidden) FAIL the first step: the migration did not run. Any other combination is a clinic's own Select Forms choice and SKIPs. The saved record is inserted with no c_lastVisited, as a record saved another way carries; before the wrapper fix in this change such a record overflowed the stack when opened.",
-      "fixtures": "Owned synthetic patient and one formBCAR row for it, removed with it. Reads the clinic's encounterForm rows and changes none of them, so it can run alongside other checks."
-    },
-    {
       "name": "form-bc-epds-wording",
       "script": "scripts/form-bc-epds-wording-playwright-checks.js",
       "tiers": [
@@ -4015,6 +4000,21 @@
       ],
       "notes": "Issue #5050: BC-AR 2007 and BC-AR 2012 page 2 show the Edinburgh Postnatal Depression Scale word for word as published, item by item and answer by answer in the published order: the original English (Cox, Holden & Sagovsky 1987) to an English browser and the validated French version (Guedeney & Fermanian 1998) to a French one (Accept-Language fr-CA); ticking one answer per item gives the published total. BC-AR 2012 printed its own English copy before (item 6 read 'coping as card card-body bg-body-tertiary as usual', so French never reached it), and item 9's last answer read 'No, not at all' instead of 'No, never'. scripts/bcar-epds-wording.test.js holds the bundles to the same words.",
       "fixtures": "Owned synthetic patient. One marker-named Forms-menu registration per form (encounterForm, clinic-wide), removed and asserted in cleanup, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Nothing is saved."
+    },
+    {
+      "name": "form-bc-add-form-defaults",
+      "script": "scripts/form-bc-add-form-defaults-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Issue #5051: on a BC install whose four BC antenatal form rows are as bc/V1.0.59.3 leaves a new install, the E-Chart's Forms menu offers BC-AR 2020 and neither BC-AR nor BC-AR 2007, and a patient's saved BC-AR record is still listed in the chart and opens (hiding a form hides only its new-form entry). The rows still at the baseline values (BC-AR and BC-AR 2007 shown, BC-AR 2020 hidden) FAIL the first step: the migration did not run. Any other combination is a clinic's own Select Forms choice and SKIPs. The saved record is inserted with no c_lastVisited, as a record saved another way carries; before the wrapper fix in this change such a record overflowed the stack when opened.",
+      "fixtures": "Owned synthetic patient and one formBCAR row for it, removed with it. Reads the clinic's encounterForm rows and changes none of them, so it can run alongside other checks."
     },
     {
       "name": "billing-bc-associations",
@@ -4063,7 +4063,7 @@
         "property:teleplan_sequence",
         "file:teleplan-home-dir"
       ],
-      "notes": "BC Administration ▸ Billing ▸ the Teleplan File2 items (NEW_BC_TELEPLAN=yes). The simulation, a dry run, lists exactly the owned claims. Generate for the owned physician writes one batch: its MSP file in HOME_DIR holds exactly the owned claims as C02 records, which are marked billed, logged and linked to the batch, and the Teleplan sequence moves. The Activity List lists the batch, and a second simulation lists none. Nothing is sent to MSP. First committed coverage of these pages. Fails on 2026.08 at the step 'opening the Teleplan file item from the menu writes no batch of its own' (#4439 D3). The two steps after it, the Activity List's file link (D5) and the File2 labels (D4), are #4439 defects too, so the check stays red until all three are fixed. Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "notes": "BC Administration ▸ Billing ▸ the Teleplan File2 items (NEW_BC_TELEPLAN=yes). The simulation, a dry run, lists exactly the owned claims. Generate for the owned physician writes one batch: its MSP file in HOME_DIR holds exactly the owned claims as C02 records, which are marked billed, logged and linked to the batch, and the Teleplan sequence moves. The Activity List lists the batch, and a second simulation lists none. Nothing is sent to MSP. First committed coverage of these pages. The last three steps are #4439 defects fixed with it: opening the Teleplan file item from the menu wrote a batch of its own (D3; the menu, a year link and a GET naming a physician now write none, and that GET answers 405), the Activity List's file links answered 404 (D5; they now download the batch's file, and a name no batch names or a path is refused) and the File2 labels were swapped (D4). Before that fix the check failed at the first of the three.",
       "fixtures": "Seeds and removes one billing physician (bc.createBillingPhysician; its unique practitioner number keeps Generate to the owned claims) and two MSP claims on the workflow's own FAKE patient, made a BC patient; cleanup deletes every BC billing row of the patient and the physician and asserts each is gone. Records the clinic-wide Teleplan state first (the billactivity, log_teleplantx and teleplan_submission_link high-water marks and the teleplan_sequence property) and restores it at the end: it deletes the rows written after the record, once each is proven the run's (each batch written during the run, each log line an owned claim's or a batch header, each link a run batch's to an owned claim) and the HOME_DIR files those batches name (batch file names only, inside HOME_DIR), puts the sequence back or removes it, and asserts all of it. Needs HOME_DIR, the server's Teleplan output directory reachable from the runner (SKIP without it). The batch number and the sequence are clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -4080,7 +4080,7 @@
       "mutates": [
         "property:teleplan_sequence"
       ],
-      "notes": "Manage Teleplan's Manually Set Sequence #, which billing-bc-teleplan-file only reads: Schedule ▸ Administration ▸ Billing ▸ Manage Teleplan ▸ Manually Set Sequence # ▸ save. Only that save is pressed; the page's username/password, change password, Get Sequence # and code-list buttons log in to Teleplan (live MSP) and are never touched. The form is shown only to the BILLING_SUPERUSER login (SKIP otherwise). The page shows the stored number as its Last Sequence #; a saved number is stored exactly and shown; a number that is not one, or is out of range, stores nothing; last, such a refused number says why. The last step fails on 2026.08 until #5066 (findings log 446) is fixed: a refused number returns the page with nothing stored and no message (ManageTeleplan2Action.setSequenceNumber). Notes only, no pin.",
+      "notes": "Manage Teleplan's Manually Set Sequence #, which billing-bc-teleplan-file only reads: Schedule ▸ Administration ▸ Billing ▸ Manage Teleplan ▸ Manually Set Sequence # ▸ save. Only that save is pressed; the page's username/password, change password, Get Sequence # and code-list buttons log in to Teleplan (live MSP) and are never touched. The form is shown only to the BILLING_SUPERUSER login (SKIP otherwise). The page shows the stored number as its Last Sequence #; a saved number is stored exactly and shown; a number that is not one, or is out of range, stores nothing; last, such a refused number says why. The last step failed on 2026.08 until #5087 (the fix for #5066, findings log 446) merged: a refused number returned the page with nothing stored and no message (ManageTeleplan2Action.setSequenceNumber). Every step passes with it.",
       "fixtures": "None of its own. Every teleplan_sequence row is recorded first and put back exactly (a row the save added is removed), and the check asserts it. The sequence is clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -12915,7 +12915,7 @@
         "billing_history",
         "teleplanS00"
       ],
-      "notes": "BC Administration ▸ Billing ▸ Settle Paid Claims: Submit settles every MSP claim paid an amount different from what was billed (explanation BG) that is still waiting on its balance. First committed coverage of this page. Because the action is clinic-wide, the check SKIPs when the database already holds a BG payment line, and before each Submit it asserts that its own FAKE claim is the only bill line in status E with a BG payment.",
+      "notes": "BC Administration ▸ Billing ▸ Settle Paid Claims: Submit settles every MSP claim paid an amount different from what was billed (explanation BG) that is still waiting on its balance. First committed coverage of this page. Before Submit, the same request as a GET and as a HEAD (settled=false) must be answered 405 and settle nothing (#4439 task 7). Because the action is clinic-wide, the check SKIPs when the database already holds a BG payment line, and before each Submit it asserts that its own FAKE claim is the only bill line in status E with a BG payment.",
       "fixtures": "The owned FAKE- patient and one MSP bill on it: a billing row, its bill line (status E, $33.70) and a BG payment line paying $20.00 (filename = the run marker). Cleanup deletes those rows by id and marker plus the billing-history rows the page writes for that FAKE bill line. Submit acts on every qualifying claim in the clinic, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -12939,7 +12939,7 @@
         "billingmaster",
         "billing_history"
       ],
-      "notes": "BC Administration ▸ Billing ▸ Upload Remittance Files (NEW_BC_TELEPLAN=no) with a FAKE remittance for two owned submitted claims: an S21 header, an S01 paid line, an S03 refusal (AA) and an S22 summary. The check covers the reconciliation list with its payee and dollar amounts, the stored records, the paid claim settled, the remittance's Detail and Summary, and the refused claim's status. It then opens MSP Reconciliation Reports from the menu and, last, reads that list's Billed and Summary PDFs (needs pdftotext). First committed coverage of the upload. On 2026.08 it fails step by step until each fix merges. First, Submit answered HTTP 500 after storing the remittance before #4808 (#4806's release fix) merged on 18 Oct. Then Detail's stylesheet is refused (#4889; #4892). Then the refused claim's status is saved blank (#4933; #4937 is its release fix). Then MSP Reconciliation Reports answered HTTP 405 (#4767; #4778, merged on 18 Oct; #4439 D6). Last, the list's Billed and Summary PDF links answer HTTP 404 until #5063 (findings log 445) is fixed: written relative under the page's context-root base, they resolve to /<context>/createBillingReportAction. With all five applied, every step passes. It SKIPs without DOCUMENT_DIR or pdftotext, or when Upload Remittance Files isn't offered (NEW_BC_TELEPLAN=no). Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "notes": "BC Administration ▸ Billing ▸ Upload Remittance Files (NEW_BC_TELEPLAN=no) with a FAKE remittance for two owned submitted claims: an S21 header, an S01 paid line, an S03 refusal (AA) and an S22 summary. The check covers the reconciliation list with its payee and dollar amounts, the stored records, the paid claim settled, the remittance's Detail and Summary, and the refused claim's status. It then opens MSP Reconciliation Reports from the menu and, last, reads that list's Billed and Summary PDFs (needs pdftotext). First committed coverage of the upload. On 2026.08 it fails step by step until each fix merges. First, Submit answered HTTP 500 after storing the remittance before #4808 (#4806's release fix) merged on 18 Oct. Then Detail's stylesheet is refused (#4889; #4892). Then the refused claim's status is saved blank (#4933; #4937 is its release fix). Then MSP Reconciliation Reports answered HTTP 405 (#4767; #4778, merged on 18 Oct; #4439 D6). Last, the list's Billed and Summary PDF links answered HTTP 404 until #5070 (the fix for #5063, findings log 445) merged: written relative under the page's context-root base, they resolved to /<context>/createBillingReportAction. With all five applied, every step passes. It SKIPs without DOCUMENT_DIR or pdftotext, or when Upload Remittance Files isn't offered (NEW_BC_TELEPLAN=no).",
       "fixtures": "Seeds and removes one billing physician (bc.createBillingPhysician), the workflow's own FAKE patient made a BC patient, and two submitted MSP claims for it. It writes the FAKE remittance file, whose name carries the run marker, in a temporary directory and uploads it. Cleanup deletes the remittance's teleplanS21, teleplanS00 and teleplanS22 rows by that file name, the uploaded copy in DOCUMENT_DIR and the local file, every BC billing row of the patient (including the billing-history rows the reconciliation writes) and the physician, and asserts each is gone. The remittance tables are shared with Settle Paid Claims (billing-bc-settle-paid-claims), so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -13059,7 +13059,7 @@
         "diagnosticcode",
         "ctl_servicecodes_dxcodes"
       ],
-      "notes": "BC Administration ▸ Billing ▸ Manage Service/Diagnostic Code Associations (the list, the association's Edit, Save and Remove), the bill form's fee-code search filling in the associated diagnosis, and Manage Billing Codes (search, the code's Edit and its fee row save), opened by its address because its menu item shows only with BC_BILLING_CODE_MANAGEMENT=yes. The code part of #4439 task 9; Manage Private Bill is billing-bc-private-codes. First committed coverage of these pages. On 2026.08 before #4778 (issue #4767) merged on 18 Oct, the first two steps passed and the step 'Manage Billing Codes finds the owned MSP code by its code' answered 404. With #4778 and #4844 (issue #4842), 'the association's Edit opens the editor with its service code and diagnosis' checks #4941; #4943 (the #4941 fix) and #4892 merged on 18 Oct. With them every step but the last passed on release on 18 Oct; the last step collects #4842, #4439 D14 (Create New Association links back to the list) and D13 (reached only through Create New) and stays red until D14 is fixed. Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "notes": "BC Administration ▸ Billing ▸ Manage Service/Diagnostic Code Associations (the list, the association's Edit, Save and Remove), the bill form's fee-code search filling in the associated diagnosis, and Manage Billing Codes (search, the code's Edit and its fee row save), opened by its address because its menu item shows only with BC_BILLING_CODE_MANAGEMENT=yes. The code part of #4439 task 9; Manage Private Bill is billing-bc-private-codes. First committed coverage of these pages. On 2026.08 before #4778 (issue #4767) merged on 18 Oct, the first two steps passed and the step 'Manage Billing Codes finds the owned MSP code by its code' answered 404. With #4778 and #4844 (issue #4842), 'the association's Edit opens the editor with its service code and diagnosis' checks #4941; #4943 (the #4941 fix) and #4892 merged on 18 Oct. With them every step but the last passed on release on 18 Oct; the last step collects #4842, #4439 D14 (Create New Association linked back to the list) and D13 (reached only through Create New) and stayed red until #4439's D14 fix, with which every step passes.",
       "fixtures": "One MSP fee code (billingservice 9xxxx with an end date), two diagnostic codes (diagnosticcode Zxxxx), all described by the run marker, and one association of the fee code with the first diagnosis (ctl_servicecodes_dxcodes), for the workflow's own FAKE patient made a BC patient. Cleanup deletes the fee code's association rows and any written during the run for the owned diagnoses (the editor can store one with no service code), then the codes, and asserts each is gone. The codes and the association are visible clinic-wide while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -13252,7 +13252,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "The BC private bill receipt's Print and Print With Notes, which billing-bc-private-bill-receipt leaves unpressed: Invoice List ▸ Bill Patient ▸ invoice number ▸ a typed Billing Notes text ▸ Print, then Print With Notes. Asserted on the printed page (the receipt rendered to PDF with its print stylesheet once the page has asked to print; only the print dialog is stubbed): both print the invoice number and amount and no buttons; Print leaves out the Billing Notes heading and the note, Print With Notes prints them. The buttons sit inside the receipt's Update Invoice form, and a press that also posts that form instead of printing is reported by the step. Notes only: both print steps fail that way until #5068 is fixed (the buttons have no type, so each submits the form and the receipt reloads before print()). Needs pdftotext (SKIP without it).",
+      "notes": "The BC private bill receipt's Print and Print With Notes, which billing-bc-private-bill-receipt leaves unpressed: Invoice List ▸ Bill Patient ▸ invoice number ▸ a typed Billing Notes text ▸ Print, then Print With Notes. Asserted on the printed page (the receipt rendered to PDF with its print stylesheet once the page has asked to print; only the print dialog is stubbed): both print the invoice number and amount and no buttons; Print leaves out the Billing Notes heading and the note, Print With Notes prints them. The buttons sit inside the receipt's Update Invoice form, and a press that also posts that form instead of printing is reported by the step. Both print steps failed that way until #5072 (the fix for #5068) merged: the buttons had no type, so each submitted the form and the receipt reloaded before print(). Every step passes with it. Needs pdftotext (SKIP without it).",
       "fixtures": "One private bill (billing + billingmaster, 45.00) for the workflow's own FAKE patient, made a BC patient. Cleanup deletes every BC billing row of that patient, with any bill_recipients and billingnote rows, and asserts none is left."
     },
     {
