@@ -92,7 +92,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class MsgHandleMessages2Action extends ActionSupport {
     /** The value the {@code delete} flag holds when this request deletes its message. */
-    private static final String DELETE = "Delete";
+    private static final String DELETE_FLAG = "Delete";
 
     /**
      * HTTP request object for accessing parameters and session.
@@ -159,7 +159,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
         // ViewMessage.jsp posts it, but the route's name has no verb HttpMethodGuardFilter knows, so a
         // GET carrying "delete" (which has no CSRF token) deleted the message (issue #3394). The test is
         // the one the delete below makes: the parameter, or a value Struts already bound to the field.
-        boolean deletes = request.getParameter("delete") != null || DELETE.equalsIgnoreCase(delete);
+        boolean deletes = request.getParameter("delete") != null || DELETE_FLAG.equalsIgnoreCase(delete);
         if (deletes && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -182,7 +182,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
         // Determine which operation to perform based on request parameters
         if (request.getParameter("delete") != null) {
-            delete = DELETE;
+            delete = DELETE_FLAG;
         } else if (request.getParameter("reply") != null) {
             reply = "Reply";
         } else if (request.getParameter("replyAll") != null) {
@@ -192,7 +192,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
         }
 
         // Process delete operation
-        if (DELETE.equalsIgnoreCase(delete)) {
+        if (DELETE_FLAG.equalsIgnoreCase(delete)) {
             // Soft delete the message
             messagingManager.deleteMessage(loggedInInfo, Integer.parseInt(messageNo));
 
