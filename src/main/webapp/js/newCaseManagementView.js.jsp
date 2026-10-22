@@ -2930,6 +2930,12 @@ function updateCPPNote() {
         return false;
     }
     function savePage(method, chain) {
+        // Same guard as saveNoteAjax: once the lock is known lost, a native submit would leave the
+        // chart for the refusal page, so warn here and keep the editor and its text.
+        if (lostNoteLock) {
+            alert(noteLockLostError);
+            return false;
+        }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
         if (deferNoteSaveUntilIssues(function () { savePage(method, chain); })) return false;

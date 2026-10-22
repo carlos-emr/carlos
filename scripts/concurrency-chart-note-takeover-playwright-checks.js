@@ -10,11 +10,11 @@
  * lost the lock, then types its own text and clicks Save.
  *
  * Asserted: the explicit takeover is offered exactly once (control); B's note is stored; A's text is NOT written to the chart or over B's note;
- * and A is told, with its typed text still in the editor.
- * A's save writes nothing over B's note (control). The check then fails at its last step: A's Save posts
- * the whole form through saveNoteAjax('save'), which ignores lostNoteLock; the server answers 200 with the
- * "did not have the exclusive note lock" page and the chart replaces its notes pane with it, so the editor
- * and the typed clinical text vanish with no alert (the ajaxsave path alerts and keeps the editor).
+ * and A is told, with its typed text still in the editor. A's Save posts through saveNoteAjax('save'): the
+ * server answers 409 and the page alerts and keeps the editor (before #4225 it answered 200 with the "did not
+ * have the exclusive note lock" page and the chart replaced its notes pane, typed text and all, with it).
+ * A's Sign & Save, a native form submit, then warns the same way and submits nothing. A native save that has
+ * lost the lock (the legacy CaseManagementEntry.jsp form) gets that refusal page with the typed note to copy.
  *
  * Fixtures: the owned FAKE- patient only; the notes, drafts and locks the two windows leave are removed
  * by the session cleanup (the harness deletes casemgmt_note_lock / casemgmt_tmpsave for the patient)
@@ -105,6 +105,45 @@ async function workflow(s) {
     // Keeping the editor is not enough: the user must also be told the lock was lost, by the noteLockLostError alert or a visible message.
     const told = alerts.some(alert => /lock/i.test(alert.text)) || /note lock/i.test(body);
     h.assert(told, 'The stale window kept its editor but gave the user no alert or visible message that the note lock was lost');
+  });
+  await s.step('Sign & Save in the stale window warns again, keeps the typed text and submits nothing', async () => {
+    let submitted = false;
+    const listener = request => {
+      if (request.method() === 'POST' && h.pathOnly(request.url()).endsWith('/CaseManagementEntry')) submitted = true;
+    };
+    aChart.on('request', listener);
+    let signAlerts;
+    try {
+      signAlerts = await h.withExpectedDialogs(aChart, async () => {
+        await aChart.locator('#signSaveImg').first().click();
+        await aChart.waitForTimeout(1000); // a native submit would start navigating within this window
+      });
+    } finally { aChart.off('request', listener); }
+    h.assert(signAlerts.length === 1 && /note lock.*lost/i.test(signAlerts[0].text),
+      'Sign & Save in the stale window must warn exactly once that the note lock was lost');
+    h.assert(!submitted, 'Sign & Save submitted a save that the server can only refuse');
+    h.assert(await editorOf(aChart).inputValue() === textA, 'Sign & Save lost the typed text');
+    h.assert(sql.value(notesWith(textA)) === '0', 'The stale window\'s text was written to the chart');
+  });
+  await s.step('a native save that lost the lock answers with the refusal page and the typed note to copy', async () => {
+    const csrf = await aChart.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const typed = `${textA} <b>&`;
+    // No X-Requested-With: this is the legacy CaseManagementEntry.jsp form's native method=save.
+    const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/CaseManagementEntry'), {
+      headers: { 'CSRF-TOKEN': csrf },
+      form: { method: 'save', demographicNo: patient, caseNote_note: typed, 'CSRF-TOKEN': csrf },
+      maxRedirects: 0,
+    });
+    try {
+      const html = await response.text();
+      h.assert(response.status() === 200 && /exclusive note lock/.test(html),
+        `A native save without the lock did not answer with the refusal page (HTTP ${response.status()})`);
+      h.assert(html.includes(`>${textA} &lt;b&gt;&amp;</textarea>`),
+        'The refusal page did not offer the typed note text, HTML-encoded, to copy');
+      h.assert(/no-store/.test(response.headers()['cache-control'] || ''), 'A page carrying typed clinical text must not be cached');
+    } finally { await response.dispose(); }
+    h.assert(sql.value(notesWith(typed)) === '0' && sql.value(notesWith(textA)) === '0', 'The refused native save wrote a note');
+    h.assert(sql.value(notesWith(textB)) === '1', 'Session B\'s note is no longer the stored note');
   });
 }
 

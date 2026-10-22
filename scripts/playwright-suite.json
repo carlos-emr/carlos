@@ -9353,7 +9353,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Owned FAKE- patient only; the notes, drafts and note locks the two windows leave are removed by the session cleanup and the note rows by id (asserted gone). Session B takes the note lock over with the explicit same-login confirm (accepted and counted).",
-      "notes": "Fails at the last step: the stale window's Save (saveNoteAjax('save'), newCaseManagementView.js.jsp:2625-2720, ignores lostNoteLock) gets the 200 'windowCloseError' page (CaseManagementEntry2Action.java:1829-1831) and the chart replaces the notes pane with it: the editor and the typed text are gone and no alert is shown. The note itself is not written over B's (earlier steps pass)."
+      "notes": "The stale window's Save (saveNoteAjax('save')) gets HTTP 409 and keeps the editor with an alert; its Sign & Save (savePage, a native submit) warns and submits nothing; a native method=save without the lock (legacy CaseManagementEntry.jsp form) gets the windowCloseError page with the typed note in a read-only box, uncached. Before #4225 the Save answered 200 with that page and the chart replaced its notes pane, typed text and all."
     },
     {
       "name": "concurrency-chart-note-other-provider",

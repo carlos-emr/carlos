@@ -59,3 +59,38 @@ test('a successful save installs the returned notes pane', () => {
   h.requests[0].onSuccess({responseText: 'valid note pane'}); h.requests[0].onComplete();
   assert.deepEqual(h.updates, ['valid note pane']); assert.deepEqual(h.alerts, []); assert.equal(h.restored, 1); assert.equal(h.timers, 0);
 });
+
+// savePage (Sign & Save, Sign & Verify, Bill, Ctrl+B) submits the form natively, so a refused save
+// leaves the chart for the server's refusal page; with the lock already known lost it must not try.
+const pageStart = source.indexOf('    function savePage(method, chain) {');
+const pageEnd = source.indexOf('    var changeIssueMsg;', pageStart);
+assert.ok(pageStart >= 0 && pageEnd > pageStart);
+
+function pageHarness(lostNoteLock) {
+  const alerts = [];
+  let submits = 0;
+  const form = {method: {}, ajax: {}, chain: {}, includeIssue: {}, submit: () => submits++};
+  const noAddons = () => ({each() {}});
+  const context = {
+    lostNoteLock, noteLockLostError: 'note lock lost', caseNote: 'editor', caisiEnabled: false,
+    needToReleaseLock: false, origCaseNote: '',
+    document: {forms: {caseManagementEntryForm: form, caseManagementViewForm: {method: {}}}},
+    $F: () => 'recoverable clinical text', $: () => undefined,
+    alert: text => alerts.push(text), deferNoteSaveUntilIssues: () => false,
+    clearAutoSaveTimer() {}, jQuery: noAddons,
+  };
+  vm.createContext(context); vm.runInContext(source.slice(pageStart, pageEnd), context);
+  return {context, alerts, get submits() {return submits;}};
+}
+
+test('a known lost lock stops Sign & Save before the native submit', () => {
+  const h = pageHarness(true);
+  assert.equal(h.context.savePage('saveAndExit', ''), false);
+  assert.deepEqual(h.alerts, ['note lock lost']); assert.equal(h.submits, 0);
+});
+
+test('Sign & Save still submits while the window holds the lock', () => {
+  const h = pageHarness(false);
+  h.context.savePage('saveAndExit', '');
+  assert.deepEqual(h.alerts, []); assert.equal(h.submits, 1);
+});
