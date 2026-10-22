@@ -617,7 +617,19 @@ async function workflow(s, { select = validatePin() } = {}) {
       claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
       return found;
     }, 'finding the Forms-menu entry');
-    entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.code}`));
+    entry.page = await claims.reaching(async () => {
+      try {
+        return await s.popup(chart, link, `form-${form.code}`);
+      } catch (error) {
+        // Since #5074 a patient who already has a saved copy of a longitudinal form is asked "Saved form exists"
+        // instead of getting a blank window (formOpenGuard closes the window it reserved). The sweep's second record
+        // is meant to be new, so take the explicit blank choice. Left open, the modal would also block every later
+        // Forms-menu click on this chart (the guard ignores clicks while it is pending).
+        const dialog = chart.getByRole('dialog', { name: 'Saved form exists' });
+        if (!await dialog.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) throw error;
+        return s.popup(chart, dialog.getByRole('button', { name: 'Create a new blank version', exact: true }), `form-${form.code}`);
+      }
+    });
     h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'the form opened for another patient');
     await claims.reaching(async () => {
       await entry.page.getByRole('button', { name: 'Save', exact: true }).first().waitFor({ state: 'attached', timeout: 10000 });

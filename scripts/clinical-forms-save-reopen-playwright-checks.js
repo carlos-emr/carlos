@@ -141,8 +141,6 @@ function validatePin(env = process.env) {
  */
 const PINNED = Object.freeze({
   'mhc.opener': 'Mental Health: Saving a page leaves the E-Chart that opened the form alone',
-  'mhc.reopen': 'Mental Health: reopening from the E-Chart restores the saved values',
-  'mhc.print': 'Mental Health: Print renders the saved page for the owned patient',
 });
 const stepLabel = (form, concern, attemptLabel) => PINNED[claims.claimKey(form.claim, concern)] || `${form.title}: ${attemptLabel}`;
 

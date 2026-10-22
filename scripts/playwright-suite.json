@@ -6157,12 +6157,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The Mental Health chain, pinned to finding 236: after Referral, Assessment and Outcome are saved, the chart's saved-form entry answers HTTP 500 because the stored c_lastVisited is outcome/. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 236,
-        "step": "Mental Health: reopening from the E-Chart restores the saved values"
-      }
+      "notes": "The Mental Health chain, regression for finding 236 (fixed in #5067): after Referral, Assessment and Outcome are saved, the chart's saved-form entry answered HTTP 500 because the unquoted hidden inputs stored c_lastVisited with a trailing slash. The inputs are quoted and the reopen dispatch accepts only the three shipped pages (FrmMentalHealthRecord.resolveLastVisitedPage). Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "clinical-forms-save-reopen-mental-health-print",
@@ -6186,12 +6182,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The Mental Health Print button, pinned to finding 238: onPrint() calls document.forms[0].submit(), which the form's hidden input named submit shadows, so it throws and no print page is requested. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 238,
-        "step": "Mental Health: Print renders the saved page for the owned patient"
-      }
+      "notes": "The Mental Health Print button, regression for finding 238 (fixed in #5067): onPrint() called document.forms[0].submit(), which the form's hidden input named submit shadows, so it threw and no print page was requested; it now calls HTMLFormElement.prototype.submit. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke",
@@ -6544,12 +6536,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2006, pinned to finding 236: the saved record cannot be reopened (HTTP 500) because the stored c_lastVisited is p1/. Print runs on the reopened record, so it is claimed here and is reached once the reopen is fixed. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
-      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 236,
-        "step": "Rourke Baby Record 2006: a fresh chart's saved-form entry reopens the saved record"
-      }
+      "notes": "Rourke 2006, regression for finding 236 (fixed in #5067): the saved record could not be reopened (HTTP 500) because the stored c_lastVisited was p1/. The inputs are quoted and the reopen dispatch accepts only the four shipped pages (FrmRourke2006Record.resolveLastVisitedPage). Print runs on the reopened record, so it is claimed here. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-adfv2-window",

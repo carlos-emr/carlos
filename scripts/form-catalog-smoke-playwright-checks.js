@@ -79,7 +79,7 @@ const FORMS = [
   { key: 'rourke2006', code: 'R06', title: 'Rourke Baby Record 2006', view: 'formrourke2006', table: 'formRourke2006',
     prose: { name: 'p1_signature1w' }, fields: [check('p1_breastFeeding1w'), typed('c_length', '51.5')],
     print: { kind: 'pdf', button: 'Print', where: 'popup' },
-    known: { keys: claims.ASSERTION_ONLY, reopen: claims.ASSERTION_ONLY } },
+    known: { keys: claims.ASSERTION_ONLY } },
   { key: 'rourke', code: 'ROU', title: 'Rourke Baby Record', view: 'formrourke', table: 'formRourke',
     prose: { name: 'c_birthRemarks' }, fields: [check('p1_breastFeeding1w'), typed('c_length', '51.5')],
     print: { kind: 'window', button: 'Print' } },
@@ -197,7 +197,6 @@ function validatePin(env = process.env) {
  */
 const PINNED = Object.freeze({
   'cesd.redisplay': 'CESD: Save redisplays the saved record in the window it was pressed in',
-  'rourke2006.reopen': "Rourke Baby Record 2006: a fresh chart's saved-form entry reopens the saved record",
 });
 const CONCERN_STEP = Object.freeze({
   bare: 'opens for a patient whose address, phone and health-card columns are NULL',
