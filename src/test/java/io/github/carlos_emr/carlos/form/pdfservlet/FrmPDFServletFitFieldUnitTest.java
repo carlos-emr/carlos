@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.PdfContentByte;
 
 /**
  * A printed form's value is set small enough to stay on its blank when its print-config line says {@code fit}.
@@ -93,6 +94,15 @@ class FrmPDFServletFitFieldUnitTest {
     @DisplayName("should keep the configured size for a blank value")
     void shouldKeepConfiguredSize_whenValueIsBlank(String value) {
         assertThat(FrmPDFServlet.fittedFontSize(helvetica, value, 10f, 179f)).isEqualTo(10f);
+    }
+
+    @Test
+    @DisplayName("should read a print-config line's alignment, centring anything but left and right")
+    void shouldReadAlignment_fromFirstColumn() {
+        assertThat(FrmPDFServlet.alignmentOf(" left ")).isEqualTo(PdfContentByte.ALIGN_LEFT);
+        assertThat(FrmPDFServlet.alignmentOf("right")).isEqualTo(PdfContentByte.ALIGN_RIGHT);
+        assertThat(FrmPDFServlet.alignmentOf("center")).isEqualTo(PdfContentByte.ALIGN_CENTER);
+        assertThat(FrmPDFServlet.alignmentOf("anything")).isEqualTo(PdfContentByte.ALIGN_CENTER);
     }
 
     @Test

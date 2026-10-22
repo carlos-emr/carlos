@@ -150,6 +150,15 @@ public class FrmPDFServlet extends HttpServlet {
         return Math.max(MIN_FIT_FONT_SIZE, size * width / natural);
     }
 
+    /** The text alignment a print-config line names in its first column: left, right, or anything else centred. */
+    static int alignmentOf(String configured) {
+        String alignment = configured.trim();
+        if ("left".equals(alignment)) {
+            return PdfContentByte.ALIGN_LEFT;
+        }
+        return "right".equals(alignment) ? PdfContentByte.ALIGN_RIGHT : PdfContentByte.ALIGN_CENTER;
+    }
+
     /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
@@ -635,22 +644,6 @@ public class FrmPDFServlet extends HttpServlet {
                             propValue = measurements.getProperty(tempName.toString(), "");
                         }
 
-                        // "fit, <far edge>" in the seventh and eighth columns: the value's blank on the printed form
-                        // ends at <far edge>, so a value too long for it is set in a smaller font instead of running
-                        // past the blank (and, at the right of the page, off the paper). Opt-in per print-config line.
-                        if (cfgVal.length == 8 && "fit".equals(cfgVal[6].trim())) {
-                            float x = Float.parseFloat(cfgVal[1].trim());
-                            float width = Math.abs(Float.parseFloat(cfgVal[7].trim()) - x);
-                            cb.beginText();
-                            cb.setFontAndSize(bf, fittedFontSize(bf, propValue, Float.parseFloat(cfgVal[5].trim()), width));
-                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
-                                    : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
-                                    : PdfContentByte.ALIGN_CENTER)), propValue, x,
-                                    (height - Integer.parseInt(cfgVal[2].trim())), 0);
-                            cb.endText();
-                            continue;
-                        }
-
                         // write in a rectangle area
                         if (cfgVal.length >= 9) {
                             int fontSize = 12;
@@ -728,6 +721,17 @@ public class FrmPDFServlet extends HttpServlet {
 //
 //	                            cb.endText();
 //	                        }
+                        } else if (cfgVal.length == 8 && "fit".equals(cfgVal[6].trim())) {
+                            // "fit, <far edge>" in the seventh and eighth columns: the value's blank on the printed
+                            // form ends at <far edge>, so a value too long for it is set in a smaller font instead of
+                            // running past the blank (and, at the right of the page, off the paper). Opt-in per line.
+                            float x = Float.parseFloat(cfgVal[1].trim());
+                            float width = Math.abs(Float.parseFloat(cfgVal[7].trim()) - x);
+                            cb.beginText();
+                            cb.setFontAndSize(bf, fittedFontSize(bf, propValue, Float.parseFloat(cfgVal[5].trim()), width));
+                            cb.showTextAligned(alignmentOf(cfgVal[0]), propValue, x,
+                                    (height - Integer.parseInt(cfgVal[2].trim())), 0);
+                            cb.endText();
                         } else { // write prop text
                             cb.beginText();
                             cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
