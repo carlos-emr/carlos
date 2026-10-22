@@ -59,7 +59,8 @@ public class RxUtil {
     private static final String METHOD_APPLY = "Apply";
     private static final String METHOD_RUB_WELL_IN = "Rub well in";
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
-            "(?:mgs|mg|mcgs|mcg|[µμu]g|grams|gram|gms|gm|g|iu|meq|mmol|milligrams|milligram|micrograms|microgram)\\b",
+            "(?:mgs|mg|mcgs|mcg|[µμu]g|grams|gram|gms|gm|g|iu|meq|mmol|milligrams|milligram|micrograms|microgram"
+                    + "|milliequivalents?|millimoles?|international\\s++units?)\\b",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|grams?|gms?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
     /** Every spelling of a gram unit; "2 grams" and "2 gm" are classified exactly as "2 g". */
@@ -1492,13 +1493,15 @@ public class RxUtil {
      * applied to the skin or a mucosa, IU not taken by mouth, and mEq or mmol given by a written
      * non-oral route are administered amounts; everything else is a product strength.
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
     private static AmountKind classifyStrengthUnit(String instructions, String unit, int unitEnd,
             InstructionSegment segment) {
         boolean grams = isGramUnit(unit);
-        boolean internationalUnits = "iu".equalsIgnoreCase(unit);
-        boolean electrolyteUnits = "meq".equalsIgnoreCase(unit) || "mmol".equalsIgnoreCase(unit);
+        // Read through StrengthMeasure, every spelling counts: "20 milliequivalents" is "20 mEq" and
+        // "1000 international units" is "1000 IU".
+        StrengthMeasure measure = StrengthMeasure.of(unit);
+        String measured = measure == null ? "" : measure.measure();
+        boolean internationalUnits = "iu".equals(measured);
+        boolean electrolyteUnits = "meq".equals(measured) || "mmol".equals(measured);
         // "17 g per dose" and "20 IU/dose" state an administered amount in a measurable unit. A mass
         // per dose in mg, mcg or mEq ("500 mg per dose", an inhaler's "250 mcg/dose") still does not
         // say how many dispensable units supply it, so it is read as a strength below.
@@ -2285,13 +2288,15 @@ public class RxUtil {
         // FindSecBugs IMPROPER_UNICODE: case folding of a parsed unit abbreviation, not a security or authorization decision.
         @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folding of a parsed unit abbreviation, not a security or authorization decision")
         static StrengthMeasure of(String unit) {
-            return switch (unit.toLowerCase(Locale.ROOT)) {
+            // "international  units" may be written with any run of spaces between its two words.
+            return switch (unit.toLowerCase(Locale.ROOT).replaceAll("\\s++", " ")) {
                 case "mg", "mgs", "milligram", "milligrams" -> new StrengthMeasure("mass", BigDecimal.ONE);
                 case "mcg", "mcgs", "µg", "μg", "ug", "microgram", "micrograms" -> new StrengthMeasure("mass", MICROGRAM);
                 case "g", "gm", "gms", "gram", "grams" -> new StrengthMeasure("mass", GRAM);
-                case "iu", "unit", "units" -> new StrengthMeasure("iu", BigDecimal.ONE);
-                case "meq" -> new StrengthMeasure("meq", BigDecimal.ONE);
-                case "mmol" -> new StrengthMeasure("mmol", BigDecimal.ONE);
+                case "iu", "unit", "units", "international unit", "international units" ->
+                        new StrengthMeasure("iu", BigDecimal.ONE);
+                case "meq", "milliequivalent", "milliequivalents" -> new StrengthMeasure("meq", BigDecimal.ONE);
+                case "mmol", "millimole", "millimoles" -> new StrengthMeasure("mmol", BigDecimal.ONE);
                 default -> null;
             };
         }

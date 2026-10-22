@@ -113,7 +113,9 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "20 mEq per dose PO tid x 7 days", "250 mcg/dose INH tid x 7 days",
             "20 mEq tid x 7 days", "Take 20 mEq tid x 7 days", "20 mmol tid x 7 days",
             "Take 2 grams po tid x 7 days", "2 grams po tid x 7 days", "Take 1 gram PO TID x 7 days",
-            "2 gm po tid x 7 days", "Take 2 gms po tid x 7 days"
+            "2 gm po tid x 7 days", "Take 2 gms po tid x 7 days",
+            "20 milliequivalents po tid x 7 days", "20 Millimoles tid x 7 days",
+            "1000 international units po tid x 7 days", "Take 1000 International Unit by mouth tid x 7 days"
         })
         void shouldDefaultToOneUnit_whenLeadingNumberHasStrengthUnit(String instructions) {
             RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
@@ -205,6 +207,10 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "20 mEq in 100 mL IV Q8H x 3 days | 20 | 20 | 180",
             "20 mmol IV daily x 3 days | 20 | 20 | 60",
             "20 mmol SC BID x 7 days | 20 | 20 | 280",
+            "20 milliequivalents IV daily x 3 days | 20 | 20 | 60",
+            "20 millimoles IV daily x 3 days | 20 | 20 | 60",
+            "20 international units SC BID x 7 days | 20 | 20 | 280",
+            "20 international units qhs x 30 days | 20 | 20 | 600",
             "Take 1 - 2 tabs po bid x 7 days | 1 | 2 | 28",
             "1 - 2 tabs po bid x 7 days | 1 | 2 | 28",
             "20IU sc BID x 7 days | 20 | 20 | 280",
@@ -509,6 +515,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 1 g po tid x 7 days | 500.0mg | CAPSULE | 2 | 2 | 42",
             "Take 2 grams po tid x 7 days | 1000.0mg | TABLET | 2 | 2 | 42",
             "Take 1 gram po bid x 7 days | 500.0mg | CAPSULE | 2 | 2 | 28",
+            "Take 2000 international units po daily x 30 days | 1000.0unit | TABLET | 2 | 2 | 60",
+            "Take 40 milliequivalents po daily x 7 days | 20.0meq | TABLET (EXTENDED-RELEASE) | 2 | 2 | 14",
             "Take 0.5 mg po qhs x 30 days | 1.0mg | TABLET | 0.5 | 0.5 | 15",
             "Take 3 mg po daily x 30 days | 1.0mg | TABLET | 3 | 3 | 90",
             "Take 2 mg po q4h x 5 days | 1.0mg | TABLET | 2 | 2 | 60",
