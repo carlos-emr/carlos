@@ -78,8 +78,6 @@ public class BillingONReview2Action extends ActionSupport {
     }
 
     public String getDemographic() throws IOException {
-        String demographicNo = request.getParameter("demographicNo");
-
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
@@ -98,7 +96,8 @@ public class BillingONReview2Action extends ActionSupport {
         String json = objectMapper.writeValueAsString(demographic);
         response.setContentType("application/json;charset=UTF-8");
         response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8)); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
-        return null;
+        // The JSON is the whole answer: NONE stops Struts from resolving a result after it.
+        return NONE;
     }
 
     public String getClinic() throws IOException {
@@ -106,6 +105,6 @@ public class BillingONReview2Action extends ActionSupport {
         String json = objectMapper.writeValueAsString(clinic);
         response.setContentType("application/json;charset=UTF-8");
         response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));
-        return null;
+        return NONE;
     }
 }

@@ -93,7 +93,7 @@ class PatientLockReadRoutesUnitTest extends CarlosUnitTestBase {
         selected("000008");Demographic patient=new Demographic();patient.setDemographicNo(8);patient.setLastName("FAKE-OPEN-PATIENT");
         when(demographics.getDemographic("8")).thenReturn(patient);
         String result=execute(route);verify(security).isAllowedAccessToPatientRecord(user,8);
-        if(route==Route.BILLING){assertThat(result).isNull();verify(demographics).getDemographic("8");
+        if(route==Route.BILLING){assertThat(result).isEqualTo(ActionSupport.NONE);verify(demographics).getDemographic("8");
             assertThat(response.getContentAsString()).contains("FAKE-OPEN-PATIENT");assertThat(response.getContentType()).startsWith("application/json");}
         else{assertThat(result).isEqualTo(ActionSupport.SUCCESS);assertThat(request.getAttribute(PatientReadAccess.AUTHORIZED_PATIENT_ATTRIBUTE)).isEqualTo("8");}
     }

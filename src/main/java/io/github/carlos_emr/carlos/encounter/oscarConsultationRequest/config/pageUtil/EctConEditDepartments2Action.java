@@ -57,7 +57,7 @@ public class EctConEditDepartments2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_admin,_admin.consult", "w", null)) {
-            throw new SecurityException("missing required security object _admin.consult");
+            throw new SecurityException("missing required sec object (_admin.consult)");
         }
 
         String id = this.getId();

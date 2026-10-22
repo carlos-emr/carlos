@@ -61,7 +61,7 @@ public class EctConEnableReqResp2Action extends ActionSupport {
             throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_admin,_admin.consult", "w", null)) {
-            throw new SecurityException("missing required security object _admin.consult");
+            throw new SecurityException("missing required sec object (_admin.consult)");
         }
 
         if (!"POST".equals(request.getMethod())) {

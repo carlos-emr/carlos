@@ -193,6 +193,25 @@ class ApplyPractitionerPremium2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(premiums, providers);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", "  ", "abc", "12x", "99999999999"})
+    void shouldAnswerBadRequest_whenPostedRaIsMalformed(String rano) {
+        request.setMethod("POST");
+        request.setParameter("rano", rano);
+        assertThat(new ApplyPractitionerPremium2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(premiums, providers);
+    }
+
+    @Test
+    void shouldAnswerBadRequest_whenPostedRaIsMissing() {
+        request.setMethod("POST");
+        request.removeParameter("rano");
+        assertThat(new ApplyPractitionerPremium2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(premiums, providers);
+    }
+
     @Test
     void shouldApplySelectedPremiumByAuthorizedPostAndPreserveOtherRows() {
         request.setMethod("POST");request.setParameter("providerNo" + UNAPPLIED, PROVIDER);
