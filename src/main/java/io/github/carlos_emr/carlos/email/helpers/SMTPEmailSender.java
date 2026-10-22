@@ -28,6 +28,7 @@ import jakarta.mail.internet.MimeMessage;
 
 import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
 import org.eclipse.angus.mail.smtp.SMTPSendFailedException;
+import org.eclipse.angus.mail.util.CRLFOutputStream;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -257,7 +258,10 @@ public class SMTPEmailSender implements OutboundEmailTransport {
             List<PreparedAttachment> attachmentSnapshots = addAttachments(helper, attachments, attachmentSnapshotPaths);
             message.saveChanges();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            message.writeTo(new BoundedEmailOutputStream(outputStream, MAX_PREPARED_MESSAGE_BYTES));
+            // Match SMTP's line endings before archiving, including plain-text bodies entered
+            // with LF or CR. Bound the normalized bytes that will actually be transmitted.
+            message.writeTo(new CRLFOutputStream(
+                    new BoundedEmailOutputStream(outputStream, MAX_PREPARED_MESSAGE_BYTES)));
             preparedAttachments = attachmentSnapshots;
             preparedAttachmentSnapshots = List.copyOf(attachmentSnapshotPaths);
             preparedMessage = message;
