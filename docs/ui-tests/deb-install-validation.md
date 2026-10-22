@@ -3309,6 +3309,53 @@ Conflicting HINs or insufficient source evidence block chain-wide mutations and 
 review, including corrections that change all corroborating identity fields. The resolver does
 not silently omit an uncertain sibling. Other lab sources retain their existing membership rules.
 
+### Writes named by a parameter other than `method` (2026-10-22, issue #3394)
+
+Finding 315. `release/2026.08` at 3b86a51e57 plus the fix branch was packaged as `2026.09.0~snapshot26` with
+`dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` builder (OpenJDK 25), the CARLOS WAR compiled from source with
+the `debian/rules` Maven flags and DrugRef built from the `debian/drugref.pin` ref (`1941e14`). `lintian --fail-on
+error` passed and carlos-ctl was 1.1.2 from its release. The packages were installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo dataset) and `carlos-ctl check` reported "All checks passed".
+The first run used the branch's first commit; the final run rebuilt and reinstalled from its head (`5038ddbd81`).
+
+| Run | `get-reject-dispatch-params` |
+|---|---|
+| fixed packages | PASS, all 5 steps. Each real POST writes (a privilege row's Update, a role's Add and Update, a message's Delete, a code description's Modify) and carries its CSRF token; all 9 GET and HEAD replays answer 405 with the application's header and change nothing. |
+| pre-fix `ProviderPrivilege2Action`, `ProviderRole2Action`, `MsgHandleMessages2Action`, `DxresearchReport2Action` and `HttpMethodGuardFilter` swapped in | FAILS at the last step: 6 of 9 replays answer 200, and the GETs rewrite privilege row B, change the throwaway provider's role, delete message B and rewrite the owned ICD-9 description. |
+
+The other checks that drive these routes ran on the final packages:
+- The smoke tier passes 12 of 12.
+- `assign-role`, `admin-role-management` (with `EXCLUSIVE=1`), `select-forms-panel`, `rh-form-workflow`
+  (`form/AddRHWorkFlow`), `form-adfv2-save-exit`, `form-checkbox-reopen`, `echart-forms-latest-item`,
+  `mutator-get-rejection-live`, `get-reject-provider-groups`, `get-reject-measurement-groups`,
+  `messenger-reply-conversation`, `messenger-reply-all-forward`, `messenger-demographic-link` and
+  `export-content-dx-registry-xlsx` pass. The `form/formname` saves in `clinical-forms-save-reopen` (twelve forms,
+  each redirected through `/form/forwardname` and redisplayed) and the Save and reopen steps of `bpmh-form` pass.
+- Five checks fail at the same step with the pre-fix classes and `struts-form.xml` swapped back in, so none comes from
+  this change: `clinical-forms-save-reopen` at "Mental Health Form 14: Print Pdf answers a PDF carrying the saved
+  prose", `bpmh-form` at "Print answers a PDF of the saved form", `authz-read-role-matrix` (`oscarResearch/dxresearch/
+  setupDxResearch` and `dxResearchLoadQuickList` answer 500 to a login with no sec object), `authz-read-admin-objects`
+  (its full-privilege control is not served `eform/fieldNoteReport/fieldnotereportdetail`) and
+  `messenger-reply-send-archive` at "Send and Archive archives exactly the message replied to".
+- `session-state-two-window-isolation` failed at its year-end statement step only when it ran after the twenty
+  checks above; alone it passes, three times on the fixed packages and once on the pre-fix ones.
+
+Review follow-up (CodeRabbit): `StrutsFormNestedForwardUnitTest` compared locations with action names only, so it
+missed `form/formname`'s `printAllJasperReport` result, `/form/formPdfJasperReport`, which the `form/*` wildcard
+serves. That is a nested action FORWARD to a view that does not exist. The test now matches wildcard actions and
+honours `struts.action.excludePattern`, and the result prints through `/form/createpdf` like `printAll`. Checked on
+the same install with only `struts-form.xml` changed:
+- A Lab Req 2007 Print post rewritten to `submit=printAllJasperReport` answers 404 (HTML) with the old location and
+  a 46 KB `application/pdf` with the new one. Rourke 2020's own Print, which writes its PDF in `Frm2Action`, still
+  passes in `form-rourke2020-growth`.
+- `select-forms-panel`, `rh-form-workflow`, `form-adfv2-save-exit`, `form-checkbox-reopen` and
+  `echart-forms-latest-item` pass.
+- `form-rourke2020-growth` fails with the old base-branch `struts-form.xml`, with the PR's previous head and with
+  this change. Growth 0-36m and Growth Chart never open from the Forms menu, and the Rourke 2020 save step varies
+  from run to run (two rows for one request, or Tomcat closing the `form/formname` connection so nginx answers
+  502). It is not caused by this change.
+- `form-print-pdf` cannot start on this install: the Forms menu lists no Lab Req 2007 for the admin login.
+
 ### Query by Example reporting account (2026-10-22, issue #3372)
 
 Query by Example now runs every query as the read-only `carlos_report` account that carlos-ctl 1.2.0 provisions from the grant list

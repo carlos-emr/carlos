@@ -375,6 +375,13 @@ the top of that file:
 - `NON_MUTATOR_GATES` — a read-scope gate that permits GET and only 405s
   on truly unsupported methods like DELETE/PUT.
 
+`HttpMethodGuardFilter` only infers a write from the route name or the
+`method` value. When a route picks its write from another parameter
+(`buttonUpdate`, `delete`, `forward`, ...), the action must refuse the GET
+itself; also list the route in the filter's
+`MUTATION_INTENT_PARAMS_BY_ROUTE`, and the contract test drives every entry
+there against its action (issue #3394).
+
 **When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
 the slice's package prefix only after the existing guarded actions in that
 slice have been audited and classified in the contract manifest. For a
