@@ -47,6 +47,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.nio.charset.StandardCharsets;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.safety.Safelist;
 
 public class AcceptableUseAgreementManager {
     private static Logger logger = MiscUtils.getLogger();
@@ -57,6 +60,8 @@ public class AcceptableUseAgreementManager {
     private static volatile boolean loadAttempted = false;
 
     private static String auaText;
+    // Display form of auaText, sanitized once per load rather than on every login page.
+    private static String auaHtml;
     private static AgreementVersion loadedVersion;
 
     private record AgreementVersion(Path path, FileTime modified, long size, Object fileKey) { }
@@ -90,6 +95,7 @@ public class AcceptableUseAgreementManager {
         synchronized (CACHE_LOCK) {
             loadAttempted = false;
             auaText = null;
+            auaHtml = null;
             loadedVersion = null;
             agreementCutoffDate = null;
         }
@@ -122,10 +128,12 @@ public class AcceptableUseAgreementManager {
                 // Also notice deployment/restoration changes outside the upload action.
                 // A missing file must never leave an old agreement active in memory.
                 auaText = exists ? Files.readString(path, StandardCharsets.UTF_8) : null;
+                auaHtml = auaText == null ? null : sanitizeForDisplay(auaText);
                 loadedVersion = version;
             } catch (Exception e) {
                 logger.error("Error loading acceptable-use agreement", e);
                 auaText = null;
+                auaHtml = null;
                 loadedVersion = null;
             } finally {
                 loadAttempted = true;
@@ -179,6 +187,46 @@ public class AcceptableUseAgreementManager {
 
     public String getText() {
         return getAUAText();
+    }
+
+    /**
+     * Returns the agreement as HTML that is safe to write into a page unencoded.
+     *
+     * <p>The file has always been rendered as markup, and deployed agreements use document
+     * formatting (headings, paragraphs, emphasis, lists, tables, links), which is kept. Since
+     * an administrator can publish the file from Administration and the login page shows it
+     * before anyone signs in, everything else -- script, event handlers, style attributes,
+     * frames, forms, images -- is removed so an {@code _admin} account cannot run script or
+     * restyle the page in front of every user's credentials. The stored file and
+     * {@link #getAUAText()} keep the exact uploaded bytes.
+     *
+     * @return sanitized agreement HTML, or {@code null} when no agreement can be read
+     * @since 2026-10-22
+     */
+    public static String getAUAHtml() {
+        synchronized (CACHE_LOCK) {
+            AcceptableUseAgreementManager.loadAUA();
+            return auaHtml;
+        }
+    }
+
+    /**
+     * Bean accessor for the login page.
+     *
+     * @return the same value as {@link #getAUAHtml()}
+     * @since 2026-10-22
+     */
+    public String getHtml() {
+        return getAUAHtml();
+    }
+
+    // Document formatting only: relaxed() carries no style attribute, script, handler or frame;
+    // images are dropped too, so the login page cannot be made to load or show anything else.
+    private static final Safelist AGREEMENT_SAFELIST = Safelist.relaxed().removeTags("img");
+
+    static String sanitizeForDisplay(String text) {
+        // prettyPrint off: keep the author's whitespace instead of reflowing it.
+        return Jsoup.clean(text, "", AGREEMENT_SAFELIST, new Document.OutputSettings().prettyPrint(false));
     }
 
     public static Date getAgreementCutoffDate() {

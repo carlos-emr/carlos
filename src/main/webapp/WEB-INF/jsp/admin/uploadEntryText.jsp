@@ -43,7 +43,7 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.utility.WebUtils,io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager,io.github.carlos_emr.carlos.commn.model.Property" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils,io.github.carlos_emr.carlos.utility.SafeEncode,io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager,io.github.carlos_emr.carlos.commn.model.Property" %>
 <%
 
     Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
@@ -164,7 +164,7 @@
 
                 <br>OR<br>
                 <input type="checkbox" name="validForever" value="forever" <%=checked%>> Forever with an agreement past
-                <input name="foreverFrom" type="text" id="foreverFrom" value="<%=fromDate%>"/>
+                <input name="foreverFrom" type="text" id="foreverFrom" value="<%=SafeEncode.forHtmlAttribute(fromDate)%>"/>
                 <img src="<%= request.getContextPath() %>/images/cal.gif" id="foreverFrom_cal">
 
 
@@ -200,9 +200,12 @@
         <td class="MainTableBottomRowLeftColumn">&nbsp;</td>
         <td class="MainTableBottomRowRightColumn" valign="top">
             <hr>
-            <%if (AcceptableUseAgreementManager.getAUAText() != null) { %>
+            <%-- The sanitized form the login page shows, read once so the check and the
+                 output cannot see two different files. Never the raw getAUAText(). --%>
+            <% String agreementHtml = AcceptableUseAgreementManager.getAUAHtml(); %>
+            <%if (agreementHtml != null) { %>
             <div style="float:right;text-align:center;" id="auaText">
-                <div style="margin-left:auto; margin-right:auto; text-align:left; width:70%; padding:5px; border:2px groove black;"><%=AcceptableUseAgreementManager.getAUAText()%>
+                <div style="margin-left:auto; margin-right:auto; text-align:left; width:70%; padding:5px; border:2px groove black;"><%=agreementHtml%>
                 </div>
             </div>
             <%} else {%>

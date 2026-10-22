@@ -277,6 +277,70 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
         assertThat(AcceptableUseAgreementManager.getAUAText()).isNull();
     }
 
+    @Test
+    @DisplayName("should keep the uploaded bytes but display the agreement without script")
+    void shouldDisplaySanitizedAgreement_whileStoringUploadedBytes() throws Exception {
+        addValidDurationParameters();
+        String uploaded = "<h2>Agreement</h2><table><tr><td>Clause</td></tr></table>"
+                + "<div style=\"position:fixed;inset:0\">Overlay</div>"
+                + "<p>Use <b>only</b> for care. <a href=\"https://example.com/terms\" onclick=\"steal()\">Terms</a></p>"
+                + "<script>window.auaInjected = 1;</script><img src=x onerror=\"steal()\">"
+                + "<a href=\"javascript:steal()\">Run</a><iframe src=\"https://example.com\"></iframe>";
+        Path upload = Files.writeString(uploadDir.resolve("formatted.txt"), uploaded, StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
+        assertThat(documentDir.resolve("login/AcceptableUseAgreement.txt")).hasContent(uploaded);
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo(uploaded);
+        String html = AcceptableUseAgreementManager.getAUAHtml();
+        assertThat(html)
+                .contains("<h2>Agreement</h2>")
+                .contains("<td>Clause</td>")
+                .contains("<div>Overlay</div>")
+                .contains("<p>Use <b>only</b> for care. ")
+                .contains("href=\"https://example.com/terms\"")
+                .contains(">Terms</a>")
+                .doesNotContainIgnoringCase("<script")
+                .doesNotContainIgnoringCase("auaInjected")
+                .doesNotContainIgnoringCase("onerror")
+                .doesNotContainIgnoringCase("onclick")
+                .doesNotContainIgnoringCase("javascript:")
+                .doesNotContainIgnoringCase("<img")
+                .doesNotContainIgnoringCase("<iframe")
+                .doesNotContainIgnoringCase("style=");
+        assertThat(new AcceptableUseAgreementManager().getHtml()).isEqualTo(html);
+    }
+
+    @Test
+    @DisplayName("should display plain-text agreement characters literally")
+    void shouldEscapeMarkupCharacters_forPlainTextAgreement() throws Exception {
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Records & notes: a < b, caf\u00e9.\nSecond line.", StandardCharsets.UTF_8);
+
+        assertThat(AcceptableUseAgreementManager.getAUAHtml())
+                .isEqualTo("Records &amp; notes: a &lt; b, caf\u00e9.\nSecond line.");
+        assertThat(AcceptableUseAgreementManager.getAUAText())
+                .isEqualTo("Records & notes: a < b, caf\u00e9.\nSecond line.");
+    }
+
+    @Test
+    @DisplayName("should stop displaying an agreement once its file is removed")
+    void shouldClearDisplayedAgreement_whenFileIsRemoved() throws Exception {
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "<p>Displayed agreement</p>", StandardCharsets.UTF_8);
+        assertThat(AcceptableUseAgreementManager.getAUAHtml()).isEqualTo("<p>Displayed agreement</p>");
+
+        Files.delete(agreement);
+
+        assertThat(AcceptableUseAgreementManager.getAUAHtml()).isNull();
+        assertThat(AcceptableUseAgreementManager.getAUAText()).isNull();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"text", "availability", "cutoff", "invalidate"})
     void shouldCompleteCacheOperation_whenClassMonitorIsHeldExternally(String operation) throws Exception {
@@ -382,7 +446,7 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"", "0", "-1", "19", "2147483648"})
-    void shouldRejectOutOfRangeDuration(String duration) throws Exception {
+    void shouldRejectDuration_whenOutsideMenuRange(String duration) throws Exception {
         addRequestParameter("validDurationNumber", duration);
         addRequestParameter("validDurationPeriod", "days");
         UploadLoginText2Action action = new UploadLoginText2Action();
@@ -392,7 +456,7 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"not-a-date", "2026-02-30 00:00:00", "2026-09-19", "2026-09-19 00:00:00 extra"})
-    void shouldRejectInvalidForeverDate(String date) throws Exception {
+    void shouldRejectForeverDate_whenNotStrictTimestamp(String date) throws Exception {
         addRequestParameter("validForever", "forever");
         addRequestParameter("foreverFrom", date);
         UploadLoginText2Action action = new UploadLoginText2Action();
@@ -401,7 +465,7 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldAcceptValidForeverDate() throws Exception {
+    void shouldAcceptForeverDate_withStrictTimestamp() throws Exception {
         addRequestParameter("validForever", "forever");
         addRequestParameter("foreverFrom", "2026-09-19 00:00:00");
         UploadLoginText2Action action = new UploadLoginText2Action();
