@@ -55,7 +55,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("ViewVisualEFormEditor2Action")
 @Tag("unit")
 @Tag("eform")
-class ViewVisualEFormEditor2ActionTest extends CarlosUnitTestBase {
+class ViewVisualEFormEditor2ActionUnitTest extends CarlosUnitTestBase {
 
     private static final String EDITOR_VIEW = "/WEB-INF/jsp/eform/visualEformEditor.jsp";
 

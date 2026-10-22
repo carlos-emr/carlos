@@ -29,17 +29,40 @@ const MARKER_TAG = /<meta name='carlos-eform-editor' content='visual' data-finge
 // A 1x1 PNG, so the converted form's background needs no request to the image library.
 const PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
+// The eForm Generator's output shape: its pages sit inside the form it writes.
 function generatorHtml(name) {
   return `<html><head><title>${name}</title><script>function clinicCustomCode(){ return 'kept only in HTML'; }</script></head>
-<body><div id="page1" style="position:relative;" >
+<body><form method="post" name="FormName" id="FormName" >
+<div id="page1" style="position:relative;" >
 <img id="BGImage1" src="${PIXEL}" style="position: relative; left: 0px; top: 0px; width:750px">
 <input name="generatorField" id="generatorField" type="text" class="noborder" style="position:absolute; left:100px; top:100px; width:200px; height:20px;">
-</div></body></html>`;
+</div>
+</form></body></html>`;
 }
 
 function handWrittenHtml(name) {
   return `<html><head><title>${name}</title><script>function init(){}</script></head>
 <body onload="init()"><form method="post" action=""><textarea name="letterBody"></textarea></form></body></html>`;
+}
+
+/**
+ * A step that replaces the Administration panel the way a user does. Replacing it removes the
+ * library's upload/import frames, and a load such a frame had in flight is abandoned with it. A
+ * failure whose own frame went away (navigatedAway, the harness's proof) is the browser's doing,
+ * not a finding; every other failure still fails the step.
+ */
+async function panelStep(s, label, body) {
+  await s.step(label, async () => {
+    const since = s.recorder.requestFailures.length;
+    await body();
+    for (let i = s.recorder.requestFailures.length - 1; i >= since; i--) {
+      const entry = s.recorder.requestFailures[i];
+      if (/ERR_ABORTED/.test(entry.errorText || '') && typeof entry.navigatedAway === 'function'
+        && entry.navigatedAway()) {
+        s.recorder.requestFailures.splice(i, 1);
+      }
+    }
+  });
 }
 
 async function workflow(s) {
@@ -128,6 +151,22 @@ async function workflow(s) {
   });
 
   const admin = await context.newPage();
+  // The panel is replaced by AJAX, not navigated, so waitForLoadState() has nothing to wait for.
+  // Wait instead for what the fragment started: the library's upload/import frames and any web
+  // fonts. The next click replaces the panel, and a request it cuts short is a failed resource.
+  const settlePanel = async () => {
+    await admin.waitForFunction(() => [...document.querySelectorAll('#dynamic-content iframe')].every((frame) => {
+      try {
+        const doc = frame.contentDocument;
+        return !doc || (doc.readyState === 'complete' && doc.location.href !== 'about:blank');
+      } catch (error) {
+        return true; // cross-origin: nothing this check can wait on
+      }
+    }), null, { timeout: 30000 }).catch(() => {});
+    // The icon font is fetched on first use, after the stylesheet: wait for the faces the rows use.
+    await admin.evaluate(() => Promise.all([document.fonts.load('900 1em "Font Awesome 6 Free"'),
+      document.fonts.ready]).then(() => true)).catch(() => {});
+  };
   const openLibrary = async () => {
     if (!/\/administration/.test(admin.url())) {
       await h.gotoApp(admin, config.baseUrl, '/administration');
@@ -135,6 +174,7 @@ async function workflow(s) {
     if (await admin.locator('#collapseForms').isHidden()) await admin.locator('button[data-bs-target="#collapseForms"]').first().click();
     await admin.locator('a.defaultForms').first().click();
     await admin.locator('#dynamic-content #eformTbl').waitFor({ state: 'visible', timeout: 30000 });
+    await settlePanel();
   };
   const rowOf = name => admin.locator('#dynamic-content #eformTbl tbody tr', { hasText: name }).first();
   const frame = async fid => {
@@ -149,7 +189,7 @@ async function workflow(s) {
     return found;
   };
 
-  await s.step('the library routes each row\'s Edit to the editor that can change it safely', async () => {
+  await panelStep(s, 'the library routes each row\'s Edit to the editor that can change it safely', async () => {
     await openLibrary();
     const visualRow = rowOf(visualName);
     await visualRow.waitFor();
@@ -170,7 +210,7 @@ async function workflow(s) {
     await shot(admin, 'eform-library-edit-routing');
   });
 
-  await s.step('the pencil opens the selected form pre-loaded in the editor inside the Administration panel', async () => {
+  await panelStep(s, 'the pencil opens the selected form pre-loaded in the editor inside the Administration panel', async () => {
     const pagesBefore = context.pages().length;
     await rowOf(visualName).locator('a.eformVisualEditorLink[data-editor="visual"]').click();
     const editor = await frame(visualFid);
@@ -190,7 +230,7 @@ async function workflow(s) {
     await shot(admin, 'visual-editor-in-panel');
   });
 
-  await s.step('Update Eform from the pre-loaded editor rewrites the same form instead of adding a copy', async () => {
+  await panelStep(s, 'Update Eform from the pre-loaded editor rewrites the same form instead of adding a copy', async () => {
     const editor = await frame(visualFid);
     await editor.locator('h3:has-text("Form Building")').click();
     await editor.locator('#page_1 .gen-widget .inputOverride').first().dblclick();
@@ -219,11 +259,12 @@ async function workflow(s) {
       'The standalone editor did not load the form\'s current field');
     await library.close();
   });
-  await s.step('a change made in the HTML source (Advanced) editor demotes the form to explicit conversion', async () => {
+  await panelStep(s, 'a change made in the HTML source (Advanced) editor demotes the form to explicit conversion', async () => {
     await openLibrary();
     await rowOf(visualName).locator('a.contentLink[data-editor="html"]').click();
     const source = admin.locator('#dynamic-content textarea[name="formHtml"]');
     await source.waitFor({ state: 'visible', timeout: 30000 });
+    await settlePanel();
     const before = await source.inputValue();
     h.assert(before.includes(secondDefault), 'The HTML editor did not open the visual form\'s current source');
     await source.fill(before.replace('</head>', '<script>function clinicCustomCode(){ return 1; }</script>\n</head>'));
@@ -232,6 +273,9 @@ async function workflow(s) {
       admin.locator('#dynamic-content #savebtn').click(),
     ]);
     h.assert(response.status() < 400, `Saving in the HTML editor answered ${response.status()}`);
+    // The save's answer is injected back into the panel; let it finish before leaving it.
+    await admin.waitForTimeout(500);
+    await settlePanel();
     await expectValue(sql, `SELECT COUNT(*) FROM eform WHERE fid=${visualFid} AND form_html LIKE '%clinicCustomCode%'`, '1',
       'The HTML editor did not store the added script');
     await openLibrary();
@@ -242,13 +286,14 @@ async function workflow(s) {
       'The changed form is no longer offered the explicit visual conversion');
   });
 
-  await s.step('a convertible form opens visually only by explicit choice, warns that its scripts go, and saves nothing', async () => {
+  await panelStep(s, 'a convertible form opens visually only by explicit choice, warns that its scripts go, and saves nothing', async () => {
     await openLibrary();
     await rowOf(generatorName).locator('a.eformVisualEditorLink[data-editor="visual-convert"]').click();
     const editor = await frame(generatorFid);
     await editor.locator('.ui-dialog:visible').first().waitFor({ timeout: 30000 });
-    h.assert(/not created in the Visual eForm Editor/.test(await dialogText(editor)),
-      'Converting a form the editor did not write gave no warning that its scripts are replaced');
+    const warning = await dialogText(editor);
+    h.assert(/not created in the Visual eForm Editor/.test(warning),
+      `Converting a form the editor did not write gave no warning that its scripts are replaced (dialog: ${warning.slice(0, 200)})`);
     await closeDialog(editor);
     h.assert(await editor.locator('#gen-convertedNotice').isVisible(), 'The banner does not say the form was converted');
     h.assert(await editor.locator('#page_1 input[name="generatorField"]').count() === 1, 'The converted form\'s field is not on the canvas');

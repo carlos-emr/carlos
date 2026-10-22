@@ -91,6 +91,14 @@ class VisualEFormEditorDefaultEditRegressionTest {
     }
 
     @Test
+    @DisplayName("should read a widget's input as its first element, which a re-opened form keeps")
+    void shouldReadWidgetInputByElement_forReopenedForms() throws Exception {
+        // A form re-opened from its saved source has a whitespace text node first in every widget,
+        // so childNodes[0].className threw on every double-click (#3166).
+        assertThat(read(VISUAL_EDITOR_JSP)).doesNotContain("vthis.childNodes[0]").contains("vthis.firstElementChild");
+    }
+
+    @Test
     @DisplayName("should pre-load only the id the gate validated")
     void shouldPreloadValidatedFid_fromGateAttribute() throws Exception {
         String jsp = read(VISUAL_EDITOR_JSP);

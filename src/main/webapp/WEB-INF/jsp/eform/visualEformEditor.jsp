@@ -709,7 +709,7 @@ var EFORM_I18N = {
 
         function myextrastep(vthis) {
             x = vthis
-            y = vthis.childNodes[0]
+            y = vthis.firstElementChild
             x.title = "Click here to set all no"
             if (y.id.indexOf("gen_input") > -1) {
                 y.id = "Gen_ButtonId"
@@ -734,7 +734,7 @@ var EFORM_I18N = {
             $('#inputE').show();
             document.getElementById('inputD').style.backgroundColor = "yellow";
             document.getElementById('inputE').style.backgroundColor = "red";
-            y = vthis.childNodes[0].id
+            y = vthis.firstElementChild.id
             if (y.indexOf("gen_input") > -1) {
                 x = document.getElementById(vthis.id).id
                 document.getElementById(y).style.backgroundColor = "yellow";
@@ -746,6 +746,10 @@ var EFORM_I18N = {
             }
         }
 
+        // The widget handlers below read the widget's input as vthis.firstElementChild, not
+        // childNodes[0]: a form re-opened from its saved source has a whitespace text node first
+        // (the generator puts a newline between every tag), and reading .id or .className off that
+        // threw on every double-click once the library opened saved forms here (#3166).
         function mydclick2(vthis) {
             Rad = []
             if ($('#ui-id-11').css('color') == "rgb(255, 255, 255)") { // on finalization tab
@@ -769,7 +773,7 @@ var EFORM_I18N = {
                 document.getElementById('control_menu_1-placement-tabs-1').append(input3);
             }
 
-            var y = (vthis.childNodes[0])
+            var y = (vthis.firstElementChild)
 
             if (y.className.indexOf("only-one-radio") > -1) { // 2020-May-25
                 RadMain[RadMain.length] = y
@@ -894,7 +898,7 @@ var EFORM_I18N = {
                 document.getElementById('inputC').style.backgroundColor = "lightgreen";
 
                 //*************combination radio box and linkbox*********  2020-May-25
-                var z = (vthis.childNodes[0])
+                var z = (vthis.firstElementChild)
                 //alert(Rad)
                 if (z.getAttribute('onclick') == 'myupdate(this);LinkXBoxfunction(this)' && Rad.length == 0) {
                     //alert("combination box")
@@ -909,7 +913,7 @@ var EFORM_I18N = {
                     return
                 }
                 //********************
-                y = vthis.childNodes[0].id
+                y = vthis.firstElementChild.id
                 vthis.title = y
                 x = document.getElementById(y)
                 if (!Rad.includes(x.id)) { //setup array of dblclicked elements no duplicates

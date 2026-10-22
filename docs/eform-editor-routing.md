@@ -88,7 +88,7 @@ does.
 
 ## Tests
 
-- `EFormEditorResolverUnitTest`, `ViewVisualEFormEditor2ActionTest`, `EFormUtilIntegrationTest`,
+- `EFormEditorResolverUnitTest`, `ViewVisualEFormEditor2ActionUnitTest`, `EFormUtilIntegrationTest`,
   `VisualEFormEditorDefaultEditRegressionTest`
 - `scripts/eform-visual-editor-routing.test.js` (`node --test`)
 - `scripts/eform-visual-editor-default-edit-playwright-checks.js`
