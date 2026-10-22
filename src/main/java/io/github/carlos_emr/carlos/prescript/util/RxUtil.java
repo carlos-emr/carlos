@@ -1267,8 +1267,9 @@ public class RxUtil {
      * information, or an administered amount. Any unit followed by a concentration denominator
      * or a body-size basis ({@code /mL}, {@code /kg}) names the product only; grams and IU written
      * with {@code /dose} or {@code per dose} are administered; grams applied to the skin or a
-     * mucosa and IU not given by mouth are administered; the remaining strength units are
-     * strengths. An amount with no recognized unit is administered (callers check its boundary).
+     * mucosa, IU not given by mouth and mEq given by a written non-oral route are administered;
+     * the remaining strength units are strengths. An amount with no recognized unit is
+     * administered (callers check its boundary).
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
@@ -1285,6 +1286,7 @@ public class RxUtil {
         }
         boolean grams = "g".equalsIgnoreCase(unit.group());
         boolean internationalUnits = "iu".equalsIgnoreCase(unit.group());
+        boolean milliequivalents = "meq".equalsIgnoreCase(unit.group());
         // "17 g per dose" and "20 IU/dose" state an administered amount in a measurable unit. A mass
         // per dose in mg, mcg or mEq ("500 mg per dose", an inhaler's "250 mcg/dose") still does not
         // say how many dispensable units supply it, so it is read as a strength below.
@@ -1299,7 +1301,22 @@ public class RxUtil {
         if (internationalUnits) {
             return isOral(instructions, segment) ? AmountKind.STRENGTH : AmountKind.ADMINISTERED;
         }
+        // Milliequivalents infused or injected ("20 mEq IV daily") are the amount given; by mouth, or
+        // with no route written, a potassium tablet's 20 mEq is its strength, so only a written
+        // non-oral route makes mEq an administered amount (the IU rule reads routeless IU as insulin).
+        if (milliequivalents && hasNonOralRoute(instructions, segment)) {
+            return AmountKind.ADMINISTERED;
+        }
         return AmountKind.STRENGTH;
+    }
+
+    /** True when the directions name a route other than PO or SL, parsed ("IM") or as a word ("IV", "subcut"). */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
+    private static boolean hasNonOralRoute(String instructions, InstructionSegment segment) {
+        boolean parsedNonOral = !segment.route.isEmpty()
+                && !"PO".equalsIgnoreCase(segment.route) && !"SL".equalsIgnoreCase(segment.route);
+        return parsedNonOral || hasNonOralWord(instructions);
     }
 
     /**

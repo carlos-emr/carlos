@@ -99,6 +99,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         "Rub well in 2g BID x 7 days | 2 | 28",
         "2g TOP. BID x 7 days | 2 | 28",
         "20 IU SC BID x 7 days | 20 | 280",
+        "20 mEq IV daily x 3 days | 20 | 60",
         "20IU IM BID x 7 days | 20 | 280",
         "20 IU qhs x 30 days | 20 | 600",
         "20IU IV qhs x 30 days | 20 | 600",

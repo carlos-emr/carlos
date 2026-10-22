@@ -83,7 +83,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1000 mgs po tid x 7 days", "Take 1000 milligrams po tid x 7 days",
             "250 mcgs po tid x 7 days", "250 ug po tid x 7 days", "250 micrograms po tid x 7 days",
             "20 mmol po tid x 7 days", "500 mg per dose PO tid x 7 days", "500mg/dose PO tid x 7 days",
-            "20 mEq per dose PO tid x 7 days", "250 mcg/dose INH tid x 7 days"
+            "20 mEq per dose PO tid x 7 days", "250 mcg/dose INH tid x 7 days",
+            "20 mEq tid x 7 days", "Take 20 mEq tid x 7 days"
         })
         void shouldDefaultToOneUnit_whenLeadingNumberHasStrengthUnit(String instructions) {
             RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
@@ -167,6 +168,10 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "2-5g TOP. BID x 7 days | 2 | 5 | 70",
             "5mg TOP. BID x 7 days | 1 | 1 | 14",
             "20 IU SC BID x 7 days | 20 | 20 | 280",
+            "20 mEq IV daily x 3 days | 20 | 20 | 60",
+            "40 mEq IV OD x 3 days | 40 | 40 | 120",
+            "20 mEq intravenously daily x 3 days | 20 | 20 | 60",
+            "20 mEq in 100 mL IV Q8H x 3 days | 20 | 20 | 180",
             "20IU sc BID x 7 days | 20 | 20 | 280",
             "20IU IM BID x 7 days | 20 | 20 | 280",
             "20 IU qhs x 30 days | 20 | 20 | 600",

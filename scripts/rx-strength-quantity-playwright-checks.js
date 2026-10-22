@@ -42,6 +42,7 @@ async function workflow(s) {
     ['2g TOP. BID x 7 days', 2, 2, '28', 'BID'],
     ['20 IU SC BID x 7 days', 20, 20, '280', 'BID'],
     ['10-20IU IM BID x 7 days', 10, 20, '280', 'BID'],
+    ['20 mEq IV daily x 3 days', 20, 20, '60', 'OD', '3'],
     ['20 IU per dose PO BID x 7 days', 20, 20, '280', 'BID'],
     ['20IU/dose SL BID x 7 days', 20, 20, '280', 'BID'],
     ['20 IU qhs x 7 days', 20, 20, '140', 'QHS'],
