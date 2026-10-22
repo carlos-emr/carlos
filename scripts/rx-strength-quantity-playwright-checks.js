@@ -115,6 +115,7 @@ async function workflow(s) {
     ['1 tab po bid x 7 days, take with food', 1, 1, '14', 'BID'],
     ['Take 1 tab po on alternate days x 10 days with food', 1, 1, '0', '', '10'],
     ['Take 2 tabs BID x 5 days then 1 tab BID x 5 days', 2, 2, '30', 'BID', '10'],
+    ['Take 2 tabs po bid x 3 days then 1 tab po bid x 3 days then stop', 2, 2, '18', 'BID', '6'],
     ['Take 2 grams po tid x 7 days', 1, 1, '21'],
     ['Apply 2 grams BID x 7 days', 2, 2, '28', 'BID'],
     ['Amoxicillin 250 mg/5 mL: take 7.5 mL po tid x 10 days', 7.5, 7.5, '225', 'TID', '10'],

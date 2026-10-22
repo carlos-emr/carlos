@@ -1192,6 +1192,15 @@ public class RxUtil {
             return false;
         }
         String[] segments = TAPER_SEPARATOR.split(instructions);
+        int segmentCount = segments.length;
+        // A closing "then stop" states no dose; with only one dosing segment left, the ordinary
+        // parse reads the directions (and keeps a duration unit other than days).
+        if (segmentCount > 1 && isTaperEndMarker(segments[segmentCount - 1])) {
+            segmentCount--;
+        }
+        if (segmentCount < 2) {
+            return false;
+        }
         int totalQuantity = 0;
         int totalDays = 0;
         float firstTakeMin = 0f;
@@ -1201,7 +1210,7 @@ public class RxUtil {
         String firstRoute = "";
         boolean firstPrn = false;
         try {
-            for (int i = 0; i < segments.length; i++) {
+            for (int i = 0; i < segmentCount; i++) {
                 String segment = stripTrailingCommas(segments[i]);
                 if (segment.isEmpty()) {
                     return false;
@@ -1243,6 +1252,20 @@ public class RxUtil {
         }
         rx.setPolicyViolations(RxInstructionPolicy.checkInstructions(instructions.trim()));
         return true;
+    }
+
+    /** Words that close a tapering course without a dose: "then stop", "then discontinue", "then d/c". */
+    private static final Set<String> TAPER_END_MARKERS = Set.of("stop", "discontinue", "d/c", "dc");
+
+    /** True when the segment is only an end marker such as "stop" or "discontinue.", in any case. */
+    // FindSecBugs IMPROPER_UNICODE: case folding of a parsed instruction word, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folding of a parsed instruction word, not a security or authorization decision")
+    private static boolean isTaperEndMarker(String segment) {
+        String word = stripTrailingCommas(segment).toLowerCase(Locale.ROOT);
+        while (word.endsWith(".")) {
+            word = word.substring(0, word.length() - 1).trim();
+        }
+        return TAPER_END_MARKERS.contains(word);
     }
 
     /** Trims a taper segment and removes the comma that preceded "then" (", then 2 tabs"). */

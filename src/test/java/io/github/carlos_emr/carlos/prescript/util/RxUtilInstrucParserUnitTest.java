@@ -1014,7 +1014,9 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 3 tabs po daily x 3 days, then 2 tabs daily x 3 days, then 1 tab daily x 3 days | 3 | 3 | OD | 9 | 18",
             "Take 2 tabs BID x 5 days then 1 tab BID x 5 days | 2 | 2 | BID | 10 | 30",
             "Take 1 tab daily x 1 week then 1/2 tab daily x 1 week | 1 | 1 | OD | 14 | 11",
-            "Take 1 tab daily x 5 days then stop | 1 | 1 | OD | 5 | 5"
+            "Take 1 tab daily x 5 days then stop | 1 | 1 | OD | 5 | 5",
+            "Take 2 tabs po bid x 3 days then 1 tab po bid x 3 days then stop | 2 | 2 | BID | 6 | 18",
+            "Take 2 tabs po bid x 3 days, then 1 tab po bid x 3 days, then discontinue. | 2 | 2 | BID | 6 | 18"
         })
         @DisplayName("should dispense the sum of the taper segments over their total duration")
         void shouldSumTaperSegments_whenJoinedByThen(String instructions, float takeMin, float takeMax,
@@ -1029,6 +1031,19 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getDurationUnit()).isEqualTo("D");
             assertThat(rx.getQuantity()).isEqualTo(quantity);
             assertThat(rx.getSpecial()).isEqualTo(instructions);
+        }
+
+        /** With one dosing segment left after the end marker, the ordinary parse keeps its own unit. */
+        @Test
+        @DisplayName("should leave a single segment followed by 'then stop' to the ordinary parse")
+        void shouldKeepOrdinaryParse_whenOnlyAnEndMarkerFollowsTheSegment() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab daily x 1 week then stop");
+
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getDuration()).isEqualTo("1");
+            assertThat(rx.getDurationUnit()).isEqualTo("W");
+            assertThat(rx.getQuantity()).isEqualTo("7");
         }
     }
 }
