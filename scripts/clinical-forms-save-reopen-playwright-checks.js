@@ -111,7 +111,8 @@ const FORMS = [
   // in #4667 and stay covered as regressions.
   { key: 'VT2', title: 'Vascular Tracker (extensionless route)', path: '../form/SetupForm', query: 'formName=VTForm&',
     table: 'formVTForm', idColumn: 'ID', provider: false, confirm: false, prose: 'value(ExerComments)',
-    fields: [{ name: 'value(ExerValue)', value: 'Y', stored: 'Y' }], saveButton: 'Update VT', savePath: '/form/SubmitForm',
+    // Exercise is minutes per week (0 to 1200): since #4674 a value outside the measurement's own rule refuses the save.
+    fields: [{ name: 'value(ExerValue)', value: '150', stored: '150' }], saveButton: 'Update VT', savePath: '/form/SubmitForm',
     idInUrl: false, ready: { button: 'Update VT' } },
 ].map(form => {
   if (form.openOnly) return { ...form, claim: form.key.toLowerCase(), concerns: ['open', 'problems'] };
