@@ -10,7 +10,9 @@ class AppointmentEditVersionUnitTest {
     @Test
     void statusChangesAreDetectedEvenWhenTheLegacyWriterLeavesTheTimestampUntouched() {
         Appointment appointment = new Appointment();
-        appointment.setId(42); appointment.setStatus("t"); appointment.setUpdateDateTime(new Date(1000));
+        appointment.setId(42);
+        appointment.setStatus("t");
+        appointment.setUpdateDateTime(new Date(1000));
         String original = AppointmentEditVersion.of(appointment, "");
         appointment.setStatus("C");
         assertThat(AppointmentEditVersion.of(appointment, "")).isNotEqualTo(original);
@@ -23,16 +25,21 @@ class AppointmentEditVersionUnitTest {
     @Test
     void fieldBoundariesNullsIdentityAndAppointmentMetadataCannotCollide() {
         Appointment appointment = new Appointment();
-        appointment.setId(42); appointment.setName("ab"); appointment.setReason("c");
+        appointment.setId(42);
+        appointment.setName("ab");
+        appointment.setReason("c");
         String original = AppointmentEditVersion.of(appointment, "");
-        appointment.setName("a"); appointment.setReason("bc");
+        appointment.setName("a");
+        appointment.setReason("bc");
         assertThat(AppointmentEditVersion.of(appointment, "")).isNotEqualTo(original);
-        appointment.setName("ab"); appointment.setReason("c");
+        appointment.setName("ab");
+        appointment.setReason("c");
         assertThat(AppointmentEditVersion.of(appointment, "changed metadata")).isNotEqualTo(original);
         assertThat(AppointmentEditVersion.of(appointment, null)).isNotEqualTo(original);
         appointment.setId(43);
         assertThat(AppointmentEditVersion.of(appointment, "")).isNotEqualTo(original);
-        appointment.setId(42); appointment.setNotes(null);
+        appointment.setId(42);
+        appointment.setNotes(null);
         String absentNotes = AppointmentEditVersion.of(appointment, "");
         appointment.setNotes("");
         assertThat(AppointmentEditVersion.of(appointment, "")).isNotEqualTo(absentNotes);

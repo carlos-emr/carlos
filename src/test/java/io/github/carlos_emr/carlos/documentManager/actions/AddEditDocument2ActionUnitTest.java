@@ -219,9 +219,14 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         tempUploadFile = File.createTempFile("document-length", ".txt");
         Files.writeString(tempUploadFile.toPath(), "owned upload");
         bindDocFileUpload(tempUploadFile, "length.txt", "text/plain");
-        action.setMode(mode); action.setFunction("demographic"); action.setFunctionId("123");
-        action.setDocDesc("\uD83D\uDE00".repeat(256)); action.setDocType("Consultant Report");
-        action.setReviewDoc(true); action.setExtraReviewDoc(true); action.setExtraReviewerId("999998");
+        action.setMode(mode);
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setDocDesc("\uD83D\uDE00".repeat(256));
+        action.setDocType("Consultant Report");
+        action.setReviewDoc(true);
+        action.setExtraReviewDoc(true);
+        action.setExtraReviewerId("999998");
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
              MockedStatic<AddEditDocument2Action> writes = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
             assertThat(action.execute2()).isEqualTo("add".equals(mode) ? "failAdd" : "failEdit");
@@ -229,7 +234,9 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(((Hashtable<?, ?>) request.getAttribute("docerrors")).get("descmissing"))
                     .isEqualTo("dms.error.descriptionTooLong");
             assertThat(Files.readString(tempUploadFile.toPath())).isEqualTo("owned upload");
-            documents.verifyNoInteractions(); writes.verifyNoInteractions(); logActionMock.verifyNoInteractions();
+            documents.verifyNoInteractions();
+            writes.verifyNoInteractions();
+            logActionMock.verifyNoInteractions();
             org.mockito.Mockito.verifyNoInteractions(reviewers, mockCaseManagementNoteDao, mockCaseManagementNoteLinkDao);
         }
     }
@@ -238,7 +245,9 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     void exactUnicodeDescriptionReachesMetadataEditUnchanged() {
         String description = "\uD83D\uDE00".repeat(255);
         action.setMode("123"); action.setFunction("provider"); action.setFunctionId("999998");
-        action.setDocDesc(description); action.setDocType("Consultant Report"); action.setAppointmentNo("0");
+        action.setDocDesc(description);
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
             assertThat(action.execute2()).isEqualTo("successEdit");
             documents.verify(() -> EDocUtil.editDocumentSQL(
@@ -280,7 +289,9 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     void authorizedStoredMetadataEditRemainsAvailableWhenContentUpdatesAreDisabled() {
         String previous = CarlosProperties.getInstance().getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT");
         CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "false");
-        action.setMode("123"); action.setFunction("provider"); action.setFunctionId("999998");
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
         action.setDocDesc("Owned metadata edit"); action.setDocType("Consultant Report"); action.setAppointmentNo("0");
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
             assertThat(action.execute2()).isEqualTo("successEdit");

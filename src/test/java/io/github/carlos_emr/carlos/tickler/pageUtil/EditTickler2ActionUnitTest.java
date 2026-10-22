@@ -441,11 +441,13 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
             case "message" -> tickler.setMessage("Concurrent message");
             case "patient" -> tickler.setDemographicNo(1002);
             case "history" -> {
-                var update = new io.github.carlos_emr.carlos.commn.model.TicklerUpdate(); update.setId(22);
+                var update = new io.github.carlos_emr.carlos.commn.model.TicklerUpdate();
+                update.setId(22);
                 tickler.getUpdates().add(update);
             }
             case "comment" -> {
-                var comment = new io.github.carlos_emr.carlos.commn.model.TicklerComment(); comment.setId(23);
+                var comment = new io.github.carlos_emr.carlos.commn.model.TicklerComment();
+                comment.setId(23);
                 tickler.getComments().add(comment);
             }
             default -> throw new AssertionError(change);

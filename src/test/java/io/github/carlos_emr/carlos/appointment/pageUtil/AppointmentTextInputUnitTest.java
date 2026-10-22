@@ -104,7 +104,8 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
         request.setParameter("notes", notes);
         request.setParameter("resources", "\uD83D\uDE00".repeat(255));
         Appointment stored = new Appointment();
-        stored.setId(42); stored.setStatus("t");
+        stored.setId(42);
+        stored.setStatus("t");
         when(appointments.findForUpdate(42)).thenReturn(stored);
         request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(stored, null));
         try (MockedStatic<OtherIdManager> ids = mockStatic(OtherIdManager.class)) {
@@ -121,7 +122,9 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"status", "reason", "metadata", "missing", "malformed", "provider", "cancel", "noShow"})
     void staleOrMissingOriginalStateRetainsTheDraftWithoutWrites(String change) throws Exception {
         Appointment stored = new Appointment();
-        stored.setId(42); stored.setStatus("t"); stored.setReason("Original reason");
+        stored.setId(42);
+        stored.setStatus("t");
+        stored.setReason("Original reason");
         request.setParameter("reason", "Typed pending reason");
         request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(stored, null));
         if ("status".equals(change)) stored.setStatus("C");
@@ -169,12 +172,15 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
         int status;
         if ("stale".equals(failure)) {
             when(appointments.findForUpdate(42)).thenReturn(new Appointment());
-            key = "appointment.edit.msgStale"; status = 409;
+            key = "appointment.edit.msgStale";
+            status = 409;
         } else if ("missing".equals(failure)) {
-            key = "appointment.edit.msgMissing"; status = 404;
+            key = "appointment.edit.msgMissing";
+            status = 404;
         } else {
             when(appointments.findForUpdate(42)).thenThrow(new IllegalStateException("simulated read failure"));
-            key = "appointment.edit.msgUpdateUnconfirmed"; status = 500;
+            key = "appointment.edit.msgUpdateUnconfirmed";
+            status = 500;
         }
         try (MockedStatic<OtherIdManager> ids = mockStatic(OtherIdManager.class)) {
             assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo("input");
@@ -201,7 +207,10 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
     @CsvSource({"Cancel Appt,C", "No Show,N"})
     void aCurrentStatusOnlyActionPreservesTextAndPublishesAfterCommit(String button, String status) throws Exception {
         Appointment stored = new Appointment();
-        stored.setId(42); stored.setStatus("t"); stored.setReason("Original reason"); stored.setNotes("Original notes");
+        stored.setId(42);
+        stored.setStatus("t");
+        stored.setReason("Original reason");
+        stored.setNotes("Original notes");
         stored.setUpdateDateTime(new java.util.Date(1000));
         request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(stored, null));
         request.setParameter("buttoncancel", button);

@@ -109,18 +109,27 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
                 @Override public TransactionStatus getTransaction(TransactionDefinition definition) { return transactions.getTransaction(definition); }
                 @Override public void rollback(TransactionStatus status) { transactions.rollback(status); }
                 @Override public void commit(TransactionStatus status) {
-                    if (fail.get() && "rollbackOnly".equals(failure)) { injected.set(true); status.setRollbackOnly(); }
+                    if (fail.get() && "rollbackOnly".equals(failure)) {
+                        injected.set(true);
+                        status.setRollbackOnly();
+                    }
                     transactions.commit(status);
                 }
             };
             MockHttpServletRequest request = new MockHttpServletRequest("POST", "/admin/SecurityUpdate");
-            request.setParameter("security_no", String.valueOf(id)); request.setParameter("user_name", name + "x");
-            request.setParameter("provider_no", "999998"); request.setParameter("password", "*********");
-            request.setParameter("conPassword", "*********"); request.setParameter("date_ExpireDate", "2100-01-01");
-            request.setParameter("forcePasswordReset", "1"); request.setParameter("b_ExpireSet", "1");
-            request.setParameter(SecurityEditVersion.PARAMETER, original); request.getSession().setAttribute("user", "999998");
+            request.setParameter("security_no", String.valueOf(id));
+            request.setParameter("user_name", name + "x");
+            request.setParameter("provider_no", "999998");
+            request.setParameter("password", "*********");
+            request.setParameter("conPassword", "*********");
+            request.setParameter("date_ExpireDate", "2100-01-01");
+            request.setParameter("forcePasswordReset", "1");
+            request.setParameter("b_ExpireSet", "1");
+            request.setParameter(SecurityEditVersion.PARAMETER, original);
+            request.getSession().setAttribute("user", "999998");
             MockHttpServletResponse response = new MockHttpServletResponse();
-            CarlosMethodSecurity access = mock(CarlosMethodSecurity.class); when(access.hasAdminWrite()).thenReturn(true);
+            CarlosMethodSecurity access = mock(CarlosMethodSecurity.class);
+            when(access.hasAdminWrite()).thenReturn(true);
             try (var spring = mockStatic(SpringUtils.class); var servlet = mockStatic(ServletActionContext.class);
                  var audit = mockStatic(LogAction.class); var mfa = mockStatic(MfaManager.class);
                  var configuration = mockStatic(CarlosProperties.class); var sessions = mockStatic(LoggedInInfo.class)) {
@@ -132,7 +141,8 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
                 servlet.when(ServletActionContext::getResponse).thenReturn(response);
                 configuration.when(CarlosProperties::getInstance).thenReturn(mock(CarlosProperties.class));
                 String outcome = new SecurityUpdate2Action(access).execute();
-                assertThat(injected).isTrue(); assertThat(outcome).isEqualTo("conflict");
+                assertThat(injected).isTrue();
+                assertThat(outcome).isEqualTo("conflict");
                 assertThat(response.getStatus()).isEqualTo(500);
                 assertThat(request.getAttribute("securityUpdateCommitted")).isNull();
                 assertThat(request.getParameter(SecurityEditVersion.PARAMETER)).isEqualTo(original);
@@ -141,7 +151,8 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
                 assertRow(id, committed ? name + "x" : name, committed);
                 // The archive row commits or rolls back with the edit it records.
                 assertArchives(id, committed ? 1 : 0);
-                fail.set(false); response.reset();
+                fail.set(false);
+                response.reset();
                 assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo(committed ? "conflict" : "success");
                 assertThat(response.getStatus()).isEqualTo(committed ? 409 : 200);
                 assertRow(id, name + "x", true);
@@ -193,10 +204,18 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
 
     private int seed() {
         return new TransactionTemplate(transactions).execute(status -> {
-            Security row = new Security(); row.setUserName("owned" + UUID.randomUUID().toString().replace("-", "").substring(0, 16));
-            row.setProviderNo("999998"); row.setPassword("owned-password-hash"); row.setPin("owned-pin-hash");
-            row.setBExpireset(0); row.setBLocallockset(1); row.setBRemotelockset(1); row.setForcePasswordReset(false);
-            row.setDateExpiredate(java.sql.Date.valueOf("2100-01-01")); rows.persist(row); entities.flush();
+            Security row = new Security();
+            row.setUserName("owned" + UUID.randomUUID().toString().replace("-", "").substring(0, 16));
+            row.setProviderNo("999998");
+            row.setPassword("owned-password-hash");
+            row.setPin("owned-pin-hash");
+            row.setBExpireset(0);
+            row.setBLocallockset(1);
+            row.setBRemotelockset(1);
+            row.setForcePasswordReset(false);
+            row.setDateExpiredate(java.sql.Date.valueOf("2100-01-01"));
+            rows.persist(row);
+            entities.flush();
             return row.getId();
         });
     }

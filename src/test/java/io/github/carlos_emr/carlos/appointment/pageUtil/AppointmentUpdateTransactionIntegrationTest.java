@@ -163,13 +163,25 @@ class AppointmentUpdateTransactionIntegrationTest extends CarlosTestBase {
     private int seed() {
         return new TransactionTemplate(transactions).execute(status -> {
             Appointment row = new Appointment();
-            row.setProviderNo("999998"); row.setName("Owned concurrency fixture");
+            row.setProviderNo("999998");
+            row.setName("Owned concurrency fixture");
             row.setAppointmentDate(java.sql.Date.valueOf("2026-08-01"));
-            row.setStartTime(java.sql.Time.valueOf("09:00:00")); row.setEndTime(java.sql.Time.valueOf("09:15:00"));
-            row.setReason("owned-" + UUID.randomUUID()); row.setNotes(""); row.setStatus("t");
-            row.setCreator("999998"); row.setLastUpdateUser("999998"); row.setLocation("");
-            row.setResources(""); row.setType(""); row.setStyle(""); row.setBilling(""); row.setRemarks(""); row.setUrgency("");
-            appointments.persist(row); entities.flush();
+            row.setStartTime(java.sql.Time.valueOf("09:00:00"));
+            row.setEndTime(java.sql.Time.valueOf("09:15:00"));
+            row.setReason("owned-" + UUID.randomUUID());
+            row.setNotes("");
+            row.setStatus("t");
+            row.setCreator("999998");
+            row.setLastUpdateUser("999998");
+            row.setLocation("");
+            row.setResources("");
+            row.setType("");
+            row.setStyle("");
+            row.setBilling("");
+            row.setRemarks("");
+            row.setUrgency("");
+            appointments.persist(row);
+            entities.flush();
             return row.getId();
         });
     }
@@ -183,10 +195,14 @@ class AppointmentUpdateTransactionIntegrationTest extends CarlosTestBase {
         request.getSession().setAttribute("user", "999998");
         request.setParameter("appointment_no", String.valueOf(id));
         request.setParameter(AppointmentEditVersion.PARAMETER, original);
-        request.setParameter("appointment_date", "2026-08-01"); request.setParameter("start_time", "09:00");
-        request.setParameter("end_time", "09:15"); request.setParameter("demographic_no", "0");
-        request.setParameter("keyword", "Owned concurrency fixture"); request.setParameter("reason", "New owned reason");
-        request.setParameter("status", "C"); request.setParameter("appt_mc_number", "new-mc");
+        request.setParameter("appointment_date", "2026-08-01");
+        request.setParameter("start_time", "09:00");
+        request.setParameter("end_time", "09:15");
+        request.setParameter("demographic_no", "0");
+        request.setParameter("keyword", "Owned concurrency fixture");
+        request.setParameter("reason", "New owned reason");
+        request.setParameter("status", "C");
+        request.setParameter("appt_mc_number", "new-mc");
         for (String field : new String[]{"notes", "location", "resources", "type", "style", "billing", "remarks", "urgency"}) {
             request.setParameter(field, "");
         }

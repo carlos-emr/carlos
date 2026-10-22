@@ -63,18 +63,30 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
             @Override protected void doCommit(DefaultTransactionStatus status) { committed = true; }
             @Override protected void doRollback(DefaultTransactionStatus status) { }
         });
-        row = new Security(); row.setId(17); row.setUserName("ownedlogin"); row.setProviderNo("999998");
-        row.setPassword("stored-password-hash"); row.setPin("stored-pin-hash");
-        row.setBExpireset(0); row.setDateExpiredate(java.sql.Date.valueOf("2100-01-01"));
-        row.setBLocallockset(1); row.setBRemotelockset(1); row.setForcePasswordReset(false);
+        row = new Security();
+        row.setId(17);
+        row.setUserName("ownedlogin");
+        row.setProviderNo("999998");
+        row.setPassword("stored-password-hash");
+        row.setPin("stored-pin-hash");
+        row.setBExpireset(0);
+        row.setDateExpiredate(java.sql.Date.valueOf("2100-01-01"));
+        row.setBLocallockset(1);
+        row.setBRemotelockset(1);
+        row.setForcePasswordReset(false);
         row.setLastUpdateDate(new Date(1000));
         when(dao.findForUpdate(17)).thenReturn(row);
         request.getSession().setAttribute("user", "999998");
-        request.setParameter("security_no", "17"); request.setParameter("user_name", "ownedlogin");
-        request.setParameter("provider_no", "999998"); request.setParameter("password", "*********");
-        request.setParameter("conPassword", "*********"); request.setParameter("pin", "****");
-        request.setParameter("conPin", "****"); request.setParameter("date_ExpireDate", "2100-01-01");
-        request.setParameter("b_LocalLockSet", "1"); request.setParameter("b_RemoteLockSet", "1");
+        request.setParameter("security_no", "17");
+        request.setParameter("user_name", "ownedlogin");
+        request.setParameter("provider_no", "999998");
+        request.setParameter("password", "*********");
+        request.setParameter("conPassword", "*********");
+        request.setParameter("pin", "****");
+        request.setParameter("conPin", "****");
+        request.setParameter("date_ExpireDate", "2100-01-01");
+        request.setParameter("b_LocalLockSet", "1");
+        request.setParameter("b_RemoteLockSet", "1");
         request.setParameter("forcePasswordReset", "0");
         request.setParameter(SecurityEditVersion.PARAMETER, SecurityEditVersion.of(row));
     }
@@ -104,15 +116,19 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         }
         String current = SecurityEditVersion.of(row);
         String original = request.getParameter(SecurityEditVersion.PARAMETER);
-        request.setParameter("user_name", "mydraft"); request.setParameter("b_ExpireSet", "1");
+        request.setParameter("user_name", "mydraft");
+        request.setParameter("b_ExpireSet", "1");
         assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("conflict");
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
         Security draft = (Security) request.getAttribute("securityEditDraft");
-        assertThat(draft.getUserName()).isEqualTo("mydraft"); assertThat(draft.getBExpireset()).isEqualTo(1);
+        assertThat(draft.getUserName()).isEqualTo("mydraft");
+        assertThat(draft.getBExpireset()).isEqualTo(1);
         assertThat(request.getParameter(SecurityEditVersion.PARAMETER)).isEqualTo(original);
         assertThat(SecurityEditVersion.of(row)).isEqualTo(current);
-        verifyNoInteractions(passwords); verify(dao, never()).detach(any()); logActionMock.verifyNoInteractions();
+        verifyNoInteractions(passwords);
+        verify(dao, never()).detach(any());
+        logActionMock.verifyNoInteractions();
         assertThat(committed).isFalse();
     }
 
@@ -124,7 +140,8 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         else request.setParameter(SecurityEditVersion.PARAMETER, value);
         assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("conflict");
         assertThat(response.getStatus()).isEqualTo(409);
-        verifyNoInteractions(passwords); logActionMock.verifyNoInteractions();
+        verifyNoInteractions(passwords);
+        logActionMock.verifyNoInteractions();
     }
 
     @Test
@@ -160,7 +177,8 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldStoreOnlyAHashedPin_whenANewPinIsSubmitted() throws Exception {
         when(passwords.encodePin("2468")).thenReturn("hashed-2468");
-        request.setParameter("pin", "2468"); request.setParameter("conPin", "2468");
+        request.setParameter("pin", "2468");
+        request.setParameter("conPin", "2468");
         assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("success");
         assertThat(row.getPin()).isEqualTo("hashed-2468");
         assertThat(row.getPinUpdateDate()).isNotNull();
@@ -171,7 +189,8 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
     void shouldClearThePin_whenABlankPinIsSubmitted() throws Exception {
         row.setPinUpdateDate(new Date(2000));
         request.setParameter(SecurityEditVersion.PARAMETER, SecurityEditVersion.of(row));
-        request.setParameter("pin", ""); request.setParameter("conPin", "");
+        request.setParameter("pin", "");
+        request.setParameter("conPin", "");
         assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("success");
         assertThat(row.getPin()).isNull();
         assertThat(row.getPinUpdateDate()).isNull();
@@ -190,7 +209,8 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         assertThat(((Security) request.getAttribute("securityEditDraft")).getUserName()).isEqualTo("mydraft");
         assertThat(request.getAttribute("securityUpdateCommitted")).isNull();
         assertThat(committed).isFalse();
-        verifyNoInteractions(passwords); verify(dao, never()).detach(any());
+        verifyNoInteractions(passwords);
+        verify(dao, never()).detach(any());
         logActionMock.verifyNoInteractions();
     }
 
@@ -210,24 +230,32 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldKeepHiddenProtection_whenControlsAreOmittedByPolicy() throws Exception {
-        row.setForcePasswordReset(true); row.setUsingMfa(true);
+        row.setForcePasswordReset(true);
+        row.setUsingMfa(true);
         request.setParameter(SecurityEditVersion.PARAMETER, SecurityEditVersion.of(row));
-        request.removeParameter("forcePasswordReset"); request.removeParameter("pin"); request.removeParameter("conPin");
-        request.removeParameter("b_LocalLockSet"); request.removeParameter("b_RemoteLockSet");
+        request.removeParameter("forcePasswordReset");
+        request.removeParameter("pin");
+        request.removeParameter("conPin");
+        request.removeParameter("b_LocalLockSet");
+        request.removeParameter("b_RemoteLockSet");
         assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("success");
-        assertThat(row.isForcePasswordReset()).isTrue(); assertThat(row.isUsingMfa()).isTrue();
-        assertThat(row.getBLocallockset()).isEqualTo(1); assertThat(row.getBRemotelockset()).isEqualTo(1);
+        assertThat(row.isForcePasswordReset()).isTrue();
+        assertThat(row.isUsingMfa()).isTrue();
+        assertThat(row.getBLocallockset()).isEqualTo(1);
+        assertThat(row.getBRemotelockset()).isEqualTo(1);
         assertThat(row.getPin()).isEqualTo("stored-pin-hash");
     }
 
     @Test
     void shouldRejectInvalidPasswordBeforeAnyFieldChanges() throws Exception {
         String before = SecurityEditVersion.of(row);
-        request.setParameter("user_name", "renamed"); request.setParameter("password", "changed");
+        request.setParameter("user_name", "renamed");
+        request.setParameter("password", "changed");
         assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("conflict");
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(SecurityEditVersion.of(row)).isEqualTo(before);
-        verifyNoInteractions(passwords); verify(dao, never()).detach(any());
+        verifyNoInteractions(passwords);
+        verify(dao, never()).detach(any());
     }
 
     @Test

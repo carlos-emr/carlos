@@ -75,7 +75,8 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
             when(security.hasPrivilege(eq(login), eq("_tickler"), anyString(), isNull())).thenReturn(true);
             var historyWrites = mock(TicklerUpdateDao.class);
             doAnswer(call -> {
-                history.persist((TicklerUpdate) call.getArgument(0)); entities.flush();
+                history.persist((TicklerUpdate) call.getArgument(0));
+                entities.flush();
                 if (fail.get() && "history".equals(failure)) {
                     injected.set(true);
                     throw new IllegalStateException("Injected history failure");
@@ -84,7 +85,8 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
             }).when(historyWrites).persist(any());
             var commentWrites = mock(TicklerCommentDao.class);
             doAnswer(call -> {
-                comments.persist((TicklerComment) call.getArgument(0)); entities.flush();
+                comments.persist((TicklerComment) call.getArgument(0));
+                entities.flush();
                 return null;
             }).when(commentWrites).persist(any());
             TicklerManager realManager = manager(security, historyWrites, commentWrites);
@@ -126,10 +128,13 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
             Date originalDate = new TransactionTemplate(transactions).execute(status -> ticklers.find(id).getUpdateDate());
             boolean committed = "afterCommit".equals(failure);
             var request = new MockHttpServletRequest("POST", "/tickler/EditTickler");
-            request.setParameter("ticklerNo", String.valueOf(id)); request.setParameter("method", "editTickler");
+            request.setParameter("ticklerNo", String.valueOf(id));
+            request.setParameter("method", "editTickler");
             request.setParameter(TicklerEditVersion.PARAMETER, version);
-            request.setParameter("status", committed ? "A" : "C"); request.setParameter("priority", "Normal");
-            request.setParameter("assignedToProviders", provider); request.setParameter("xml_appointment_date", "2026-08-01");
+            request.setParameter("status", committed ? "A" : "C");
+            request.setParameter("priority", "Normal");
+            request.setParameter("assignedToProviders", provider);
+            request.setParameter("xml_appointment_date", "2026-08-01");
             request.setParameter("newMessage", "Retained owned draft");
             var response = new MockHttpServletResponse();
             var attachments = mock(TicklerAttachmentService.class);
@@ -150,7 +155,8 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
                 assertThat(request.getParameter("newMessage")).isEqualTo("Retained owned draft");
                 assertThat(request.getParameter(TicklerEditVersion.PARAMETER)).isEqualTo(version);
                 assertRows(id, Tickler.STATUS.A, committed ? 1 : 0, committed ? 1 : 0);
-                fail.set(false); response.reset();
+                fail.set(false);
+                response.reset();
                 if (committed) {
                     // A same-timestamp comment-only commit must still invalidate its original form.
                     new TransactionTemplate(transactions).executeWithoutResult(status ->
@@ -178,8 +184,10 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
                 TransactionTemplate other = new TransactionTemplate(transactions);
                 other.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
                 other.executeWithoutResult(inner -> {
-                    TicklerComment comment = new TicklerComment(); comment.setTicklerNo(id);
-                    comment.setMessage("Concurrent owned comment"); comment.setProviderNo(fixtures.get(id).provider());
+                    TicklerComment comment = new TicklerComment();
+                    comment.setTicklerNo(id);
+                    comment.setMessage("Concurrent owned comment");
+                    comment.setProviderNo(fixtures.get(id).provider());
                     comments.persist(comment);
                 });
                 assertThat(TicklerEditVersion.of(ticklers.findForUpdate(id))).isNotEqualTo(original);
@@ -211,8 +219,10 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
     private int seed() {
         return new TransactionTemplate(transactions).execute(status -> {
             Demographic patient = new Demographic();
-            patient.setFirstName("Owned"); patient.setLastName("Status fixture");
-            patient.setSex("U"); patient.setPatientStatus("AC");
+            patient.setFirstName("Owned");
+            patient.setLastName("Status fixture");
+            patient.setSex("U");
+            patient.setPatientStatus("AC");
             entities.persist(patient);
             String providerNo = "ed" + UUID.randomUUID().toString().substring(0, 4);
             assertThat(entities.find(Provider.class, providerNo)).isNull();
@@ -220,10 +230,13 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
             provider.setStatus("1");
             entities.persist(provider);
             Tickler row = new Tickler();
-            row.setDemographicNo(patient.getDemographicNo()); row.setCreator(providerNo);
-            row.setTaskAssignedTo(providerNo); row.setMessage("owned-edit-" + UUID.randomUUID());
+            row.setDemographicNo(patient.getDemographicNo());
+            row.setCreator(providerNo);
+            row.setTaskAssignedTo(providerNo);
+            row.setMessage("owned-edit-" + UUID.randomUUID());
             row.setServiceDate(TicklerFormDate.parse("2026-08-01"));
-            ticklers.persist(row); entities.flush();
+            ticklers.persist(row);
+            entities.flush();
             fixtures.put(row.getId(), new Fixture(patient.getDemographicNo(), providerNo));
             return row.getId();
         });

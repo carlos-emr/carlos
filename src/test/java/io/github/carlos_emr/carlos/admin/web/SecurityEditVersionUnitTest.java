@@ -11,14 +11,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SecurityEditVersionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldCanonicalizeDateTypes_andPreserveFieldBoundariesAndNulls() {
-        Security row = new Security(); row.setUserName("ab"); row.setProviderNo("c");
+        Security row = new Security();
+        row.setUserName("ab");
+        row.setProviderNo("c");
         row.setLastUpdateDate(new java.util.Date(1000));
         String original = SecurityEditVersion.of(row);
         row.setLastUpdateDate(new java.sql.Timestamp(1000));
         assertThat(SecurityEditVersion.of(row)).isEqualTo(original);
-        row.setUserName("a"); row.setProviderNo("bc");
+        row.setUserName("a");
+        row.setProviderNo("bc");
         assertThat(SecurityEditVersion.of(row)).isNotEqualTo(original);
-        row.setMfaSecret(null); original = SecurityEditVersion.of(row); row.setMfaSecret("");
+        row.setMfaSecret(null);
+        original = SecurityEditVersion.of(row);
+        row.setMfaSecret("");
         assertThat(SecurityEditVersion.of(row)).isNotEqualTo(original);
     }
 }

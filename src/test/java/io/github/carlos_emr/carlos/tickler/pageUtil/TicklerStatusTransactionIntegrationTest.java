@@ -73,7 +73,10 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
             }).when(writes).persist(any());
             if ("audit".equals(failure)) {
                 audit.when(() -> LogAction.addLogSynchronous(eq(login), eq("TicklerManager.updateStatus"), anyString()))
-                        .thenAnswer(call -> { entities.flush(); throw new IllegalStateException("Injected audit failure"); });
+                        .thenAnswer(call -> {
+                            entities.flush();
+                            throw new IllegalStateException("Injected audit failure");
+                        });
             }
             TicklerManager manager = manager(writes, true);
             assertThatThrownBy(() -> manager.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C))
@@ -133,8 +136,10 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
     private int seed() {
         return new TransactionTemplate(transactions).execute(status -> {
             Demographic patient = new Demographic();
-            patient.setFirstName("Owned"); patient.setLastName("Status fixture");
-            patient.setSex("U"); patient.setPatientStatus("AC");
+            patient.setFirstName("Owned");
+            patient.setLastName("Status fixture");
+            patient.setSex("U");
+            patient.setPatientStatus("AC");
             entities.persist(patient);
             String providerNo = "st" + UUID.randomUUID().toString().substring(0, 4);
             assertThat(entities.find(Provider.class, providerNo)).isNull();
@@ -142,9 +147,12 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
             provider.setStatus("1");
             entities.persist(provider);
             Tickler row = new Tickler();
-            row.setDemographicNo(patient.getDemographicNo()); row.setCreator(providerNo);
-            row.setTaskAssignedTo(providerNo); row.setMessage("owned-status-" + UUID.randomUUID());
-            ticklers.persist(row); entities.flush();
+            row.setDemographicNo(patient.getDemographicNo());
+            row.setCreator(providerNo);
+            row.setTaskAssignedTo(providerNo);
+            row.setMessage("owned-status-" + UUID.randomUUID());
+            ticklers.persist(row);
+            entities.flush();
             fixtures.put(row.getId(), new Fixture(patient.getDemographicNo(), providerNo));
             return row.getId();
         });

@@ -19,11 +19,13 @@ class TicklerEditVersionUnitTest {
         assertThat(TicklerEditVersion.of(tickler)).isNotEqualTo(original);
         tickler.setStatus(Tickler.STATUS.A);
         assertThat(TicklerEditVersion.of(tickler)).isEqualTo(original);
-        TicklerComment comment = new TicklerComment(); comment.setId(11);
+        TicklerComment comment = new TicklerComment();
+        comment.setId(11);
         tickler.getComments().add(comment);
         assertThat(TicklerEditVersion.of(tickler)).isNotEqualTo(original);
         tickler.getComments().clear();
-        TicklerUpdate update = new TicklerUpdate(); update.setId(12);
+        TicklerUpdate update = new TicklerUpdate();
+        update.setId(12);
         tickler.getUpdates().add(update);
         assertThat(TicklerEditVersion.of(tickler)).isNotEqualTo(original);
     }
@@ -32,18 +34,24 @@ class TicklerEditVersionUnitTest {
     void shouldCanonicalizeDatesAndCollectionOrder_withoutLosingFieldBoundaries() {
         Tickler tickler = new Tickler();
         tickler.setServiceDate(new Date(1000));
-        tickler.setMessage("ab"); tickler.setCreator("c");
-        TicklerComment first = new TicklerComment(); first.setId(1);
-        TicklerComment second = new TicklerComment(); second.setId(2);
+        tickler.setMessage("ab");
+        tickler.setCreator("c");
+        TicklerComment first = new TicklerComment();
+        first.setId(1);
+        TicklerComment second = new TicklerComment();
+        second.setId(2);
         tickler.setComments(new java.util.LinkedHashSet<>(java.util.List.of(first, second)));
         String original = TicklerEditVersion.of(tickler);
         tickler.setServiceDate(new java.sql.Timestamp(1000));
         tickler.setComments(new java.util.LinkedHashSet<>(java.util.List.of(second, first)));
         assertThat(TicklerEditVersion.of(tickler)).isEqualTo(original);
-        tickler.setMessage("a"); tickler.setCreator("bc");
+        tickler.setMessage("a");
+        tickler.setCreator("bc");
         assertThat(TicklerEditVersion.of(tickler)).isNotEqualTo(original);
         // The message getter normalizes null to empty; creator preserves that distinction.
-        tickler.setCreator(null); original = TicklerEditVersion.of(tickler);
-        tickler.setCreator(""); assertThat(TicklerEditVersion.of(tickler)).isNotEqualTo(original);
+        tickler.setCreator(null);
+        original = TicklerEditVersion.of(tickler);
+        tickler.setCreator("");
+        assertThat(TicklerEditVersion.of(tickler)).isNotEqualTo(original);
     }
 }
