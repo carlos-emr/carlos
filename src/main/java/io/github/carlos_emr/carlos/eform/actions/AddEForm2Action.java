@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.EFormOpenerLinks;
+import io.github.carlos_emr.carlos.eform.EFormDataUriCarrier;
 import io.github.carlos_emr.carlos.eform.EFormSubmissionGuard;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
@@ -296,6 +297,12 @@ public class AddEForm2Action extends ActionSupport {
         String[] imagePathPlaceHolders = request.getParameterValues("carlos-image-link");
 
         /*
+         * Signature and drawing data URIs the page moved out of the form's own fields so the WAF can
+         * exclude one known argument instead of the whole save (#3552); restored below.
+         */
+        String[] carriedDataUris = request.getParameterValues(EFormDataUriCarrier.PARAMETER);
+
+        /*
          * An eform developer may add these to the eForm in order to auto
          * populate fax information.
          */
@@ -316,7 +323,8 @@ public class AddEForm2Action extends ActionSupport {
              * Remove these parameters from the request after the imagePathPlaceHolders variable is set.
              * These values do not need to be saved into the eform_values table.
              */
-            if (curField.equalsIgnoreCase("carlos-image-link")) {
+            if (curField.equalsIgnoreCase("carlos-image-link")
+                    || curField.equals(EFormDataUriCarrier.PARAMETER)) {
                 continue;
             }
 
@@ -325,6 +333,21 @@ public class AddEForm2Action extends ActionSupport {
                 paramValues.add(request.getParameter(curField));
             }
 
+        }
+
+        // Before anything reads paramValues: the stored values, the rendered form and the template's
+        // chart writes must all see the signature itself, never the reference the page left behind.
+        try {
+            EFormDataUriCarrier.restore(paramValues, carriedDataUris);
+        } catch (EFormDataUriCarrier.InvalidCarriedValueException e) {
+            // Nothing is stored yet, so the claim stays retryable. The reason names the failed rule
+            // only; the value is a signature and is never logged.
+            logger.warn("Rejected eForm submission: {}", e.getMessage());
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.setAttribute(ERROR_ATTRIBUTE, "true");
+            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE,
+                    "The eForm was not saved because a signature or drawing on it could not be read. Sign it again and save.");
+            return ERROR;
         }
 
         EForm curForm = new EForm(fid, demographic_no, providerNo);

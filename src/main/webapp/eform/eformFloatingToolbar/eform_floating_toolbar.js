@@ -294,6 +294,196 @@ document.addEventListener("formdata", function (event) {
     }
 }, true);
 
+/*
+ * Signature and drawing data URIs (#3552). A signature pad keeps the drawn signature as a data URI
+ * (data:image/png;base64,... from a canvas, or jSignature's data:image/jsignature;base30,...) in one
+ * of the template's own fields. Those names are chosen by whoever wrote the eForm, so the front-door
+ * WAF cannot name them, and the value matches the CRS attribute-XSS rules 941130/941170: without help
+ * the save is refused with a 403, and excluding those rules for the whole save also stopped them
+ * checking every other field.
+ *
+ * While the browser builds an eForm save, each such value moves into the fixed "carlos-data-uri"
+ * argument (the only one the WAF excludes for this), and its field posts "carlos-data-uri:<n>", n
+ * being the value's position among the carlos-data-uri values. AddEForm2Action, through
+ * EFormDataUriCarrier, puts every value back before the eForm is stored. The page itself never
+ * changes: the fields keep their data URIs.
+ *
+ * Only exactly what EFormDataUriCarrier accepts moves: lower-case PNG, JPEG, GIF or WebP Base64 data
+ * URIs whose bytes start with that format's signature, and jSignature base30 strokes. Anything else
+ * that looks like a data URI (SVG, text/html, a malformed payload) is posted where it is and stays
+ * fully inspected. Keep the two sides identical: a value this sends that the server refuses fails
+ * the whole save.
+ *
+ * Like newForm above, the formdata event covers every submission (requestSubmit, a native click, the
+ * toolbar's form.submit()) after all submit handlers. Browsers without it (Safari before 15) get the
+ * same request from temporary hidden inputs instead.
+ */
+// <eform-data-uri-carrier>
+const eformDataUriCarrier = (function () {
+    const PARAMETER = "carlos-data-uri";
+    const REFERENCE_PREFIX = "carlos-data-uri:";
+    // EFormDataUriCarrier.MAX_VALUES and MAX_BASE64_CHARS (at most 5 MiB decoded).
+    const MAX_VALUES = 256;
+    const MAX_PAYLOAD_CHARS = 6990504;
+    const RASTER = /^data:image\/(png|jpeg|gif|webp);base64,([A-Za-z0-9+/]+={0,2})$/;
+    const JSIGNATURE = /^data:image\/jsignature;base30,([0-9A-Za-z_]*)$/;
+    const FILE_SIGNATURES = {
+        png: [[0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]]],
+        jpeg: [[0, [0xFF, 0xD8, 0xFF]]],
+        gif: [[0, [0x47, 0x49, 0x46, 0x38]]],
+        webp: [[0, [0x52, 0x49, 0x46, 0x46]], [8, [0x57, 0x45, 0x42, 0x50]]],
+    };
+
+    function startsLikeFormat(format, payload) {
+        let head;
+        try {
+            // 16 Base64 characters are the first 12 bytes, enough for every signature above.
+            head = atob(payload.slice(0, 16));
+        } catch (e) {
+            return false;
+        }
+        return FILE_SIGNATURES[format].every(function (part) {
+            const offset = part[0];
+            return part[1].every(function (byte, i) { return head.charCodeAt(offset + i) === byte; });
+        });
+    }
+
+    /** True when EFormDataUriCarrier will accept {@code value} as a carried image. */
+    function isCarriable(value) {
+        if (typeof value !== "string" || value.lastIndexOf("data:image/", 0) !== 0) {
+            return false;
+        }
+        const raster = RASTER.exec(value);
+        if (raster) {
+            const payload = raster[2];
+            return payload.length <= MAX_PAYLOAD_CHARS && payload.length % 4 === 0
+                && startsLikeFormat(raster[1], payload);
+        }
+        const strokes = JSIGNATURE.exec(value);
+        return !!strokes && strokes[1].length <= MAX_PAYLOAD_CHARS;
+    }
+
+    /**
+     * True for a same-origin POST form whose action is the eForm save route. Read through the
+     * attributes: a template field named "action" or "method" replaces form.action/form.method.
+     */
+    function postsToEFormSave(form) {
+        if (!(form instanceof HTMLFormElement)
+                || String(form.getAttribute("method") || "").toLowerCase() !== "post") {
+            return false;
+        }
+        let action;
+        try {
+            action = new URL(form.getAttribute("action") || "", document.baseURI);
+        } catch (e) {
+            return false;
+        }
+        return action.origin === window.location.origin && /\/eform\/addEForm(?:;[^/]*)?$/.test(action.pathname);
+    }
+
+    /**
+     * Plans one submission: for [name, value] entries in posting order, returns the replacement value
+     * for each carried entry (by entry index) and the carried values, an identical value carried once.
+     */
+    function plan(entries) {
+        const replacements = new Map();
+        const carried = [];
+        const positions = new Map();
+        entries.forEach(function (entry, i) {
+            const value = entry[1];
+            if (entry[0] === PARAMETER || !isCarriable(value)) return;
+            let position = positions.get(value);
+            if (position === undefined) {
+                if (carried.length >= MAX_VALUES) return;
+                position = carried.length;
+                positions.set(value, position);
+                carried.push(value);
+            }
+            replacements.set(i, REFERENCE_PREFIX + position);
+        });
+        return {replacements: replacements, carried: carried};
+    }
+
+    /** Rewrites a FormData in place, keeping every entry's position. Returns the number carried. */
+    function carryFormData(formData) {
+        if (formData.getAll(PARAMETER).length > 0) return 0;
+        const entries = Array.from(formData.entries());
+        const result = plan(entries);
+        if (result.carried.length === 0) return 0;
+        new Set(entries.map(function (entry) { return entry[0]; })).forEach(function (name) {
+            formData.delete(name);
+        });
+        entries.forEach(function (entry, i) {
+            formData.append(entry[0], result.replacements.has(i) ? result.replacements.get(i) : entry[1]);
+        });
+        result.carried.forEach(function (value) { formData.append(PARAMETER, value); });
+        return result.carried.length;
+    }
+
+    /**
+     * Without the formdata event: disables each carried control for this one submission and posts its
+     * reference and the carried values from temporary hidden inputs, all undone on the next task (the
+     * browser has built the request by then). A cancelled submission is undone the same way.
+     */
+    function carryControls(form) {
+        if (form.querySelector('input[name="' + PARAMETER + '"]:not(:disabled)')) return 0;
+        const controls = Array.prototype.filter.call(form.elements, function (control) {
+            const tag = control.tagName;
+            return control.name && !control.matches(":disabled")
+                && (tag === "TEXTAREA" || (tag === "INPUT"
+                    && !/^(?:button|checkbox|file|image|radio|reset|submit)$/i.test(control.type)));
+        });
+        const result = plan(controls.map(function (control) { return [control.name, control.value]; }));
+        if (result.carried.length === 0) return 0;
+        const added = [];
+        function addHidden(name, value) {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+            added.push(input);
+        }
+        const disabled = [];
+        result.replacements.forEach(function (reference, i) {
+            const control = controls[i];
+            control.disabled = true;
+            disabled.push(control);
+            addHidden(control.name, reference);
+        });
+        result.carried.forEach(function (value) { addHidden(PARAMETER, value); });
+        setTimeout(function () {
+            added.forEach(function (input) { input.remove(); });
+            disabled.forEach(function (control) { control.disabled = false; });
+        }, 0);
+        return result.carried.length;
+    }
+
+    if (eformFormDataEventSupported) {
+        document.addEventListener("formdata", function (event) {
+            if (event.formData && postsToEFormSave(event.target)) {
+                carryFormData(event.formData);
+            }
+        }, true);
+    } else {
+        const nativeSubmit = HTMLFormElement.prototype.submit;
+        HTMLFormElement.prototype.submit = function () {
+            if (postsToEFormSave(this)) carryControls(this);
+            return nativeSubmit.apply(this, arguments);
+        };
+        // Bubble phase on document, after the template's own submit handlers have written the pads.
+        document.addEventListener("submit", function (event) {
+            if (!event.defaultPrevented && postsToEFormSave(event.target)) {
+                carryControls(event.target);
+            }
+        });
+    }
+
+    return {isCarriable: isCarriable, plan: plan, carryFormData: carryFormData, carryControls: carryControls,
+        postsToEFormSave: postsToEFormSave};
+})();
+// </eform-data-uri-carrier>
+
 function submitEForm() {
 	const ef = getEForm();
 	if (!ef) {
