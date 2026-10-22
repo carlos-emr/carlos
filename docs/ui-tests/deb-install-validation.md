@@ -518,8 +518,10 @@ overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 > hierarchy on a hybrid cgroup host), installs the three `.deb` files with the
 > section 3 preseed, refuses to continue unless `carlos-ctl check` reports
 > "All checks passed" and no `.install-incomplete` marker remains, stages the
-> section 4 fixtures, performs the section 6 first-login reset and writes
-> `/root/suite-env.sh`. Then it runs the suite and the server-log audit inside
+> section 4 fixtures, performs the section 6 first-login reset, writes
+> `/root/suite-env.sh` and creates the Vascular Tracker measurement dictionary
+> (`scripts/vascular-dictionary-initialize.js`; the VT checks refuse to start
+> without it so its one-off creation stays out of a run's residue window). Then it runs the suite and the server-log audit inside
 > the container, where the MariaDB socket is:
 >
 > ```bash
@@ -888,8 +890,9 @@ export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/documen
 # privileges in the test DB; lab-upload-signed-feed finds its decrypted copies here by content.
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # With the journal unit named, those two checks also read the server log for their injected failure and
-# assert it shows the database's own error at ERROR and no Hibernate HHH000099 (#4436). Unset, that half
-# is skipped with a notice. Needs a user who can read the journal (root in the VM).
+# assert it shows the database's own error at ERROR and no Hibernate HHH000099 (#4436). Unset,
+# lab-upload-rollback skips that half with a notice and lab-upload-signed-feed fails, since its
+# fault evidence is the log. Needs a user who can read the journal (root in the VM).
 export LAB_UPLOAD_JOURNAL_UNIT=carlos-emr
 # Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
 # default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
