@@ -180,10 +180,12 @@ function ownBillingPhysician(s, admin) {
   const owned = `last_name=${q(marker)} AND first_name=${q(firstName)}`;
   s.cleanup(() => {
     const ownedNo = `provider_no IN (SELECT provider_no FROM provider WHERE ${owned})`;
-    const memberships = ['program_provider', 'provider_facility', 'secUserRole', 'providersite'];
-    sql.execute(memberships.map(table => `DELETE FROM ${table} WHERE ${ownedNo}`).join(';'));
-    h.assert(sql.value(`SELECT ${memberships.map(table => `(SELECT COUNT(*) FROM ${table} WHERE ${ownedNo})`).join(' + ')}`)
-      === '0', 'The owned billing physician\'s program, facility, role or site rows were not removed');
+    // Add and Update Provider also write the provider's bill centre, archive copies and official-name properties.
+    const memberships = ['program_provider', 'provider_facility', 'secUserRole', 'providersite', 'providerbillcenter', 'property'];
+    sql.execute([...memberships.map(table => `DELETE FROM ${table} WHERE ${ownedNo}`),
+      `DELETE FROM providerArchive WHERE ${ownedNo} AND last_name=${q(marker)}`].join(';'));
+    h.assert(sql.value(`SELECT ${[...memberships, 'providerArchive'].map(table => `(SELECT COUNT(*) FROM ${table} WHERE ${ownedNo})`).join(' + ')}`)
+      === '0', 'The owned billing physician\'s program, facility, role, site, bill centre, archive or property rows were not removed');
     sql.execute(`DELETE FROM provider WHERE ${owned}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE ${owned}`) === '0', 'The owned billing physician was not removed');
   });

@@ -28,8 +28,8 @@
  * referral number with SxmlMisc and develop with DemographicXml, and the check runs against both.
  *
  * Rows: formBCAR2020 / formBCAR2020Data / formBCAR2020Text and formBCAR2012 rows belong to the owned FAKE
- * patient and are removed with it. The PrintResourceLog row is keyed to the signed-in provider as well as
- * the patient, so it stays.
+ * patient and are removed with it, and so is the PrintResourceLog row the Print step writes for that patient
+ * (resourceName BCAR2020, resourceId = the owned patient): a print record of a FAKE patient the run deletes is residue.
  *
  *   npm run test:form-bc-antenatal-record-playwright
  */
@@ -120,10 +120,12 @@ async function workflow(s) {
     s.sql.execute(`DELETE FROM formBCAR2020Data WHERE form_id IN (${owned2020});
       DELETE FROM formBCAR2020Text WHERE form_id IN (${owned2020});
       DELETE FROM formBCAR2020 WHERE demographic_no=${s.patient};
-      DELETE FROM formBCAR2012 WHERE demographic_no=${s.patient}`);
+      DELETE FROM formBCAR2012 WHERE demographic_no=${s.patient};
+      DELETE FROM PrintResourceLog WHERE resourceName='BCAR2020' AND resourceId=${h.sqlString(s.patient)}`);
     h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM formBCAR2020 WHERE demographic_no=${s.patient})
-      + (SELECT COUNT(*) FROM formBCAR2012 WHERE demographic_no=${s.patient})`) === '0',
-    'BC-AR rows remain on the owned patient');
+      + (SELECT COUNT(*) FROM formBCAR2012 WHERE demographic_no=${s.patient})
+      + (SELECT COUNT(*) FROM PrintResourceLog WHERE resourceName='BCAR2020' AND resourceId=${h.sqlString(s.patient)})`) === '0',
+    'BC-AR rows or its print record remain on the owned patient');
   });
   const latest2020 = () => s.sql.value(`SELECT MAX(id) FROM formBCAR2020 WHERE demographic_no=${s.patient}`);
   const value2020 = (formId, pageNo, field) => s.sql.value(`SELECT val FROM formBCAR2020Data
