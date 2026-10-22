@@ -162,7 +162,7 @@ async function run(s) {
     const field = await chart.locator('form[name="caseManagementViewForm"] input[name="providerNo"]').inputValue();
     const script = await chart.evaluate(() => window.providerNo);
     h.assert(field === script, `${label}'s notes panel names two different entry providers`);
-    const appointment = sql.value(`SELECT appointment_no FROM casemgmt_note WHERE demographic_no=${key(patient)}
+    const appointment = sql.value(`SELECT appointmentNo FROM casemgmt_note WHERE demographic_no=${key(patient)}
       AND note=${q(text.trim())} ORDER BY note_id DESC LIMIT 1`);
     return {provider: field, appointment};
   }
@@ -230,7 +230,7 @@ async function run(s) {
       'A\'s notes panel names another provider, not the one A was entered by: a refused entry replaced A\'s remembered entry');
     h.assert(a.appointment === String(visit.A), 'A\'s note is no longer linked to A\'s own visit');
     await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${patients})
-      AND appointment_no IN (${key(visit.B2)},${key(visit.unbooked)},${key(nonexistent)})`, '0',
+      AND appointmentNo IN (${key(visit.B2)},${key(visit.unbooked)},${key(nonexistent)})`, '0',
     'A note was linked to a visit a refused entry named');
   });
 }
