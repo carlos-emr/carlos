@@ -70,6 +70,7 @@ test('scanner: script strings and script comments are encoded for JavaScript, te
 
 test('scanner: a closing script tag ends the script block', () => {
   const page = '<script src="x.js"></script>\n<input value="<%= props.getProperty("v", "") %>">';
+  // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- A fixed JSP source string handed to the static encoding scanner under test; it is never rendered or served.
   assert.deepEqual(lib.classify(page).encode.map((o) => o.ctx), ['ATTR']);
 });
 
