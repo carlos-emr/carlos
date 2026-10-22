@@ -60,6 +60,10 @@ public class RxUtil {
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
             "(?:mg|mcg|[µμ]g|g|iu|meq)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
+    /** Dosage-form words that make a number before the frequency an explicit count ("... PO 2 tablets TID"). */
+    private static final Pattern COUNT_UNIT = Pattern.compile(
+            "(?:tabs?|tablets?|caps?|capsules?|puffs?|sprays?|drops?|sachets?|lozenges?|patch(?:es)?)",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern CONCENTRATION_SEPARATOR = Pattern.compile("(?:/|per\\b)\\s*", Pattern.CASE_INSENSITIVE);
     private static final Pattern PER_DOSE = Pattern.compile("(?:/|per\\b)\\s*dose\\b", Pattern.CASE_INSENSITIVE);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
@@ -521,9 +525,9 @@ public class RxUtil {
      * dose or quantity is calculated from it; an amount written with {@code /dose} or
      * {@code per dose}, a volume, a unit count, a topical gram amount or a non-oral IU
      * amount is the administered dose as typed. A count, volume or unit amount placed
-     * before the frequency ({@code ... PO 10 mL TID}) takes precedence over the leading
-     * number. Fractions keep their numerator and denominator until the dispense quantity
-     * is rounded, once, at the end.
+     * before the frequency ({@code ... PO 10 mL TID}, {@code ... PO 2 tablets TID}) takes
+     * precedence over the leading number. Fractions keep their numerator and denominator
+     * until the dispense quantity is rounded, once, at the end.
      *
      * @param rx prescription to update; null is ignored
      */
@@ -1217,9 +1221,10 @@ public class RxUtil {
 
     /**
      * Finds an administered amount written with its unit directly before the frequency,
-     * such as {@code 10 mL}, {@code 5-10mL} or {@code 1/2 mL} in {@code ... PO 10 mL TID}.
-     * The unit must be one an administered amount can carry, and the amount must not read
-     * as a strength or concentration in this instruction's route and method context.
+     * such as {@code 10 mL}, {@code 5-10mL}, {@code 1/2 mL} or {@code 2 tablets} in
+     * {@code ... PO 10 mL TID}. The unit must be one an administered amount can carry (a
+     * dose unit or a dosage-form count word), and the amount must not read as a strength or
+     * concentration in this instruction's route and method context.
      *
      * @return the amount, or null when nothing before the frequency qualifies
      */
@@ -1229,7 +1234,8 @@ public class RxUtil {
         while (unitStart > 0 && Character.isLetter(instructions.charAt(unitStart - 1))) {
             unitStart--;
         }
-        if (unitStart == unitEnd || !DOSE_UNIT.matcher(instructions).region(unitStart, unitEnd).matches()) {
+        if (unitStart == unitEnd || !(DOSE_UNIT.matcher(instructions).region(unitStart, unitEnd).matches()
+                || COUNT_UNIT.matcher(instructions).region(unitStart, unitEnd).matches())) {
             return null;
         }
         NumberRange range = findRangeBefore(instructions, unitStart);

@@ -55,6 +55,7 @@ async function workflow(s) {
     ['Take 250 mg per 5 mL TID x 7 days', 0, 0, '0'],
     ['Mix medication in 100 mL BID x 7 days', 0, 0, '0', 'BID'],
     ['100 mg/5mL PO 10mL TID x 7 days', 10, 10, '210'],
+    ['1000 mg PO 2 tablets TID x 7 days', 2, 2, '42'],
     ['250mg/5mL PO 5-10 mL TID x 7 days', 5, 10, '210'],
     ['100units/mL SC 0.5mL BID x 7 days', 0.5, 0.5, '7', 'BID'],
     ['20units SC BID x 7 days', 20, 20, '280', 'BID'],
