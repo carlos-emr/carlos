@@ -10,7 +10,8 @@
  * calculates nothing and leaves the card's quantity as it was. The quantity
  * update after a 1000-unit dose derives the duration, a spaced range, written
  * daily counts, the n/7 shorthand, a trailing ", take with food", a second
- * day word before the duration and a "then" taper are read (PR #5077 review).
+ * day word before the duration and a "then" taper are read, and "grams" is
+ * the same unit as "g" (PR #5077 review).
  * Uses an owned synthetic patient and removes its prescription rows after
  * the browser closes; do not run concurrently with other checks.
  */
@@ -112,6 +113,8 @@ async function workflow(s) {
     ['1 tab po bid x 7 days, take with food', 1, 1, '14', 'BID'],
     ['Take 1 tab po on alternate days x 10 days with food', 1, 1, '0', '', '10'],
     ['Take 2 tabs BID x 5 days then 1 tab BID x 5 days', 2, 2, '30', 'BID', '10'],
+    ['Take 2 grams po tid x 7 days', 1, 1, '21'],
+    ['Apply 2 grams BID x 7 days', 2, 2, '28', 'BID'],
     ['1000 mg po tid x 7 days', 1, 1, '21'],
   ];
   let displayed = null;

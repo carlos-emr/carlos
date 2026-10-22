@@ -59,9 +59,11 @@ public class RxUtil {
     private static final String METHOD_APPLY = "Apply";
     private static final String METHOD_RUB_WELL_IN = "Rub well in";
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
-            "(?:mgs|mg|mcgs|mcg|[µμu]g|g|iu|meq|mmol|milligrams|milligram|micrograms|microgram)\\b",
+            "(?:mgs|mg|mcgs|mcg|[µμu]g|grams|gram|gms|gm|g|iu|meq|mmol|milligrams|milligram|micrograms|microgram)\\b",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
-    private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|grams?|gms?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
+    /** Every spelling of a gram unit; "2 grams" and "2 gm" are classified exactly as "2 g". */
+    private static final Set<String> GRAM_WORDS = Set.of("g", "gm", "gms", "gram", "grams");
     /** Dosage forms that are counted out one by one; a count written with one is an explicit administered count. */
     private static final Set<String> COUNTED_FORMS = Set.of("tab", "tabs", "tablet", "tablets", "cap", "caps",
             "capsule", "capsules", "pill", "pills", "puff", "puffs", "spray", "sprays", "drop", "drops", "gtt", "gtts",
@@ -1474,7 +1476,7 @@ public class RxUtil {
         if (hasDenominatorAfterUnit(instructions, unit.end())) {
             return AmountKind.PRODUCT_ONLY;
         }
-        boolean grams = "g".equalsIgnoreCase(unit.group());
+        boolean grams = isGramUnit(unit.group());
         boolean internationalUnits = "iu".equalsIgnoreCase(unit.group());
         boolean electrolyteUnits = "meq".equalsIgnoreCase(unit.group()) || "mmol".equalsIgnoreCase(unit.group());
         // "17 g per dose" and "20 IU/dose" state an administered amount in a measurable unit. A mass
@@ -1620,14 +1622,16 @@ public class RxUtil {
      * gram amount ("Take 17 g PO daily"). The typed amount is then the administered dose in that
      * unit, so the structured dose and the unit the clinical export reads agree (17 gm, not 1 gm).
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of a stored unit abbreviation, not a security or authorization decision.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of a stored unit abbreviation, not a security or authorization decision")
     private static boolean keepsTypedGramAmount(InstructionSegment segment, RxPrescriptionData.Prescription rx) {
-        String unit = rx.getUnit() == null ? "" : rx.getUnit().trim();
-        boolean gramUnit = "g".equalsIgnoreCase(unit) || "gm".equalsIgnoreCase(unit) || "gms".equalsIgnoreCase(unit)
-                || "gram".equalsIgnoreCase(unit) || "grams".equalsIgnoreCase(unit);
-        return gramUnit && "g".equalsIgnoreCase(segment.productUnit)
+        return isGramUnit(rx.getUnit()) && isGramUnit(segment.productUnit)
                 && (rx.getDosage() == null || rx.getDosage().isBlank());
+    }
+
+    /** True when the unit, typed or stored, is grams in any spelling: "g", "gm", "gms", "gram" or "grams". */
+    // FindSecBugs IMPROPER_UNICODE: case folding of a parsed or stored unit abbreviation, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folding of a parsed or stored unit abbreviation, not a security or authorization decision")
+    private static boolean isGramUnit(String unit) {
+        return unit != null && GRAM_WORDS.contains(unit.trim().toLowerCase(Locale.ROOT));
     }
 
     /**
@@ -2212,7 +2216,7 @@ public class RxUtil {
             return switch (unit.toLowerCase(Locale.ROOT)) {
                 case "mg", "mgs", "milligram", "milligrams" -> new StrengthMeasure("mass", BigDecimal.ONE);
                 case "mcg", "mcgs", "µg", "μg", "ug", "microgram", "micrograms" -> new StrengthMeasure("mass", MICROGRAM);
-                case "g" -> new StrengthMeasure("mass", GRAM);
+                case "g", "gm", "gms", "gram", "grams" -> new StrengthMeasure("mass", GRAM);
                 case "iu", "unit", "units" -> new StrengthMeasure("iu", BigDecimal.ONE);
                 case "meq" -> new StrengthMeasure("meq", BigDecimal.ONE);
                 case "mmol" -> new StrengthMeasure("mmol", BigDecimal.ONE);
