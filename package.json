@@ -741,6 +741,7 @@
     "test:page-health-help-link-offhost-playwright": "node scripts/page-health-help-link-offhost-playwright-checks.js",
     "test:concurrency-demographic-edit-playwright": "node scripts/concurrency-demographic-edit-playwright-checks.js",
     "test:concurrency-demographic-ext-insert-playwright": "node scripts/concurrency-demographic-ext-insert-playwright-checks.js",
+    "test:demographic-rest-create-extras-playwright": "node scripts/demographic-rest-create-extras-playwright-checks.js",
     "test:demographic-stale-edit-recovery-playwright": "node scripts/demographic-stale-edit-recovery-playwright-checks.js",
     "test:concurrency-appointment-edit-playwright": "node scripts/concurrency-appointment-edit-playwright-checks.js",
     "test:concurrency-tickler-edit-playwright": "node scripts/concurrency-tickler-edit-playwright-checks.js",
