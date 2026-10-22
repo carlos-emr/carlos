@@ -405,6 +405,21 @@ def build_cases(phrases, corpus):
         ("carlos-data-uri-nonce", nonce)])))
     cases.append(request_case("data-uri-rce-shaped-control", 3552, LETTER, "carlos-data-uri-x", rce_shaped,
                               expect="inbound", signatures=("932140",)))
+    # The nonce is drawn afresh for every submission, and it is scored like any field, both in
+    # ARGS:carlos-data-uri-nonce and inside every "carlos-data-uri:<nonce>:<n>" reference. A nonce
+    # that tripped CRS would refuse saves at random, as random Base64 did with 932140. Pin a fixed
+    # sample: edge shapes (all digits, all letters, exponent-like) and SHA-256-derived nonces, in
+    # references with index 0 and 255 (the largest one a save can carry; this is policy only, so
+    # the indices need not resolve). 1,500 random nonces passed when this was added.
+    one_pixel = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB"
+                 "9Wl5n2QAAAAASUVORK5CYII=")
+    sample_nonces = ["0" * 32, "f" * 32, "1e" + "0" * 30, "0e1" + "9" * 29, "deadbeef" * 4]
+    sample_nonces += [hashlib.sha256(b"carlos-3552-nonce-%d" % k).hexdigest()[:32] for k in range(19)]
+    for k, sample in enumerate(sample_nonces):
+        cases.append(Case(f"data-uri-nonce-sample-{k:02d}", 3552, "POST", LETTER, urlencode([
+            ("SignatureBox", f"carlos-data-uri:{sample}:0"), ("MirrorPad", f"carlos-data-uri:{sample}:255"),
+            ("clinicalNote", "Routine follow up."), ("carlos-data-uri", one_pixel),
+            ("carlos-data-uri-nonce", sample)])))
     carrier_probe = "data:image/png;base64,AQID"
     for method in ("GET", "PUT"):
         cases.append(request_case(f"data-uri-carrier-wrong-{method}", 3552, LETTER, "carlos-data-uri",
