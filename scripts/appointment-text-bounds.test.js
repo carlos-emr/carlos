@@ -190,8 +190,9 @@ test('unsupported narrow generated/type columns fail explicitly and exact metada
  assert(migration.includes('Missing appointment.name column'));assert(migration.includes('Missing appointmentArchive.name column'));
 });
 test('migration has one collision-free common version and independent prepare/execute/deallocate sequences for both tables',()=>{
- const files=fs.readdirSync(path.join(repo,'database/mysql/migration'),{recursive:true}).filter(name=>/(^|\/)V1\.0\.58__/.test(name));
- assert(files.every(name=>name==='common/'+migrationName));assert.equal((migration.match(/PREPARE \w+ FROM/g)||[]).length,2);assert.equal((migration.match(/^EXECUTE /gm)||[]).length,2);assert.equal((migration.match(/^DEALLOCATE PREPARE /gm)||[]).length,2);
+ const version=migrationName.slice(0,migrationName.indexOf('__')+2);
+ const files=fs.readdirSync(path.join(repo,'database/mysql/migration'),{recursive:true}).filter(name=>path.basename(name).startsWith(version));
+ assert.deepEqual(files,['common/'+migrationName]);assert.equal((migration.match(/PREPARE \w+ FROM/g)||[]).length,2);assert.equal((migration.match(/^EXECUTE /gm)||[]).length,2);assert.equal((migration.match(/^DEALLOCATE PREPARE /gm)||[]).length,2);
  assert.equal((migration.match(/SET @\w+ = COALESCE\(\(/g)||[]).length,2);
 });
 test('full baseline61-character linked legal names fit the widened native UI without shortening the displayed name',()=>{
