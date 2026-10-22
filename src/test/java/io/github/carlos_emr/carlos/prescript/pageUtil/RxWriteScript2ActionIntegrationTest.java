@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -230,6 +231,35 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         assertThat(body.path("duration").asText()).isEqualTo("7");
         assertThat(body.path("calQuantity").asText()).isEqualTo("0");
         assertThat(bean.getStashItem2(123).getSpecial()).isEqualTo(instruction);
+    }
+
+    /**
+     * The quantity callback derives the duration from the typed quantity and the structured dose.
+     * A 1000-unit dose used to be rendered as "1,000" and the division threw, so the callback
+     * answered nothing and the card kept no duration.
+     */
+    @Test
+    void shouldDeriveDuration_whenUpdateQtyFollowsAThousandUnitDose() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setSpecial("Take 1000 units po daily");
+        RxUtil.instrucParser(rx);
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "updateQty");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("quantity", "30000");
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(getMockResponse().getContentAsString()).isNotEmpty();
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMax").asDouble()).isEqualTo(1000d);
+        assertThat(body.path("duration").asText()).isEqualTo("30");
+        assertThat(body.path("durationUnit").asText()).isEqualTo("D");
+        assertThat(body.path("calQuantity").asText()).isEqualTo("30000");
     }
 
     /**

@@ -210,14 +210,16 @@ public class RxUtil {
         return (Expression != 0);
     }
 
+    /**
+     * Renders a structured dose as text. The Rx page and the quantity callback parse this text back
+     * with {@code Double.parseDouble}, so the digits are never grouped (a 1000-unit dose rendered as
+     * "1,000" made that parse throw) and the decimal separator is the dot whatever the server's
+     * default locale is.
+     */
     public static String FloatToString(float value) {
-        Float f = Float.valueOf(value);
-
-        java.text.NumberFormat fmt = java.text.NumberFormat.getNumberInstance();
-
-        String s = fmt.format(f.doubleValue());
-
-        return s;
+        java.text.NumberFormat fmt = java.text.NumberFormat.getNumberInstance(Locale.ROOT);
+        fmt.setGroupingUsed(false);
+        return fmt.format(Float.valueOf(value).doubleValue());
     }
 
     public static float StringToFloat(String value) {
