@@ -553,6 +553,7 @@
     "test:csrf-runtime-form-month-view-group-playwright": "node scripts/csrf-runtime-form-month-view-group-playwright-checks.js",
     "test:get-reject-consult-directory-playwright": "node scripts/get-reject-consult-directory-playwright-checks.js",
     "test:get-reject-provider-groups-playwright": "node scripts/get-reject-provider-groups-playwright-checks.js",
+    "test:get-reject-dispatch-params-playwright": "node scripts/get-reject-dispatch-params-playwright-checks.js",
     "test:get-reject-rourke-form-playwright": "node scripts/get-reject-rourke-form-playwright-checks.js",
     "test:get-reject-chart-notes-playwright": "node scripts/get-reject-chart-notes-playwright-checks.js",
     "test:get-reject-note-browser-documents-playwright": "node scripts/get-reject-note-browser-documents-playwright-checks.js",
