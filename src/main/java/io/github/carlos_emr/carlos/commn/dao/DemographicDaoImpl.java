@@ -79,6 +79,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
@@ -1713,6 +1715,28 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         return entityManager().find(Demographic.class, demographicNo, LockModeType.PESSIMISTIC_WRITE);
     }
 
+    /**
+     * Runs {@code action} once the surrounding transaction commits, or immediately when no
+     * transaction synchronization is active.
+     *
+     * <p>The HL7 A04 registration message is written to disk, outside any database transaction. When
+     * a caller (for example {@code DemographicManagerImpl.createDemographic}) saves the patient
+     * together with its admission and extensions in one transaction, emitting the file from inside
+     * {@code save} would announce a patient that a later rollback removes.</p>
+     */
+    static void runAfterCommitOrNow(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
+    }
+
     @Override
     public void save(Demographic demographic) {
         if (demographic == null) {
@@ -1731,9 +1755,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
-            if (!(new HL7A04Generator()).generateHL7A04(demographic)) {
-                log.warn("HL7 A04 generation did not complete for a saved demographic");
-            }
+            runAfterCommitOrNow(() -> {
+                if (!(new HL7A04Generator()).generateHL7A04(demographic)) {
+                    log.warn("HL7 A04 generation did not complete for a saved demographic");
+                }
+            });
         }
 
         // the new way
@@ -2317,9 +2343,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
-            if (!(new HL7A04Generator()).generateHL7A04(client)) {
-                log.warn("HL7 A04 generation did not complete for a saved demographic");
-            }
+            runAfterCommitOrNow(() -> {
+                if (!(new HL7A04Generator()).generateHL7A04(client)) {
+                    log.warn("HL7 A04 generation did not complete for a saved demographic");
+                }
+            });
         }
 
         // the new way
