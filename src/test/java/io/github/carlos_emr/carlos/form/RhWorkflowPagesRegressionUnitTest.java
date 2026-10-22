@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.matches;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 /**
@@ -80,19 +81,16 @@ class RhWorkflowPagesRegressionUnitTest {
     }
 
     @Test
-    @DisplayName("should fall back to the patient's latest RH form, then a new one")
-    void shouldFallBackToLatestRhForm_whenNoFormIsBoundToTheWorkflow() throws Exception {
+    @DisplayName("should open a new form when no form is bound to the workflow")
+    void shouldOpenNewForm_whenNoFormIsBoundToTheWorkflow() throws Exception {
+        // The patient's other RH forms may belong to an earlier pregnancy; offering one would let a save copy
+        // that pregnancy's values into this workflow, so only a form bound to this workflow is opened.
         try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
             ResultSet none = rows();
-            ResultSet latest = rows(31);
-            ResultSet noneEither = rows();
             jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(contains("workflowId = ?"), eq(42), eq(7))).thenReturn(none);
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(matches("(?s)(?!.*workflowId).*"), eq(42)))
-                    .thenReturn(latest, noneEither);
 
-            RHWorkFlow flow = new RHWorkFlow();
-            assertThat(flow.getLink("42", "7")).isEqualTo("/form/formRhImmuneGlobulin?demographic_no=42&formId=31");
-            assertThat(flow.getLink("42", "7")).isEqualTo("/form/formRhImmuneGlobulin?demographic_no=42&formId=0");
+            assertThat(new RHWorkFlow().getLink("42", "7")).isEqualTo("/form/formRhImmuneGlobulin?demographic_no=42&formId=0");
+            jdbc.verify(() -> LegacyJdbcQuery.getPreparedResultSet(matches("(?s)(?!.*workflowId).*"), eq(42)), never());
         }
     }
 

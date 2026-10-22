@@ -142,10 +142,12 @@ public class RHWorkFlow implements WorkFlow {
 
     /**
      * Opens the RH form saved for this pregnancy: the patient's latest {@code formRhImmuneGlobulin}
-     * record bound to the workflow, else the patient's latest RH record, else a new form (which binds
-     * to the patient's active workflow). Issue #4992: the address was {@code ../form/forwardshortcutname},
-     * which the queue page's context-root base resolved outside the application, and which named a
-     * Forms-menu shortcut ("RH Form") that no shipped install registers.
+     * record bound to the workflow, else a new form (which the page binds to the patient's active
+     * workflow). A record bound to no workflow, or to another one, is never offered: it may belong to an
+     * earlier pregnancy, and saving it from this row would copy that pregnancy's values into this one.
+     * Issue #4992: the address was {@code ../form/forwardshortcutname}, which the queue page's
+     * context-root base resolved outside the application, and which named a Forms-menu shortcut
+     * ("RH Form") that no shipped install registers.
      *
      * @return an address relative to the context path, which the queue page prefixes
      */
@@ -157,20 +159,13 @@ public class RHWorkFlow implements WorkFlow {
     }
 
     private static int rhFormId(int demographicNo, int workFlowId) {
-        if (demographicNo <= 0) {
+        if (demographicNo <= 0 || workFlowId <= 0) {
             return 0;
         }
-        String latest = " ORDER BY formEdited DESC, ID DESC LIMIT 1";
         try {
-            if (workFlowId > 0) {
-                Integer bound = firstId("SELECT ID FROM formRhImmuneGlobulin WHERE demographic_no = ? AND workflowId = ?"
-                        + latest, demographicNo, workFlowId);
-                if (bound != null) {
-                    return bound;
-                }
-            }
-            Integer any = firstId("SELECT ID FROM formRhImmuneGlobulin WHERE demographic_no = ?" + latest, demographicNo);
-            return any == null ? 0 : any;
+            Integer bound = firstId("SELECT ID FROM formRhImmuneGlobulin WHERE demographic_no = ? AND workflowId = ?"
+                    + " ORDER BY formEdited DESC, ID DESC LIMIT 1", demographicNo, workFlowId);
+            return bound == null ? 0 : bound;
         } catch (SQLException e) {
             MiscUtils.getLogger().warn("Could not find the RH form for a workflow queue row ({})", e.getClass().getSimpleName());
             return 0;
