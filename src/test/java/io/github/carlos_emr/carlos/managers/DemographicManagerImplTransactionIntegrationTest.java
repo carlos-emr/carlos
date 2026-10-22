@@ -79,7 +79,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 class DemographicManagerImplTransactionIntegrationTest extends CarlosTestBase {
 
     private static final String PROVIDER_NO = "999998";
-    /** Test-only copy of production's per-patient key index, which the H2 schema lacks. */
+    /** Name of the test-only copy of production's per-patient key index, which the H2 schema lacks. */
     private static final String TEST_UNIQUE_KEY_CONSTRAINT = "test_uk_demo_ext";
     private static final String DUPLICATE_KEY = "demo_cell";
 
@@ -210,13 +210,12 @@ class DemographicManagerImplTransactionIntegrationTest extends CarlosTestBase {
 
     private void addPerPatientKeyConstraint() {
         new JdbcTemplate(dataSource).execute(
-                "ALTER TABLE demographicExt ADD CONSTRAINT " + TEST_UNIQUE_KEY_CONSTRAINT
-                        + " UNIQUE (demographic_no, key_val)");
+                "ALTER TABLE demographicExt ADD CONSTRAINT test_uk_demo_ext UNIQUE (demographic_no, key_val)");
     }
 
     private void dropPerPatientKeyConstraint() {
         new JdbcTemplate(dataSource).execute(
-                "ALTER TABLE demographicExt DROP CONSTRAINT IF EXISTS " + TEST_UNIQUE_KEY_CONSTRAINT);
+                "ALTER TABLE demographicExt DROP CONSTRAINT IF EXISTS test_uk_demo_ext");
     }
 
     private static String rootCauseMessage(Throwable throwable) {
