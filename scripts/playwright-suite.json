@@ -8038,6 +8038,21 @@
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js), the session's owned FAKE- patient and one appointment today on the throwaway's own schedule. Cleanup removes the appointment, then the throwaway with its property rows; both are asserted gone."
     },
     {
+      "name": "preference-effects-2",
+      "script": "scripts/preference-effects-2-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Preferences > Patient name length, Default sex and HC type followed to the pages that read them: the day sheet cuts the throwaway's own appointment name to the saved length, and Schedule > Search > Create Demographic preselects the saved sex and HC type (controls first, with none set).",
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js), the session's owned FAKE- patient and one appointment today on the throwaway's own schedule. Cleanup removes the appointment, then the throwaway with its property rows; both are asserted gone. The add form is never submitted."
+    },
+    {
       "name": "gap-provider-schedule-keyboard-shortcuts",
       "script": "scripts/gap-provider-schedule-keyboard-shortcuts-playwright-checks.js",
       "tiers": [

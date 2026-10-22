@@ -599,6 +599,7 @@
     "test:gap-provider-messenger-write-to-encounter-playwright": "node scripts/gap-provider-messenger-write-to-encounter-playwright-checks.js",
     "test:gap-provider-preferences-save-all-playwright": "node scripts/gap-provider-preferences-save-all-playwright-checks.js",
     "test:appointment-card-preferences-playwright": "node scripts/appointment-card-preferences-playwright-checks.js",
+    "test:preference-effects-2-playwright": "node scripts/preference-effects-2-playwright-checks.js",
     "test:provider-preference-effects-playwright": "node scripts/provider-preference-effects-playwright-checks.js",
     "test:gap-provider-schedule-keyboard-shortcuts-playwright": "node scripts/gap-provider-schedule-keyboard-shortcuts-playwright-checks.js",
     "test:gap-provider-schedule-reason-privacy-playwright": "node scripts/gap-provider-schedule-reason-privacy-playwright-checks.js",
