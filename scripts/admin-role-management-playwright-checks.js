@@ -66,7 +66,7 @@ async function workflow(s) {
   s.cleanup(() => fixture.cleanup());
   const owned = `%${role}%`;
   // The GET ProviderAddRole probe names this role; a wrongly accepted GET would create it.
-  const roles = `${R},${h.sqlString(`${role}-GET`)}`;
+  const roles = `${R},${h.sqlString(`${role}-GET`)},${h.sqlString(`${role}-read`)}`;
   s.cleanup(() => {
     sql.execute([
       `DELETE FROM MyGroupAccessRestriction WHERE myGroupNo=${G}`,
@@ -244,6 +244,20 @@ async function workflow(s) {
     try {
       const page = await openItem(own, 'ProviderAddRole', 'input#role_name');
       h.assert(await page.locator('[name="submit"][value="Search"]').isVisible(), 'Add A Role did not render its form');
+      await page.locator('#role_name').fill(role);
+      await submitIn(own, page, page.locator('[name="submit"][value="Search"]'));
+      h.assert(await page.locator('input[name="action"]').inputValue() === `edit${role}`,
+        'The read-only role search did not find the saved role');
+      h.assert(await page.locator('[name="submit"][value="Save"]').count() === 0,
+        'The read-only role search offered Save');
+      const extra = `${role}-read`;
+      const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+      const denied = await ctx.request.post(h.appUrl(config.baseUrl, '/admin/ProviderAddRole'), {
+        form: { submit: 'Save', action: `add${extra}`, role_name: extra, 'CSRF-TOKEN': token }, maxRedirects: 0 });
+      h.assert(denied.status() === 403, 'The read-only role Save was not refused');
+      await denied.dispose();
+      h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${h.sqlString(extra)}`) === '0',
+        'The refused read-only Save created a role');
       h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0, 'Read access exposed Assign Role/Rights to Object');
       h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Read access was not refused the write-only privilege editor');
     } finally { await ctx.close(); }

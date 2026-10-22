@@ -277,7 +277,7 @@
             <div class="mb-3">
                 <div>
                     <input
-                            type="hidden" name="action" value='<carlos:encode value='<%= action %>' context="htmlAttribute"/>'/> <% if (!"search".equals(action)) {%>
+                            type="hidden" name="action" value='<carlos:encode value='<%= action %>' context="htmlAttribute"/>'/> <% if (!"search".equals(action) && Boolean.TRUE.equals(request.getAttribute("canSaveRole"))) {%>
                     <button type="submit" name="submit" value="Save" class="btn btn-primary"
                             onclick="javascript:return onSave();"><fmt:message key="admin.resourcebaseurl.btnSave"/></button> <% }%>
                 </div>

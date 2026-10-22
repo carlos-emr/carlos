@@ -90,6 +90,7 @@ async function workflow(s) {
   context.on('page', page => h.wireStrictPage(page, 'translated-button-values', recorder));
   const schedule = await h.login(context, { ...config, testUser: fixture.username }, recorder, { label: 'throwaway-login-fr' });
   const admin = await openAdmin({ schedule, context, recorder });
+  let privateAddForm;
 
   await s.step(`Add A Role in French: ${LABELS.search.fr} offers the new name and ${LABELS.save.fr} stores exactly one role`, async () => {
     const frame = await adminFrame(admin, ROLE_ROUTE, 'input#role_name');
@@ -114,11 +115,24 @@ async function workflow(s) {
     await form.locator('input[name="description"]').fill(`${marker} private`);
     await form.locator('input[name="value"]').fill('31.50');
     await ui.pickDate(frame, form.locator('#billingservice_date'), issued);
+    privateAddForm = await form.evaluate(element => Object.fromEntries(new FormData(element).entries()));
+    privateAddForm.submit = 'Save';
     const save = await frenchButton(form, LABELS.save, 'Manage Private Billing Code');
     const dialogs = await h.withExpectedDialogs(admin, () => navigates(admin, frame, save));
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', `${LABELS.save.fr} did not ask for confirmation exactly once`);
     h.assert(sql.value(`SELECT CONCAT_WS('|', COUNT(*), MAX(description), MAX(value)) FROM billingservice WHERE service_code=${P}`)
       === `1|${marker} private|31.50`, `${LABELS.save.fr} did not store the private code with the typed description and fee`);
+  });
+
+  await s.step('replaying the French private-code add leaves one original code and fee', async () => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await context.request.post(h.appUrl(config.baseUrl, PRIVATE_ROUTE), {
+        form: { ...privateAddForm, description: `${marker} retry`, value: '99.00' }, maxRedirects: 0 });
+      h.assert(response.status() === 200, 'The repeated private-code add did not return its form');
+      await response.dispose();
+    }
+    h.assert(sql.value(`SELECT CONCAT_WS('|', COUNT(*), MAX(description), MAX(value)) FROM billingservice WHERE service_code=${P}`)
+      === `1|${marker} private|31.50`, 'Replaying add duplicated or overwrote the original private code');
   });
 }
 

@@ -42,6 +42,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -50,6 +52,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -85,6 +88,7 @@ class BillingOnEditPrivateCodeButtonValuesUnitTest {
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
+    private MockHttpServletResponse mockResponse;
 
     @BeforeEach
     void setUp() {
@@ -92,7 +96,8 @@ class BillingOnEditPrivateCodeButtonValuesUnitTest {
         mockRequest = new MockHttpServletRequest();
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenAnswer(invocation -> mockRequest);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        mockResponse = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
@@ -154,5 +159,31 @@ class BillingOnEditPrivateCodeButtonValuesUnitTest {
         clearInvocations(mockPersister);
         assertThat(post("Search")).isEqualTo(ActionSupport.SUCCESS);
         verify(mockPersister, never()).saveOrDeletePrivateCode(any());
+    }
+
+    static java.util.stream.Stream<RuntimeException> concurrentSaves() {
+        return java.util.stream.Stream.of(
+                new jakarta.persistence.OptimisticLockException("Concurrent change"),
+                new jakarta.persistence.PessimisticLockException("Concurrent change"),
+                new jakarta.persistence.LockTimeoutException("Concurrent change"),
+                new org.springframework.dao.OptimisticLockingFailureException("Concurrent change"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("concurrentSaves")
+    void shouldReturnConflictWithoutRendering_whenTheSaveTransactionWasRefused(RuntimeException conflict)
+            throws Exception {
+        when(mockPersister.saveOrDeletePrivateCode(any())).thenThrow(conflict);
+        assertThat(post("Save")).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        assertThat(mockResponse.getErrorMessage()).contains("search the service code first");
+        verify(mockAssembler, never()).assemble(any(), any(), any());
+    }
+
+    @Test
+    void shouldPropagateUnexpectedStorageFailures_insteadOfCallingThemConflicts() {
+        RuntimeException failure = new IllegalStateException("Injected storage failure");
+        when(mockPersister.saveOrDeletePrivateCode(any())).thenThrow(failure);
+        assertThatThrownBy(() -> post("Save")).isSameAs(failure);
     }
 }
