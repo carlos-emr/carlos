@@ -433,6 +433,13 @@ public class DemographicManagerImpl implements DemographicManager {
     /**
      * Creates the patient, its program admission and its extensions in one transaction: if any
      * write fails (for example an extension that collides on the per-patient key), nothing is kept.
+     * Each extension is linked to the new patient's demographic number, replacing any number the
+     * caller supplied.
+     *
+     * @param loggedInInfo {@link LoggedInInfo} the acting provider; must hold write access to the demographic security object
+     * @param demographic {@link Demographic} the new patient, with optional extras; its demographic number is assigned on save
+     * @param admissionProgramId {@link Integer} the program the patient is admitted to
+     * @throws IllegalArgumentException if the birth date on the demographic cannot be parsed
      */
     @Override
     @Transactional
