@@ -4017,6 +4017,46 @@
       "fixtures": "Owned synthetic patient and one formBCAR row for it, removed with it. Reads the clinic's encounterForm rows and changes none of them, so it can run alongside other checks."
     },
     {
+      "name": "get-reject-bc-billing",
+      "script": "scripts/get-reject-bc-billing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [],
+      "mutates": [
+        "billingservice",
+        "diagnosticcode",
+        "ctl_servicecodes_dxcodes"
+      ],
+      "fixtures": "lib/bc-billing-mutators.js: an MSP bill on the workflow's own FAKE patient, made a BC patient, linked to an owned appointment marked billed (B); one MSP fee code (billingservice 9xxxx), two diagnostic codes (diagnosticcode Zxxxx), all described by the run marker, and the fee code's association with the first diagnosis (ctl_servicecodes_dxcodes). Cleanup deletes the bill rows, the appointment, the codes and associations, any referral doctor named by the marker and any WCB form of the patient, and asserts each is gone. The codes and the association are visible clinic-wide while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Plus a throwaway login holding the test login's roles (lib/throwaway-login-fixture.js), whose BC billing preferences are removed with it.",
+      "notes": "The BC billing writes of #4439 task 3 sent as a GET and a HEAD: Quick Billing Save, the day sheet unbill (BillingDeleteWithoutNo), the bill delete (BillingDeleteNoAppt), Receive Payment, the WCB form save, the WCB correction, Manage Billing Codes' Add Code and fee save, Manage Private Bill's Delete, the association editor's Save and the list's Remove, Manage Referral Doctors' Add and BC Billing Preferences' Save. Each must be answered 405 or 403 by CARLOS and change none of its rows. Generate Teleplan File's GET naming a physician is sent by billing-bc-teleplan-file and Settle Paid Claims' GET and HEAD by billing-bc-settle-paid-claims, which own the clinic-wide state those would change. The saves that only checked _billing w (#4439 D12: Quick Billing Save, Manage Billing Codes' Add Code, the association Save and Remove, Manage Referral Doctors' Add, BC Billing Preferences' Save) refuse a GET since #4439's fix, and their classes are in MutatorActionGetRejectionContractUnitTest."
+    },
+    {
+      "name": "authz-bc-billing",
+      "script": "scripts/authz-bc-billing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [],
+      "mutates": [
+        "billingservice",
+        "diagnosticcode",
+        "ctl_servicecodes_dxcodes"
+      ],
+      "fixtures": "lib/bc-billing-mutators.js: an MSP bill on the workflow's own FAKE patient, made a BC patient, linked to an owned appointment marked billed (B); one MSP fee code (billingservice 9xxxx), two diagnostic codes (diagnosticcode Zxxxx), all described by the run marker, and the fee code's association with the first diagnosis (ctl_servicecodes_dxcodes). Cleanup deletes the bill rows, the appointment, the codes and associations, any referral doctor named by the marker and any WCB form of the patient, and asserts each is gone. The codes and the association are visible clinic-wide while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Plus an owned role with the write-restricted front-desk rights (_demographic r, _appointment w, _eChart r) and its throwaway login (lib/authz-read-fixture.js), removed with their BC billing preferences.",
+      "notes": "A login whose role holds no billing, billing administration or report right requests 24 BC billing pages (the bill view and receipt, Receive Payment, the WCB forms, the association list and editor, Manage Billing Codes, Manage Private Bill, Manage Referral Doctors, BC Billing Preferences, Quick Billing, the Teleplan simulation, generation and download, Manage Teleplan, Settle Paid Claims, MSP Reconciliation Reports, Upload Remittance Files, Accounting Reports and the billing report centre) and sends the 13 writes of get-reject-bc-billing as POSTs with its own CSRF token. Every one must be CARLOS's refusal (its 403 Security Exception page or the security error redirect) and no write may change its rows. #4439 task 3: authz-read-routes.js lists only Ontario billing routes."
+    },
+    {
       "name": "billing-bc-associations",
       "script": "scripts/billing-bc-associations-playwright-checks.js",
       "tiers": [
