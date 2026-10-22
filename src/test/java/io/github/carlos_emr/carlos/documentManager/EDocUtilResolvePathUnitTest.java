@@ -123,10 +123,13 @@ class EDocUtilResolvePathUnitTest extends CarlosUnitTestBase {
             assumeFalse(PathValidationUtils.isInAllowedTempDirectory(outside.toFile()),
                     "the probe file must not sit inside an allowed temp directory for this case");
 
-            assertThatThrownBy(() -> EDocUtil.resolvePath(outside.toString()))
+            // Arguments are built outside the lambdas so only resolvePath can supply the exception.
+            String absolute = outside.toString();
+            String traversal = "../" + outside.getFileName();
+            assertThatThrownBy(() -> EDocUtil.resolvePath(absolute))
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("Access denied: File is outside the allowed directories");
-            assertThatThrownBy(() -> EDocUtil.resolvePath("../" + outside.getFileName()))
+            assertThatThrownBy(() -> EDocUtil.resolvePath(traversal))
                     .isInstanceOf(SecurityException.class);
         } finally {
             Files.deleteIfExists(outside);
