@@ -59,7 +59,8 @@
             FrmRecord rec = (new FrmRecordFactory()).factory("Rourke2006");
             java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
-            String pageNum = props.getProperty("c_lastVisited", "p1"); //'p1'
+            // reopenPage keeps the include on one of the four pages, also for records saved with "p1/" (#4595).
+            String pageNum = FrmRourke2006Record.reopenPage(props.getProperty("c_lastVisited"));
             request.getRequestDispatcher("/WEB-INF/jsp/form/formrourke2006" + pageNum
                     + ".jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
         }

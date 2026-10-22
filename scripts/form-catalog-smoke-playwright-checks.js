@@ -195,11 +195,8 @@ function validatePin(env = process.env) {
  * cannot be found there. scripts/form-claims.test.js proves each literal equals the generated label, so the
  * table cannot drift from the wording below.
  */
-const PINNED = Object.freeze({
-  'alpha.open': 'ALPHA: opens from the Forms menu with no error page, script error or failed asset',
-  'cesd.redisplay': 'CESD: Save redisplays the saved record in the window it was pressed in',
-  'rourke2006.reopen': "Rourke Baby Record 2006: a fresh chart's saved-form entry reopens the saved record",
-});
+// Empty since findings 230 (ALPHA), 232 (CESD) and the Rourke 2006 part of 236 were fixed (#4590, #4591, #4595).
+const PINNED = Object.freeze({});
 const CONCERN_STEP = Object.freeze({
   bare: 'opens for a patient whose address, phone and health-card columns are NULL',
   open: 'opens from the Forms menu with no error page, script error or failed asset',
