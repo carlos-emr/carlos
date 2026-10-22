@@ -160,6 +160,9 @@ public class RxUtil {
     private static final Pattern TAPER_SEPARATOR = Pattern.compile(
             "\\s*,?\\s*\\b(?:then|followed by)\\b\\s*", Pattern.CASE_INSENSITIVE);
     private static final Pattern PER_DOSE = Pattern.compile("(?:/|per\\b)\\s*dose\\b", Pattern.CASE_INSENSITIVE);
+    /** A figure or a number word: anything in the directions that could be the dose. */
+    private static final Pattern DOSE_NUMBER = Pattern.compile(
+            "\\d|\\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten)\\b", Pattern.CASE_INSENSITIVE);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
 
     public static void setDefaultQuantity(String quantity) {
@@ -750,9 +753,11 @@ public class RxUtil {
                 TIMES_A_DAY_PHRASES[0], TIMES_A_DAY_PHRASES[1], TIMES_A_DAY_PHRASES[2], TIMES_A_DAY_PHRASES[3],
                 "\\s(?i)daily\\s", "\\s(?i)daily$", // put at last because if frequency is 'twice daily', it will first be detected as 'daily'
         };
-        // A method word opens the directions. Matched anywhere, the "take" of a trailing ", take
-        // with food" became the method and the amount scan started after it, losing the dose.
-        String[] methods = {"(?i)^\\s*Take\\b", "(?i)^\\s*" + METHOD_APPLY + "\\b", "(?i)^\\s*" + METHOD_RUB_WELL_IN + "\\b"};
+        // A method word is a whole word ("intake" and "mistake" are not "take"; "Take1" still is).
+        // Which occurrence opens the dose is decided in scanInstruction: a trailing ", take with
+        // food" after the dose and frequency is advice, while "Amoxicillin 250 mg/5 mL: take 7.5 mL"
+        // and "Please take 1 tab" open the dose although the method is not the first word.
+        String[] methods = {"(?i)\\btake(?![a-z])", "(?i)\\b" + METHOD_APPLY + "(?![a-z])", "(?i)\\b" + METHOD_RUB_WELL_IN + "\\b"};
         // A duration unit ends at whitespace, punctuation or the end of the text ("x 7 days, take
         // with food"), never inside a longer word ("daily", "months" against "m") and never before a
         // slash: "w/" (with) and "d/c" (discontinue) are abbreviations, not a week or a day.
@@ -860,7 +865,7 @@ public class RxUtil {
         //check if method is specified, if yes, check the number after method, which maybe the number to take for a frequency.
 		//if no, check if a number is specified at beginning.
 		if (!instructions.isEmpty()) {
-			InstructionSegment instructionSegment = scanInstruction(instructions, methods, route, rx);
+			InstructionSegment instructionSegment = scanInstruction(instructions, methods, route, rx, frequencyStart);
             // A strength describes the product, not a count of its units: it becomes units per
             // administration (issue #3876). A product-only lead (a concentration, a dose per body
             // size) supplies no amount, so nothing is assumed for it. Explicit amounts written
@@ -2064,9 +2069,14 @@ public class RxUtil {
     }
 
 
-    /** Extracts the leading method and amount, retaining route context for ambiguous units. */
+    /**
+     * Extracts the method and the amount it opens, retaining route context for ambiguous units.
+     *
+     * @param frequencyStart where the parsed frequency starts, or -1 when none was found; a method
+     *        word after it opens the dose only when nothing before it could be a dose
+     */
     private static InstructionSegment scanInstruction(String instructions, String[] methods, String route,
-            RxPrescriptionData.Prescription rx) {
+            RxPrescriptionData.Prescription rx, int frequencyStart) {
         InstructionSegment segment = new InstructionSegment();
         segment.route = route;
         // What the selected product is decides how an IU or gram amount with no route is read.
@@ -2076,7 +2086,7 @@ public class RxUtil {
         for (String s : methods) {
             Pattern p = Pattern.compile(s);
             Matcher m = p.matcher(instructions);
-            if (m.find()) {
+            if (m.find() && opensDose(instructions, m.start(), frequencyStart)) {
                 segment.method = instructions.substring(m.start(), m.end()).trim();
                 scanForFrequencyAndUpdateInstructionSegment(segment, instructions, segment.method, m.end());
                 break;
@@ -2096,6 +2106,17 @@ public class RxUtil {
         }
 
         return segment;
+    }
+
+    /**
+     * True when the method word at {@code methodStart} opens the dose: it comes before the
+     * frequency ("Amoxicillin 250 mg/5 mL: take 7.5 mL po tid"), no frequency was found, or nothing
+     * before it could be a dose ("Twice daily take 1 tab"). After the frequency and a written dose
+     * it is advice ("1 tab po bid x 7 days, take with food"), and the dose is read from the start.
+     */
+    private static boolean opensDose(String instructions, int methodStart, int frequencyStart) {
+        return frequencyStart < 0 || methodStart < frequencyStart
+                || !DOSE_NUMBER.matcher(instructions).region(0, methodStart).find();
     }
 
     private static void scanForFrequencyAndUpdateInstructionSegment(InstructionSegment segment, String instructions, String method, int methodEnd) {

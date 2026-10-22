@@ -949,6 +949,47 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getTakeMin()).isEqualTo(1f);
             assertThat(rx.getQuantity()).isEqualTo("14");
         }
+
+        /**
+         * A method word written before the frequency opens the dose even when a drug name, a
+         * strength or a few words come first; only a method word after the frequency, once a dose
+         * has been written ("..., take with food"), is advice. "intake" and "mistake" never count.
+         */
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '|', value = {
+            "Amoxicillin 250 mg/5 mL: take 7.5 mL po tid x 10 days | take | 7.5 | 7.5 | 225",
+            "Amoxicillin 250 mg/5 mL take 7.5 mL po tid x 10 days | take | 7.5 | 7.5 | 225",
+            "Cephalexin 500 mg: take 1 cap po qid x 7 days | take | 1 | 1 | 28",
+            "Prednisone 5 mg: take 8 tabs po daily x 5 days | take | 8 | 8 | 40",
+            "Please take 1 tab po bid x 7 days | take | 1 | 1 | 14",
+            "Patient to take 2 tabs po daily x 10 days | take | 2 | 2 | 20",
+            "Mometasone: apply 2 g to affected area daily x 14 days | apply | 2 | 2 | 28",
+            "Hydrocortisone cream - apply 1 application bid x 7 days | apply | 1 | 1 | 14",
+            "Take1 tab po bid x 7 days | Take | 1 | 1 | 14",
+            "One tab po bid x 7 days, take with food | '' | 1 | 1 | 14",
+            "1 tab po bid x 7 days. Take with food. | '' | 1 | 1 | 14",
+            "1 tab po daily with fluid intake x 7 days | '' | 1 | 1 | 7"
+        })
+        @DisplayName("should read a method word written before the frequency, after a drug name or strength")
+        void shouldReadMethodWord_whenWrittenBeforeFrequency(String instructions, String method, float minimum,
+                float maximum, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getMethod()).isEqualTo(method);
+            assertDoseAndQuantity(rx, minimum, maximum, quantity);
+        }
+
+        @Test
+        @DisplayName("should read a method word after a leading frequency when no dose comes before it")
+        void shouldReadMethodWord_whenFrequencyIsWrittenFirst() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Twice daily take 1 tab po x 7 days");
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getMethod()).isEqualTo("take");
+            assertThat(rx.getTakeMin()).isEqualTo(1f);
+            assertThat(rx.getTakeMax()).isEqualTo(1f);
+        }
     }
 
     @Nested
