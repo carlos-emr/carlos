@@ -126,7 +126,40 @@ check therefore excuses that one aborted `/csrfguard` script load, proven by `na
 `legacy-lab-display` does.
 `clinical-forms-save-reopen` failed on this install at "Mental Health Form 14: Print Pdf answers a PDF
 carrying the saved prose", on two runs. Its other failing pairs are pinned by its own variants. That
-form is not touched here and no finding records the print failure yet.
+form is not touched here and no finding records the print failure yet. (Fixed in #5161: see the next
+paragraph.)
+The Mental Health form fixes of #5161 (issues #4595, #4596, #4597, #4600 and #4683, findings 236, 238,
+239 and 242) were validated on 2026-10-22. The 2026.09.0~snapshot26 packages were built inside an Ubuntu
+26.04 container from the `release/2026.08` fix branch at 57c87cb777: DrugRef came from its pinned ref, and
+carlos-ctl from the pin's fallback commit `325482a`, stamped 1.2.0 because that tag is not published yet.
+They were installed fresh with `scripts/deb-docker-validation.sh up` into an Ubuntu 26.04 systemd container
+with the demo dataset (`carlos-ctl check` clean, `:443`). That host reached the network only through an
+egress proxy that resets reused connections. So apt ran with `Acquire::https::Pipeline-Depth "0"` (set in
+the image passed as `BASE_IMAGE`) and Maven with `-Daether.connector.http.reuseConnections=false`.
+Results:
+
+- `clinical-forms-save-reopen` and its `-form14-42`, `-mental-health-script`,
+  `-mental-health-chart-reload`, `-mental-health-reopen` and `-mental-health-print` variants **PASS**, with
+  no expected failure left. So do `form-catalog-smoke` and `form-catalog-smoke-rourke2006-reopen`.
+- The Mental Health chain carries a Referred By of `Dr "Sam" O'Neil & <Co>` through the three Saves, the
+  reopen and the three prints.
+- The Form 14 Print Pdf failure recorded above is fixed in the same PR. The physician's name started at
+  x=415 and ran off the page, so the PDF lost its end. The new opt-in `fit` print-config column sets such a
+  value small enough to stay on its blank.
+- `--residue-audit` reports 63 `measurementType` and 44 `validations` rows added on the first run after a
+  fresh install. The Vascular Tracker's setup (`FrmSetupForm2Action`, through
+  `EctFindMeasurementTypeUtil.checkMeasurmentTypes`) adds its dictionary the first time it opens. A
+  second run reports no residue.
+- Negative control: the pre-fix pages, servlet and print config were put back into the installed webapp,
+  with `touch` so Jasper recompiled them. The five variants and `-rourke2006-reopen` then **FAIL** at
+  their steps, and the default entry fails at "Mental Health Form 14: each real date is validated". The
+  Mental Health chain stops at "The redisplayed form does not show the saved c_referredBy". Only
+  `-mental-health-script` (finding 237, fixed earlier) still passes.
+- Rows saved before the fix reopen on the right page through `formmentalhealth` and `formrourke2006`
+  (an ad-hoc check, not committed). That covers `c_lastVisited` stored as `referral/`, `assessment/`,
+  `outcome/`, `p1/`, `p2/` and `p3/`, and an unknown `../x`, which opens the first page.
+- The installer's "NOT ready to use" notice came from nginx's stock site on this IPv6-less container
+  (`[::]:80`), as section 2 describes. No `.install-incomplete` marker remained.
 `rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
 run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
 (DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
