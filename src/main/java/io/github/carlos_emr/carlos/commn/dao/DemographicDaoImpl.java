@@ -2345,9 +2345,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
-            if (!(new HL7A04Generator()).generateHL7A04(client)) {
-                log.warn("HL7 A04 generation did not complete for a saved demographic");
-            }
+            runAfterCommitOrNow(() -> {
+                if (!(new HL7A04Generator()).generateHL7A04(client)) {
+                    log.warn("HL7 A04 generation did not complete for a saved demographic");
+                }
+            });
         }
 
         // the new way

@@ -721,8 +721,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Patients named FAKE-PW<hex>-A/-B/-C created through POST /ws/rs/demographics with extension values FAKE-PW<hex>-*; cleanup deletes the patients and their admissions by last name and every demographicExt row by that value (wherever it was stored, including no patient) and asserts them gone.",
-      "notes": "A patient created over REST with extras (demo_cell) has each extension linked to the new demographic_no, whatever number the client sent, and the summary endpoint shows it (#5119); two colliding extras fail the request and leave no patient, admission or extension row because creation is one transaction."
+      "fixtures": "Patients named FAKE-PW<hex>-A/-B/-C/-D created through POST /ws/rs/demographics, plus a victim patient FAKE-PW<hex>-V with one extension row inserted by SQL, all with extension values FAKE-PW<hex>-*; cleanup deletes the patients and their admissions by last name and every demographicExt row by that value (wherever it was stored, including no patient) and asserts them gone.",
+      "notes": "A patient created over REST with extras (demo_cell) has each extension linked to the new demographic_no, whatever number the client sent, and the summary endpoint shows it (#5119); a client-supplied extension id never re-points another patient's extension row; two colliding extras fail the request and leave no patient, admission or extension row because creation is one transaction."
     },
     {
       "name": "demographic-edit-update",
