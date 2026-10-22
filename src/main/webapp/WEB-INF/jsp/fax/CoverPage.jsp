@@ -117,7 +117,8 @@
 
         // Action to remove additional recipients from the form.
         function removeRecipient(element) {
-            $(element).parent().parent().parent().remove();
+            // Keep the Copies controls and other recipients when removing this row.
+            $(element).closest('#fax-additional-recipients > .row').remove();
         }
 
         // Show loading screen after submiting and validating the form.
