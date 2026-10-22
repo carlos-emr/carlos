@@ -183,6 +183,15 @@ class MutatorActionGetRejectionContractUnitTest {
             // BC billing code edit: saves a code's fee and dates; every form and request on its page posts.
             Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingEditCode2Action",
                     "_billing", "w"),
+            // BC billing deletes: marks a bill deleted (and, without a number, resets its appointment);
+            // the day sheet and the reports post them, as their Ontario twins require.
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteNoAppt2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteWithoutNo2Action",
+                    "_billing", "w"),
+            // eForm restore: marks a deleted eForm current again; both deleted-list pages post it.
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.UnRemEForm2Action",
+                    "_eform", "w"),
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
@@ -679,6 +688,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingEditCode2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteNoAppt2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteWithoutNo2Action",
+        "io.github.carlos_emr.carlos.eform.actions.UnRemEForm2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action",
