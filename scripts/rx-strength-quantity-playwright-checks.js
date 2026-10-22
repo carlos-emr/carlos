@@ -10,8 +10,10 @@
  * calculates nothing and leaves the card's quantity as it was. The quantity
  * update after a 1000-unit dose derives the duration, a spaced range, written
  * daily counts, the n/7 shorthand, a trailing ", take with food", a second
- * day word before the duration and a "then" taper are read, and "grams" is
- * the same unit as "g" (PR #5077 review).
+ * day word before the duration and a "then" taper are read; "grams" is the
+ * same unit as "g", "international units" the same as "IU", and a method word
+ * after a product name ("Amoxicillin 250 mg/5 mL: take 7.5 mL") opens the dose
+ * (PR #5077 review).
  * Uses an owned synthetic patient and removes its prescription rows after
  * the browser closes; do not run concurrently with other checks.
  */
@@ -115,6 +117,8 @@ async function workflow(s) {
     ['Take 2 tabs BID x 5 days then 1 tab BID x 5 days', 2, 2, '30', 'BID', '10'],
     ['Take 2 grams po tid x 7 days', 1, 1, '21'],
     ['Apply 2 grams BID x 7 days', 2, 2, '28', 'BID'],
+    ['Amoxicillin 250 mg/5 mL: take 7.5 mL po tid x 10 days', 7.5, 7.5, '225', 'TID', '10'],
+    ['1000 international units po daily x 30 days', 1, 1, '30', 'OD', '30'],
     ['1000 mg po tid x 7 days', 1, 1, '21'],
   ];
   let displayed = null;
