@@ -358,8 +358,8 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
         @DisplayName("should open the patient's own appointment as an ordinary entry when appointmentList is sent")
         void shouldOpenAsOrdinaryEntry_whenAppointmentListNamesThePatientsOwnAppointment() throws Exception {
             try (var props = mockStatic(CarlosProperties.class);
-                 var patients = mockStatic(RxPatientData.class);
-                 var beans = clinicalBeans()) {
+                 var _ = mockStatic(RxPatientData.class);
+                 var _ = clinicalBeans()) {
                 props.when(CarlosProperties::getInstance).thenReturn(properties);
                 MockHttpServletRequest request = request("101", "9001");
                 request.setParameter("appointmentList", "true");
@@ -379,8 +379,8 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
         @DisplayName("should open without an appointment and without looking one up when none is named")
         void shouldOpenWithoutLookup_whenTheAppointmentIsZero(String zero) throws Exception {
             try (var props = mockStatic(CarlosProperties.class);
-                 var patients = mockStatic(RxPatientData.class);
-                 var beans = clinicalBeans()) {
+                 var _ = mockStatic(RxPatientData.class);
+                 var _ = clinicalBeans()) {
                 props.when(CarlosProperties::getInstance).thenReturn(properties);
                 MockHttpServletRequest request = request("101", zero);
                 assertThat(execute(request, new MockHttpServletResponse())).isEqualTo("success2");
@@ -394,8 +394,8 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
         @DisplayName("should remember the appointment's own number, not the request's spelling of it")
         void shouldRememberTheRowsNumber_whenTheRequestPadsTheAppointment() throws Exception {
             try (var props = mockStatic(CarlosProperties.class);
-                 var patients = mockStatic(RxPatientData.class);
-                 var beans = clinicalBeans()) {
+                 var _ = mockStatic(RxPatientData.class);
+                 var _ = clinicalBeans()) {
                 props.when(CarlosProperties::getInstance).thenReturn(properties);
                 MockHttpServletRequest request = request("101", "0009001");
                 assertThat(execute(request, new MockHttpServletResponse())).isEqualTo("success2");
@@ -408,7 +408,7 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
         @DisplayName("should refuse a malformed appointment number without looking it up")
         void shouldRefuseWithoutLookup_whenTheAppointmentIsMalformed(String malformed) throws Exception {
             try (var props = mockStatic(CarlosProperties.class);
-                 var patients = mockStatic(RxPatientData.class);
+                 var _ = mockStatic(RxPatientData.class);
                  var beans = clinicalBeans()) {
                 props.when(CarlosProperties::getInstance).thenReturn(properties);
                 MockHttpServletRequest request = request("101", malformed);
@@ -426,8 +426,9 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
             when(security.hasPrivilege(login, "_demographic", "r", "101")).thenReturn(false);
             MockHttpServletRequest request = request("101", "9002");
             request.setParameter("appointmentList", "true");
+            MockHttpServletResponse response = new MockHttpServletResponse();
             try (var beans = clinicalBeans()) {
-                assertThatThrownBy(() -> execute(request, new MockHttpServletResponse()))
+                assertThatThrownBy(() -> execute(request, response))
                         .isInstanceOf(SecurityException.class)
                         .hasMessage("missing required sec object (_demographic)");
                 assertThat(beans.constructed()).isEmpty();

@@ -114,10 +114,11 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     // Any character except ASCII control chars (allows Unicode for bilingual Canadian EMR)
     private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
     private static final Set<String> VALID_SOURCES = Set.of("encounter", "messenger");
-    private final CaseManagementNoteDAO caseManagementNoteDao;
-    private final CaseManagementManager caseManagementMgr;
-    private final SecurityInfoManager securityInfoManager;
-    private final OscarAppointmentDao appointmentDao;
+    // Spring singletons: transient because ActionSupport is Serializable; an action is never serialized.
+    private final transient CaseManagementNoteDAO caseManagementNoteDao;
+    private final transient CaseManagementManager caseManagementMgr;
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient OscarAppointmentDao appointmentDao;
 
     /** Struts object-factory constructor. */
     public EctIncomingEncounter2Action() {
