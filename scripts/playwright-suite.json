@@ -7086,6 +7086,25 @@
       "notes": "Since #4515 Delete posts to provider/DeleteMyGroupMembers and Save to provider/SaveMyGroup (both POST-only, both answer 405 to GET/HEAD); the retired providercontrol displaymode=newgroup/savemygroup/vary and ViewProviderNewGroup routes are probed for 'no write' only, because they answer with a page or 404 rather than 405."
     },
     {
+      "name": "get-reject-dispatch-params",
+      "script": "scripts/get-reject-dispatch-params-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Seeds two secObjPrivilege rows of a marker role, a throwaway provider and login holding doctor (lib/throwaway-login-fixture.js), two messages to the test provider and one ICD-9 row with a marker code; each write is performed once by the real page's POST and replayed as GET/HEAD against the second owned row. Cleanup deletes those rows and the recyclebin copies the privilege and role pages write, and asserts it.",
+      "notes": "Issue #3394: writes named by a parameter other than method (admin/ProviderPrivilege buttonUpdate and submit, admin/ProviderRole submit/buttonUpdate/buttonSetPrimaryRole, messenger/HandleMessages delete, report/DxresearchReport method=editDesc). The code-description editor has no link that fills its hidden code fields, so the check sets them on the page before Modify."
+    },
+    {
       "name": "get-reject-rourke-form",
       "script": "scripts/get-reject-rourke-form-playwright-checks.js",
       "tiers": [

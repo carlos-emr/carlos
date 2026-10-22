@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
+import io.github.carlos_emr.carlos.app.HttpMethodGuardFilter;
 import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.service.MyGroupMembershipService;
@@ -46,6 +47,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -60,9 +64,14 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -586,7 +595,23 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action",
         // BPMH form: method=save and method=print store the form and must be POST; opening it permits GET.
         // Focused GET/HEAD cases in BpmhFormRetrieve2ActionUnitTest.
-        "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action"
+        "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action",
+        // Write parameters other than `method` (#3394). Each also appears in
+        // HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE, which
+        // shouldRejectGetAndHead_forEveryFilterListedWriteParameter drives against the action.
+        // Provider Privilege: opening the page permits GET; submit (Add/Delete) or buttonUpdate rewrites
+        // privilege rows and must be a POST. Covered by ProviderPrivilegeRoleWriteGuardUnitTest.
+        "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action",
+        // Provider Role: opening and filtering permit GET; submit (a localized Add/Delete), buttonUpdate
+        // or buttonSetPrimaryRole changes a role, must be a POST and needs write. Covered by
+        // ProviderPrivilegeRoleWriteGuardUnitTest.
+        "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
+        // Dx registry report: the reports permit GET; method=editDesc rewrites a shared code description
+        // and must be a POST. Covered by DxresearchReport2ActionTest (EditDescMethodGuard).
+        "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action",
+        // Message actions: reply, replyAll and forward open the compose page by GET; delete deletes the
+        // message and must be a POST. Covered by MsgHandleMessages2ActionDeleteGuardUnitTest.
+        "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action"
     );
 
     /**
@@ -775,7 +800,12 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action",
         "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
         // The form package is not in IN_SCOPE_PACKAGE_PREFIXES; the BPMH form's dispatcher registers here.
-        "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action"
+        "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action",
+        // admin.web and commn.web are not in IN_SCOPE_PACKAGE_PREFIXES; these gate writes named by
+        // parameters other than `method` (#3394; conditional mutators).
+        "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action",
+        "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
+        "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
@@ -845,6 +875,103 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_rx", "w", httpMethod,
                     Map.of("method", method, "scriptNo", "12", "drugList", "12", "demographicNo", "1"));
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("DxresearchReport2Action should reject unsafe methods for the editDesc write")
+    void shouldRejectUnsafeMethod_forDxresearchReportEditDesc(String httpMethod) throws Exception {
+        assertRejectsUnsafeMethod(
+                "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action",
+                "_report", "r", httpMethod,
+                Map.of("method", "editDesc", "editingCodeType", "icd9", "editingCodeCode", "250",
+                        "editingCodeDesc", "FAKE description"));
+    }
+
+    /**
+     * The privilege each action behind {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE}
+     * checks before its method guard, as {@code {securityObject, level}}. A route added to that table
+     * needs an entry here, or {@link #filterListedWriteParameters()} fails.
+     */
+    private static final Map<String, String[]> FILTER_LISTED_ROUTE_PRIVILEGES = Map.of(
+        "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action", new String[]{"_admin", "w"},
+        "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action", new String[]{"_admin", "r"},
+        "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action", new String[]{"_msg", "r"},
+        "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action", new String[]{"_form", "w"});
+
+    /**
+     * One case per route and write parameter in {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE},
+     * with the action class the Struts configuration maps that route to. The filter is only the
+     * backstop: the action must refuse the GET itself, so a route listed there without its own guard
+     * fails here (issue #3394).
+     */
+    static Stream<Arguments> filterListedWriteParameters() throws Exception {
+        Map<String, String> classByRoute = strutsActionClassesByRoute();
+        List<Arguments> out = new ArrayList<>();
+        for (Map.Entry<String, Set<String>> route
+                : new java.util.TreeMap<>(HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE).entrySet()) {
+            String className = classByRoute.get(route.getKey());
+            assertThat(className)
+                .as("HttpMethodGuardFilter lists route %s, but no Struts action is mapped there", route.getKey())
+                .isNotNull();
+            assertThat(FILTER_LISTED_ROUTE_PRIVILEGES)
+                .as("add %s (route %s) to FILTER_LISTED_ROUTE_PRIVILEGES", className, route.getKey())
+                .containsKey(className);
+            for (String param : new TreeSet<>(route.getValue())) {
+                out.add(Arguments.of(route.getKey(), className, param));
+            }
+        }
+        return out.stream();
+    }
+
+    @ParameterizedTest(name = "{0} with {2} rejects GET and HEAD in {1}")
+    @MethodSource("filterListedWriteParameters")
+    @DisplayName("every filter-listed write parameter should be refused by the action itself for GET and HEAD")
+    void shouldRejectGetAndHead_forEveryFilterListedWriteParameter(
+            String route, String className, String param) throws Exception {
+        String[] privilege = FILTER_LISTED_ROUTE_PRIVILEGES.get(className);
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            // A non-English label proves the guard keys on the parameter's presence, not its value.
+            assertRejectsUnsafeMethod(className, privilege[0], privilege[1], httpMethod,
+                    Map.of(param, "Ajouter", "messageNo", "1"));
+        }
+    }
+
+    /** Every Struts action in the {@code struts*.xml} modules, as {@code "/" + name} to its class. */
+    private static Map<String, String> strutsActionClassesByRoute() throws Exception {
+        Path configDir = Paths.get("src", "main", "webapp", "WEB-INF", "classes");
+        Map<String, String> classByRoute = new HashMap<>();
+        List<Path> configs;
+        try (Stream<Path> paths = Files.list(configDir)) {
+            configs = paths.filter(p -> p.getFileName().toString().matches("struts(?:-[a-z]+)?\\.xml"))
+                    .sorted().toList();
+        }
+        DocumentBuilder db = newHardenedDocumentBuilder();
+        for (Path config : configs) {
+            try (InputStream in = Files.newInputStream(config)) {
+                NodeList actions = db.parse(in).getElementsByTagName("action");
+                for (int i = 0; i < actions.getLength(); i++) {
+                    Element action = (Element) actions.item(i);
+                    classByRoute.put("/" + action.getAttribute("name"), action.getAttribute("class"));
+                }
+            }
+        }
+        return classByRoute;
+    }
+
+    private static DocumentBuilder newHardenedDocumentBuilder() throws Exception {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setValidating(false);
+        dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        dbf.setXIncludeAware(false);
+        dbf.setExpandEntityReferences(false);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        // The Struts modules declare a DOCTYPE; it is allowed but never resolved.
+        db.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+        return db;
     }
 
     /**
