@@ -15,11 +15,18 @@ const JSP = process.env.MEASUREMENTS_JSP || path.join(__dirname,
   '../src/main/webapp/WEB-INF/jsp/encounter/oscarMeasurements/Measurements.jsp');
 const source = fs.readFileSync(JSP, 'utf8');
 
-/** The page's closing script block: the one that defines calcWHtR. */
+/**
+ * The page's closing script block: the one that defines calcWHtR. Located by plain string
+ * positions around that definition, since the JSP is a fixed file this test reads, not markup to filter.
+ */
 function calculationScript() {
-  const blocks = [...source.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
-  const script = blocks.find((block) => block.includes('function calcWHtR('));
-  assert.ok(script, 'Measurements.jsp has no script block defining calcWHtR');
+  const definition = source.indexOf('function calcWHtR(');
+  assert.ok(definition >= 0, 'Measurements.jsp does not define calcWHtR');
+  const open = source.lastIndexOf('<script>', definition);
+  const close = source.indexOf('</script>', definition);
+  assert.ok(open >= 0 && close > definition && !source.slice(open, definition).includes('</script>'),
+    'calcWHtR is not inside a plain <script> block of Measurements.jsp');
+  const script = source.slice(open + '<script>'.length, close);
   assert.ok(!/<%|\$\{/.test(script),
     'the calculation script must stay free of JSP scriptlets and EL, or this test can no longer run it as written');
   return script;
