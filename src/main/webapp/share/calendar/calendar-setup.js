@@ -227,7 +227,11 @@ Calendar._doSetup = function (params) {
     if (typeof params.onClose === "function") {
         closeHooks.push(function (selectedDates, dateStr, instance) {
             var calShim = {
-                hide: function () { instance.close(); },
+                // jscalendar's onClose handlers end with cal.hide(). Flatpickr's
+                // close() has no re-entry guard and fires onClose again, so a hide()
+                // made while closing recursed until the stack overflowed (#5055).
+                // It clears isOpen before firing onClose, which is what this tests.
+                hide: function () { if (instance.isOpen) instance.close(); },
                 multiple: {},
                 date: selectedDates[0] || new Date(),
                 params: params
@@ -261,6 +265,25 @@ Calendar._doSetup = function (params) {
 
     /* ── Initialise flatpickr on the input element ───────────────────── */
     var target = inputEl || buttonEl;
+    // A page that names its field by `name` only has no inputField element, and
+    // reads the dates in its own onClose (billingShortcutPg1.jsp's billDate
+    // textarea, #5055). Flatpickr bound to the trigger itself opened on the same
+    // click the trigger handler below toggles, so the calendar never appeared, and
+    // its key and blur handlers read a .value a link does not have. Give it a
+    // hidden stand-in field beside the trigger, placed at the trigger, instead.
+    // Hidden by style, not type="hidden": Flatpickr turns its field into a text box.
+    if (!inputEl && buttonEl && buttonEl.parentNode) {
+        target = document.createElement("input");
+        target.type = "text";
+        target.style.display = "none";
+        target.tabIndex = -1;
+        target.setAttribute("aria-hidden", "true");
+        buttonEl.parentNode.insertBefore(target, buttonEl.nextSibling);
+        fpOpts.positionElement = buttonEl;
+        // A press on the trigger is then outside Flatpickr's field: without this the
+        // press closed an open calendar and the click reopened it at once.
+        fpOpts.ignoredFocusElements = [buttonEl];
+    }
     // Legacy Calendar.setup did not rewrite the field before the form's onload
     // handler. eForms often receive an ISO date and format it themselves there.
     var initialValue = inputEl ? inputEl.value : null;

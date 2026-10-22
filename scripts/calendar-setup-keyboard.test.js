@@ -43,7 +43,7 @@ function element(document, tagName, attributes = {}, textContent = '') {
  * Runs Calendar.setup on box `d` with trigger `dcal`; returns the page.
  * @param {Object} opts trigger: { tagName, attributes, text }; params: extra Calendar.setup params; tt: Calendar._TT
  */
-function setUp({ trigger = { tagName: 'IMG' }, params = {}, tt = {} } = {}) {
+function setUp({ trigger = { tagName: 'IMG' }, params = {}, tt = {}, guardedClose = true } = {}) {
   const document = { activeElement: null };
   document.body = element(document, 'BODY');
   document.activeElement = document.body;
@@ -63,7 +63,14 @@ function setUp({ trigger = { tagName: 'IMG' }, params = {}, tt = {} } = {}) {
     instance = {
       input: target, isOpen: false, calendarContainer, options, closes: 0,
       open() { this.isOpen = true; },
-      close() { if (!this.isOpen) return; this.isOpen = false; this.closes += 1; onClose.forEach((hook) => hook([], '', instance)); },
+      // Real Flatpickr's close() has no re-entry guard: it clears isOpen and fires onClose
+      // every time it is called. guardedClose: false models that.
+      close() {
+        if (guardedClose && !this.isOpen) return;
+        this.isOpen = false; this.closes += 1;
+        if (this.closes > 50) throw new RangeError('close() re-entered itself');
+        onClose.forEach((hook) => hook([], '', instance));
+      },
       toggle() { if (this.isOpen) this.close(); else this.open(); },
     };
     return instance;
@@ -190,6 +197,26 @@ test('shouldStillCallThePagesOnClose_beforeTheFocusReturns', () => {
   page.fp.close();
   assert.deepEqual(calls, ['function'], 'the page\'s onClose still gets the legacy calendar object');
   assert.equal(page.document.activeElement, page.button);
+});
+
+test('shouldCloseOnce_whenThePagesOnCloseEndsWithCalHide', () => {
+  // billingShortcutPg1.jsp's onClose ends with the jscalendar idiom cal.hide() (#5055).
+  const page = setUp({ guardedClose: false, params: { onClose: (cal) => cal.hide() } });
+  page.fp.open();
+  page.fp.close();
+  assert.equal(page.fp.closes, 1, 'hide() made while closing must not close again');
+  assert.equal(page.fp.isOpen, false);
+});
+
+test('shouldStillCloseAnOpenCalendar_whenHideIsCalledFromOutsideOnClose', () => {
+  let legacy;
+  const page = setUp({ guardedClose: false, params: { onClose: (cal) => { legacy = cal; } } });
+  page.fp.open();
+  page.fp.close();
+  page.fp.open();
+  legacy.hide();
+  assert.equal(page.fp.isOpen, false);
+  assert.equal(page.fp.closes, 2);
 });
 
 test('shouldMoveIntoTheOpenCalendar_whenArrowDownIsPressedInAnEmptyBox', () => {
