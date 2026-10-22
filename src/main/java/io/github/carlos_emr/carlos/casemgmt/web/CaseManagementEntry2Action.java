@@ -3101,7 +3101,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return visible.stream().anyMatch(note -> Objects.equals(selectedId, note.getId())) ? visible : null;
     }
 
-    /** Refuses history before any clinical text or demographic name is exposed to the view. */
+    /**
+     * Refuses note, issue or revision history before any clinical text or demographic name is
+     * exposed to the view. The bare 403 carries no patient identifier or reason.
+     */
     private String refuseNoteHistory() {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         return NONE;
@@ -3110,7 +3113,28 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     public String issuehistory() {
         if (request.getSession().getAttribute("userrole") == null) return "expired";
 
-        String demono = getDemographicNo(request);
+        // Same per-patient preamble as notehistory() and history(). execute() only checks the
+        // global _demographic r right, which does not honour a patient-specific record lock
+        // (_demographic$<id> / _eChart$<id>), so a locked patient's issue-linked notes, name and
+        // issue titles must be refused before anything is loaded. The canonical id (no leading
+        // zeros) is used for every check and lookup so a padded value cannot miss a scoped lock.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        Long demographicId = parseExistingNoteId(getDemographicNo(request));
+        if (loggedInInfo == null || demographicId == null || demographicId <= 0 || demographicId > Integer.MAX_VALUE) {
+            return refuseNoteHistory();
+        }
+        String demono = demographicId.toString();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demono)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demono)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicId.intValue())) {
+            return refuseNoteHistory();
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        if (!caseManagementMgr.isClientInProgramDomain(providerNo, demono)
+                && !caseManagementMgr.isClientReferredInProgramDomain(providerNo, demono)) {
+            return refuseNoteHistory();
+        }
+
         request.setAttribute("demoName", getDemoName(demono));
         String issueIds = request.getParameter("issueIds");
 
