@@ -568,7 +568,30 @@ Properties oscarVariables = CarlosProperties.getInstance();
 <!-- #CAISI END-->
 
 <!-- #SYSTEM Management-->
-	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements,_admin.document,_admin.flowsheet,_admin.misc,_admin.userAdmin" rights="r" reverse="<%=false%>">
+	<%-- One tag per object: a combined objectName list keeps ONE privilege per role across the
+	     objects it names, so a role's `o` (no-rights) row on _admin.misc could hide this whole
+	     section from a role that reads _admin.flowsheet (manage-flowsheets-access pins that case).
+	     Each listed object opens at least one entry below. --%>
+	<c:set var="canSeeSystemManagement" value="${false}" />
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.measurements" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.document" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.flowsheet" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.misc" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<c:if test="${canSeeSystemManagement}">
 			<div class="accordion-item">
 			<h2 class="accordion-header">
 			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEight" aria-expanded="false" aria-controls="collapseEight">
@@ -591,6 +614,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 				</security:oscarSec>		
 						
 						
+				<%-- Same gate as ProviderPrivilege2Action and providerPrivilege.jsp: write on either object. --%>
 				<c:set var="canManageRoleRights" value="${false}" />
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w">
 					<c:set var="canManageRoleRights" value="${true}" />
@@ -658,18 +682,20 @@ Properties oscarVariables = CarlosProperties.getInstance();
 <%--					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/FacilityManager"><fmt:message key="admin.admin.manageFacilities"/></a></li>--%>
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/encounter/oscarMeasurements/adminFlowsheet/ViewNewFlowsheet"><fmt:message key="admin.admin.newFlowsheet"/></a></li>
 					</security:oscarSec>
-					<%-- Check objects separately: combined SecurityTag lookups collapse each role's grants. --%>
-					<c:set var="canManageFlowsheets" value="${false}" />
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w">
-						<c:set var="canManageFlowsheets" value="${true}" />
+					<%-- Same objects and right as ManageFlowsheets2Action's view gate: read on any one
+					     opens the list, and the page offers enable/disable and upload only to a writer
+					     (issue #4623). One tag per object, as combined tags collapse each role's grants. --%>
+					<c:set var="canViewFlowsheets" value="${false}" />
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r">
+						<c:set var="canViewFlowsheets" value="${true}" />
 					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.misc" rights="w">
-						<c:set var="canManageFlowsheets" value="${true}" />
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.misc" rights="r">
+						<c:set var="canViewFlowsheets" value="${true}" />
 					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.flowsheet" rights="w">
-						<c:set var="canManageFlowsheets" value="${true}" />
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.flowsheet" rights="r">
+						<c:set var="canViewFlowsheets" value="${true}" />
 					</security:oscarSec>
-					<c:if test="${canManageFlowsheets}">
+					<c:if test="${canViewFlowsheets}">
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageFlowsheets"><fmt:message key="admin.admin.flowsheetManager"/></a></li>
 					</c:if>
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
@@ -726,7 +752,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 				</div>
 				</div>
 				</div>
-	</security:oscarSec>
+	</c:if>
 <!-- #SYSTEM Management END-->
 
 <!-- #Fax Management -->

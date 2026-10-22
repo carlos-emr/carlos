@@ -43,6 +43,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("admin")
 class AdministrationNavigationRegressionTest {
 
+    private static final Path LEFT_NAV = Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
+    private static final Path ADMIN_HOME = Path.of("src/main/webapp/WEB-INF/jsp/administration/index.jsp");
+
     private static final List<Path> ADMIN_NAV_FILES = List.of(
             Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf"),
             Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp"));
@@ -142,6 +145,72 @@ class AdministrationNavigationRegressionTest {
                     .contains("/eform/efmformmanager${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}")
                     .doesNotContain("/eform/efmformmanager?scheduleNav=1\"");
         }
+    }
+
+    @Test
+    @DisplayName("Manage Flowsheets link should follow the action's per-object read gate")
+    void shouldGuardManageFlowsheetsLink_withPerObjectReadChecks() throws IOException {
+        // ManageFlowsheets2Action opens the list for read on any of these (issue #4623); the page
+        // itself offers enable/disable and upload only to a writer.
+        assertEntryGuardedByEachObject(Files.readString(LEFT_NAV), "/admin/ManageFlowsheets",
+                "canViewFlowsheets", "r", "_admin", "_admin.misc", "_admin.flowsheet");
+    }
+
+    @Test
+    @DisplayName("Assign Role/Rights to Object entries should follow the action's per-object write gate")
+    void shouldGuardRoleRightsEntries_withPerObjectWriteChecks() throws IOException {
+        assertEntryGuardedByEachObject(Files.readString(LEFT_NAV), "/admin/ProviderPrivilege",
+                "canManageRoleRights", "w", "_admin", "_admin.userAdmin");
+        assertEntryGuardedByEachObject(Files.readString(ADMIN_HOME), "/admin/ProviderPrivilege",
+                "canAssignRoleRights", "w", "_admin", "_admin.userAdmin");
+    }
+
+    @Test
+    @DisplayName("System Management section should open for read on any of its objects, each checked alone")
+    void shouldGateSystemManagementSection_withPerObjectReadChecks() throws IOException {
+        assertEntryGuardedByEachObject(Files.readString(LEFT_NAV), "admin.admin.SystemManagement",
+                "canSeeSystemManagement", "r", "_admin", "_admin.measurements", "_admin.document",
+                "_admin.flowsheet", "_admin.misc", "_admin.userAdmin");
+    }
+
+    @Test
+    @DisplayName("Assign Role/Rights to Object page should admit the same write grants as its action")
+    void shouldAdmitRoleRightsPage_forWriteOnEitherObject() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/providerPrivilege.jsp"));
+        String gate = jsp.substring(0, jsp.indexOf("if (!authed)"));
+
+        // Deny by default; each object's write grant admits on its own, as in ProviderPrivilege2Action.
+        assertThat(gate)
+                .contains("boolean authed = false;")
+                .contains("<security:oscarSec roleName=\"<%=roleName$%>\" objectName=\"_admin\" rights=\"w\">")
+                .contains("<security:oscarSec roleName=\"<%=roleName$%>\" objectName=\"_admin.userAdmin\" rights=\"w\">")
+                .doesNotContain("rights=\"*\"")
+                .doesNotContainPattern("objectName=\"[^\"]*,");
+    }
+
+    /**
+     * Asserts that {@code entry} sits inside {@code <c:if test="${flag}">} and that the flag is set only
+     * by one single-object {@code oscarSec} check per object. A comma-separated objectName list keeps
+     * ONE privilege per role across its objects, so one object's row could mask another's grant.
+     */
+    private static void assertEntryGuardedByEachObject(String jsp, String entry, String flag, String rights,
+                                                       String... objectNames) {
+        int entryIndex = jsp.indexOf(entry);
+        assertThat(entryIndex).as(entry + " should be present").isNotNegative();
+        int reset = jsp.lastIndexOf("<c:set var=\"" + flag + "\" value=\"${false}\" />", entryIndex);
+        int test = jsp.lastIndexOf("<c:if test=\"${" + flag + "}\">", entryIndex);
+        assertThat(reset).as(entry + " should be preceded by a reset of " + flag).isNotNegative();
+        assertThat(test).as(entry + " should be inside <c:if test=\"${" + flag + "}\">").isGreaterThan(reset);
+        assertThat(jsp.indexOf("</c:if>", test)).as(entry + " should be inside the " + flag + " block")
+                .isGreaterThan(entryIndex);
+
+        String gate = jsp.substring(reset, test);
+        for (String objectName : objectNames) {
+            assertThat(gate).contains("<security:oscarSec roleName=\"<%=roleName$%>\" objectName=\""
+                    + objectName + "\" rights=\"" + rights + "\">");
+        }
+        assertThat(gate.split("<security:oscarSec", -1)).as(flag + " checks").hasSize(objectNames.length + 1);
+        assertThat(gate).doesNotContainPattern("objectName=\"[^\"]*,");
     }
 
     private static void assertLinkGuardedBy(String jsp, String link, String objectName, String rights) {
