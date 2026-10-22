@@ -307,4 +307,29 @@ class ServiceCodePersisterUnitTest {
         assertThat(result.formFields()).containsEntry("service_code", "_");
         verify(dao).remove(77);
     }
+
+    @Test
+    void shouldRefuseRepeatedPrivateCodeAdd_withoutChangingTheFirstSave() {
+        var existing = new java.util.concurrent.atomic.AtomicReference<BillingService>();
+        when(dao.persistPrivateCodeIfAbsent(any(BillingService.class))).thenAnswer(invocation -> {
+            BillingService row = invocation.getArgument(0);
+            if (!existing.compareAndSet(null, row)) return false;
+            row.setBillingserviceNo(99);
+            return true;
+        });
+        var first = new ServiceCodePersister.PrivateCodeMutationRequest(
+                "Save", "add_FAKE", "FAKE", "First description", "31.50", "2026-05-01", "0");
+        var retry = new ServiceCodePersister.PrivateCodeMutationRequest(
+                "Save", "add_FAKE", "FAKE", "Retry description", "99.00", "2026-05-01", "0");
+
+        assertThat(persister.saveOrDeletePrivateCode(first).message()).contains("is added.");
+        var result = persister.saveOrDeletePrivateCode(retry);
+        assertThat(result.alert()).isEqualTo("error");
+        assertThat(result.action()).isEqualTo("search");
+        assertThat(result.message()).contains("search the service code first");
+        assertThat(existing.get().getDescription()).isEqualTo("First description");
+        assertThat(existing.get().getValue()).isEqualTo("31.50");
+        verify(dao, never()).persist(any(BillingService.class));
+        verify(dao, never()).merge(any(BillingService.class));
+    }
 }
