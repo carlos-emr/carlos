@@ -5541,7 +5541,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "Verifies exact PIN/password and credential-date preservation after enabling and clearing MFA, plus enrolment, refused/accepted challenges, encrypted secret storage, reset GET rejection and re-enrolment. Retains the security editor stylesheet regression guard.",
+      "notes": "Verifies exact PIN/password and credential-date preservation after enabling and clearing MFA, plus enrolment, refused/accepted challenges, encrypted secret storage, reset GET rejection and re-enrolment, and that completing enrolment and Reset MFA archive the record with its MFA on/off setting while SecurityArchive has no MFA secret column (#5120). Retains the security editor stylesheet regression guard.",
       "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration ▸ Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed."
     },
     {

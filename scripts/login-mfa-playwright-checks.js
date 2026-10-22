@@ -14,7 +14,10 @@
  * the schedule and stores the secret encrypted; an enrolled login is challenged
  * without a QR, refuses a wrong code and accepts the authenticator code through
  * h.login; Reset MFA refuses GET, then clears the secret and sign-in asks to enrol
- * again; clearing Enable MFA restores plain password-and-PIN login.
+ * again; clearing Enable MFA restores plain password-and-PIN login. The changes that
+ * go through SecurityManager.updateSecurityRecord (completing enrolment, Reset MFA)
+ * archive the record as it was, MFA on/off setting included, and SecurityArchive has
+ * no column for the MFA secret (#5120).
  *
  * Fixtures: one throwaway login (scripts/lib/throwaway-login-fixture.js) -- never the
  * shared test account -- whose rows, including its audit rows, cleanup removes.
@@ -57,6 +60,11 @@ async function workflow(s) {
     if (lockState() !== lockBefore) credentialProblems.push(`${stage} changed the PIN-lock flags (${lockBefore} -> ${lockState()})`);
     if (passwordState() !== passwordBefore) credentialProblems.push(`${stage} changed the stored password or its update date`);
   }
+  // #5120: the MFA on/off settings archived after `mark` (a SecurityArchive id), oldest first;
+  // NULL would mean "not recorded", which no row archived by this build may hold.
+  const archiveMark = () => sql.value(`SELECT COALESCE(MAX(id),0) FROM SecurityArchive WHERE security_no=${securityNo}`);
+  const archivedMfaSince = mark => sql.value(`SELECT COALESCE(GROUP_CONCAT(IFNULL(usingMfa,'NULL') ORDER BY id),'')
+    FROM SecurityArchive WHERE security_no=${securityNo} AND id>${mark}`);
   const audits = content => sql.value(`SELECT COUNT(*) FROM log WHERE provider_no=${h.sqlString(login.providerNo)}
     AND action='login' AND content=${h.sqlString(content)}`);
   const contexts = [];
@@ -131,6 +139,12 @@ async function workflow(s) {
     h.assert(/Security Record Updated Successfully/.test(await frame.locator('h2').first().innerText()), 'The security update did not report success');
   }
 
+  await s.step('the security archive has an MFA on/off column and no column for the MFA secret', async () => {
+    const columns = sql.value(`SELECT COALESCE(GROUP_CONCAT(column_name ORDER BY column_name),'') FROM information_schema.columns
+      WHERE table_schema=DATABASE() AND table_name='SecurityArchive' AND (column_name='usingMfa' OR column_name LIKE '%secret%')`);
+    h.assert(columns === 'usingMfa', `SecurityArchive's MFA columns are [${columns}], expected only usingMfa`);
+  });
+
   await s.step('Enable MFA on the security record sets usingMfa and stores no secret yet', async () => {
     h.assert(mfaState() === '0|none', 'The throwaway login did not start without MFA');
     const frame = await openRecord();
@@ -173,12 +187,14 @@ async function workflow(s) {
   });
 
   await s.step('the authenticator code completes enrolment on the schedule and stores the secret encrypted', async () => {
+    const mark = archiveMark();
     await typeCode(enrolPage, totp(secret), /providercontrol/);
     h.assert(await sessionValid(enrolContext) === true, 'Completing enrolment did not produce an authenticated session');
     const [usingMfa, stored] = mfaState().split('|');
     h.assert(usingMfa === '1' && stored.startsWith('{ENC}') && !stored.includes(secret), 'The enrolment secret was not stored, or not encrypted');
     await expectValue(sql, `SELECT COUNT(*) FROM log WHERE provider_no=${h.sqlString(login.providerNo)} AND action='login' AND content='mfa_success'`,
       '1', 'The completed enrolment was not audited as mfa_success');
+    h.assert(archivedMfaSince(mark) === '1', `Storing the secret archived MFA settings [${archivedMfaSince(mark)}], expected one row with MFA on`);
     await enrolContext.close();
   });
 
@@ -214,6 +230,7 @@ async function workflow(s) {
     h.assert(await reset.isVisible() && await frame.locator('input[name="enableMfa"]').isChecked(),
       'An enrolled record did not offer Reset MFA');
     let response;
+    const mark = archiveMark();
     const failuresBefore = recorder.requestFailures.length;
     const dialogs = await h.withExpectedDialogs(admin, async () => {
       [response] = await settleOperations([
@@ -227,6 +244,7 @@ async function workflow(s) {
     await frame.locator('#mfaNote').waitFor({ state: 'visible', timeout: TIMEOUT });
     h.assert(!(await reset.isVisible()), 'The Reset MFA link stayed visible after the reset');
     await expectValue(sql, mfaStateQuery, '1|none', 'Reset MFA did not clear the stored secret');
+    h.assert(archivedMfaSince(mark) === '1', `Reset MFA archived MFA settings [${archivedMfaSince(mark)}], expected one row with MFA on`);
     // handleResetMfa() never reads the action's empty 200 reply, and Chromium cancels the
     // unread body (net::ERR_ABORTED) after the page handled the response. Consume exactly
     // that one entry, only once the database proved the reset; anything else stays strict.
@@ -248,9 +266,13 @@ async function workflow(s) {
 
   await s.step('clearing Enable MFA restores plain password-and-PIN login', async () => {
     const frame = await openRecord();
+    const mark = archiveMark();
     await frame.locator('input[name="enableMfa"]').uncheck();
     await saveRecord(frame);
     h.assert(mfaState().startsWith('0|'), 'Clearing Enable MFA did not clear usingMfa');
+    // On this line the admin page saves without archiving (#2356 routes it through the
+    // archive on develop); any row it does write must hold the setting before the change.
+    h.assert(/^(1(,1)*)?$/.test(archivedMfaSince(mark)), `Clearing MFA archived MFA settings [${archivedMfaSince(mark)}], expected none or MFA on`);
     checkCredentials('Clearing MFA');
     const ctx = await freshContext('mfa-disabled-login');
     // h.login fails if a challenge is served without an mfaCode callback.
