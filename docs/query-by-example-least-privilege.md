@@ -214,7 +214,8 @@ CREATE USER 'carlos_report'@'<app host>' IDENTIFIED BY '<generated password>';
 ```
 
 ```bash
-mariadb -u root carlos < carlos_report_grants.sql   # the copy inside the deployed WAR
+# WEBAPP: the deployed CARLOS webapp, for example /usr/local/tomcat/webapps/carlos
+mariadb -u root carlos < "$WEBAPP/WEB-INF/classes/db/reporting/carlos_report_grants.sql"
 ```
 
 Then set `db_reporting_username` and `db_reporting_password` in `carlos.properties` and restart.
