@@ -76,13 +76,14 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
     private static final int MAX_DESCRIPTION = 255;
     private static final int MAX_SHORTCUT = 20;
 
-    private final SecurityInfoManager securityInfoManager;
-    private final DocumentDescriptionTemplateDao documentDescriptionTemplateDao;
-    private final UserPropertyDAO userPropertyDAO;
+    // ActionSupport is Serializable; a per-request action never is, so none of this state is.
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient DocumentDescriptionTemplateDao documentDescriptionTemplateDao;
+    private final transient UserPropertyDAO userPropertyDAO;
 
-    private HttpServletRequest request;
-    private HttpServletResponse response;
-    private LoggedInInfo loggedInInfo;
+    private transient HttpServletRequest request;
+    private transient HttpServletResponse response;
+    private transient LoggedInInfo loggedInInfo;
 
     public DocumentDescriptionTemplate2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class),
@@ -271,7 +272,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
      */
     private DocumentDescriptionTemplate findRequestedTemplate() throws IOException {
         String ids = request.getParameter("id");
-        if (ids == null || !ids.matches("[0-9]{1,9}")) {
+        if (ids == null || !ids.matches("\\d{1,9}")) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A document description id is required");
             return null;
         }

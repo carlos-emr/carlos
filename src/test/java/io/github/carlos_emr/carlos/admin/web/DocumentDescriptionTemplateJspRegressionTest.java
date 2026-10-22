@@ -88,6 +88,18 @@ class DocumentDescriptionTemplateJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should label the shortcut and description fields of the template page")
+    void shouldLabelEditFields_inTemplatePage() throws IOException {
+        String jsp = Files.readString(TEMPLATE_JSP, StandardCharsets.UTF_8);
+
+        for (String field : List.of("docDescriptionShortcut", "docDescription")) {
+            assertThat(jsp)
+                    .contains("<label for=\"" + field + "\">")
+                    .contains("<input id=\"" + field + "\" name=\"" + field + "\"");
+        }
+    }
+
+    @Test
     @DisplayName("should report a failed shortcut read on Incoming Docs in every bundled language")
     void shouldReportFailedShortcutRead_inIncomingDocs() throws IOException {
         String jsp = Files.readString(INCOMING_DOCS_JSP, StandardCharsets.UTF_8);

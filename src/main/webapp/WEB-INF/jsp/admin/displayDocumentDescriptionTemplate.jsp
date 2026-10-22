@@ -330,14 +330,14 @@
 
     <table style="visibility:hidden" id="tblDesc">
         <tr>
-            <th align="left"><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></th>
-            <th align="left"><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></th>
+            <th align="left"><label for="docDescriptionShortcut"><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></label></th>
+            <th align="left"><label for="docDescription"><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></label></th>
         </tr>
         <tr>
             <td><input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo == null ? "null" : providerNo %>' context="htmlAttribute"/>"><input
-                    type="hidden" name="descriptionId"><input name="docDescriptionShortcut" maxlength="20" size="20"
+                    type="hidden" name="descriptionId"><input id="docDescriptionShortcut" name="docDescriptionShortcut" maxlength="20" size="20"
                                                               value=""<%= templatesEditable ? "" : " readonly" %>></td>
-            <td><input name="docDescription" maxlength="255" size="60" value=""<%= templatesEditable ? "" : " readonly" %>></td>
+            <td><input id="docDescription" name="docDescription" maxlength="255" size="60" value=""<%= templatesEditable ? "" : " readonly" %>></td>
         </tr>
         <tr>
             <td colspan="2"><input type="button"

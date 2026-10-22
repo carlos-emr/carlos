@@ -204,13 +204,14 @@ class DocumentDescriptionTemplate2ActionIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should leave a clinic-wide entry unchanged when an administrator posts it as their own")
-    void shouldLeaveClinicEntryUnchanged_whenUpdateNamesAnotherOwner() throws Exception {
+    void shouldLeaveClinicEntryUnchanged_whenUpdateNamesAnotherOwner() {
         grant("_admin", "r");
         grant("_admin", "w");
         grant("_pref", "w");
         DocumentDescriptionTemplate clinic = saved(null, "clinic", "clinic entry");
+        String clinicId = String.valueOf(clinic.getId());
 
-        assertThatThrownBy(() -> post("updateDocumentDescription", "id", String.valueOf(clinic.getId()),
+        assertThatThrownBy(() -> post("updateDocumentDescription", "id", clinicId,
                 "providerNo", SELF, "doctype", DOC_TYPE, "description", "taken", "shortcut", "taken"))
                 .isInstanceOf(SecurityException.class);
         entityManager.clear();
@@ -227,8 +228,10 @@ class DocumentDescriptionTemplate2ActionIntegrationTest extends CarlosTestBase {
         DocumentDescriptionTemplate own = saved(SELF, "own", "my entry");
         DocumentDescriptionTemplate clinic = saved(null, "clinic", "clinic entry");
 
+        String clinicId = String.valueOf(clinic.getId());
+
         post("deleteDocumentDescription", "id", String.valueOf(own.getId()));
-        assertThatThrownBy(() -> post("deleteDocumentDescription", "id", String.valueOf(clinic.getId())))
+        assertThatThrownBy(() -> post("deleteDocumentDescription", "id", clinicId))
                 .isInstanceOf(SecurityException.class);
         entityManager.clear();
 

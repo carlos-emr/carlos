@@ -44,7 +44,8 @@ import org.apache.struts2.ServletActionContext;
  */
 public class DisplayDocumentDescriptionTemplate2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager;
+    // ActionSupport is Serializable; the privilege service is not, and a per-request gate never is.
+    private final transient SecurityInfoManager securityInfoManager;
 
     public DisplayDocumentDescriptionTemplate2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class));

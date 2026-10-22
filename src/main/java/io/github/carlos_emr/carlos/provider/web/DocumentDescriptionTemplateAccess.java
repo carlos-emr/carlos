@@ -104,8 +104,12 @@ public final class DocumentDescriptionTemplateAccess {
      * @throws SecurityException when the user may not open that list
      */
     public static void requireOpenPage(SecurityInfoManager security, LoggedInInfo user, boolean clinicList) {
-        if (clinicList ? !canReadClinicList(security, user) : !canEditOwnList(security, user)) {
-            throw clinicList ? missing(CLINIC_LIST_OBJECTS) : missing(OWN_LIST_OBJECT);
+        if (clinicList) {
+            if (!canReadClinicList(security, user)) {
+                throw missing(CLINIC_LIST_OBJECTS);
+            }
+        } else if (!canEditOwnList(security, user)) {
+            throw missing(OWN_LIST_OBJECT);
         }
     }
 
