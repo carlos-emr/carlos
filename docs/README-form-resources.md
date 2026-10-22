@@ -71,7 +71,6 @@ Standard CDC/WHO growth charts:
 - `OvulationForm*.pdf`, `ovulationPrintCfg*.txt` - Ovulation tracking
 - `CounselingNote*.pdf`, `CounselingNotePrint.txt` - Counseling documentation
 - `intakeHx.pdf`, `intakeHxPrintCfg*.txt` - Intake history (11 pages)
-- `patientEncounterWorksheet*.pdf` - Clinical encounter documentation
 - `invoice*.pdf`, `invoice.txt` - Billing/invoice templates
 - `EPDS_TWEAK.pdf` - Edinburgh Postnatal Depression Scale/TWEAK screening
 
