@@ -5441,7 +5441,7 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "Measurement popup: double click converts HT (5'10\") and a waist typed in inches (34) to cm, WHtR follows at once (0.49) without a script error, a waist with a unit clears the calculated ratio instead of writing NaN, and Submit stores HT, WAIS and WHtR (#5152).",
-      "fixtures": "Owned patient; a run-private measurement group (marker name) holding HT, Waist and WHtR, plus its measurementGroupStyle row; a WHtR measurementType with a marker display name is staged when the clinic has none (an existing WHtR type is reused and left alone). Cleanup removes the patient's readings and notes, the group, its style row and the staged type, and asserts they are gone."
+      "fixtures": "Owned patient; a run-private measurement group (marker name) holding HT, Waist and WHtR, plus its measurementGroupStyle row; a WHTR measurementType (the code Add Measurement Type stores for WHtR) with a marker display name is staged when the clinic has none (an existing WHtR type, in any case, is reused and left alone). Cleanup removes the patient's readings and notes, the group, its style row and the staged type, and asserts they are gone."
     },
     {
       "name": "report-by-template-groups",
