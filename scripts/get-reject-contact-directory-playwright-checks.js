@@ -6,8 +6,7 @@
  * "Contact" ▸ search ▸ "Add/Edit contact" (method=addContact) ▸ fill ▸ Save
  * (POST demographic/Contact, method=saveContact).
  *
- * Contact2Action's writers -- saveManage, removeContact, saveContact, saveProContact,
- * savePharmacyInfo, addPharmacy, removePharmacy, setEmergencyContact, setDNC, setMRP -- are
+ * Contact2Action's writers -- saveManage, removeContact, saveContact, saveProContact -- are
  * POST-only (405 on GET/HEAD before any read or write) since issue #3682. Before that only the
  * first two were: the route "Contact" has no mutator prefix, HttpMethodGuardFilter's method list
  * is matched EXACTLY (saveContact is not "save"), and the class is outside the GET-rejection
@@ -16,7 +15,8 @@
  * professional search's "Add/Edit Professional Contact" form (method=saveProContact), a
  * professional specialist; replays each captured save as GET/HEAD with a changed last name for
  * that same (owned) row; and asserts 405 and unchanged rows in the LAST step. (The set-flag and
- * pharmacy writers have no UI caller and are reported, not probed; see issue #4402.)
+ * pharmacy writers, which had no UI caller, were removed in issues #3509 and #4402;
+ * contact-removed-targets proves a request naming one writes nothing.)
  *
  * Fixtures: the owned synthetic patient; the Contact and professionalSpecialists rows the pages
  * create carry the run marker as their last name; cleanup deletes rows carrying the marker (and
