@@ -208,7 +208,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         "250mg/5mL PO TID x 7 days | TID",
         "100 IU per mL SC OD x 7 days | OD"
     })
-    void shouldNotReplaceExistingQuantity_whenInstructionGivesOnlyAConcentration(String instruction,
+    void shouldReturnZeroQuantity_whenInstructionGivesOnlyAConcentration(String instruction,
             String frequency) throws Exception {
         RxSessionBean bean = stageReRxSession(1001);
         RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
