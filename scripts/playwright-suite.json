@@ -56,28 +56,6 @@
   ],
   "checks": [
     {
-      "name": "rx-strength-quantity",
-      "script": "scripts/rx-strength-quantity-playwright-checks.js",
-      "tiers": [
-        "core",
-        "front-door"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 180,
-      "env": [],
-      "mutates": [
-        "demographic",
-        "drugs",
-        "prescription",
-        "DigitalSignature"
-      ],
-      "fixtures": "Owned synthetic patient and custom prescription; cleanup after browser closes; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Issue #3876: strength values default to one unit per dose; explicit counts, volumes and per-dose amounts (also before the frequency) take precedence; a concentration alone calculates nothing and leaves the card quantity as it was; fractions round once at the final division. AJAX, card quantity and saved drugs row are asserted."
-    },
-    {
       "name": "retired-view-aliases",
       "script": "scripts/retired-view-aliases-playwright-checks.js",
       "tiers": [
@@ -15950,6 +15928,22 @@
         "secUserRole"
       ],
       "notes": "Issue #3585: reprint audit writes require global and patient-scoped write; rejects GET/HEAD and tokenless POST, with browser reprint and persisted audit assertions."
+    },
+    {
+      "name": "rx-strength-quantity",
+      "script": "scripts/rx-strength-quantity-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Owned synthetic patient and custom prescription; cleanup after browser closes; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue #3876: strength values default to one unit per dose; explicit counts, volumes and per-dose amounts (also before the frequency) take precedence; a concentration alone calculates nothing and leaves the card quantity as it was; fractions round once at the final division. AJAX, card quantity and saved drugs row are asserted."
     }
   ]
 }
