@@ -370,21 +370,43 @@ const eformDataUriCarrier = (function () {
     }
 
     /**
-     * True for a same-origin POST form whose action is the eForm save route. Read through the
-     * attributes: a template field named "action" or "method" replaces form.action/form.method.
+     * True when this submission is a same-origin POST to the eForm save route. A submit button's
+     * formaction/formmethod override the form's own, so a button that posts elsewhere (or by GET)
+     * is never rewritten for a destination that could not restore it. Read through the attributes:
+     * a template field named "action" or "method" replaces form.action/form.method.
      */
-    function postsToEFormSave(form) {
-        if (!(form instanceof HTMLFormElement)
-                || String(form.getAttribute("method") || "").toLowerCase() !== "post") {
+    function postsToEFormSave(form, submitter) {
+        if (!(form instanceof HTMLFormElement)) {
+            return false;
+        }
+        const overrides = function (name) {
+            return !!submitter && typeof submitter.hasAttribute === "function" && submitter.hasAttribute(name);
+        };
+        const method = overrides("formmethod") ? submitter.getAttribute("formmethod") : form.getAttribute("method");
+        if (String(method || "").toLowerCase() !== "post") {
             return false;
         }
         let action;
         try {
-            action = new URL(form.getAttribute("action") || "", document.baseURI);
+            action = new URL((overrides("formaction") ? submitter.getAttribute("formaction")
+                : form.getAttribute("action")) || "", document.baseURI);
         } catch (e) {
             return false;
         }
         return action.origin === window.location.origin && /\/eform\/addEForm(?:;[^/]*)?$/.test(action.pathname);
+    }
+
+    // The submitter of the submission in progress, per form. A native submission fires submit, then
+    // (in the same task, if not cancelled) builds its request; form.submit() fires no submit event
+    // and has no submitter. Forgotten on the next task, so a cancelled click never applies to a later
+    // form.submit().
+    const submitters = new WeakMap();
+    function rememberSubmitter(form, submitter) {
+        if (!(form instanceof HTMLFormElement)) return;
+        submitters.set(form, submitter || null);
+        setTimeout(function () {
+            if (submitters.get(form) === (submitter || null)) submitters.delete(form);
+        }, 0);
     }
 
     /** 128 random bits as 32 lower-case hex digits: EFormDataUriCarrier's nonce shape. */
@@ -452,12 +474,19 @@ const eformDataUriCarrier = (function () {
             newNonce());
         if (result.carried.length === 0) return 0;
         const added = [];
-        function addHidden(name, value) {
+        function addHidden(name, value, after) {
             const input = document.createElement("input");
             input.type = "hidden";
             input.name = name;
             input.value = value;
-            form.appendChild(input);
+            if (after) {
+                // Directly after the control it stands in for, so a repeated name keeps its value
+                // order (the server stores a name's first value), and in the same form.
+                if (after.hasAttribute("form")) input.setAttribute("form", after.getAttribute("form"));
+                after.insertAdjacentElement("afterend", input);
+            } else {
+                form.appendChild(input);
+            }
             added.push(input);
         }
         const disabled = [];
@@ -465,7 +494,7 @@ const eformDataUriCarrier = (function () {
             const control = controls[i];
             control.disabled = true;
             disabled.push(control);
-            addHidden(control.name, reference);
+            addHidden(control.name, reference, control);
         });
         result.carried.forEach(function (value) { addHidden(PARAMETER, value); });
         addHidden(NONCE_PARAMETER, result.nonce);
@@ -476,21 +505,41 @@ const eformDataUriCarrier = (function () {
         return result.carried.length;
     }
 
+    const nativeSubmit = HTMLFormElement.prototype.submit;
     if (eformFormDataEventSupported) {
+        document.addEventListener("submit", function (event) {
+            rememberSubmitter(event.target, event.submitter);
+        }, true);
+        // form.submit() never uses a submitter's overrides, even when a submit handler calls it
+        // while the clicked button's submission is still being dispatched.
+        HTMLFormElement.prototype.submit = function () {
+            submitters.delete(this);
+            return nativeSubmit.apply(this, arguments);
+        };
         document.addEventListener("formdata", function (event) {
-            if (event.formData && postsToEFormSave(event.target)) {
+            if (event.formData && postsToEFormSave(event.target, submitters.get(event.target))) {
                 carryFormData(event.formData);
             }
         }, true);
     } else {
-        const nativeSubmit = HTMLFormElement.prototype.submit;
         HTMLFormElement.prototype.submit = function () {
-            if (postsToEFormSave(this)) carryControls(this);
+            if (postsToEFormSave(this, null)) carryControls(this);
             return nativeSubmit.apply(this, arguments);
         };
+        // These browsers lack SubmitEvent.submitter too: take it from the click that starts a native
+        // submission (implicit Enter submission dispatches that click as well).
+        let clicked = null;
+        document.addEventListener("click", function (event) {
+            const control = event.target instanceof Element
+                ? event.target.closest("button, input[type=submit], input[type=image]") : null;
+            if (!control || (control.type !== "submit" && control.type !== "image")) return;
+            clicked = control;
+            setTimeout(function () { clicked = null; }, 0);
+        }, true);
         // Bubble phase on document, after the template's own submit handlers have written the pads.
         document.addEventListener("submit", function (event) {
-            if (!event.defaultPrevented && postsToEFormSave(event.target)) {
+            const submitter = event.submitter || (clicked && clicked.form === event.target ? clicked : null);
+            if (!event.defaultPrevented && postsToEFormSave(event.target, submitter)) {
                 carryControls(event.target);
             }
         });

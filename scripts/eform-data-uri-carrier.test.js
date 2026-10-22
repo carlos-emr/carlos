@@ -72,7 +72,7 @@ function load({ formDataEvent = true } = {}) {
       addEventListener: (type, listener, capture) => listeners.push({ type, listener, capture }),
     },
     window: { location: { origin: ORIGIN } },
-    atob, URL, Map, Set, Array, Uint8Array, crypto,
+    atob, URL, Map, Set, WeakMap, Array, Uint8Array, crypto, Element: class {},
     setTimeout: callback => timers.push(callback),
   };
   vm.runInNewContext(carrierSource + '\nthis.carrier = eformDataUriCarrier;', context);
@@ -214,12 +214,56 @@ test('only an eForm save form is rewritten', () => {
   assert.equal(carrier.postsToEFormSave({ getAttribute: () => 'post' }), false);
 });
 
+/** A submit button with the given override attributes. */
+function submitter(attributes = {}) {
+  return {
+    hasAttribute: name => Object.hasOwn(attributes, name),
+    getAttribute: name => (Object.hasOwn(attributes, name) ? attributes[name] : null),
+  };
+}
+
+test("a submit button's formaction/formmethod decide the destination", () => {
+  const { carrier } = load();
+  const form = new FakeForm();
+  assert.equal(carrier.postsToEFormSave(form, submitter()), true);
+  assert.equal(carrier.postsToEFormSave(form, submitter({ formaction: '../eform/addEForm?print=true' })), true);
+  assert.equal(carrier.postsToEFormSave(form, submitter({ formaction: '/carlos/eform/otherRoute' })), false);
+  assert.equal(carrier.postsToEFormSave(form, submitter({ formmethod: 'get' })), false);
+  assert.equal(carrier.postsToEFormSave(form, submitter({ formmethod: 'dialog' })), false);
+  const elsewhere = new FakeForm({ action: '/carlos/somewhere' });
+  assert.equal(carrier.postsToEFormSave(elsewhere, submitter({ formaction: '../eform/addEForm' })), true);
+});
+
 test('with the formdata event, rewrites each eForm save request as it is built', () => {
-  const { listeners } = load();
+  const { listeners, timers } = load();
   const formdata = listeners.filter(l => l.type === 'formdata');
   assert.equal(formdata.length, 1);
   assert.equal(formdata[0].capture, true, 'capture phase: formdata does not bubble');
-  assert.equal(listeners.some(l => l.type === 'submit'), false);
+  const submit = listeners.filter(l => l.type === 'submit');
+  assert.equal(submit.length, 1);
+  assert.equal(submit[0].capture, true, 'the submitter is noted before any handler can take over');
+
+  // A clicked button that posts elsewhere: that request keeps its raw values.
+  const form = new FakeForm();
+  const elsewhere = new FormData();
+  elsewhere.append('SignatureBox', PNG);
+  submit[0].listener({ target: form, submitter: submitter({ formaction: '/carlos/eform/otherRoute' }) });
+  formdata[0].listener({ target: form, formData: elsewhere });
+  assert.equal(elsewhere.get('SignatureBox'), PNG);
+  // A handler that cancels it and calls form.submit() saves through the form's own action.
+  submit[0].listener({ target: form, submitter: submitter({ formaction: '/carlos/eform/otherRoute' }) });
+  form.submit();
+  const takeover = new FormData();
+  takeover.append('SignatureBox', PNG);
+  formdata[0].listener({ target: form, formData: takeover });
+  assert.match(takeover.get('SignatureBox'), NONCED);
+  // The noted submitter is forgotten on the next task.
+  submit[0].listener({ target: form, submitter: submitter({ formaction: '/carlos/eform/otherRoute' }) });
+  timers.splice(0).forEach(callback => callback());
+  const later = new FormData();
+  later.append('SignatureBox', PNG);
+  formdata[0].listener({ target: form, formData: later });
+  assert.match(later.get('SignatureBox'), NONCED);
 
   const save = new FormData();
   save.append('SignatureBox', PNG);
@@ -238,6 +282,8 @@ test('without the formdata event, wraps form.submit() and the submit event inste
   const submit = listeners.filter(l => l.type === 'submit');
   assert.equal(submit.length, 1);
   assert.notEqual(submit[0].capture, true, 'bubble phase, after the template\'s own submit handlers');
+  assert.equal(listeners.filter(l => l.type === 'click' && l.capture === true).length, 1,
+    'the submitter comes from the click: these browsers lack SubmitEvent.submitter');
   assert.notEqual(FakeForm.prototype.submit, nativeSubmit);
   // A form that is not an eForm save passes straight through.
   new FakeForm({ action: ORIGIN + '/carlos/somewhere' }).submit();

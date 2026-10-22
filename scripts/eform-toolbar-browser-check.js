@@ -15,6 +15,7 @@ const toolbar = read('WEB-INF/jsp/eform/eformFloatingToolbar/eform_floating_tool
   .replace(/\$\{[^}]*\}/g, '');
 const errors = [];
 let requests = [];
+let otherRequests = [];
 let searches = [];
 const fallbackInput = '<input type="hidden" name="newForm" value="true" id="newForm" data-carlos-newform-fallback>';
 // Template newForm controls that submit nothing as rendered, each beside the server's fallback.
@@ -61,6 +62,11 @@ const server = http.createServer((req, res) => {
     searches.push(req.url);
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify([{name:'Example, Specialist', fax:'416-555-0199', badge:'Cardiology', type:'SPECIALIST'}])); return;
+  }
+  if (req.url === '/eform/otherRoute' && req.method === 'POST') {
+    let body=''; req.on('data', chunk => {body += chunk;}); req.on('end', () => {
+      otherRequests.push(new URLSearchParams(body)); res.setHeader('Content-Type', 'text/html'); res.end('Elsewhere');
+    }); return;
   }
   if (req.url === '/eform/addEForm' && req.method === 'POST') {
     let body=''; req.on('data', chunk => {body += chunk;}); req.on('end', () => {
@@ -828,6 +834,30 @@ const server = http.createServer((req, res) => {
         assert.ok(requests[0].getAll('carlos-image-link').some(value => JSON.parse(value).value === png));
       }
     }
+    // A submit button that posts elsewhere keeps the raw values: that destination cannot restore
+    // references. A template handler that cancels it and calls form.submit() saves normally.
+    await open();
+    otherRequests = [];
+    const elsewherePng = await addSignaturePads();
+    await page.evaluate(() => document.forms[0].insertAdjacentHTML('beforeend',
+      '<button id="elsewhereButton" type="submit" formaction="/eform/otherRoute">Elsewhere</button>'));
+    await page.locator('#elsewhereButton').click();
+    await page.waitForURL('**/eform/otherRoute');
+    assert.equal(requests.length, 0);
+    assert.equal(otherRequests.length, 1);
+    assert.equal(otherRequests[0].get('SignatureBox'), elsewherePng, 'formaction elsewhere: raw signature');
+    assert.equal(otherRequests[0].has('carlos-data-uri'), false);
+    await open();
+    const takeoverPng = await addSignaturePads();
+    await page.evaluate(() => {
+      const form = document.forms[0];
+      form.insertAdjacentHTML('beforeend', '<button id="elsewhereButton" type="submit" formaction="/eform/otherRoute">Elsewhere</button>');
+      form.addEventListener('submit', event => { event.preventDefault(); form.submit(); }, {once: true});
+    });
+    await page.locator('#elsewhereButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1, 'form.submit() from the cancelled click saves');
+    assertCarriedSignatures(requests[0], takeoverPng, 'form.submit() inside a cancelled formaction click');
     // Building the request never touches the page: the fields keep their data URIs.
     await open();
     const keptPng = await addSignaturePads();
@@ -967,6 +997,26 @@ const server = http.createServer((req, res) => {
       assert.equal(requests.length, 1, `legacy signature ${path}`);
       assertCarriedSignatures(requests[0], png, `legacy signature via ${path}`);
     }
+    // A repeated name keeps its value order: the stand-in sits where the signature field was.
+    await open();
+    const sharedPng = await addSignaturePads();
+    await page.evaluate(png => document.forms[0].insertAdjacentHTML('afterbegin', // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- literal page function; the argument is the PNG this page's own canvas produced
+      `<input type="hidden" name="SharedPad" value="${png}"><input name="SharedPad" value="typed second">`), sharedPng);
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.match(requests[0].getAll('SharedPad')[0], /^carlos-data-uri:[0-9a-f]{32}:0$/, 'legacy repeated name: signature first');
+    assert.equal(requests[0].getAll('SharedPad')[1], 'typed second', 'legacy repeated name: typed value second');
+    await open();
+    otherRequests = [];
+    const legacyElsewherePng = await addSignaturePads();
+    await page.evaluate(() => document.forms[0].insertAdjacentHTML('beforeend',
+      '<button id="elsewhereButton" type="submit" formaction="/eform/otherRoute">Elsewhere</button>'));
+    await page.locator('#elsewhereButton').click();
+    await page.waitForURL('**/eform/otherRoute');
+    assert.equal(otherRequests.length, 1);
+    assert.equal(otherRequests[0].get('SignatureBox'), legacyElsewherePng, 'legacy formaction elsewhere: raw signature');
+    assert.equal(otherRequests[0].has('carlos-data-uri'), false);
     await open();
     const cancelledPng = await addSignaturePads();
     await page.evaluate(() => {
