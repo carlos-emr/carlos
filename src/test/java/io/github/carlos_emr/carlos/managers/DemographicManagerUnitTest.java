@@ -893,6 +893,24 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
+        @DisplayName("should store a non-null pref_name value when creating a patient without a Name Used")
+        void shouldSetNonNullPrefName_whenCreatingWithoutNameUsed() {
+            Demographic demographic = createTestDemographic();
+            demographic.setAlias(null);
+            demographic.setPrefName(null);
+            List<String> prefNameAtSave = new ArrayList<>();
+            doAnswer(invocation -> {
+                // getPrefName() falls back to the alias (null here), so only a stored "" reads non-null.
+                prefNameAtSave.add(invocation.<Demographic>getArgument(0).getPrefName());
+                return null;
+            }).when(mockDemographicDao).save(demographic);
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            assertThat(prefNameAtSave).containsExactly("");
+        }
+
+        @Test
         @DisplayName("should discard a client-supplied extension id so create never updates an existing row")
         void shouldClearExtensionId_whenCreating() {
             Demographic demographic = createTestDemographic();

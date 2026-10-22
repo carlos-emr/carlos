@@ -459,6 +459,9 @@ public class DemographicManagerImpl implements DemographicManager {
         demographic.setPatientStatus(PatientStatus.AC.name());
         demographic.setFamilyDoctor("<rdohip></rdohip><rd></rd>");
         demographic.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+        // pref_name is NOT NULL and is written from the entity field (#5127); the REST converter never
+        // sets it, so derive it from Name Used (the alias) exactly as the Add Patient form does.
+        demographic.setPrefName(Demographic.prefNameForNameUsed(demographic.getAlias()));
         demographicDao.save(demographic);
 
         Admission admission = new Admission();
