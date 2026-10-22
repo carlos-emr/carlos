@@ -7,14 +7,18 @@
  *
  * User path: Schedule ▸ Administration ▸ Upload Agreement ▸ validity ▸ agreement file ▸ Upload.
  * Asserted: the upload stores the validity as a new aua_valid_duration property ("<n> <period>")
- * and writes the uploaded text to DOCUMENT_DIR/OSCARloginText.txt; the page opened again shows the
- * saved validity; a GET carrying the same fields is refused with 405 and stores nothing.
+ * and writes the uploaded bytes to BASE_DOCUMENT_DIR/login/AcceptableUseAgreement.txt, the one file
+ * the login page reads (it used to land in an unread DOCUMENT_DIR/OSCARloginText.txt, #3792); the
+ * page's preview shows the agreement's formatting but none of its script, event handlers or images,
+ * and nothing in it runs; the page opened again shows the saved validity; a GET carrying the same
+ * fields is refused with 405 and stores nothing.
  *
- * Env: DOCUMENT_DIR (the deployment's document directory, readable by the runner); SKIP without it.
- * SKIP too when the menu has no Upload Agreement entry (it is shown only with LOGINTEST=yes).
+ * Env: BASE_DOCUMENT_DIR (the deployment's base document directory, writable by the runner so the
+ * agreement can be put back); SKIP without it. SKIP too when the menu has no Upload Agreement entry
+ * (it is shown only with LOGINTEST=yes).
  * Fixtures: none created. The aua_* property rows are snapshotted byte-exact and restored, and the
- * text file is put back as it was (or removed if there was none). EXCLUSIVE=1: the agreement settings
- * are clinic-wide.
+ * agreement file is put back as it was, with its owner and mode (or removed if there was none, with
+ * the login/ directory the upload created). EXCLUSIVE=1: the agreement settings are clinic-wide.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -23,24 +27,42 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openAdminPage, submitInFrame, reopenAdminPage } = require('./lib/admin-frame');
 
 const ROUTE = 'admin/uploadEntryText';
-const FILE_NAME = 'OSCARloginText.txt';
+const FILE_NAME = 'AcceptableUseAgreement.txt';
 
 async function workflow(s) {
   const { sql, marker } = s;
-  const dir = process.env.DOCUMENT_DIR;
-  if (!dir || !fs.existsSync(dir)) throw new h.SkipCheck('DOCUMENT_DIR is not set to the deployment\'s readable document directory');
+  const base = process.env.BASE_DOCUMENT_DIR;
+  if (!base || !fs.existsSync(base)) throw new h.SkipCheck('BASE_DOCUMENT_DIR is not set to the deployment\'s base document directory');
+  const dir = path.join(fs.realpathSync(base), 'login');
   const file = path.join(dir, FILE_NAME);
-  const fileBefore = fs.existsSync(file) ? fs.readFileSync(file) : null;
+  const dirBefore = fs.existsSync(dir);
+  const statBefore = fs.existsSync(file) ? fs.lstatSync(file) : null;
+  h.assert(!statBefore || statBefore.isFile(), `${FILE_NAME} is not a regular file; refusing to replace it`);
+  const fileBefore = statBefore ? fs.readFileSync(file) : null;
   const rows = () => sql.rows("SELECT id, name, CONCAT('X', HEX(value)) FROM property WHERE name LIKE 'aua\\_%' ORDER BY id");
   const before = rows();
   const firstNew = sql.value('SELECT COALESCE(MAX(id), 0) FROM property');
   s.cleanup(() => {
     sql.execute(`DELETE FROM property WHERE name LIKE 'aua\\_%' AND id > ${firstNew}`);
     h.assert(JSON.stringify(rows()) === JSON.stringify(before), 'The aua_* properties were not restored');
-    if (fileBefore === null) fs.rmSync(file, { force: true });
-    else fs.writeFileSync(file, fileBefore);
+    if (fileBefore === null) {
+      fs.rmSync(file, { force: true });
+      if (!dirBefore && fs.existsSync(dir) && fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
+    } else {
+      // The upload replaces the file (a new inode, the application's owner and a private mode),
+      // so put back the original's owner and mode as well as its bytes.
+      fs.writeFileSync(file, fileBefore);
+      const now = fs.statSync(file);
+      if (now.uid !== statBefore.uid || now.gid !== statBefore.gid) fs.chownSync(file, statBefore.uid, statBefore.gid);
+      fs.chmodSync(file, statBefore.mode & 0o7777);
+      h.assert(fs.readFileSync(file).equals(fileBefore), `${FILE_NAME} was not restored`);
+    }
   });
-  const text = `FAKE acceptable-use agreement ${marker}\n`;
+  // Formatting the preview must keep, and script, an event handler and an image it must drop.
+  // Nothing here may run: the flag stays unset in the page if the sanitizer holds.
+  const text = `<p>FAKE acceptable-use agreement ${marker} <b>kept</b></p>`
+    + '<script>window.__carlosAuaInjected = 1;</script>'
+    + '<img src="data:," onerror="window.__carlosAuaInjected = 2">\n';
   const latest = () => sql.value("SELECT value FROM property WHERE name='aua_valid_duration' ORDER BY id DESC LIMIT 1");
 
   let admin;
@@ -58,6 +80,11 @@ async function workflow(s) {
     await expectValue(sql, "SELECT value FROM property WHERE name='aua_valid_duration' ORDER BY id DESC LIMIT 1", '2 weeks',
       'The upload did not store the validity');
     h.assert(fs.existsSync(file) && fs.readFileSync(file, 'utf8') === text, `${FILE_NAME} does not hold the uploaded text`);
+    const preview = frame.locator('#auaText');
+    h.assert((await preview.innerText()).includes(marker), 'The preview does not show the uploaded agreement');
+    h.assert(await preview.locator('b').count() === 1, 'The preview dropped the agreement\'s formatting');
+    h.assert(await preview.locator('script, img, [onerror]').count() === 0, 'The preview kept script, an image or an event handler');
+    h.assert(await frame.evaluate(() => window.__carlosAuaInjected === undefined), 'Script in the uploaded agreement ran in the preview');
   });
 
   await s.step('the page opened again shows the saved validity', async () => {
