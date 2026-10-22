@@ -186,6 +186,11 @@ $SQL carlos < /scripts/admin_test_account.sql
 # in .devcontainer/development/config/shared/volumes/carlos.properties.
 echo 'Provisioning the read-only Query by Example reporting account...'
 REPORT_PASSWORD="${CARLOS_REPORT_DB_PASSWORD:-carlos-report-dev}"
+# The password goes into SQL string literals below; refuse what would end the literal, as the
+# qbe-reporting-account helper does.
+case "$REPORT_PASSWORD" in
+    *"'"*|*'\'*) echo "CARLOS_REPORT_DB_PASSWORD: quotes and backslashes are not supported" >&2; exit 1 ;;
+esac
 # On stdin, not argv, like the root password above.
 $SQL <<EOSQL
 CREATE USER IF NOT EXISTS 'carlos_report'@'%' IDENTIFIED BY '${REPORT_PASSWORD}';

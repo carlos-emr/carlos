@@ -12,10 +12,12 @@
  *  - a table created after the account was provisioned, which neither the grant list nor the
  *    application's restricted-table list knows, is refused by the database: the access-denied
  *    alert, no result table, the planted secret nowhere in the page, no history row;
- *  - a hidden column (casemgmt_note.password) is refused by name and through SELECT *, while the
- *    table's other columns still answer;
- *  - in MariaDB: the reporting account exists and holds SELECT only, on no restricted table and
- *    no hidden column, with no schema-wide, global or role grant.
+ *  - every hidden column the grant list names (casemgmt_note.password,
+ *    DigitalSignature.signatureImage) is refused by name and through SELECT *, while the table's
+ *    other columns still answer;
+ *  - in MariaDB: the reporting account exists and holds SELECT only, on no restricted table, no
+ *    hidden column and no table with hidden columns as a whole, with no schema-wide, global or
+ *    role grant.
  * Fixtures: the session's patient; one throwaway table named for the run (dropped in cleanup,
  * which asserts it is gone) and the history rows carrying the marker.
  */
@@ -58,7 +60,8 @@ function readGrantList() {
     if (row[2] === 'restricted') restricted.push(row[1]);
     else if (row[3]) for (const column of row[3].split(',')) hidden.push([row[1], column]);
   }
-  h.assert(restricted.includes('security') && hidden.some(([table, column]) => table === 'casemgmt_note' && column === 'password'),
+  const hides = (table, column) => hidden.some(([t, c]) => t === table && c === column);
+  h.assert(restricted.includes('security') && hides('casemgmt_note', 'password') && hides('DigitalSignature', 'signatureImage'),
     `The grant list ${file} did not parse into the expected restricted tables and hidden columns`);
   return {restricted, hidden};
 }
@@ -94,14 +97,20 @@ async function workflow(s) {
   await s.step('MariaDB: the reporting account holds SELECT on reportable tables only', async () => {
     h.assert(Number(sql.value(`SELECT COUNT(*) FROM mysql.global_priv WHERE User=${h.sqlString(REPORT_USER)}`)) >= 1,
       `The ${REPORT_USER} account does not exist; provision it (carlos-ctl db-users, or qbe-reporting-account in the devcontainer)`);
-    const restrictedList = restricted.map(name => h.sqlString(name)).join(',');
+    // Lower-cased on both sides: a server with lower_case_table_names stores grants that way.
+    const lowerList = names => names.map(name => h.sqlString(name.toLowerCase())).join(',');
     h.assert(sql.value(`SELECT COUNT(*) FROM mysql.tables_priv WHERE User=${h.sqlString(REPORT_USER)}
-      AND Table_name IN (${restrictedList})`) === '0', `The ${REPORT_USER} account is granted a restricted table`);
+      AND LOWER(Table_name) IN (${lowerList(restricted)})`) === '0', `The ${REPORT_USER} account is granted a restricted table`);
     for (const [hiddenTable, column] of hidden) {
       h.assert(sql.value(`SELECT COUNT(*) FROM mysql.columns_priv WHERE User=${h.sqlString(REPORT_USER)}
-        AND Table_name=${h.sqlString(hiddenTable)} AND Column_name=${h.sqlString(column)}`) === '0',
+        AND LOWER(Table_name)=${h.sqlString(hiddenTable.toLowerCase())} AND Column_name=${h.sqlString(column)}`) === '0',
       `The ${REPORT_USER} account is granted the hidden column ${hiddenTable}.${column}`);
     }
+    // A table-wide SELECT on a table with hidden columns reads them too; those tables may only be
+    // granted column by column.
+    h.assert(sql.value(`SELECT COUNT(*) FROM mysql.tables_priv WHERE User=${h.sqlString(REPORT_USER)}
+      AND LOWER(Table_name) IN (${lowerList(hidden.map(([hiddenTable]) => hiddenTable))}) AND Table_priv<>''`) === '0',
+    `The ${REPORT_USER} account is granted every column of a table that has hidden columns`);
     h.assert(sql.value(`SELECT COUNT(*) FROM mysql.tables_priv WHERE User=${h.sqlString(REPORT_USER)}
       AND (Table_priv NOT IN ('', 'Select') OR Column_priv NOT IN ('', 'Select') OR Db<>DATABASE())`) === '0',
     `The ${REPORT_USER} account holds a table privilege other than SELECT on this schema`);
@@ -168,12 +177,16 @@ async function workflow(s) {
     await assertDenied('unclassified table in a subquery', before);
   });
 
-  await s.step('a hidden column is refused by name and through *, the other columns still answer', async () => {
+  await s.step('every hidden column is refused by name and through *, the other columns still answer', async () => {
     const before = historyCount();
-    await runQuery('SELECT note_id, password FROM casemgmt_note WHERE 1=0');
-    await assertDenied('hidden column by name', before);
-    await runQuery('SELECT * FROM casemgmt_note WHERE 1=0');
-    await assertDenied('hidden column through *', before);
+    for (const [hiddenTable, column] of hidden) {
+      await runQuery(`SELECT ${column} FROM ${hiddenTable} WHERE 1=0`);
+      await assertDenied(`hidden column ${hiddenTable}.${column} by name`, before);
+    }
+    for (const hiddenTable of new Set(hidden.map(([name]) => name))) {
+      await runQuery(`SELECT * FROM ${hiddenTable} WHERE 1=0`);
+      await assertDenied(`hidden columns of ${hiddenTable} through *`, before);
+    }
     // The marker literal ties the history row this successful run writes to the cleanup.
     await runQuery(`SELECT note_id, observation_date, ${h.sqlString(marker)} AS run
       FROM casemgmt_note WHERE demographic_no=${patient}`);

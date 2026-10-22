@@ -116,7 +116,7 @@ class RptByExampleDataReportingAccountIntegrationTest {
 
     /** Grants SELECT on each table present here that the shipped grant list calls fully reportable. */
     private List<String> grantLikeTheShippedGrantList(Statement sql) throws Exception {
-        Map<String, ReportingGrantList.Entry> grantList = ReportingGrantList.read();
+        Map<String, ReportingGrantList.Entry> grantList = ReportingGrantList.fromClasspath().entries();
         List<String> grants = new ArrayList<>();
         for (String table : List.of("demographic", "security", "PageMonitor", "casemgmt_note", "qbe_future_credentials")) {
             ReportingGrantList.Entry entry = grantList.get(table);
@@ -162,7 +162,7 @@ class RptByExampleDataReportingAccountIntegrationTest {
     @Test
     @DisplayName("refuses a table nobody classified even though the application validator allows it")
     void shouldRefuseUnclassifiedTable_whenApplicationValidatorAllowsIt() {
-        assertThat(QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES).doesNotContain("qbe_future_credentials");
+        assertThat(QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES).isNotEmpty().doesNotContain("qbe_future_credentials");
 
         assertThatThrownBy(() -> productionValidator().execute(
                 "SELECT * FROM qbe_future_credentials", properties, "999998"))

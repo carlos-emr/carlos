@@ -23,7 +23,7 @@
 -- THE RULES
 --   * Only a `reportable` table that EXISTS in the selected schema is granted, and only
 --     SELECT. A table that a later migration adds stays unreadable until it is listed here;
---     QueryByExampleReportingClassificationTest fails the build until it is.
+--     QueryByExampleReportingClassificationUnitTest fails the build until it is.
 --   * A `restricted` table holds credentials, tokens, keys, live session identifiers or
 --     integration configuration. It is never granted, and
 --     QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES must name the same tables, so the

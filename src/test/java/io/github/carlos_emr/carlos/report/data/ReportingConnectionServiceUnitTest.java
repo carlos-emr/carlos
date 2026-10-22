@@ -24,11 +24,13 @@ package io.github.carlos_emr.carlos.report.data;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -36,8 +38,10 @@ import java.sql.SQLNonTransientConnectionException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -60,8 +64,11 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 @Tag("security")
 @DisplayName("Reporting database connection service")
 class ReportingConnectionServiceUnitTest {
-    private static final String USAGE = "GRANT USAGE ON *.* TO `carlos_report`@`localhost` IDENTIFIED BY PASSWORD "
-            + "'*791C51FBA9525165285F44C57F2B3F5E11DDE6AC' WITH MAX_USER_CONNECTIONS 6 MAX_STATEMENT_TIME 30.000000";
+    // Generated per run so the suite carries no credential or hash literal for secret scanners to flag.
+    private static final String REPORT_CREDENTIAL = "test-" + UUID.randomUUID();
+    private static final String PASSWORD_HASH = "*" + HexFormat.of().withUpperCase().formatHex(randomBytes(20));
+    private static final String USAGE = "GRANT USAGE ON *.* TO `carlos_report`@`localhost` IDENTIFIED BY PASSWORD '"
+            + PASSWORD_HASH + "' WITH MAX_USER_CONNECTIONS 6 MAX_STATEMENT_TIME 30.000000";
     private static final String SELECT_DEMOGRAPHIC = "GRANT SELECT ON `carlos`.`demographic` TO `carlos_report`@`localhost`";
 
     private Properties properties;
@@ -69,7 +76,14 @@ class ReportingConnectionServiceUnitTest {
     private Statement statement;
     private AtomicReference<String> connectedUrl;
     private AtomicReference<Properties> connectedCredentials;
+    private int lowerCaseTableNames;
     private ReportingConnectionService service;
+
+    private static byte[] randomBytes(int length) {
+        byte[] bytes = new byte[length];
+        new SecureRandom().nextBytes(bytes);
+        return bytes;
+    }
 
     @BeforeEach
     void setUp() throws SQLException {
@@ -79,7 +93,7 @@ class ReportingConnectionServiceUnitTest {
         properties.setProperty("db_name", "carlos?zeroDateTimeBehavior=round&jdbcCompliantTruncation=false");
         properties.setProperty("db_username", "carlos");
         properties.setProperty(ReportingConnectionService.USERNAME_PROPERTY, "carlos_report");
-        properties.setProperty(ReportingConnectionService.PASSWORD_PROPERTY, "s3cret-report");
+        properties.setProperty(ReportingConnectionService.PASSWORD_PROPERTY, REPORT_CREDENTIAL);
 
         connection = mock(Connection.class);
         statement = mock(Statement.class);
@@ -97,7 +111,8 @@ class ReportingConnectionServiceUnitTest {
         ResultSet currentUser = mock(ResultSet.class);
         when(currentUser.next()).thenReturn(true, false);
         when(currentUser.getString(1)).thenReturn("carlos_report@localhost");
-        when(statement.executeQuery("SELECT CURRENT_USER()")).thenReturn(currentUser);
+        when(currentUser.getInt(2)).thenReturn(lowerCaseTableNames);
+        when(statement.executeQuery("SELECT CURRENT_USER(), @@lower_case_table_names")).thenReturn(currentUser);
 
         ResultSet grantRows = mock(ResultSet.class);
         List<Boolean> more = new ArrayList<>();
@@ -126,7 +141,7 @@ class ReportingConnectionServiceUnitTest {
             assertThat(connectedUrl.get())
                     .isEqualTo("jdbc:mysql://127.0.0.1:3306/carlos?zeroDateTimeBehavior=round&jdbcCompliantTruncation=false");
             assertThat(connectedCredentials.get().getProperty("user")).isEqualTo("carlos_report");
-            assertThat(connectedCredentials.get().getProperty("password")).isEqualTo("s3cret-report");
+            assertThat(connectedCredentials.get().getProperty("password")).isEqualTo(REPORT_CREDENTIAL);
             verify(connection, never()).close();
         }
 
@@ -244,14 +259,65 @@ class ReportingConnectionServiceUnitTest {
                 "GRANT SELECT ON `carlos`.`demographic` TO PUBLIC",
                 "GRANT PROXY ON ''@'%' TO `carlos_report`@`localhost`",
                 "GRANT EXECUTE ON FUNCTION `carlos`.`f` TO `carlos_report`@`localhost`",
-                "GRANT SELECT ON `carlos`.`demographic` TO `carlos_report`@`%`"})
-        @DisplayName("refuses and closes the connection for any grant beyond reportable SELECT")
+                "GRANT SELECT ON `carlos`.`demographic` TO `carlos_report`@`%`",
+                "GRANT SELECT ON `carlos`.`casemgmt_note` TO `carlos_report`@`localhost`",
+                "GRANT SELECT ON `carlos`.`DigitalSignature` TO `carlos_report`@`localhost`",
+                "GRANT SELECT (`note_id`, `password`) ON `carlos`.`casemgmt_note` TO `carlos_report`@`localhost`",
+                "GRANT SELECT (`PASSWORD`) ON `carlos`.`casemgmt_note` TO `carlos_report`@`localhost`",
+                "GRANT SELECT (`id`, `signatureImage`) ON `carlos`.`DigitalSignature` TO `carlos_report`@`localhost`",
+                "GRANT SELECT ON `carlos`.`qbe_unclassified` TO `carlos_report`@`localhost`",
+                "GRANT SELECT (`id`) ON `carlos`.`qbe_unclassified` TO `carlos_report`@`localhost`",
+                "GRANT SELECT ON `carlos`.`DEMOGRAPHIC` TO `carlos_report`@`localhost`"})
+        @DisplayName("refuses and closes the connection for any grant the grant list does not allow")
         void shouldRefuseAndClose_whenGrantExceedsReportableSelect(String grant) throws SQLException {
             grants(USAGE, SELECT_DEMOGRAPHIC, grant);
 
             assertThatThrownBy(() -> service.openConnection(properties))
                     .isInstanceOf(ReportingAccountUnavailableException.class);
             verify(connection).close();
+        }
+
+        @Test
+        @DisplayName("matches lower-cased table names when the server folds them")
+        void shouldMatchFoldedTableNames_whenServerFoldsTableNames() throws SQLException {
+            lowerCaseTableNames = 1;
+            grants(USAGE, SELECT_DEMOGRAPHIC,
+                    "GRANT SELECT (`id`, `dateSigned`) ON `carlos`.`digitalsignature` TO `carlos_report`@`localhost`");
+
+            assertThat(service.openConnection(properties)).isSameAs(connection);
+            verify(connection, never()).close();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "GRANT SELECT ON `carlos`.`digitalsignature` TO `carlos_report`@`localhost`",
+                "GRANT SELECT (`signatureimage`) ON `carlos`.`digitalsignature` TO `carlos_report`@`localhost`",
+                "GRANT SELECT ON `carlos`.`pagemonitor` TO `carlos_report`@`localhost`",
+                "GRANT SELECT ON `carlos`.`qbe_unclassified` TO `carlos_report`@`localhost`"})
+        @DisplayName("still refuses hidden columns, restricted and unclassified tables when the server folds table names")
+        void shouldRefuse_whenFoldedGrantExceedsGrantList(String grant) throws SQLException {
+            lowerCaseTableNames = 1;
+            grants(USAGE, SELECT_DEMOGRAPHIC, grant);
+
+            assertThatThrownBy(() -> service.openConnection(properties))
+                    .isInstanceOf(ReportingAccountUnavailableException.class);
+            verify(connection).close();
+        }
+
+        @Test
+        @DisplayName("fails closed without connecting when the grant list cannot be read")
+        void shouldRefuseWithoutConnecting_whenGrantListCannotBeRead() {
+            service = new ReportingConnectionService((url, credentials) -> {
+                connectedUrl.set(url);
+                return connection;
+            }, () -> {
+                throw new java.io.FileNotFoundException(ReportingGrantList.RESOURCE);
+            });
+
+            assertThatThrownBy(() -> service.openConnection(properties))
+                    .isInstanceOf(ReportingAccountUnavailableException.class)
+                    .hasMessageContaining("grant list");
+            assertThat(connectedUrl.get()).isNull();
         }
 
         @Test
@@ -262,10 +328,10 @@ class ReportingConnectionServiceUnitTest {
             try (LogCapture logs = LogCapture.forLogger(ReportingConnectionService.class)) {
                 assertThatThrownBy(() -> service.openConnection(properties))
                         .isInstanceOf(ReportingAccountUnavailableException.class)
-                        .satisfies(thrown -> assertThat(thrown.getMessage()).doesNotContain("*791C"));
+                        .satisfies(thrown -> assertThat(thrown.getMessage()).doesNotContain(PASSWORD_HASH));
                 assertThat(logs.messages()).isNotEmpty();
                 assertThat(String.join("\n", logs.messages()))
-                        .doesNotContain("*791C")
+                        .doesNotContain(PASSWORD_HASH)
                         .doesNotContain("IDENTIFIED")
                         .contains("security");
             }
@@ -286,7 +352,7 @@ class ReportingConnectionServiceUnitTest {
         void shouldSuppressCloseFailure_whenRefusingConnection() throws SQLException {
             grants(USAGE, "GRANT SELECT ON *.* TO `carlos_report`@`localhost`");
             SQLException closeFailure = new SQLException("close failed");
-            org.mockito.Mockito.doThrow(closeFailure).when(connection).close();
+            doThrow(closeFailure).when(connection).close();
 
             assertThatThrownBy(() -> service.openConnection(properties))
                     .isInstanceOf(ReportingAccountUnavailableException.class)
@@ -297,29 +363,60 @@ class ReportingConnectionServiceUnitTest {
     @Nested
     @DisplayName("grant line classification")
     class GrantClassification {
+        private ReportingConnectionService.GrantAudit audit;
+
+        @BeforeEach
+        void loadShippedGrantList() throws java.io.IOException {
+            audit = new ReportingConnectionService.GrantAudit("carlos_report", "localhost", "carlos",
+                    ReportingGrantList.fromClasspath(), false);
+        }
+
         @Test
-        @DisplayName("accepts a backtick-escaped table name")
-        void shouldAcceptEscapedIdentifier_forReportableTable() {
+        @DisplayName("reads a backtick-escaped table name and refuses it as unclassified")
+        void shouldRefuseEscapedIdentifier_forUnclassifiedTable() {
             assertThat(ReportingConnectionService.refusalReason(
-                    "GRANT SELECT ON `carlos`.`odd``name` TO `carlos_report`@`localhost`",
-                    "carlos_report", "localhost", "carlos")).isEmpty();
+                    "GRANT SELECT ON `carlos`.`odd``name` TO `carlos_report`@`localhost`", audit))
+                    .hasValueSatisfying(reason -> assertThat(reason).contains("odd`name").contains("does not classify"));
         }
 
         @Test
         @DisplayName("names the restricted table it refuses")
         void shouldNameRestrictedTable_whenRefusing() {
             assertThat(ReportingConnectionService.refusalReason(
-                    "GRANT SELECT ON `carlos`.`ServiceClient` TO `carlos_report`@`localhost`",
-                    "carlos_report", "localhost", "carlos"))
+                    "GRANT SELECT ON `carlos`.`ServiceClient` TO `carlos_report`@`localhost`", audit))
                     .hasValueSatisfying(reason -> assertThat(reason).contains("ServiceClient"));
+        }
+
+        @Test
+        @DisplayName("names the hidden column it refuses")
+        void shouldNameHiddenColumn_whenRefusing() {
+            assertThat(ReportingConnectionService.refusalReason(
+                    "GRANT SELECT (`note_id`, `Password`) ON `carlos`.`casemgmt_note` TO `carlos_report`@`localhost`",
+                    audit))
+                    .hasValueSatisfying(reason -> assertThat(reason).contains("casemgmt_note.Password"));
+        }
+
+        @Test
+        @DisplayName("refuses a table-wide grant on a table with hidden columns")
+        void shouldRefuseTableWideGrant_whenTableHasHiddenColumns() {
+            assertThat(ReportingConnectionService.refusalReason(
+                    "GRANT SELECT ON `carlos`.`DigitalSignature` TO `carlos_report`@`localhost`", audit))
+                    .hasValueSatisfying(reason -> assertThat(reason).contains("every column of DigitalSignature"));
+        }
+
+        @Test
+        @DisplayName("accepts a column-list grant that leaves the hidden columns out")
+        void shouldAcceptColumnGrant_whenHiddenColumnsAreLeftOut() {
+            assertThat(ReportingConnectionService.refusalReason(
+                    "GRANT SELECT (`id`, `dateSigned`) ON `carlos`.`DigitalSignature` TO `carlos_report`@`localhost`",
+                    audit)).isEmpty();
         }
 
         @Test
         @DisplayName("does not mistake a schema with a similar name for the application schema")
         void shouldRefuse_whenSchemaOnlyResemblesApplicationSchema() {
             assertThat(ReportingConnectionService.refusalReason(
-                    "GRANT SELECT ON `carlos_test`.`demographic` TO `carlos_report`@`localhost`",
-                    "carlos_report", "localhost", "carlos")).isPresent();
+                    "GRANT SELECT ON `carlos_test`.`demographic` TO `carlos_report`@`localhost`", audit)).isPresent();
         }
     }
 

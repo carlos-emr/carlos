@@ -446,6 +446,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                             .thenThrow(new QueryByExampleAccessDeniedException(
                                     new java.sql.SQLException("SELECT command denied", "42000", 1142))))) {
                 assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+                assertThat(reportData.constructed()).hasSize(1);
             }
         });
 
@@ -606,7 +607,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                 "db_name", "carlos?zeroDateTimeBehavior=round",
                 "db_username", "carlos",
                 ReportingConnectionService.USERNAME_PROPERTY, username,
-                ReportingConnectionService.PASSWORD_PROPERTY, username.isEmpty() ? "" : "s3cret-report");
+                ReportingConnectionService.PASSWORD_PROPERTY, username.isEmpty() ? "" : "test-" + java.util.UUID.randomUUID());
     }
 
     @FunctionalInterface

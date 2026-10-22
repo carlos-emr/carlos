@@ -62,8 +62,9 @@ import org.junit.jupiter.api.Test;
 @Tag("report")
 @Tag("security")
 @DisplayName("Query by Example reporting-account table classification")
-class QueryByExampleReportingClassificationTest {
-    private static final Path GRANTS = ReportingGrantList.FILE;
+class QueryByExampleReportingClassificationUnitTest {
+    /** The grant list, relative to the project directory Maven runs tests from. */
+    private static final Path GRANTS = Path.of("src/main/resources/db/reporting/carlos_report_grants.sql");
     private static final Path MIGRATIONS = Path.of("database/mysql/migration");
     private static final List<String> MIGRATION_LOCATIONS = List.of("common", "on", "bc");
 
@@ -89,7 +90,7 @@ class QueryByExampleReportingClassificationTest {
 
     @BeforeAll
     static void readGrantListAndMigrations() throws IOException {
-        classified = ReportingGrantList.read();
+        classified = ReportingGrantList.read(GRANTS).entries();
         migrationColumns = readMigrationTables();
     }
 

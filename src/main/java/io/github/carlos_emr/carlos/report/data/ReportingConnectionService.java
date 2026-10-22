@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.report.data;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -54,10 +55,14 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *       missing JDBC driver all raise {@link ReportingAccountUnavailableException} instead.</li>
  *   <li>Before handing a connection out it reads the account's own {@code SHOW GRANTS}. MariaDB
  *       prints there everything the session can use: its own grants, granted roles, the default
- *       role and grants to {@code PUBLIC}. Anything other than {@code USAGE} and {@code SELECT} on
- *       a non-restricted table of the application schema, granted to this very account, closes the
- *       connection and fails closed. That catches a hand-made grant, a role, or a {@code PUBLIC}
- *       grant that the provisioning script did not create.</li>
+ *       role and grants to {@code PUBLIC}. Each line is checked against the same grant list
+ *       that provisioned the account: only {@code USAGE} and {@code SELECT} granted to this very
+ *       account on a {@code reportable} table of the application schema pass, and a table with
+ *       hidden columns passes only as a column-list grant that names none of them. Anything else
+ *       (a restricted or unclassified table, a table-wide grant on a table with hidden columns,
+ *       a hidden column, a write privilege, a role, a {@code PUBLIC} grant) closes the connection
+ *       and fails closed. That catches whatever was granted by hand or left behind outside the
+ *       provisioning script.</li>
  * </ul>
  *
  * <p>Each call opens its own physical connection rather than keeping a pool: Query by Example is
@@ -78,15 +83,20 @@ public class ReportingConnectionService {
     private static final int ER_ACCESS_DENIED = 1045;
     private static final int ER_DB_ACCESS_DENIED = 1044;
 
-    private static final String IDENTIFIER = "(?:[^`]|``)+";
-    private static final String GRANTEE = "(?:`(?<userBacktick>(?:[^`]|``)*)`|'(?<userQuote>(?:[^']|'')*)')"
-            + "@(?:`(?<hostBacktick>(?:[^`]|``)*)`|'(?<hostQuote>(?:[^']|'')*)')";
-    private static final Pattern USAGE_GRANT = Pattern.compile(
-            "^GRANT USAGE ON \\*\\.\\* TO " + GRANTEE + "(?<tail>.*)$");
+    // Every repetition over a group is possessive: Java matches a backtracking repetition of a
+    // group by recursion, one frame per iteration, so a long grant line could overflow the stack.
+    // Possessive matching gives up nothing here, since a quoted name always ends at its quote.
+    private static final String IDENTIFIER = "(?:[^`]|``)++";
+    private static final Pattern USAGE_GRANT = Pattern.compile("^GRANT USAGE ON \\*\\.\\* TO (?<grantee>.+)$");
     private static final Pattern SELECT_GRANT = Pattern.compile(
-            "^GRANT SELECT(?: \\(`" + IDENTIFIER + "`(?:, `" + IDENTIFIER + "`)*\\))?"
-                    + " ON `(?<schema>" + IDENTIFIER + ")`\\.`(?<table>" + IDENTIFIER + ")` TO " + GRANTEE + "$");
+            "^GRANT SELECT(?: \\((?<columns>`" + IDENTIFIER + "`(?:, `" + IDENTIFIER + "`)*+)\\))?+"
+                    + " ON `(?<schema>" + IDENTIFIER + ")`\\.`(?<table>" + IDENTIFIER + ")` TO (?<grantee>.+)$");
+    private static final Pattern COLUMN = Pattern.compile("`(" + IDENTIFIER + ")`");
+    // MariaDB 10.4+ and MySQL 8 quote the grantee with backticks, older releases with single quotes.
+    private static final Pattern GRANTEE = Pattern.compile("`(?<user>(?:[^`]|``)*+)`@`(?<host>(?:[^`]|``)*+)`");
+    private static final Pattern LEGACY_GRANTEE = Pattern.compile("'(?<user>(?:[^']|'')*+)'@'(?<host>(?:[^']|'')*+)'");
     private static final Pattern GRANT_OPTION = Pattern.compile("\\bGRANT\\s+OPTION\\b", Pattern.CASE_INSENSITIVE);
+    private static final String ANOTHER_GRANTEE = "a privilege granted to another account, a role or PUBLIC";
 
     /**
      * Opens one physical connection. The default implementation asks {@link DriverManager} for
@@ -97,10 +107,33 @@ public class ReportingConnectionService {
         Connection connect(String url, Properties credentials) throws SQLException;
     }
 
+    /** Supplies the grant list the audit checks against; tests substitute their own. */
+    @FunctionalInterface
+    interface GrantListSource {
+        ReportingGrantList load() throws IOException;
+    }
+
+    /**
+     * What each {@code SHOW GRANTS} line is checked against: the account the session runs as, the
+     * application schema, the grant list, and whether the server folds table names to lower case.
+     */
+    record GrantAudit(String user, String host, String schema, ReportingGrantList grantList,
+                      boolean caseInsensitiveTableNames) {
+    }
+
     private record Settings(String url, String username, String password, String schema) {
     }
 
+    /** The account the session authenticated as, and whether the server folds table names. */
+    private record SessionAccount(String user, String host, boolean caseInsensitiveTableNames) {
+    }
+
+    /** The grantee of a grant line and whatever follows it (options on a USAGE line). */
+    private record Grantee(String user, String host, String tail) {
+    }
+
     private final DriverConnector connector;
+    private final GrantListSource grantListSource;
 
     /** Creates the service that connects through the registered JDBC driver for {@code db_uri}. */
     public ReportingConnectionService() {
@@ -108,7 +141,12 @@ public class ReportingConnectionService {
     }
 
     ReportingConnectionService(DriverConnector connector) {
+        this(connector, ReportingGrantList::fromClasspath);
+    }
+
+    ReportingConnectionService(DriverConnector connector, GrantListSource grantListSource) {
         this.connector = connector;
+        this.grantListSource = grantListSource;
     }
 
     /**
@@ -123,7 +161,7 @@ public class ReportingConnectionService {
         try {
             settings(properties);
             return true;
-        } catch (ReportingAccountUnavailableException e) {
+        } catch (ReportingAccountUnavailableException _) {
             return false;
         }
     }
@@ -142,9 +180,10 @@ public class ReportingConnectionService {
      */
     public Connection openConnection(Properties properties) throws SQLException {
         Settings settings = settings(properties);
+        ReportingGrantList grantList = grantList();
         Connection connection = connect(settings);
         try {
-            verifyGrants(connection, settings);
+            verifyGrants(connection, settings, grantList);
         } catch (ReportingAccountUnavailableException refused) {
             closeAfterRefusal(connection, refused);
             throw refused;
@@ -180,6 +219,17 @@ public class ReportingConnectionService {
             throw new ReportingAccountUnavailableException("The application database schema is not configured", e);
         }
         return new Settings(uri + name, username, password, schema);
+    }
+
+    // Without the list there is nothing to check the account's grants against, so fail closed
+    // before connecting at all.
+    private ReportingGrantList grantList() throws ReportingAccountUnavailableException {
+        try {
+            return grantListSource.load();
+        } catch (IOException | IllegalArgumentException e) {
+            throw new ReportingAccountUnavailableException(
+                    "The reporting grant list shipped with the application cannot be read", e);
+        }
     }
 
     private static String required(Properties properties, String key) throws ReportingAccountUnavailableException {
@@ -239,23 +289,39 @@ public class ReportingConnectionService {
         return driver.connect(url, credentials);
     }
 
-    private static void verifyGrants(Connection connection, Settings settings) throws SQLException {
-        String currentUser;
+    // Both audit statements are constant SQL. Semgrep taints the whole connection because its
+    // JDBC URL is assembled from the operator-configured db_uri and db_name.
+    private static SessionAccount sessionAccount(Connection connection) throws SQLException {
+        String currentUser = null;
+        boolean caseInsensitiveTableNames = false;
         try (Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery("SELECT CURRENT_USER()")) {
-            currentUser = result.next() ? result.getString(1) : null;
+             // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- constant SQL; taint is the configured JDBC URL
+             ResultSet result = statement.executeQuery("SELECT CURRENT_USER(), @@lower_case_table_names")) {
+            if (result.next()) {
+                currentUser = result.getString(1);
+                // Other than 0, the server stores and prints table names in lower case, the way
+                // the grant script matched them.
+                caseInsensitiveTableNames = result.getInt(2) != 0;
+            }
         }
         int at = currentUser == null ? -1 : currentUser.lastIndexOf('@');
         if (at <= 0) {
             throw new ReportingAccountUnavailableException("The database did not report the current account");
         }
-        String user = currentUser.substring(0, at);
-        String host = currentUser.substring(at + 1);
+        return new SessionAccount(currentUser.substring(0, at), currentUser.substring(at + 1), caseInsensitiveTableNames);
+    }
+
+    private static void verifyGrants(Connection connection, Settings settings, ReportingGrantList grantList)
+            throws SQLException {
+        SessionAccount account = sessionAccount(connection);
+        GrantAudit audit = new GrantAudit(account.user(), account.host(), settings.schema(), grantList,
+                account.caseInsensitiveTableNames());
 
         try (Statement statement = connection.createStatement();
+             // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- constant SQL; taint is the configured JDBC URL
              ResultSet grants = statement.executeQuery("SHOW GRANTS")) {
             while (grants.next()) {
-                Optional<String> refusal = refusalReason(grants.getString(1), user, host, settings.schema());
+                Optional<String> refusal = refusalReason(grants.getString(1), audit);
                 if (refusal.isPresent()) {
                     // Never log the grant line itself: the USAGE line carries the password hash.
                     if (logger.isWarnEnabled()) {
@@ -272,45 +338,46 @@ public class ReportingConnectionService {
 
     /**
      * Classifies one {@code SHOW GRANTS} line. Accepted are {@code USAGE ON *.*} and
-     * {@code SELECT} (table or column list) on a table of the application schema that is not
-     * restricted, each granted to the current account itself and without {@code GRANT OPTION}.
+     * {@code SELECT} on a table of the application schema that the grant list classifies as
+     * reportable, each granted to the current account itself and without {@code GRANT OPTION}.
+     * A table with hidden columns is accepted only as a column-list grant naming none of them.
      *
      * @param grant one line of {@code SHOW GRANTS} output
-     * @param user the current account's user name
-     * @param host the current account's host
-     * @param schema the application schema
+     * @param audit the account, schema and grant list the line is checked against
      * @return empty when the line is acceptable, otherwise a description safe to log (it never
      *         contains the line, which can carry the password hash)
      */
-    static Optional<String> refusalReason(String grant, String user, String host, String schema) {
+    static Optional<String> refusalReason(String grant, GrantAudit audit) {
         if (grant == null || grant.isBlank()) {
             return Optional.of("an unreadable grant");
         }
         String line = grant.trim();
         Matcher usage = USAGE_GRANT.matcher(line);
         if (usage.matches()) {
-            if (!isCurrentAccount(usage, user, host)) {
-                return Optional.of("a privilege granted to another account, a role or PUBLIC");
+            Optional<Grantee> grantee = grantee(usage.group("grantee"));
+            if (grantee.isEmpty() || !isCurrentAccount(grantee.get(), audit)) {
+                return Optional.of(ANOTHER_GRANTEE);
             }
-            if (GRANT_OPTION.matcher(usage.group("tail")).find()) {
+            if (GRANT_OPTION.matcher(grantee.get().tail()).find()) {
                 return Optional.of("WITH GRANT OPTION");
             }
             return Optional.empty();
         }
         Matcher select = SELECT_GRANT.matcher(line);
         if (select.matches()) {
-            if (!isCurrentAccount(select, user, host)) {
-                return Optional.of("a privilege granted to another account, a role or PUBLIC");
+            Optional<Grantee> grantee = grantee(select.group("grantee"));
+            if (grantee.isEmpty() || !isCurrentAccount(grantee.get(), audit)) {
+                return Optional.of(ANOTHER_GRANTEE);
+            }
+            if (!grantee.get().tail().isEmpty()) {
+                return Optional.of(GRANT_OPTION.matcher(grantee.get().tail()).find()
+                        ? "WITH GRANT OPTION" : "a SELECT grant with options");
             }
             String grantedSchema = unescapeBackticks(select.group("schema"));
-            if (!grantedSchema.equals(schema)) {
+            if (!grantedSchema.equals(audit.schema())) {
                 return Optional.of("SELECT on another schema (" + grantedSchema + ")");
             }
-            String table = unescapeBackticks(select.group("table"));
-            if (QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES.contains(table.toLowerCase(Locale.ROOT))) {
-                return Optional.of("SELECT on the restricted table " + table);
-            }
-            return Optional.empty();
+            return tableRefusal(unescapeBackticks(select.group("table")), select.group("columns"), audit);
         }
         if (line.startsWith("SET DEFAULT ROLE")) {
             return Optional.of("a default role");
@@ -321,17 +388,57 @@ public class ReportingConnectionService {
         if (line.startsWith("GRANT `") || line.startsWith("GRANT '")) {
             return Optional.of("a role");
         }
-        return Optional.of("a privilege other than SELECT on reportable tables of " + schema);
+        return Optional.of("a privilege other than SELECT on reportable tables of " + audit.schema());
     }
 
-    private static boolean isCurrentAccount(Matcher grant, String user, String host) {
-        String grantedUser = grant.group("userBacktick") != null
-                ? grant.group("userBacktick").replace("``", "`")
-                : grant.group("userQuote").replace("''", "'");
-        String grantedHost = grant.group("hostBacktick") != null
-                ? grant.group("hostBacktick").replace("``", "`")
-                : grant.group("hostQuote").replace("''", "'");
-        return grantedUser.equals(user) && grantedHost.equals(host);
+    // A SELECT grant on one table, with its column list when it has one, against the grant list.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Matches ASCII table names against the restricted-table list, which is kept in lower case")
+    private static Optional<String> tableRefusal(String table, String columnList, GrantAudit audit) {
+        // FindSecBugs IMPROPER_UNICODE: table names are ASCII; the restricted list is lower case.
+        if (QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES.contains(table.toLowerCase(Locale.ROOT))) {
+            return Optional.of("SELECT on the restricted table " + table);
+        }
+        Optional<ReportingGrantList.Entry> row = audit.grantList().find(table, audit.caseInsensitiveTableNames());
+        if (row.isEmpty()) {
+            return Optional.of("SELECT on " + table + ", a table the reporting grant list does not classify");
+        }
+        if (!row.get().reportable()) {
+            return Optional.of("SELECT on the restricted table " + table);
+        }
+        if (row.get().excludedColumns().isEmpty()) {
+            return Optional.empty();
+        }
+        if (columnList == null) {
+            return Optional.of("SELECT on every column of " + table + ", hidden columns included");
+        }
+        Matcher column = COLUMN.matcher(columnList);
+        while (column.find()) {
+            String name = unescapeBackticks(column.group(1));
+            if (row.get().hides(name)) {
+                return Optional.of("SELECT on the hidden column " + table + "." + name);
+            }
+        }
+        return Optional.empty();
+    }
+
+    // The quoted user@host at the start of the text after TO, and what follows it.
+    private static Optional<Grantee> grantee(String text) {
+        Matcher quoted = GRANTEE.matcher(text);
+        if (quoted.lookingAt()) {
+            return Optional.of(new Grantee(quoted.group("user").replace("``", "`"),
+                    quoted.group("host").replace("``", "`"), text.substring(quoted.end())));
+        }
+        Matcher legacy = LEGACY_GRANTEE.matcher(text);
+        if (legacy.lookingAt()) {
+            return Optional.of(new Grantee(legacy.group("user").replace("''", "'"),
+                    legacy.group("host").replace("''", "'"), text.substring(legacy.end())));
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isCurrentAccount(Grantee grantee, GrantAudit audit) {
+        return grantee.user().equals(audit.user()) && grantee.host().equals(audit.host());
     }
 
     private static String unescapeBackticks(String identifier) {

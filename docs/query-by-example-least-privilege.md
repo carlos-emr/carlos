@@ -20,9 +20,10 @@ and rotate it.
   The build fails if that list and the grant list disagree, if a migration creates a table the
   grant list does not classify, or if a column whose name looks like a credential would be
   granted.
-- Before each query the application reads the account's own `SHOW GRANTS` and refuses an account
-  that holds more than `SELECT` on reportable tables, including privileges inherited from a role
-  or from `PUBLIC`.
+- Before each query the application reads the account's own `SHOW GRANTS` and checks every line
+  against the same grant list, which the WAR carries. It refuses an account that can read a
+  restricted or unclassified table, a hidden column, or a table with hidden columns as a whole, or
+  that holds anything beyond `SELECT`, including privileges inherited from a role or from `PUBLIC`.
 - Packaged installs provision the account automatically (`carlos-ctl` 1.2.0, `db-users` and
   `db-migrate`). Where the account is not provisioned, Query by Example says so and runs nothing.
 
@@ -122,10 +123,15 @@ runs with `sql_log_bin = 0`, so grants never ride the binary log into a point-in
   account or `root`.
 - Before returning the connection it runs `SHOW GRANTS`, which MariaDB answers with everything the
   session can use: the account's own grants, granted roles, the default role and grants to
-  `PUBLIC`. Only `USAGE ON *.*` and `SELECT` on a non-restricted table of the application schema,
-  granted to the account itself without `GRANT OPTION`, are accepted. Anything else closes the
-  connection. The log names the kind of grant, never the line, because that line carries the
-  password hash.
+  `PUBLIC`. Each line is checked against the grant list the WAR ships
+  (`WEB-INF/classes/db/reporting/carlos_report_grants.sql`, read by `ReportingGrantList`). Only
+  `USAGE ON *.*` and `SELECT` on a table the list calls reportable, granted to the account itself
+  without `GRANT OPTION`, are accepted; a table with hidden columns only as a column-list grant
+  that names none of them. Table names are compared exactly, or lower-cased when the server's
+  `lower_case_table_names` is not 0. Anything else (a restricted or unclassified table, a
+  table-wide grant on a table with hidden columns, a hidden column, any other privilege) closes
+  the connection, and so does a grant list the application cannot read. The log names the kind
+  of grant, never the line, because that line carries the password hash.
 - `RptByExampleData` still validates first with `QueryByExampleSqlValidator`, still runs read-only
   with the 15-second timeout and row and output limits, and audits each outcome by query hash. Two
   outcomes are new: `unavailable` (no usable reporting account, nothing ran) and `denied` (MariaDB
@@ -135,7 +141,7 @@ runs with `sql_log_bin = 0`, so grants never ride the binary log into a point-in
 
 ### The build guards
 
-`QueryByExampleReportingClassificationTest` reads the grant list and every Flyway migration and
+`QueryByExampleReportingClassificationUnitTest` reads the grant list and every Flyway migration and
 fails when:
 
 - a table that any migration creates is not classified, spelled exactly as the schema spells it;
@@ -264,7 +270,7 @@ keeps working without operator action. What users notice:
 
 | Layer | What |
 |---|---|
-| Unit | `ReportingConnectionServiceUnitTest` (settings, login refusal, `SHOW GRANTS` audit, no password hash in logs), `RptByExampleDataUnitTest` (`denied` and `unavailable` outcomes, no fallback), `ReportActionSecurityMigrationUnitTest` (messages), `QueryByExampleSqlValidatorUnitTest`, `QueryByExampleReportingClassificationTest` |
+| Unit | `ReportingConnectionServiceUnitTest` (settings, login refusal, `SHOW GRANTS` audit against the grant list, no password hash in logs), `ReportingGrantListUnitTest` (the reader the audit and the build checks share), `RptByExampleDataUnitTest` (`denied` and `unavailable` outcomes, no fallback), `ReportActionSecurityMigrationUnitTest` (messages), `QueryByExampleSqlValidatorUnitTest`, `QueryByExampleReportingClassificationUnitTest` |
 | Integration (H2) | `RptByExampleDataReportingAccountIntegrationTest` |
 | Live MariaDB | carlos-ctl `tests/test_reporting.py` with `CARLOS_TEST_MARIADB_SOCKET` and `CARLOS_SRC`: the shipped list against a real server, including column grants, re-sync revoking hand-made grants, and the `PUBLIC` refusal |
 | Browser, packaged install | `scripts/report-query-by-example-least-privilege-playwright-checks.js` through the front door |
@@ -279,3 +285,6 @@ keeps working without operator action. What users notice:
 - A table created at run time rather than by a Flyway migration is never granted.
 - The grant script is MariaDB-specific (10.4 or later). The application's `SHOW GRANTS` audit also
   understands MySQL's output format.
+- The audit reads the grants when it opens the connection for a query. A privilege a database
+  administrator adds while that one query runs is caught by the next query, not that one. The
+  audit finds drift; it is not a lock on `GRANT`, and whoever can grant can already read the data.

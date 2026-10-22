@@ -385,8 +385,8 @@ class RptByExampleDataUnitTest {
                 eq("Query-by-Example audit provider={} queryHash={} queryLength={} durationMs={} rowCount={} outcome={}"),
                 eq("999998"), anyString(), eq(38), anyLong(), eq(0), eq("unavailable"));
         verify(logger).warn(
-                eq("Query-by-Example unavailable provider={} reason={}; see docs/query-by-example-least-privilege.md"),
-                eq("999998"), eq("db_reporting_username is not set"));
+                "Query-by-Example unavailable provider={} reason={}; see docs/query-by-example-least-privilege.md",
+                "999998", "db_reporting_username is not set");
         verify(connection, never()).prepareStatement(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
     }

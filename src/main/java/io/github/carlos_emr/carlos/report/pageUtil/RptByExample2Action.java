@@ -36,6 +36,7 @@ import java.sql.SQLTimeoutException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
@@ -134,26 +135,11 @@ public class RptByExample2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        RptByExampleData.QueryResult result;
-        try {
-            result = new RptByExampleData().execute(sql, properties, providerNo);
-        } catch (QueryByExampleValidationException e) {
-            request.setAttribute("queryValidationError", true);
-            return SUCCESS;
-        } catch (ReportingAccountUnavailableException e) {
-            request.setAttribute("queryReportingUnavailable", true);
-            return SUCCESS;
-        } catch (QueryByExampleAccessDeniedException e) {
-            request.setAttribute("queryAccessDenied", true);
-            return SUCCESS;
-        } catch (SQLTimeoutException e) {
-            request.setAttribute("queryTimeout", true);
-            request.setAttribute("queryTimeoutSeconds", RptByExampleData.QUERY_TIMEOUT_SECONDS);
-            return SUCCESS;
-        } catch (SQLException | RuntimeException e) {
-            request.setAttribute("queryExecutionError", true);
+        Optional<RptByExampleData.QueryResult> ran = runQuery(providerNo, properties);
+        if (ran.isEmpty()) {
             return SUCCESS;
         }
+        RptByExampleData.QueryResult result = ran.get();
 
         request.setAttribute("results", result.html());
         request.setAttribute("resultRowCount", result.rowCount());
@@ -163,12 +149,35 @@ public class RptByExample2Action extends ActionSupport {
         request.setAttribute("resultCharacterLimit", RptByExampleData.MAX_OUTPUT_CHARACTERS);
         try {
             write2Database(sql, providerNo);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException _) {
             request.setAttribute("queryHistoryError", true);
             RptByExampleData.audit(providerNo, sql, result.durationMillis(), result.rowCount(), "history_failed");
         }
 
         return SUCCESS;
+    }
+
+    /**
+     * Runs the submitted query. When it produces no result, sets the request attribute that tells
+     * the page why (rejected, no reporting account, refused by the database, timed out, failed)
+     * and returns empty; each of those outcomes is already audited by {@link RptByExampleData}.
+     */
+    private Optional<RptByExampleData.QueryResult> runQuery(String providerNo, Properties properties) {
+        try {
+            return Optional.of(new RptByExampleData().execute(sql, properties, providerNo));
+        } catch (QueryByExampleValidationException _) {
+            request.setAttribute("queryValidationError", true);
+        } catch (ReportingAccountUnavailableException _) {
+            request.setAttribute("queryReportingUnavailable", true);
+        } catch (QueryByExampleAccessDeniedException _) {
+            request.setAttribute("queryAccessDenied", true);
+        } catch (SQLTimeoutException _) {
+            request.setAttribute("queryTimeout", true);
+            request.setAttribute("queryTimeoutSeconds", RptByExampleData.QUERY_TIMEOUT_SECONDS);
+        } catch (SQLException | RuntimeException _) {
+            request.setAttribute("queryExecutionError", true);
+        }
+        return Optional.empty();
     }
 
     @SuppressFBWarnings(

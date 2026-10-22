@@ -70,7 +70,7 @@ public final class QueryByExampleSqlValidator {
      * <p>This list must name exactly the tables that {@code db/reporting/carlos_report_grants.sql}
      * classifies as {@code restricted}: the database never grants them to the reporting account,
      * and this application-level check refuses them before a query is sent, as defense in depth.
-     * {@code QueryByExampleReportingClassificationTest} keeps the two in step (issue #3372).</p>
+     * {@code QueryByExampleReportingClassificationUnitTest} keeps the two in step (issue #3372).</p>
      */
     static final Set<String> SECURITY_SENSITIVE_TABLES = Set.of(
             "appdefinition",
