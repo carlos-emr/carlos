@@ -48,6 +48,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.form.LastVisitedPageResolver" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -70,7 +71,11 @@
                 FrmRecord rec = (new FrmRecordFactory()).factory("MentalHealth");
                 java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
-                request.getRequestDispatcher("/WEB-INF/jsp/form/formmh" + FrmMentalHealthRecord.resolveLastVisitedPage(props.getProperty("c_lastVisited"))
+                // The stored page names the JSP to include. Rows saved before #4595 hold "referral/" and the
+                // like, so the value is matched against the three pages rather than trusted.
+                String lastVisited = LastVisitedPageResolver.resolve(props.getProperty("c_lastVisited"),
+                        "referral", "assessment", "outcome");
+                request.getRequestDispatcher("/WEB-INF/jsp/form/formmh" + lastVisited
                         + ".jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
             }
 

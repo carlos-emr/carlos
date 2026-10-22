@@ -345,7 +345,7 @@
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
         <input type="hidden" name="c_lastVisited"
-               value="<%=props.getProperty("c_lastVisited", "p4")%>"/>
+               value="<carlos:encode value='<%= props.getProperty("c_lastVisited", "p4") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table cellpadding="0" cellspacing="0" class="Header" class="hidePrint">

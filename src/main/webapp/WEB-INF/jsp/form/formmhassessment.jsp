@@ -57,6 +57,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
@@ -111,22 +112,18 @@
             }
 
             function onPrint() {
-                var form = document.forms[0];
+                document.forms[0].submit.value = "print"; //printReferral
+                // A non-numeric catalogue number cannot be printed; numvalidate() has said which.
                 if (numvalidate() === false) return false;
-                var previousAction = form.action;
-                var previousTarget = form.target;
-                var previousSubmit = form.submit.value;
-                try {
-                    form.submit.value = "print";
-                    popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
-                    form.action = "<%= request.getContextPath() %>/form/formmhassessmentprint";
-                    form.target = "planner";
-                    HTMLFormElement.prototype.submit.call(form);
-                } finally {
-                    form.action = previousAction;
-                    form.target = previousTarget;
-                    form.submit.value = previousSubmit;
-                }
+                popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
+                document.forms[0].action = "<%= request.getContextPath() %>/form/formmhassessmentprint";
+                document.forms[0].target = "planner";
+                // The hidden input named "submit" shadows the form's own submit() method, so calling
+                // it on the form threw and no print page was requested (#4596).
+                HTMLFormElement.prototype.submit.call(document.forms[0]);
+                // Leave the form as Save expects to find it.
+                document.forms[0].action = mainAction;
+                document.forms[0].target = mainTarget;
                 return false;
             }
 
@@ -134,21 +131,17 @@
                 document.forms[0].submit.value = "save";
                 document.forms[0].action = mainAction;
                 document.forms[0].target = mainTarget;
-                var ret = confirm("<fmt:message key='global.msgWannaSave'/>");
-                if (ret == true) {
-                    window.opener.location.reload();
-                }
-                return ret;
+                // The window that opened this page is the E-Chart. Reloading it on every Save, a leftover of the
+                // legacy schedule screen, rebuilt the chart and released its open note's lock (#4600).
+                return confirm("<fmt:message key='global.msgWannaSave'/>");
             }
 
 
             function onSaveExit() {
-                if (numvalidate() === false) return false;
-                if (!confirm("<fmt:message key='form.mhAssessment.saveExitConfirm'/>")) return false;
+                document.forms[0].submit.value = "exit";
                 document.forms[0].action = mainAction;
                 document.forms[0].target = mainTarget;
-                document.forms[0].submit.value = "exit";
-                return true;
+                return confirm("<fmt:message key='form.mhAssessment.saveExitConfirm'/>");
             }
 
             function insert(fromName, num) {
@@ -262,18 +255,18 @@
     <form action="${pageContext.request.contextPath}/form/formname" method="post" onsubmit="return numvalidate()">
 
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="ID"
-               value="<%= props.getProperty("ID", "0") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
         <input type="hidden" name="provider_no"
                value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
         <input type="hidden" name="c_lastVisited"
-               value="<carlos:encode value='<%= props.getProperty("c_lastVisited", "referral") %>' context="htmlAttribute"/>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_lastVisited", "Referral")) %>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table class="Head" class="hidePrint">
@@ -308,30 +301,30 @@
                             <td width="50%" rowspan="5">&nbsp;</td>
                             <td><fmt:message key="form.mhAssessment.name"/>:</td>
                             <td align="right"><input type="text" name="c_pName" size="40"
-                                                     value="<%= props.getProperty("c_pName", "") %>" readonly="true"/>
+                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_pName", "")) %>" readonly="true"/>
                             </td>
                         </tr>
                         <tr>
                             <td><fmt:message key="form.mhAssessment.sex"/>:</td>
                             <td align="right"><input type="text" name="c_sex" size="40"
-                                                     value="<%= props.getProperty("c_sex", "") %>" readonly="true"/>
+                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_sex", "")) %>" readonly="true"/>
                             </td>
                         </tr>
             </tr>
             <td><fmt:message key="form.mhAssessment.address"/>:</td>
             <td align="right"><input type="text" name="c_address" size="40"
-                                     value="<%= props.getProperty("c_address", "") %>" readonly="true"/></td>
+                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_address", "")) %>" readonly="true"/></td>
             </tr>
             <tr>
                 <td><fmt:message key="form.mhAssessment.homePhone"/>:</td>
                 <td align="right"><input type="text" name="c_homePhone"
-                                         size="40" value="<%= props.getProperty("c_homePhone", "") %>"
+                                         size="40" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_homePhone", "")) %>"
                                          readonly="true"/></td>
             </tr>
             <tr>
                 <td><fmt:message key="form.mhAssessment.birthDate"/> <small>(yyyy/mm/dd)</small>:</td>
                 <td align="right"><input type="text" name="c_birthDate"
-                                         size="40" value="<%= props.getProperty("c_birthDate", "") %>"
+                                         size="40" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_birthDate", "")) %>"
                                          readonly="true"/></td>
             </tr>
         </table>
@@ -344,20 +337,20 @@
                     <tr>
                         <td><fmt:message key="form.mhAssessment.referralDate"/> <small>(yyyy/mm/dd)</small>:</td>
                         <td><input type="text" name="c_referralDate" size="40"
-                                   value="<%= props.getProperty("c_referralDate", "") %>"
+                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_referralDate", "")) %>"
                                    readonly="true"/></td>
                         <td><fmt:message key="form.mhAssessment.referredBy"/>:</td>
                         <td align="right"><input type="text" name="c_referredBy"
-                                                 size="40" value="<%= props.getProperty("c_referredBy", "") %>"
+                                                 size="40" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_referredBy", "")) %>"
                                                  readonly="true"/></td>
                     </tr>
                     <tr>
                         <td>Assessment Date<small>(yyyy/mm/dd)</small>:</td>
                         <td><input type="text" name="a_formDate" size="40"
-                                   value="<%= props.getProperty("a_formDate", "") %>"/></td>
+                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_formDate", "")) %>"/></td>
                         <td>HSO Specialist:</td>
                         <td align="right"><input type="text" name="a_specialist"
-                                                 size="40" value="<%= props.getProperty("a_specialist", "") %>"/></td>
+                                                 size="40" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_specialist", "")) %>"/></td>
                     </tr>
                 </table>
             </td>
@@ -369,12 +362,12 @@
                         <td class="mhList" valign="top"><fmt:message key="form.mhAssessment.psychSymptoms"/>:<br>
                             <br>
                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1. <input type="text" name="a_aps1"
-                                                                     value="<%= props.getProperty("a_aps1", "") %>"
+                                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_aps1", "")) %>"
                                                                      size="2"/> &nbsp;
                             2. <input type="text" name="a_aps2"
-                                      value="<%= props.getProperty("a_aps2", "") %>" size="2"/> &nbsp;
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_aps2", "")) %>" size="2"/> &nbsp;
                             3. <input type="text" name="a_aps3"
-                                      value="<%= props.getProperty("a_aps3", "") %>" size="2"/> <br>
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_aps3", "")) %>" size="2"/> <br>
                             <br>
                             <% String[] aps = list.loadData("mhAssessment/PsychiatricSymptoms.txt", projecthome, path);
                                 for (int i = 0; i < aps.length; i++) {
@@ -382,22 +375,22 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('a_aps', <%=i+1%>);"><%=i + 1%>.
-                                <%= aps[i] %>
+                                <%= SafeEncode.forHtmlContent(aps[i]) %>
                             </a><br>
                             <%
                                     }
                                 }
                             %> &nbsp;<input type="text" name="a_apsOther"
-                                            value="<%= props.getProperty("a_apsOther", "") %>"/></td>
+                                            value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_apsOther", "")) %>"/></td>
                         <td class="mhList" valign="top"><fmt:message key="form.mhAssessment.psychosocialIssues"/>:<br>
                             <br>
                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1. <input type="text" name="a_api1"
-                                                                     value="<%= props.getProperty("a_api1", "") %>"
+                                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_api1", "")) %>"
                                                                      size="2"/> &nbsp;
                             2. <input type="text" name="a_api2"
-                                      value="<%= props.getProperty("a_api2", "") %>" size="2"/> &nbsp;
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_api2", "")) %>" size="2"/> &nbsp;
                             3. <input type="text" name="a_api3"
-                                      value="<%= props.getProperty("a_api3", "") %>" size="2"/> <br>
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_api3", "")) %>" size="2"/> <br>
                             <br>
                             <% String[] api = list.loadData("mhAssessment/PsychosocialIssues.txt", projecthome, path);
                                 for (int i = 0; i < api.length; i++) {
@@ -405,22 +398,22 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('a_api', <%=i+1%>);"><%=i + 1%>.
-                                <%= api[i] %>
+                                <%= SafeEncode.forHtmlContent(api[i]) %>
                             </a><br>
                             <%
                                     }
                                 }
                             %> &nbsp;<input type="text" name="a_apiOther"
-                                            value="<%= props.getProperty("a_apiOther", "") %>"/></td>
+                                            value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_apiOther", "")) %>"/></td>
                         <td class="mhList" valign="top"><fmt:message key="form.mhAssessment.medPhyIssues"/>:<br>
                             <br>
                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1. <input type="text" name="a_ampi1"
-                                                                     value="<%= props.getProperty("a_ampi1", "") %>"
+                                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_ampi1", "")) %>"
                                                                      size="2"/>
                             &nbsp; 2. <input type="text" name="a_ampi2"
-                                             value="<%= props.getProperty("a_ampi2", "") %>" size="2"/>
+                                             value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_ampi2", "")) %>" size="2"/>
                             &nbsp; 3. <input type="text" name="a_ampi3"
-                                             value="<%= props.getProperty("a_ampi3", "") %>" size="2"/> <br>
+                                             value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_ampi3", "")) %>" size="2"/> <br>
                             <br>
                             <% String[] ampi = list.loadData("mhAssessment/MedPhyIssues.txt", projecthome, path);
                                 for (int i = 0; i < ampi.length; i++) {
@@ -428,13 +421,13 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('a_ampi', <%=i+1%>);"><%=i + 1%>.
-                                <%= ampi[i] %>
+                                <%= SafeEncode.forHtmlContent(ampi[i]) %>
                             </a><br>
                             <%
                                     }
                                 }
                             %> &nbsp;<input type="text" name="a_ampiOther"
-                                            value="<%= props.getProperty("a_ampiOther", "") %>"/></td>
+                                            value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_ampiOther", "")) %>"/></td>
                     </tr>
                     <tr>
                         <td class="mhSelect"><br>
@@ -448,12 +441,12 @@
                         <td class="mhList" valign="top"><fmt:message key="form.mhAssessment.treatmentPlan"/>:<br>
                             <br>
                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1. <input type="text" name="a_tp1"
-                                                                     value="<%= props.getProperty("a_tp1", "") %>"
+                                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_tp1", "")) %>"
                                                                      size="2"/> &nbsp;
                             2. <input type="text" name="a_tp2"
-                                      value="<%= props.getProperty("a_tp2", "") %>" size="2"/> &nbsp;
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_tp2", "")) %>" size="2"/> &nbsp;
                             3. <input type="text" name="a_tp3"
-                                      value="<%= props.getProperty("a_tp3", "") %>" size="2"/> <br>
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_tp3", "")) %>" size="2"/> <br>
                             <br>
                             <% String[] tp = list.loadData("mhAssessment/TreatmentPlan.txt", projecthome, path);
                                 for (int i = 0; i < tp.length; i++) {
@@ -461,17 +454,17 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('a_tp', <%=i+1%>);"><%=i + 1%>.
-                                <%= tp[i] %>
+                                <%= SafeEncode.forHtmlContent(tp[i]) %>
                             </a><br>
                             <%
                                     }
                                 }
                             %> &nbsp;<input type="text" name="a_tpOther"
-                                            value="<%= props.getProperty("a_tpOther", "") %>"/></td>
+                                            value="<%= SafeEncode.forHtmlAttribute(props.getProperty("a_tpOther", "")) %>"/></td>
                         <td colspan="2" rowspan="2" class="mhList" valign="top">
                             <fmt:message key="form.mhAssessment.comments"/>:<br>
                             <textarea class="mhAssTextarea"
-                                      name="a_assComments"><%= props.getProperty("a_assComments", "") %></textarea>
+                                      name="a_assComments"><%= SafeEncode.forHtmlContent(props.getProperty("a_assComments", "")) %></textarea>
                         </td>
                     </tr>
                     <tr>

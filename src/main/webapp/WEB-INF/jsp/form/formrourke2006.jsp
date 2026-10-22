@@ -47,6 +47,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.*" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.form.LastVisitedPageResolver" %>
 <%
     int demoNo = Integer.parseInt(request.getParameter("demographic_no"));
     int formId = Integer.parseInt(request.getParameter("formId"));
@@ -59,7 +60,9 @@
             FrmRecord rec = (new FrmRecordFactory()).factory("Rourke2006");
             java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
-            String pageNum = FrmRourke2006Record.resolveLastVisitedPage(props.getProperty("c_lastVisited")); //'p1'
+            // The stored page names the JSP to include. Rows saved before #4595 hold "p1/" and the like (the
+            // column is char(3)), so the value is matched against the four pages rather than trusted.
+            String pageNum = LastVisitedPageResolver.resolve(props.getProperty("c_lastVisited"), "p1", "p2", "p3", "p4");
             request.getRequestDispatcher("/WEB-INF/jsp/form/formrourke2006" + pageNum
                     + ".jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
         }

@@ -42,18 +42,6 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmMentalHealthRecord extends FrmRecord {
-    /**
-     * The page a saved Mental Health record reopens on: only the three shipped pages, including the
-     * trailing slash that the Referral and Assessment pages' unquoted hidden input used to save
-     * ("referral/"). Anything else, including a stored value that is not a page, opens Referral.
-     */
-    public static String resolveLastVisitedPage(String storedPage) {
-        if (storedPage != null && storedPage.matches("(referral|assessment|outcome)/?")) {
-            return storedPage.endsWith("/") ? storedPage.substring(0, storedPage.length() - 1) : storedPage;
-        }
-        return "referral";
-    }
-
     public Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID)
             throws SQLException {
         Properties props = new Properties();

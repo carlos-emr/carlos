@@ -60,7 +60,7 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Laboratory Requisition</title>
+        <title><fmt:message key="form.mentalHealthForm14.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="screen"
               href="form/labReq07Style.css">
@@ -103,7 +103,7 @@
         request.removeAttribute("submit");
     %>
 
-    <fmt:message key="global.msgInvalidDatePrefix" var="mentalHealthInvalidDateMessage"/>
+    <fmt:message key="form.mentalHealthAct.invalidDate" var="mentalHealthInvalidDateMessage"/>
     <script type="text/javascript" language="Javascript">
 
         var mentalHealthInvalidDateMessage = "${carlos:forJavaScript(mentalHealthInvalidDateMessage)}";
@@ -246,45 +246,43 @@
             }
         }
 
+        /*
+         * The Mental Health Act forms ask for each date as day / month / year, and CARLOS writes dates year
+         * first, so a date is accepted either way: dd/mm/yyyy or yyyy/mm/dd, with "/" or "-". An empty box is
+         * allowed. A missing control fails instead of throwing, so Save can never post past this check.
+         */
         function valDate(dateBox) {
             if (!dateBox) {
                 alert(mentalHealthInvalidDateMessage);
                 return false;
             }
-            try {
-                var dateString = dateBox.value;
-                if (dateString == "") {
-                    //            alert('dateString'+dateString);
-                    return true;
-                }
-                var dt = dateString.split('/');
-                if (dt[1] == null)
-                    dt = dateString.split('-');
-                // The printed form labels day/month/year; retain support for
-                // existing year-first values without rewriting the entered date.
-                var yearFirst = dt[0].length === 4;
-                var y = yearFirst ? dt[0] : dt[2];
-                var m = dt[1];
-                var d = yearFirst ? dt[2] : dt[0];
-                var orderString = m + '/' + d + '/' + y;
-                var pass = dt.length === 3 && dt.every(function (part) { return /^\d+$/.test(part); })
-                    && isDate(orderString);
-
-                if (pass != true) {
-                    alert(mentalHealthInvalidDateMessage + dateBox.name);
-                    dateBox.focus();
-                    return false;
-                }
-            } catch (ex) {
-                alert(mentalHealthInvalidDateMessage + dateBox.name);
+            var dateString = dateBox.value;
+            if (dateString == "") {
+                return true;
+            }
+            var dt = dateString.split('/');
+            if (dt.length !== 3) {
+                dt = dateString.split('-');
+            }
+            var pass = dt.length === 3 && dt.every(function (part) { return /^\d+$/.test(part); });
+            if (pass) {
+                // A four-digit first part is the year (yyyy/mm/dd); otherwise the year comes last (dd/mm/yyyy).
+                var ymd = dt[0].length === 4 ? dt : [dt[2], dt[1], dt[0]];
+                pass = isDate(ymd[1] + '/' + ymd[2] + '/' + ymd[0]) === true;
+            }
+            if (!pass) {
+                alert(mentalHealthInvalidDateMessage);
                 dateBox.focus();
                 return false;
             }
             return true;
         }
 
+        // This form's own dates. It used to check two date fields of the lab requisition it was copied
+        // from, which this form does not have, so every Save threw (#4597).
         function checkAllDates() {
-            return valDate(document.forms[0].signatureDate);
+            var form = document.forms[0];
+            return valDate(form.signatureDate);
         }
 
         function popup(link) {

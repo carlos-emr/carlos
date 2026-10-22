@@ -103,11 +103,6 @@ import org.openpdf.text.pdf.PdfWriter;
  *   Checkboxes:    paramName : alignment, X, Y, 0, font, fontSize, textToPrint
  *   Single-line:   paramName : alignment, X, Y, 0, font, fontSize
  *   Multi-line:    paramName : alignment, X1, Y1, 0, font, fontSize, _, X2, Y2, lineSpacing
- *   Continued:     paramName : left, X, Y, 0, font, fontSize, _continued, inlineRight,
- *                  continuationLeft, continuationTop, continuationRight, continuationBottom,
- *                  lineSpacing, continuationLabel, inlineReference
- *   Continued fields retain a fitting value inline; otherwise a labelled same-page continuation
- *   is preflighted at the configured size. Unrenderable text or an exhausted rectangle is an error.
  * </pre>
  * Coordinates refer to the bottom-left corner, measured in PDF points (1/72 inch).
  *
@@ -121,10 +116,47 @@ public class FrmPDFServlet extends HttpServlet {
     Logger log = MiscUtils.getLogger();
 
     /**
+     * The smallest size a {@code fit} field is set in, the size of the printed forms' own captions. A value still
+     * too long at this size is printed at it and overruns its blank.
+     */
+    static final float MIN_FIT_FONT_SIZE = 6f;
+
+    /**
      * Default constructor required by the servlet container.
      */
     public FrmPDFServlet() {
         super();
+    }
+
+    /**
+     * The font size at which {@code text} fits in {@code width} points: {@code size} when it already fits, otherwise
+     * the size that makes it exactly as wide as {@code width}, but never below {@link #MIN_FIT_FONT_SIZE}.
+     *
+     * @param font the font the text is set in
+     * @param text the value to print; {@code null} or empty prints nothing, so it keeps {@code size}
+     * @param size the size the print configuration asks for
+     * @param width the width of the value's blank on the printed form, in points
+     * @return the size to set the text in
+     */
+    static float fittedFontSize(BaseFont font, String text, float size, float width) {
+        if (text == null || text.isEmpty()) {
+            return size;
+        }
+        float natural = font.getWidthPoint(text, size);
+        if (natural <= width) {
+            return size;
+        }
+        // A string's width is proportional to its size, so one division finds the size that fills the blank.
+        return Math.max(MIN_FIT_FONT_SIZE, size * width / natural);
+    }
+
+    /** The text alignment a print-config line names in its first column: left, right, or anything else centred. */
+    static int alignmentOf(String configured) {
+        String alignment = configured.trim();
+        if ("left".equals(alignment)) {
+            return PdfContentByte.ALIGN_LEFT;
+        }
+        return "right".equals(alignment) ? PdfContentByte.ALIGN_RIGHT : PdfContentByte.ALIGN_CENTER;
     }
 
     /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
@@ -612,12 +644,6 @@ public class FrmPDFServlet extends HttpServlet {
                             propValue = measurements.getProperty(tempName.toString(), "");
                         }
 
-                        // Explicit opt-in only: preserve a complete fixed-field value on this same page.
-                        if (cfgVal.length >= 7 && "_continued".equals(cfgVal[6].trim())) {
-                            FrmPdfTextContinuation.render(cb, bf, fontFlags, propValue, cfgVal, pSize);
-                            continue;
-                        }
-
                         // write in a rectangle area
                         if (cfgVal.length >= 9) {
                             int fontSize = 12;
@@ -695,6 +721,17 @@ public class FrmPDFServlet extends HttpServlet {
 //
 //	                            cb.endText();
 //	                        }
+                        } else if (cfgVal.length == 8 && "fit".equals(cfgVal[6].trim())) {
+                            // "fit, <far edge>" in the seventh and eighth columns: the value's blank on the printed
+                            // form ends at <far edge>, so a value too long for it is set in a smaller font instead of
+                            // running past the blank (and, at the right of the page, off the paper). Opt-in per line.
+                            float x = Float.parseFloat(cfgVal[1].trim());
+                            float width = Math.abs(Float.parseFloat(cfgVal[7].trim()) - x);
+                            cb.beginText();
+                            cb.setFontAndSize(bf, fittedFontSize(bf, propValue, Float.parseFloat(cfgVal[5].trim()), width));
+                            cb.showTextAligned(alignmentOf(cfgVal[0]), propValue, x,
+                                    (height - Integer.parseInt(cfgVal[2].trim())), 0);
+                            cb.endText();
                         } else { // write prop text
                             cb.beginText();
                             cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
