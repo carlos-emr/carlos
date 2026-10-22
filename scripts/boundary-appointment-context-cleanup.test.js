@@ -137,6 +137,11 @@ test('native slot parser handles hour rollover and refuses ambiguous/foreign inp
  assert.deepEqual(nativeSlot(LINK,BASE),{provider:'888888',date:'2026-10-21',start:'08:55',end:'09:09',pageId:PAGE});
  for(const edit of [x=>x.replace('provider_no=888888','provider_no=0'),x=>x.replace('year=2026','year=2026&year=2027'),x=>x.replace('/carlos/appointment','https://foreign.invalid/carlos/appointment')])assert.throws(()=>nativeSlot(edit(LINK),BASE));
 });
+test('a slot with no template duration takes its length from the same URL end time',()=>{
+ // A fresh provider's day sheet has no template code, so the slot posts duration= and Add Appointment uses everyMin.
+ assert.deepEqual(nativeSlot(LINK.replace('duration=15','duration='),BASE),{provider:'888888',date:'2026-10-21',start:'08:55',end:'09:09',pageId:PAGE});
+ for(const end of ['','08%3A54','08','x%3A10'])assert.throws(()=>nativeSlot(LINK.replace('duration=15','duration=').replace('end_time=08%3A69',`end_time=${end}`),BASE),/native slot (end )?time is invalid/);
+});
 function schedule(f,actor){
  return {url:()=>BASE+'/provider/providercontrol?displaymode=day',setDefaultTimeout(){},waitForLoadState:async()=>{},reload:async()=>{},
   locator(selector){

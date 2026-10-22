@@ -55,8 +55,17 @@ function nativeSlot(onclick, baseUrl) {
   const date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   const parsed = new Date(`${date}T12:00:00Z`);
   h.assert(Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date, 'The native slot date is invalid');
-  const start = get('start_time'), duration = get('duration');
-  h.assert(/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(start) && /^[1-9]\d{0,3}$/.test(duration), 'The native slot time is invalid');
+  const start = get('start_time');
+  let duration = get('duration');
+  h.assert(/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(start), 'The native slot time is invalid');
+  if (duration === '') {
+    // A slot with no template code carries no duration, and Add Appointment then uses the provider's slot length
+    // (everyMin). The same URL's end_time is start + that length - 1, with minutes not carried past 59.
+    const end = /^(\d{1,2}):(\d{1,3})$/.exec(get('end_time'));
+    h.assert(end, 'The native slot end time is invalid');
+    duration = String(Number(end[1]) * 60 + Number(end[2]) - (Number(start.slice(0, 2)) * 60 + Number(start.slice(3))) + 1);
+  }
+  h.assert(/^[1-9]\d{0,3}$/.test(duration), 'The native slot time is invalid');
   const endMinutes = Number(start.slice(0, 2)) * 60 + Number(start.slice(3)) + Number(duration) - 1;
   h.assert(endMinutes < 1440, 'The native slot duration crosses midnight');
   const end = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;

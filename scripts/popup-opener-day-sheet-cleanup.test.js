@@ -182,6 +182,11 @@ test('native slot identity uses the UI end-time algorithm and retains the actual
   const escaped=LINK.replace('08%3A55','08\\x2555').replace('08\\x2555','08\\x253A55');
   assert.equal(nativeSlot(escaped,BASE).pageId,PAGE);
 });
+test('a slot with no template duration takes its length from the same URL end time',()=>{
+  // A day sheet with no template code posts duration= and Add Appointment uses the provider's everyMin.
+  assert.deepEqual(nativeSlot(LINK.replace('duration=15','duration='),BASE),{provider:'999997',date:'2026-10-21',start:'08:55',end:'09:09',pageId:PAGE});
+  for(const end of ['','08%3A54','x%3A10'])assert.throws(()=>nativeSlot(LINK.replace('duration=15','duration=').replace('end_time=08%3A69',`end_time=${end}`),BASE),/native slot (end )?time is invalid/);
+});
 test('slot cleanup identity agrees with the actual JSP end-time function across hour boundaries',()=>{
   const jsp=fs.readFileSync(path.join(__dirname,'../src/main/webapp/WEB-INF/jsp/appointment/addappointment.jsp'),'utf8');
   const start=jsp.indexOf('function calculateEndTime() {'),end=jsp.indexOf('\n            function onNotBook()',start);
