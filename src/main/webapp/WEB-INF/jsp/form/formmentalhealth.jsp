@@ -70,7 +70,7 @@
                 FrmRecord rec = (new FrmRecordFactory()).factory("MentalHealth");
                 java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
-                request.getRequestDispatcher("/WEB-INF/jsp/form/formmh" + props.getProperty("c_lastVisited", "referral")
+                request.getRequestDispatcher("/WEB-INF/jsp/form/formmh" + FrmMentalHealthRecord.resolveLastVisitedPage(props.getProperty("c_lastVisited"))
                         + ".jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
             }
 
