@@ -3483,3 +3483,32 @@ Day-sheet gate, same install: a throwaway role holding `_admin.flowsheet r` plus
 answered 200 in all five. With this PR's `administration-menu-gate.jspf` all five offer the link. With the `release/2026.08`
 Administration pages compiled, this PR's `admin-role-management` fails at "the granted throwaway opens Add A Role…": a login with
 `_admin.userAdmin` read was offered the Assign Role/Rights to Object card on the home page.
+
+### Ontario hospital (shortcut) billing (2026-10-22, issue #5055)
+
+`release/2026.08` at `7a0aa6afa9` plus this change, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04`
+container (JDK 25, `dpkg-buildpackage -us -uc -b`; DrugRef built from its pin, the pinned Chromium; Maven Central through
+the Google mirror because `repo.maven.apache.org` answered 429), with carlos-ctl built from the `debian/carlos-ctl.pin`
+fallback commit `325482a2` re-versioned `1.2.0+pr5055test1` locally (`1.2.0` is unpublished). Each package was installed
+fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean; the IPv6 nginx reload
+note above recurred). Findings 317 to 319 of `app-findings-log.md` record what each round found.
+
+| Package, or file swapped into the installed webapp | `billing-on-hospital-shortcut` |
+|---|---|
+| Final package (`42ba5b7222`), 4 runs | PASS, 9 of 9 steps, no residue |
+| Final package with the release `demographic/edit.jsp` compiled | FAIL at "the Master Record offers Hospital Billing for this patient" |
+| Link only (`74e7c46485`): the release `calendar-setup.js` | FAIL at "the service-date calendar records the picked date"; page errors `trimEnd` and "Maximum call stack size exceeded" |
+| Link only, with the fixed `calendar-setup.js` (the release `BillingShortcutPg2Service`) | FAIL at "Save writes one claim for this patient and closes the window": the claim was written, page 1 reloaded |
+
+On the final package: `--tier smoke` 12 of 12; `master-record-tabs` and `page-health-master-record` (with Hospital Billing
+added to its patient-scope list) open and judge the new link; `billing-on-submit`, `billing-on-third-party`,
+`billing-on-correction-delete`, `billing-on-correction-save-another`, `billing-on-invoice-third-party`,
+`demographic-master-crud-smoke`, `tickler-crud` and `gap-billing-inr-calendar-popup` pass. `authz-read-role-matrix`
+refused `billingShortcutPg1View` with 403 to a login without `_billing`. Three checks fail identically with the release
+file swapped back, so they predate this change: `calendar-keyboard` (Ontario bill form Service Date: "the calendar button
+is not a named button or link") and `allergy-partial-start-date` (partial dates saved as full) with the release
+`calendar-setup.js`, `popup-opener-master-record` (Update Record did not navigate) with the release `edit.jsp`. Two fail
+on routes this change does not touch: `authz-read-role-matrix` (two `oscarResearch` routes answer 500) and
+`authz-read-patient-lock` (the routes it lists, none of them the shortcut pages). The server-log audit's
+unexplained signatures are BC billing routes probed on this Ontario install and those two research routes; every log
+line naming the shortcut routes is the check's deliberate GET (405) or that 403.

@@ -266,7 +266,8 @@ live install:
   page, `provider/ViewProviderDefaultDxCode`, `ViewPreferenceAction`, `UserPreference`,
   `PrinterList`, `Provider/showPersonal`, `EditAddress` / `EditFaxNum` / `EditPhoneNum`,
   `appointment/appointmentaddrecordcard` / `appointmentaddrecordprint`,
-  `billingShortcutPg1View` (so no check was written for the billing shortcut).
+  `billingShortcutPg1View` (so no check was written for the billing shortcut; #5055 restored
+  its Master Record ▸ Hospital Billing opener and added `billing-on-hospital-shortcut`).
 - **Billing:** `ViewGenReport`, `ViewGenGroupReport`, `ImportOnRA`, `ViewGenRASummary` /
   `ViewGenRASummaryDetail`, `BillingInvoice`, `ViewBillingON3rdPayments`,
   `Add3rdPartyPayment`, `BillingEditWithApptNo`, `inr/DbINRbilling`,
