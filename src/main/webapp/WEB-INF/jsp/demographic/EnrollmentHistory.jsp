@@ -72,8 +72,10 @@
     DemographicArchiveDao demoArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
 
     // Read request parameters
-    String demographicNo = request.getAttribute("authorizedPatientReadNo") instanceof String authorizedPatientReadNo
-            ? authorizedPatientReadNo : request.getParameter("demographicNo");
+    // JSPs compile below Java 16 (jspc), so no instanceof pattern variables here.
+    Object authorizedPatientReadNo = request.getAttribute("authorizedPatientReadNo");
+    String demographicNo = authorizedPatientReadNo instanceof String
+            ? (String) authorizedPatientReadNo : request.getParameter("demographicNo");
 
     int demographicId = NumberUtils.toInt(demographicNo, -1);
     Demographic demographic = demographicId > 0

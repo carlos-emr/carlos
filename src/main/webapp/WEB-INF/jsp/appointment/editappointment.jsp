@@ -967,8 +967,11 @@
 
                 List<Appointment> aa = appointmentDao.search_group_day_appt(myGroupNo, Integer.parseInt(demono), ConversionUtils.fromDateString(strApptDate));
 
-                long numSameDayGroupAppts = aa.stream().filter(candidate -> !appointmentTextRetry
-                        || apptFromRequest == null || !Objects.equals(candidate.getId(), apptFromRequest.getId())).count();
+                // A lambda may only capture effectively final locals; apptFromRequest is reassigned above.
+                final boolean retryingThisAppointment = appointmentTextRetry;
+                final Appointment retriedAppointment = apptFromRequest;
+                long numSameDayGroupAppts = aa.stream().filter(candidate -> !retryingThisAppointment
+                        || retriedAppointment == null || !Objects.equals(candidate.getId(), retriedAppointment.getId())).count();
                 bMultipleSameDayGroupAppt = (numSameDayGroupAppts > 0);
             }
 

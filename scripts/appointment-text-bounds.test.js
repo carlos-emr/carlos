@@ -166,9 +166,12 @@ test('native retry duplicate policy excludes only this appointment and retains e
  const jsp=readJsp('editappointment.jsp');const expr=jsp.match(/long numSameDayGroupAppts = ([\s\S]*?);/)?.[1];assert(expr);
  const javascript=expr.replace(/\.stream\(\)/g,'').replace(/candidate ->/g,'candidate =>').replace(/\.count\(\)/g,'.length').replace(/aa\.size\(\)/g,'aa.length').replace(/new Long\(/g,'Number(');
  for(const [retry,current,ids,want] of [[true,61,[61],0],[true,61,[61,62],1],[false,61,[61],1],[true,null,[61],1],[true,61,[],0],[true,2147483647,[2147483647],0]]){
-  const got=vm.runInNewContext(javascript,{appointmentTextRetry:retry,apptFromRequest:current===null?null:{getId:()=>current},aa:ids.map(id=>({getId:()=>id})),Objects:{equals:(a,b)=>a===b},Number});assert.equal(got,want);
+  const got=vm.runInNewContext(javascript,{retryingThisAppointment:retry,retriedAppointment:current===null?null:{getId:()=>current},aa:ids.map(id=>({getId:()=>id})),Objects:{equals:(a,b)=>a===b},Number});assert.equal(got,want);
  }
  assert(jsp.includes('bMultipleSameDayGroupAppt = (numSameDayGroupAppts > 0);'));
+ // The lambda may capture only effectively final copies (jspc rejects the reassigned originals).
+ assert(jsp.includes('final boolean retryingThisAppointment = appointmentTextRetry;'));
+ assert(jsp.includes('final Appointment retriedAppointment = apptFromRequest;'));
 });
 
 test('migration metadata query preserves every requested MariaDB attribute and raw quoted default expression',()=>{

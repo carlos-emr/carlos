@@ -67,8 +67,10 @@
     // (WHERE t.demographicNo = ?1), so with no patient context the page renders the
     // empty list and omits the Add-Tickler button instead of failing with a 500.
     Integer demoViewDemographicNo = null;
-    if (request.getAttribute(PatientReadAccess.AUTHORIZED_PATIENT_ATTRIBUTE) instanceof String authorizedDemoView) {
-        demoViewDemographicNo = Integer.valueOf(authorizedDemoView);
+    // JSPs compile below Java 16 (jspc), so no instanceof pattern variables here.
+    Object authorizedDemoView = request.getAttribute(PatientReadAccess.AUTHORIZED_PATIENT_ATTRIBUTE);
+    if (authorizedDemoView instanceof String) {
+        demoViewDemographicNo = Integer.valueOf((String) authorizedDemoView);
     }
 
 //Retrieve encounter id for updating encounter navbar if info this page changes anything
