@@ -91,7 +91,12 @@ test('chartSpace.jsp keeps the presentation contract', () => {
   assert.ok(order[0] > -1 && order[0] < order[1] && order[1] < order[2], String(order));
   ['cs-top', 'cs-right', 'cs-hidden-toggle', 'cs-hidden-panel', 'cs-announcer']
     .forEach((id) => assert.ok(jsp.includes('id="' + id + '"'), id));
-  assert.ok(jsp.includes('<html lang="${pageContext.request.locale.language}">'));
+  // One negotiated locale (set by the gate as csLocale) for labels, age and page language.
+  const setLocale = jsp.indexOf('<fmt:setLocale value="${csLocale}"/>');
+  assert.ok(setLocale > -1, 'fmt:setLocale uses csLocale');
+  assert.ok(setLocale < jsp.indexOf('<fmt:setBundle basename="oscarResources"/>'), 'setLocale precedes setBundle');
+  assert.ok(jsp.includes('<html lang="${carlos:forHtmlAttribute(csLocale.toLanguageTag())}">'));
+  assert.ok(!jsp.includes('pageContext.request.locale'), 'no request.locale left on the page');
 });
 
 function readJsp() {
@@ -116,10 +121,10 @@ test('CSS styles the patient age as normal-weight, name-coloured text', () => {
   ['font-weight: 400', 'color: inherit', 'margin-left: .25rem'].forEach((d) => assert.ok(m[1].includes(d), d));
 });
 
-test('JSP drops the unused core taglib and the redundant setLocale', () => {
+test('JSP drops the unused core taglib', () => {
   const jsp = readJsp();
   assert.ok(!jsp.includes('prefix="c"'), 'no core taglib');
-  assert.ok(!jsp.includes('fmt:setLocale'), 'no fmt:setLocale');
+  // fmt:setLocale is no longer redundant: it pins labels to the gate's negotiated csLocale (Task 0c).
 });
 
 test('JSP has one page-level polite status announcer outside the hidden panel', () => {

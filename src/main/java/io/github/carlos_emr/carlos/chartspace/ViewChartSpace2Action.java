@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.chartspace;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -34,6 +35,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -107,6 +109,10 @@ public class ViewChartSpace2Action extends ActionSupport {
             return NONE;
         }
 
+        // One locale for the whole page: JSTL labels, the age below and <html lang> all use it, so a
+        // browser asking for "de-DE,fr" cannot get French labels with an English age and lang="de".
+        Locale locale = LocaleUtils.resolveBundleLocale(request);
+        request.setAttribute("csLocale", locale);
         request.setAttribute("demographicNo", validated.get().demographicNo());
         request.setAttribute("csPatientName", patient.getFullName());
         // getAgeAsOf substitutes "1900" for an empty year of birth, which would show a fabricated
@@ -114,7 +120,7 @@ public class ViewChartSpace2Action extends ActionSupport {
         String yearOfBirth = patient.getYearOfBirth();
         if (yearOfBirth != null && !yearOfBirth.isBlank()) {
             // Already localized by Demographic ("45 years"); null/blank means no usable date of birth.
-            String age = patient.getAgeAsOf(new Date(), request.getLocale());
+            String age = patient.getAgeAsOf(new Date(), locale);
             if (age != null && !age.isBlank()) {
                 request.setAttribute("csPatientAge", age);
             }

@@ -28,7 +28,8 @@
            Allergies) are loaded and rendered client-side by js/chartspace/*.
   Request attribute: demographicNo (Integer), set by the gate action after its
            security check.
-  Request attributes: csPatientName (full name, "Last, First") and csPatientAge (localized,
+  Request attributes: csLocale (the one negotiated locale for labels, age and lang),
+           csPatientName (full name, "Last, First") and csPatientAge (localized,
            optional), both set by the gate action. Only name and age are rendered, in the
            title and heading; no date of birth, sex, HIN or MRP.
   No CSRF bootstrap include: the page performs no POST (read-only JSON GET).
@@ -37,6 +38,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setLocale value="${csLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="chartspace.chartSpace.title" var="csTitle"/>
 <fmt:message key="chartspace.chartSpace.sectionTop" var="csSectionTop"/>
@@ -62,7 +64,7 @@
 <fmt:message key="chartspace.chartSpace.announceNoAccess" var="csAnnounceNoAccess"/>
 <fmt:message key="chartspace.chartSpace.announceError" var="csAnnounceError"/>
 <!DOCTYPE html>
-<html lang="${pageContext.request.locale.language}">
+<html lang="${carlos:forHtmlAttribute(csLocale.toLanguageTag())}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
