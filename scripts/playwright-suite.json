@@ -7154,8 +7154,8 @@
         "Contact",
         "professionalSpecialists"
       ],
-      "fixtures": "The marker Contact and professionalSpecialists rows the pages create are in clinic-wide lists while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned synthetic patient; cleanup deletes marker Contact and professionalSpecialists rows and their patient DemographicContact associations and asserts they are gone.",
-      "notes": "demographic/Contact methods saveContact and saveProContact reject GET/HEAD with 405 since issue #3682; the last step fails if either replay writes again. Editor script behavior is also independently covered by contact-editor."
+      "fixtures": "The marker Contact rows the pages create (a directory contact and an external professional contact) are in clinic-wide lists while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned synthetic patient; cleanup deletes marker Contact rows, any marker professionalSpecialists row (only a #4987 regression makes one) and their patient DemographicContact associations and asserts they are gone.",
+      "notes": "demographic/Contact methods saveContact and saveProContact reject GET/HEAD with 405 since issue #3682; the last step fails if either replay writes again. The professional save goes through the External row, which since #4987 stores an external professional contact, not a specialist. Editor script behavior is also independently covered by contact-editor."
     },
     {
       "name": "get-reject-measurement-groups",
@@ -9227,7 +9227,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates three throwaway logins (doctor, nurse, Field Note Admin); no other rows; reads only; cleanup asserts removal.",
-      "notes": "Expected to FAIL at the last step 'administration pages are refused without their menu object and served with it': eform/fieldNoteReport/* served to a doctor and refused (HTTP 500) to the Field Note Admin role; encounter/oscarMeasurements/View* configuration pages and billing/CA/ON/BillingONPayment served to a nurse. Steps 1-5 pass."
+      "notes": "Expected to FAIL at the last step 'administration pages are refused without their menu object and served with it': encounter/oscarMeasurements/View* configuration pages and billing/CA/ON/BillingONPayment are served to a nurse. Steps 1-5 pass. The step also listed eform/fieldNoteReport/* (served to a doctor, HTTP 500 for the Field Note Admin role) until the 2026.08 line; on the 2026.08.0-beta1 package (PR #5067) it no longer does. The doctor's /administration is expected, since the doctor holds _admin.flowsheet (#4623)."
     },
     {
       "name": "authz-read-print-export",
