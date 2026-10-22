@@ -15943,7 +15943,7 @@
       "timeoutSec": 180,
       "env": [],
       "fixtures": "Owned synthetic patient and custom prescription; cleanup after browser closes; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Issue #3876: strength values default to one unit per dose; explicit counts, volumes and per-dose amounts (also before the frequency) take precedence; a concentration alone calculates nothing and leaves the card quantity as it was; fractions round once at the final division. AJAX, card quantity and saved drugs row are asserted."
+      "notes": "Issue #3876: strength values default to one unit per dose; explicit counts, volumes and per-dose amounts (also before the frequency) take precedence; a concentration alone calculates nothing and leaves the card quantity as it was; fractions round once at the final division. The quantity update after a 1000-unit dose derives the duration; a spaced range, written daily counts, the n/7 shorthand, a trailing ', take with food', a second day word before the duration and a 'then' taper are read. AJAX, card quantity and saved drugs row are asserted."
     }
   ]
 }

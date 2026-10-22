@@ -7,7 +7,11 @@
  * by, so a strength defaults to one unit per dose and a strength range keeps
  * its proportions; an explicit count, volume or gram/IU per-dose amount keeps
  * its value, a vehicle volume is not a dose, and a concentration alone
- * calculates nothing and leaves the card's quantity as it was. Uses an owned synthetic patient and removes its prescription rows after
+ * calculates nothing and leaves the card's quantity as it was. The quantity
+ * update after a 1000-unit dose derives the duration, a spaced range, written
+ * daily counts, the n/7 shorthand, a trailing ", take with food", a second
+ * day word before the duration and a "then" taper are read (PR #5077 review).
+ * Uses an owned synthetic patient and removes its prescription rows after
  * the browser closes; do not run concurrently with other checks.
  */
 const h = require('./lib/playwright-harness');
@@ -19,6 +23,13 @@ function sameDose(parsed, expected) {
   return Math.abs(Number(parsed) - expected) < 1e-6;
 }
 
+/** True for the page's POST to the given Rx route whose form body carries the given action. */
+function isRxActionPost(response, route, action) {
+  const request = response.request();
+  return request.method() === 'POST' && h.pathOnly(response.url()).endsWith(route)
+    && new URLSearchParams(request.postData() || '').get('action') === action;
+}
+
 /** Verifies parsed and displayed dose quantities before Save, then checks the persisted original prescription. */
 async function workflow(s) {
   s.cleanup(() => clearOwnedPrescriptionRows(s.sql, s.patient, s.marker));
@@ -26,6 +37,28 @@ async function workflow(s) {
   const rx = await s.popup(chart, chart.locator('#menuTitleRx a').first(), 'rx-strength-quantity');
   // The first case edits the card at once; a late staging response would otherwise replace it.
   const key = await stageCustomDrugSettled(rx, `${s.marker}-strength`);
+
+  // The dose text used to render 1000 as "1,000", which made the quantity update throw; the
+  // AJAX path swallowed it and the card never derived a duration from the typed quantity.
+  await s.step('updating the quantity after a 1000-unit dose derives a 30-day duration', async () => {
+    await rx.locator(`#instructions_${key}`).fill('Take 1000 units po daily');
+    await Promise.all([
+      rx.waitForResponse(r => isRxActionPost(r, '/rx/UpdateScript', 'parseInstructions')),
+      rx.locator(`label[for="jsonDxSearch_${key}"]`).click(),
+    ]);
+    const quantity = rx.locator(`#quantity_${key}`);
+    await quantity.fill('30000');
+    const [response] = await Promise.all([
+      rx.waitForResponse(r => isRxActionPost(r, '/rx/WriteScript', 'updateQty')),
+      quantity.blur(),
+    ]);
+    h.assert(response.status() === 200, `Quantity update answered HTTP ${response.status()}`);
+    const updated = await response.json();
+    h.assert(sameDose(updated.takeMax, 1000) && String(updated.duration) === '30' && updated.durationUnit === 'D'
+      && String(updated.calQuantity) === '30000', `Incorrect derived duration: ${JSON.stringify(updated)}`);
+    await rx.waitForFunction(({ key, text }) => document.getElementById(`duration_${key}`).textContent === text,
+      { key, text: '30' });
+  });
 
   // [instruction, takeMin, takeMax, calQuantity, frequency = 'TID', duration = '7']
   // A '0' calQuantity means the page must keep the quantity the card already shows.
@@ -72,6 +105,13 @@ async function workflow(s) {
     ['1 g IV in 100 mL Q8H x 7 days', 1, 1, '21', 'Q8H'],
     ['Take 2 tablets (1000 mg) po tid x 7 days', 2, 2, '42'],
     ['1000 mg po 1-2 tid x 7 days', 1, 2, '42'],
+    ['Take 1 - 2 tabs po bid x 7 days', 1, 2, '28', 'BID'],
+    ['Take 1 tab 3 times daily x 7 days', 1, 1, '21'],
+    ['Take 1 tab 2x daily x 7 days', 1, 1, '14', 'BID'],
+    ['Take 1 tab PO BID x 5/7', 1, 1, '10', 'BID', '5'],
+    ['1 tab po bid x 7 days, take with food', 1, 1, '14', 'BID'],
+    ['Take 1 tab po on alternate days x 10 days with food', 1, 1, '0', '', '10'],
+    ['Take 2 tabs BID x 5 days then 1 tab BID x 5 days', 2, 2, '30', 'BID', '10'],
     ['1000 mg po tid x 7 days', 1, 1, '21'],
   ];
   let displayed = null;
@@ -83,9 +123,7 @@ async function workflow(s) {
     await s.step(label, async () => {
       await rx.locator(`#instructions_${key}`).fill(instruction);
       const [response] = await Promise.all([
-        rx.waitForResponse(r => r.request().method() === 'POST'
-          && h.pathOnly(r.url()).endsWith('/rx/UpdateScript')
-          && new URLSearchParams(r.request().postData() || '').get('action') === 'parseInstructions'),
+        rx.waitForResponse(r => isRxActionPost(r, '/rx/UpdateScript', 'parseInstructions')),
         rx.locator(`label[for="jsonDxSearch_${key}"]`).click(),
       ]);
       h.assert(response.status() === 200, `Instruction parse answered HTTP ${response.status()}`);

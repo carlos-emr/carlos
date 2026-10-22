@@ -95,7 +95,7 @@ public class RxUtil {
      * one suppository or enema (mesalamine 1 g, 4 g/60 mL), not grams of cream.
      */
     private static final Set<String> TOPICAL_WORDS = Set.of("top", "topical", "topically", "externally", "pv",
-            "vaginal", "vaginally", "intravaginal", "intravaginally");
+            "vaginal", "vaginally", "intravaginal", "intravaginally", "apply", "applied");
     /** Application sites that, after "to" or "to the", mark a topical instruction ("to knees", "to the scalp"). */
     private static final Set<String> APPLICATION_SITES = Set.of("skin", "face", "scalp", "hand", "hands", "feet",
             "foot", "knee", "knees", "elbow", "elbows", "back", "leg", "legs", "arm", "arms", "chest", "neck", "rash",
@@ -128,6 +128,31 @@ public class RxUtil {
     /** More units than this per administration means the strength and the product do not match. */
     private static final BigDecimal MAX_UNITS_PER_DOSE = BigDecimal.valueOf(20);
     private static final Pattern CONCENTRATION_SEPARATOR = Pattern.compile("(?:/|per\\b)\\s*", Pattern.CASE_INSENSITIVE);
+    /** The tail of a written daily count: "x daily", "times a day", "times per day", "x/day". */
+    private static final String TIMES_A_DAY = "\\s*(?:x|times?)\\s*(?:/|per|a)?\\s*(?:daily|day)(?![a-z])";
+    /**
+     * Daily counts written out, one pattern per code so that "3 times daily" is TID rather than the
+     * "daily" it ends with: "3 times daily", "2x a day", "4 times per day", "3x/day", "once a day",
+     * "twice a day". Matched before the plain "daily" patterns.
+     */
+    private static final String[] TIMES_A_DAY_PHRASES = {
+            "(?:^|\\s)(?i)(?:once\\s*(?:/|per|a)\\s*(?:daily|day)(?![a-z])|(?:1|one)" + TIMES_A_DAY + ")",
+            "(?:^|\\s)(?i)(?:twice\\s*(?:/|per|a)\\s*(?:daily|day)(?![a-z])|(?:2|two)" + TIMES_A_DAY + ")",
+            "(?:^|\\s)(?i)(?:thrice\\s*(?:/|per|a)\\s*(?:daily|day)(?![a-z])|(?:3|three)" + TIMES_A_DAY + ")",
+            "(?:^|\\s)(?i)(?:4|four)" + TIMES_A_DAY};
+    /** The count word or figure that opens a written daily count, with the day word it ends with. */
+    private static final Pattern DAILY_COUNT_PHRASE = Pattern.compile(
+            "^(once|one|1|twice|two|2|thrice|three|3|four|4)(?:(?=x(?![a-z]))|(?![a-z0-9])).*(?:daily|day)$",
+            Pattern.CASE_INSENSITIVE);
+    /**
+     * The shorthand n/7, n/52 and n/12: a duration in days, weeks or months, optionally introduced by
+     * "x" or "for" ("BID x 5/7", "daily for 3/12", "bid 5/7").
+     */
+    private static final Pattern SHORTHAND_DURATION = Pattern.compile(
+            "(?:^|\\s)(?:(x|for)\\s*)?([0-9]+)\\s*/\\s*(7|52|12)(?![0-9/])", Pattern.CASE_INSENSITIVE);
+    /** Joins the segments of a tapering course: "then", ", then", "followed by". */
+    private static final Pattern TAPER_SEPARATOR = Pattern.compile(
+            "\\s*,?\\s*\\b(?:then|followed by)\\b\\s*", Pattern.CASE_INSENSITIVE);
     private static final Pattern PER_DOSE = Pattern.compile("(?:/|per\\b)\\s*dose\\b", Pattern.CASE_INSENSITIVE);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
 
@@ -453,12 +478,28 @@ public class RxUtil {
         return retStr;
     }
 
-    public static String findDuration(RxPrescriptionData.Prescription rx) {//calculate duration based on quantity, takemax, takemin, frequency, durationUnit.
-        //get frequency, takemax, takemin, durationUnit by parsing special.
+    /**
+     * Derives the duration from the quantity when the directions state none: the quantity divided
+     * by the units taken per duration unit (dose per administration, administrations per day, days
+     * per unit). A duration the directions state is returned as parsed. The parser resets the
+     * quantity before reading the directions, so the typed quantity is captured first and restored
+     * when the parser calculated none.
+     *
+     * @return the duration in the parsed duration unit, or null when a quantity unit (a Mitte
+     *         quantity), a missing quantity or a zero dose leaves it incalculable
+     */
+    public static String findDuration(RxPrescriptionData.Prescription rx) {
+        String typedQuantity = rx.getQuantity() == null ? "" : rx.getQuantity().trim();
         instrucParser(rx);
-        String qStr = rx.getQuantity();
+        if (rx.isDurationSpecifiedByUser()) {
+            return rx.getDuration();
+        }
+        if (!typedQuantity.isEmpty() && (rx.getQuantity() == null || rx.getQuantity().isEmpty()
+                || "0".equals(rx.getQuantity()))) {
+            rx.setQuantity(typedQuantity);
+        }
+        String qStr = typedQuantity;
         if (rx.getUnitName() == null) {
-            qStr = qStr.trim();
             double qtyD;
             Pattern p1 = Pattern.compile("\\d+");
             Matcher m1 = p1.matcher(qStr);
@@ -475,8 +516,10 @@ public class RxUtil {
                     double nPerDay = findNPerDay(rx.getFrequencyCode());
                     double nDays = findNDays(rx.getDurationUnit());
                     p("qtyD--takeMax--nPerDay--nDays--" + qtyD + " " + takeMax + " " + nPerDay + " " + nDays);
-                    if (takeMax != 0d) {
-                        double durD = qtyD / (takeMax) * nPerDay * nDays;
+                    if (takeMax != 0d && nPerDay != 0d && nDays != 0d) {
+                        // The quantity covers takeMax units per administration, nPerDay
+                        // administrations per day and nDays days per duration unit.
+                        double durD = qtyD / (takeMax * nPerDay * nDays);
                         int durInt = (int) durD;
                         p("durInt", Integer.toString(durInt));
                         return Integer.toString(durInt);
@@ -570,13 +613,43 @@ public class RxUtil {
     }
 
     private static String checkInstructionStr(String str) {//replace if instruction contains certain string which may confuse the text parser
+        return checkInstructionStr(str, "");
+    }
+
+    /**
+     * Removes frequency wording that names a day ("3x day", "3 times a day") before the duration
+     * scan, so that its "day" is not read as the duration unit.
+     */
+    private static String checkInstructionStr(String str, String frequencyPhrase) {
         String retVal = str;
         if (str.contains("3x day")) {
             retVal = retVal.replace("3x day", "");
         } else if (str.contains("4x day")) {
             retVal = retVal.replace("4x day", "");
         }
+        if (!frequencyPhrase.isEmpty() && DAILY_COUNT_PHRASE.matcher(frequencyPhrase).matches()) {
+            retVal = retVal.replace(frequencyPhrase, " ");
+        }
         return retVal;
+    }
+
+    /**
+     * Maps a written daily count ("3 times daily", "twice a day", "4x/day") to its frequency code;
+     * any other phrase goes through the legacy synonym table.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case folding of a parsed frequency word, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folding of a parsed frequency word, not a security or authorization decision")
+    private static String frequencyCodeForPhrase(String phrase) {
+        Matcher count = DAILY_COUNT_PHRASE.matcher(phrase.trim());
+        if (count.matches()) {
+            return switch (count.group(1).toLowerCase(Locale.ROOT)) {
+                case "once", "one", "1" -> "OD";
+                case "twice", "two", "2" -> "BID";
+                case "thrice", "three", "3" -> "TID";
+                default -> "QID";
+            };
+        }
+        return changeToStandardFrequencyCode(phrase);
     }
 
     /**
@@ -621,6 +694,12 @@ public class RxUtil {
             instructions = "";
         }
 
+        // A tapering course joins segments with "then"; each states its own dose, frequency and
+        // duration, and the course dispenses their sum over their total days.
+        if (TAPER_SEPARATOR.matcher(instructions).find() && sumTaperSegments(rx, instructions)) {
+            return;
+        }
+
         // All values should be reset before each iteration as it is unknown if any previously entered
         // quantity values have been removed.
         setEmptyValues(rx);
@@ -660,11 +739,18 @@ public class RxUtil {
         String[] routes = {"\\s(?i)PO$", "\\s(?i)SL$", "\\s(?i)IM$", "\\s(?i)SC$", "\\s(?i)PATCH$", "\\s(?i)TOP\\.$", "\\s(?i)INH$", "\\s(?i)SUPP$", "\\s(?i)O\\.D\\.$", "\\s(?i)O\\.S\\.$", "\\s(?i)O\\.U\\.$", "\\s(?i)OD$", "\\s(?i)OS$", "\\s(?i)OU$", "\\s(?i)PO\\s", "\\s(?i)SL\\s", "\\s(?i)IM\\s", "\\s(?i)SC\\s", "\\s(?i)PATCH\\s", "\\s(?i)TOP\\.\\s", "\\s(?i)INH\\s", "\\s(?i)SUPP\\s", "\\s(?i)O\\.D\\.\\s", "\\s(?i)O\\.S\\.\\s", "\\s(?i)O\\.U\\.\\s", "\\s(?i)OD\\s", "\\s(?i)OS\\s", "\\s(?i)OU\\s"};
         String[] frequences = {"\\s(?i)OD\\s", "\\s(?i)BID\\s", "\\s(?i)TID\\s", "\\s(?i)QID\\s", "\\s(?i)Q1H\\s", "\\s(?i)Q2H\\s", "\\s(?i)Q1-2H\\s", "\\s(?i)Q3-4H\\s", "\\s(?i)Q4H\\s", "\\s(?i)Q4-6H\\s", "\\s(?i)Q6H\\s", "\\s(?i)Q8H\\s", "\\s(?i)Q12H\\s", "\\s(?i)QAM\\s", "\\s(?i)QPM\\s", "\\s(?i)QHS\\s", "\\s(?i)Q1Week\\s", "\\s(?i)weekly\\s", "\\s(?i)Q2Week\\s", "\\s(?i)Q1Month\\s", "\\s(?i)Q3Month\\s", "\\s(?i)monthly\\s", "\\s(?i)once daily\\s", "\\s(?i)twice daily\\s", "\\s(?i)3x day\\s",
                 "\\s(?i)4x day\\s", "\\s(?i)3x daily\\s", "\\s(?i)4x daily\\s", "\\s(?i)OD$", "\\s(?i)BID$", "\\s(?i)TID$", "\\s(?i)QID$", "\\s(?i)Q1H$", "\\s(?i)Q2H$", "\\s(?i)Q1-2H$", "\\s(?i)Q3-4H$", "\\s(?i)Q4H$", "\\s(?i)Q4-6H$", "\\s(?i)Q6H$", "\\s(?i)Q8H$", "\\s(?i)Q12H$", "\\s(?i)QAM$", "\\s(?i)QPM$", "\\s(?i)QHS$", "\\s(?i)Q1Week$", "\\s(?i)weekly$", "\\s(?i)Q2Week$", "\\s(?i)Q1Month$", "\\s(?i)Q3Month$", "\\s(?i)monthly$", "\\s(?i)once daily$", "\\s(?i)twice daily$", "\\s(?i)3x day$",
-                "\\s(?i)4x day$", "\\s(?i)3x daily$", "\\s(?i)4x daily$", "\\s(?i)daily\\s", "\\s(?i)daily$", // put at last because if frequency is 'twice daily', it will first be detected as 'daily'
+                "\\s(?i)4x day$", "\\s(?i)3x daily$", "\\s(?i)4x daily$",
+                TIMES_A_DAY_PHRASES[0], TIMES_A_DAY_PHRASES[1], TIMES_A_DAY_PHRASES[2], TIMES_A_DAY_PHRASES[3],
+                "\\s(?i)daily\\s", "\\s(?i)daily$", // put at last because if frequency is 'twice daily', it will first be detected as 'daily'
         };
-        String[] methods = {"(?i)Take", "(?i)" + METHOD_APPLY, "(?i)" + METHOD_RUB_WELL_IN};
-        String[] durationUnits = {"\\s+(?i)days\\s", "\\s+(?i)weeks\\s", "\\s+(?i)months\\s", "\\s+(?i)day\\s", "\\s+(?i)week\\s", "\\s+(?i)month\\s", "\\s+(?i)d\\s", "\\s+(?i)w\\s", "\\s+(?i)m\\s", "\\s+(?i)mo\\s", "\\s+(?i)days$", "\\s+(?i)weeks$", "\\s+(?i)months$", "\\s+(?i)day$", "\\s+(?i)week$", "\\s+(?i)month$", "\\s+(?i)d$", "\\s+(?i)w$", "\\s+(?i)m$", "\\s+(?i)mo$"};
-        String[] durUnits2 = {"\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", };
+        // A method word opens the directions. Matched anywhere, the "take" of a trailing ", take
+        // with food" became the method and the amount scan started after it, losing the dose.
+        String[] methods = {"(?i)^\\s*Take\\b", "(?i)^\\s*" + METHOD_APPLY + "\\b", "(?i)^\\s*" + METHOD_RUB_WELL_IN + "\\b"};
+        // A duration unit ends at whitespace, punctuation or the end of the text ("x 7 days, take
+        // with food"), never inside a longer word ("daily", "months" against "m") and never before a
+        // slash: "w/" (with) and "d/c" (discontinue) are abbreviations, not a week or a day.
+        String[] durationUnits = {"\\s+(?i)days(?![a-z/])", "\\s+(?i)weeks(?![a-z/])", "\\s+(?i)months(?![a-z/])", "\\s+(?i)day(?![a-z/])", "\\s+(?i)week(?![a-z/])", "\\s+(?i)month(?![a-z/])", "\\s+(?i)d(?![a-z/])", "\\s+(?i)w(?![a-z/])", "\\s+(?i)m(?![a-z/])", "\\s+(?i)mo(?![a-z/])"};
+        String[] durUnits2 = {"\\s[0-9]+(?i)days(?![a-z/])", "\\s[0-9]+(?i)weeks(?![a-z/])", "\\s[0-9]+(?i)months(?![a-z/])", "\\s[0-9]+(?i)day(?![a-z/])", "\\s[0-9]+(?i)week(?![a-z/])", "\\s[0-9]+(?i)month(?![a-z/])", "\\s[0-9]+(?i)d(?![a-z/])", "\\s[0-9]+(?i)w(?![a-z/])", "\\s[0-9]+(?i)m(?![a-z/])", "\\s[0-9]+(?i)mo(?![a-z/])"};
 
         for (String s : routes) {
             Pattern p = Pattern.compile(s);
@@ -704,12 +790,14 @@ public class RxUtil {
         p("route", route);
 
         //find frequency
+        String matchedFrequencyPhrase = "";
         for (String s : frequences) {
             Pattern p = Pattern.compile(s);
             Matcher matcher = p.matcher(instructions);
             if (matcher.find()) {
                 String matchedFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
-                frequency = changeToStandardFrequencyCode(matchedFrequency);
+                matchedFrequencyPhrase = matchedFrequency;
+                frequency = frequencyCodeForPhrase(matchedFrequency);
                 frequencyStart = matcher.start();
                 //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
@@ -856,33 +944,30 @@ public class RxUtil {
         for (String s : durationUnits) {
             // p(instructions);
             // p(s);
-            String instructionToCheck = checkInstructionStr(instructions);
+            String instructionToCheck = checkInstructionStr(instructions, matchedFrequencyPhrase);
             Pattern p = Pattern.compile(s);
             Matcher m = p.matcher(instructionToCheck);
 
             if (m.find()) {
-                p("FOUND");
-                p("instructionToCheck==", instructionToCheck);
-                p(s);
                 durationUnitSpec = (instructionToCheck.substring(m.start(), m.end())).trim();
-                p("durationUnitSpec", durationUnitSpec);
-                //get the number before durationUnit
-                Pattern p1 = Pattern.compile("[0-9]+" + s);
+                // The number and its unit must come from one match: in "on alternate days x 10
+                // days" the first unit word carries no number, and cutting the text between the
+                // two matches threw when the number came after that first word.
+                Pattern p1 = Pattern.compile("([0-9]+)" + s);
                 Matcher m1 = p1.matcher(instructionToCheck);
                 if (m1.find()) {
-                    p("" + m1.start(), "" + m.start());
-                    durationSpec = instructionToCheck.substring(m1.start(), m.start());
-                    duration = durationSpec.trim();
-                    p("duration here1", duration);
+                    durationSpec = m1.group(1);
+                    duration = durationSpec;
+                    durationUnitSpec = instructionToCheck.substring(m1.end(1), m1.end()).trim();
                     break;
-               }
-           }
-		}
+                }
+            }
+        }
 
         //match the pattern when there is no space between number and durationUnit.
         if (durationUnitSpec.equals("")) {
             for (String s : durUnits2) {
-                String instructionToCheck = checkInstructionStr(instructions);
+                String instructionToCheck = checkInstructionStr(instructions, matchedFrequencyPhrase);
                 Pattern p = Pattern.compile(s);
                 Matcher m = p.matcher(instructionToCheck);
 
@@ -899,6 +984,27 @@ public class RxUtil {
                         durationUnitSpec = (str1.substring(m1.end())).trim();
                         break;
                     }
+                }
+            }
+        }
+
+        // n/7, n/52 and n/12 state a duration in days, weeks or months. The shorthand is read only
+        // when no duration with a unit was written, and only after the frequency or introduced by
+        // "x" or "for", so that a dose fraction such as "1/2 tab" or a mixed number is never taken
+        // for one.
+        if (durationUnitSpec.isEmpty()) {
+            Matcher shorthand = SHORTHAND_DURATION.matcher(instructions);
+            while (shorthand.find()) {
+                boolean introduced = shorthand.group(1) != null;
+                boolean afterFrequency = frequencyStart >= 0 && shorthand.start(2) > frequencyStart;
+                if (introduced || afterFrequency) {
+                    duration = shorthand.group(2);
+                    durationUnitSpec = switch (shorthand.group(3)) {
+                        case "7" -> "days";
+                        case "52" -> "weeks";
+                        default -> "months";
+                    };
+                    break;
                 }
             }
         }
@@ -1050,6 +1156,83 @@ public class RxUtil {
     }
 
     /**
+     * Reads a tapering course whose segments are joined by "then" or "followed by", such as
+     * {@code Take 3 tabs daily x 3 days, then 2 tabs daily x 3 days, then 1 tab daily x 3 days}. Every
+     * segment must state a dose, a frequency and a duration; the course then dispenses the sum of the
+     * segments' quantities (each rounded as the parser rounds any course) and lasts their total number
+     * of days, while the card shows the first segment's dose, frequency, method and route. A segment
+     * that cannot be read on its own (an open-ended "then stop") leaves the directions to the ordinary
+     * single-segment parse, and a quantity typed with its own unit is never recalculated.
+     *
+     * @return true when the prescription was filled from the segments
+     */
+    private static boolean sumTaperSegments(RxPrescriptionData.Prescription rx, String instructions) {
+        if (hasQuantityUnit(rx)) {
+            return false;
+        }
+        String[] segments = TAPER_SEPARATOR.split(instructions);
+        int totalQuantity = 0;
+        int totalDays = 0;
+        float firstTakeMin = 0f;
+        float firstTakeMax = 0f;
+        String firstFrequency = "";
+        String firstMethod = "";
+        String firstRoute = "";
+        boolean firstPrn = false;
+        try {
+            for (int i = 0; i < segments.length; i++) {
+                String segment = segments[i].trim();
+                if (segment.isEmpty()) {
+                    return false;
+                }
+                rx.setSpecial(segment);
+                instrucParser(rx);
+                if (!rx.isDurationSpecifiedByUser() || rx.getFrequencyCode().isEmpty() || rx.getTakeMax() == 0f
+                        || rx.getQuantity() == null || !isStringToNumber(rx.getQuantity())) {
+                    return false;
+                }
+                totalQuantity += new BigDecimal(rx.getQuantity()).intValue();
+                totalDays += (int) Math.round(Double.parseDouble(rx.getDuration()) * findNDays(rx.getDurationUnit()));
+                if (i == 0) {
+                    firstTakeMin = rx.getTakeMin();
+                    firstTakeMax = rx.getTakeMax();
+                    firstFrequency = rx.getFrequencyCode();
+                    firstMethod = rx.getMethod();
+                    firstRoute = rx.getRoute();
+                    firstPrn = rx.getPrn();
+                }
+            }
+        } finally {
+            // The original text is what is saved and shown, whether or not the segments were read.
+            rx.setSpecial(instructions);
+        }
+        rx.setTakeMin(firstTakeMin);
+        rx.setTakeMax(firstTakeMax);
+        rx.setFrequencyCode(firstFrequency);
+        rx.setMethod(firstMethod);
+        rx.setRoute(firstRoute);
+        rx.setPrn(firstPrn);
+        rx.setDuration(Integer.toString(totalDays));
+        rx.setDurationUnit("D");
+        rx.setDurationSpecifiedByUser(true);
+        rx.setQuantity(Integer.toString(totalQuantity));
+        if (rx.isCustomNote()) {
+            rx.setQuantity(null);
+            rx.setUnitName(null);
+        }
+        rx.setPolicyViolations(RxInstructionPolicy.checkInstructions(instructions.trim()));
+        return true;
+    }
+
+    /** True when the quantity was typed with its own unit ("30 mL"), which the parser never recalculates. */
+    // FindSecBugs IMPROPER_UNICODE: comparison with the literal "null" the page sends, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "comparison with the literal null the page sends, not a security or authorization decision")
+    private static boolean hasQuantityUnit(RxPrescriptionData.Prescription rx) {
+        String unitName = rx.getUnitName();
+        return unitName != null && !unitName.trim().isEmpty() && !unitName.equalsIgnoreCase("null");
+    }
+
+    /**
      * Calculates whole dispense units from the maximum dose and duration. The course total
      * is formed exactly, as a fraction, and rounded upward once at the final division, so a
      * fractional dose such as 5/6 tablet for six days gives five, not six. Periodic
@@ -1120,11 +1303,16 @@ public class RxUtil {
 
     private static NumberRange findRangeAt(String text, int start) {
         NumberToken min = findDecimalAt(text, start);
-        if (min == null || min.end >= text.length() || text.charAt(min.end) != '-') {
+        if (min == null) {
+            return null;
+        }
+        // "1-2 tabs" and "1 - 2 tabs" are the same range.
+        int hyphen = skipWhitespaceForward(text, min.end);
+        if (hyphen >= text.length() || text.charAt(hyphen) != '-') {
             return null;
         }
 
-        int maxStart = skipWhitespaceForward(text, min.end + 1);
+        int maxStart = skipWhitespaceForward(text, hyphen + 1);
         NumberToken max = findDecimalAt(text, maxStart);
         if (max == null) {
             return null;
@@ -1834,8 +2022,7 @@ public class RxUtil {
             Pattern p = Pattern.compile(s);
             Matcher m = p.matcher(instructions);
             if (m.find()) {
-                p("must be here");
-                segment.method = instructions.substring(m.start(), m.end());
+                segment.method = instructions.substring(m.start(), m.end()).trim();
                 scanForFrequencyAndUpdateInstructionSegment(segment, instructions, segment.method, m.end());
                 break;
             }

@@ -174,6 +174,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "20 mEq in 100 mL IV Q8H x 3 days | 20 | 20 | 180",
             "20 mmol IV daily x 3 days | 20 | 20 | 60",
             "20 mmol SC BID x 7 days | 20 | 20 | 280",
+            "Take 1 - 2 tabs po bid x 7 days | 1 | 2 | 28",
+            "1 - 2 tabs po bid x 7 days | 1 | 2 | 28",
             "20IU sc BID x 7 days | 20 | 20 | 280",
             "20IU IM BID x 7 days | 20 | 20 | 280",
             "20 IU qhs x 30 days | 20 | 20 | 600",
@@ -806,6 +808,196 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             // ensures the frequency is always treated as a literal regardless.
             RxPrescriptionData.Prescription rx = prescriptionWithSpecial("one " + frequencyCode);
             assertThatCode(() -> RxUtil.instrucParser(rx)).doesNotThrowAnyException();
+        }
+    }
+
+    @Nested
+    @DisplayName("duration derived from the quantity (findDuration)")
+    class DurationFromQuantity {
+
+        @Test
+        @DisplayName("should return the stated duration rather than recomputing it from the quantity")
+        void shouldReturnStatedDuration_whenInstructionsStateIt() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po tid x 7 days");
+            rx.setQuantity("21");
+
+            assertThat(RxUtil.findDuration(rx)).isEqualTo("7");
+        }
+
+        @Test
+        @DisplayName("should divide the quantity by the doses per day when the instructions state no duration")
+        void shouldDeriveDuration_fromQuantityAndFrequency() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po tid");
+            rx.setQuantity("21");
+
+            assertThat(RxUtil.findDuration(rx)).isEqualTo("7");
+        }
+
+        @Test
+        @DisplayName("should divide by the whole daily amount, not multiply by it")
+        void shouldDeriveDuration_whenDoseIsTwoUnitsTwiceDaily() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 2 tabs po bid");
+            rx.setQuantity("28");
+
+            assertThat(RxUtil.findDuration(rx)).isEqualTo("7");
+        }
+    }
+
+    @Nested
+    @DisplayName("duration phrases")
+    class DurationPhrases {
+
+        /**
+         * "days" first appears in "alternate days"; the number belongs to the later "10 days". The
+         * parser used to cut the text between the two matches and threw when the number came after
+         * the first unit, which the AJAX path swallowed.
+         */
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {
+            "Take 1 tab po on alternate days x 10 days with food",
+            "Take 1 tab po on alternate days x 10 days ",
+            "Take 1 tab po on alternate days x 10 days"
+        })
+        @DisplayName("should pair the duration number with its own unit when another day word comes first")
+        void shouldReadDuration_whenAnotherDayWordPrecedesIt(String instructions) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+
+            assertThatCode(() -> RxUtil.instrucParser(rx)).doesNotThrowAnyException();
+            assertThat(rx.getDuration()).isEqualTo("10");
+            assertThat(rx.getDurationUnit()).isEqualTo("D");
+        }
+
+        /**
+         * The shorthand n/7, n/52 and n/12 states a duration in days, weeks or months. A duration
+         * written with a unit wins when both appear.
+         */
+        @ParameterizedTest(name = "{0} lasts {1} {2} and dispenses {3}")
+        @CsvSource(delimiter = '|', value = {
+            "Take 1 tab PO BID x 5/7 | 5 | D | 10",
+            "1 tab po bid 5/7 | 5 | D | 10",
+            "Take 1 tab PO daily x 2/52 | 2 | W | 14",
+            "Take 1 tab PO daily for 3/12 | 3 | M | 90",
+            "Take 1 tab x 3/7 BID x 3 days | 3 | D | 6"
+        })
+        @DisplayName("should read n/7, n/52 and n/12 as a duration in days, weeks or months")
+        void shouldReadShorthandDuration_whenWrittenOverSevenFiftyTwoOrTwelve(String instructions, String duration,
+                String durationUnit, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getDuration()).isEqualTo(duration);
+            assertThat(rx.getDurationUnit()).isEqualTo(durationUnit);
+            assertThat(rx.getTakeMax()).isEqualTo(1f);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * "w/" (with) and "d/c" (discontinue) are abbreviations, not a week or a day: the unit of a
+         * duration derived from the quantity still follows the frequency.
+         */
+        @ParameterizedTest(name = "{0} with quantity {1} lasts {2} {3}")
+        @CsvSource(delimiter = '|', value = {
+            "Take 1 tab PO BID w/ food | 14 | 7 | D",
+            "Take 1 tab PO weekly and d/c if rash | 4 | 4 | W"
+        })
+        @DisplayName("should not read a slashed abbreviation as a duration unit")
+        void shouldKeepFrequencyUnit_whenAbbreviationHasSlash(String instructions, String quantity,
+                String duration, String durationUnit) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            rx.setQuantity(quantity);
+
+            String derived = RxUtil.findDuration(rx);
+
+            assertThat(rx.getDurationUnit()).isEqualTo(durationUnit);
+            assertThat(derived).isEqualTo(duration);
+        }
+    }
+
+    @Nested
+    @DisplayName("frequency phrases")
+    class FrequencyPhrases {
+
+        @ParameterizedTest(name = "{0} is {1}")
+        @CsvSource(delimiter = '|', value = {
+            "Take 1 tab 3 times daily x 7 days | TID | 21",
+            "Take 1 tab 2x daily x 7 days | BID | 14",
+            "Take 1 tab 2 x daily x 7 days | BID | 14",
+            "Take 1 tab 3x/day x 7 days | TID | 21",
+            "Take 1 tab three times a day x 7 days | TID | 21",
+            "Take 1 tab 4 times per day x 7 days | QID | 28",
+            "Take 1 tab once a day x 7 days | OD | 7",
+            "Take 1 tab twice a day x 7 days | BID | 14",
+            "Take 1 tab 3 times daily | TID | 0"
+        })
+        @DisplayName("should read 'N times daily' and 'Nx daily' as the matching frequency code")
+        void shouldReadTimesDailyPhrases_asFrequencyCodes(String instructions, String frequency, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase(frequency);
+            assertThat(rx.getTakeMin()).isEqualTo(1f);
+            assertThat(rx.getTakeMax()).isEqualTo(1f);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+    }
+
+    @Nested
+    @DisplayName("method words")
+    class MethodWords {
+
+        @Test
+        @DisplayName("should not read a trailing 'take with food' as the method or lose the leading dose")
+        void shouldKeepLeadingDose_whenTakeAppearsOnlyInTrailingAdvice() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("1 tab po bid x 7 days, take with food");
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getMethod()).isEmpty();
+            assertThat(rx.getTakeMin()).isEqualTo(1f);
+            assertThat(rx.getTakeMax()).isEqualTo(1f);
+            assertThat(rx.getQuantity()).isEqualTo("14");
+        }
+
+        @Test
+        @DisplayName("should still read a leading Take as the method")
+        void shouldReadLeadingTake_asMethod() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po bid x 7 days, take with food");
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getMethod()).isEqualTo("Take");
+            assertThat(rx.getTakeMin()).isEqualTo(1f);
+            assertThat(rx.getQuantity()).isEqualTo("14");
+        }
+    }
+
+    @Nested
+    @DisplayName("tapers")
+    class Tapers {
+
+        /**
+         * Segments joined by "then" each carry their own dose, frequency and duration; the course
+         * dispenses their sum and lasts their total days, while the card shows the first segment's
+         * dose and frequency.
+         */
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '|', value = {
+            "Take 3 tabs po daily x 3 days, then 2 tabs daily x 3 days, then 1 tab daily x 3 days | 3 | 3 | OD | 9 | 18",
+            "Take 2 tabs BID x 5 days then 1 tab BID x 5 days | 2 | 2 | BID | 10 | 30",
+            "Take 1 tab daily x 1 week then 1/2 tab daily x 1 week | 1 | 1 | OD | 14 | 11",
+            "Take 1 tab daily x 5 days then stop | 1 | 1 | OD | 5 | 5"
+        })
+        @DisplayName("should dispense the sum of the taper segments over their total duration")
+        void shouldSumTaperSegments_whenJoinedByThen(String instructions, float takeMin, float takeMax,
+                String frequency, String duration, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(takeMin);
+            assertThat(rx.getTakeMax()).isEqualTo(takeMax);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase(frequency);
+            assertThat(rx.getDuration()).isEqualTo(duration);
+            assertThat(rx.getDurationUnit()).isEqualTo("D");
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+            assertThat(rx.getSpecial()).isEqualTo(instructions);
         }
     }
 }
