@@ -557,6 +557,7 @@
     "test:get-reject-note-browser-documents-playwright": "node scripts/get-reject-note-browser-documents-playwright-checks.js",
     "test:get-reject-eform-editor-playwright": "node scripts/get-reject-eform-editor-playwright-checks.js",
     "test:get-reject-contact-directory-playwright": "node scripts/get-reject-contact-directory-playwright-checks.js",
+    "test:contact-removed-targets-playwright": "node scripts/contact-removed-targets-playwright-checks.js",
     "test:get-reject-measurement-groups-playwright": "node scripts/get-reject-measurement-groups-playwright-checks.js",
     "test:get-reject-inbox-queue-playwright": "node scripts/get-reject-inbox-queue-playwright-checks.js",
     "test:get-reject-consult-config-playwright": "CONSULT_CONFIG_EXCEPT=enablerequest.get,updateservice.get,updateinstitution.get,updateservice.restricted,updateinstitution.restricted,addservice.doctor,delservice.doctor,enablerequest.doctor,updateservice.doctor,updateinstitution.doctor node scripts/get-reject-consult-config-playwright-checks.js",

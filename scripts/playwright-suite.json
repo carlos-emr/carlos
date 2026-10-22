@@ -7181,8 +7181,31 @@
         "Contact",
         "professionalSpecialists"
       ],
-      "fixtures": "The marker Contact and professionalSpecialists rows the pages create are in clinic-wide lists while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned synthetic patient; cleanup deletes marker Contact and professionalSpecialists rows and their patient DemographicContact associations and asserts they are gone.",
+      "fixtures": "The marker Contact rows the pages create (and any professionalSpecialists row a regressed save would add) are in clinic-wide lists while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned synthetic patient; cleanup deletes marker Contact and professionalSpecialists rows and their patient DemographicContact associations and asserts they are gone.",
       "notes": "demographic/Contact methods saveContact and saveProContact reject GET/HEAD with 405 since issue #3682; the last step fails if either replay writes again. Editor script behavior is also independently covered by contact-editor."
+    },
+    {
+      "name": "contact-removed-targets",
+      "script": "scripts/contact-removed-targets-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "mutates": [
+        "Contact",
+        "pharmacyInfo"
+      ],
+      "fixtures": "Its marker Contact and pharmacyInfo rows are in the clinic-wide contact and pharmacy lists while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned synthetic patient with two SQL-seeded DemographicContact rows and one demographicPharmacy row; cleanup deletes them, the marker Contact and every marker pharmacyInfo row, and asserts they are gone.",
+      "notes": "Issues #3509 and #4402: POSTs the Manage Contacts form with method set to each removed Contact2Action target (setEmergencyContact, setDNC, setMRP, addPharmacy, removePharmacy, addPharmacyInfo, editPharmacyInfo, savePharmacyInfo); each must leave the patient's associations and pharmacies unchanged and be answered by the application (today the read-only Manage Contacts view; an application 4xx other than 403 also passes). A positive control through the same request (removeContact) must delete its association."
     },
     {
       "name": "get-reject-measurement-groups",
