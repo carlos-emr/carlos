@@ -85,6 +85,7 @@
             const jobTypesSaveErrorLabel = "${carlos:forJavaScript(jobTypesSaveErrorLabel)}";
             let jobTypeTable;
             let jobTypeSavePending = false;
+            let jobTypeEditorGeneration = 0;
 
             function editJobType(jobTypeId) {
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/jobType/" + jobTypeId, {},
@@ -174,6 +175,9 @@
                     height: 525,
                     width: 620,
                     modal: true,
+                    open: function () {
+                        jobTypeEditorGeneration++;
+                    },
                     buttons: {
                         saveJobType: {
                             class: "btn btn-primary job-types-save", text: jobTypesSaveLabel, click: function () {
@@ -181,6 +185,7 @@
                                     return;
                                 }
                                 var $dialog = $(this);
+                                var editorGeneration = jobTypeEditorGeneration;
                                 var $saveButton = $dialog.dialog("widget").find(".job-types-save");
                                 function restoreSaveButton() {
                                     jobTypeSavePending = false;
@@ -199,7 +204,9 @@
                                 saveRequest.always(restoreSaveButton)
                                     .done(function () {
                                         listJobs();
-                                        $dialog.dialog("close");
+                                        if (editorGeneration === jobTypeEditorGeneration) {
+                                            $dialog.dialog("close");
+                                        }
                                     })
                                     .fail(function () {
                                         window.alert(jobTypesSaveErrorLabel);

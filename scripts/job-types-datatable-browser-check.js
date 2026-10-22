@@ -196,6 +196,20 @@ const CASES = [
     assert.deepEqual(state.alerts, ['FAKE save failed']);
     assert.equal(state.saves.length, 0);
   }],
+  ['an earlier save response leaves a newly opened editor and its inputs intact', async (page, state) => {
+    await openNew(page);
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await waitForSave(page, state, 1);
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await openNew(page);
+    await page.locator('#jobTypeName').fill('FAKE second editor');
+    completeSave(state.saves[0], 200);
+    await page.waitForFunction(() => jQuery.active === 0);
+    assert.equal(await page.evaluate(() => jQuery('#new-jobtype').dialog('isOpen')), true,
+      'The previous save must not close a newly opened editor');
+    assert.equal(await page.locator('#jobTypeName').inputValue(), 'FAKE second editor');
+    assert.equal(await page.getByRole('button', { name: 'Save', exact: true }).isDisabled(), false);
+  }],
   ['single and empty responses retain text-safe rows and the same table', async (page, state) => {
     const name = '<img src=x onerror="window.__unsafeJobName=true">';
     state.rows = [{ ...state.rows[0], name }];
