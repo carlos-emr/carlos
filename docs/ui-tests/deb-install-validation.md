@@ -3447,3 +3447,48 @@ Day-sheet gate, same install: a throwaway role holding `_admin.flowsheet r` plus
 answered 200 in all five. With this PR's `administration-menu-gate.jspf` all five offer the link. With the `release/2026.08`
 Administration pages compiled, this PR's `admin-role-management` fails at "the granted throwaway opens Add A Role…": a login with
 `_admin.userAdmin` read was offered the Assign Role/Rights to Object card on the home page.
+
+### BC forms and billing (2026-10-22, issues #5090, #5062, #5051, #5050 and #4439)
+
+Branch `claude/bc-forms-5090-5062-5051-5050-4439` (PR #5167), merged with `release/2026.08` at `eacd3d9230`, packaged
+unstamped as `2026.09.0~snapshot26`: the CARLOS WAR compiled from source in an `ubuntu:26.04` builder (OpenJDK 25),
+DrugRef from `debian/drugref.pin` (`1941e14`), carlos-ctl `1.2.0` built from its pin's fallback commit (`325482a`),
+`dpkg-buildpackage -us -uc -b` with `CARLOS_WAR` and `DRUGREF_WAR`. Every run below used a fresh install made with
+`CARLOS_PROVINCE=bc scripts/deb-docker-validation.sh up` (BC preseed, BC demo data); `carlos-ctl check` passed each time.
+Checks that need the Teleplan output directory ran with `HOME_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/billing/download`.
+
+| Run | Result |
+|---|---|
+| New and changed checks: `form-bc-saved-value-encoding`, `form-bc-add-form-defaults`, `form-bc-epds-wording`, `get-reject-bc-billing`, `authz-bc-billing`, `billing-bc-teleplan-file`, `billing-bc-codes-admin`, `billing-bc-settle-paid-claims` | **PASS**, 8 of 8 |
+| The 44 BC-only checks of the default profile, `--residue-audit` | 42 **PASS** and 2 known failures (findings 145 and 153, pinned), no residue. `billing-bc-wcb-links` runs alone after `carlos-ctl restart`: the simulation lists the active providers cached at the first login after startup, and `up` has already signed in once |
+| `profile legacy-teleplan`, then `suite --profile legacy-teleplan --residue-audit`, then `profile default` | `billing-bc-remittance-upload` **PASS**, all 9 steps, no residue |
+| `--tier smoke` (final packages) | **PASS**, 12 of 12 |
+| `--tier core --province BC --residue-audit` (final packages) | in progress; the results are added here when the run ends |
+| server-log audit | after the core run |
+
+**Negative control.** The pre-fix `GenerateTeleplanFile2Action`, the six BC billing writes, `EditServiceCodeAssoc2Action`
+and `HttpMethodGuardFilter`, compiled against the installed classpath, and the pre-fix `TeleplanSubmission.jsp`,
+`leftNav.jspf`, `admin.jsp`, `manageSVCDXAssoc.jsp`, `billingBC.jsp` and `struts-billing.xml` were swapped into the
+install, then the fixed files put back byte for byte:
+- `billing-bc-teleplan-file` fails at "opening the Teleplan file item from the menu writes no batch of its own": the
+  menu's GET wrote 1 batch (#4439 D3).
+- `billing-bc-codes-admin` fails at its last step: Create New Association does not open an editor (#4439 D14).
+- `get-reject-bc-billing` still passes: `HttpMethodGuardFilter`'s route-name rules (the `save`, `add` and `delete`
+  prefixes and `billingaddcode`) already refused all 13 GETs. The actions' own guards (D12) are defense in depth.
+
+**Defects found and fixed during the run.**
+- `billing-bc-two-window-isolation` failed at "Update Invoice on a two-line private receipt": the private bill's
+  Save & Print Receipt answered 403. The ModSecurity audit log showed CRS rule 932115 (Windows command injection)
+  matching `& Print Receipt` in `ARGS:submit` on `billing/CA/BC/SaveBilling`, so no private-bill receipt could be
+  saved through the packaged front door. The button now reads "Save and Print Receipt", and `BillingSaveBilling2Action`
+  accepts both values; the check passes.
+- The residue audit found 9 `property`, 3 `providerArchive`, 3 `providerbillcenter` and 1 `PrintResourceLog` rows.
+  `billing-bc-simulation-encoding` and `billing-bc-two-window-isolation` add physicians through Add Provider, which
+  also writes those provider rows; `form-bc-antenatal-record` kept the print record of its own FAKE patient. All three
+  cleanups now remove them, and the rerun reported no residue.
+- `billing-bc-report-center` failed at its first step: a `target=_blank` tab reports an empty address until its first
+  navigation commits, and the check read it at once. It now waits for the centre's address.
+- `billing-bc-wcb-links` fails at its simulation step when an earlier login has already filled the active-provider
+  cache; after a restart it passes. This is a property of the check's fixture (documented in its header), not a defect.
+- `bpmh-form` fails at "Print answers a PDF of the saved form", as recorded for #3394 above with the pre-fix classes;
+  it is not caused by this change.
