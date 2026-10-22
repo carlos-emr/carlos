@@ -19,4 +19,4 @@ tag=1.2.0
 # before the CLI release exists. The release build never uses it
 # (debian/fetch-carlos-ctl.sh downloads the tag's published asset or
 # fails). Drop the line, or leave it: once the tag exists it is not read.
-fallback=b98c931c0611350559c9898e5594c7132b7d3c24
+fallback=607c24e34113af32590af8ad548f5a1f8fcd1598
