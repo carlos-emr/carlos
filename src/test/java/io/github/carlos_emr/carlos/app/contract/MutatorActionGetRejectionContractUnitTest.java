@@ -434,6 +434,8 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // UploadLoginText2ActionUnitTest covers read-only GET and mutation-intent rejection.
+        "io.github.carlos_emr.carlos.login.UploadLoginText2Action",
         // Legacy encounter forms: every save must be POST; only submit=graph/printAll/printAllJasperReport read
         // and permit GET. Focused GET/HEAD cases in Frm2ActionMethodGuardUnitTest.
         "io.github.carlos_emr.carlos.form.Frm2Action",
