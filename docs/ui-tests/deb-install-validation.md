@@ -3339,3 +3339,19 @@ The other checks that drive these routes ran on the final packages:
   `messenger-reply-send-archive` at "Send and Archive archives exactly the message replied to".
 - `session-state-two-window-isolation` failed at its year-end statement step only when it ran after the twenty
   checks above; alone it passes, three times on the fixed packages and once on the pre-fix ones.
+
+Review follow-up (CodeRabbit): `StrutsFormNestedForwardUnitTest` compared locations with action names only, so it
+missed `form/formname`'s `printAllJasperReport` result, `/form/formPdfJasperReport`, which the `form/*` wildcard
+serves. That is a nested action FORWARD to a view that does not exist. The test now matches wildcard actions and
+honours `struts.action.excludePattern`, and the result prints through `/form/createpdf` like `printAll`. Checked on
+the same install with only `struts-form.xml` changed:
+- A Lab Req 2007 Print post rewritten to `submit=printAllJasperReport` answers 404 (HTML) with the old location and
+  a 46 KB `application/pdf` with the new one. Rourke 2020's own Print, which writes its PDF in `Frm2Action`, still
+  passes in `form-rourke2020-growth`.
+- `select-forms-panel`, `rh-form-workflow`, `form-adfv2-save-exit`, `form-checkbox-reopen` and
+  `echart-forms-latest-item` pass.
+- `form-rourke2020-growth` fails with the old base-branch `struts-form.xml`, with the PR's previous head and with
+  this change. Growth 0-36m and Growth Chart never open from the Forms menu, and the Rourke 2020 save step varies
+  from run to run (two rows for one request, or Tomcat closing the `form/formname` connection so nginx answers
+  502). It is not caused by this change.
+- `form-print-pdf` cannot start on this install: the Forms menu lists no Lab Req 2007 for the admin login.

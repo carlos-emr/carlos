@@ -100,7 +100,12 @@
                  name, which is how the freshly saved record id reaches FrmPDFServlet: the POST
                  still carries the formId the page was loaded with, and on a first save that is 0. -->
             <result name="printAll">/form/createpdf?formId=${savedFormId}</result>
-            <result name="printAllJasperReport">/form/formPdfJasperReport</result>
+            <!-- Rourke 2017/2020 are the only forms that send printAllJasperReport, and Frm2Action
+                 writes their PDF itself (returns NONE). For any other form it takes the printAll
+                 branch, so it prints the same way. The old location, /form/formPdfJasperReport,
+                 matched the form/* wildcard: a nested action FORWARD to a view that does not
+                 exist, answering 404 (issue #3394). -->
+            <result name="printAllJasperReport">/form/createpdf?formId=${savedFormId}</result>
             <result name="printLabReq">/WEB-INF/jsp/form/formlabreqprint.jsp</result>
             <result name="print">/WEB-INF/jsp/error/errorpage.jsp</result>
             <!-- No "save" result: a save redirects to /form/forwardname (Frm2Action.forwardNameRedirectUrl).
