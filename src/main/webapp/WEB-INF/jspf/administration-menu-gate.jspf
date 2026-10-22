@@ -29,7 +29,8 @@
     all keeps ONE privilege per role across the objects (the last row the database returns), so the
     seeded doctor role's `_admin.reporting` `o` row (migration V1.0.6) could hide the link its
     `_admin.flowsheet` `r` earns, depending only on row order (issues #4238 and #4623).
-    The list is the one the menus used before; ViewAdministrationIndex2Action admits a subset of it.
+    The objects are the thirteen the menus named before (order only affects how many lookups run);
+    ViewAdministrationIndex2Action admits a subset of them.
     Requires: the including page's roleName$ ("userrole,user") and its c and security taglibs.
     Sets: page-scope boolean canOpenAdministration.
     @since 2026-10-22
@@ -37,16 +38,17 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <c:set var="canOpenAdministration" value="${false}" />
+<%-- Stop at the first object that grants the link: an administrator needs one lookup, the seeded doctor two. --%>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.resource" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.reporting" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.backup" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.messenger" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.eform" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.encounter" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.misc" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.flowsheet" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.flowsheet" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.resource" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.reporting" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.backup" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.messenger" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.eform" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.encounter" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.misc" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
