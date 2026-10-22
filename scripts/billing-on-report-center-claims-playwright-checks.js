@@ -152,7 +152,7 @@ async function workflow(s) {
     return center.locator('body').innerText();
   };
 
-  // Before the four reports' step, which still fails on Flu until #5061 is fixed.
+  // Before the four reports' step.
   await s.step('a Billed row opens its claim for viewing with the login\'s billing read rights', async () => {
     const claim = ids.claims.find(entry => entry.report === 'billed');
     await run('billed');

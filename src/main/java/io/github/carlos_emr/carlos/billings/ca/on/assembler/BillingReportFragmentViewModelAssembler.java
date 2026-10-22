@@ -34,17 +34,14 @@ import java.util.stream.Collectors;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportFragmentViewModel;
 import io.github.carlos_emr.carlos.billings.ca.report.UnbilledReportStatusParameters;
-import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Assembles {@link BillingReportFragmentViewModel} for the four ON billing
@@ -58,10 +55,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * based on {@code reportAction}, leaving the others as empty lists so the
  * single view-model object covers all four templates.</p>
  *
- * <p>Billed, Unsettled and OB list Ontario claims ({@code billing_on_cheader1} and its items), where
+ * <p>Billed, Unsettled, OB and Flu list Ontario claims ({@code billing_on_cheader1} and its items), where
  * the Ontario bill form stores them. They used to read the retired {@code billing} table, so they
- * listed only old rows carried over from OSCAR (#5061). Flu still reads it: how its walk-in / clinic
- * split maps to Ontario claims is an open question on #5061.</p>
+ * listed only old rows carried over from OSCAR (#5061). Flu is one list: an Ontario claim records
+ * nothing that tells a walk-in flu shot from a clinic one, so the old walk-in / clinic split has no
+ * source (#5093).</p>
  *
  * @since 2026-04-26
  */
@@ -72,15 +70,16 @@ public class BillingReportFragmentViewModelAssembler {
     static final List<String> OB_SERVICE_CODES = List.of("P006A", "P011A", "P009A", "P020A", "P022A", "P028A",
             "P023A", "P007A", "P008B", "P018B", "E502A", "C989A", "E409A", "E410A", "E411A", "H001A");
 
-    private final BillingDao billingDao;
+    /** The flu-shot service codes the Flu report lists: G590A, and G591A for older claims (ended in 2011). */
+    static final List<String> FLU_SERVICE_CODES = List.of("G590A", "G591A");
+
     private final BillingONCHeader1Dao claimDao;
     private final BillingONItemDao claimItemDao;
     private final io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao appointmentDao;
 
-    public BillingReportFragmentViewModelAssembler(BillingDao billingDao, BillingONCHeader1Dao claimDao,
+    public BillingReportFragmentViewModelAssembler(BillingONCHeader1Dao claimDao,
                                         BillingONItemDao claimItemDao,
                                         io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao appointmentDao) {
-        this.billingDao = billingDao;
         this.claimDao = claimDao;
         this.claimItemDao = claimItemDao;
         this.appointmentDao = appointmentDao;
@@ -285,68 +284,28 @@ public class BillingReportFragmentViewModelAssembler {
 
     private void loadFlu(String providerView, Date dateBegin, Date dateEnd,
                          BillingReportFragmentViewModel.Builder b) {
-        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow> bs =
-                billingDao.search_billflu(providerView, dateBegin, dateEnd);
-        List<BillingReportFragmentViewModel.FluClinicRow> clinicRows = new ArrayList<>();
-        List<BillingReportFragmentViewModel.FluWalkinRow> walkinRows = new ArrayList<>();
-        BigDecimal total1 = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP); // walk-in (specialty == flu)
-        BigDecimal total2 = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP); // clinic (specialty != flu)
-        if (bs == null) {
-            b.fluClinicRows(clinicRows).fluWalkinRows(walkinRows)
-             .fluTotal1(total1.toPlainString()).fluTotal2(total2.toPlainString());
-            return;
-        }
-        boolean bodd = false;
-        int walkinCount = 0;
-        int clinicCount = 0;
-        int unreadableTotalCount = 0;
-        for (io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow row : bs) {
-            bodd = !bodd;
-            String bContent = row.content();
-            Integer bId = row.id();
-            String bTotal = row.total();
-            String bStatus = row.status();
-            Date bBillingDate = row.billingDate();
-            String bDemographicName = row.demographicName();
-            String demoName = nullToEmpty(bDemographicName);
-            String apptDate = ConversionUtils.toDateString(bBillingDate);
-            String specialty = SxmlMisc.getXmlContent(bContent, "specialty");
-            if (specialty == null) specialty = "";
-            String reasonCode = nullToEmpty(bStatus);
-            String formattedTotal = formatBillobTotal(bTotal);
-            int billingNo = bId == null ? 0 : bId.intValue();
-            String reasonLabel = fluReasonLabel(reasonCode);
-            boolean reasonIsAnchor = reasonLabel.isEmpty();
-            BigDecimal fee;
-            try {
-                fee = new BigDecimal(formattedTotal).setScale(2, RoundingMode.HALF_UP);
-            } catch (NumberFormatException nfe) {
-                unreadableTotalCount++;
-                MiscUtils.getLogger().warn(
-                        "BillingReportFragment: Flu bill {} has unparseable total [{}]; using 0",
-                        billingNo, formattedTotal, nfe);
-                fee = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP);
-            }
-            if ("flu".equals(specialty)) {
-                walkinCount++;
-                total1 = total1.add(fee);
-                walkinRows.add(new BillingReportFragmentViewModel.FluWalkinRow(
-                        billingNo, demoName, apptDate, formattedTotal,
-                        reasonCode, reasonLabel, reasonIsAnchor,
-                        bodd ? "#EEEEFF" : "white"));
-            } else {
-                clinicCount++;
-                total2 = total2.add(fee);
-                clinicRows.add(new BillingReportFragmentViewModel.FluClinicRow(
-                        billingNo, demoName, apptDate, formattedTotal,
-                        reasonCode, reasonLabel, reasonIsAnchor,
+        List<BillingONCHeader1> claims = claimDao.findReportCenterClaimsWithServiceCodes(
+                providerView, dateBegin, dateEnd, FLU_SERVICE_CODES);
+        List<BillingReportFragmentViewModel.FluRow> rows = new ArrayList<>();
+        BigDecimal total = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP);
+        if (claims != null) {
+            boolean bodd = false;
+            for (BillingONCHeader1 claim : claims) {
+                bodd = !bodd;
+                String reasonCode = nullToEmpty(claim.getStatus());
+                BigDecimal claimTotal = (claim.getTotal() == null ? BigDecimal.ZERO : claim.getTotal())
+                        .setScale(2, RoundingMode.HALF_UP);
+                // Every listed claim counts toward the total, whatever its status, as the old list summed them.
+                total = total.add(claimTotal);
+                rows.add(new BillingReportFragmentViewModel.FluRow(
+                        claim.getId() == null ? 0 : claim.getId().intValue(),
+                        nullToEmpty(claim.getDemographicName()),
+                        ConversionUtils.toDateString(claim.getBillingDate()),
+                        claimTotal.toPlainString(), reasonCode, fluStatusLabel(reasonCode),
                         bodd ? "#EEEEFF" : "white"));
             }
         }
-        b.fluClinicRows(clinicRows).fluWalkinRows(walkinRows)
-         .fluTotal1(total1.toPlainString()).fluTotal2(total2.toPlainString())
-         .fluClinicCount(clinicCount).fluWalkinCount(walkinCount)
-         .fluUnreadableTotalCount(unreadableTotalCount);
+        b.fluRows(rows).fluTotal(total.toPlainString()).fluCount(rows.size());
     }
 
     /** How a claim relates to its appointment, as the Billed and Unsettled lists show it. */
@@ -358,15 +317,14 @@ public class BillingReportFragmentViewModelAssembler {
     }
 
     /**
-     * Returns the static label for X/B/S status codes, or an empty string for
-     * everything else (the JSP renders the -B anchor instead in that case).
-     * Mirrors the legacy scriptlet's reason→label ternary.
+     * The status as the Flu list shows it: the old list's labels for bad debt, submitted and settled, and the
+     * Billed list's for the other statuses.
      */
-    private static String fluReasonLabel(String reason) {
+    private static String fluStatusLabel(String reason) {
         if ("X".equals(reason)) return "Bad Debt";
         if ("B".equals(reason)) return "Submitted to OHIP";
         if ("S".equals(reason)) return "Settled";
-        return "";
+        return describeStatus(reason).trim();
     }
 
     private static String describeStatus(String code) {
@@ -378,18 +336,6 @@ public class BillingReportFragmentViewModelAssembler {
             case "P": return "Bill Patient";
             default: return code;
         }
-    }
-
-    /** Format a raw "12345" string into "123.45" if no decimal already present. */
-    private static String formatBillobTotal(String raw) {
-        if (raw == null || raw.isEmpty()) return "0.00";
-        if (raw.indexOf('.') > 0) return raw;
-        if (raw.length() < 3) {
-            // Legacy script would have thrown StringIndexOutOfBounds on length<2;
-            // be conservative and just append ".00".
-            return raw + ".00";
-        }
-        return raw.substring(0, raw.length() - 2) + "." + raw.substring(raw.length() - 2);
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
