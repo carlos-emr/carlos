@@ -57,9 +57,11 @@ public class RxUtil {
     private static String defaultQuantity = "30";
     private static final Logger logger = MiscUtils.getLogger();
     private static final String METHOD_APPLY = "Apply";
+    /** The lower-case form of {@link #METHOD_APPLY}, as the topical-word set and the legacy text scan compare it. */
+    private static final String APPLY_WORD = "apply";
     private static final String METHOD_RUB_WELL_IN = "Rub well in";
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
-            "(?:mgs|mg|mcgs|mcg|[µμu]g|grams|gram|gms|gm|g|iu|meq|mmol|milligrams|milligram|micrograms|microgram"
+            "(?:mc?gs?|[µμu]g|g(?:rams?|ms?)?|iu|meq|mmol|milligrams?|micrograms?"
                     + "|milliequivalents?|millimoles?|international\\s++units?)\\b",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|grams?|gms?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
@@ -98,7 +100,7 @@ public class RxUtil {
      * one suppository or enema (mesalamine 1 g, 4 g/60 mL), not grams of cream.
      */
     private static final Set<String> TOPICAL_WORDS = Set.of("top", "topical", "topically", "externally", "pv",
-            "vaginal", "vaginally", "intravaginal", "intravaginally", "apply", "applied");
+            "vaginal", "vaginally", "intravaginal", "intravaginally", APPLY_WORD, "applied");
     /** Application sites that, after "to" or "to the", mark a topical instruction ("to knees", "to the scalp"). */
     private static final Set<String> APPLICATION_SITES = Set.of("skin", "face", "scalp", "hand", "hands", "feet",
             "foot", "knee", "knees", "elbow", "elbows", "back", "leg", "legs", "arm", "arms", "chest", "neck", "rash",
@@ -153,14 +155,14 @@ public class RxUtil {
             "(?:^|\\s)(?i)(?:4|four)" + TIMES_A_DAY};
     /** The count word or figure that opens a written daily count, with the day word it ends with. */
     private static final Pattern DAILY_COUNT_PHRASE = Pattern.compile(
-            "^(once|one|1|twice|two|2|thrice|three|3|four|4)(?:(?=x(?![a-z]))|(?![a-z0-9])).*(?:daily|day)$",
+            "^(once|one|twice|two|thrice|three|four|[1-4])(?:(?=x(?![a-z]))|(?![a-z0-9])).*(?:daily|day)$",
             Pattern.CASE_INSENSITIVE);
     /**
      * The shorthand n/7, n/52 and n/12: a duration in days, weeks or months, optionally introduced by
      * "x" or "for" ("BID x 5/7", "daily for 3/12", "bid 5/7").
      */
     private static final Pattern SHORTHAND_DURATION = Pattern.compile(
-            "(?:^|\\s)(?:(x|for)\\s*)?([0-9]+)\\s*/\\s*(7|52|12)(?![0-9/])", Pattern.CASE_INSENSITIVE);
+            "(?:^|\\s)(?:(x|for)\\s*)?(\\d+)\\s*/\\s*(7|52|12)(?![0-9/])", Pattern.CASE_INSENSITIVE);
     /**
      * The word that joins the segments of a tapering course: "then", ", then", "followed by". Only
      * the word is matched; the spaces and comma around it stay on the segments and are trimmed
@@ -262,7 +264,7 @@ public class RxUtil {
     public static String FloatToString(float value) {
         java.text.NumberFormat fmt = java.text.NumberFormat.getNumberInstance(Locale.ROOT);
         fmt.setGroupingUsed(false);
-        return fmt.format(Float.valueOf(value).doubleValue());
+        return fmt.format((double) value);
     }
 
     public static float StringToFloat(String value) {
@@ -629,10 +631,6 @@ public class RxUtil {
         } else retVal = "0";
 
         return retVal;
-    }
-
-    private static String checkInstructionStr(String str) {//replace if instruction contains certain string which may confuse the text parser
-        return checkInstructionStr(str, "");
     }
 
     /**
@@ -2542,8 +2540,8 @@ public class RxUtil {
                 special = special.substring(special.indexOf("TAKE"));
             } else if (special.indexOf(METHOD_APPLY) != -1) {
                 special = special.substring(special.indexOf(METHOD_APPLY));
-            } else if (special.indexOf("apply") != -1) {
-                special = special.substring(special.indexOf("apply"));
+            } else if (special.indexOf(APPLY_WORD) != -1) {
+                special = special.substring(special.indexOf(APPLY_WORD));
             } else if (special.indexOf("APPLY") != -1) {
                 special = special.substring(special.indexOf("APPLY"));
             } else if (special.indexOf(METHOD_RUB_WELL_IN) != -1) {

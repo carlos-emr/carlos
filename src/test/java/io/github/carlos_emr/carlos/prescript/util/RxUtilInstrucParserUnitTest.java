@@ -808,31 +808,23 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
     @DisplayName("duration derived from the quantity (findDuration)")
     class DurationFromQuantity {
 
-        @Test
-        @DisplayName("should return the stated duration rather than recomputing it from the quantity")
-        void shouldReturnStatedDuration_whenInstructionsStateIt() {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po tid x 7 days");
-            rx.setQuantity("21");
+        /**
+         * A duration the directions state is returned as parsed; otherwise the quantity is divided
+         * by the whole daily amount (dose per administration times administrations per day), which
+         * the old formula multiplied by instead.
+         */
+        @ParameterizedTest(name = "{0} with quantity {1} lasts {2} days")
+        @CsvSource(delimiter = '|', value = {
+            "Take 1 tab po tid x 7 days | 21 | 7",
+            "Take 1 tab po tid | 21 | 7",
+            "Take 2 tabs po bid | 28 | 7"
+        })
+        @DisplayName("should return the stated duration or derive it by dividing the quantity by the daily amount")
+        void shouldFindDuration_fromStatedDurationOrQuantity(String instructions, String quantity, String duration) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            rx.setQuantity(quantity);
 
-            assertThat(RxUtil.findDuration(rx)).isEqualTo("7");
-        }
-
-        @Test
-        @DisplayName("should divide the quantity by the doses per day when the instructions state no duration")
-        void shouldDeriveDuration_fromQuantityAndFrequency() {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po tid");
-            rx.setQuantity("21");
-
-            assertThat(RxUtil.findDuration(rx)).isEqualTo("7");
-        }
-
-        @Test
-        @DisplayName("should divide by the whole daily amount, not multiply by it")
-        void shouldDeriveDuration_whenDoseIsTwoUnitsTwiceDaily() {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 2 tabs po bid");
-            rx.setQuantity("28");
-
-            assertThat(RxUtil.findDuration(rx)).isEqualTo("7");
+            assertThat(RxUtil.findDuration(rx)).isEqualTo(duration);
         }
     }
 
