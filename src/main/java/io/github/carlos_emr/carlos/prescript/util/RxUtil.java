@@ -702,7 +702,6 @@ public class RxUtil {
      *
      * @param rx prescription to update; null is ignored
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     public static void instrucParser(RxPrescriptionData.Prescription rx) {
         parseDirections(rx);
     }
