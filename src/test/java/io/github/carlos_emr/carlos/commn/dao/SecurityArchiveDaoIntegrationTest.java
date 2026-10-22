@@ -76,11 +76,11 @@ class SecurityArchiveDaoIntegrationTest extends CarlosTestBase {
     private Security saveSecurity(String userName, boolean usingMfa) {
         Security security = new Security();
         security.setUserName(userName);
-        security.setPassword("not-a-real-hash");
+        security.setPassword("not-a-real-hash"); // ggignore - synthetic marker, never a credential
         security.setProviderNo(PROVIDER_NO);
         security.setLastUpdateDate(new Date());
         security.setUsingMfa(usingMfa);
-        security.setMfaSecret(usingMfa ? "not-a-real-mfa-secret" : null);
+        security.setMfaSecret(usingMfa ? "not-a-real-mfa-secret" : null); // ggignore - synthetic, not a credential
         securityDao.persist(security);
         entityManager.flush();
         return security;
@@ -131,7 +131,7 @@ class SecurityArchiveDaoIntegrationTest extends CarlosTestBase {
                             + "VALUES (?1, ?2, ?3, ?4, ?5)")
                     .setParameter(1, security.getId())
                     .setParameter(2, "fakelegacy")
-                    .setParameter(3, "not-a-real-hash")
+                    .setParameter(3, "not-a-real-hash") // ggignore - synthetic marker, never a credential
                     .setParameter(4, PROVIDER_NO)
                     .setParameter(5, new Date())
                     .executeUpdate();

@@ -50,9 +50,9 @@ class SecurityArchiveUnitTest {
         Security security = new Security();
         security.setId(42);
         security.setUserName("fakeuser");
-        security.setPassword("not-a-real-hash");
+        security.setPassword("not-a-real-hash"); // ggignore - synthetic marker for the copy check, never a credential
         security.setProviderNo("999990");
-        security.setPin("not-a-real-pin-hash");
+        security.setPin("not-a-real-pin-hash"); // ggignore - synthetic marker for the copy check, never a credential
         security.setBExpireset(1);
         security.setDateExpiredate(new Date(1_800_000_000_000L));
         security.setBLocallockset(0);
@@ -63,7 +63,7 @@ class SecurityArchiveUnitTest {
         security.setLastUpdateUser("999998");
         security.setLastUpdateDate(new Date(1_700_000_200_000L));
         security.setUsingMfa(usingMfa);
-        security.setMfaSecret("not-a-real-mfa-secret");
+        security.setMfaSecret("not-a-real-mfa-secret"); // ggignore - synthetic marker that must stay out of the archive
         return security;
     }
 
