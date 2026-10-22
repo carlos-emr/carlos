@@ -193,7 +193,16 @@ async function workflow(s) {
 
   await s.step('Confirm copies the card into the record and Update Record stores its version and dates', async () => {
     const closed = swipe.waitForEvent('close');
-    const seen = await h.withExpectedDialogs(swipe, () => swipe.getByRole('button', { name: 'Confirm' }).click());
+    const seen = await h.withExpectedDialogs(swipe, async () => {
+      try {
+        await swipe.getByRole('button', { name: 'Confirm' }).click({ noWaitAfter: true });
+      } catch (error) {
+        // Confirm's handler closes this popup, and Chromium can acknowledge that
+        // window.close() before the click itself (as in ui.clickOpensPopup). Accept
+        // only that error; the popup must still really close, awaited below.
+        if (!/Target page, context or browser has been closed/.test(error.message)) throw error;
+      }
+    });
     await closed;
     h.assert(seen.length === 1 && /replace the existing patient/.test(seen[0].text), 'Confirm did not ask before replacing');
     await master.locator('#editBtn').click();
