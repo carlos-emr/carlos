@@ -126,5 +126,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow(NAME, workflow, { openPatient: false });
+if (require.main === module) runWorkflow(NAME, workflow, { openMaster: false });
 module.exports = { workflow };

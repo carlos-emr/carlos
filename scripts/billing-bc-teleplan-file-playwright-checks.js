@@ -343,8 +343,9 @@ async function workflow(s) {
     const html = await s.context.request.get(new URL(`billing/CA/BC/DownloadBilling?filename=${encodeURIComponent(batch.html)}`, base).toString(), { maxRedirects: 0 });
     h.assert(html.status() === 200 && /^attachment\b/i.test(html.headers()['content-disposition'] || ''),
       `The HTML report link answered HTTP ${html.status()} (${html.headers()['content-disposition']})`);
-    // Only a file a batch names, and only by its name.
-    for (const [name, status] of [[`${batch.msp}x`, 404], [`../${batch.msp}`, 400], ['carlos.properties', 404]]) {
+    // Only a file a batch names, and only by its name (a path is refused before the disk is read; no "../", which
+    // the front door's WAF would block before CARLOS answered).
+    for (const [name, status] of [[`${batch.msp}x`, 404], [`archive/${batch.msp}`, 400], ['carlos.properties', 404]]) {
       const refused = await s.context.request.get(new URL(`billing/CA/BC/DownloadBilling?filename=${encodeURIComponent(name)}`, base).toString(), { maxRedirects: 0 });
       h.assert(refused.status() === status, `DownloadBilling for ${JSON.stringify(name)} answered HTTP ${refused.status()}, not ${status}`);
     }
