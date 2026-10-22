@@ -3,10 +3,11 @@
 /*
  * Issue #3876: Schedule > patient master record > E-Chart > Rx > Custom Drug >
  * Instructions > Save. Verify the parser's AJAX response, displayed quantity,
- * and persisted prescription. A strength defaults to one unit per dose, an
- * explicit count, volume or per-dose amount keeps its value, and a
- * concentration alone calculates nothing and leaves the card's quantity as it
- * was. Uses an owned synthetic patient and removes its prescription rows after
+ * and persisted prescription. A custom drug has no product strength to divide
+ * by, so a strength defaults to one unit per dose and a strength range keeps
+ * its proportions; an explicit count, volume or gram/IU per-dose amount keeps
+ * its value, a vehicle volume is not a dose, and a concentration alone
+ * calculates nothing and leaves the card's quantity as it was. Uses an owned synthetic patient and removes its prescription rows after
  * the browser closes; do not run concurrently with other checks.
  */
 const h = require('./lib/playwright-harness');
@@ -47,7 +48,7 @@ async function workflow(s) {
     ['20IU IV qhs x 7 days', 20, 20, '140', 'QHS'],
     ['Take 17 g per dose PO daily x 7 days', 17, 17, '119', 'OD'],
     ['Take 17g/dose PO daily x 7 days', 17, 17, '119', 'OD'],
-    ['500 mg per dose PO BID x 7 days', 500, 500, '7000', 'BID'],
+    ['500 mg per dose PO BID x 7 days', 1, 1, '14', 'BID'],
     ['100IU/mL SC BID x 7 days', 0, 0, '0', 'BID'],
     ['100IU/5mL IM BID x 7 days', 0, 0, '0', 'BID'],
     ['100IU per mL SC BID x 7 days', 0, 0, '0', 'BID'],
@@ -64,7 +65,10 @@ async function workflow(s) {
     ['0.5IU SC OD x 7 days', 0.5, 0.5, '4', 'OD'],
     ['5/6 tab PO daily x 6 days', 5 / 6, 5 / 6, '5', 'OD', '6'],
     ['5/3 tab PO TID x 1 days', 5 / 3, 5 / 3, '5', 'TID', '1'],
-    ['500-1000 mg po tid x 7 days', 1, 1, '21'],
+    ['500-1000 mg po tid x 7 days', 1, 2, '42'],
+    ['1000 mg (2 tabs) po tid x 7 days', 2, 2, '42'],
+    ['Take 1 1/2 TID x 10 days', 1.5, 1.5, '45', 'TID', '10'],
+    ['1 g IV in 100 mL Q8H x 7 days', 1, 1, '21', 'Q8H'],
     ['Take 2 tablets (1000 mg) po tid x 7 days', 2, 2, '42'],
     ['1000 mg po 1-2 tid x 7 days', 1, 2, '42'],
     ['1000 mg po tid x 7 days', 1, 1, '21'],

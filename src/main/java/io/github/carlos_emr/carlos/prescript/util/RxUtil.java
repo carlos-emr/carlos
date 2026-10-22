@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.prescript.util;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
@@ -58,15 +59,74 @@ public class RxUtil {
     private static final String METHOD_APPLY = "Apply";
     private static final String METHOD_RUB_WELL_IN = "Rub well in";
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
-            "(?:mg|mcg|[µμ]g|g|iu|meq)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+            "(?:mgs|mg|mcgs|mcg|[µμu]g|g|iu|meq|mmol|milligrams|milligram|micrograms|microgram)\\b",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
+    /** Dosage forms that are counted out one by one; a count written with one is an explicit administered count. */
+    private static final Set<String> COUNTED_FORMS = Set.of("tab", "tabs", "tablet", "tablets", "cap", "caps",
+            "capsule", "capsules", "pill", "pills", "puff", "puffs", "spray", "sprays", "drop", "drops", "gtt", "gtts",
+            "patch", "patches", "supp", "supps", "suppository", "suppositories", "sachet", "sachets", "packet",
+            "packets", "lozenge", "lozenges", "vial", "vials", "amp", "amps", "ampoule", "ampoules", "inhalation",
+            "inhalations");
+    /** Units an administered volume or unit count is written in ("5 mL", "10 units"). */
+    private static final Set<String> MEASURED_DOSE_UNITS = Set.of("ml", "unit", "units");
+    /** A number or a fraction ("2", "0.5", "1/2") that is not part of a larger token. */
+    private static final Pattern AMOUNT_TOKEN = Pattern.compile("(?<![\\w.#/-])(\\d+(?:\\.\\d+)?(?:/\\d+)?)");
+    /** Wording that gives a product by mouth when no route token was parsed ("by mouth", "orally"). */
+    private static final Pattern ORAL_CONTEXT = Pattern.compile(
+            "\\b(?:by\\s+mouth|orally|per\\s+os|p\\.o\\.)", Pattern.CASE_INSENSITIVE);
+    /** Route words the route list does not parse that give the product other than by mouth ("IV", "sq"). */
+    private static final Set<String> NON_ORAL_WORDS = Set.of("iv", "im", "sc", "sq", "subq");
+    /** Beginnings of words for routes other than by mouth ("subcutaneously", "injection", "inhaled"). */
+    private static final List<String> NON_ORAL_WORD_STARTS = List.of("subcut", "intramuscular", "intravenous", "inject", "inh");
     /**
-     * Dosage-form words, singular or plural, that make a number before the frequency an explicit
-     * count ("... PO 2 tablets TID"). Matched against one whole word.
+     * Words after which an amount is not the dose: a vehicle or diluent ("in 100 mL", "with 250 mL"),
+     * a ceiling ("max 8 tabs") or an amount to dispense ("dispense 30", "qty 30").
      */
-    private static final Pattern COUNT_UNIT = Pattern.compile(
-            "(?:tab|tablet|cap|capsule|puff|spray|drop|sachet|lozenge)s?|patch(?:es)?",
-            Pattern.CASE_INSENSITIVE);
+    private static final Set<String> NOT_A_DOSE_WORDS = Set.of("in", "into", "with", "of", "mixed", "dissolved",
+            "diluted", "over", "plus", "via", "max", "maximum", "limit", "upto", "dispense", "disp", "mitte", "qty",
+            "quantity", "supply", "total");
+    /** Phrases with the same meaning as {@link #NOT_A_DOSE_WORDS} ("up to 4 sachets", "no more than 8 tabs"). */
+    private static final Set<String> NOT_A_DOSE_PHRASES = Set.of("up to", "no more than", "not more than",
+            "not to exceed", "not exceeding");
+    /**
+     * Words that put a gram amount on the skin or the vaginal mucosa, where the grams are what is
+     * applied. Rectal words are left out on purpose: a rectal gram amount is usually the strength of
+     * one suppository or enema (mesalamine 1 g, 4 g/60 mL), not grams of cream.
+     */
+    private static final Set<String> TOPICAL_WORDS = Set.of("top", "topical", "topically", "externally", "pv",
+            "vaginal", "vaginally", "intravaginal", "intravaginally");
+    /** Application sites that, after "to" or "to the", mark a topical instruction ("to knees", "to the scalp"). */
+    private static final Set<String> APPLICATION_SITES = Set.of("skin", "face", "scalp", "hand", "hands", "feet",
+            "foot", "knee", "knees", "elbow", "elbows", "back", "leg", "legs", "arm", "arms", "chest", "neck", "rash",
+            "lesion", "lesions", "wound", "wounds", "nail", "nails", "lip", "lips");
+    /** What follows "affected" in a topical instruction ("affected area", "affected skin"). */
+    private static final Set<String> AFFECTED_SITES = Set.of("area", "areas", "skin", "site", "sites");
+    /** A dose per kilogram or per square metre of body size, which states no fixed administered amount. */
+    private static final Pattern BODY_SIZE_BASIS = Pattern.compile("(?:kg|m2|m²|m\\^2)(?!\\w)", Pattern.CASE_INSENSITIVE);
+    /** A number and the word after it in a product's dosage text, as the drug picker stores a strength ("500.0mg"). */
+    private static final Pattern PRODUCT_STRENGTH = Pattern.compile(
+            "(\\d+(?:\\.\\d+)?)\\s*([a-zµμ]+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    /** Runs of ASCII letters, digits and underscores: the words of an instruction, as {@code \\b} sees them. */
+    private static final Pattern WORD = Pattern.compile("\\w+");
+    /** A tablet form, the only dosage form a strength may be divided into halves or quarters of. */
+    private static final Pattern TABLET_FORM = Pattern.compile("tab", Pattern.CASE_INSENSITIVE);
+    /**
+     * Tablet forms that must not be split ("TABLET (EXTENDED-RELEASE)", "TABLET (ENTERIC-COATED)"):
+     * modified-release, enteric-coated, orally disintegrating, sublingual, buccal and effervescent.
+     */
+    private static final Pattern UNSPLITTABLE_TABLET = Pattern.compile(
+            "release|enteric|disintegrat|sublingual|buccal|effervescent", Pattern.CASE_INSENSITIVE);
+    /** A tablet, caplet or capsule form: a product counted out one by one. */
+    private static final Pattern TABLET_OR_CAPSULE_FORM = Pattern.compile("tab|cap", Pattern.CASE_INSENSITIVE);
+    /** A semi-solid form applied by the gram. */
+    private static final Pattern TOPICAL_FORM = Pattern.compile(
+            "\\b(?:cream|ointment|gel|lotion|paste|foam)\\b", Pattern.CASE_INSENSITIVE);
+    /** A liquid dosage form, measured by volume rather than counted. */
+    private static final Pattern LIQUID_FORM = Pattern.compile(
+            "\\b(?:solution|suspension|syrup|elixir|liquid|emulsion|tincture)\\b", Pattern.CASE_INSENSITIVE);
+    /** More units than this per administration means the strength and the product do not match. */
+    private static final BigDecimal MAX_UNITS_PER_DOSE = BigDecimal.valueOf(20);
     private static final Pattern CONCENTRATION_SEPARATOR = Pattern.compile("(?:/|per\\b)\\s*", Pattern.CASE_INSENSITIVE);
     private static final Pattern PER_DOSE = Pattern.compile("(?:/|per\\b)\\s*dose\\b", Pattern.CASE_INSENSITIVE);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
@@ -522,15 +582,29 @@ public class RxUtil {
      * duration and quantity fields, preserving the original instructions.
      *
      * <p>The number that opens the directions is read by what follows it (issue #3876):
-     * a product strength such as {@code 1000 mg} means one dispensable unit per
-     * administration unless an explicit count is given; a concentration such as
-     * {@code 250 mg/5 mL} names the product and supplies no administered amount, so no
-     * dose or quantity is calculated from it; an amount written with {@code /dose} or
-     * {@code per dose}, a volume, a unit count, a topical gram amount or a non-oral IU
-     * amount is the administered dose as typed. A count, volume or unit amount placed
-     * before the frequency ({@code ... PO 10 mL TID}, {@code ... PO 2 tablets TID}) takes
-     * precedence over the leading number. Fractions keep their numerator and denominator
-     * until the dispense quantity is rounded, once, at the end.
+     * <ul>
+     *   <li>A product strength such as {@code 1000 mg} is turned into dispensable units per
+     *       administration. When the selected product has one known strength in a comparable unit
+     *       ({@code dosage} {@code "500.0mg"}), the strength is divided by it: two tablets here. A
+     *       result that is not a whole number of units (or, for tablets, of halves or quarters), or a
+     *       liquid product whose volume per dose is not written, leaves the dose unset. Without a
+     *       comparable product strength (a custom drug, a combination product) one unit per
+     *       administration is assumed, and a strength range keeps its proportions ({@code 500-1000 mg}
+     *       is one to two units).</li>
+     *   <li>A concentration such as {@code 250 mg/5 mL} or a dose per body size such as
+     *       {@code 10 mg/kg} names the product and supplies no administered amount, so no dose or
+     *       quantity is calculated from it.</li>
+     *   <li>A volume, a unit count, a gram amount applied to the skin or a mucosa, a non-oral IU
+     *       amount, and a gram or IU amount written with {@code /dose} or {@code per dose} are the
+     *       administered dose as typed.</li>
+     * </ul>
+     * When the leading number named the product, an explicit amount written before the frequency
+     * takes precedence: a count with its dosage form ({@code (2 tabs)}, {@code PO 2 tablets TID}),
+     * a bare count before the route or the frequency, a volume or a unit count. An amount written as
+     * a vehicle, a ceiling or a dispensing amount ({@code in 100 mL}, {@code max 8 tabs},
+     * {@code #30 tabs}) is never the dose. Fractions keep their numerator and denominator until the
+     * dispense quantity is rounded, once, upward, at the end; a mixed number ({@code 1 1/2}) is read
+     * whole.
      *
      * @param rx prescription to update; null is ignored
      */
@@ -567,6 +641,7 @@ public class RxUtil {
         String durationSpec = "";
         int quantity = 0;
         int frequencyStart = -1;
+        NumberToken fractionBeforeFrequency = null;
 
         //do we have some policies/restrictions we want to run?
         List<String> policyViolations = RxInstructionPolicy.checkInstructions(instructions.trim());
@@ -643,11 +718,13 @@ public class RxUtil {
                 } else {
                     NumberToken frequencyAmount = findDecimalBeforeFrequency(instructions, matcher.start());
                     if (frequencyAmount == null) {
-                        frequencyAmount = findFractionBefore(instructions, matcher.start());
+                        // Whether a fraction here is the dose depends on the leading amount, which is
+                        // read below; keep it aside until then.
+                        fractionBeforeFrequency = findFractionBefore(instructions, matcher.start());
                     }
                     if (frequencyAmount != null) {
                         amountFrequency = frequencyAmount.value;
-                    } else {
+                    } else if (fractionBeforeFrequency == null) {
                         p("word amount");
                         for (String word : zeroToTen) {
                             String r1 = "\\s" + word + "\\s*" + Pattern.quote(frequency);
@@ -686,13 +763,17 @@ public class RxUtil {
         //check if method is specified, if yes, check the number after method, which maybe the number to take for a frequency.
 		//if no, check if a number is specified at beginning.
 		if (!instructions.isEmpty()) {
-			InstructionSegment instructionSegment = scanInstruction(instructions, methods, route);
-            // A strength describes one dispensable unit, not a count of them, so it means one
-            // unit per administration. A concentration supplies no amount at all, so nothing is
-            // assumed for it. Explicit counts before the frequency take precedence below.
+			InstructionSegment instructionSegment = scanInstruction(instructions, methods, route, rx);
+            // A strength describes the product, not a count of its units: it becomes units per
+            // administration (issue #3876). A product-only lead (a concentration, a dose per body
+            // size) supplies no amount, so nothing is assumed for it. Explicit amounts written
+            // before the frequency take precedence below.
             if (instructionSegment.productAmount == AmountKind.STRENGTH) {
-                takeMin = "1";
-                takeMax = "1";
+                String[] units = keepsTypedGramAmount(instructionSegment, rx)
+                        ? new String[] {instructionSegment.productMin, instructionSegment.productMax}
+                        : unitsPerDose(instructionSegment, rx);
+                takeMin = units[0];
+                takeMax = units[1];
             }
 			if (instructionSegment.method != null) {
 				method = instructionSegment.method;
@@ -709,13 +790,25 @@ public class RxUtil {
 			if (instructionSegment.amountFrequency != null) {
 				amountFrequency = instructionSegment.amountFrequency;
                         }
-            // "250 mg/5 mL PO 10 mL TID": when the leading number named the product rather than a
-            // dose, an amount with its own unit just before the frequency is the administered dose
-            // (review of #5077). A leading count such as "Take 1 sachet in 125 mL BID" is kept, and
-            // directions that name no product ("Mix medication in 100 mL BID") stay unparsed.
+            // A fraction just before the frequency is the dose when it completes a mixed number
+            // ("Take 1 1/2 TID") or when nothing earlier gave an amount ("1000 mg po 1/2 tid"). It
+            // never replaces an explicit count, where it is a schedule or a ratio rather than a dose
+            // ("Take 1 tab x 3/7 BID", "if SBP > 140/90 BID").
+            if (fractionBeforeFrequency != null && (fractionBeforeFrequency.mixedNumber
+                    || (!instructionSegment.hasLeadingAmount() && isPlainDoseFraction(instructions, fractionBeforeFrequency)))) {
+                amountFrequency = fractionBeforeFrequency.value;
+            }
+            // "250 mg/5 mL PO 10 mL TID", "1000 mg (2 tabs) po tid": when the leading number named
+            // the product rather than a dose, an explicit amount written before the frequency is the
+            // administered dose (review of #5077). A leading count such as "Take 1 sachet in 125 mL
+            // BID" is kept, directions that name no product ("Mix medication in 100 mL BID") stay
+            // unparsed, and vehicles, ceilings and dispensing amounts are skipped.
             boolean leadingNumberNamedProduct = instructionSegment.productAmount != null;
             if (leadingNumberNamedProduct && frequencyStart >= 0 && amountFrequency.isEmpty() && takeMinFrequency.isEmpty()) {
                 UnitAmount unitAmount = findAmountWithUnitBeforeFrequency(instructions, frequencyStart, instructionSegment);
+                if (unitAmount == null) {
+                    unitAmount = findExplicitAmountAfterProduct(instructions, instructionSegment.productEnd, frequencyStart);
+                }
                 if (unitAmount != null && unitAmount.range()) {
                     takeMinFrequency = unitAmount.min();
                     takeMaxFrequency = unitAmount.max();
@@ -1170,12 +1263,12 @@ public class RxUtil {
     }
 
     /**
-     * Reads what the unit after an amount says about it: a product strength, a
-     * concentration, or an administered amount. Any unit followed by a concentration
-     * denominator is a concentration; any unit followed by {@code /dose} or
-     * {@code per dose} is administered; grams applied topically and IU outside the
-     * oral routes are administered; the remaining strength units are strengths. An
-     * amount with no recognized unit is administered (callers check its boundary).
+     * Reads what the unit after an amount says about it: a product strength, product-only
+     * information, or an administered amount. Any unit followed by a concentration denominator
+     * or a body-size basis ({@code /mL}, {@code /kg}) names the product only; grams and IU written
+     * with {@code /dose} or {@code per dose} are administered; grams applied to the skin or a
+     * mucosa and IU not given by mouth are administered; the remaining strength units are
+     * strengths. An amount with no recognized unit is administered (callers check its boundary).
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
@@ -1184,42 +1277,400 @@ public class RxUtil {
         Matcher unit = STRENGTH_UNIT.matcher(instructions).region(unitStart, instructions.length());
         if (!unit.lookingAt()) {
             unit = DOSE_UNIT.matcher(instructions).region(unitStart, instructions.length());
-            return unit.lookingAt() && hasConcentrationAfterUnit(instructions, unit.end())
-                    ? AmountKind.CONCENTRATION : AmountKind.ADMINISTERED;
+            return unit.lookingAt() && hasDenominatorAfterUnit(instructions, unit.end())
+                    ? AmountKind.PRODUCT_ONLY : AmountKind.ADMINISTERED;
         }
-        if (hasConcentrationAfterUnit(instructions, unit.end())) {
-            return AmountKind.CONCENTRATION;
+        if (hasDenominatorAfterUnit(instructions, unit.end())) {
+            return AmountKind.PRODUCT_ONLY;
         }
-        // "17 g per dose" states the administered amount in the strength's own unit.
-        if (PER_DOSE.matcher(instructions)
+        boolean grams = "g".equalsIgnoreCase(unit.group());
+        boolean internationalUnits = "iu".equalsIgnoreCase(unit.group());
+        // "17 g per dose" and "20 IU/dose" state an administered amount in a measurable unit. A mass
+        // per dose in mg, mcg or mEq ("500 mg per dose", an inhaler's "250 mcg/dose") still does not
+        // say how many dispensable units supply it, so it is read as a strength below.
+        if ((grams || internationalUnits) && PER_DOSE.matcher(instructions)
                 .region(skipWhitespaceForward(instructions, unit.end()), instructions.length()).lookingAt()) {
             return AmountKind.ADMINISTERED;
         }
-        // Grams applied topically and non-oral IU specify administered amounts.
-        if ("g".equalsIgnoreCase(unit.group())) {
-            boolean topical = "TOP.".equalsIgnoreCase(segment.route) || METHOD_APPLY.equalsIgnoreCase(segment.method)
-                    || METHOD_RUB_WELL_IN.equalsIgnoreCase(segment.method);
-            return topical ? AmountKind.ADMINISTERED : AmountKind.STRENGTH;
+        // Grams applied to the skin or a mucosa and non-oral IU specify administered amounts.
+        if (grams) {
+            return isTopical(instructions, segment) ? AmountKind.ADMINISTERED : AmountKind.STRENGTH;
         }
-        if ("iu".equalsIgnoreCase(unit.group())) {
-            boolean oral = "PO".equalsIgnoreCase(segment.route) || "SL".equalsIgnoreCase(segment.route);
-            return oral ? AmountKind.STRENGTH : AmountKind.ADMINISTERED;
+        if (internationalUnits) {
+            return isOral(instructions, segment) ? AmountKind.STRENGTH : AmountKind.ADMINISTERED;
         }
         return AmountKind.STRENGTH;
     }
 
     /**
-     * Records a strength or concentration on the segment.
+     * True when the directions give the product by mouth: the PO or SL route, or, with no non-oral
+     * route written anywhere, oral wording ("by mouth", "orally"), the method "Take", or a selected
+     * tablet or capsule whose strength is in IU (vitamin D). An IU amount with no route and no such
+     * product ("20 IU qhs") stays an administered amount, as for insulin.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
+    private static boolean isOral(String instructions, InstructionSegment segment) {
+        if ("PO".equalsIgnoreCase(segment.route) || "SL".equalsIgnoreCase(segment.route)) {
+            return true;
+        }
+        if (!segment.route.isEmpty() || hasNonOralWord(instructions)) {
+            return false;
+        }
+        return ORAL_CONTEXT.matcher(instructions).find() || "Take".equalsIgnoreCase(segment.method)
+                || segment.solidProductInInternationalUnits;
+    }
+
+    /**
+     * True when the selected product is a tablet or capsule with one strength in international units,
+     * such as vitamin D {@code "1000.0unit"} TABLET: a product counted out and taken by mouth. Insulin
+     * and heparin are solutions with a strength per mL, so they never qualify.
+     */
+    private static boolean isSolidProductInInternationalUnits(RxPrescriptionData.Prescription rx) {
+        String dosage = rx.getDosage();
+        String form = rx.getDrugForm();
+        if (dosage == null || form == null || dosage.indexOf('/') >= 0
+                || !TABLET_OR_CAPSULE_FORM.matcher(form).find() || LIQUID_FORM.matcher(form).find()) {
+            return false;
+        }
+        ProductStrength product = ProductStrength.single(dosage);
+        return product != null && "iu".equals(product.measure().measure());
+    }
+
+    /** True when a route word the route list does not parse gives the product other than by mouth ("IV", "subcut"). */
+    private static boolean hasNonOralWord(String instructions) {
+        for (String word : wordsOf(instructions)) {
+            if (NON_ORAL_WORDS.contains(word) || NON_ORAL_WORD_STARTS.stream().anyMatch(word::startsWith)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True when the directions apply the product to the skin or a mucosa rather than giving it by mouth. */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
+    private static boolean isTopical(String instructions, InstructionSegment segment) {
+        return "TOP.".equalsIgnoreCase(segment.route) || METHOD_APPLY.equalsIgnoreCase(segment.method)
+                || METHOD_RUB_WELL_IN.equalsIgnoreCase(segment.method) || hasTopicalWording(instructions)
+                || segment.topicalProduct;
+    }
+
+    /**
+     * True when the selected product is a cream, ointment, gel, lotion, paste or foam, which is applied
+     * by the gram ("2-4 g qid" of diclofenac gel is grams of gel, not tubes).
+     */
+    private static boolean isTopicalProduct(RxPrescriptionData.Prescription rx) {
+        String form = rx.getDrugForm();
+        return form != null && TOPICAL_FORM.matcher(form).find() && !TABLET_OR_CAPSULE_FORM.matcher(form).find();
+    }
+
+    /**
+     * True when the instruction names an application on the skin or a mucosa: a topical word ("TOP",
+     * "topically", "PV"), "affected area" or similar, or "to" (or "to the") and a body site.
+     */
+    private static boolean hasTopicalWording(String instructions) {
+        List<String> words = wordsOf(instructions);
+        for (int i = 0; i < words.size(); i++) {
+            String word = words.get(i);
+            String next = i + 1 < words.size() ? words.get(i + 1) : "";
+            String afterNext = i + 2 < words.size() ? words.get(i + 2) : "";
+            if (TOPICAL_WORDS.contains(word) || ("affected".equals(word) && AFFECTED_SITES.contains(next))
+                    || ("to".equals(word) && (APPLICATION_SITES.contains(next)
+                            || ("the".equals(next) && APPLICATION_SITES.contains(afterNext))))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Records a strength or product-only lead on the segment, with the amount as typed, its unit and
+     * where it ends in the original instructions.
      *
      * @return true when the amount describes the product rather than an administered dose
      */
-    private static boolean describesProduct(InstructionSegment segment, String instructions, int amountEnd) {
+    private static boolean describesProduct(InstructionSegment segment, String instructions, int amountEnd,
+            String minimum, String maximum) {
         AmountKind kind = classifyAmount(instructions, amountEnd, segment);
         if (kind == AmountKind.ADMINISTERED) {
             return false;
         }
         segment.productAmount = kind;
+        segment.productMin = minimum;
+        segment.productMax = maximum;
+        Matcher unit = STRENGTH_UNIT.matcher(instructions)
+                .region(skipWhitespaceForward(instructions, amountEnd), instructions.length());
+        segment.productUnit = unit.lookingAt() ? unit.group() : null;
+        segment.productEnd = amountEnd - segment.textOffset;
         return true;
+    }
+
+    /**
+     * True when a prescription with no product strength carries an explicit administered dose unit
+     * of grams ({@code unit} "gm", as the legacy dose editor stores it) and the instructions type a
+     * gram amount ("Take 17 g PO daily"). The typed amount is then the administered dose in that
+     * unit, so the structured dose and the unit the clinical export reads agree (17 gm, not 1 gm).
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of a stored unit abbreviation, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of a stored unit abbreviation, not a security or authorization decision")
+    private static boolean keepsTypedGramAmount(InstructionSegment segment, RxPrescriptionData.Prescription rx) {
+        String unit = rx.getUnit() == null ? "" : rx.getUnit().trim();
+        boolean gramUnit = "g".equalsIgnoreCase(unit) || "gm".equalsIgnoreCase(unit) || "gms".equalsIgnoreCase(unit)
+                || "gram".equalsIgnoreCase(unit) || "grams".equalsIgnoreCase(unit);
+        return gramUnit && "g".equalsIgnoreCase(segment.productUnit)
+                && (rx.getDosage() == null || rx.getDosage().isBlank());
+    }
+
+    /**
+     * Turns a leading strength into dispensable units per administration. When the selected product
+     * has one known strength in a comparable unit, the stated strength is divided by it (1000 mg of a
+     * 500 mg tablet is two tablets) and accepted only as a whole number of units, or for tablets that
+     * may be split a whole number of halves or quarters, up to {@link #MAX_UNITS_PER_DOSE}. A
+     * modified-release, enteric-coated or similar tablet is never split. Any other result, or a
+     * liquid or rate product whose volume per dose is not written, leaves the dose unset so the
+     * prescriber's quantity is kept. Without a comparable product strength (a custom drug, a
+     * combination product, IU against a mass strength) one unit per administration is assumed, as
+     * issue #3876 asks, and a strength range keeps its proportions from that unit.
+     *
+     * @return the minimum and maximum units per administration; {@code "0"} when none can be established
+     */
+    private static String[] unitsPerDose(InstructionSegment segment, RxPrescriptionData.Prescription rx) {
+        ExactAmount statedMin = ExactAmount.parse(segment.productMin);
+        ExactAmount statedMax = ExactAmount.parse(segment.productMax);
+        if (statedMax.isLessThan(statedMin)) {
+            ExactAmount lower = statedMax;
+            statedMax = statedMin;
+            statedMin = lower;
+        }
+        StrengthMeasure statedUnit = segment.productUnit == null ? null : StrengthMeasure.of(segment.productUnit);
+        if (statedMin.isZero() || statedMax.isZero() || statedUnit == null) {
+            return new String[] {"0", "0"};
+        }
+        String dosage = rx.getDosage();
+        if ((dosage != null && dosage.indexOf('/') >= 0)
+                || (rx.getDrugForm() != null && LIQUID_FORM.matcher(rx.getDrugForm()).find())) {
+            // A liquid or a rate (250 mg/5 mL, 25 mcg/hr): the strength says nothing about the volume.
+            return new String[] {"0", "0"};
+        }
+        ProductStrength product = ProductStrength.single(dosage);
+        if (product == null || !product.measure().measure().equals(statedUnit.measure()) || product.amount().signum() <= 0) {
+            // No comparable product strength: one unit per administration, a range scaled from its lower bound.
+            String upper = unitsOf(statedMax.numerator().multiply(statedMin.denominator()),
+                    statedMax.denominator().multiply(statedMin.numerator()), 2);
+            return upper == null ? new String[] {"0", "0"} : new String[] {"1", upper};
+        }
+        String form = rx.getDrugForm() == null ? "" : rx.getDrugForm();
+        // Halves and quarters only for a tablet that may be split; anything else must come out whole.
+        int stepsPerUnit = TABLET_FORM.matcher(form).find() && !UNSPLITTABLE_TABLET.matcher(form).find() ? 4 : 1;
+        BigDecimal productSize = product.amount().multiply(product.measure().size());
+        String minimum = unitsOf(statedMin.numerator().multiply(statedUnit.size()),
+                statedMin.denominator().multiply(productSize), stepsPerUnit);
+        String maximum = unitsOf(statedMax.numerator().multiply(statedUnit.size()),
+                statedMax.denominator().multiply(productSize), stepsPerUnit);
+        return minimum == null || maximum == null ? new String[] {"0", "0"} : new String[] {minimum, maximum};
+    }
+
+    /**
+     * Divides two exact amounts into a count of units that must come out as a whole number of
+     * {@code 1/stepsPerUnit} parts and lie between one part and {@link #MAX_UNITS_PER_DOSE}.
+     *
+     * @return the count as plain decimal text, or null when it is not such a count
+     */
+    private static String unitsOf(BigDecimal numerator, BigDecimal denominator, int stepsPerUnit) {
+        BigDecimal steps = numerator.multiply(BigDecimal.valueOf(stepsPerUnit));
+        if (denominator.signum() <= 0 || numerator.signum() <= 0 || steps.remainder(denominator).signum() != 0) {
+            return null;
+        }
+        BigDecimal units = steps.divide(denominator, 0, RoundingMode.UNNECESSARY)
+                .divide(BigDecimal.valueOf(stepsPerUnit), 2, RoundingMode.UNNECESSARY);
+        return units.compareTo(MAX_UNITS_PER_DOSE) > 0 ? null : units.stripTrailingZeros().toPlainString();
+    }
+
+    /**
+     * Finds the one explicit administered amount written between the leading product amount and the
+     * frequency: a count with its dosage form ({@code (2 tabs)}), a bare count before the route
+     * ({@code 500mg 2 po}), a volume or a unit count. A concentration denominator, a vehicle, a
+     * ceiling or a dispensing amount is not a dose, and two or more amounts are ambiguous, so none
+     * is read.
+     *
+     * @return the amount, or null when there is not exactly one
+     */
+    private static UnitAmount findExplicitAmountAfterProduct(String instructions, int from, int frequencyStart) {
+        if (from < 0 || from >= frequencyStart) {
+            return null;
+        }
+        Matcher amount = AMOUNT_TOKEN.matcher(instructions).region(from, frequencyStart).useTransparentBounds(true);
+        UnitAmount found = null;
+        while (amount.find()) {
+            String minimum = amount.group(1);
+            String maximum = null;
+            int amountEnd = amount.end();
+            // A range such as "1-2 tabs": its upper bound follows a hyphen.
+            int hyphen = skipWhitespaceForward(instructions, amountEnd);
+            if (hyphen < frequencyStart && instructions.charAt(hyphen) == '-') {
+                NumberToken upper = findDecimalAt(instructions, skipWhitespaceForward(instructions, hyphen + 1));
+                if (upper != null && upper.end <= frequencyStart) {
+                    maximum = upper.value;
+                    amountEnd = upper.end;
+                }
+            }
+            if (!namesExplicitAmount(instructions, amountEnd, frequencyStart)
+                    || followsConcentrationSeparator(instructions, amount.start()) || isLabelledNotADose(instructions, amount.start())) {
+                continue;
+            }
+            if (found != null) {
+                return null;
+            }
+            found = maximum == null ? new UnitAmount(minimum, minimum, false) : new UnitAmount(minimum, maximum, true);
+        }
+        return found;
+    }
+
+    /**
+     * True when what follows an amount makes it an explicit administered amount: a counted dosage form
+     * ({@code 2 tabs}), a volume or unit count ({@code 5 mL}), the oral route after a space
+     * ({@code 2 po}, {@code 2 by mouth}) or a count of product units ({@code 2 x 500 mg tabs}).
+     */
+    private static boolean namesExplicitAmount(String text, int amountEnd, int limit) {
+        int wordStart = skipWhitespaceForward(text, amountEnd);
+        // "2 x 500 mg tabs" and "2x500mg tabs": the "x" may run straight into the strength.
+        if (wordStart < limit && (text.charAt(wordStart) == 'x' || text.charAt(wordStart) == 'X')
+                && countsProductUnits(text, wordStart + 1, limit)) {
+            return true;
+        }
+        String word = wordAt(text, wordStart, limit);
+        if (word == null) {
+            return false;
+        }
+        if (isCountedForm(word) || MEASURED_DOSE_UNITS.contains(lowerCase(word))) {
+            return true;
+        }
+        if (wordStart > amountEnd && ("po".equals(lowerCase(word)) || "sl".equals(lowerCase(word))
+                || ("by".equals(lowerCase(word)) && "mouth".equals(lowerCase(wordAt(text,
+                        skipWhitespaceForward(text, wordStart + word.length()), text.length())))))) {
+            return true;
+        }
+        return false;
+    }
+
+    /** True for "500 mg tabs" after the "x" of {@code 2 x 500 mg tabs}: a strength, then a counted dosage form. */
+    private static boolean countsProductUnits(String text, int start, int limit) {
+        NumberToken strength = findDecimalAt(text, skipWhitespaceForward(text, start));
+        if (strength == null) {
+            return false;
+        }
+        int unitStart = skipWhitespaceForward(text, strength.end);
+        String unit = wordAt(text, unitStart, limit);
+        if (unit == null || StrengthMeasure.of(unit) == null) {
+            return false;
+        }
+        String form = wordAt(text, skipWhitespaceForward(text, unitStart + unit.length()), limit);
+        return form != null && isCountedForm(form);
+    }
+
+    /**
+     * Returns the run of letters starting at {@code start} (ending before {@code limit}) when it is a
+     * whole word, followed by neither a letter nor a digit; otherwise null.
+     */
+    private static String wordAt(String text, int start, int limit) {
+        int end = start;
+        int stop = Math.min(limit, text.length());
+        while (end < stop && Character.isLetter(text.charAt(end))) {
+            end++;
+        }
+        if (end == start || (end < text.length() && Character.isLetterOrDigit(text.charAt(end)))) {
+            return null;
+        }
+        return text.substring(start, end);
+    }
+
+    /** True for a dosage-form word that is counted out one by one ("tabs", "capsule", "puffs"). */
+    private static boolean isCountedForm(String word) {
+        return COUNTED_FORMS.contains(lowerCase(word));
+    }
+
+    /** Lower-cases an instruction word for comparison with the word lists; null stays null. */
+    // FindSecBugs IMPROPER_UNICODE: case folding of parsed instruction words for list lookups, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folding of parsed instruction words for list lookups, not a security or authorization decision")
+    private static String lowerCase(String word) {
+        return word == null ? null : word.toLowerCase(Locale.ROOT);
+    }
+
+    /** The words of an instruction, lower-cased, as {@code \\b} delimits them. */
+    private static List<String> wordsOf(String instructions) {
+        List<String> words = new ArrayList<>();
+        Matcher word = WORD.matcher(instructions);
+        while (word.find()) {
+            words.add(lowerCase(word.group()));
+        }
+        return words;
+    }
+
+    /**
+     * True when the words just before an amount make it a vehicle or diluent ({@code in 100 mL}), a
+     * ceiling ({@code max 8 tabs}, {@code up to 4}) or an amount to dispense ({@code #30},
+     * {@code dispense 30}). Punctuation between the words and the amount is ignored.
+     */
+    private static boolean isLabelledNotADose(String instructions, int amountStart) {
+        int end = amountStart;
+        boolean afterHyphen = false;
+        while (end > 0 && !isWordCharacter(instructions.charAt(end - 1))) {
+            char c = instructions.charAt(end - 1);
+            if (c == '#') {
+                return true;
+            }
+            afterHyphen |= c == '-';
+            end--;
+        }
+        // The upper bound of a range written with spaces ("in 125 - 250 mL") carries the label written
+        // before its lower bound.
+        if (afterHyphen) {
+            int lowerStart = end;
+            while (lowerStart > 0 && (isDigit(instructions.charAt(lowerStart - 1)) || instructions.charAt(lowerStart - 1) == '.')) {
+                lowerStart--;
+            }
+            if (lowerStart < end && (lowerStart == 0 || !isWordCharacter(instructions.charAt(lowerStart - 1)))) {
+                return isLabelledNotADose(instructions, lowerStart);
+            }
+        }
+        List<String> previous = wordsOf(instructions.substring(Math.max(0, end - 40), end));
+        int count = previous.size();
+        if (count == 0) {
+            return false;
+        }
+        if (NOT_A_DOSE_WORDS.contains(previous.get(count - 1))) {
+            return true;
+        }
+        for (int length = 2; length <= Math.min(3, count); length++) {
+            if (NOT_A_DOSE_PHRASES.contains(String.join(" ", previous.subList(count - length, count)))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True for the characters {@code \\w} matches: ASCII letters, digits and underscore. */
+    private static boolean isWordCharacter(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || isDigit(c) || c == '_';
+    }
+
+    /**
+     * True when a fraction found just before the frequency can stand alone as a dose: a proper
+     * fraction that is not written as a schedule ({@code x 3/7}, {@code for 2/52}).
+     */
+    private static boolean isPlainDoseFraction(String instructions, NumberToken fraction) {
+        ExactAmount amount = ExactAmount.parse(fraction.value);
+        if (amount.isZero() || amount.numerator().compareTo(amount.denominator()) >= 0) {
+            return false;
+        }
+        int end = skipWhitespaceBackward(instructions, fraction.start);
+        int start = end;
+        while (start > 0 && Character.isLetter(instructions.charAt(start - 1))) {
+            start--;
+        }
+        String previousWord = instructions.substring(start, end);
+        return !("x".equalsIgnoreCase(previousWord) || "for".equalsIgnoreCase(previousWord));
     }
 
     /**
@@ -1227,7 +1678,8 @@ public class RxUtil {
      * such as {@code 10 mL}, {@code 5-10mL}, {@code 1/2 mL} or {@code 2 tablets} in
      * {@code ... PO 10 mL TID}. The unit must be one an administered amount can carry (a
      * dose unit or a dosage-form count word), and the amount must not read as a strength or
-     * concentration in this instruction's route and method context.
+     * concentration in this instruction's route and method context, nor follow a vehicle, ceiling
+     * or dispensing label ({@code in 100 mL}, {@code max 8 tabs}).
      *
      * @return the amount, or null when nothing before the frequency qualifies
      */
@@ -1238,12 +1690,13 @@ public class RxUtil {
             unitStart--;
         }
         if (unitStart == unitEnd || !(DOSE_UNIT.matcher(instructions).region(unitStart, unitEnd).matches()
-                || COUNT_UNIT.matcher(instructions).region(unitStart, unitEnd).matches())) {
+                || isCountedForm(instructions.substring(unitStart, unitEnd)))) {
             return null;
         }
         NumberRange range = findRangeBefore(instructions, unitStart);
         if (range != null) {
             return !followsConcentrationSeparator(instructions, range.start)
+                    && !isLabelledNotADose(instructions, range.start)
                     && classifyAmount(instructions, range.end, segment) == AmountKind.ADMINISTERED
                     ? new UnitAmount(range.min, range.max, true) : null;
         }
@@ -1252,6 +1705,7 @@ public class RxUtil {
             amount = findFractionBefore(instructions, unitStart);
         }
         if (amount == null || followsConcentrationSeparator(instructions, amount.start)
+                || isLabelledNotADose(instructions, amount.start)
                 || classifyAmount(instructions, amount.end, segment) != AmountKind.ADMINISTERED) {
             return null;
         }
@@ -1271,7 +1725,13 @@ public class RxUtil {
                 && (end == 3 || !Character.isLetterOrDigit(text.charAt(end - 4)));
     }
 
-    /** Finds a fraction such as {@code 1/2} ending (after optional whitespace) at the given index. */
+    /**
+     * Finds a fraction such as {@code 1/2} ending (after optional whitespace) at the given index. A
+     * whole number written before it belongs to the same amount: {@code 1 1/2} is returned as the one
+     * fraction {@code 3/2}, marked as a mixed number. When the number before the fraction ends some
+     * other token ({@code 1-1 1/2}), the fraction is not read on its own, because that would
+     * understate the amount.
+     */
     private static NumberToken findFractionBefore(String text, int endExclusive) {
         int end = skipWhitespaceBackward(text, endExclusive);
         int denominatorStart = end;
@@ -1289,17 +1749,38 @@ public class RxUtil {
         if (start == numeratorEnd || !hasTokenBoundaryBefore(text, start)) {
             return null;
         }
-        return new NumberToken(text, start, end);
+        int wholeEnd = skipWhitespaceBackward(text, start);
+        int wholeStart = wholeEnd;
+        while (wholeStart > 0 && isDigit(text.charAt(wholeStart - 1))) {
+            wholeStart--;
+        }
+        if (wholeStart == wholeEnd) {
+            return new NumberToken(text, start, end);
+        }
+        if (!hasTokenBoundaryBefore(text, wholeStart)) {
+            return null;
+        }
+        BigInteger denominator = new BigInteger(text.substring(denominatorStart, end));
+        BigInteger numerator = new BigInteger(text.substring(wholeStart, wholeEnd)).multiply(denominator)
+                .add(new BigInteger(text.substring(start, numeratorEnd)));
+        return new NumberToken(wholeStart, end, numerator + "/" + denominator, true);
     }
 
-    /** Recognizes slash/per concentrations with a supported denominator unit and optional amount. */
-    private static boolean hasConcentrationAfterUnit(String instructions, int unitEnd) {
+    /**
+     * Recognizes a denominator after a unit that leaves no fixed administered amount: a concentration
+     * with a supported denominator unit and optional amount ({@code 250 mg/5 mL}, {@code IU/mL},
+     * {@code g/g}), or a dose per body size ({@code 10 mg/kg}, {@code 100 mg/m2}).
+     */
+    private static boolean hasDenominatorAfterUnit(String instructions, int unitEnd) {
         Matcher separator = CONCENTRATION_SEPARATOR.matcher(instructions)
                 .region(skipWhitespaceForward(instructions, unitEnd), instructions.length());
         if (!separator.lookingAt()) {
             return false;
         }
         int denominatorStart = separator.end();
+        if (BODY_SIZE_BASIS.matcher(instructions).region(denominatorStart, instructions.length()).lookingAt()) {
+            return true;
+        }
         NumberToken denominatorAmount = findDecimalAt(instructions, denominatorStart);
         if (denominatorAmount != null) {
             denominatorStart = denominatorAmount.end;
@@ -1319,9 +1800,13 @@ public class RxUtil {
 
 
     /** Extracts the leading method and amount, retaining route context for ambiguous units. */
-    private static InstructionSegment scanInstruction(String instructions, String[] methods, String route) {
+    private static InstructionSegment scanInstruction(String instructions, String[] methods, String route,
+            RxPrescriptionData.Prescription rx) {
         InstructionSegment segment = new InstructionSegment();
         segment.route = route;
+        // What the selected product is decides how an IU or gram amount with no route is read.
+        segment.solidProductInInternationalUnits = isSolidProductInInternationalUnits(rx);
+        segment.topicalProduct = isTopicalProduct(rx);
 
         for (String s : methods) {
             Pattern p = Pattern.compile(s);
@@ -1337,6 +1822,8 @@ public class RxUtil {
         if (segment.method == null) {
             String placeholderMethod = "<NO_METHOD>";
             String instructionWithPlaceholderMethod = placeholderMethod + " " + instructions;
+            // Positions recorded on the segment are mapped back to the original instructions.
+            segment.textOffset = placeholderMethod.length() + 1;
             Pattern p = Pattern.compile("(?i)" + placeholderMethod);
             Matcher m = p.matcher(instructionWithPlaceholderMethod);
             if (m.find()) {
@@ -1368,7 +1855,7 @@ public class RxUtil {
         if (methodRange == null) {
             return false;
         }
-        if (describesProduct(segment, instructions, methodRange.end)) {
+        if (describesProduct(segment, instructions, methodRange.end, methodRange.min, methodRange.max)) {
             return true;
         }
         if (!hasTokenBoundaryAt(instructions, methodRange.end) && !hasAmountUnitAfter(instructions, methodRange.end)) {
@@ -1387,7 +1874,15 @@ public class RxUtil {
         if (methodAmount == null) {
             return false;
         }
-        if (describesProduct(segment, instructions, methodAmount.end)) {
+        if (describesProduct(segment, instructions, methodAmount.end, methodAmount.value, methodAmount.value)) {
+            return true;
+        }
+        // "Take 1 1/2 tabs": a whole number and a proper fraction are one amount, kept exact as 3/2.
+        NumberToken mixed = findMixedNumberAt(instructions, methodAmount);
+        if (mixed != null) {
+            if (!describesProduct(segment, instructions, mixed.end, mixed.value, mixed.value)) {
+                segment.amountMethod = mixed.value;
+            }
             return true;
         }
         if (!hasTokenBoundaryAt(instructions, methodAmount.end) && !hasAmountUnitAfter(instructions, methodAmount.end)) {
@@ -1403,6 +1898,32 @@ public class RxUtil {
     }
 
     /**
+     * Reads a whole number followed by a proper fraction as one mixed number ({@code 1 1/2} is
+     * {@code 3/2}). The fraction must end at a token boundary or an amount unit, as a leading
+     * fraction must.
+     *
+     * @return the mixed number as an improper fraction ending where the fraction ends, or null
+     */
+    private static NumberToken findMixedNumberAt(String instructions, NumberToken whole) {
+        int fractionStart = skipWhitespaceForward(instructions, whole.end);
+        if (fractionStart == whole.end || whole.value.indexOf('.') >= 0) {
+            return null;
+        }
+        String fraction = findFractionAt(instructions, fractionStart);
+        if (fraction == null) {
+            return null;
+        }
+        int separator = fraction.indexOf('/');
+        BigInteger numerator = new BigInteger(fraction.substring(0, separator));
+        BigInteger denominator = new BigInteger(fraction.substring(separator + 1));
+        if (numerator.signum() <= 0 || numerator.compareTo(denominator) >= 0) {
+            return null;
+        }
+        BigInteger improper = new BigInteger(whole.value).multiply(denominator).add(numerator);
+        return new NumberToken(whole.start, fractionStart + fraction.length(), improper + "/" + denominator, true);
+    }
+
+    /**
      * Records a leading fraction as the administered dose, kept as written so the quantity
      * calculation can use its numerator and denominator, or the strength or concentration
      * its suffix makes it.
@@ -1413,7 +1934,7 @@ public class RxUtil {
             return false;
         }
 
-        if (describesProduct(segment, instructions, amountStart + fraction.length())) {
+        if (describesProduct(segment, instructions, amountStart + fraction.length(), fraction, fraction)) {
             return true;
         }
 
@@ -1456,12 +1977,59 @@ public class RxUtil {
 
     /** How the number that opens an instruction, or precedes its frequency, relates to the product. */
     private enum AmountKind {
-        /** An administered amount or count: tablets, millilitres, units, topical grams, explicit per-dose amounts. */
+        /** An administered amount or count: tablets, millilitres, units, topical grams, gram or IU per-dose amounts. */
         ADMINISTERED,
-        /** A product strength such as 1000 mg: one dispensable unit per administration unless a count is given. */
+        /** A product strength such as 1000 mg, turned into units per administration unless an explicit amount is given. */
         STRENGTH,
-        /** A concentration such as 250 mg/5 mL: product information that supplies no administered amount. */
-        CONCENTRATION
+        /**
+         * Product information that supplies no administered amount: a concentration such as
+         * 250 mg/5 mL or a dose per body size such as 10 mg/kg.
+         */
+        PRODUCT_ONLY
+    }
+
+    /**
+     * The measure a strength unit belongs to (mass, international units, milliequivalents or
+     * millimoles) and its size in that measure's base unit (mg, IU, mEq, mmol).
+     */
+    private record StrengthMeasure(String measure, BigDecimal size) {
+        private static final BigDecimal MICROGRAM = new BigDecimal("0.001");
+        private static final BigDecimal GRAM = BigDecimal.valueOf(1000);
+
+        /** @return the measure of a strength unit such as {@code mg}, {@code MCG} or {@code units}, or null when unknown */
+        // FindSecBugs IMPROPER_UNICODE: case folding of a parsed unit abbreviation, not a security or authorization decision.
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folding of a parsed unit abbreviation, not a security or authorization decision")
+        static StrengthMeasure of(String unit) {
+            return switch (unit.toLowerCase(Locale.ROOT)) {
+                case "mg", "mgs", "milligram", "milligrams" -> new StrengthMeasure("mass", BigDecimal.ONE);
+                case "mcg", "mcgs", "µg", "μg", "ug", "microgram", "micrograms" -> new StrengthMeasure("mass", MICROGRAM);
+                case "g" -> new StrengthMeasure("mass", GRAM);
+                case "iu", "unit", "units" -> new StrengthMeasure("iu", BigDecimal.ONE);
+                case "meq" -> new StrengthMeasure("meq", BigDecimal.ONE);
+                case "mmol" -> new StrengthMeasure("mmol", BigDecimal.ONE);
+                default -> null;
+            };
+        }
+    }
+
+    /** The one strength of a selected product, read from its dosage text as the drug picker stores it ("500.0mg"). */
+    private record ProductStrength(BigDecimal amount, StrengthMeasure measure) {
+
+        /** @return the product's strength, or null when the text names none or several (a combination product) */
+        static ProductStrength single(String dosage) {
+            Matcher strength = PRODUCT_STRENGTH.matcher(dosage == null ? "" : dosage);
+            ProductStrength found = null;
+            while (strength.find()) {
+                StrengthMeasure measure = StrengthMeasure.of(strength.group(2));
+                if (measure != null) {
+                    if (found != null) {
+                        return null;
+                    }
+                    found = new ProductStrength(new BigDecimal(strength.group(1)), measure);
+                }
+            }
+            return found;
+        }
     }
 
     /**
@@ -1511,23 +2079,46 @@ public class RxUtil {
 
     private static class InstructionSegment {
         AmountKind productAmount;
+        /** The leading strength or product amount as typed, its unit, and where it ends in the original instructions. */
+        String productMin;
+        String productMax;
+        String productUnit;
+        int productEnd = -1;
+        /** How far positions in the scanned text are shifted from the original instructions. */
+        int textOffset;
+        /** True when the selected product is a tablet or capsule with one strength in IU, so it is taken by mouth. */
+        boolean solidProductInInternationalUnits;
+        /** True when the selected product is a cream, ointment, gel or similar, applied by the gram. */
+        boolean topicalProduct;
         String route;
         String method;
         String takeMin;
         String takeMax;
         String amountMethod;
         String amountFrequency;
+
+        /** True when the leading amount is an explicit count or administered amount rather than a product amount. */
+        boolean hasLeadingAmount() {
+            return takeMin != null || amountMethod != null || amountFrequency != null;
+        }
     }
 
     private static class NumberToken {
         final int start;
         final int end;
         final String value;
+        /** True for a whole number and a fraction read as one amount ({@code 1 1/2}, kept as {@code 3/2}). */
+        final boolean mixedNumber;
 
         NumberToken(String text, int start, int end) {
+            this(start, end, text.substring(start, end), false);
+        }
+
+        NumberToken(int start, int end, String value, boolean mixedNumber) {
             this.start = start;
             this.end = end;
-            this.value = text.substring(start, end);
+            this.value = value;
+            this.mixedNumber = mixedNumber;
         }
     }
 

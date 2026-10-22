@@ -107,7 +107,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         "20IU/dose SL BID x 7 days | 20 | 280",
         "Take 17 g per dose PO daily x 7 days | 17 | 119",
         "Take 17g/dose PO daily x 7 days | 17 | 119",
-        "500 mg per dose PO BID x 7 days | 500 | 7000",
+        "500 mg per dose PO BID x 7 days | 1 | 14",
         "100IU/mL SC tid x 7 days | 0 | 0",
         "100IU/5mL IM tid x 7 days | 0 | 0",
         "100units/mL SC tid x 7 days | 0 | 0",
@@ -122,7 +122,14 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         "Take 1 sachet in 125 mL BID x 7 days | 1 | 14",
         "Take 0.5mL po OD x 7 days | 0.5 | 4",
         "0.5IU SC OD x 7 days | 0.5 | 4",
-        "1000 mg po 2 tid x 7 days | 2 | 42"
+        "1000 mg po 2 tid x 7 days | 2 | 42",
+        "1000 mg (2 tabs) po tid x 7 days | 2 | 42",
+        "Take 1 1/2 TID x 10 days | 1.5 | 45",
+        "1 g IV in 100 mL Q8H x 7 days | 1 | 21",
+        "Take 1000 mg PO, max 8 tabs daily x 7 days | 1 | 7",
+        "Take 1000 IU by mouth daily x 30 days | 1 | 30",
+        "2 g topically BID x 14 days | 2 | 56",
+        "Take 10 mg/kg po tid x 7 days | 0 | 0"
     })
     void shouldReturnCorrectQuantity_whenParsingStrengthInstructions(String instruction,
             double dose, String quantity) throws Exception {
@@ -144,6 +151,49 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         assertThat(body.path("calQuantity").asText()).isEqualTo(quantity);
         assertThat(bean.getStashItem2(123).getQuantity()).isEqualTo(quantity);
         assertThat(bean.getStashItem2(123).getSpecial()).contains(instruction);
+    }
+
+    /**
+     * A drug chosen from the drug reference carries its strength in {@code dosage} ("500.0mg")
+     * and its form in {@code drugForm}. A typed strength is divided by that strength, so the
+     * response and the staged card agree on the number of units per dose and the quantity;
+     * a strength that is not a whole number of units of the product calculates nothing.
+     */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "1000 mg po tid x 7 days | 500.0mg | TABLET | 2 | 42",
+        "Take 0.5 mg po qhs x 30 days | 1.0mg | TABLET | 0.5 | 15",
+        "Take 3 mg po daily x 30 days | 1.0mg | TABLET | 3 | 90",
+        "Take 1 g po tid x 7 days | 500.0mg | CAPSULE | 2 | 42",
+        "Take 300 mg po daily x 30 days | 500.0mg | TABLET | 0 | 0",
+        "Take 250 mg po tid x 10 days | 250.0mg/5.0ml | SUSPENSION | 0 | 0"
+    })
+    void shouldDivideByProductStrength_whenStagedDrugHasKnownStrength(String instruction, String dosage,
+            String drugForm, double dose, String quantity) throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setDosage(dosage);
+        rx.setDrugForm(drugForm);
+        rx.setUnit("MG");
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "parseInstructions");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("instruction", instruction);
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMin").asDouble()).isEqualTo(dose);
+        assertThat(body.path("takeMax").asDouble()).isEqualTo(dose);
+        assertThat(body.path("calQuantity").asText()).isEqualTo(quantity);
+        RxPrescriptionData.Prescription staged = bean.getStashItem2(123);
+        assertThat(staged.getTakeMin()).isEqualTo((float) dose);
+        assertThat(staged.getQuantity()).isEqualTo(quantity);
+        assertThat(staged.getDosage()).isEqualTo(dosage);
+        assertThat(staged.getSpecial()).isEqualTo(instruction);
     }
 
     /**

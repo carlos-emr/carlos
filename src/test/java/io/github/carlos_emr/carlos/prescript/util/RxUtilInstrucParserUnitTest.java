@@ -79,8 +79,11 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1000 IU po tid x 7 days", "20 mEq po tid x 7 days",
             "20 IU po tid x 7 days", "20IU po tid x 7 days", "20 IU PO TID x 7 days",
             "20IU sl tid x 7 days",
-            "500-1000 mg po tid x 7 days", "500-1000mg po tid x 7 days",
-            "1/2 g po tid x 7 days", "1/2g po tid x 7 days"
+            "1/2 g po tid x 7 days", "1/2g po tid x 7 days",
+            "1000 mgs po tid x 7 days", "Take 1000 milligrams po tid x 7 days",
+            "250 mcgs po tid x 7 days", "250 ug po tid x 7 days", "250 micrograms po tid x 7 days",
+            "20 mmol po tid x 7 days", "500 mg per dose PO tid x 7 days", "500mg/dose PO tid x 7 days",
+            "20 mEq per dose PO tid x 7 days", "250 mcg/dose INH tid x 7 days"
         })
         void shouldDefaultToOneUnit_whenLeadingNumberHasStrengthUnit(String instructions) {
             RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
@@ -193,12 +196,17 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 17g/dose PO daily x 7 days | 17 | 17 | 119",
             "Take 17 grams per dose PO daily x 7 days | 17 | 17 | 119",
             "17 g per dose PO daily x 7 days | 17 | 17 | 119",
-            "500 mg per dose PO BID x 7 days | 500 | 500 | 7000",
-            "500mg/dose PO BID x 7 days | 500 | 500 | 7000",
-            "250-500 mg/dose PO BID x 7 days | 250 | 500 | 7000",
+            "500 mg per dose PO BID x 7 days | 1 | 1 | 14",
+            "500mg/dose PO BID x 7 days | 1 | 1 | 14",
+            "250-500 mg/dose PO BID x 7 days | 1 | 2 | 28",
             "1/2 g per dose PO BID x 8 days | 0.5 | 0.5 | 8",
-            "20 mEq per dose PO BID x 7 days | 20 | 20 | 280",
-            "250 mcg/dose INH BID x 7 days | 250 | 250 | 3500",
+            "20 mEq per dose PO BID x 7 days | 1 | 1 | 14",
+            "250 mcg/dose INH BID x 7 days | 1 | 1 | 14",
+            "500-1000 mg po tid x 7 days | 1 | 2 | 42",
+            "500-1000mg po tid x 7 days | 1 | 2 | 42",
+            "1000-500 mg po tid x 7 days | 1 | 2 | 42",
+            "Take 1-2 mg po q4h prn x 3 days | 1 | 2 | 36",
+            "Take 0.2 mL po tid x 7 days | 0.2 | 0.2 | 5",
             "100 mg/5mL PO 10mL TID x 7 days | 10 | 10 | 210",
             "100 mg/5mL PO 10 mL TID x 7 days | 10 | 10 | 210",
             "250mg/5mL PO 5-10mL TID x 7 days | 5 | 10 | 210",
@@ -259,6 +267,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 5/6 tab PO daily x 7 days | 5 | 6 | 6",
             "1/2 tab PO daily x 7 days | 1 | 2 | 4",
             "1/3 tab PO Q1Week x 3 weeks | 1 | 3 | 1",
+            "1/3 tab PO daily x 7 days | 1 | 3 | 3",
+            "1/4 tab PO daily x 9 days | 1 | 4 | 3",
             "2/3 tab PO Q1Week x 6 weeks | 2 | 3 | 4"
         })
         void shouldRoundFractionTotals_atTheFinalDivision(String instructions, int numerator,
@@ -269,6 +279,296 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             float dose = (float) numerator / denominator;
             assertThat(rx.getTakeMin()).isCloseTo(dose, within(1e-6f));
             assertThat(rx.getTakeMax()).isCloseTo(dose, within(1e-6f));
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * A whole number written before a fraction is one mixed amount: "1 1/2" is one and a
+         * half units, so the fraction found just before the frequency must not drop the whole
+         * part. A whole number that ends a range ("1-1 1/2") is not read as a mixed number; the
+         * leading range is kept instead of the trailing half. A fraction written as a schedule or
+         * a ratio ("x 3/7", "140/90") never replaces an explicit leading count.
+         */
+        @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
+        @CsvSource(delimiter = '|', value = {
+            "Take 1 1/2 TID x 10 days | 1.5 | 1.5 | 45",
+            "1 1/2 TID x 10 days | 1.5 | 1.5 | 45",
+            "Take 2 1/2 BID x 4 days | 2.5 | 2.5 | 20",
+            "1000 mg po 1 1/2 tid x 10 days | 1.5 | 1.5 | 45",
+            "Take 1/2 TID x 10 days | 0.5 | 0.5 | 15",
+            "1 1/4 BID x 30 days | 1.25 | 1.25 | 75",
+            "Take 1-1 1/2 TID x 10 days | 1 | 1 | 30",
+            "Take 1 tab x 3/7 BID x 3 days | 1 | 1 | 6",
+            "1 tab po for 3/7 bid x 3 days | 1 | 1 | 6",
+            "Take 6 tabs po 1/7 weekly x 12 weeks | 6 | 6 | 72",
+            "Take 1 tab PO if SBP > 140/90 BID x 30 days | 1 | 1 | 60",
+            "1 1/2 tabs po bid x 30 days | 1.5 | 1.5 | 90",
+            "Take 1 1/2 tab po daily x 30 days | 1.5 | 1.5 | 45",
+            "2 1/2 tabs po daily x 30 days | 2.5 | 2.5 | 75",
+            "1 3/4 tabs po daily x 30 days | 1.75 | 1.75 | 53",
+            "Take 1 1/2 po TID x 10 days | 1.5 | 1.5 | 45",
+            "1 1/2 tab weekly x 12 weeks | 1.5 | 1.5 | 18",
+            "Take 1 1/2 tablets po q4-6h prn x 5 days | 1.5 | 1.5 | 45"
+        })
+        void shouldKeepWholePart_whenMixedNumberPrecedesFrequency(String instructions,
+                float minimum, float maximum, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(minimum);
+            assertThat(rx.getTakeMax()).isEqualTo(maximum);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * Issue #3876 defaults a strength to one unit only when no explicit count is given. A
+         * count written with its dose form between the strength and the frequency, such as
+         * "1000 mg (2 tabs)", is that explicit count. Dispensing counts ("#30 tabs",
+         * "dispense 30 tabs") and counts written after the frequency are not doses.
+         */
+        @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
+        @CsvSource(delimiter = '|', value = {
+            "1000 mg (2 tabs) po tid x 7 days | 2 | 2 | 42",
+            "Take 1000 mg (2 tabs) po tid x 7 days | 2 | 2 | 42",
+            "Take 1000mg (2 tablets) PO TID x 7 days | 2 | 2 | 42",
+            "1000 mg po 2 tabs tid x 7 days | 2 | 2 | 42",
+            "500 mg 2 tabs po bid x 10 days | 2 | 2 | 40",
+            "500 mg 2 caps po bid x 10 days | 2 | 2 | 40",
+            "Take 500 mg (1 capsule) po tid x 7 days | 1 | 1 | 21",
+            "Take 500-1000 mg (1-2 tabs) po q6h x 5 days | 1 | 2 | 40",
+            "Take 1000 mg (1/2 tab) po bid x 10 days | 0.5 | 0.5 | 10",
+            "100 mcg 2 puffs BID x 30 days | 2 | 2 | 120",
+            "Take 2 g (4 tabs) po once daily x 1 day | 4 | 4 | 4",
+            "Take 12.5 mg (1/2 tab) po daily x 30 days | 0.5 | 0.5 | 15",
+            "1000 mg po 2 tablets with food tid x 7 days | 2 | 2 | 42",
+            "Take 250 mg (5 mL) po tid x 10 days | 5 | 5 | 150",
+            "500mg 2 po tid x 7 days | 2 | 2 | 42",
+            "15 mg (6 tabs) po weekly x 12 weeks | 6 | 6 | 72",
+            "2000 IU (2 caps) po daily x 30 days | 2 | 2 | 60",
+            "1000 mg (2 x 500 mg tabs) po q6h for 7 days | 2 | 2 | 56",
+            "Take 20 mg (2 x 10 mg tabs) po daily x 30 days | 2 | 2 | 60",
+            "2.5 mg (1/2 x 5 mg tabs) po daily x 30 days | 0.5 | 0.5 | 15",
+            "1000 mg #30 tabs po tid x 7 days | 1 | 1 | 21",
+            "1000 mg dispense 30 tabs po tid x 7 days | 1 | 1 | 21",
+            "1000 mg po tid x 7 days (2 tabs) | 1 | 1 | 21",
+            "1000 mg 1 tab or 2 tabs po tid x 7 days | 1 | 1 | 21"
+        })
+        void shouldUseExplicitCount_whenStrengthIsFollowedByCountedDoseForm(String instructions,
+                float minimum, float maximum, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(minimum);
+            assertThat(rx.getTakeMax()).isEqualTo(maximum);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * A volume or count written as a vehicle, a ceiling or an amount to dispense is not the
+         * dose, even when it sits right before the frequency: "1 g IV in 100 mL Q8H" is one unit of
+         * the product per dose, not 100 mL, and "max 8 tabs daily" is a limit.
+         */
+        @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
+        @CsvSource(delimiter = '|', value = {
+            "1 g IV in 100 mL Q8H x 7 days | 1 | 1 | 21",
+            "2 g IV in 50 mL TID x 7 days | 1 | 1 | 21",
+            "Take 17 g PO in 250 mL OD x 30 days | 1 | 1 | 30",
+            "Take 4 g PO dissolved in 100 mL TID x 7 days | 1 | 1 | 21",
+            "17 g mixed with 250 mL BID x 14 days | 1 | 1 | 28",
+            "Take 17 g po in 125-250 mL daily x 30 days | 1 | 1 | 30",
+            "Take 17 g po in 125 - 250 mL daily x 30 days | 1 | 1 | 30",
+            "1 g IM reconstituted in 3.5 mL daily x 3 days | 1 | 1 | 3",
+            "Take 500 mg with 250 mL BID x 7 days | 1 | 1 | 14",
+            "Take 1000 mg PO, max 8 tabs daily x 7 days | 1 | 1 | 7",
+            "Take 2 g PO, max 4 sachets daily x 7 days | 1 | 1 | 7",
+            "100 mg/5mL PO 10mL TID x 7 days | 10 | 10 | 210"
+        })
+        void shouldNotReadVehicleOrCeilingAsDose_whenStrengthLeads(String instructions,
+                float minimum, float maximum, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(minimum);
+            assertThat(rx.getTakeMax()).isEqualTo(maximum);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * Grams put on the skin or a mucosa are the amount applied, however the site is written,
+         * not only after Apply, Rub well in or the TOP. route.
+         */
+        @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
+        @CsvSource(delimiter = '|', value = {
+            "2 g TOP BID x 14 days | 2 | 2 | 56",
+            "2 g topically BID x 14 days | 2 | 2 | 56",
+            "2g topical bid x 14 days | 2 | 2 | 56",
+            "2 g to affected area BID x 14 days | 2 | 2 | 56",
+            "2 g bid to affected area x 14 days | 2 | 2 | 56",
+            "4 g qid to knees x 30 days | 4 | 4 | 480",
+            "5 g PV qhs x 7 days | 5 | 5 | 35",
+            "5 g intravaginally qhs x 7 days | 5 | 5 | 35",
+            "2 g po bid x 14 days | 1 | 1 | 28"
+        })
+        void shouldKeepGramAmount_whenAppliedToSkinOrMucosa(String instructions,
+                float minimum, float maximum, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(minimum);
+            assertThat(rx.getTakeMax()).isEqualTo(maximum);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * A rectal gram amount is the strength of one suppository or enema (mesalamine 1 g,
+         * 4 g/60 mL), not grams of cream: one unit without a product strength, units of the
+         * selected suppository's strength, and nothing for an enema measured by volume, so a
+         * 4 g enema is never dispensed as 120.
+         */
+        @ParameterizedTest(name = "{0} with {1} {2} gives {3}-{4}, quantity {5}")
+        @CsvSource(delimiter = '|', value = {
+            "4 g PR qhs x 30 days | | | 1 | 1 | 30",
+            "4 g rectally qhs x 30 days | | | 1 | 1 | 30",
+            "4 g PR qhs x 30 days | 4g/60ml | ENEMA | 0 | 0 | 0",
+            "1 g PR qhs x 30 days | 500mg | SUPPOSITORY | 2 | 2 | 60"
+        })
+        void shouldReadGramsAsStrength_whenGivenRectally(String instructions, String dosage, String drugForm,
+                float minimum, float maximum, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            rx.setDosage(dosage);
+            rx.setDrugForm(drugForm);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(minimum);
+            assertThat(rx.getTakeMax()).isEqualTo(maximum);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * With a cream, ointment or gel selected, a gram amount is what is applied even when the
+         * directions name no site or route: "2-4 g qid" of diclofenac gel is grams of gel, as it was
+         * before #3876. A gram tablet stays a strength.
+         */
+        @ParameterizedTest(name = "{0} with {1} {2} gives {3}-{4}, quantity {5}")
+        @CsvSource(delimiter = '|', value = {
+            "2-4 g qid x 30 days | 1.16% | GEL | 2 | 4 | 480",
+            "4g QID x 30 days | 1.16% | GEL | 4 | 4 | 480",
+            "1 g bid x 14 days | 1.0% | CREAM | 1 | 1 | 28",
+            "2 g PR bid x 14 days | 1.0% | OINTMENT | 2 | 2 | 56",
+            "1 g po qid x 7 days | 1.0g | TABLET | 1 | 1 | 28"
+        })
+        void shouldKeepGramAmount_whenSelectedProductIsTopical(String instructions, String dosage, String drugForm,
+                float minimum, float maximum, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            rx.setDosage(dosage);
+            rx.setDrugForm(drugForm);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(minimum);
+            assertThat(rx.getTakeMax()).isEqualTo(maximum);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * A dose per body size and a zero strength state no fixed administered amount, so nothing
+         * is inferred and the Rx page keeps the card's quantity.
+         */
+        @ParameterizedTest(name = "{0} leaves the dose and quantity unset")
+        @ValueSource(strings = {
+            "Take 10 mg/kg po tid x 7 days", "15 mg/kg po tid x 7 days", "5 mcg/kg IV tid x 7 days",
+            "100 mg/m2 po tid x 7 days", "0.0 mg po bid x 7 days"
+        })
+        void shouldLeaveDoseUnset_whenStrengthHasNoFixedAmount(String instructions) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(0f);
+            assertThat(rx.getTakeMax()).isEqualTo(0f);
+            assertThat(rx.getFrequencyCode()).isNotEmpty();
+            assertThat(rx.getDuration()).isEqualTo("7");
+            assertThat(rx.getQuantity()).isEqualTo("0");
+        }
+
+        /**
+         * When the selected product has one known strength (the drug picker stores it as
+         * {@code dosage}, e.g. "500.0mg"), the typed strength is divided by it: 1000 mg of a 500 mg
+         * tablet is two tablets, 0.5 mg of a 1 mg tablet is half a tablet. A result that is not a
+         * whole number of units (halves and quarters for tablets only), a liquid product, or more
+         * than 20 units leaves the dose unset so the prescriber's quantity is kept, and a
+         * modified-release or enteric-coated tablet is never split. A combination product or a
+         * strength in another measure keeps the one-unit default. With a tablet or capsule in IU
+         * selected (vitamin D), an IU amount is its strength even without a route, while insulin
+         * solutions and injected IU keep the typed amount.
+         */
+        @ParameterizedTest(name = "{0} with {1} {2} gives {3}-{4}, quantity {5}")
+        @CsvSource(delimiter = '|', value = {
+            "1000 mg po tid x 7 days | 500.0mg | TABLET | 2 | 2 | 42",
+            "1000 mg po tid x 7 days | 1000.0mg | TABLET | 1 | 1 | 21",
+            "1000mg po tid x 7 days | 500.0mg | TABLET | 2 | 2 | 42",
+            "Take 1 g po tid x 7 days | 500.0mg | CAPSULE | 2 | 2 | 42",
+            "Take 0.5 mg po qhs x 30 days | 1.0mg | TABLET | 0.5 | 0.5 | 15",
+            "Take 3 mg po daily x 30 days | 1.0mg | TABLET | 3 | 3 | 90",
+            "Take 2 mg po q4h x 5 days | 1.0mg | TABLET | 2 | 2 | 60",
+            "Take 40 mg po daily x 5 days | 5.0mg | TABLET | 8 | 8 | 40",
+            "Take 100 mcg po daily x 90 days | 50.0mcg | TABLET | 2 | 2 | 180",
+            "Take 2000 IU po daily x 90 days | 1000.0unit | TABLET | 2 | 2 | 180",
+            "Take 250 mg po daily x 30 days | 500.0mg | TABLET | 0.5 | 0.5 | 15",
+            "Take 750 mg po daily x 30 days | 1500.0mg | TABLET (EXTENDED-RELEASE) | 0 | 0 | 0",
+            "Take 40 mg po daily x 30 days | 80.0mg | TABLET (ENTERIC-COATED) | 0 | 0 | 0",
+            "Take 1000 mg po daily x 30 days | 500.0mg | TABLET (EXTENDED-RELEASE) | 2 | 2 | 60",
+            "Take 500-1000 mg po q6h x 5 days | 500.0mg | TABLET | 1 | 2 | 40",
+            "Take 20 mg po daily x 30 days | 20.0mg tablet | TABLET | 1 | 1 | 30",
+            "Take 250 mg po daily x 30 days | 500.0mg | CAPSULE | 0 | 0 | 0",
+            "Take 300 mg po daily x 30 days | 500.0mg | TABLET | 0 | 0 | 0",
+            "Take 1000 mg po daily x 30 days | 5.0mg | TABLET | 0 | 0 | 0",
+            "Take 250 mg po tid x 10 days | 250.0mg/5.0ml | SUSPENSION | 0 | 0 | 0",
+            "Take 10 mg po daily x 30 days | 10.0mg | SOLUTION | 0 | 0 | 0",
+            "Take 325 mg po q4h x 5 days | 325.0mg 30.0mg | TABLET | 1 | 1 | 30",
+            "Take 1000 IU po daily x 30 days | 25.0mcg | TABLET | 1 | 1 | 30",
+            "1000 IU daily x 90 days | 1000.0unit | TABLET | 1 | 1 | 90",
+            "2000 IU daily x 90 days | 1000.0unit | CAPSULE | 2 | 2 | 180",
+            "20 IU qhs x 30 days | 100.0unit/ml | SOLUTION | 20 | 20 | 600",
+            "20 IU qhs x 30 days | 100.0unit | SOLUTION | 20 | 20 | 600",
+            "Take 10 IU SC qhs x 30 days | 1000.0unit | TABLET | 10 | 10 | 300",
+            "1000 mg (2 tabs) po tid x 7 days | 1000.0mg | TABLET | 2 | 2 | 42",
+            "Take 1 1/2 mg po daily x 30 days | 0.5mg | TABLET | 3 | 3 | 90",
+            "Take 5 mL po tid x 7 days | 250.0mg/5.0ml | SUSPENSION | 5 | 5 | 105"
+        })
+        void shouldDivideByProductStrength_whenSelectedProductStrengthIsKnown(String instructions,
+                String dosage, String drugForm, float minimum, float maximum, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            rx.setDosage(dosage);
+            rx.setDrugForm(drugForm);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(minimum);
+            assertThat(rx.getTakeMax()).isEqualTo(maximum);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * IU taken by mouth is a strength even when no PO/SL token is parsed ("by mouth", "orally",
+         * or the method Take with no other route), the vitamin D form of issue #3876. IU with no
+         * route at all, or given by injection, stays the administered amount (insulin).
+         */
+        @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
+        @CsvSource(delimiter = '|', value = {
+            "Take 1000 IU daily x 30 days | 1 | 1 | 30",
+            "1000 IU by mouth daily x 30 days | 1 | 1 | 30",
+            "1000 IU orally daily x 30 days | 1 | 1 | 30",
+            "Take 50000 IU weekly x 8 weeks | 1 | 1 | 8",
+            "20 IU qhs x 30 days | 20 | 20 | 600",
+            "Take 20 IU IV qhs x 30 days | 20 | 20 | 600",
+            "Take 10 IU SC qhs x 30 days | 10 | 10 | 300",
+            "10 IU subcut qhs x 30 days | 10 | 10 | 300"
+        })
+        void shouldReadOralInternationalUnits_whenDirectionsSayByMouth(String instructions,
+                float minimum, float maximum, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(minimum);
+            assertThat(rx.getTakeMax()).isEqualTo(maximum);
             assertThat(rx.getQuantity()).isEqualTo(quantity);
         }
 
@@ -293,9 +593,40 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getSpecial()).isEqualTo("Take 17 g per dose PO daily x 7 days");
         }
 
-        /** An explicitly entered dispensing quantity with a unit suffix is never recalculated. */
+        /**
+         * Detailed review item 2: a prescription with no product strength that carries an explicit
+         * gram dose unit (as the legacy dose editor stores it) keeps the typed gram amount, with or
+         * without "per dose", so the structured dose and the exported unit agree (17 gm, not 1 gm).
+         * Without that unit, or with a drug-reference strength, the strength rules apply.
+         */
+        @ParameterizedTest(name = "{0} with unit ''{1}'' and dosage ''{2}'' keeps {3}, quantity {4}")
+        @CsvSource(delimiter = '|', value = {
+            "Take 17 g PO daily x 7 days | gm | '' | 17 | 119",
+            "Take 17 g PO daily x 7 days | g | '' | 17 | 119",
+            "Take 17 g per dose PO daily x 7 days | gm | '' | 17 | 119",
+            "Take 17 g PO daily x 7 days | '' | '' | 1 | 7",
+            "Take 17 g PO daily x 7 days | gm | 17.0g | 1 | 7",
+            "Take 500 mg PO BID x 7 days | mg | '' | 1 | 14"
+        })
+        void shouldKeepTypedGramDose_whenPrescriptionCarriesGramDoseUnit(String instructions, String unit,
+                String dosage, float dose, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            rx.setUnit(unit);
+            rx.setDosage(dosage);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(dose);
+            assertThat(rx.getTakeMax()).isEqualTo(dose);
+            assertThat(rx.getUnit()).isEqualTo(unit);
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * No dispensing quantity is calculated when the entered quantity carries a unit suffix, so the
+         * Rx page keeps what the prescriber typed ("119 g").
+         */
         @Test
-        void shouldKeepEnteredQuantity_whenQuantityUnitIsPresent() {
+        void shouldNotCalculateQuantity_whenQuantityUnitIsPresent() {
             RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 17 g per dose PO daily x 7 days");
             rx.setUnit("gm");
             rx.setQuantity("119");
