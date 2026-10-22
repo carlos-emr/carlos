@@ -33,18 +33,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("eform")
 class EFormEditorResolverUnitTest {
 
-    /** The head the visual editor writes since #3166, as generate_eform_source_html builds it. */
-    private static final String MARKED_VISUAL_FORM = "<!DOCTYPE html><html><head>\n"
+    /** What the visual editor generates, before it stamps its marker in front of the title. */
+    private static final String GENERATED = "<!DOCTYPE html>\n<html>\n<head>\n"
             + "<META http-equiv='Content-Type' content='text/html; charset=UTF-8'>\n"
-            + "<meta name='carlos-eform-editor' content='visual'>\n"
-            + "<title>Marked</title></head><body><div id='eform_container' style='max-width: 750px'>\n"
-            + "<form id=\"inputForm\" action=\"get\"></form></div></body></html>";
-
-    /** What the visual editor saved before the marker existed. */
-    private static final String LEGACY_VISUAL_FORM = "<!DOCTYPE html><html><head><title>Legacy</title></head>"
-            + "<body onload='focusAll();'><div id='eform_container' style='max-width: 750px'>\n"
-            + "<form id=\"inputForm\" action=\"get\"><div id=\"page_1\" class=\"page_container\"></div></form>"
-            + "</div></body></html>";
+            + "<title>Visual</title>\n</head>\n<body onload='focusAll();'>\n"
+            + "<div id='eform_container' style='max-width: 750px'>\n<form id=\"inputForm\" action=\"get\">\n"
+            + "<div id=\"page_1\" class=\"page_container\"><div class=\"input_elements\"></div></div>\n"
+            + "</form>\n</div>\n</body>\n</html>";
 
     /** The eForm Generator's page structure: a positioned page div with a background image. */
     private static final String GENERATOR_FORM = "<html><head><title>Generated</title>"
@@ -52,6 +47,14 @@ class EFormEditorResolverUnitTest {
             + "<div id=\"page1\" style=\"position:relative;\" >\n"
             + "<img id=\"BGImage1\" src=\"${oscar_image_path}form.png\" style=\"position: relative;\">\n"
             + "<input name=\"patient\" type=\"text\" oscarDB=\"patient_name\"></div></body></html>";
+
+    /** Stamps the marker the way the editor's stampVisualEditorMarker() does. */
+    private static String stamped(String generated) {
+        String tag = "<meta name='carlos-eform-editor' content='visual' data-fingerprint='"
+                + EFormEditorResolver.fingerprint(generated) + "'>";
+        int at = generated.indexOf("<title>");
+        return generated.substring(0, at) + tag + generated.substring(at);
+    }
 
     @ParameterizedTest
     @NullAndEmptySource
@@ -62,35 +65,58 @@ class EFormEditorResolverUnitTest {
     }
 
     @Test
-    @DisplayName("should open the visual editor for a template carrying its marker")
-    void shouldReturnVisual_whenMarkerPresent() {
-        assertThat(EFormEditorResolver.resolve(MARKED_VISUAL_FORM)).isEqualTo(EditorKind.VISUAL);
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {
-            "<meta name=\"carlos-eform-editor\" content=\"visual\">",
-            "<META NAME='CARLOS-EFORM-EDITOR' CONTENT='VISUAL'>",
-            "<meta  name = 'carlos-eform-editor'   content = 'visual' />"
-    })
-    @DisplayName("should recognise the marker regardless of quoting, case and spacing")
-    void shouldReturnVisual_forMarkerSpellingVariants(String marker) {
-        String formHtml = "<html><head>" + marker + "<title>t</title></head><body></body></html>";
-
-        assertThat(EFormEditorResolver.resolve(formHtml)).isEqualTo(EditorKind.VISUAL);
+    @DisplayName("should open the visual editor for a form it saved and nobody changed since")
+    void shouldReturnVisual_whenMarkerFingerprintMatches() {
+        assertThat(EFormEditorResolver.resolve(stamped(GENERATED))).isEqualTo(EditorKind.VISUAL);
     }
 
     @Test
-    @DisplayName("should open the visual editor for a form it saved before the marker existed")
-    void shouldReturnVisual_forLegacyVisualEditorShell() {
-        assertThat(EFormEditorResolver.resolve(LEGACY_VISUAL_FORM)).isEqualTo(EditorKind.VISUAL);
+    @DisplayName("should demote a visual form changed afterwards in the HTML editor to explicit conversion")
+    void shouldReturnConvertible_whenFormChangedAfterVisualSave() {
+        String edited = stamped(GENERATED).replace("</head>", "<script>function clinicCustom(){}</script></head>");
+
+        assertThat(EFormEditorResolver.resolve(edited)).isEqualTo(EditorKind.CONVERTIBLE);
     }
 
     @Test
-    @DisplayName("should not treat a marker naming another editor as the visual editor's")
-    void shouldReturnHtml_whenMarkerNamesAnotherEditor() {
-        String formHtml = "<html><head><meta name='carlos-eform-editor' content='html'></head>"
-                + "<body><p>Hand written</p></body></html>";
+    @DisplayName("should treat even a whitespace-only change outside the editor as unverified")
+    void shouldReturnConvertible_whenLineEndingsChanged() {
+        String edited = stamped(GENERATED).replace("\n", "\r\n");
+
+        assertThat(EFormEditorResolver.resolve(edited)).isEqualTo(EditorKind.CONVERTIBLE);
+    }
+
+    @Test
+    @DisplayName("should not accept a re-quoted copy of the marker as proof")
+    void shouldNotTreatRequotedMarker_asProof() {
+        String requoted = stamped(GENERATED).replace("<meta name='carlos-eform-editor' content='visual' data-fingerprint='",
+                "<meta name=\"carlos-eform-editor\" content=\"visual\" data-fingerprint='");
+
+        // Still the editor's page shell, so it can be converted, but it is not proven unchanged.
+        assertThat(EFormEditorResolver.resolve(requoted)).isEqualTo(EditorKind.CONVERTIBLE);
+    }
+
+    @Test
+    @DisplayName("should not route a hand-written form to the visual editor because it quotes the marker text")
+    void shouldNotReturnVisual_whenMarkerTextIsQuotedInScript() {
+        String formHtml = "<html><head><title>Letter</title><script>var note = "
+                + "\"<meta name='carlos-eform-editor' content='visual' data-fingerprint='00000000'>\";</script>"
+                + "</head><body><form method='post'><textarea name='body'></textarea></form></body></html>";
+
+        assertThat(EFormEditorResolver.resolve(formHtml)).isNotEqualTo(EditorKind.VISUAL);
+    }
+
+    @Test
+    @DisplayName("should offer, not default to, the visual editor for a form it saved before the marker existed")
+    void shouldReturnConvertible_forLegacyVisualEditorShell() {
+        assertThat(EFormEditorResolver.resolve(GENERATED)).isEqualTo(EditorKind.CONVERTIBLE);
+    }
+
+    @Test
+    @DisplayName("should not treat the shell's ids on unrelated elements as the visual editor's shell")
+    void shouldReturnHtml_whenShellIdsAreOnUnrelatedElements() {
+        String formHtml = "<html><body><div id='eform_container'><p>Intro</p></div>"
+                + "<script>function go(){}</script><form id='inputForm' onsubmit='go()'></form></body></html>";
 
         assertThat(EFormEditorResolver.resolve(formHtml)).isEqualTo(EditorKind.HTML);
     }
@@ -144,6 +170,16 @@ class EFormEditorResolverUnitTest {
                 + "</form></body></html>";
 
         assertThat(EFormEditorResolver.resolve(formHtml)).isEqualTo(EditorKind.HTML);
+    }
+
+    @Test
+    @DisplayName("should compute the 32-bit FNV-1a fingerprint the editor's JavaScript computes")
+    void shouldMatchFnv1aReferenceValues_forFingerprint() {
+        assertThat(EFormEditorResolver.fingerprint("")).isEqualTo("811c9dc5");
+        assertThat(EFormEditorResolver.fingerprint("a")).isEqualTo("e40c292c");
+        assertThat(EFormEditorResolver.fingerprint("foobar")).isEqualTo("bf9cf968");
+        // Over UTF-16 code units, so a surrogate pair hashes as two units, exactly as charCodeAt does.
+        assertThat(EFormEditorResolver.fingerprint("\u00e9\u20ac\ud83d\ude00")).isEqualTo("0c5e230d");
     }
 
     @Test

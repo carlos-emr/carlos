@@ -67,9 +67,12 @@ class EFormUtilIntegrationTest extends CarlosTestBase {
     @Test
     @DisplayName("should list each current eForm with the editor its Edit action opens")
     void shouldListEditorKind_forEachCurrentEForm() throws Exception {
-        EForm visual = persistForm("EDITOR_KIND_VISUAL", true,
-                "<html><head><meta name='carlos-eform-editor' content='visual'><title>v</title></head>"
-                        + "<body><div id='eform_container'><form id=\"inputForm\"></form></div></body></html>");
+        String generated = "<html><head><title>v</title></head><body><div id='eform_container'>"
+                + "<form id=\"inputForm\"><div class=\"page_container\"></div></form></div></body></html>";
+        EForm visual = persistForm("EDITOR_KIND_VISUAL", true, "<html><head>"
+                + "<meta name='carlos-eform-editor' content='visual' data-fingerprint='"
+                + EFormEditorResolver.fingerprint(generated) + "'>" + generated.substring("<html><head>".length()));
+        EForm legacyVisual = persistForm("EDITOR_KIND_LEGACY_VISUAL", true, generated);
         EForm generator = persistForm("EDITOR_KIND_GENERATOR", true,
                 "<html><body><div id=\"page1\" style=\"position:relative;\"><img id=\"BGImage1\" src=\"a.png\">"
                         + "</div></body></html>");
@@ -83,6 +86,7 @@ class EFormUtilIntegrationTest extends CarlosTestBase {
                 EFormUtil.listEFormsWithEditor(EFormUtil.NAME, EFormUtil.CURRENT);
 
         assertThat(editorKindOf(listing, visual)).isEqualTo(EFormEditorResolver.EditorKind.VISUAL);
+        assertThat(editorKindOf(listing, legacyVisual)).isEqualTo(EFormEditorResolver.EditorKind.CONVERTIBLE);
         assertThat(editorKindOf(listing, generator)).isEqualTo(EFormEditorResolver.EditorKind.CONVERTIBLE);
         assertThat(editorKindOf(listing, handWritten)).isEqualTo(EFormEditorResolver.EditorKind.HTML);
         assertThat(listing).noneMatch(row -> deleted.getId().toString().equals(row.get("fid")));

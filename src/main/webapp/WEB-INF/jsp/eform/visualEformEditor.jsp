@@ -262,6 +262,7 @@ FOR STAND ALONE USE
 <c:set var="i18n_alertSaveFailure"><fmt:message key="eform.visual.editor.alert.saveFailure"/></c:set>
 <c:set var="i18n_alertLoadFailure"><fmt:message key="eform.visual.editor.alert.loadFailure"/></c:set>
 <c:set var="i18n_alertConvertedForm"><fmt:message key="eform.visual.editor.alert.convertedForm"/></c:set>
+<c:set var="i18n_alertLoadPending"><fmt:message key="eform.visual.editor.alert.loadPending"/></c:set>
 <c:set var="i18n_alertOnlyOneMasterBox"><fmt:message key="eform.visual.editor.alert.onlyOneMasterBox"/></c:set>
 <c:set var="i18n_alertSelectMasterCheckbox"><fmt:message key="eform.visual.editor.alert.selectMasterCheckbox"/></c:set>
 <c:set var="i18n_alertWouldSubmitEform"><fmt:message key="eform.visual.editor.alert.wouldSubmitEform"/></c:set>
@@ -367,6 +368,7 @@ var EFORM_I18N = {
     alertSaveFailure: '${carlos:forJavaScript(i18n_alertSaveFailure)}',
     alertLoadFailure: '${carlos:forJavaScript(i18n_alertLoadFailure)}',
     alertConvertedForm: '${carlos:forJavaScript(i18n_alertConvertedForm)}',
+    alertLoadPending: '${carlos:forJavaScript(i18n_alertLoadPending)}',
     alertOnlyOneMasterBox: '${carlos:forJavaScript(i18n_alertOnlyOneMasterBox)}',
     alertSelectMasterCheckbox: '${carlos:forJavaScript(i18n_alertSelectMasterCheckbox)}',
     alertWouldSubmitEform: '${carlos:forJavaScript(i18n_alertWouldSubmitEform)}',
@@ -1580,10 +1582,17 @@ var EFORM_I18N = {
         var INITIAL_EFORM_FID = <%= visualEditorInitialFid %>;
 
         // The marker every template saved here carries, so the eForm Library can route its Edit
-        // action to this editor only for forms it owns (#3166). Must match
-        // EFormEditorResolver.VISUAL_EDITOR_MARKER_NAME / VISUAL_EDITOR_MARKER_CONTENT.
+        // action to this editor only for forms it wrote and nobody has changed since (#3166). Must
+        // match EFormEditorResolver.VISUAL_EDITOR_MARKER_NAME / VISUAL_EDITOR_MARKER_CONTENT.
         var VISUAL_EDITOR_MARKER_NAME = "carlos-eform-editor";
         var VISUAL_EDITOR_MARKER_CONTENT = "visual";
+
+        // Sequence number of the latest stored-form load, so a slower, older response cannot
+        // replace the canvas (or the attached id) of a load the user started after it.
+        var eformLoadSeq = 0;
+        // True while a stored form is being fetched: saving then would POST a new copy, because
+        // the editor is not attached to the stored form until the load completes.
+        var eformLoadPending = false;
 
         // store the list of images on the oscar server so only one load is needed.
         var eFormImageList = [];
@@ -1967,7 +1976,6 @@ var EFORM_I18N = {
 
             var source = "<!DOCTYPE html><html><head>";
             source += "\<META http-equiv='Content-Type' content='text/html; charset=UTF-8'\>";
-            source += "<meta name='" + VISUAL_EDITOR_MARKER_NAME + "' content='" + VISUAL_EDITOR_MARKER_CONTENT + "'>";
             source += "<title>" + escapeHtmlText(eformName) + "</title>";
 
             // ------- the eforms generated are currently dependent on jQuery ------
@@ -2092,6 +2100,8 @@ var EFORM_I18N = {
             source += "</div></body></html>";
             source = addOscarImagePath(source);
             source = source.replace(/>\s*</g, ">\n<");
+            // Last, over the finished markup: the marker's fingerprint covers every other byte.
+            source = stampVisualEditorMarker(source);
             //now we need to escape the html special chars
             if (escapeHtml) {
                 var htmlChars = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
@@ -2154,6 +2164,11 @@ var EFORM_I18N = {
 
         /** Save the eform html as a new eform */
         function saveToOscarEforms(include_fax) {
+            if (eformLoadPending) {
+                // Not attached to the stored form yet: saving now would create a copy of it.
+                custom_alert(EFORM_I18N.alertLoadPending);
+                return;
+            }
             var eformCode = generate_eform_source_html(false, include_fax);
             var url = OSCAR_EFORM_ENTITY_URL + ((eFormFid > 0) ? eFormFid + "/" : "") + "json";
             var type = (eFormFid > 0) ? "PUT" : "POST";
@@ -2746,6 +2761,12 @@ var EFORM_I18N = {
 			var $importedInputForm = $div.find("#inputForm");
 			//May-01-2024 Peter Hutten-Czapski
             var ferengi = ($importedInputForm.length === 0);
+            if (!ferengi && $importedInputForm.find(".page_container").length === 0) {
+                // An #inputForm without this editor's pages is not one of its forms; taking its
+                // contents as the canvas would let "Update Eform" overwrite it with whatever they hold.
+                custom_alert("We are currently unable to convert eform "+importedName+" as it lacks a recognisable page structure.");
+                return false;
+            }
             if (ferengi) {
                 if ( typeof($div.find("[id^='BGImage']").html() ) == "undefined" ){
                     custom_alert("We are currently unable to convert eform "+importedName+" as it lacks any recognisable background images.");
@@ -2975,21 +2996,49 @@ var EFORM_I18N = {
         }
 
         /**
-         * Whether a stored template was saved by this editor: the marker it writes, or the
-         * #eform_container / #inputForm shell it has always generated. Mirrors
-         * EFormEditorResolver.resolve(...) == VISUAL, which decides where the eForm Library's Edit
-         * action goes; keep the two in step.
+         * 32-bit FNV-1a over the UTF-16 code units of the text, as eight lower-case hex digits.
+         * Must match EFormEditorResolver.fingerprint(...) in Java. It detects change, not tampering.
+         */
+        function eformFingerprint(text) {
+            var hash = 0x811c9dc5;
+            for (var i = 0; i < text.length; i++) {
+                hash ^= text.charCodeAt(i);
+                hash = Math.imul(hash, 0x01000193) >>> 0;
+            }
+            return ("0000000" + (hash >>> 0).toString(16)).slice(-8);
+        }
+
+        function visualEditorMarkerTag(fingerprint) {
+            return "<meta name='" + VISUAL_EDITOR_MARKER_NAME + "' content='" + VISUAL_EDITOR_MARKER_CONTENT
+                + "' data-fingerprint='" + fingerprint + "'>";
+        }
+
+        /**
+         * Stamps the marker into generated source, just before its <title>. The fingerprint is taken
+         * over the source as it is now, so removing the marker again yields exactly what was hashed.
+         */
+        function stampVisualEditorMarker(source) {
+            var tag = visualEditorMarkerTag(eformFingerprint(source));
+            var at = source.indexOf("<title>");
+            return (at < 0) ? tag + source : source.slice(0, at) + tag + source.slice(at);
+        }
+
+        /**
+         * Whether a stored template was saved by this editor and has not been changed anywhere else
+         * since: its marker is present and the fingerprint still matches the rest of the markup.
+         * Mirrors EFormEditorResolver.resolve(...) == VISUAL, which decides where the eForm Library's
+         * Edit action goes; keep the two in step.
          */
         function isVisualEditorAuthored(html) {
             if (!html) {
                 return false;
             }
-            var idAttribute = "(?<![\\w-])id\\s*=\\s*";
-            var marker = new RegExp("<meta\\s+name\\s*=\\s*[\"']" + VISUAL_EDITOR_MARKER_NAME
-                + "[\"']\\s+content\\s*=\\s*[\"']" + VISUAL_EDITOR_MARKER_CONTENT + "[\"']", "i");
-            return marker.test(html)
-                || (new RegExp(idAttribute + "[\"']eform_container[\"']").test(html)
-                    && new RegExp(idAttribute + "[\"']inputForm[\"']").test(html));
+            var match = /<meta name='([a-z-]+)' content='([a-z]+)' data-fingerprint='([0-9a-f]{8})'>/.exec(html);
+            if (!match || match[1] !== VISUAL_EDITOR_MARKER_NAME || match[2] !== VISUAL_EDITOR_MARKER_CONTENT) {
+                return false;
+            }
+            var unmarked = html.slice(0, match.index) + html.slice(match.index + match[0].length);
+            return eformFingerprint(unmarked) === match[3];
         }
 
         /**
@@ -2999,12 +3048,22 @@ var EFORM_I18N = {
          * so the reader is told so, and pointed at the HTML source editor that keeps them.
          */
         function loadEformById(id) {
+            var seq = ++eformLoadSeq;
+            eformLoadPending = true;
             $.ajax({
                 type: "GET",
                 url: OSCAR_EFORM_ENTITY_URL + encodeURIComponent(id),
                 dataType: 'json',
                 async: true,
+                complete: function() {
+                    if (seq === eformLoadSeq) {
+                        eformLoadPending = false;
+                    }
+                },
                 success: function(data) {
+                    if (seq !== eformLoadSeq) {
+                        return; // superseded by a later load
+                    }
                     if (data.status !== "SUCCESS") {
                         custom_alert(data.error ? data.error.message : EFORM_I18N.alertLoadFailure);
                         return;
@@ -3015,7 +3074,12 @@ var EFORM_I18N = {
                     try {
                         loaded = (loadEformData(formHtml) === true);
                     } catch (err) {
+                        // The conversion failed part-way, so the canvas may already be partly
+                        // replaced. Detach rather than leave it attached to the previous form,
+                        // which "Update Eform" would then overwrite with the partial canvas.
                         console.error("Failed to convert eForm:", err);
+                        setEformId(0);
+                        showEditingBanner(0, false);
                         custom_alert(EFORM_I18N.alertLoadFailure);
                     }
                     if (!loaded) {
@@ -3029,6 +3093,9 @@ var EFORM_I18N = {
                     console.info("EForm Loaded from Server");
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
+                    if (seq !== eformLoadSeq) {
+                        return;
+                    }
                     console.error("Failed to load eForm:", textStatus, errorThrown);
                     custom_alert(EFORM_I18N.alertLoadFailure);
                 }

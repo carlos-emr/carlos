@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.eform;
 
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -20,27 +21,32 @@ import java.util.regex.Pattern;
  * <p>The Visual eForm Editor does not edit a template's markup in place: it rebuilds the page from
  * its own widgets and regenerates every script on save. A form it produced round-trips safely; a
  * hand-authored form, a form imported from another EMR, or a form with custom JavaScript loses that
- * code on the first visual save. So the visual editor is the default only for forms it can be
- * shown to own, and every other form keeps the HTML source editor (issue #3166).</p>
+ * code on the first visual save. So the visual editor is the default only for a form it can prove it
+ * wrote and nobody has changed since, and every other form keeps the HTML source editor
+ * (issue #3166).</p>
  *
  * <ul>
- *   <li>{@link EditorKind#VISUAL} — saved by the visual editor. Either it carries the
- *       {@link #VISUAL_EDITOR_MARKER_NAME} meta marker the editor writes since #3166, or it has the
- *       page shell the editor has always generated ({@code #eform_container} wrapping
- *       {@code #inputForm}), which is what the editor reloads without conversion.</li>
- *   <li>{@link EditorKind#CONVERTIBLE} — not the visual editor's, but it has the background-image and
- *       page structure the editor's importer can convert (the eForm Generator's
- *       {@code <div id="page1">} with a {@code BGImage} image). Opening it visually is offered as an
- *       explicit choice, never the default, because scripts are not preserved.</li>
+ *   <li>{@link EditorKind#VISUAL} — the template carries the marker the visual editor writes on every
+ *       save, {@code <meta name='carlos-eform-editor' content='visual' data-fingerprint='…'>}, and the
+ *       fingerprint still matches the rest of the markup. The fingerprint is what makes this
+ *       deterministic: a form saved visually and then changed in the HTML source editor (a custom
+ *       script added, say) no longer matches, so its own edits are not silently regenerated away by
+ *       the next visual save.</li>
+ *   <li>{@link EditorKind#CONVERTIBLE} — the visual editor can open it, but not safely by default:
+ *       a marker whose fingerprint no longer matches, a form the editor saved before the marker
+ *       existed ({@code <div id="eform_container">} opening with {@code <form id="inputForm">}), or
+ *       the eForm Generator's page structure ({@code <div id="page1">} with a {@code BGImage} image).
+ *       The library keeps the HTML editor as the pencil and offers the visual editor as an explicit,
+ *       warned choice.</li>
  *   <li>{@link EditorKind#HTML} — everything else, including blank markup. Only the HTML source
  *       editor can change it safely.</li>
  * </ul>
  *
- * <p>The checks mirror the visual editor's own loader in {@code visualEformEditor.jsp}
- * ({@code loadEformData} and {@code isVisualEditorAuthored}); keep the two in step. They are
- * attribute-level pattern checks, not an HTML parse, so they stay linear on the multi-megabyte
- * templates that embed images. A false positive is caught by the loader, which refuses to convert a
- * form without that structure and leaves the editor detached from the stored form.</p>
+ * <p>The checks mirror the visual editor's own {@code isVisualEditorAuthored} and
+ * {@code eformFingerprint} in {@code visualEformEditor.jsp}; keep the two in step
+ * ({@code scripts/eform-visual-editor-routing.test.js} runs the JavaScript against the same cases).
+ * They are linear scans, not an HTML parse, so they stay cheap on the multi-megabyte templates that
+ * embed images.</p>
  *
  * @since 2026-10-22
  */
@@ -54,23 +60,26 @@ public final class EFormEditorResolver {
 
     /** The editor a stored eForm template should be opened in. */
     public enum EditorKind {
-        /** Saved by the Visual eForm Editor; it is the default editor. */
+        /** Saved by the Visual eForm Editor and unchanged since; it is the default editor. */
         VISUAL,
-        /** Has the structure the visual editor can convert; the HTML editor stays the default. */
+        /** The visual editor can open it, but would replace its scripts; the HTML editor stays the default. */
         CONVERTIBLE,
         /** Only the HTML source editor can change it without losing markup or scripts. */
         HTML
     }
 
+    // Exactly the tag the editor writes; anything else (hand-copied, re-quoted) is not proof.
+    private static final Pattern VISUAL_MARKER = Pattern.compile(
+            "<meta name='" + VISUAL_EDITOR_MARKER_NAME + "' content='" + VISUAL_EDITOR_MARKER_CONTENT
+                    + "' data-fingerprint='([0-9a-f]{8})'>");
+
     // A real attribute named id, not the tail of data-id or an "id=" inside some other word.
     private static final String ID_ATTRIBUTE = "(?<![\\w-])id\\s*=\\s*";
 
-    private static final Pattern VISUAL_MARKER = Pattern.compile(
-            "<meta\\s+name\\s*=\\s*[\"']" + VISUAL_EDITOR_MARKER_NAME + "[\"']\\s+content\\s*=\\s*[\"']"
-                    + VISUAL_EDITOR_MARKER_CONTENT + "[\"']",
-            Pattern.CASE_INSENSITIVE);
-    private static final Pattern VISUAL_CONTAINER = Pattern.compile(ID_ATTRIBUTE + "[\"']eform_container[\"']");
-    private static final Pattern VISUAL_INPUT_FORM = Pattern.compile(ID_ATTRIBUTE + "[\"']inputForm[\"']");
+    // The page shell the editor has always generated: the container opens with its input form.
+    private static final Pattern LEGACY_VISUAL_SHELL = Pattern.compile(
+            "<div\\s+" + ID_ATTRIBUTE + "[\"']eform_container[\"'][^>]*>\\s*<form\\s+" + ID_ATTRIBUTE
+                    + "[\"']inputForm[\"']");
     // The editor's importer looks for [id^='BGImage'] and #page1; jQuery id selectors are case-sensitive.
     private static final Pattern BACKGROUND_IMAGE = Pattern.compile(ID_ATTRIBUTE + "[\"']BGImage[^\"']*[\"']");
     private static final Pattern FIRST_PAGE = Pattern.compile(ID_ATTRIBUTE + "[\"']page1[\"']");
@@ -88,13 +97,32 @@ public final class EFormEditorResolver {
         if (formHtml == null || formHtml.isBlank()) {
             return EditorKind.HTML;
         }
-        if (VISUAL_MARKER.matcher(formHtml).find()
-                || (VISUAL_CONTAINER.matcher(formHtml).find() && VISUAL_INPUT_FORM.matcher(formHtml).find())) {
-            return EditorKind.VISUAL;
+        Matcher marker = VISUAL_MARKER.matcher(formHtml);
+        if (marker.find()) {
+            String unmarked = formHtml.substring(0, marker.start()) + formHtml.substring(marker.end());
+            return fingerprint(unmarked).equals(marker.group(1)) ? EditorKind.VISUAL : EditorKind.CONVERTIBLE;
         }
-        if (BACKGROUND_IMAGE.matcher(formHtml).find() && FIRST_PAGE.matcher(formHtml).find()) {
+        if (LEGACY_VISUAL_SHELL.matcher(formHtml).find()
+                || (BACKGROUND_IMAGE.matcher(formHtml).find() && FIRST_PAGE.matcher(formHtml).find())) {
             return EditorKind.CONVERTIBLE;
         }
         return EditorKind.HTML;
+    }
+
+    /**
+     * The fingerprint the visual editor stamps into its marker: 32-bit FNV-1a over the UTF-16 code
+     * units of the markup without the marker, as eight lower-case hex digits. It detects change, not
+     * tampering; it is not a security control, and the editor's JavaScript computes the same value.
+     *
+     * @param markup the template markup with the marker tag removed
+     * @return eight lower-case hexadecimal digits
+     */
+    static String fingerprint(String markup) {
+        int hash = 0x811c9dc5;
+        for (int i = 0; i < markup.length(); i++) {
+            hash ^= markup.charAt(i);
+            hash *= 0x01000193;
+        }
+        return String.format("%08x", hash);
     }
 }

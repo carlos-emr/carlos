@@ -94,6 +94,8 @@ class ViewVisualEFormEditor2ActionTest extends CarlosUnitTestBase {
         when(mockRequest.getMethod()).thenReturn("GET");
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("w"), isNull()))
+                .thenReturn(true);
         when(mockRequest.getRequestDispatcher(EDITOR_VIEW)).thenReturn(mockDispatcher);
 
         action = new ViewVisualEFormEditor2Action(mockEFormDao);
@@ -154,7 +156,8 @@ class ViewVisualEFormEditor2ActionTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"0", "-1", "abc", "1.5", "01", "12 ", "<script>", "1234567890", "99999999999999999999"})
+    @ValueSource(strings = {"0", "-1", "abc", "1.5", "01", "12 ", "<script>", "2147483648", "99999999999",
+            "99999999999999999999"})
     @DisplayName("should reject a fid that is not a positive decimal id before any lookup")
     void shouldRejectMalformedFid_withBadRequest(String rawFid) throws Exception {
         when(mockRequest.getParameter("fid")).thenReturn(rawFid);
@@ -165,6 +168,42 @@ class ViewVisualEFormEditor2ActionTest extends CarlosUnitTestBase {
         verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST);
         verifyNoInteractions(mockEFormDao, mockDispatcher);
         verify(mockRequest, never()).setAttribute(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("should accept the largest id an eForm can have")
+    void shouldLookUpTenDigitFid_atIntegerMaximum() throws Exception {
+        when(mockRequest.getParameter("fid")).thenReturn("2147483647");
+        when(mockEFormDao.findById(Integer.MAX_VALUE)).thenReturn(storedForm(true));
+
+        action.execute();
+
+        verify(mockRequest).setAttribute(ViewVisualEFormEditor2Action.INITIAL_FID_ATTRIBUTE, Integer.MAX_VALUE);
+        verify(mockDispatcher).forward(mockRequest, mockResponse);
+    }
+
+    @Test
+    @DisplayName("should refuse to pre-load a form for a user who cannot save eForms")
+    void shouldThrowSecurityException_whenPreloadingWithoutEFormWrite() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("w"), isNull()))
+                .thenReturn(false);
+        when(mockRequest.getParameter("fid")).thenReturn("42");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_eform)");
+        verifyNoInteractions(mockEFormDao, mockDispatcher);
+    }
+
+    @Test
+    @DisplayName("should still open a blank editor for an eForm administrator without eForm write")
+    void shouldForwardBlankEditor_withoutEFormWrite() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("w"), isNull()))
+                .thenReturn(false);
+
+        action.execute();
+
+        verify(mockDispatcher).forward(mockRequest, mockResponse);
     }
 
     @Test

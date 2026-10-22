@@ -35,7 +35,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <p>The page itself makes no change. The template is fetched and saved by the editor through
  * {@code /ws/rs/eform}, whose endpoints enforce {@code _eform} read and write on their own; this gate
- * keeps the editor's {@code _admin.eform} write requirement and its GET/HEAD-only contract.</p>
+ * keeps the editor's {@code _admin.eform} write requirement and its GET/HEAD-only contract, and asks
+ * for {@code _eform} write as well when a form is to be pre-loaded, so a user who could not save it
+ * back is refused up front.</p>
  *
  * @since 2026-10-22
  */
@@ -46,8 +48,8 @@ public class ViewVisualEFormEditor2Action extends BaseEFormView2Action {
 
     private static final String ROUTE = "eform/visualEformEditor";
 
-    // Up to nine digits always fits an int, so parsing can never overflow.
-    private static final Pattern FID = Pattern.compile("[1-9][0-9]{0,8}");
+    // A positive decimal id of at most ten digits; the range check below rejects what overflows an int.
+    private static final Pattern FID = Pattern.compile("[1-9][0-9]{0,9}");
 
     private final EFormDao eFormDao;
 
@@ -69,10 +71,13 @@ public class ViewVisualEFormEditor2Action extends BaseEFormView2Action {
 
         String rawFid = request.getParameter("fid");
         if (rawFid != null && !rawFid.isEmpty()) {
-            if (!FID.matcher(rawFid).matches()) {
+            if (!FID.matcher(rawFid).matches() || Long.parseLong(rawFid) > Integer.MAX_VALUE) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
+            // Pre-loading a stored form is for updating it, through /ws/rs/eform, which needs _eform
+            // write; refuse here rather than render an editor whose load and save would both fail.
+            requirePrivilege(request, EFormViewRoutes.Privilege.EFORM_WRITE);
             Integer fid = Integer.valueOf(rawFid);
             EForm eForm = eFormDao.findById(fid);
             if (eForm == null || !eForm.isCurrent()) {

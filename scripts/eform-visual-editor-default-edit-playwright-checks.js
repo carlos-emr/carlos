@@ -10,8 +10,10 @@
  * the panel's frame, showing the saved field ▸ edit it ▸ "Update Eform" ▸ the same row is updated.
  * The same library shows an eForm Generator-style form with the HTML pencil plus an explicit "Open
  * in Visual eForm Editor" conversion link that warns its scripts are not kept, and a hand-written
- * form with the HTML pencil only. Opened outside the panel, the pencil navigates the same tab.
- * Asserts against MariaDB: the visual save stores the marker; "Update Eform" from the pre-loaded
+ * form with the HTML pencil only. Once the visual form is changed in the HTML source editor its
+ * marker no longer matches, and it too falls back to the HTML pencil plus the explicit conversion.
+ * Opened outside the panel, the pencil navigates the same tab.
+ * Asserts against MariaDB: the visual save stores the fingerprinted marker; "Update Eform" from the pre-loaded
  * editor rewrites the same fid (one row for the name, new text) instead of adding a copy; opening a
  * convertible or unconvertible form in the editor changes nothing stored; the gate answers 400 for a
  * malformed fid and 404 for a missing or deleted form.
@@ -22,7 +24,8 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 const q = h.sqlString;
-const MARKER_META = "<meta name='carlos-eform-editor' content='visual'>";
+// The marker the editor stamps; its fingerprint covers the rest of the stored markup.
+const MARKER_TAG = /<meta name='carlos-eform-editor' content='visual' data-fingerprint='[0-9a-f]{8}'>/;
 // A 1x1 PNG, so the converted form's background needs no request to the image library.
 const PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
@@ -96,7 +99,7 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM eform WHERE form_name=${q(visualName)}`, '1', 'Save As New Eform stored no eForm');
     visualFid = sql.value(`SELECT fid FROM eform WHERE form_name=${q(visualName)}`);
     fids.push(visualFid);
-    h.assert(html(visualFid).includes(MARKER_META), 'The visual editor did not write its marker into the saved template');
+    h.assert(MARKER_TAG.test(html(visualFid)), 'The visual editor did not stamp its marker into the saved template');
     h.assert(/Save Successful/i.test(await dialogText(editor)), 'The editor did not confirm the save');
     await closeDialog(editor);
     h.assert((await editor.locator('#gen-editingFid').innerText()).trim() === visualFid,
@@ -106,7 +109,7 @@ async function workflow(s) {
 
   const generatorFid = seed(generatorName, generatorHtml(generatorName));
   const handFid = seed(handName, handWrittenHtml(handName));
-  const deletedFid = seed(deletedName, `<html><head>${MARKER_META}<title>d</title></head><body></body></html>`, 0);
+  const deletedFid = seed(deletedName, '<html><head><title>d</title></head><body></body></html>', 0);
   const generatorBefore = html(generatorFid);
   const handBefore = html(handFid);
 
@@ -197,17 +200,46 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM eform WHERE fid=${visualFid} AND form_html LIKE ${q(`%${secondDefault}%`)}`, '1',
       'Update Eform did not store the edited text on the same form');
     h.assert(sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${q(visualName)}`) === '1', 'Update Eform created a second eForm');
-    h.assert(html(visualFid).includes(MARKER_META), 'The updated template lost the editor\'s marker');
+    h.assert(MARKER_TAG.test(html(visualFid)), 'The updated template lost the editor\'s marker');
     h.assert(/Save Successful/i.test(await dialogText(editor)), 'The editor did not confirm the update');
     await closeDialog(editor);
   });
 
-  await s.step('the HTML source (Advanced) link still opens the HTML editor for the visual form', async () => {
+  await s.step('outside the Administration panel the pencil opens the editor in the same tab', async () => {
+    const library = await context.newPage();
+    await h.gotoApp(library, config.baseUrl, '/eform/efmformmanager');
+    const pencil = library.locator('#eformTbl tbody tr', { hasText: visualName }).first().locator('a.eformVisualEditorLink[data-editor="visual"]');
+    await pencil.waitFor();
+    const pagesBefore = context.pages().length;
+    await Promise.all([library.waitForURL(url => new URL(url).pathname.endsWith('/eform/visualEformEditor')
+      && new URL(url).searchParams.get('fid') === visualFid, { timeout: 30000 }), pencil.click()]);
+    await library.locator('#gen-editingBanner').waitFor({ state: 'visible', timeout: 30000 });
+    h.assert(context.pages().length === pagesBefore, 'The standalone pencil opened a new tab');
+    h.assert(await library.locator('#page_1 .gen-widget input[type="text"]').first().inputValue() === secondDefault,
+      'The standalone editor did not load the form\'s current field');
+    await library.close();
+  });
+  await s.step('a change made in the HTML source (Advanced) editor demotes the form to explicit conversion', async () => {
     await openLibrary();
     await rowOf(visualName).locator('a.contentLink[data-editor="html"]').click();
     const source = admin.locator('#dynamic-content textarea[name="formHtml"]');
     await source.waitFor({ state: 'visible', timeout: 30000 });
-    h.assert((await source.inputValue()).includes(secondDefault), 'The HTML editor did not open the visual form\'s current source');
+    const before = await source.inputValue();
+    h.assert(before.includes(secondDefault), 'The HTML editor did not open the visual form\'s current source');
+    await source.fill(before.replace('</head>', '<script>function clinicCustomCode(){ return 1; }</script>\n</head>'));
+    const [response] = await Promise.all([
+      admin.waitForResponse(r => r.url().includes('/eform/editForm') && r.request().method() === 'POST', { timeout: 60000 }),
+      admin.locator('#dynamic-content #savebtn').click(),
+    ]);
+    h.assert(response.status() < 400, `Saving in the HTML editor answered ${response.status()}`);
+    await expectValue(sql, `SELECT COUNT(*) FROM eform WHERE fid=${visualFid} AND form_html LIKE '%clinicCustomCode%'`, '1',
+      'The HTML editor did not store the added script');
+    await openLibrary();
+    const row = rowOf(visualName);
+    h.assert(await row.locator(`a.contentLink[data-editor="html"][href$="/eform/efmformmanageredit?fid=${visualFid}"] i.fa-pencil`).count() === 1,
+      'A visual form changed in the HTML editor still defaults to the Visual eForm Editor, which would drop the new script');
+    h.assert(await row.locator('a.eformVisualEditorLink[data-editor="visual-convert"]').count() === 1,
+      'The changed form is no longer offered the explicit visual conversion');
   });
 
   await s.step('a convertible form opens visually only by explicit choice, warns that its scripts go, and saves nothing', async () => {
@@ -236,20 +268,6 @@ async function workflow(s) {
     await editor.close();
   });
 
-  await s.step('outside the Administration panel the pencil opens the editor in the same tab', async () => {
-    const library = await context.newPage();
-    await h.gotoApp(library, config.baseUrl, '/eform/efmformmanager');
-    const pencil = library.locator('#eformTbl tbody tr', { hasText: visualName }).first().locator('a.eformVisualEditorLink[data-editor="visual"]');
-    await pencil.waitFor();
-    const pagesBefore = context.pages().length;
-    await Promise.all([library.waitForURL(url => new URL(url).pathname.endsWith('/eform/visualEformEditor')
-      && new URL(url).searchParams.get('fid') === visualFid, { timeout: 30000 }), pencil.click()]);
-    await library.locator('#gen-editingBanner').waitFor({ state: 'visible', timeout: 30000 });
-    h.assert(context.pages().length === pagesBefore, 'The standalone pencil opened a new tab');
-    h.assert(await library.locator('#page_1 .gen-widget input[type="text"]').first().inputValue() === secondDefault,
-      'The standalone editor did not load the form\'s current field');
-    await library.close();
-  });
 }
 
 if (require.main === module) runWorkflow('eform-visual-editor-default-edit', workflow, { openPatient: false });

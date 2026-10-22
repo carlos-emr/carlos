@@ -49,7 +49,7 @@ class VisualEFormEditorDefaultEditRegressionTest {
     }
 
     @Test
-    @DisplayName("should write the same marker the library routes on")
+    @DisplayName("should stamp the same marker the library routes on, over the finished markup")
     void shouldShareMarker_betweenEditorAndResolver() throws Exception {
         String jsp = read(VISUAL_EDITOR_JSP);
 
@@ -57,8 +57,12 @@ class VisualEFormEditorDefaultEditRegressionTest {
                 .contains("var VISUAL_EDITOR_MARKER_NAME = \"" + EFormEditorResolver.VISUAL_EDITOR_MARKER_NAME + "\";")
                 .contains("var VISUAL_EDITOR_MARKER_CONTENT = \""
                         + EFormEditorResolver.VISUAL_EDITOR_MARKER_CONTENT + "\";")
-                .contains("source += \"<meta name='\" + VISUAL_EDITOR_MARKER_NAME + \"' content='\" "
-                        + "+ VISUAL_EDITOR_MARKER_CONTENT + \"'>\";");
+                .contains("+ \"' data-fingerprint='\" + fingerprint + \"'>\";");
+        // The fingerprint must cover the markup exactly as stored, so it is stamped after the last rewrite.
+        int normalize = jsp.indexOf("source = source.replace(/>\\s*</g, \">\\n<\");");
+        int stamp = jsp.indexOf("source = stampVisualEditorMarker(source);");
+        assertThat(normalize).isPositive();
+        assertThat(stamp).isGreaterThan(normalize);
     }
 
     @Test
@@ -78,7 +82,12 @@ class VisualEFormEditorDefaultEditRegressionTest {
                 .contains("as it lacks any recognisable background images.\"); return false;")
                 .contains("as it lacks a recognisable page structure.\"); return false;")
                 .as("the in-page Load button goes through the same guarded loader")
-                .contains("if (selectedId > 0) { loadEformById(selectedId); }");
+                .contains("if (selectedId > 0) { loadEformById(selectedId); }")
+                .as("an older load answering late must not replace a newer one")
+                .contains("var seq = ++eformLoadSeq;")
+                .contains("if (seq !== eformLoadSeq) { return; // superseded by a later load")
+                .as("saving while a stored form is still loading would create a copy of it")
+                .contains("function saveToOscarEforms(include_fax) { if (eformLoadPending) {");
     }
 
     @Test

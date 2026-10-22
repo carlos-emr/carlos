@@ -23,10 +23,14 @@ function slice(startMarker, endMarker) {
 }
 
 const constants = slice('        var VISUAL_EDITOR_MARKER_NAME', '\n\n');
-const fn = slice('        function isVisualEditorAuthored(html) {', '        /**');
+const fn = slice('        function eformFingerprint(text) {', '        /**\n         * Loads a stored template');
 const context = vm.createContext({});
 vm.runInContext(`${constants}\n${fn}`, context);
 const authored = html => context.isVisualEditorAuthored(html);
+
+const GENERATED = "<!DOCTYPE html>\n<html>\n<head>\n<META http-equiv='Content-Type' content='text/html; charset=UTF-8'>\n"
+  + "<title>Visual</title>\n</head>\n<body>\n<div id='eform_container' style='max-width: 750px'>\n"
+  + '<form id="inputForm" action="get">\n<div id="page_1" class="page_container"></div>\n</form>\n</div>\n</body>\n</html>';
 
 test('the marker matches the Java resolver constants', () => {
   const java = fs.readFileSync(path.join(__dirname,
@@ -35,33 +39,39 @@ test('the marker matches the Java resolver constants', () => {
   assert.match(java, new RegExp(`VISUAL_EDITOR_MARKER_CONTENT = "${context.VISUAL_EDITOR_MARKER_CONTENT}"`));
 });
 
-test('missing or blank markup is not the editor\'s', () => {
-  for (const html of [null, undefined, '', '   ']) assert.equal(authored(html), false);
+test('the fingerprint is the 32-bit FNV-1a the Java resolver computes', () => {
+  // The same reference values EFormEditorResolverUnitTest asserts for the Java side.
+  assert.equal(context.eformFingerprint(''), '811c9dc5');
+  assert.equal(context.eformFingerprint('a'), 'e40c292c');
+  assert.equal(context.eformFingerprint('foobar'), 'bf9cf968');
+  // Over UTF-16 code units, so a surrogate pair hashes as two units in both languages.
+  assert.equal(context.eformFingerprint('\u00e9\u20ac\ud83d\ude00'), '0c5e230d');
 });
 
-test('the marker is recognised in any quoting, case or spacing', () => {
-  for (const marker of [
-    "<meta name='carlos-eform-editor' content='visual'>",
-    '<meta name="carlos-eform-editor" content="visual">',
-    "<META NAME='CARLOS-EFORM-EDITOR' CONTENT='VISUAL'>",
-    "<meta  name = 'carlos-eform-editor'   content = 'visual' />",
+test('a stamped form is the editor\'s, and removing the marker gives back exactly what was hashed', () => {
+  const stamped = context.stampVisualEditorMarker(GENERATED);
+  assert.match(stamped, /<meta name='carlos-eform-editor' content='visual' data-fingerprint='[0-9a-f]{8}'><title>/);
+  assert.equal(stamped.replace(/<meta name='carlos-eform-editor'[^>]*>/, ''), GENERATED);
+  assert.equal(authored(stamped), true);
+});
+
+test('any change after the visual save makes the form unverified', () => {
+  const stamped = context.stampVisualEditorMarker(GENERATED);
+  for (const edited of [
+    stamped.replace('</head>', '<script>function clinicCustom(){}</script></head>'),
+    stamped.replace(/\n/g, '\r\n'),
+    stamped.replace("<meta name='carlos-eform-editor'", '<meta name="carlos-eform-editor"'),
   ]) {
-    assert.equal(authored(`<html><head>${marker}</head><body></body></html>`), true, marker);
+    assert.equal(authored(edited), false, edited.slice(0, 160));
   }
 });
 
-test('a form saved before the marker existed is recognised by its page shell', () => {
-  assert.equal(authored("<div id='eform_container' style='max-width: 750px'>\n<form id=\"inputForm\" action=\"get\"></form></div>"), true);
-});
-
-test('lookalikes and other forms are not the editor\'s', () => {
-  for (const html of [
-    "<meta name='carlos-eform-editor' content='html'>",
-    "<div id='eform_container'><form id='myForm'></form></div>",
-    "<div data-id='eform_container'><form data-id='inputForm'></form></div>",
+test('missing markup, the legacy shell and other forms are not proven the editor\'s', () => {
+  for (const html of [null, undefined, '', '   ', GENERATED,
+    "<meta name='carlos-eform-editor' content='visual' data-fingerprint='00000000'><title>t</title>",
     '<div id="page1" style="position:relative;"><img id="BGImage1" src="a.png"></div>',
     "<form method='post'><textarea name='letter'></textarea></form>",
   ]) {
-    assert.equal(authored(html), false, html);
+    assert.equal(authored(html), false, String(html));
   }
 });

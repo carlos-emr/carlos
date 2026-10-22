@@ -287,9 +287,10 @@
 
                     <div class="btn-group">
                         <%-- Edit routing (#3166): the pencil opens the Visual eForm Editor only for a form
-                             the visual editor saved, because a visual save regenerates every script and
-                             would drop a hand-authored form's custom code. Every other form keeps the HTML
-                             source editor as its Edit action. EFormEditorResolver makes that call; the
+                             the visual editor saved and nobody has changed since, because a visual save
+                             regenerates every script and would drop a hand-authored form's custom code.
+                             Every other form keeps the HTML source editor as its Edit action.
+                             EFormEditorResolver makes that call (see docs/eform-editor-routing.md); the
                              visual editor needs _admin.eform write, so without it every row stays HTML. --%>
                         <% if (editorKind == EFormEditorResolver.EditorKind.VISUAL) { %>
                         <a class="btn btn-link eformVisualEditorLink"
