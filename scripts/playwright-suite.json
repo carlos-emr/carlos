@@ -7149,7 +7149,7 @@
         "Contact",
         "professionalSpecialists"
       ],
-      "fixtures": "The marker Contact and professionalSpecialists rows the pages create are in clinic-wide lists while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned synthetic patient; cleanup deletes marker Contact and professionalSpecialists rows and their patient DemographicContact associations and asserts they are gone.",
+      "fixtures": "The marker Contact rows the pages create (and any professionalSpecialists row a regressed save would add) are in clinic-wide lists while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned synthetic patient; cleanup deletes marker Contact and professionalSpecialists rows and their patient DemographicContact associations and asserts they are gone.",
       "notes": "demographic/Contact methods saveContact and saveProContact reject GET/HEAD with 405 since issue #3682; the last step fails if either replay writes again. Editor script behavior is also independently covered by contact-editor."
     },
     {
