@@ -75,7 +75,7 @@
         "DigitalSignature"
       ],
       "fixtures": "Owned synthetic patient and custom prescription; cleanup after browser closes; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Issue #3876: strength values default to one unit per dose; explicit counts take precedence; AJAX, card quantity and saved drugs row are asserted."
+      "notes": "Issue #3876: strength values default to one unit per dose; explicit counts, volumes and per-dose amounts (also before the frequency) take precedence; a concentration alone calculates nothing and leaves the card quantity as it was; fractions round once at the final division. AJAX, card quantity and saved drugs row are asserted."
     },
     {
       "name": "retired-view-aliases",

@@ -47,6 +47,7 @@ import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -104,9 +105,18 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         "20IU sl qhs x 7 days | 1 | 7",
         "20 IU per dose PO BID x 7 days | 20 | 280",
         "20IU/dose SL BID x 7 days | 20 | 280",
-        "100IU/mL SC tid x 7 days | 1 | 21",
-        "100IU/5mL IM tid x 7 days | 1 | 21",
-        "100units/mL SC tid x 7 days | 1 | 21",
+        "Take 17 g per dose PO daily x 7 days | 17 | 119",
+        "Take 17g/dose PO daily x 7 days | 17 | 119",
+        "500 mg per dose PO BID x 7 days | 500 | 7000",
+        "100IU/mL SC tid x 7 days | 0 | 0",
+        "100IU/5mL IM tid x 7 days | 0 | 0",
+        "100units/mL SC tid x 7 days | 0 | 0",
+        "250mg/5mL PO TID x 7 days | 0 | 0",
+        "100 mg/5mL PO 10mL TID x 7 days | 10 | 210",
+        "250mg/5mL PO 10 mL TID x 7 days | 10 | 210",
+        "100units/mL SC 0.5mL BID x 7 days | 0.5 | 7",
+        "1000 mg po 10mL tid x 7 days | 10 | 210",
+        "Take 1 sachet in 125 mL BID x 7 days | 1 | 14",
         "Take 0.5mL po OD x 7 days | 0.5 | 4",
         "0.5IU SC OD x 7 days | 0.5 | 4",
         "1000 mg po 2 tid x 7 days | 2 | 42"
@@ -131,6 +141,102 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         assertThat(body.path("calQuantity").asText()).isEqualTo(quantity);
         assertThat(bean.getStashItem2(123).getQuantity()).isEqualTo(quantity);
         assertThat(bean.getStashItem2(123).getSpecial()).contains(instruction);
+    }
+
+    /**
+     * A concentration-only instruction supplies no administered amount, so the response
+     * carries no dose and a zero calculated quantity: the Rx page replaces the card's
+     * quantity only for a nonzero result, and Save reads the quantity still displayed.
+     */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "100units/mL SC BID x 7 days | BID",
+        "250mg/5mL PO TID x 7 days | TID",
+        "100 IU per mL SC OD x 7 days | OD"
+    })
+    void shouldNotReplaceExistingQuantity_whenInstructionGivesOnlyAConcentration(String instruction,
+            String frequency) throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setQuantity("200");
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "parseInstructions");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("instruction", instruction);
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMin").asDouble()).isZero();
+        assertThat(body.path("takeMax").asDouble()).isZero();
+        assertThat(body.path("frequency").asText()).isEqualToIgnoringCase(frequency);
+        assertThat(body.path("duration").asText()).isEqualTo("7");
+        assertThat(body.path("calQuantity").asText()).isEqualTo("0");
+        assertThat(bean.getStashItem2(123).getSpecial()).isEqualTo(instruction);
+    }
+
+    /**
+     * A staged prescription that carries its own administered unit keeps the amount typed
+     * with per-dose syntax, so the structured dose the export reads agrees with the directions.
+     */
+    @Test
+    void shouldPreserveStoredDoseUnit_whenExplicitGramDoseIsParsed() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setUnit("gm");
+        rx.setDosage("");
+        rx.setCustomName("Polyethylene glycol powder");
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "parseInstructions");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("instruction", "Take 17 g per dose PO daily x 7 days");
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMin").asDouble()).isEqualTo(17d);
+        assertThat(body.path("takeMax").asDouble()).isEqualTo(17d);
+        assertThat(body.path("calQuantity").asText()).isEqualTo("119");
+        RxPrescriptionData.Prescription staged = bean.getStashItem2(123);
+        assertThat(staged.getTakeMin()).isEqualTo(17f);
+        assertThat(staged.getUnit()).isEqualTo("gm");
+        assertThat(staged.getDosage()).isEmpty();
+        assertThat(staged.getSpecial()).isEqualTo("Take 17 g per dose PO daily x 7 days");
+    }
+
+    /** A fraction is carried exactly to the final rounding, so an exact course total is not inflated. */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "5/6 tab PO daily x 6 days | 5 | 6 | 5",
+        "5/3 tab PO TID x 1 days | 5 | 3 | 5",
+        "1/2 tab PO daily x 7 days | 1 | 2 | 4"
+    })
+    void shouldRoundFractionDoses_atTheFinalDivision(String instruction, int numerator, int denominator,
+            String quantity) throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "parseInstructions");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("instruction", instruction);
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        double dose = (double) numerator / denominator;
+        assertThat(body.path("takeMin").asDouble()).isCloseTo(dose, within(1e-6));
+        assertThat(body.path("takeMax").asDouble()).isCloseTo(dose, within(1e-6));
+        assertThat(body.path("calQuantity").asText()).isEqualTo(quantity);
+        assertThat(bean.getStashItem2(123).getQuantity()).isEqualTo(quantity);
     }
 
     @Test

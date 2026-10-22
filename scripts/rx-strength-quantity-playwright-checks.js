@@ -3,12 +3,20 @@
 /*
  * Issue #3876: Schedule > patient master record > E-Chart > Rx > Custom Drug >
  * Instructions > Save. Verify the parser's AJAX response, displayed quantity,
- * and persisted prescription. Uses an owned synthetic patient and removes its
- * prescription rows after the browser closes; do not run concurrently with other checks.
+ * and persisted prescription. A strength defaults to one unit per dose, an
+ * explicit count, volume or per-dose amount keeps its value, and a
+ * concentration alone calculates nothing and leaves the card's quantity as it
+ * was. Uses an owned synthetic patient and removes its prescription rows after
+ * the browser closes; do not run concurrently with other checks.
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { stageCustomDrug, saveOnly, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
+
+/** Compares a parsed dose with the expected value, allowing for the float the server sends for a fraction. */
+function sameDose(parsed, expected) {
+  return Math.abs(Number(parsed) - expected) < 1e-6;
+}
 
 /** Verifies parsed and displayed dose quantities before Save, then checks the persisted original prescription. */
 async function workflow(s) {
@@ -17,6 +25,8 @@ async function workflow(s) {
   const rx = await s.popup(chart, chart.locator('#menuTitleRx a').first(), 'rx-strength-quantity');
   const key = await stageCustomDrug(rx, `${s.marker}-strength`);
 
+  // [instruction, takeMin, takeMax, calQuantity, frequency = 'TID', duration = '7']
+  // A '0' calQuantity means the page must keep the quantity the card already shows.
   const cases = [
     ['1000 mg po tid x 7 days', 1, 1, '21'],
     ['Take 5mg po tid x 7 days', 1, 1, '21'],
@@ -34,20 +44,34 @@ async function workflow(s) {
     ['20IU/dose SL BID x 7 days', 20, 20, '280', 'BID'],
     ['20 IU qhs x 7 days', 20, 20, '140', 'QHS'],
     ['20IU IV qhs x 7 days', 20, 20, '140', 'QHS'],
-    ['100IU/mL SC BID x 7 days', 1, 1, '14', 'BID'],
-    ['100IU/5mL IM BID x 7 days', 1, 1, '14', 'BID'],
-    ['100IU per mL SC BID x 7 days', 1, 1, '14', 'BID'],
-    ['100units/mL SC BID x 7 days', 1, 1, '14', 'BID'],
+    ['Take 17 g per dose PO daily x 7 days', 17, 17, '119', 'OD'],
+    ['Take 17g/dose PO daily x 7 days', 17, 17, '119', 'OD'],
+    ['500 mg per dose PO BID x 7 days', 500, 500, '7000', 'BID'],
+    ['100IU/mL SC BID x 7 days', 0, 0, '0', 'BID'],
+    ['100IU/5mL IM BID x 7 days', 0, 0, '0', 'BID'],
+    ['100IU per mL SC BID x 7 days', 0, 0, '0', 'BID'],
+    ['100units/mL SC BID x 7 days', 0, 0, '0', 'BID'],
+    ['250mg/5mL PO TID x 7 days', 0, 0, '0'],
+    ['100 mg/5mL PO 10mL TID x 7 days', 10, 10, '210'],
+    ['250mg/5mL PO 5-10 mL TID x 7 days', 5, 10, '210'],
+    ['100units/mL SC 0.5mL BID x 7 days', 0.5, 0.5, '7', 'BID'],
     ['20units SC BID x 7 days', 20, 20, '280', 'BID'],
     ['Take 0.5mL po OD x 7 days', 0.5, 0.5, '4', 'OD'],
     ['0.5IU SC OD x 7 days', 0.5, 0.5, '4', 'OD'],
+    ['5/6 tab PO daily x 6 days', 5 / 6, 5 / 6, '5', 'OD', '6'],
+    ['5/3 tab PO TID x 1 days', 5 / 3, 5 / 3, '5', 'TID', '1'],
     ['500-1000 mg po tid x 7 days', 1, 1, '21'],
     ['Take 2 tablets (1000 mg) po tid x 7 days', 2, 2, '42'],
     ['1000 mg po 1-2 tid x 7 days', 1, 2, '42'],
     ['1000 mg po tid x 7 days', 1, 1, '21'],
   ];
-  for (const [instruction, minimum, maximum, quantity, frequency = 'TID'] of cases) {
-    await s.step(`parsing ${instruction} calculates ${quantity} units`, async () => {
+  let displayed = null;
+  for (const [instruction, minimum, maximum, quantity, frequency = 'TID', duration = '7'] of cases) {
+    const expected = quantity === '0' ? displayed : quantity;
+    const label = quantity === '0'
+      ? `parsing ${instruction} calculates nothing and keeps quantity ${displayed}`
+      : `parsing ${instruction} calculates ${quantity} units`;
+    await s.step(label, async () => {
       await rx.locator(`#instructions_${key}`).fill(instruction);
       const [response] = await Promise.all([
         rx.waitForResponse(r => r.request().method() === 'POST'
@@ -57,14 +81,21 @@ async function workflow(s) {
       ]);
       h.assert(response.status() === 200, `Instruction parse answered HTTP ${response.status()}`);
       const parsed = await response.json();
-      h.assert(Number(parsed.takeMin) === minimum && Number(parsed.takeMax) === maximum
-        && String(parsed.frequency).toUpperCase() === frequency && String(parsed.duration) === '7' && parsed.durationUnit === 'D'
-        && String(parsed.calQuantity) === quantity, `Incorrect parsed dose/quantity: ${JSON.stringify(parsed)}`);
-      await rx.waitForFunction(({ key, quantity }) => document.getElementById(`quantity_${key}`).value === quantity,
-        { key, quantity });
+      h.assert(sameDose(parsed.takeMin, minimum) && sameDose(parsed.takeMax, maximum)
+        && String(parsed.frequency).toUpperCase() === frequency && String(parsed.duration) === duration
+        && parsed.durationUnit === 'D' && String(parsed.calQuantity) === quantity,
+      `Incorrect parsed dose/quantity: ${JSON.stringify(parsed)}`);
+      h.assert(expected !== null, 'The first case must calculate a quantity so later cases can check preservation');
+      // The page's handler always rewrites the card's minimum dose; once it has, the quantity
+      // field holds the calculated value for a nonzero result and is untouched for zero.
+      await rx.waitForFunction(({ key, text }) => document.getElementById(`minimum_${key}`).textContent === text,
+        { key, text: String(parsed.takeMin) });
+      h.assert(await rx.locator(`#quantity_${key}`).inputValue() === expected,
+        `Displayed quantity is not ${expected}`);
       h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${s.patient}`) === '0',
         'Editing instructions saved a prescription before Save');
     });
+    displayed = expected;
   }
 
   await s.step('Save stores one unit per dose and quantity 21 for the strength instruction', async () => {

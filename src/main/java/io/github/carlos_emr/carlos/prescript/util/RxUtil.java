@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.prescript.util;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -512,7 +513,17 @@ public class RxUtil {
     /**
      * Parses the prescription's free-text instructions into dose, route, frequency,
      * duration and quantity fields, preserving the original instructions.
-     * Leading product strengths default to one unit unless an explicit count is supplied.
+     *
+     * <p>The number that opens the directions is read by what follows it (issue #3876):
+     * a product strength such as {@code 1000 mg} means one dispensable unit per
+     * administration unless an explicit count is given; a concentration such as
+     * {@code 250 mg/5 mL} names the product and supplies no administered amount, so no
+     * dose or quantity is calculated from it; an amount written with {@code /dose} or
+     * {@code per dose}, a volume, a unit count, a topical gram amount or a non-oral IU
+     * amount is the administered dose as typed. A count, volume or unit amount placed
+     * before the frequency ({@code ... PO 10 mL TID}) takes precedence over the leading
+     * number. Fractions keep their numerator and denominator until the dispense quantity
+     * is rounded, once, at the end.
      *
      * @param rx prescription to update; null is ignored
      */
@@ -548,6 +559,7 @@ public class RxUtil {
         String takeMax = "0";
         String durationSpec = "";
         int quantity = 0;
+        int frequencyStart = -1;
 
         //do we have some policies/restrictions we want to run?
         List<String> policyViolations = RxInstructionPolicy.checkInstructions(instructions.trim());
@@ -614,6 +626,7 @@ public class RxUtil {
             if (matcher.find()) {
                 String matchedFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
                 frequency = changeToStandardFrequencyCode(matchedFrequency);
+                frequencyStart = matcher.start();
                 //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
                 NumberRange frequencyRange = findRangeBeforeFrequency(instructions, matcher.start());
@@ -622,6 +635,9 @@ public class RxUtil {
                     takeMaxFrequency = frequencyRange.max;
                 } else {
                     NumberToken frequencyAmount = findDecimalBeforeFrequency(instructions, matcher.start());
+                    if (frequencyAmount == null) {
+                        frequencyAmount = findFractionBefore(instructions, matcher.start());
+                    }
                     if (frequencyAmount != null) {
                         amountFrequency = frequencyAmount.value;
                     } else {
@@ -664,9 +680,10 @@ public class RxUtil {
 		//if no, check if a number is specified at beginning.
 		if (!instructions.isEmpty()) {
 			InstructionSegment instructionSegment = scanInstruction(instructions, methods, route);
-            // A strength describes the dose, not a count of dispensable units. Explicit
-            // counts before the frequency still take precedence in the selection below.
-            if (instructionSegment.strength) {
+            // A strength describes one dispensable unit, not a count of them, so it means one
+            // unit per administration. A concentration supplies no amount at all, so nothing is
+            // assumed for it. Explicit counts before the frequency take precedence below.
+            if (instructionSegment.productAmount == AmountKind.STRENGTH) {
                 takeMin = "1";
                 takeMax = "1";
             }
@@ -685,6 +702,20 @@ public class RxUtil {
 			if (instructionSegment.amountFrequency != null) {
 				amountFrequency = instructionSegment.amountFrequency;
                         }
+            // "250 mg/5 mL PO 10 mL TID": when the leading number named the product rather than a
+            // dose, an amount with its own unit just before the frequency is the administered dose
+            // (review of #5077). A leading count such as "Take 1 sachet in 125 mL BID" is kept.
+            boolean leadingDoseMissing = instructionSegment.amountMethod == null && instructionSegment.takeMin == null
+                    && instructionSegment.amountFrequency == null;
+            if (leadingDoseMissing && frequencyStart >= 0 && amountFrequency.isEmpty() && takeMinFrequency.isEmpty()) {
+                UnitAmount unitAmount = findAmountWithUnitBeforeFrequency(instructions, frequencyStart, instructionSegment);
+                if (unitAmount != null && unitAmount.range()) {
+                    takeMinFrequency = unitAmount.min();
+                    takeMaxFrequency = unitAmount.max();
+                } else if (unitAmount != null) {
+                    amountFrequency = unitAmount.min();
+                }
+            }
                     }
 
 		/*    p(takeMinMethod);
@@ -826,12 +857,16 @@ public class RxUtil {
             }
         }
 
+        // Amounts stay as text (decimals, or fractions such as 5/6) until here, so a fraction
+        // is not approximated before the quantity is rounded.
+        ExactAmount minimumDose = ExactAmount.parse(takeMin);
+        ExactAmount maximumDose = ExactAmount.parse(takeMax);
         //make sure min is smaller than max
-        if (Double.parseDouble(takeMax) < Double.parseDouble(takeMin)) {
+        if (maximumDose.isLessThan(minimumDose)) {
             //      p("max<min");
-            String swap = takeMin;
-            takeMin = takeMax;
-            takeMax = swap;
+            ExactAmount swap = minimumDose;
+            minimumDose = maximumDose;
+            maximumDose = swap;
         }
 
         double nPerDay = 0d; //number of drugs per day
@@ -853,12 +888,12 @@ public class RxUtil {
         rx.setQuantity(rx.getQuantity().trim());
         if (duration.equals("0") || duration.length() == 0 || duration == null) {//if duration is not specified, find duration based on quantity
             rx.setDurationSpecifiedByUser(false);
-            if (!isUnitNameUsed && rx.getQuantity() != null && !rx.getQuantity().equalsIgnoreCase("null") && !rx.getQuantity().equals("") && !durationUnit.equals("") && !frequency.equals("") && !takeMax.equals("0")) {
+            if (!isUnitNameUsed && rx.getQuantity() != null && !rx.getQuantity().equalsIgnoreCase("null") && !rx.getQuantity().equals("") && !durationUnit.equals("") && !frequency.equals("") && !maximumDose.isZero()) {
                 quantity = Integer.parseInt(rx.getQuantity());
                 double quantityD = quantity;
                 nPerDay = findNPerDay(frequency);
                 nDays = findNDays(durationUnit);
-                double durationD = quantityD / ((Double.parseDouble(takeMax)) * nPerDay * nDays);
+                double durationD = quantityD / (maximumDose.doubleValue() * nPerDay * nDays);
                 Integer durationI = (int) durationD;
                 duration = durationI.toString();
                 rx.setDuration(duration);
@@ -866,8 +901,8 @@ public class RxUtil {
         } else {//if duration is valid, find quantity based on duration
             rx.setDurationSpecifiedByUser(true);
             rx.setDuration(duration);
-            if (!isUnitNameUsed && !durationUnit.equals("") && !takeMin.equals("0") && !takeMax.equals("0") && !frequency.equals("")) {
-                quantity = calculateDispenseQuantity(takeMax, duration, durationUnit, frequency);
+            if (!isUnitNameUsed && !durationUnit.equals("") && !minimumDose.isZero() && !maximumDose.isZero() && !frequency.equals("")) {
+                quantity = calculateDispenseQuantity(maximumDose, duration, durationUnit, frequency);
             }
 
         }
@@ -877,8 +912,8 @@ public class RxUtil {
             rx.setRoute(route);
         }
 
-        rx.setTakeMax(Float.parseFloat(takeMax));
-        rx.setTakeMin(Float.parseFloat(takeMin));
+        rx.setTakeMax(maximumDose.floatValue());
+        rx.setTakeMin(minimumDose.floatValue());
         rx.setMethod(method);
         rx.setFrequencyCode(frequency);
         rx.setDurationUnit(durationUnit);
@@ -913,14 +948,17 @@ public class RxUtil {
     }
 
     /**
-     * Calculates whole dispense units from the maximum dose and duration, rounding
-     * fractional totals upward. Periodic frequencies use exact day intervals.
+     * Calculates whole dispense units from the maximum dose and duration. The course total
+     * is formed exactly, as a fraction, and rounded upward once at the final division, so a
+     * fractional dose such as 5/6 tablet for six days gives five, not six. Periodic
+     * frequencies use exact day intervals.
      */
     // FindSecBugs IMPROPER_UNICODE: normalization of internal frequency codes, not a security or authorization decision. See docs/static-analysis-workflows.md.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "normalization of internal frequency codes, not a security or authorization decision")
-    private static int calculateDispenseQuantity(String maximumDose, String duration, String durationUnit, String frequency) {
-        BigDecimal total = new BigDecimal(maximumDose).multiply(new BigDecimal(duration))
+    private static int calculateDispenseQuantity(ExactAmount maximumDose, String duration, String durationUnit, String frequency) {
+        BigDecimal total = maximumDose.numerator().multiply(new BigDecimal(duration))
                 .multiply(BigDecimal.valueOf(findNDays(durationUnit)));
+        BigDecimal divisor = maximumDose.denominator();
         // Use exact day intervals instead of the approximate daily frequency for
         // weekly/monthly prescriptions, so an exact total does not round up twice.
         int intervalDays = switch (frequency.toUpperCase(Locale.ROOT)) {
@@ -930,9 +968,12 @@ public class RxUtil {
             case "Q3MONTH" -> 90;
             default -> 0;
         };
-        BigDecimal quantity = intervalDays == 0
-                ? total.multiply(BigDecimal.valueOf(findNPerDay(frequency))).setScale(0, RoundingMode.CEILING)
-                : total.divide(BigDecimal.valueOf(intervalDays), 0, RoundingMode.CEILING);
+        if (intervalDays == 0) {
+            total = total.multiply(BigDecimal.valueOf(findNPerDay(frequency)));
+        } else {
+            divisor = divisor.multiply(BigDecimal.valueOf(intervalDays));
+        }
+        BigDecimal quantity = total.divide(divisor, 0, RoundingMode.CEILING);
         // Keep the legacy integer quantity range while avoiding under-dispensing
         // fractional totals and floating-point error in decimal dose products.
         return quantity.min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
@@ -1122,36 +1163,109 @@ public class RxUtil {
     }
 
     /**
-     * Distinguishes product strengths from administered amounts using the parsed route
-     * and method. Concentrations are strengths; non-concentration IU requires an oral
-     * route without explicit per-dose syntax to be treated as a strength.
+     * Reads what the unit after an amount says about it: a product strength, a
+     * concentration, or an administered amount. Any unit followed by a concentration
+     * denominator is a concentration; any unit followed by {@code /dose} or
+     * {@code per dose} is administered; grams applied topically and IU outside the
+     * oral routes are administered; the remaining strength units are strengths. An
+     * amount with no recognized unit is administered (callers check its boundary).
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
-    private static boolean hasStrengthUnitAfter(String instructions, int amountEnd, InstructionSegment segment) {
-        Matcher unit = STRENGTH_UNIT.matcher(instructions)
-                .region(skipWhitespaceForward(instructions, amountEnd), instructions.length());
+    private static AmountKind classifyAmount(String instructions, int amountEnd, InstructionSegment segment) {
+        int unitStart = skipWhitespaceForward(instructions, amountEnd);
+        Matcher unit = STRENGTH_UNIT.matcher(instructions).region(unitStart, instructions.length());
         if (!unit.lookingAt()) {
-            unit = DOSE_UNIT.matcher(instructions)
-                    .region(skipWhitespaceForward(instructions, amountEnd), instructions.length());
-            return unit.lookingAt() && hasConcentrationAfterUnit(instructions, unit.end());
+            unit = DOSE_UNIT.matcher(instructions).region(unitStart, instructions.length());
+            return unit.lookingAt() && hasConcentrationAfterUnit(instructions, unit.end())
+                    ? AmountKind.CONCENTRATION : AmountKind.ADMINISTERED;
         }
         if (hasConcentrationAfterUnit(instructions, unit.end())) {
-            return true;
+            return AmountKind.CONCENTRATION;
+        }
+        // "17 g per dose" states the administered amount in the strength's own unit.
+        if (PER_DOSE.matcher(instructions)
+                .region(skipWhitespaceForward(instructions, unit.end()), instructions.length()).lookingAt()) {
+            return AmountKind.ADMINISTERED;
         }
         // Grams applied topically and non-oral IU specify administered amounts.
         if ("g".equalsIgnoreCase(unit.group())) {
-            return !("TOP.".equalsIgnoreCase(segment.route) || METHOD_APPLY.equalsIgnoreCase(segment.method)
-                    || METHOD_RUB_WELL_IN.equalsIgnoreCase(segment.method));
+            boolean topical = "TOP.".equalsIgnoreCase(segment.route) || METHOD_APPLY.equalsIgnoreCase(segment.method)
+                    || METHOD_RUB_WELL_IN.equalsIgnoreCase(segment.method);
+            return topical ? AmountKind.ADMINISTERED : AmountKind.STRENGTH;
         }
         if ("iu".equalsIgnoreCase(unit.group())) {
-            if (PER_DOSE.matcher(instructions)
-                    .region(skipWhitespaceForward(instructions, unit.end()), instructions.length()).lookingAt()) {
-                return false;
-            }
-            return "PO".equalsIgnoreCase(segment.route) || "SL".equalsIgnoreCase(segment.route);
+            boolean oral = "PO".equalsIgnoreCase(segment.route) || "SL".equalsIgnoreCase(segment.route);
+            return oral ? AmountKind.STRENGTH : AmountKind.ADMINISTERED;
         }
+        return AmountKind.STRENGTH;
+    }
+
+    /**
+     * Records a strength or concentration on the segment.
+     *
+     * @return true when the amount describes the product rather than an administered dose
+     */
+    private static boolean describesProduct(InstructionSegment segment, String instructions, int amountEnd) {
+        AmountKind kind = classifyAmount(instructions, amountEnd, segment);
+        if (kind == AmountKind.ADMINISTERED) {
+            return false;
+        }
+        segment.productAmount = kind;
         return true;
+    }
+
+    /**
+     * Finds an administered amount written with its unit directly before the frequency,
+     * such as {@code 10 mL}, {@code 5-10mL} or {@code 1/2 mL} in {@code ... PO 10 mL TID}.
+     * The unit must be one an administered amount can carry, and the amount must not read
+     * as a strength or concentration in this instruction's route and method context.
+     *
+     * @return the amount, or null when nothing before the frequency qualifies
+     */
+    private static UnitAmount findAmountWithUnitBeforeFrequency(String instructions, int frequencyStart, InstructionSegment segment) {
+        int unitEnd = skipWhitespaceBackward(instructions, frequencyStart);
+        int unitStart = unitEnd;
+        while (unitStart > 0 && Character.isLetter(instructions.charAt(unitStart - 1))) {
+            unitStart--;
+        }
+        if (unitStart == unitEnd || !DOSE_UNIT.matcher(instructions).region(unitStart, unitEnd).matches()) {
+            return null;
+        }
+        NumberRange range = findRangeBefore(instructions, unitStart);
+        if (range != null) {
+            return classifyAmount(instructions, range.end, segment) == AmountKind.ADMINISTERED
+                    ? new UnitAmount(range.min, range.max, true) : null;
+        }
+        NumberToken amount = findDecimalBefore(instructions, unitStart);
+        if (amount == null) {
+            amount = findFractionBefore(instructions, unitStart);
+        }
+        if (amount == null || classifyAmount(instructions, amount.end, segment) != AmountKind.ADMINISTERED) {
+            return null;
+        }
+        return new UnitAmount(amount.value, amount.value, false);
+    }
+
+    /** Finds a fraction such as {@code 1/2} ending (after optional whitespace) at the given index. */
+    private static NumberToken findFractionBefore(String text, int endExclusive) {
+        int end = skipWhitespaceBackward(text, endExclusive);
+        int denominatorStart = end;
+        while (denominatorStart > 0 && isDigit(text.charAt(denominatorStart - 1))) {
+            denominatorStart--;
+        }
+        if (denominatorStart == end || denominatorStart == 0 || text.charAt(denominatorStart - 1) != '/') {
+            return null;
+        }
+        int numeratorEnd = denominatorStart - 1;
+        int start = numeratorEnd;
+        while (start > 0 && isDigit(text.charAt(start - 1))) {
+            start--;
+        }
+        if (start == numeratorEnd || !hasTokenBoundaryBefore(text, start)) {
+            return null;
+        }
+        return new NumberToken(text, start, end);
     }
 
     /** Recognizes slash/per concentrations with a supported denominator unit and optional amount. */
@@ -1224,17 +1338,16 @@ public class RxUtil {
         segment.amountMethod = findWordAmountAfterMethod(instructions, method);
     }
 
-    /** Records a leading dose range, or marks it as a product strength when its suffix requires that interpretation. */
+    /** Records a leading dose range, or the strength or concentration its suffix makes it. */
     private static boolean setRangeAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
         NumberRange methodRange = findRangeAt(instructions, amountStart);
         if (methodRange == null) {
             return false;
         }
-        if (hasStrengthUnitAfter(instructions, methodRange.end, segment)) {
-            segment.strength = true;
+        if (describesProduct(segment, instructions, methodRange.end)) {
             return true;
         }
-        if (!hasTokenBoundaryAt(instructions, methodRange.end) && !hasDoseUnitAfter(instructions, methodRange.end)) {
+        if (!hasTokenBoundaryAt(instructions, methodRange.end) && !hasAmountUnitAfter(instructions, methodRange.end)) {
             return false;
         }
 
@@ -1244,17 +1357,16 @@ public class RxUtil {
         return true;
     }
 
-    /** Records a leading decimal dose, or marks it as a product strength when its suffix requires that interpretation. */
+    /** Records a leading decimal dose, or the strength or concentration its suffix makes it. */
     private static boolean setDecimalAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
         NumberToken methodAmount = findDecimalAt(instructions, amountStart);
         if (methodAmount == null) {
             return false;
         }
-        if (hasStrengthUnitAfter(instructions, methodAmount.end, segment)) {
-            segment.strength = true;
+        if (describesProduct(segment, instructions, methodAmount.end)) {
             return true;
         }
-        if (!hasTokenBoundaryAt(instructions, methodAmount.end) && !hasDoseUnitAfter(instructions, methodAmount.end)) {
+        if (!hasTokenBoundaryAt(instructions, methodAmount.end) && !hasAmountUnitAfter(instructions, methodAmount.end)) {
             return false;
         }
 
@@ -1266,40 +1378,23 @@ public class RxUtil {
         return true;
     }
 
-    /** Classifies a leading fraction before converting administered fractions into decimal doses. */
+    /**
+     * Records a leading fraction as the administered dose, kept as written so the quantity
+     * calculation can use its numerator and denominator, or the strength or concentration
+     * its suffix makes it.
+     */
     private static boolean setFractionAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
         String fraction = findFractionAt(instructions, amountStart);
         if (fraction == null) {
             return false;
         }
 
-        if (hasStrengthUnitAfter(instructions, amountStart + fraction.length(), segment)) {
-            segment.strength = true;
+        if (describesProduct(segment, instructions, amountStart + fraction.length())) {
             return true;
         }
 
-        segment.amountFrequency = convertFractionToAmount(fraction);
+        segment.amountFrequency = fraction;
         return true;
-    }
-
-    private static String convertFractionToAmount(String fraction) {
-        int separator = fraction.indexOf('/');
-        if (separator <= 0 || separator == fraction.length() - 1) {
-            return "0";
-        }
-
-        try {
-            double numerator = Double.parseDouble(fraction.substring(0, separator));
-            double denominator = Double.parseDouble(fraction.substring(separator + 1));
-            if (denominator == 0d || !Double.isFinite(numerator) || !Double.isFinite(denominator)) {
-                return "0";
-            }
-
-            double amount = numerator / denominator;
-            return Double.isFinite(amount) ? Double.toString(amount) : "0";
-        } catch (NumberFormatException _) {
-            return "0";
-        }
     }
 
     private static String findWordAmountAfterMethod(String instructions, String method) {
@@ -1335,8 +1430,63 @@ public class RxUtil {
         return amountMethod;
     }
 
+    /** How the number that opens an instruction, or precedes its frequency, relates to the product. */
+    private enum AmountKind {
+        /** An administered amount or count: tablets, millilitres, units, topical grams, explicit per-dose amounts. */
+        ADMINISTERED,
+        /** A product strength such as 1000 mg: one dispensable unit per administration unless a count is given. */
+        STRENGTH,
+        /** A concentration such as 250 mg/5 mL: product information that supplies no administered amount. */
+        CONCENTRATION
+    }
+
+    /**
+     * A dose amount kept exact until it is used: decimals as written, fractions as
+     * numerator and denominator, so a course total is rounded only once, at the end.
+     */
+    private record ExactAmount(BigDecimal numerator, BigDecimal denominator) {
+        private static final ExactAmount ZERO = new ExactAmount(BigDecimal.ZERO, BigDecimal.ONE);
+
+        /** Parses a decimal such as {@code 2}, {@code 0.5} or {@code .5}, or a fraction such as {@code 5/6}; anything else is zero. */
+        static ExactAmount parse(String text) {
+            try {
+                int separator = text.indexOf('/');
+                if (separator < 0) {
+                    return new ExactAmount(new BigDecimal(text.trim()), BigDecimal.ONE);
+                }
+                BigDecimal denominator = new BigDecimal(text.substring(separator + 1).trim());
+                if (denominator.signum() <= 0) {
+                    return ZERO;
+                }
+                return new ExactAmount(new BigDecimal(text.substring(0, separator).trim()), denominator);
+            } catch (NumberFormatException _) {
+                return ZERO;
+            }
+        }
+
+        boolean isZero() {
+            return numerator.signum() == 0;
+        }
+
+        boolean isLessThan(ExactAmount other) {
+            return numerator.multiply(other.denominator).compareTo(other.numerator.multiply(denominator)) < 0;
+        }
+
+        double doubleValue() {
+            return numerator.divide(denominator, MathContext.DECIMAL64).doubleValue();
+        }
+
+        float floatValue() {
+            return (float) doubleValue();
+        }
+    }
+
+    /** An amount found with its unit before the frequency; {@code range} tells a min-max pair from a single value. */
+    private record UnitAmount(String min, String max, boolean range) {
+    }
+
     private static class InstructionSegment {
-        boolean strength;
+        AmountKind productAmount;
         String route;
         String method;
         String takeMin;

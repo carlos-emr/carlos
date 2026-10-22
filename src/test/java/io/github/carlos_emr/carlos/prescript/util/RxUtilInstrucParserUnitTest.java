@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.prescript.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.within;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -66,7 +67,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
     @DisplayName("strengths and dispense quantities (issue #3876)")
     class StrengthQuantities {
 
-        /** Product strengths and concentrations must not multiply the administered unit count. */
+        /** Product strengths must not multiply the administered unit count. */
         @ParameterizedTest(name = "{0} gives 21 units")
         @ValueSource(strings = {
             "1000 mg po tid x 7 days", "Take 1000 mg po tid x 7 days",
@@ -74,17 +75,10 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "5 mg po tid x 7 days", "0.5 mg po tid x 7 days", ".5mg po tid x 7 days",
             "250 mcg po tid x 7 days", "250 µg po tid x 7 days", "250 μg po tid x 7 days",
             "1 g po tid x 7 days", "2g po tid x 7 days", "Take 2g po tid x 7 days",
+            "2g TID x 7 days", "Take 1000 mg TID x 7 days", "1000mg TID x 7 days",
             "1000 IU po tid x 7 days", "20 mEq po tid x 7 days",
-            "20 IU po tid x 7 days", "20IU po tid x 7 days",
+            "20 IU po tid x 7 days", "20IU po tid x 7 days", "20 IU PO TID x 7 days",
             "20IU sl tid x 7 days",
-            "100IU/mL tid x 7 days", "100IU/5mL IV tid x 7 days",
-            "100 IU/mL SC tid x 7 days", "100IU/mL SC tid x 7 days",
-            "100 IU/5mL IM tid x 7 days", "100 IU / 5 mL SC tid x 7 days",
-            "Apply 2g/g tid x 7 days", "2g/g TOP. tid x 7 days",
-            "100IU per mL SC tid x 7 days", "Apply 2g per g tid x 7 days",
-            "100units/mL SC tid x 7 days", "100 units/mL SC tid x 7 days",
-            "100unit/mL SC tid x 7 days", "100UNITS per 5mL IM tid x 7 days",
-            "50-100units/mL SC tid x 7 days", "1/2units/mL SC tid x 7 days",
             "500-1000 mg po tid x 7 days", "500-1000mg po tid x 7 days",
             "1/2 g po tid x 7 days", "1/2g po tid x 7 days"
         })
@@ -100,6 +94,35 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getQuantity()).isEqualTo("21");
         }
 
+        /**
+         * A concentration names the product, not an administered amount: no dose is
+         * invented and a zero quantity tells the Rx page to keep the card's quantity.
+         */
+        @ParameterizedTest(name = "{0} leaves the dose and quantity unset")
+        @ValueSource(strings = {
+            "100units/mL SC BID x 7 days", "250mg/5mL PO TID x 7 days",
+            "Take 250 mg/5 mL PO TID x 7 days", "250 mg per 5 mL PO TID x 7 days",
+            "100IU/mL tid x 7 days", "100IU/5mL IV tid x 7 days",
+            "100 IU/mL SC tid x 7 days", "100IU/mL SC tid x 7 days",
+            "100 IU/5mL IM tid x 7 days", "100 IU / 5 mL SC tid x 7 days",
+            "Apply 2g/g tid x 7 days", "2g/g TOP. tid x 7 days",
+            "100IU per mL SC tid x 7 days", "Apply 2g per g tid x 7 days",
+            "100units/mL SC tid x 7 days", "100 units/mL SC tid x 7 days",
+            "100unit/mL SC tid x 7 days", "100UNITS per 5mL IM tid x 7 days",
+            "50-100units/mL SC tid x 7 days", "1/2units/mL SC tid x 7 days"
+        })
+        void shouldLeaveDoseUnset_whenInstructionsGiveOnlyAConcentration(String instructions) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            rx.setQuantity("200");
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(0f);
+            assertThat(rx.getTakeMax()).isEqualTo(0f);
+            assertThat(rx.getFrequencyCode()).isNotEmpty();
+            assertThat(rx.getDuration()).isEqualTo("7");
+            assertThat(rx.getQuantity()).isEqualTo("0");
+        }
+
         /** Administered amounts retain their dose bounds and round fractional dispense totals upward. */
         @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
         @CsvSource(delimiter = '|', value = {
@@ -110,6 +133,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1000 mg po 1-2 tid x 7 days | 1 | 2 | 42",
             "1000 mg po 2-10 tid x 7 days | 2 | 10 | 210",
             "1000 mg po 0 tid x 7 days | 0 | 0 | 0",
+            "1000 mg po 1/2 tid x 8 days | 0.5 | 0.5 | 12",
             "Take 20 tabs (20 mg) po tid x 7 days | 20 | 20 | 420",
             "1/2 tab po tid x 8 days | 0.5 | 0.5 | 12",
             "0.5 tab po tid x 8 days | 0.5 | 0.5 | 12",
@@ -117,6 +141,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "two tablets po tid x 7 days | 2 | 2 | 42",
             "Take 5 mL po tid x 7 days | 5 | 5 | 105",
             "Take 5mL po tid x 7 days | 5 | 5 | 105",
+            "Take 5 mL tid x 7 days | 5 | 5 | 105",
             "1/2mL po tid x 8 days | 0.5 | 0.5 | 12",
             "5-10mL po tid x 7 days | 5 | 10 | 210",
             "10-5mL po tid x 7 days | 5 | 10 | 210",
@@ -161,6 +186,28 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "20IU PER DOSE sl BID x 7 days | 20 | 20 | 280",
             "10-20IU/dose PO BID x 7 days | 10 | 20 | 280",
             "1/2IU per dose PO BID x 8 days | 0.5 | 0.5 | 8",
+            "Take 17 g per dose PO daily x 7 days | 17 | 17 | 119",
+            "Take 17 g/dose PO daily x 7 days | 17 | 17 | 119",
+            "Take 17g/dose PO daily x 7 days | 17 | 17 | 119",
+            "Take 17 grams per dose PO daily x 7 days | 17 | 17 | 119",
+            "17 g per dose PO daily x 7 days | 17 | 17 | 119",
+            "500 mg per dose PO BID x 7 days | 500 | 500 | 7000",
+            "500mg/dose PO BID x 7 days | 500 | 500 | 7000",
+            "250-500 mg/dose PO BID x 7 days | 250 | 500 | 7000",
+            "1/2 g per dose PO BID x 8 days | 0.5 | 0.5 | 8",
+            "20 mEq per dose PO BID x 7 days | 20 | 20 | 280",
+            "250 mcg/dose INH BID x 7 days | 250 | 250 | 3500",
+            "100 mg/5mL PO 10mL TID x 7 days | 10 | 10 | 210",
+            "100 mg/5mL PO 10 mL TID x 7 days | 10 | 10 | 210",
+            "250mg/5mL PO 5-10mL TID x 7 days | 5 | 10 | 210",
+            "250mg/5mL PO 5-10 mL TID x 7 days | 5 | 10 | 210",
+            "100 mg/5mL PO 1/2mL TID x 8 days | 0.5 | 0.5 | 12",
+            "100units/mL SC 0.5mL BID x 7 days | 0.5 | 0.5 | 7",
+            "100units/mL SC 10 units BID x 7 days | 10 | 10 | 140",
+            "1000 mg po 10mL tid x 7 days | 10 | 10 | 210",
+            "Take 1 sachet in 125 mL BID x 7 days | 1 | 1 | 14",
+            "Take 1 tab PO with 250 mL BID x 7 days | 1 | 1 | 14",
+            "two tablets po with 250 mL tid x 7 days | 2 | 2 | 42",
             "Take 0.5mL po OD x 7 days | 0.5 | 0.5 | 4",
             "Take 1/2mL po OD x 7 days | 0.5 | 0.5 | 4",
             "Take 1/2 tab po OD x 7 days | 0.5 | 0.5 | 4",
@@ -183,6 +230,70 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getTakeMin()).isEqualTo(minimum);
             assertThat(rx.getTakeMax()).isEqualTo(maximum);
             assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * A fraction keeps its numerator and denominator until the final division, so an
+         * exact course total is not pushed over the next whole unit by a decimal approximation.
+         */
+        @ParameterizedTest(name = "{0} dispenses {3}")
+        @CsvSource(delimiter = '|', value = {
+            "5/6 tab PO daily x 6 days | 5 | 6 | 5",
+            "5/3 tab PO TID x 1 days | 5 | 3 | 5",
+            "2/3 tab PO TID x 1 days | 2 | 3 | 2",
+            "1/3 tab PO TID x 2 days | 1 | 3 | 2",
+            "1/6 tab PO BID x 3 days | 1 | 6 | 1",
+            "Take 5/6 tab PO daily x 7 days | 5 | 6 | 6",
+            "1/2 tab PO daily x 7 days | 1 | 2 | 4",
+            "1/3 tab PO Q1Week x 3 weeks | 1 | 3 | 1",
+            "2/3 tab PO Q1Week x 6 weeks | 2 | 3 | 4"
+        })
+        void shouldRoundFractionTotals_atTheFinalDivision(String instructions, int numerator,
+                int denominator, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            float dose = (float) numerator / denominator;
+            assertThat(rx.getTakeMin()).isCloseTo(dose, within(1e-6f));
+            assertThat(rx.getTakeMax()).isCloseTo(dose, within(1e-6f));
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        /**
+         * A prescription that already carries an administered unit keeps the amount the
+         * prescriber typed with explicit per-dose syntax, so the structured dose, the
+         * original directions and the clinical export (takeMin with unit) still agree.
+         */
+        @Test
+        void shouldPreserveExplicitGramDoseAndUnit_whenPerDoseSyntaxIsUsed() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 17 g per dose PO daily x 7 days");
+            rx.setUnit("gm");
+            rx.setDosage("");
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(17f);
+            assertThat(rx.getTakeMax()).isEqualTo(17f);
+            assertThat(rx.getUnit()).isEqualTo("gm");
+            assertThat(rx.getDosage()).isEmpty();
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+            assertThat(rx.getQuantity()).isEqualTo("119");
+            assertThat(rx.getSpecial()).isEqualTo("Take 17 g per dose PO daily x 7 days");
+        }
+
+        /** An explicitly entered dispensing quantity with a unit suffix is never recalculated. */
+        @Test
+        void shouldKeepEnteredQuantity_whenQuantityUnitIsPresent() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 17 g per dose PO daily x 7 days");
+            rx.setUnit("gm");
+            rx.setQuantity("119");
+            rx.setUnitName("g");
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getTakeMin()).isEqualTo(17f);
+            assertThat(rx.getUnit()).isEqualTo("gm");
+            assertThat(rx.getUnitName()).isEqualTo("g");
+            // The Rx page keeps the typed "119 g" when no quantity is calculated.
+            assertThat(rx.getQuantity()).isEqualTo("0");
         }
     }
 
