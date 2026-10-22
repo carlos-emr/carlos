@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportFragmentViewModel;
-import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
@@ -44,12 +43,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * The Ontario Billing Report Center's Billed, Unsettled and OB lists are built from Ontario claims
- * ({@code billing_on_cheader1} and its items), not the retired {@code billing} table (#5061).
+ * The Ontario Billing Report Center's Billed, Unsettled, OB and Flu lists are built from Ontario claims
+ * ({@code billing_on_cheader1} and its items), not the retired {@code billing} table (#5061, #5093).
  *
  * @since 2026-10-19
  */
@@ -60,17 +58,15 @@ class BillingReportFragmentClaimsUnitTest {
 
     private static final String PROVIDER = "999998";
 
-    private BillingDao billingDao;
     private BillingONCHeader1Dao claimDao;
     private BillingONItemDao itemDao;
     private BillingReportFragmentViewModelAssembler assembler;
 
     @BeforeEach
     void setUp() {
-        billingDao = mock(BillingDao.class);
         claimDao = mock(BillingONCHeader1Dao.class);
         itemDao = mock(BillingONItemDao.class);
-        assembler = new BillingReportFragmentViewModelAssembler(billingDao, claimDao, itemDao, mock(OscarAppointmentDao.class));
+        assembler = new BillingReportFragmentViewModelAssembler(claimDao, itemDao, mock(OscarAppointmentDao.class));
     }
 
     @Test
@@ -88,7 +84,6 @@ class BillingReportFragmentClaimsUnitTest {
             assertThat(row.reasonText()).isEqualTo("Bill OHIP ");
             assertThat(row.note()).isEqualTo("With Appt. Doctor");
         });
-        verifyNoInteractions(billingDao);
     }
 
     @Test
@@ -103,7 +98,6 @@ class BillingReportFragmentClaimsUnitTest {
             assertThat(row.reasonCode()).isEqualTo("B");
             assertThat(row.note()).isEqualTo("No Appt / INR");
         });
-        verifyNoInteractions(billingDao);
     }
 
     @Test
@@ -122,7 +116,49 @@ class BillingReportFragmentClaimsUnitTest {
         assertThat(model.getBillobRows().get(0).total()).isEqualTo("120.50");
         assertThat(model.getBillobRows().get(1).serviceCodes()).startsWith("P011A", "");
         assertThat(model.getBillobTotal()).as("only the settled claim counts as paid").isEqualTo("120.50");
-        verifyNoInteractions(billingDao);
+    }
+
+    @Test
+    void shouldListFluShotClaimsAsOneList_withACountAndATotal() {
+        when(claimDao.findReportCenterClaimsWithServiceCodes(eq(PROVIDER), any(Date.class), any(Date.class),
+                eq(BillingReportFragmentViewModelAssembler.FLU_SERVICE_CODES)))
+                .thenReturn(List.of(claim(11, "S", PROVIDER, "12.3"), claim(12, "O", "none", "8.80"),
+                        claim(13, "B", PROVIDER, "21.10")));
+
+        BillingReportFragmentViewModel model = assembler.assemble(request(), null, "flu");
+
+        // One list in the order the query returns (newest first), whatever the visit; no walk-in / clinic split.
+        assertThat(model.getFluRows()).extracting(BillingReportFragmentViewModel.FluRow::billingId)
+                .containsExactly(11, 12, 13);
+        assertThat(model.getFluRows()).extracting(BillingReportFragmentViewModel.FluRow::statusLabel)
+                .containsExactly("Settled", "Bill OHIP", "Submitted to OHIP");
+        assertThat(model.getFluRows().get(0)).satisfies(row -> {
+            assertThat(row.total()).isEqualTo("12.30");
+            assertThat(row.apptDate()).isEqualTo("2026-01-10");
+            assertThat(row.demoName()).isEqualTo("FAKE-Claim, Patient");
+            assertThat(row.reasonCode()).isEqualTo("S");
+        });
+        assertThat(model.getFluCount()).isEqualTo(3);
+        assertThat(model.getFluTotal()).as("every listed claim counts, whatever its status").isEqualTo("42.20");
+    }
+
+    @Test
+    void shouldListNoFluShotClaims_whenNoneHoldsAFluShotCode() {
+        when(claimDao.findReportCenterClaimsWithServiceCodes(eq(PROVIDER), any(Date.class), any(Date.class),
+                eq(BillingReportFragmentViewModelAssembler.FLU_SERVICE_CODES)))
+                .thenReturn(List.of());
+
+        BillingReportFragmentViewModel model = assembler.assemble(request(), null, "flu");
+
+        assertThat(model.getFluRows()).isEmpty();
+        assertThat(model.getFluCount()).isZero();
+        assertThat(model.getFluTotal()).isEqualTo("0.00");
+    }
+
+    @Test
+    void shouldAskForG590AAndG591A_forTheFluList() {
+        // G590 is the current flu-shot code; G591 ended in 2011 but older claims carry it.
+        assertThat(BillingReportFragmentViewModelAssembler.FLU_SERVICE_CODES).containsExactly("G590A", "G591A");
     }
 
     private static BillingONCHeader1 claim(int id, String status, String apptProviderNo, String total) {

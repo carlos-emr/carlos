@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchReques
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -429,7 +430,20 @@ public class DemographicManagerImpl implements DemographicManager {
         return demographicDao.getDemographicByProvider(provider.getProviderNo(), true);
     }
 
+    /**
+     * Creates the patient, its program admission and its extensions in one transaction: if any
+     * write fails (for example an extension that collides on the per-patient key), nothing is kept.
+     * Each extension is linked to the new patient's demographic number, replacing any number the
+     * caller supplied, and any extension {@code id} the caller supplied is discarded, so a create
+     * request can neither orphan an extension nor re-point an existing extension row.
+     *
+     * @param loggedInInfo {@link LoggedInInfo} the acting provider; must hold write access to the demographic security object
+     * @param demographic {@link Demographic} the new patient, with optional extras; its demographic number is assigned on save
+     * @param admissionProgramId {@link Integer} the program the patient is admitted to
+     * @throws IllegalArgumentException if the birth date on the demographic cannot be parsed
+     */
     @Override
+    @Transactional
     public void createDemographic(LoggedInInfo loggedInInfo, Demographic demographic, Integer admissionProgramId) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
         try {
@@ -456,6 +470,9 @@ public class DemographicManagerImpl implements DemographicManager {
 
         if (demographic.getExtras() != null) {
             for (DemographicExt ext : demographic.getExtras()) {
+                // Create-only: a client-supplied id would make saveEntity merge (update) an existing row.
+                ext.setId(null);
+                ext.setDemographicNo(demographic.getDemographicNo());
                 createExtension(loggedInInfo, ext);
             }
         }

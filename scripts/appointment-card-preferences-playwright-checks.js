@@ -17,7 +17,7 @@
  *   phone and fax differ from the saved ones (so the last step can tell them apart);
  * - last: the card shows the saved clinic name, phone and fax. Until #5137 the card read
  *   APPT_CARD_NAME/PHONE/FAX, which nothing wrote, so it showed the provider's own name and the
- *   clinic's phone and fax (app-findings-log.md finding 315, fixed by #5137).
+ *   clinic's phone and fax (app-findings-log.md finding 316, fixed by #5137).
  *
  * Fixtures: a throwaway login, the session's owned FAKE patient and one appointment today on the
  * throwaway's own schedule. Cleanup removes the appointment, then the throwaway (its property
@@ -32,7 +32,7 @@ const { submitAndClose } = require('./gap-provider-preferences-save-all-playwrig
 
 const TIMEOUT = 20000;
 
-/** The card step's label (finding 315 was pinned at it until #5137 fixed the card). */
+/** The card step's label (finding 316 was pinned at it until #5137 fixed the card). */
 const STEP = {
   card: 'the appointment card shows the clinic name, phone and fax saved in Preferences',
 };

@@ -3308,3 +3308,113 @@ match needs matching DOB or full name, and absent HINs require matching DOB plus
 Conflicting HINs or insufficient source evidence block chain-wide mutations and require source
 review, including corrections that change all corroborating identity fields. The resolver does
 not silently omit an uncertain sibling. Other lab sources retain their existing membership rules.
+
+### Writes named by a parameter other than `method` (2026-10-22, issue #3394)
+
+Finding 315. `release/2026.08` at 3b86a51e57 plus the fix branch was packaged as `2026.09.0~snapshot26` with
+`dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` builder (OpenJDK 25), the CARLOS WAR compiled from source with
+the `debian/rules` Maven flags and DrugRef built from the `debian/drugref.pin` ref (`1941e14`). `lintian --fail-on
+error` passed and carlos-ctl was 1.1.2 from its release. The packages were installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo dataset) and `carlos-ctl check` reported "All checks passed".
+The first run used the branch's first commit; the final run rebuilt and reinstalled from its head (`5038ddbd81`).
+
+| Run | `get-reject-dispatch-params` |
+|---|---|
+| fixed packages | PASS, all 5 steps. Each real POST writes (a privilege row's Update, a role's Add and Update, a message's Delete, a code description's Modify) and carries its CSRF token; all 9 GET and HEAD replays answer 405 with the application's header and change nothing. |
+| pre-fix `ProviderPrivilege2Action`, `ProviderRole2Action`, `MsgHandleMessages2Action`, `DxresearchReport2Action` and `HttpMethodGuardFilter` swapped in | FAILS at the last step: 6 of 9 replays answer 200, and the GETs rewrite privilege row B, change the throwaway provider's role, delete message B and rewrite the owned ICD-9 description. |
+
+The other checks that drive these routes ran on the final packages:
+- The smoke tier passes 12 of 12.
+- `assign-role`, `admin-role-management` (with `EXCLUSIVE=1`), `select-forms-panel`, `rh-form-workflow`
+  (`form/AddRHWorkFlow`), `form-adfv2-save-exit`, `form-checkbox-reopen`, `echart-forms-latest-item`,
+  `mutator-get-rejection-live`, `get-reject-provider-groups`, `get-reject-measurement-groups`,
+  `messenger-reply-conversation`, `messenger-reply-all-forward`, `messenger-demographic-link` and
+  `export-content-dx-registry-xlsx` pass. The `form/formname` saves in `clinical-forms-save-reopen` (twelve forms,
+  each redirected through `/form/forwardname` and redisplayed) and the Save and reopen steps of `bpmh-form` pass.
+- Five checks fail at the same step with the pre-fix classes and `struts-form.xml` swapped back in, so none comes from
+  this change: `clinical-forms-save-reopen` at "Mental Health Form 14: Print Pdf answers a PDF carrying the saved
+  prose", `bpmh-form` at "Print answers a PDF of the saved form", `authz-read-role-matrix` (`oscarResearch/dxresearch/
+  setupDxResearch` and `dxResearchLoadQuickList` answer 500 to a login with no sec object), `authz-read-admin-objects`
+  (its full-privilege control is not served `eform/fieldNoteReport/fieldnotereportdetail`) and
+  `messenger-reply-send-archive` at "Send and Archive archives exactly the message replied to".
+- `session-state-two-window-isolation` failed at its year-end statement step only when it ran after the twenty
+  checks above; alone it passes, three times on the fixed packages and once on the pre-fix ones.
+
+Review follow-up (CodeRabbit): `StrutsFormNestedForwardUnitTest` compared locations with action names only, so it
+missed `form/formname`'s `printAllJasperReport` result, `/form/formPdfJasperReport`, which the `form/*` wildcard
+serves. That is a nested action FORWARD to a view that does not exist. The test now matches wildcard actions and
+honours `struts.action.excludePattern`, and the result prints through `/form/createpdf` like `printAll`. Checked on
+the same install with only `struts-form.xml` changed:
+- A Lab Req 2007 Print post rewritten to `submit=printAllJasperReport` answers 404 (HTML) with the old location and
+  a 46 KB `application/pdf` with the new one. Rourke 2020's own Print, which writes its PDF in `Frm2Action`, still
+  passes in `form-rourke2020-growth`.
+- `select-forms-panel`, `rh-form-workflow`, `form-adfv2-save-exit`, `form-checkbox-reopen` and
+  `echart-forms-latest-item` pass.
+- `form-rourke2020-growth` fails with the old base-branch `struts-form.xml`, with the PR's previous head and with
+  this change. Growth 0-36m and Growth Chart never open from the Forms menu, and the Rourke 2020 save step varies
+  from run to run (two rows for one request, or Tomcat closing the `form/formname` connection so nginx answers
+  502). It is not caused by this change.
+- `form-print-pdf` cannot start on this install: the Forms menu lists no Lab Req 2007 for the admin login.
+
+### Query by Example reporting account (2026-10-22, issue #3372)
+
+Query by Example now runs every query as the read-only `carlos_report` account that carlos-ctl 1.2.0 provisions from the grant list
+the WAR ships (`WEB-INF/classes/db/reporting/carlos_report_grants.sql`); see `docs/query-by-example-least-privilege.md`. The branch
+(`claude/issue-3372-20261022`, WAR from `89f982f8`) was packaged unstamped as `2026.09.0~snapshot26`: the CARLOS WAR compiled on the host
+with JDK 25, DrugRef from `debian/drugref.pin`, `dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` builder with `CARLOS_WAR` and
+`DRUGREF_WAR`. carlos-ctl was built from its PR branch (carlos-emr/carlos-ctl#10) as `1.2.0`. Docker Hub rate-limited the `ubuntu:26.04`
+pull, so `BASE_IMAGE` named a local image built from it earlier the same day.
+
+**Fresh install** (Ontario, demo dataset, `scripts/deb-docker-validation.sh up`): `carlos-ctl check` passed, including "Query by Example
+runs as carlos_report: SELECT on 409 reportable table(s), nothing else". `SHOW GRANTS` lists `casemgmt_note` and `DigitalSignature`
+column by column, without `password` and `signatureImage`, and no restricted table.
+
+| Run | Result |
+|---|---|
+| `report-query-by-example-least-privilege` (new), `report-query-by-example`, `report-query-by-example-front-door` | **PASS**, 3 of 3 through `:443`: a reportable table answers; a table created after provisioning (with a planted secret) is refused by MariaDB in the outer query and in a subquery, the secret never reaches the page and no history row is written; every hidden column is refused by name and through `SELECT *` while the other columns answer; in MariaDB the account holds SELECT only, no table with hidden columns as a whole, no schema, global or role privilege |
+| `--tier smoke` | **PASS**, 12 of 12 |
+| server-log audit | **PASS**, no unexplained signature (6 known) |
+
+Drift, introduced by hand on the running install and then repaired (`/root/qbe-drift-scenarios.sh`, 22 assertions, all pass with the
+final carlos-ctl):
+
+| Drift | `carlos-ctl check` | Repair |
+|---|---|---|
+| table-wide `SELECT` on `DigitalSignature` | FAIL: "DigitalSignature (every column, hidden ones included)" | `db-users` |
+| `SELECT (password)` on `casemgmt_note` | FAIL: "casemgmt_note.password" | `db-users` |
+| `SELECT` on `security` | FAIL: "security (restricted)" | `db-users` |
+| `PROXY ON ''@'%'` | FAIL: privileges beyond SELECT (proxy) | `db-users` revokes the PROXY grant |
+| `appointment` revoked on `127.0.0.1` only | FAIL: "1 reportable table(s) are not granted to carlos_report@127.0.0.1" | `db-users` |
+| `casemgmt_note.note` revoked on `localhost` only | FAIL: "casemgmt_note.note for localhost" | `db-users` |
+| an extra `carlos_report@'%'` login | FAIL: "also exists for host(s) %" | `DROP USER` |
+| the account's password changed in MariaDB | FAIL: the recorded password "does not log in as carlos_report@localhost" | `db-users` |
+| a `PUBLIC` grant on the schema plus a stale `SELECT, INSERT` on `security` | FAIL: PUBLIC holds privileges | `db-users` reports the refused list; the refused run had already revoked the stale grant; revoke from PUBLIC, `db-users` |
+
+With the table-wide `DigitalSignature` grant in place, the application refused the account before running anything: the
+`report-query-by-example` check failed at its first query, as intended, and the log read "Query-by-Example refused the reporting
+account: it holds a privilege other than SELECT on reportable tables of carlos". MariaDB prints a table grant and a column grant on
+one table as a single `GRANT SELECT, SELECT (...)` line, which the audit refuses as unrecognised; `carlos-ctl check` names the
+table. After `db-users` both checks passed again.
+
+One defect was found and fixed here: when the grant list refused to run, `db-users` warned with the first 400 characters of the
+client's stderr, which the client fills with the echoed `BEGIN NOT ATOMIC` block, so MariaDB's message was cut off. carlos-ctl now
+reports the last `ERROR` line (carlos-ctl `b98c931`).
+
+**Upgrade from `2026.08.0~alpha20`** (carlos-ctl 1.1.2, no reporting account) to the same packages: `deb-upgrade-baseline.sh`, then
+`apt-get install` of `carlos-ctl_1.2.0`, `carlos-emr` and `carlos-emr-drugref`. The transaction created `carlos_report` on both hosts
+and granted 409 tables; Flyway applied exactly `1.0.58` (45 in all); `carlos-ctl check` passed. `deb-upgrade-verify.sh` first scored
+44 of 45: `carlos.properties` changed, because provisioning records `db_reporting_username` and `db_reporting_password`. The baseline
+now snapshots those two keys (the password as a digest only) apart from its other digests, and the verifier accepts exactly that
+addition. Re-run against the same PRE snapshot (alpha20 had neither key, so its digests are identical under both script versions):
+**46 passed, 0 failed**. On the upgraded install the three Query by Example checks pass 3 of 3, `--tier smoke` passes 12 of 12 and the
+server-log audit reports no unexplained signature; the install also came back healthy after its container was restarted mid-run.
+
+A review of carlos-ctl#10 then found the login probe ignoring `CARLOS_DB_PORT` and calling any failed login a wrong password. With
+carlos-ctl `607c24e` installed on the upgraded container, `check` still passed; changing the account's password on `127.0.0.1` alone
+was reported as "does not log in as carlos_report@127.0.0.1", and `db-users` repaired it. A second review found `check` printing its
+OK line beside a login it could not try (a busy account, or MariaDB not answering on the port). With carlos-ctl `325482a` installed
+(OK only after a login that worked), `check` still passed on the same container. The 22 drift assertions passed again, and so did the
+three Query by Example checks (3 of 3).
+
+The installer printed "NOT ready to use" during both the fresh `snapshot26` and the `alpha20` transactions (an nginx reload while
+`carlos-emr` configures); no marker remained and `check` passed, so it predates this change.
