@@ -5,6 +5,8 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferralAttachmentUtil;
@@ -19,10 +21,12 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import org.apache.logging.log4j.Logger;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 public class DocumentAttach {
+    private static final Logger logger = MiscUtils.getLogger();
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private final EFormDocsDao eFormDocsDao = SpringUtils.getBean(EFormDocsDao.class);
 
@@ -66,6 +70,19 @@ public class DocumentAttach {
     }
 
     public void attachToConsult(String[] attachments, DocumentType documentType, String providerNo, Integer requestId) {
+        attachToConsult(attachments, documentType, providerNo, requestId, false);
+    }
+
+    /**
+     * Replaces the consultation's attachments of one type with {@code attachments}.
+     *
+     * @param keepUnavailable true to keep attached, unvalidated, the documents and eForms already on
+     *                        this consultation whose target is no longer available (see
+     *                        {@link #unavailableAttached}); the consult form cannot list them, so
+     *                        a save that leaves them out does not mean to detach them
+     */
+    public void attachToConsult(String[] attachments, DocumentType documentType, String providerNo, Integer requestId,
+                                boolean keepUnavailable) {
         new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
             var owner = SpringUtils.getBean(ConsultationRequestDao.class).lockForAttachmentSync(requestId);
             if (owner == null || owner.getDemographicId() == null
@@ -77,7 +94,7 @@ public class DocumentAttach {
             if (documentType == DocumentType.LAB) {
                 syncConsultLabs(attachments, providerNo, requestId, patient);
             } else {
-                syncConsultDocuments(attachments, documentType, providerNo, requestId, patient);
+                syncConsultDocuments(attachments, documentType, providerNo, requestId, patient, keepUnavailable);
             }
         });
     }
@@ -112,20 +129,66 @@ public class DocumentAttach {
             }
         } else {
             List<String> existing = rows.stream().map(row -> Integer.toString(row.getDocumentNo())).toList();
-            validateSelection(documentType, demographicNo, selected, existing);
+            // Same exclusion as the save below, so the preflight agrees with it.
+            Set<String> kept = unavailableAttached(requestId, documentType, existing);
+            validateSelection(documentType, demographicNo, without(selected, kept), without(existing, kept));
         }
     }
 
-    private void syncConsultDocuments(String[] attachments, DocumentType documentType, String providerNo, Integer requestId, int patient) {
+    private void syncConsultDocuments(String[] attachments, DocumentType documentType, String providerNo, Integer requestId,
+                                      int patient, boolean keepUnavailable) {
         List<String> currentList = new ArrayList<>(new LinkedHashSet<>(Arrays.asList(attachments)));
         List<ConsultDocs> consultDocsList = consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, documentType.getType());
         List<String> oldList = new ArrayList<>();
         for (ConsultDocs consultDoc : consultDocsList) {
             oldList.add(Integer.toString(consultDoc.getDocumentNo()));
         }
-        if (!validateSelection(documentType, patient, currentList, oldList)) return;
-        detachFromConsult(currentList, oldList, documentType, requestId);
+        Set<String> kept = keepUnavailable ? unavailableAttached(requestId, documentType, oldList) : Set.of();
+        // A kept id is already attached, so it is not a selection to authorize: the selection check
+        // would refuse it (its target is gone or another patient's) and roll the whole save back.
+        // Every other submitted id, and every newly selected one, is still checked.
+        if (!validateSelection(documentType, patient, without(currentList, kept), without(oldList, kept))) return;
+        List<String> retained = new ArrayList<>(currentList);
+        for (String docId : kept) {
+            if (!retained.contains(docId)) {
+                retained.add(docId);
+                logger.info("Kept unavailable consultation attachment type={} id={} attached on save",
+                        documentType.getType(), LogSafe.sanitize(docId));
+            }
+        }
+        detachFromConsult(retained, oldList, documentType, requestId);
         attachToConsult(currentList, oldList, documentType, providerNo, requestId);
+    }
+
+    /**
+     * The documents or eForms already attached to this consultation ({@code attached}) whose target
+     * is no longer available: deleted, filed to another patient, a patient-independent eForm, or
+     * missing (#3145). The consult form cannot list them, so a save keeps them attached, and the
+     * preview, print, fax and confirmation pages name them as left out. Labs and other types are
+     * never kept here: the form lists an unavailable lab itself until it is selected again.
+     */
+    private Set<String> unavailableAttached(Integer requestId, DocumentType documentType, Collection<String> attached) {
+        if (requestId == null || (documentType != DocumentType.DOC && documentType != DocumentType.EFORM)) {
+            return Set.of();
+        }
+        List<ConsultDocs> unavailable = consultDocsDao.findUnavailableActiveConsultAttachments(requestId);
+        Set<String> kept = new LinkedHashSet<>();
+        if (unavailable == null) {
+            return kept;
+        }
+        for (ConsultDocs row : unavailable) {
+            if (row != null && documentType.getType().equals(row.getDocType())) {
+                String docId = Integer.toString(row.getDocumentNo());
+                if (attached.contains(docId)) {
+                    kept.add(docId);
+                }
+            }
+        }
+        return kept;
+    }
+
+    private static List<String> without(Collection<String> ids, Set<String> excluded) {
+        return ids.stream().filter(id -> !excluded.contains(id)).toList();
     }
 
     private void attachToConsult(List<String> currentList, List<String> oldList, DocumentType documentType, String providerNo, Integer requestId) {

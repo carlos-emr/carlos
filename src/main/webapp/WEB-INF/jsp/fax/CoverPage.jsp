@@ -127,6 +127,14 @@
                 return true;
             }
 
+            // Attachments that will be left out must be confirmed before the fax goes.
+            const confirmLeftOut = document.getElementById('confirmSendWithoutUnavailable');
+            if (confirmLeftOut && !confirmLeftOut.checked) {
+                confirmLeftOut.reportValidity();
+                confirmLeftOut.focus();
+                return false;
+            }
+
             const coverPageForm = document.getElementById('coverPageForm');
             if (coverPageForm.checkValidity()) {
                 return ShowSpin(true);
@@ -395,6 +403,33 @@
                         </div>
                     </div>
                 </div>
+
+                <c:if test="${ not empty attachmentWarnings and transactionType eq 'CONSULTATION' }">
+                    <div id="consult-attachment-warnings" class="alert alert-warning" role="alert">
+                        <fmt:message key="encounter.oscarConsultationRequest.msgAttachmentsUnavailable"/>
+                        <ul class="mb-0">
+                            <c:forEach items="${ attachmentWarnings }" var="attachmentWarning">
+                                <%-- Type and id only, worded from the bundle; see ConsultAttachmentWarning. --%>
+                                <c:set var="attachmentTypeLabel"><fmt:message key="${ attachmentWarning.typeLabelKey }"/></c:set>
+                                <c:set var="attachmentWarningText"><fmt:message key="${ attachmentWarning.messageKey }"><fmt:param value="${ attachmentTypeLabel }"/><fmt:param value="${ attachmentWarning.id }"/></fmt:message></c:set>
+                                <li><carlos:encode value="${ attachmentWarningText }"/></li>
+                            </c:forEach>
+                        </ul>
+                        <%-- The opaque ticket binds consent to the server-observed warning set.
+                             Rendering must find the same issues before the fax can be queued. --%>
+                        <input type="hidden" name="consultAttachmentApproval" value="${carlos:forHtmlAttribute(consultAttachmentApproval)}"/>
+                        <div class="form-check mt-2">
+                            <%-- required for checkValidity() in submitForm, which shows the browser's own
+                                 prompt. The validate() rules below turn jQuery Validate's required check off
+                                 for this box, so it adds no untranslated "This field is required." label. --%>
+                            <input class="form-check-input" type="checkbox" id="confirmSendWithoutUnavailable"
+                                   name="confirmAttachmentOmissions" value="true" required>
+                            <label class="form-check-label" for="confirmSendWithoutUnavailable">
+                                <fmt:message key="consultation.fax.confirmSendWithoutUnavailable"/>
+                            </label>
+                        </div>
+                    </div>
+                </c:if>
 
                 <c:if test="${ not empty documents and transactionType eq 'CONSULTATION' }">
                     <div class="card">
@@ -731,6 +766,10 @@
          */
         $('#coverPageForm').validate({
             rules: {
+                // submitForm checks this box itself and shows the browser's own prompt.
+                confirmAttachmentOmissions: {
+                    required: false
+                },
                 recipientFaxNumber: {
                     required: true,
                     minlength: 7

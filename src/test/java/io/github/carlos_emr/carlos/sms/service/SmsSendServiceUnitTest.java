@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -24,12 +25,15 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -37,6 +41,48 @@ import static org.mockito.Mockito.when;
 class SmsSendServiceUnitTest {
     private static final SmsConsentDecisionDto CONSENTED = SmsConsentDecisionDto.permitted(
             SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"));
+
+    @Test
+    @DisplayName("a direct send records a definite failure with a CARLOS code, never the provider's own wording")
+    void shouldRecordCarlosCode_whenDirectSendFails() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        when(client.send(any(), anyString(), any()))
+                .thenReturn(SmsProviderSendResultDto.failed("dst_invalid", "4165551212 cannot receive SMS"));
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(client)), recorder, providerType -> true,
+                new SmsDefaultProviderResolver(() -> "STUB"));
+
+        service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(recorder.transactions()).singleElement()
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly(SmsStatus.FAILED, "REJECTED_OTHER", SmsProviderErrorCode.REJECTED_OTHER.message());
+    }
+
+    @Test
+    @DisplayName("send records nothing and reaches no SMS provider while the provider is not ready")
+    void shouldRecordNothing_whenProviderIsNotReady() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        SmsConfigService configService = mock(SmsConfigService.class);
+        when(configService.sendingEnabled()).thenReturn(true);
+        when(configService.readyProviderSettings(SmsProviderType.STUB))
+                .thenThrow(new SmsProviderNotReadyException("a stored SMS provider credential cannot be decrypted"));
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(client)), recorder, providerType -> true,
+                new SmsDefaultProviderResolver(() -> "STUB"), configService);
+
+        SmsSendResultDto result = service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.messages()).containsExactly(SmsSendService.SMS_PROVIDER_NOT_READY_MESSAGE);
+        assertThat(recorder.transactions()).isEmpty();
+        verify(client, never()).send(any(), anyString(), any());
+    }
 
     @Test
     @DisplayName("send records a consent-blocked row and never reaches the SMS provider when consent denies")
@@ -687,6 +733,14 @@ class SmsSendServiceUnitTest {
         }
 
         @Override
+        public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt, SmsProviderErrorCode reason) {
+            // A distinct event, so the direct send's exact event lists show it never hands back with a reason.
+            events.add("releaseClaim " + reason);
+            transaction.markClaimReleased(dueAt, reason);
+            return transaction;
+        }
+
+        @Override
         public SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt) {
             events.add("renewClaim");
             transaction.renewSendingClaim(attemptAt);
@@ -753,9 +807,9 @@ class SmsSendServiceUnitTest {
         }
 
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
             events.add("providerSend");
-            return super.send(command, clientReferenceId);
+            return super.send(command, clientReferenceId, settings);
         }
     }
 
@@ -766,22 +820,23 @@ class SmsSendServiceUnitTest {
         }
 
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
             throw new IllegalStateException("provider unavailable");
         }
 
         @Override
-        public boolean validateCallback(String payload, Map<String, String> headers, String secret) {
+        public boolean validateCallback(SmsWebhookRequest request, String webhookSecret,
+                                        SmsProviderSettings settings) {
             return false;
         }
 
         @Override
-        public Optional<SmsInboundWebhookDto> parseInboundWebhook(String payload, Map<String, String> headers) {
+        public Optional<SmsInboundWebhookDto> parseInboundWebhook(SmsWebhookRequest request) {
             return Optional.empty();
         }
 
         @Override
-        public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(String payload, Map<String, String> headers) {
+        public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(SmsWebhookRequest request) {
             return Optional.empty();
         }
     }
