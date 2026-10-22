@@ -66,7 +66,7 @@ async function workflow(s) {
   s.cleanup(() => fixture.cleanup());
   const owned = `%${role}%`;
   // The GET ProviderAddRole probe names this role; a wrongly accepted GET would create it.
-  const roles = `${R},${h.sqlString(`${role}-GET`)}`;
+  const roles = `${R},${h.sqlString(`${role}-GET`)},${h.sqlString(`${role}-read`)}`;
   s.cleanup(() => {
     sql.execute([
       `DELETE FROM MyGroupAccessRestriction WHERE myGroupNo=${G}`,
@@ -150,7 +150,7 @@ async function workflow(s) {
     const before = frame.url();
     await frame.locator('#role_name').fill('Z');
     const dialogs = await h.withExpectedDialogs(admin, async () => {
-      await frame.locator('input[name="submit"][value="Search"]').click();
+      await frame.locator('[name="submit"][value="Search"]').click();
     });
     h.assert(dialogs.length === 1 && /must type/i.test(dialogs[0].text), 'The short role name raised no validation alert');
     h.assert(frame.url() === before, 'The refused search still submitted');
@@ -158,10 +158,10 @@ async function workflow(s) {
   let roleNo;
   await s.step('searching the new name offers it as NEW and the confirmed Save creates exactly one role', async () => {
     await frame.locator('#role_name').fill(role);
-    await submitIn(admin, frame, frame.locator('input[name="submit"][value="Search"]'));
+    await submitIn(admin, frame, frame.locator('[name="submit"][value="Search"]'));
     h.assert(/It is a NEW role/.test(await frame.locator('span.alert').innerText()), 'The search did not offer the name as a new role');
     const dialogs = await h.withExpectedDialogs(admin, () =>
-      submitIn(admin, frame, frame.locator('input[name="submit"][value="Save"]')));
+      submitIn(admin, frame, frame.locator('[name="submit"][value="Save"]')));
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Save did not ask for confirmation exactly once');
     h.assert((await frame.locator('span.alert').innerText()).includes(`${role} is added.`), 'Save did not confirm the new role');
     h.assert(sql.value(`SELECT CONCAT(COUNT(*),'|',MAX(description)) FROM secRole WHERE role_name=${R}`) === `1|${role}`,
@@ -171,7 +171,7 @@ async function workflow(s) {
   });
   await s.step('searching the saved name again offers it for editing, not as a duplicate', async () => {
     await frame.locator('#role_name').fill(role);
-    await submitIn(admin, frame, frame.locator('input[name="submit"][value="Search"]'));
+    await submitIn(admin, frame, frame.locator('[name="submit"][value="Search"]'));
     h.assert(/You can edit the role/.test(await frame.locator('span.alert').innerText())
       && await frame.locator('input[name="action"]').inputValue() === `edit${role}`, 'The existing role was not offered for editing');
     h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name LIKE ${h.sqlString(owned)}`) === '1', 'Searching changed the role table');
@@ -243,7 +243,21 @@ async function workflow(s) {
     const { ctx, admin: own } = await throwawaySession('role-throwaway-granted');
     try {
       const page = await openItem(own, 'ProviderAddRole', 'input#role_name');
-      h.assert(await page.locator('input[name="submit"][value="Search"]').isVisible(), 'Add A Role did not render its form');
+      h.assert(await page.locator('[name="submit"][value="Search"]').isVisible(), 'Add A Role did not render its form');
+      await page.locator('#role_name').fill(role);
+      await submitIn(own, page, page.locator('[name="submit"][value="Search"]'));
+      h.assert(await page.locator('input[name="action"]').inputValue() === `edit${role}`,
+        'The read-only role search did not find the saved role');
+      h.assert(await page.locator('[name="submit"][value="Save"]').count() === 0,
+        'The read-only role search offered Save');
+      const extra = `${role}-read`;
+      const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+      const denied = await ctx.request.post(h.appUrl(config.baseUrl, '/admin/ProviderAddRole'), {
+        form: { submit: 'Save', action: `add${extra}`, role_name: extra, 'CSRF-TOKEN': token }, maxRedirects: 0 });
+      h.assert(denied.status() === 403, 'The read-only role Save was not refused');
+      await denied.dispose();
+      h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${h.sqlString(extra)}`) === '0',
+        'The refused read-only Save created a role');
       h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0, 'Read access exposed Assign Role/Rights to Object');
       h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Read access was not refused the write-only privilege editor');
     } finally { await ctx.close(); }

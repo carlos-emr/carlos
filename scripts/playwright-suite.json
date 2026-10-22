@@ -721,8 +721,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Patients named FAKE-PW<hex>-A/-B/-C created through POST /ws/rs/demographics with extension values FAKE-PW<hex>-*; cleanup deletes the patients and their admissions by last name and every demographicExt row by that value (wherever it was stored, including no patient) and asserts them gone.",
-      "notes": "A patient created over REST with extras (demo_cell) has each extension linked to the new demographic_no, whatever number the client sent, and the summary endpoint shows it (#5119); two colliding extras fail the request and leave no patient, admission or extension row because creation is one transaction."
+      "fixtures": "Patients named FAKE-PW<hex>-A/-B/-C/-D created through POST /ws/rs/demographics, plus a victim patient FAKE-PW<hex>-V with one extension row inserted by SQL, all with extension values FAKE-PW<hex>-*; cleanup deletes the patients and their admissions by last name and every demographicExt row by that value (wherever it was stored, including no patient) and asserts them gone.",
+      "notes": "A patient created over REST with extras (demo_cell) has each extension linked to the new demographic_no, whatever number the client sent, and the summary endpoint shows it (#5119); a client-supplied extension id never re-points another patient's extension row; two colliding extras fail the request and leave no patient, admission or extension row because creation is one transaction."
     },
     {
       "name": "demographic-edit-update",
@@ -5458,6 +5458,21 @@
       "fixtures": "Owned patient; Vitals readings entered through the E-Chart measurement group with a marker comment; measurements and measurementsDeleted rows removed."
     },
     {
+      "name": "measurement-whtr",
+      "script": "scripts/measurement-whtr-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Measurement popup: double click converts HT (5'10\") and a waist typed in inches (34) to cm, WHtR follows at once (0.49) without a script error, a waist with a unit clears the calculated ratio instead of writing NaN, and Submit stores HT, WAIS and WHtR (#5152).",
+      "fixtures": "Owned patient; a run-private measurement group (marker name) holding HT, Waist and WHtR, plus its measurementGroupStyle row; a WHTR measurementType (the code Add Measurement Type stores for WHtR) with a marker display name is staged when the clinic has none (an existing WHtR type, in any case, is reused and left alone). Cleanup removes the patient's readings and notes, the group, its style row and the staged type, and asserts they are gone."
+    },
+    {
       "name": "report-by-template-groups",
       "script": "scripts/report-by-template-groups-playwright-checks.js",
       "tiers": [
@@ -5921,6 +5936,21 @@
       "env": [],
       "notes": "Records billing administration saves independently. Code Search Update verifies exact persistence, return to search, reload and preservation of unsaved bill edits. Diagnosis Update verifies exact stored/reopened values, unchanged neighboring code and no duplicate rows. Code Confirm fills only the selected correction row, closes without script errors and leaves stored bill items unchanged. Manage Billing Form Add/bill-type/Delete failures remain separately tracked.",
       "fixtures": "Owned billing form (seeded, because its Add is broken), two marked service codes, two unused dx codes and an owned bill; the private code, location and favourite are created through the UI; all removed."
+    },
+    {
+      "name": "translated-button-values",
+      "script": "scripts/translated-button-values-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue #5140: in a French browser (fr-CA), Add A Role's Rechercher offers an unused role name as new and its Enregistrer stores exactly one role, and Manage Private Billing Code's Enregistrer stores the private code with the typed description and fee. Each page is first shown to carry the French label and not the English one.",
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js), a role and a private code named by the run marker. Neither page can delete what it made, so cleanup removes the role with its audit rows and the private code, then the throwaway; all are asserted gone."
     },
     {
       "name": "billing-on-reports-inr-eoy",
@@ -15817,20 +15847,29 @@
       "env": []
     },
     {
-      "name": "chartspace",
-      "script": "scripts/chartspace-playwright-checks.js",
+      "name": "rx-reprint-authorization",
+      "script": "scripts/rx-reprint-authorization-playwright-checks.js",
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
-      "env": [
-        "CHARTSPACE_DEMOGRAPHIC_NO"
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned patient, prescription/drug, and throwaway roles/logins; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "log",
+        "prescription",
+        "drugs",
+        "security",
+        "provider",
+        "secRole",
+        "secObjPrivilege",
+        "secUserRole"
       ],
-      "fixtures": "Read-only on an existing FAKE- demo patient (CHARTSPACE_DEMOGRAPHIC_NO, default 2); no fixtures, no writes."
+      "notes": "Issue #3585: reprint audit writes require global and patient-scoped write; rejects GET/HEAD and tokenless POST, with browser reprint and persisted audit assertions."
     }
   ]
 }

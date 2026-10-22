@@ -189,7 +189,7 @@ async function workflow(s) {
     await form.locator('input[name="description"]').fill(`${marker} private`);
     await form.locator('input[name="value"]').fill('31.50');
     await ui.pickDate(frame, form.locator('#billingservice_date'), issued);
-    const dialogs = await h.withExpectedDialogs(admin, () => navigates(admin, frame, form.locator('input[name="submit"][value="Save"]')));
+    const dialogs = await h.withExpectedDialogs(admin, () => navigates(admin, frame, form.locator('[name="submit"][value="Save"]')));
     h.assert(dialogs.length === 1 && /sure you want to save/i.test(dialogs[0].text), 'Save did not ask for confirmation once');
     h.assert((await frame.locator('form[name="baseurl"] .alert').innerText()).includes(`${privateCode} is added`),
       'The add banner did not name the private code');
@@ -202,7 +202,7 @@ async function workflow(s) {
       'Editing the private code did not load its description');
     await form.locator('input[name="value"]').fill('32.75');
     await ui.pickDate(frame, form.locator('#billingservice_date'), issued);
-    await h.withExpectedDialogs(admin, () => navigates(admin, frame, form.locator('input[name="submit"][value="Save"]')));
+    await h.withExpectedDialogs(admin, () => navigates(admin, frame, form.locator('[name="submit"][value="Save"]')));
     h.assert(sql.value(`SELECT CONCAT_WS('|', COUNT(*), MAX(value)) FROM billingservice
       WHERE service_code=${h.sqlString(privateCode)}`) === '1|32.75', 'The private code edit did not update its single row');
   });
