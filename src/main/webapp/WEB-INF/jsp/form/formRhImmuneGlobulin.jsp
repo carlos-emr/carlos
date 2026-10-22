@@ -241,18 +241,24 @@
                 ArrayList currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
 
                 if (currentWorkFlows != null && currentWorkFlows.size() > 0) {
-                    // A WorkFlow queue row names its pregnancy (issue #4992): show and save that one when it is
-                    // among this patient's active workflows, otherwise the first active one as before.
+                    // A WorkFlow queue row (and the RH save's redisplay) names its pregnancy (issue #4992): show
+                    // and save that one, or none when it is no longer one of this patient's active workflows,
+                    // never another pregnancy. Without a named workflow (the chart's form list) the first
+                    // active one is used, as before.
                     String requestedWorkflowId = request.getParameter("workflowId");
-                    Hashtable chosen = (Hashtable) currentWorkFlows.get(0);
-                    for (Object candidate : currentWorkFlows) {
-                        if (requestedWorkflowId != null && requestedWorkflowId.trim().equals(((Hashtable) candidate).get("ID"))) {
-                            chosen = (Hashtable) candidate;
-                            break;
+                    if (requestedWorkflowId == null) {
+                        h = (Hashtable) currentWorkFlows.get(0);
+                    } else {
+                        for (Object candidate : currentWorkFlows) {
+                            if (requestedWorkflowId.trim().equals(((Hashtable) candidate).get("ID"))) {
+                                h = (Hashtable) candidate;
+                                break;
+                            }
                         }
                     }
-                    request.setAttribute("currentWorkFlow", chosen);
-                    h = chosen;
+                    if (h != null) {
+                        request.setAttribute("currentWorkFlow", h);
+                    }
                 }
 
                 if (h != null) {

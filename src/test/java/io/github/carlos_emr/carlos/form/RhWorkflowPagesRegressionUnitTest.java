@@ -130,9 +130,9 @@ class RhWorkflowPagesRegressionUnitTest {
         // back to the first active one, or the form shown and saved would belong to another pregnancy.
         String form = read("form/formRhImmuneGlobulin.jsp");
         assertThat(form).contains("String requestedWorkflowId = request.getParameter(\"workflowId\");")
+                .contains("if (requestedWorkflowId == null) {\n                        h = (Hashtable) currentWorkFlows.get(0);")
                 .contains("requestedWorkflowId.trim().equals(((Hashtable) candidate).get(\"ID\"))")
-                .contains("request.setAttribute(\"currentWorkFlow\", chosen);")
-                .doesNotContain("h = (Hashtable) currentWorkFlows.get(0);");
+                .doesNotContain("request.setAttribute(\"currentWorkFlow\", currentWorkFlows.get(0));");
     }
 
     @Test
