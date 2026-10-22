@@ -60,9 +60,12 @@ public class RxUtil {
     private static final Pattern STRENGTH_UNIT = Pattern.compile(
             "(?:mg|mcg|[µμ]g|g|iu|meq)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern DOSE_UNIT = Pattern.compile("(?:ml|units?|g|iu)\\b", Pattern.CASE_INSENSITIVE);
-    /** Dosage-form words that make a number before the frequency an explicit count ("... PO 2 tablets TID"). */
+    /**
+     * Dosage-form words, singular or plural, that make a number before the frequency an explicit
+     * count ("... PO 2 tablets TID"). Matched against one whole word.
+     */
     private static final Pattern COUNT_UNIT = Pattern.compile(
-            "(?:tabs?|tablets?|caps?|capsules?|puffs?|sprays?|drops?|sachets?|lozenges?|patch(?:es)?)",
+            "(?:tab|tablet|cap|capsule|puff|spray|drop|sachet|lozenge)s?|patch(?:es)?",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern CONCENTRATION_SEPARATOR = Pattern.compile("(?:/|per\\b)\\s*", Pattern.CASE_INSENSITIVE);
     private static final Pattern PER_DOSE = Pattern.compile("(?:/|per\\b)\\s*dose\\b", Pattern.CASE_INSENSITIVE);
