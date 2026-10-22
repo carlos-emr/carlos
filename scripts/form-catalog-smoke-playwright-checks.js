@@ -95,8 +95,7 @@ const FORMS = [
     print: { kind: 'window', button: 'Print' }, known: { redisplay: claims.ASSERTION_ONLY } },
   { key: 'alpha', code: 'ALP', title: 'ALPHA', view: 'formalpha', table: 'formAlpha',
     prose: { name: 'socialSupport' }, fields: [check('provCounselling'), check('homecare'), typed('other1Name', 'FAKE Alpha support')],
-    print: { kind: 'window', button: 'Print', carries: true },
-    known: { open: claims.ASSERTION_ONLY } },
+    print: { kind: 'window', button: 'Print', carries: true } },
   { key: 'cesd', code: 'CES', title: 'CESD', view: 'formCESD', table: 'formCESD',
     prose: null, fields: [check('Q1Rare'), check('Q2Some')], print: { kind: 'window', button: 'Print' },
     known: { redisplay: claims.ASSERTION_ONLY, restore: claims.ASSERTION_ONLY } },
@@ -197,7 +196,6 @@ function validatePin(env = process.env) {
  * table cannot drift from the wording below.
  */
 const PINNED = Object.freeze({
-  'alpha.open': 'ALPHA: opens from the Forms menu with no error page, script error or failed asset',
   'cesd.redisplay': 'CESD: Save redisplays the saved record in the window it was pressed in',
   'rourke2006.reopen': "Rourke Baby Record 2006: a fresh chart's saved-form entry reopens the saved record",
 });
@@ -383,7 +381,17 @@ async function workflow(s, { select = validatePin() } = {}) {
       await page.evaluate(() => {
         window.__prints = 0;
         window.__printed = '';
-        window.print = () => { window.__prints++; window.__printed = document.body.innerText; };
+        // innerText leaves out every form control's text, but the printed page shows the controls the
+        // form leaves on screen: ALPHA prints its textareas as they are (Letterhead swaps its own for a
+        // div first, and hides the textarea). So add what visible text controls outside .hidePrint hold.
+        window.print = () => {
+          window.__prints++;
+          const shown = [...document.querySelectorAll('textarea, input[type="text"]')]
+            .filter(control => !control.closest('.hidePrint')
+              && control.checkVisibility({ visibilityProperty: true, opacityProperty: true }))
+            .map(control => control.value);
+          window.__printed = [document.body.innerText, ...shown].join('\n');
+        };
       });
       await h.withExpectedDialogs(page, () => button.click(), { accept: spec.confirm !== false });
       h.assert(await page.evaluate(() => window.__prints) === 1, `${spec.button} did not call the browser print exactly once`);
