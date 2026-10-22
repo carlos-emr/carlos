@@ -3984,6 +3984,21 @@
       "fixtures": "Owned synthetic patient; its rows in the ten BC form tables go with it. One marker-named Forms-menu registration per form (encounterForm, clinic-wide), removed and asserted in cleanup, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "form-bc-add-form-defaults",
+      "script": "scripts/form-bc-add-form-defaults-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Issue #5051: on a BC install whose four BC antenatal form rows are as bc/V1.0.59.3 leaves a new install, the E-Chart's Forms menu offers BC-AR 2020 and neither BC-AR nor BC-AR 2007, and a patient's saved BC-AR record is still listed in the chart and opens (hiding a form hides only its new-form entry). The rows still at the baseline values (BC-AR and BC-AR 2007 shown, BC-AR 2020 hidden) FAIL the first step: the migration did not run. Any other combination is a clinic's own Select Forms choice and SKIPs. The saved record is inserted with no c_lastVisited, as a record saved another way carries; before the wrapper fix in this change such a record overflowed the stack when opened.",
+      "fixtures": "Owned synthetic patient and one formBCAR row for it, removed with it. Reads the clinic's encounterForm rows and changes none of them, so it can run alongside other checks."
+    },
+    {
       "name": "billing-bc-associations",
       "script": "scripts/billing-bc-associations-playwright-checks.js",
       "tiers": [

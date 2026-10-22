@@ -61,14 +61,15 @@ migration/
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
            V1.0.19__bc_billingmaster_indexes.sql
            V1.0.59.2__restore_wcb_reference_codes.sql
+           V1.0.59.3__offer_current_bc_antenatal_record.sql
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `bc/V1.0.59.2`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `bc/V1.0.59.3`.
 `V1.0.48`–`V1.0.51` are claimed by open pull requests. `develop` already uses `V1.0.60` and up, so
 this release line takes `.N` sub-versions below that floor (`scripts/flyway-released-migrations.txt`):
-`V1.0.59.1` is claimed by an open pull request, the BC migration of #5062 is `V1.0.59.2`, and the
-next unallocated number on this line is `V1.0.59.3`.
+`V1.0.59.1` is claimed by an open pull request, the two BC migrations of #5062 and #5051 are
+`V1.0.59.2` and `V1.0.59.3`, and the next unallocated number on this line is `V1.0.59.4`.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
 The V1.0.31/V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;
@@ -228,7 +229,9 @@ record's MFA on/off setting (#5120, not the MFA secret) through
 `common/V1.0.59__archive_security_mfa_setting.sql`; rows archived before it read NULL, meaning
 "not recorded". The BC WCB form's reference lists (body parts, natures of injury and sides,
 #5062) are restored by `bc/V1.0.59.2__restore_wcb_reference_codes.sql`, which adds only missing
-rows. The next unallocated version on this line is `V1.0.59.3`. Apply/merge these forward migrations in version order; if their merge
+rows, and new BC installs offer BC-AR 2020 instead of BC-AR and BC-AR 2007 in Add Form (#5051)
+through `bc/V1.0.59.3__offer_current_bc_antenatal_record.sql`, which changes nothing once a clinic
+has changed any BC antenatal row in Select Forms. The next unallocated version on this line is `V1.0.59.4`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized

@@ -60,3 +60,4 @@ common/V1.0.57__preserve_rourke2020_immunization_notes.sql
 common/V1.0.58__preserve_on_behalf_lab_filing_comments.sql
 common/V1.0.59__archive_security_mfa_setting.sql
 bc/V1.0.59.2__restore_wcb_reference_codes.sql
+bc/V1.0.59.3__offer_current_bc_antenatal_record.sql
