@@ -152,6 +152,20 @@ class MsgHandleMessages2ActionDeleteGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse a GET whose delete reached the action only through Struts binding")
+    void shouldRefuseDelete_whenBoundWithoutTheExactParameter() throws Exception {
+        // E.g. a differently cased parameter name that the binder still maps to setDelete.
+        request.setMethod("GET");
+        MsgHandleMessages2Action action = new MsgHandleMessages2Action();
+        action.setMessageNo(String.valueOf(MESSAGE_ID));
+        action.setDelete("Delete");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        verifyNoInteractions(messagingManager, messengerDemographicManager);
+    }
+
+    @Test
     @DisplayName("should delete the message when the view's form posts Delete")
     void shouldDeleteMessage_whenPosted() throws Exception {
         request.setMethod("POST");

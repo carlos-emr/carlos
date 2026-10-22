@@ -154,8 +154,10 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
         // Delete is this route's only write: Reply, Reply All and Forward just open the compose page.
         // ViewMessage.jsp posts it, but the route's name has no verb HttpMethodGuardFilter knows, so a
-        // GET carrying "delete" (which has no CSRF token) deleted the message (issue #3394).
-        if (request.getParameter("delete") != null && !"POST".equals(request.getMethod())) {
+        // GET carrying "delete" (which has no CSRF token) deleted the message (issue #3394). The test is
+        // the one the delete below makes: the parameter, or a value Struts already bound to the field.
+        boolean deletes = request.getParameter("delete") != null || "Delete".equalsIgnoreCase(delete);
+        if (deletes && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
