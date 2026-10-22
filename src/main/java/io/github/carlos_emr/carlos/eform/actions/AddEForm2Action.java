@@ -225,10 +225,14 @@ public class AddEForm2Action extends ActionSupport {
                 new String[] {getText(followOnStep.labelKey)}));
     }
 
+    private String answerConflict(String message) {
+        return answerPlainText(HttpServletResponse.SC_CONFLICT, message);
+    }
+
     // FindSecBugs XSS_SERVLET: only fixed resource-bundle messages, served as non-sniffable plain text.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Only constant-key localized messages; UTF-8 text/plain and nosniff; no request values are written")
-    private String answerConflict(String message) {
-        response.setStatus(HttpServletResponse.SC_CONFLICT);
+    private String answerPlainText(int status, String message) {
+        response.setStatus(status);
         response.setContentType("text/plain;charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");
@@ -343,13 +347,10 @@ public class AddEForm2Action extends ActionSupport {
             EFormDataUriCarrier.restore(paramValues, carriedDataUris, carriedDataUriNonce);
         } catch (EFormDataUriCarrier.InvalidCarriedValueException e) {
             // Nothing is stored yet, so the claim stays retryable. The reason names the failed rule
-            // only; the value is a signature and is never logged.
+            // only; the value is a signature and is never logged. Answered directly, not through the
+            // error result: efmshowform_data.jsp renders a SAVED eForm and fails without an fdid.
             logger.warn("Rejected eForm submission: {}", e.getMessage());
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            request.setAttribute(ERROR_ATTRIBUTE, "true");
-            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE,
-                    "The eForm was not saved because a signature or drawing on it could not be read. Sign it again and save.");
-            return ERROR;
+            return answerPlainText(HttpServletResponse.SC_BAD_REQUEST, getText("eform.submitDataUriRefused"));
         }
 
         EForm curForm = new EForm(fid, demographic_no, providerNo);

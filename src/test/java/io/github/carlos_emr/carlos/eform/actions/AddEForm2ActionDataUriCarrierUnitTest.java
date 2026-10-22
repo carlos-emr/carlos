@@ -65,6 +65,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -82,8 +83,8 @@ import static org.mockito.Mockito.when;
  * {@link EFormDataUriCarrier#PARAMETER} and leaves {@code carlos-data-uri:<nonce>:<n>} in the field, so the
  * WAF can exclude one known argument. The stored eForm values and the template's chart writes must
  * see the signature itself, never the reference, and never the carrier argument as a field. A
- * carried value that is not an image refuses the save before storage starts, which keeps the
- * submission token retryable.</p>
+ * carried value that is not an image refuses the save before storage starts with a plain-text 400,
+ * which keeps the submission token retryable.</p>
  *
  * <p>Each test ends on the save-as-eDoc path with a refused render ({@code missingContent}): it
  * returns right after storage and the template write, without the patient-matching step that needs
@@ -210,6 +211,15 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
         if (mockitoMocks != null) mockitoMocks.close();
     }
 
+    private static final String REFUSAL = "The eForm was not saved: signature unreadable";
+
+    /** The action, with the localized refusal text resolvable outside a Struts request. */
+    private AddEForm2Action refusingAction() {
+        AddEForm2Action action = spy(new AddEForm2Action());
+        doReturn(REFUSAL).when(action).getText("eform.submitDataUriRefused");
+        return action;
+    }
+
     @SuppressWarnings("unchecked")
     private List<List<String>> storedFields() {
         ArgumentCaptor<ArrayList<String>> names = ArgumentCaptor.forClass(ArrayList.class);
@@ -283,11 +293,13 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
                 "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==");
         mockRequest.setParameter(EFormDataUriCarrier.NONCE_PARAMETER, NONCE);
 
-        assertThat(new AddEForm2Action().execute()).isEqualTo("error");
+        assertThat(refusingAction().execute()).isEqualTo("none");
 
+        // Answered directly: the error result renders a SAVED eForm and fails without an fdid.
         assertThat(mockResponse.getStatus()).isEqualTo(400);
-        assertThat(mockRequest.getAttribute("error")).isEqualTo("true");
-        assertThat((String) mockRequest.getAttribute("errorMessage")).contains("signature");
+        assertThat(mockResponse.getContentType()).startsWith("text/plain");
+        assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        assertThat(mockResponse.getContentAsString()).isEqualTo(REFUSAL);
         verify(mockEformDataManager, never()).saveEformData(any(), any());
         eFormUtilMock.verify(() -> EFormUtil.addEFormValues(any(), any(), anyInt(), anyInt(), anyInt()), never());
     }
@@ -298,7 +310,8 @@ class AddEForm2ActionDataUriCarrierUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("SignatureBox", ref(3));
         mockRequest.setParameter(EFormDataUriCarrier.PARAMETER, PNG);
         mockRequest.setParameter(EFormDataUriCarrier.NONCE_PARAMETER, NONCE);
-        assertThat(new AddEForm2Action().execute()).isEqualTo("error");
+        assertThat(refusingAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
 
         mockRequest.setParameter("SignatureBox", ref(0));
         mockResponse = new MockHttpServletResponse();

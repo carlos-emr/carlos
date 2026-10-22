@@ -79,6 +79,30 @@ async function postForm(page, overrides) {
   }, overrides);
 }
 
+/**
+ * Runs a probe whose 4xx answer from /eform/addEForm is the point of the step, then consumes
+ * exactly those answers (and the browser's matching console lines) from the strict page recorder;
+ * any other response or console signal stays a failure.
+ */
+async function expectingStatuses(s, statuses, probe) {
+  const since = { responses: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length };
+  const result = await probe();
+  for (let i = s.recorder.badResponses.length - 1; i >= since.responses; i--) {
+    const bad = s.recorder.badResponses[i];
+    if (statuses.includes(bad.status) && /\/eform\/addEForm(?:[?;]|$)/.test(bad.url || '')) {
+      s.recorder.badResponses.splice(i, 1);
+    }
+  }
+  for (let i = s.recorder.consoleIssues.length - 1; i >= since.console; i--) {
+    const issue = s.recorder.consoleIssues[i];
+    if (statuses.some((status) => (issue.text || '').includes(`status of ${status} (`))
+        && /\/eform\/addEForm(?:[?;]|$)/.test((issue.location && issue.location.url) || '')) {
+      s.recorder.consoleIssues.splice(i, 1);
+    }
+  }
+  return result;
+}
+
 async function workflow(s) {
   const name = `${s.marker} signature data URIs`;
   s.cleanup(() => {
@@ -127,8 +151,8 @@ async function workflow(s) {
     png = await draw();
     const before = revisions();
     const ref = `carlos-data-uri:${NONCE}:0`;
-    const refused = await postForm(page, { SignaturePad: ref, MirrorPad: ref, StoreSignature1: ref,
-      'carlos-data-uri': SVG_PAYLOAD, 'carlos-data-uri-nonce': NONCE });
+    const refused = await expectingStatuses(s, [400], () => postForm(page, { SignaturePad: ref, MirrorPad: ref,
+      StoreSignature1: ref, 'carlos-data-uri': SVG_PAYLOAD, 'carlos-data-uri-nonce': NONCE }));
     h.assert(refused.status === 400, `An SVG carried value was answered ${refused.status}, not 400`);
     h.assert(/signature or drawing on it could not be read/.test(refused.text),
       'The refusal did not tell the clinician the signature could not be read');
@@ -184,7 +208,7 @@ async function workflow(s) {
 
   await s.step('the front door scores data URIs in ordinary fields', async () => {
     await openNew();
-    const probe = await postForm(page, { clinicalNote: HTML_PAYLOAD });
+    const probe = await expectingStatuses(s, [403], () => postForm(page, { clinicalNote: HTML_PAYLOAD }));
     const frontDoor = expectFrontDoor || /nginx/i.test(probe.server);
     if (!frontDoor) {
       // No WAF in front of this app (devcontainer): the request reached the application.
@@ -193,7 +217,7 @@ async function workflow(s) {
     }
     h.assert(probe.status === 403 && /nginx/i.test(probe.server),
       `data:text/html in an ordinary field was answered ${probe.status} (server '${probe.server}'), not the WAF's 403`);
-    const uncarried = await postForm(page, { StoreSignature1: JSIGNATURE });
+    const uncarried = await expectingStatuses(s, [403], () => postForm(page, { StoreSignature1: JSIGNATURE }));
     h.assert(uncarried.status === 403 && /nginx/i.test(uncarried.server),
       `An uncarried signature in an author-named field was answered ${uncarried.status}, not the WAF's 403`);
     h.assert(revisions() === 1, 'A WAF-blocked request stored a revision');
