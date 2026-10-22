@@ -160,6 +160,9 @@ Results:
   `outcome/`, `p1/`, `p2/` and `p3/`, and an unknown `../x`, which opens the first page.
 - The installer's "NOT ready to use" notice came from nginx's stock site on this IPv6-less container
   (`[::]:80`), as section 2 describes. No `.install-incomplete` marker remained.
+- A later refactor of the `fit` branch moved it into the existing print-branch chain, with no output
+  change. Its `FrmPDFServlet` class was swapped into the same install, and `clinical-forms-save-reopen`
+  and `-form14-42` were run again: both **PASS**.
 `rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
 run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
 (DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
