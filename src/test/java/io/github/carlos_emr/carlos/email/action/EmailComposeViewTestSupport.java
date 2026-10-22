@@ -26,6 +26,17 @@ final class EmailComposeViewTestSupport {
     private EmailComposeViewTestSupport() {
     }
 
+    /** Supply a synthetic authenticated provider when a valid compose fixture has no user yet. */
+    static void ensureLoggedInUser(jakarta.servlet.http.HttpServletRequest request) {
+        if (io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request) == null) {
+            var provider = new io.github.carlos_emr.carlos.commn.model.Provider(
+                    "101", "FAKE", "doctor", "U", "", "Fixture");
+            var user = new io.github.carlos_emr.carlos.utility.LoggedInInfo();
+            user.setLoggedInProvider(provider);
+            io.github.carlos_emr.carlos.utility.LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
+        }
+    }
+
     /**
      * Renders the view that a completed prepare redirected to. The caller's ServletActionContext
      * must still return the request whose session prepared it.
@@ -33,6 +44,7 @@ final class EmailComposeViewTestSupport {
      * @return the render result, "compose" when the view resolved
      */
     static String renderPreparedView(MockHttpServletResponse prepareResponse) {
+        ensureLoggedInUser(org.apache.struts2.ServletActionContext.getRequest());
         String location = prepareResponse.getRedirectedUrl();
         String marker = EmailCompose2Action.EMAIL_COMPOSE_VIEW_PARAM + "=";
         assertThat(location).as("prepare redirects to its view").contains(marker);
@@ -63,7 +75,8 @@ final class EmailComposeViewTestSupport {
                 Boolean.TRUE.equals(session.getAttribute("deleteEFormAfterEmail")),
                 (String) session.getAttribute("senderEmail"), (String) session.getAttribute("subjectEmail"),
                 (String) session.getAttribute("bodyEmail"), (String) session.getAttribute("encryptedMessageEmail"),
-                (String) session.getAttribute("emailPatientChartOption"));
+                (String) session.getAttribute("emailPatientChartOption"),
+                (String) session.getAttribute("footerEmail"));
         String key = EmailComposeStaging.stage(session, request.getParameter("fid"), settings);
         request.setParameter(EmailComposeStaging.DRAFT_PARAMETER, key);
         return key;

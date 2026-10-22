@@ -454,7 +454,7 @@ async function workflow(session) {
     await pad.locator(`#set_${first} a[onclick^="removePrescribingDrug"]`).click();
     await pad.locator(`#set_${first}`).waitFor({state: 'detached'});
     const pendingLink = (editor, action) => editor.locator(
-      `a[href^="javascript:submitPending('${target}',"][href$=", '${action.toLowerCase()}');"]`).first();
+      `button[onclick^="submitPending('${target}',"][onclick$=", '${action.toLowerCase()}');"]`).first();
     const edited = editors[0].waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/stash')
       && response.request().method() === 'POST');
     await pendingLink(editors[0], 'Edit').click();

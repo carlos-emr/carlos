@@ -246,6 +246,9 @@
         }
     </style>
 
+<style>
+    .link-button { background: none; border: 0; color: var(--bs-link-color, #0000EE); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+</style>
 </head>
 
 <body>
@@ -572,7 +575,7 @@
                 </td>
                 <td>
                     <%if ("Pri".equals(b.billingtype)) {%>
-                    <a href="javascript:popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView?billing_no=<%=b.billing_no%>&receipt=yes')"><%=b.billing_no%>
+                    <a href="<%=request.getContextPath()%>/billing/CA/BC/billingView?billing_no=<%=SafeEncode.forUriComponent(b.billing_no)%>&amp;receipt=yes" onclick="popupPage(800,800, this.href); return false;"><%=b.billing_no%>
                     </a>
                     <%
                     } else {
@@ -591,8 +594,8 @@
                 <%
                     if (!"true".equals(readonly)) {
                 %>
-                <td><a href="javascript: setDemographic('<%=SafeEncode.forJavaScriptAttribute(b.demoNo)%>');"><%=SafeEncode.forHtml(b.demoName)%>
-                </a></td>
+                <td><button type="button" class="link-button" onclick="setDemographic('<%=SafeEncode.forJavaScriptAttribute(b.demoNo)%>');"><%=SafeEncode.forHtml(b.demoName)%>
+                </button></td>
                 <%}%>
                 <td><%=SafeEncode.forHtml(b.providerLastName)%>,<%=SafeEncode.forHtml(b.providerFirstName)%>
                 </td>
@@ -622,7 +625,7 @@
 
                 <td>
                     <% if (adminAccess) { %>
-                    <a href="javascript: popupPage(700,1000,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<%=b.billMasterNo%>&invoiceNo=<%=b.billing_no%>')">Edit </a>
+                    <a href="<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<%=SafeEncode.forUriComponent(b.billMasterNo)%>&amp;invoiceNo=<%=SafeEncode.forUriComponent(b.billing_no)%>" onclick="popupPage(700,1000,this.href); return false;">Edit </a>
                     <% } %>
 
 

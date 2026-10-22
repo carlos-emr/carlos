@@ -867,6 +867,9 @@
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
 
+        <style>
+            .link-button { background: none; border: 0; color: var(--bs-link-color, #0000EE); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+        </style>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="javascript:pageLoad();">
@@ -1596,30 +1599,30 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                     </c:otherwise>
                                                 </c:choose>
                                                 <td>
-                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         <fmt:message key="WriteScript.msgEdit"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'delete');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'delete');">
                                                         <fmt:message key="WriteScript.msgDelete"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         ${carlos:forHtml(rx.rxDisplay)}
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:ShowDrugInfo('<carlos:encode value='${rx2.genericName}' context="javaScriptAttribute"/>', '<carlos:encode value='${rx2.regionalIdentifier}' context="javaScriptAttribute"/>');">
+                                                    <a href="${pageContext.request.contextPath}/rx/drugInfo?GN=${carlos:forUriComponent(rx2.genericName)}<c:if test="${not empty rx2.regionalIdentifier and rx2.regionalIdentifier ne 'null' and rx2.regionalIdentifier ne '0'}">&amp;DIN=${carlos:forUriComponent(rx2.regionalIdentifier)}</c:if>" onclick="ShowDrugInfo('${carlos:forJavaScriptAttribute(rx2.genericName)}', '${carlos:forJavaScriptAttribute(rx2.regionalIdentifier)}'); return false;">
                                                         <fmt:message key="WriteScript.msgInfo"/>
                                                     </a>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
+                                                    <button type="button" class="link-button" onclick="addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScriptAttribute"/>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 </tr>
                                             </c:forEach>

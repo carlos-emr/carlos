@@ -79,10 +79,9 @@ class ConsultationAttachmentWarningJspRegressionTest {
         assertThat(blockEnd).isGreaterThan(block).isLessThan(formEnd);
         // The keys the page listed go back with the fax, and the box must be ticked.
         assertThat(jsp.substring(block, blockEnd))
-                .contains("name=\"confirmedUnavailableAttachments\"")
-                .contains("<carlos:encode value='${ confirmedWarning.key }' context='htmlAttribute'/>")
+                .contains("name=\"consultAttachmentApproval\"")
                 .contains("id=\"confirmSendWithoutUnavailable\"")
-                .contains("name=\"confirmSendWithoutUnavailable\" value=\"true\" required>")
+                .contains("name=\"confirmAttachmentOmissions\" value=\"true\" required>")
                 .contains("<fmt:message key=\"consultation.fax.confirmSendWithoutUnavailable\"/>");
         // The form is novalidate, so the submit handler checks the box itself, before the send.
         int submit = jsp.indexOf("function submitForm(event)");
@@ -93,7 +92,7 @@ class ConsultationAttachmentWarningJspRegressionTest {
         // it adds no untranslated "This field is required." label next to the browser's prompt.
         int rules = jsp.indexOf("$('#coverPageForm').validate({");
         assertThat(jsp.substring(rules, jsp.indexOf("messages:", rules)).replaceAll("\\s+", " "))
-                .contains("confirmSendWithoutUnavailable: { required: false }");
+                .contains("confirmAttachmentOmissions: { required: false }");
     }
 
     @Test
@@ -139,10 +138,12 @@ class ConsultationAttachmentWarningJspRegressionTest {
     private static final String PREFIX = "encounter.oscarConsultationRequest.";
     /** Keys worded through MessageFormat (fmt:param or ConsultAttachmentWarning), where a lone ' is eaten. */
     private static final List<String> FORMATTED_KEYS = List.of(
-            PREFIX + "attachmentWarning.unavailable", PREFIX + "attachmentWarning.fileUnavailable",
-            PREFIX + "attachmentWarning.notRendered",
-            PREFIX + "attachmentWarning.printBlocked", "consultation.fax.unavailableNotConfirmed",
-            "consultation.fax.attachmentsNotRendered");
+            PREFIX + "attachmentWarning.unavailable", PREFIX + "attachmentWarning.fileUnavailable", PREFIX + "attachmentWarning.notRendered",
+            PREFIX + "attachmentWarning.unsupported", PREFIX + "attachmentWarning.printBlocked", "consultation.fax.unavailableNotConfirmed",
+            "consultation.fax.attachmentsNotRendered",
+            "consultation.attachments.reviewTitle", "consultation.attachments.reviewMessage",
+            "consultation.attachments.confirm", "consultation.attachments.proceed", "consultation.attachments.cancel",
+            "consultation.attachments.previewConfirm", "consultation.attachments.retry", "consultation.attachments.approvalInvalid");
     private static final List<String> NEW_KEYS = List.of(
             PREFIX + "msgAttachmentsUnavailable",
             PREFIX + "ConsultationFormRequest.msgPreviewAttachmentsUnavailable",
@@ -153,7 +154,10 @@ class ConsultationAttachmentWarningJspRegressionTest {
             PREFIX + "attachmentType.document", PREFIX + "attachmentType.lab", PREFIX + "attachmentType.eform",
             PREFIX + "attachmentType.hrm", PREFIX + "attachmentType.form", PREFIX + "attachmentType.unknown",
             "consultation.fax.confirmSendWithoutUnavailable", "consultation.fax.unavailableNotConfirmed",
-            "consultation.fax.attachmentsNotRendered");
+            "consultation.fax.attachmentsNotRendered",
+            "consultation.attachments.reviewTitle", "consultation.attachments.reviewMessage",
+            "consultation.attachments.confirm", "consultation.attachments.proceed", "consultation.attachments.cancel",
+            "consultation.attachments.previewConfirm", "consultation.attachments.retry", "consultation.attachments.approvalInvalid");
 
     @ParameterizedTest
     @ValueSource(strings = {"es", "fr", "pl", "pt_BR"})

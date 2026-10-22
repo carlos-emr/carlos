@@ -75,6 +75,9 @@
         fallbackUrl += "?de=" + java.net.URLEncoder.encode(fallbackDemographicNo, java.nio.charset.StandardCharsets.UTF_8);
     }
 %>
+<% if (Boolean.TRUE.equals(request.getAttribute("attachmentReviewRequired"))) { %>
+    <jsp:forward page="/WEB-INF/jsp/encounter/oscarConsultationRequest/ReviewConsultationAttachments.jsp"/>
+<% } %>
 <!DOCTYPE html>
 <html>
     <head>

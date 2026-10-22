@@ -141,6 +141,12 @@ administrator saves the page. See the [SMS backend guide](../../../../docs/archi
 grants it to admin, receptionist and the doctor and nursing roles, keeping any row a clinic already
 set.
 
+`V1.0.60__portal_booking_prompt_security_object.sql` seeds `_portal.booking_prompt` (#3849) and
+grants it to admin, receptionist and the doctor and nursing roles, keeping any row a clinic already
+set.
+
+`V1.0.61__portal_booking_offer.sql` adds `portal_booking_offer` (#3850): which provider and time each opaque slot id offered through the portal stands for, and what became of it.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
@@ -195,3 +201,10 @@ demo-data load and the OSCAR 19 importer; a package upgrade runs Flyway alone, s
 an earlier package never received the inputs. The `UPDATE` is identical to the script's (pinned by
 `scripts/rtl-signature-stamp.test.js`), matches nothing on a fresh schema, skips customized or
 already-patched rows, and can be rerun safely.
+
+## Email footers (V1.0.79–V1.0.80)
+
+- `V1.0.79__add_email_log_footer.sql` records the footer snapshot on each email log.
+- `V1.0.80__email_front_desk_default.sql` grants the front desk default email access while retaining explicit denials.
+
+These versions follow the current develop and release/2026.08 migration ranges.

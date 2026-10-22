@@ -134,6 +134,10 @@ public class HttpMethodGuardFilter implements Filter {
             "submit", "merge", "archive", "assign", "transfer",
             "approve", "reject", "toggle", "complete", "process",
             "cancel", "close",
+            // Chart notes (CaseManagementEntry): autosave stores the draft and saveAndExit saves the
+            // note, like save; the editor sends both by POST. saveAndExit also names the save of
+            // CaseManagementView (CPP) and form/BCAR2020, whose method=save is already POST-only.
+            "autosave", "saveandexit",
             // ManageEmails2Action mutates status or creates token/PDF state for a copied email.
             "setresolved", "resendemail",
             // MfaActions2Action dispatches its privileged MFA-secret reset via ?method=resetMfa;

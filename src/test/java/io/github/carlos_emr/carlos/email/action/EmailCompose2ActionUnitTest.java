@@ -7,16 +7,21 @@ package io.github.carlos_emr.carlos.email.action;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.eform.actions.AddEForm2Action;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.IssuedPreview;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
+import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -31,12 +36,16 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -101,6 +110,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             HttpSession session, String viewId, MockHttpServletResponse viewResponse, String expectedResult) {
         MockHttpServletRequest viewRequest = new MockHttpServletRequest("GET", "/email/emailComposeAction");
         viewRequest.setSession(session);
+        EmailComposeViewTestSupport.ensureLoggedInUser(viewRequest);
         viewRequest.setParameter(EmailCompose2Action.EMAIL_COMPOSE_VIEW_PARAM, viewId);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(viewRequest);
         servletActionContext.when(ServletActionContext::getResponse).thenReturn(viewResponse);
@@ -155,6 +165,15 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         return ownedPdf;
     }
 
+    @Test
+    void shouldKeepPersonalDefaultSeparateFromEFormOverrideAndExplicitEmpty() {
+        assertThat(EmailCompose2Action.resolveComposeFooter(null, "<b>Saved personal</b>"))
+                .isEqualTo("<b>Saved personal</b>");
+        assertThat(EmailCompose2Action.resolveComposeFooter("", "Saved personal")).isEmpty();
+        assertThat(EmailCompose2Action.resolveComposeFooter("EForm\nPersonal", "Saved personal"))
+                .isEqualTo("EForm<br>Personal");
+    }
+
     private record ComposeMocks(EmailComposeManager emailComposeManager,
             EmailPdfPasswordService emailPdfPasswordService,
             PdfPreviewCapabilityService pdfPreviewCapabilityService) {
@@ -162,10 +181,15 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUpComposeSubmissionStateService() {
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
         composeSubmissionStateService = new EmailComposeSubmissionStateService();
         registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
         // EmailCompose2Action resolves the preview-token service at construction time, so every
         // test needs it registered even when the test itself never exercises attachment previews.
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
     }
 
@@ -185,7 +209,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         var settings = new EmailAttachmentSettings(
                 "20001", "10001", new String[]{"21001"}, new String[]{"30001"}, new String[]{"31001"},
                 new String[]{"32001"}, new String[]{"33001"}, true, true, false, false, false, true,
-                "fake-a@example.com", "FAKE subject A", "FAKE message A", null, "FULL");
+                "fake-a@example.com", "FAKE subject A", "FAKE message A", null, "FULL", null);
         String key = EmailComposeStaging.stage(session, "40001", settings);
         request.setParameter(EmailComposeStaging.DRAFT_PARAMETER, key);
         // Generic patient navigation and an older window's redirect must not alter the draft tuple.
@@ -241,7 +265,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         return EmailComposeStaging.stage(session, fid, new EmailAttachmentSettings(
                 "2" + patient, patient, null, new String[]{"3" + patient}, null, null, null,
                 true, false, false, false, false, false, "fake@example.com", "FAKE subject " + name,
-                "FAKE message " + name, null, "FULL"));
+                "FAKE message " + name, null, "FULL", "FAKE footer " + name));
     }
 
     private static MockHttpServletRequest prepareRequest(HttpSession session, String draftKey) {
@@ -283,9 +307,11 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(two.getAttribute("demographicId")).isEqualTo("10002");
             assertThat(two.getAttribute("fid")).isEqualTo("40002");
             assertThat(two.getAttribute("subjectEmail")).isEqualTo("FAKE subject two");
+            assertThat(two.getAttribute("footerEmail")).isEqualTo("FAKE footer two");
             assertThat(one.getAttribute("demographicId")).isEqualTo("10001");
             assertThat(one.getAttribute("fid")).isEqualTo("40001");
             assertThat(one.getAttribute("subjectEmail")).isEqualTo("FAKE subject one");
+            assertThat(one.getAttribute("footerEmail")).isEqualTo("FAKE footer one");
         }
     }
 
@@ -1284,6 +1310,119 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                 .as("the other window's draft").isEqualTo("789");
         assertThat(EmailComposeStaging.take(request.getSession(), draftKey).settings().demographicNo())
                 .as("this window's draft, back for a retry").isEqualTo("123");
+    }
+
+    @Test
+    @DisplayName("should open with the eForm's footer when the eForm supplies one")
+    void shouldPrefillEFormFooter_whenEFormSuppliesOne() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        when(mocks.emailComposeManager().getAllSenderAccounts())
+                .thenReturn(List.of(senderAccount("clinic@example.org")));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+        request.getSession(false).setAttribute("footerEmail", "eForm footer");
+
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            assertThat(request.getSession().getAttribute("footerEmail")).isNull();
+            MockHttpServletRequest rendered = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+
+            assertThat(rendered.getAttribute("footerEmail")).isEqualTo("eForm footer");
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should open with an empty footer when the eForm has none")
+    void shouldPrefillEmptyFooter_whenNoFooterSupplied() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        when(mocks.emailComposeManager().getAllSenderAccounts())
+                .thenReturn(List.of(senderAccount("clinic@example.org")));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            MockHttpServletRequest rendered = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+
+            assertThat(rendered.getAttribute("footerEmail")).isEqualTo("");
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"FAKE Riverside Clinic\nCall 555-0100"})
+    @DisplayName("should carry the keyed eForm footer and distinguish a missing footer from an explicit empty footer")
+    void shouldCarryEFormFooter_fromEFormSaveToCompose(String footer) throws Exception {
+        // Drives the eForm save's own staging, not a hand-seeded session, so a change to how the
+        // eForm hands its fields to the email screen (for example #4127's staging snapshot) can't
+        // drop the footer without this failing. It reaches AddEForm2Action.addEmailAttachmentsToSession
+        // by reflection: if that method is renamed or replaced, point this lookup at the new
+        // eForm-to-email staging call instead of deleting the test.
+        ComposeMocks mocks = registerComposeMocks();
+        when(mocks.emailComposeManager().getAllSenderAccounts())
+                .thenReturn(List.of(senderAccount("clinic@example.org")));
+        registerMock(EformDataManager.class, mock(EformDataManager.class));
+        registerMock(DocumentAttachmentManager.class, mock(DocumentAttachmentManager.class));
+        registerMock(EmailManager.class, mock(EmailManager.class));
+        MockHttpServletRequest eFormSave = new MockHttpServletRequest("POST", "/eform/addEForm");
+        if (footer != null) {
+            eFormSave.setParameter("footerEmail", footer);
+        }
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class)))
+                .thenReturn("<b>FAKE Saved personal</b>");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
+        EmailAttachmentSettings settings = EmailAttachmentSettings.of(eFormSave, "4001", "123",
+                new String[0], new String[0], new String[0], new String[0], new String[0]);
+        Method stage = AddEForm2Action.class.getDeclaredMethod("addEmailAttachmentsToSession",
+                HttpServletRequest.class, String.class, EmailAttachmentSettings.class);
+        stage.setAccessible(true);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        // The email screen opens in the same session the eForm save staged into.
+        request.setSession(eFormSave.getSession());
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(eFormSave);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            try {
+                String draftKey = (String) stage.invoke(new AddEForm2Action(), eFormSave, "4000", settings);
+                request.setParameter(EmailComposeStaging.DRAFT_PARAMETER, draftKey);
+            } catch (InvocationTargetException e) {
+                throw (e.getCause() instanceof Exception cause) ? cause : e;
+            }
+
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            MockHttpServletRequest rendered = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+
+            assertThat(rendered.getAttribute("footerEmail")).isEqualTo(footer == null
+                    ? "<b>FAKE Saved personal</b>"
+                    : footer.isEmpty() ? "" : "FAKE Riverside Clinic<br>Call 555-0100");
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should treat a missing or blank eForm footer as none, and read an eForm footer as plain text")
+    void shouldResolveFooter_fromEFormOnly() {
+        assertThat(EmailCompose2Action.resolveComposeFooter(null)).isEmpty();
+        assertThat(EmailCompose2Action.resolveComposeFooter("  \n ")).isEmpty();
+        // An eForm's footer is plain text: its line breaks are kept and nothing in it is markup.
+        assertThat(EmailCompose2Action.resolveComposeFooter("Book online\nCall <front desk> & ask\n"))
+                .isEqualTo("Book online<br>Call &lt;front desk&gt; &amp; ask");
+    }
+
+    private static EmailConfig senderAccount(String senderEmail) {
+        return new EmailConfig(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.LOCAL, senderEmail);
     }
 
     @SuppressWarnings("unchecked")

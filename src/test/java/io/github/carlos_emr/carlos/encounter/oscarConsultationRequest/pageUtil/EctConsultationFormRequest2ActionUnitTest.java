@@ -63,6 +63,8 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.ConsultAttachmentWarning;
+import io.github.carlos_emr.carlos.consultation.ConsultAttachmentApprovalService;
+import io.github.carlos_emr.carlos.consultation.ConsultAttachmentApprovalService.Operation;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -128,6 +130,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     void setUp() throws Exception {
         mocks = MockitoAnnotations.openMocks(this);
         request = new MockHttpServletRequest("POST", "/encounter/RequestConsultation");
+        request.getSession();
+        registerMock(ConsultAttachmentApprovalService.class, new ConsultAttachmentApprovalService());
         response = new MockHttpServletResponse();
         loggedInInfo = mock(LoggedInInfo.class);
         securityInfoManager = mock(SecurityInfoManager.class);
@@ -262,8 +266,48 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"attachmentReviewRequired\":true").doesNotContain(PDF_BASE64);
+        verify(documentAttachmentManager, never()).convertPDFToBase64(any());
         assertThat(response.getContentAsString()).contains("\"attachmentWarnings\":[\"Document 80 is no longer available "
                 + "(it was deleted or does not belong to this patient).\"]");
+    }
+
+
+    @Test
+    void shouldReleasePdf_afterProviderApprovesPreviewOmissions() throws Exception {
+        doAnswer(invocation -> {
+            request.setAttribute("demographicId", "1");
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE, List.of(UNAVAILABLE_DOCUMENT_WARNING));
+            return pdfPath;
+        }).when(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
+        action.execute();
+        String token = (String) request.getAttribute(ConsultAttachmentApprovalService.TOKEN);
+        request.setParameter(ConsultAttachmentApprovalService.TOKEN, token);
+        request.setParameter(ConsultAttachmentApprovalService.CONFIRM, "true");
+        request.removeAttribute(ConsultAttachmentApprovalService.REVIEW_REQUIRED);
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        action.setRequestId("9");
+        action.execute();
+        assertThat(response.getContentAsString()).contains(PDF_BASE64).contains("\"attachmentReviewRequired\":false");
+        verify(consultationRequestDao, never()).persist(any());
+        verify(consultationRequestDao, never()).merge(any());
+    }
+
+    @Test
+    void shouldRenderSavedConsultOnly_whenApprovingPrintAfterSave() throws Exception {
+        action.setSubmission("Review And Print Preview");
+        request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE, List.of(UNAVAILABLE_DOCUMENT_WARNING));
+        ConsultAttachmentApprovalService service = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(ConsultAttachmentApprovalService.class);
+        request.setParameter(ConsultAttachmentApprovalService.TOKEN,
+                service.issue(request, loggedInInfo, "9", "1", Operation.PRINT, List.of(UNAVAILABLE_DOCUMENT_WARNING)));
+        request.setParameter(ConsultAttachmentApprovalService.CONFIRM, "true");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("consultPDF")).isEqualTo(PDF_BASE64);
+        verify(consultationRequestDao, never()).persist(any());
+        verify(consultationRequestDao, never()).merge(any());
+        verify(consultationManager, never()).archiveConsultationRequest(anyInt());
+        verify(documentAttachmentManager, never()).attachToConsult(any(), any(), any(), any(), anyInt(), anyInt());
     }
 
     @Test
@@ -281,7 +325,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getContentAsString())
                 .contains("Document 80 : n\u2019est plus disponible (\u00e9l\u00e9ment supprim\u00e9 ou n\u2019appartenant pas \u00e0 ce patient).")
-                .contains("R\u00e9sultat de laboratoire 7 : lecture impossible.");
+                .contains("R\u00e9sultat de laboratoire 7 : lecture impossible ;");
     }
 
     @Test
@@ -357,8 +401,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
         assertThat(response.getHeader("Content-Disposition")).isNull();
         assertThat(response.getContentAsString())
-                .contains("\"consultPDF\":\"" + PDF_BASE64 + "\"")
-                .contains("Form 3 could not be read.")
+                .contains("\"consultPDF\":null")
+                .contains("\"attachmentReviewRequired\":true")
+                .contains("Form 3 could not be read and would be left out.")
                 .doesNotContain("renderer body");
     }
 
@@ -1217,7 +1262,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("isPreviewReady")).isEqualTo("true");
+        assertThat(request.getAttribute("isPreviewReady")).isNull();
+        assertThat(request.getAttribute(ConsultAttachmentApprovalService.REVIEW_REQUIRED)).isEqualTo(true);
+        assertThat(request.getAttribute("consultPDF")).isNull();
         assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
                 .asList().containsExactly(UNAVAILABLE_DOCUMENT_WARNING);
         InOrder inOrder = inOrder(documentAttachmentManager);

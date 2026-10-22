@@ -56,6 +56,7 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         manager = spy(new EmailManager(consent, factory, security, archives));
         injectDependency(manager, "oscarLogDao", mock(OscarLogDao.class));
         injectDependency(manager, "emailLogDao", logs);
+        injectDependency(manager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         injectDependency(manager, "emailConfigDao", configs);
         injectDependency(manager, "demographicManager", demographics);
         injectDependency(manager, "providerManager", providers);

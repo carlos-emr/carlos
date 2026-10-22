@@ -28,7 +28,8 @@
  *      the stamps.js / stamp.png fallback);
  *   3. Closing Salutation inserts the same signature, and neither button raises APCache's
  *      "could not be filled in" banner (the dead stamp_name key used to, on every Stamp click);
- *   4. no page errors, severe console errors (beyond the documented stamps.js 404) or alert dialogs.
+ *   4. no page errors, severe console errors (beyond the stamps.js 404 of an install whose
+ *      placeholder was removed) or alert dialogs.
  *
  * Nothing is saved: the letter is opened, stamped and discarded.
  *
@@ -75,8 +76,8 @@ const config = {
 // Mirrors MIN_BILLING_PROVIDER_OHIP_NO in editControl2.js (see docs/rich-text-letter-eform.md).
 const RTL_BILLING_THRESHOLD = 1000;
 
-// stamps.js is never auto-deployed (clinic signature stamps), so a stock install logs a 404 + MIME
-// refusal for it on every letter; the same exemption as eform-rtl-print-pdf-playwright-checks.js.
+// An install whose stamps.js placeholder was removed logs a 404 + MIME refusal for it on every
+// letter; the same exemption as eform-rtl-print-pdf-playwright-checks.js.
 function isKnownConsoleIssue(issue) {
   const where = (issue.location && issue.location.url) || '';
   const text = issue.text || '';

@@ -56,7 +56,7 @@ public interface DocumentAttachmentManager {
     /**
      * Request attribute that lets {@link #renderConsultationFormWithAttachments} leave out an
      * attachment that fails to render, recording a warning instead. Only a caller that shows
-     * those warnings to the user may set it (the on-screen print preview). Without it, a failed
+     * those warnings and checks explicit provider approval before disclosure may set it. Without it, a failed
      * attachment fails the whole render, so a printed or faxed consult is never silently missing
      * content.
      */
@@ -320,7 +320,7 @@ public interface DocumentAttachmentManager {
      * belongs to another patient, and HRM reports whose file is missing or unreadable, are always
      * left out, with the warning {@link #getUnavailableConsultAttachmentWarnings} gives them. Labs
      * follow the lab-source rules instead: a lab whose source must be selected again stops the
-     * render, and lab sources the PDF cannot hold are left out (#4693).</p>
+     * render, and lab sources the PDF cannot hold require explicit omission approval (#4693).</p>
      *
      * <p>The patient is the saved consultation's own. A missing {@code demographicId} attribute is
      * set from it; one that names another patient is refused.</p>

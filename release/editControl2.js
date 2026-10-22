@@ -614,24 +614,27 @@ function parseTemplate(){
 	//replace template placeholders with database pulls
 	var contents=editControlContents(cfg_editorname, true);
 	var temp = contents.split('##'); //parse for template place holders identified by ##value##
-	var keys = [];
-	var needLookup = false;
+	// Placeholders the server has to resolve; one the page was rendered with is read from the page.
+	var serverPlaceholders = [];
 	var x;
 	for (x in temp) {
-		if ((x % 2)){ //odd numbered values contain placeholders
-			if(!cache.contains(temp[x])){
-				needLookup = true;
-				if (cache.getMapping(temp[x]) != null) {
-					var mapKeys = cache.getMapping(temp[x]).values;
-					var index;					
-					for (index = 0; index < mapKeys.length; index++) {
-						keys.push(mapKeys[index]);
-					}					
-				}
-				keys.push(temp[x]);				
-			}
-		}		
+		//odd numbered values contain placeholders
+		if ((x % 2) && !templateValueOnPage(temp[x]) && serverPlaceholders.indexOf(temp[x]) < 0) {
+			serverPlaceholders.push(temp[x]);
+		}
 	}
+	var needLookup = serverPlaceholders.some(function (key) { return !cache.contains(key); });
+	// The letter's cache flushes on every lookup (APCache's flushCache default), so once a lookup is
+	// needed it has to ask for every placeholder again. Requesting only the uncached ones let the
+	// lookup discard the rest, and populateTemplate() then prompted the clinician for each of them.
+	var requested = cache.flushCache ? serverPlaceholders
+		: serverPlaceholders.filter(function (key) { return !cache.contains(key); });
+	var keys = [];
+	requested.forEach(function (key) {
+		var mapping = cache.getMapping(key);
+		if (mapping != null) { keys = keys.concat(mapping.values); }
+		keys.push(key);
+	});
 	if (!needLookup) { populateTemplate(); }
 	else {
 		var templateMapping = cache.getMapping("template");
@@ -657,6 +660,20 @@ function parseTemplate(){
 			catch (error) { finishTemplateLookup(false); }
 		}		 
 	}
+}
+
+/**
+ * A template placeholder the page itself supplies: a hidden input of that id that the server filled
+ * when it rendered the letter (the measurement inputs, oscarDB=m$WT#value). populateTemplate() reads
+ * those from the page; requesting them from efmformapconfig_lookup only reports them as
+ * unconfigured keys. Only hidden inputs qualify, so text a clinician typed into a visible field
+ * (the addressee box is id="referral_name") never stands in for the patient's own data.
+ */
+function templateValueOnPage(key) {
+	var element = document.getElementById(key);
+	return !!element && String(element.tagName).toUpperCase() === 'INPUT'
+		&& String(element.type).toLowerCase() === 'hidden'
+		&& typeof element.value === 'string' && element.value.length > 0;
 }
 
 function populateTemplate(){
@@ -688,6 +705,8 @@ function populateTemplate(){
 		contents += temp[x];
 	}
 	seteditControlContents(cfg_editorname,contents,false,true);
+	// A template's ##stamp## or ##_ClosingSalutation## inserts a stamp the same way a button does.
+	bindStampFallbacks(stampImagesIn(document.getElementById(cfg_editorname).contentDocument));
 	showLetterStatus('rtl-template-lookup-status', '', false);
 }
 
@@ -715,6 +734,9 @@ function doHtml(value) {
 	var editorDoc = document.getElementById(cfg_editorname).contentWindow.document;
 	// Sidebar/APCache HTML is untrusted and must be sanitized before DOM insertion.
 	var safeValue = sanitizeHtml(value);
+	// The stamps in THIS insertion, collected from the fragment before it is inserted, so a stamp
+	// handler is never attached to restored letter content.
+	var freshStamps = [];
 
 	// Insert at cursor using the Selection/Range API
 	var sel = editorDoc.getSelection ? editorDoc.getSelection() : null;
@@ -724,6 +746,7 @@ function doHtml(value) {
 		if (safeValue !== null) {
 			// createContextualFragment parses the sanitized HTML string into DOM nodes
 			var frag = range.createContextualFragment(safeValue);
+			freshStamps = stampImagesIn(frag);
 			range.insertNode(frag);
 		} else {
 			range.insertNode(editorDoc.createTextNode(value));
@@ -739,21 +762,32 @@ function doHtml(value) {
 			var appendRange = editorDoc.createRange();
 			appendRange.selectNodeContents(editorDoc.body);
 			var appendFrag = appendRange.createContextualFragment(safeValue);
+			freshStamps = stampImagesIn(appendFrag);
 			editorDoc.body.appendChild(appendFrag);
 		} else {
 			editorDoc.body.appendChild(editorDoc.createTextNode(value));
 		}
 	}
-	bindStampFallbacks(editorDoc);
+	bindStampFallbacks(freshStamps);
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
 	document.getElementById(cfg_editorname).contentWindow.focus();
 }
 
+/** The signature stamps pickStamp() marked inside a fragment or document about to be shown. */
+function stampImagesIn(root) {
+	return root && root.querySelectorAll ? root.querySelectorAll('img[' + STAMP_MARKER_ATTRIBUTE + ']') : [];
+}
+
+/** Shown when no stamp image for the signer could be loaded; the stamp is left out of the letter. */
+var MISSING_STAMP_NOTICE = 'No signature stamp could be loaded for the signing provider, so none was added '
+	+ 'to this letter. The provider can upload one under Preferences > Signature Stamp.';
+
 /**
- * Attaches the stamps.js / stamp.png fallback to a freshly inserted provider stamp.
+ * Handles a freshly inserted signature stamp that does not load: swaps it once for the stamps.js /
+ * stamp.png fallback, and if that does not load either, takes it out of the letter and says why.
  *
- * pickStamp() marks a per-provider stamp with STAMP_MARKER_ATTRIBUTE. The handler cannot be an
+ * pickStamp() marks every stamp it emits with STAMP_MARKER_ATTRIBUTE. The handler cannot be an
  * inline onerror: doHtml() runs every insertion through DOMPurify, which strips event-handler
  * attributes, so it is bound here instead — after insertion, in the same task, before the image can
  * finish loading.
@@ -761,41 +795,53 @@ function doHtml(value) {
  * This is what makes the fallback a guarantee rather than a race. probeProviderStamp() usually
  * answers first and pickStamp() then emits the right URL outright, but on a form_html that predates
  * the hidden identity inputs the provider number only arrives with the APCache lookup, so the very
- * first Stamp click can be issued before any probe has completed. Without this the letter would
- * keep a broken image and the documented fallback would never run.
+ * first Stamp click can be issued before any probe has completed. Removing a stamp that cannot load
+ * at all replaces the broken-image box (two 404s) a clinic with no signature on file used to print
+ * on every stamped letter.
+ *
+ * Only the images handed in are touched: callers collect them from the content they are inserting
+ * (doHtml's fragment, a freshly populated template), never from restored letter content.
  *
  * SECURITY: the marker carries no data. The fallback FILENAME is held in carlosPendingStampFallback
- * and never round-trips through the DOM, because this scans the whole editor document — which after
- * a reopen holds the restored saved letter, i.e. stored, user-authored HTML. DOMPurify permits
- * data-* attributes, so a filename read back out of an attribute would be attacker-influenced DOM
- * text flowing into an image URL (CodeQL js/html-constructed-from-input). Keeping the value in
- * module state means the URL is only ever built from legacyStampFile(), the same trusted
- * ImgArray/APCache source pickStamp() has always used. The marker is removed as it is consumed, so
- * it never reaches the stored letter either.
+ * and never round-trips through the DOM: DOMPurify permits data-* attributes, so a filename read
+ * back out of an attribute would be DOM text flowing into an image URL (CodeQL
+ * js/html-constructed-from-input). Keeping the value in module state means the URL is only ever
+ * built from legacyStampFile(), the same trusted ImgArray/APCache source pickStamp() has always
+ * used. The marker is removed as it is consumed, so it never reaches the stored letter either.
+ *
+ * @param {ArrayLike<HTMLImageElement>} stamps the marked stamp images just inserted
  */
-function bindStampFallbacks(editorDoc) {
-	if (!editorDoc || !editorDoc.querySelectorAll) { return; }
+function bindStampFallbacks(stamps) {
 	var fallback = carlosPendingStampFallback;
 	carlosPendingStampFallback = "";
-	var stamps = editorDoc.querySelectorAll('img[' + STAMP_MARKER_ATTRIBUTE + ']');
+	if (!stamps) { return; }
 	for (var index = 0; index < stamps.length; index++) {
 		(function (image) {
 			image.removeAttribute(STAMP_MARKER_ATTRIBUTE);
-			// Defence in depth: a stray marker on restored content has no pending fallback, and a
-			// filename is a plain basename or it is not used.
-			if (!/^[\w.\- ]+$/.test(fallback)) { return; }
-			// Closure flag, not an attribute: the guard must not leave a marker in the stored
-			// letter, and swapping src can itself fire another error event.
-			var swapped = false;
-			var swap = function () {
-				if (swapped) { return; }
-				swapped = true;
-				console.log('editControl: stored signature unavailable; falling back to ' + fallback);
-				image.src = stampImageSrc(fallback);
+			// Defence in depth: a filename is a plain basename or it is not used.
+			var next = /^[\w.\- ]+$/.test(fallback) ? fallback : "";
+			// Closure state, not an attribute: nothing may leave a marker in the stored letter, and
+			// swapping src can itself fire another error event.
+			var settled = false;
+			var handleError = function () {
+				if (settled) { return; }
+				if (next !== "") {
+					var file = next;
+					next = "";
+					console.log('editControl: stored signature unavailable; falling back to ' + file);
+					image.src = stampImageSrc(file);
+					return;
+				}
+				settled = true;
+				if (image.parentNode) { image.parentNode.removeChild(image); }
+				showLetterStatus('rtl-stamp-status', MISSING_STAMP_NOTICE, true);
 			};
-			image.addEventListener('error', swap);
+			image.addEventListener('error', handleError);
+			image.addEventListener('load', function () {
+				if (!settled) { showLetterStatus('rtl-stamp-status', '', false); }
+			});
 			// The image may already have failed from cache before this ran.
-			if (image.complete && image.naturalWidth === 0) { swap(); }
+			if (image.complete && image.naturalWidth === 0) { handleError(); }
 		})(stamps[index]);
 	}
 }
@@ -878,11 +924,23 @@ function doTable() {
 	return table;
 }
 
+/**
+ * File name for an exported letter template: the subject, with characters a file name cannot hold
+ * replaced. A blank subject used to give ".rtl", a hidden dotfile name the browser renamed.
+ */
+function exportFileName(subject) {
+	var name = String(subject == null ? '' : subject)
+		.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+	return (name === '' ? 'letter' : name) + '.rtl';
+}
+
 function doExport() {
 	cancelPendingFaxSubmission();
 	assertMeasurementHistoryReady();
 	var blob = new Blob([document.getElementById('edit').contentWindow.document.documentElement.outerHTML], { type: 'text/html;charset=utf-8'}); 
-	saveAs(blob, document.getElementById('subject').value+'.rtl');
+	saveAs(blob, exportFileName(document.getElementById('subject').value));
 }
 
 function doEdit() {
@@ -975,8 +1033,9 @@ function addJavascript(jsname,pos) {
 }
 
 jQuery(document).ready(function(){
+	// A stored letter that did not load the eForm image library gets the one CARLOS ships.
 	if (jQuery.fn.convertImagePaths === undefined) {
-		addJavascript("../share/javascript/eforms/imageControl.js", "head");
+		addJavascript("../library/eforms/imageControl.js", "head");
 	}
 });
 
@@ -1647,6 +1706,13 @@ function submitFaxButton() {
 	 * Records whether the per-provider signature file actually exists, so a provider who has not
 	 * uploaded one still gets the clinic's stamps.js / stamp.png fallback instead of a broken image.
 	 *
+	 * The answer comes from /provider/providerSignatureImage, which reads the same eForm image
+	 * directory and answers 204 when the provider has no signature on file. Loading
+	 * consult_sig_<provider_no>.png itself to find out answered 404 on every letter opened for such
+	 * a signer: a failed request and a console error on each open. Only a 204 marks the file
+	 * missing. A refusal or a failed request says nothing about the file, so the per-provider stamp
+	 * is still tried and bindStampFallbacks() handles it if it does not load.
+	 *
 	 * The probe is fired once from Start(), well before the Stamp button can be clicked. If it has
 	 * not answered yet the per-provider file is used anyway — that is the intended stamp, and the
 	 * legacy fallback is the exception.
@@ -1657,13 +1723,19 @@ function submitFaxButton() {
 		var file = providerStampFile();
 		if (file === "" || file === carlosProviderStampProbe.file) { return; }
 		carlosProviderStampProbe = { file: file, missing: false };
-		var probe = new Image();
-		probe.onerror = function() {
+		var probe = new XMLHttpRequest();
+		// providerStampFile() only names a file for an all-digit provider number, so this is the
+		// same validated number.
+		probe.open("GET", "../provider/providerSignatureImage?providerNo="
+			+ encodeURIComponent(stampProviderNumber()), true);
+		probe.onload = function() {
 			// Only trust the result if it is still about the file we asked for.
-			if (carlosProviderStampProbe.file === file) { carlosProviderStampProbe.missing = true; }
-			console.log("editControl: no stored signature for " + file + "; falling back to stamps.js");
+			if (probe.status === 204 && carlosProviderStampProbe.file === file) {
+				carlosProviderStampProbe.missing = true;
+				console.log("editControl: no stored signature for " + file + "; falling back to stamps.js");
+			}
 		};
-		probe.src = stampImageSrc(file);
+		probe.send();
 	}
 
 	function legacyStampFile() {
@@ -1701,7 +1773,11 @@ function submitFaxButton() {
 		// was signed with the same stamp.png.
 		var file = providerStampFile();
 		if (file === "" || (carlosProviderStampProbe.file === file && carlosProviderStampProbe.missing)) {
-			return '<img src="' + stampImageSrc(legacyStampFile()) + '" width="200" height="100" />';
+			// Already the fallback: nothing further to try, but still marked so bindStampFallbacks()
+			// takes it out of the letter if the clinic has no such image either.
+			carlosPendingStampFallback = "";
+			return '<img src="' + stampImageSrc(legacyStampFile()) + '" ' + STAMP_MARKER_ATTRIBUTE
+				+ '="1" width="200" height="100" />';
 		}
 		// The per-provider file is the intended stamp, but the probe may not have answered yet.
 		// bindStampFallbacks() turns the marker into a load-error handler once this is inserted.
@@ -2193,16 +2269,35 @@ function collapseFooter() {
         var searchDropDownFlag = false;
 
         /**
-         * Searches for a consultant/specialist by name for the letter addressee field.
-         * Makes an XHR request to the provider search endpoint and displays matching
-         * providers in the tempBin dropdown. Selected consultant's address is inserted
-         * into the CopyTo textarea for "Paste Selected" to use.
+         * Text block for a professional specialist directory entry: the name, then the street
+         * address and fax on their own lines when the directory has them. Many entries leave those
+         * columns empty, and JSON null concatenated as-is was pasted into letters as "null".
+         *
+         * @param {Object} specialist - one entry from /searchProfessionalSpecialist
+         * @returns {string} lines joined with CRLF, ready for the CopyTo block
+         */
+        function specialistAddressBlock(specialist) {
+            var present = function (value) { return value != null && String(value).trim() !== ''; };
+            var lines = [[specialist.firstName, specialist.lastName].filter(present).join(' ')];
+            if (present(specialist.streetAddress)) { lines.push(String(specialist.streetAddress).trim()); }
+            if (present(specialist.fax)) { lines.push('Fax: ' + String(specialist.fax).trim()); }
+            return lines.join('\r\n');
+        }
+
+        /**
+         * Searches the professional specialist directory by name for the letter addressee field
+         * and lists the matches in the tempBin dropdown. The chosen specialist's address block is
+         * put in the CopyTo textarea for "Paste Selected" to use.
+         *
+         * The route is the root-level /searchProfessionalSpecialist action (_con read). The
+         * ../encounter/oscarConsultationRequest/searchProfessionalSpecialist.json path this used to
+         * call has no mapping, and ".json" requests never reach Struts, so every search 404ed.
          *
          * @param {string} term - Search term (minimum 2 characters, "lastname, firstname" format)
          */
         function consultantSearch(term) {
             if (term.length < 2) {
-                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a patient's name!";
+                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a specialist's name.";
                 return false;
             }
 
@@ -2212,9 +2307,7 @@ function collapseFooter() {
 
             var request = new XMLHttpRequest();
 
-            //professionalSpecialists  2020-Nov-04
-            //request.open('GET', '../encounter/oscarConsultationRequest/searchprofessionalSpecialists.json?keyword=' + term, true);
-            request.open('GET', '../encounter/oscarConsultationRequest/searchProfessionalSpecialist.json?keyword='+encodeURIComponent(term), true);
+            request.open('GET', '../searchProfessionalSpecialist?keyword='+encodeURIComponent(term), true);
             request.setRequestHeader("Content-Type", "application/json");
             request.onload = function() {
 
@@ -2243,8 +2336,10 @@ function collapseFooter() {
                             for (var idx = 0; idx < data.length; idx++) {
                                 var li = document.createElement('li');
                                 li.setAttribute('data-id', String(data[idx].id).trim());
-                                li.setAttribute('data-address', data[idx].firstName + ' ' + data[idx].lastName + '\r\n' + data[idx].streetAddress + ' \r\nFax: ' + data[idx].fax);
-                                li.textContent = data[idx].lastName + ', ' + data[idx].firstName;
+                                li.setAttribute('data-address', specialistAddressBlock(data[idx]));
+                                li.textContent = [data[idx].lastName, data[idx].firstName]
+                                    .filter(function (part) { return part != null && String(part).trim() !== ''; })
+                                    .join(', ');
                                 li.addEventListener('click', function() { populateInputField(this, 'consultant'); });
                                 ul.appendChild(li);
                             }
@@ -2303,7 +2398,7 @@ function collapseFooter() {
                 document.getElementById("tempBin").style.display = 'block';
             } else if (a === 0 && searchDropDownFlag === false) {
                 document.getElementById("tempBin").style.display = 'none';
-                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a patient's name!";
+                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a specialist's name.";
             }
         }
 

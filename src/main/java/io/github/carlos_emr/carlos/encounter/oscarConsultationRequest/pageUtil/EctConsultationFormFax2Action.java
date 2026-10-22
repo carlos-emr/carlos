@@ -25,6 +25,8 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.documentManager.ConsultAttachmentWarning;
+import io.github.carlos_emr.carlos.consultation.ConsultAttachmentApprovalService;
+import io.github.carlos_emr.carlos.consultation.ConsultAttachmentApprovalService.Operation;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
@@ -47,7 +49,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.ArrayList;
@@ -85,10 +86,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
 
-    /** Cover-page checkbox: staff confirm sending without the attachments listed as unavailable. */
-    static final String CONFIRM_SEND_WITHOUT_PARAM = "confirmSendWithoutUnavailable";
-    /** Cover-page hidden field: the {@link ConsultAttachmentWarning#getKey() keys} staff were shown. */
-    static final String CONFIRMED_ATTACHMENTS_PARAM = "confirmedUnavailableAttachments";
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
@@ -109,8 +106,8 @@ public class EctConsultationFormFax2Action extends ActionSupport {
      * <p>Processing flow:</p>
      * <ol>
      *   <li>Validates {@code _con} read privilege</li>
-     *   <li>Refuses, sending nothing, unless staff confirmed on the cover page that every
-     *       attachment whose target is no longer available will be left out</li>
+     *   <li>Checks server-held consent for the exact omissions found during rendering before
+     *       storing or queueing anything; otherwise offers a review and a render-only retry</li>
      *   <li>Renders the consultation form with attachments into a PDF</li>
      *   <li>Copies the PDF to the CARLOS documents directory</li>
      *   <li>For each fax recipient: validates the fax number, optionally prepends a cover page,
@@ -267,39 +264,37 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         sender.setFaxNumberOwner(matchedConfig.getAccountName());
 
-        // Attachments the consult lists whose target is gone are left out of the fax. The cover
-        // page names them, and staff must confirm sending without them. One that became
-        // unavailable after the cover page was shown was never confirmed, so nothing is sent.
-        List<ConsultAttachmentWarning> unavailable =
-                documentAttachmentManager.getUnavailableConsultAttachmentWarnings(reqIdValue);
-        if (!leftOutAttachmentsConfirmed(unavailable)) {
-            return refuseUnconfirmedFax(unavailable, reqIdValue, "were not confirmed on the cover page");
-        }
-
         // Validate the complete batch before creating a PHI-bearing temporary document.
         Path faxPdf;
         try {
+            request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
             faxPdf = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
         } catch (PDFGenerationException | RuntimeException e) {
             logger.error("Consultation fax PDF preparation failed ({})", e.getClass().getSimpleName());
-            // An attachment that exists but could not be read fails the fax; name it, by type and
-            // id only, so staff know what to fix or detach.
+            // A packet that cannot be assembled is not approvable. Name any known failed
+            // attachments, without exposing renderer messages or paths.
             List<ConsultAttachmentWarning> notRendered =
                     ConsultAttachmentWarning.notRenderedOnly(ConsultAttachmentWarning.fromRequest(request));
-            request.setAttribute("errorMessage", notRendered.isEmpty()
+            request.setAttribute("errorMessage", e instanceof PDFGenerationException generation && generation.isRetryable()
+                    ? ConsultAttachmentWarning.bundleText(request.getLocale(), "consultation.attachments.retry")
+                    : notRendered.isEmpty()
                     ? "This fax could not be sent. \n\nThe consultation PDF could not be prepared; please retry or contact your administrator."
                     : MessageFormat.format(ConsultAttachmentWarning.bundleText(request.getLocale(), "consultation.fax.attachmentsNotRendered"),
                             ConsultAttachmentWarning.formatNames(notRendered, request.getLocale())));
             return "error";
+        } finally {
+            request.removeAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE);
         }
-        // The render looks the unavailable attachments up again. One that became unavailable
-        // between the check above and the render was never confirmed, so nothing is sent.
-        List<ConsultAttachmentWarning> leftOutAtRender = ConsultAttachmentWarning.fromRequest(request).stream()
-                .filter(ConsultAttachmentWarning::isUnavailable)
-                .toList();
-        if (!leftOutAttachmentsConfirmed(leftOutAtRender)) {
+        List<ConsultAttachmentWarning> warnings = ConsultAttachmentWarning.fromRequest(request);
+        if ((!warnings.isEmpty() || request.getParameter(ConsultAttachmentApprovalService.TOKEN) != null)
+                    && SpringUtils.getBean(ConsultAttachmentApprovalService.class)
+                .requiresReview(request, loggedInInfo, reqId, demoNo, Operation.FAX, warnings)) {
             cleanupRenderedSource(faxPdf);
-            return refuseUnconfirmedFax(leftOutAtRender, reqIdValue, "became unavailable while the fax was prepared");
+            if (!Boolean.TRUE.equals(request.getAttribute(ConsultAttachmentApprovalService.REVIEW_REQUIRED))) {
+                return "error";
+            }
+            request.setAttribute("attachmentReviewFax", Boolean.TRUE);
+            return "attachmentReview";
         }
         Path renderedSource = faxPdf;
         Set<Path> attemptFiles = new HashSet<>();
@@ -398,32 +393,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         request.setAttribute("faxSuccessful", true);
         return SUCCESS;
-    }
-
-    /** Sends nothing, and tells staff which unavailable attachments they have not confirmed. */
-    private String refuseUnconfirmedFax(List<ConsultAttachmentWarning> unavailable, int requestId, String why) {
-        logger.warn("Consultation fax not sent: {} unavailable attachment(s) {}, requestId={}",
-                unavailable.size(), why, requestId);
-        request.setAttribute("errorMessage", MessageFormat.format(
-                ConsultAttachmentWarning.bundleText(request.getLocale(), "consultation.fax.unavailableNotConfirmed"),
-                ConsultAttachmentWarning.formatNames(unavailable, request.getLocale())));
-        return "error";
-    }
-
-    /**
-     * Whether staff confirmed, on the cover page, sending without every attachment in
-     * {@code unavailable}: the checkbox was ticked, and each one was among those the page listed.
-     */
-    private boolean leftOutAttachmentsConfirmed(List<ConsultAttachmentWarning> unavailable) {
-        if (unavailable.isEmpty()) {
-            return true;
-        }
-        if (!"true".equals(request.getParameter(CONFIRM_SEND_WITHOUT_PARAM))) {
-            return false;
-        }
-        String confirmed = request.getParameter(CONFIRMED_ATTACHMENTS_PARAM);
-        Set<String> confirmedKeys = confirmed == null ? Set.of() : new HashSet<>(Arrays.asList(confirmed.split(",")));
-        return unavailable.stream().allMatch(warning -> confirmedKeys.contains(warning.getKey()));
     }
 
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
