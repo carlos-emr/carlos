@@ -3364,7 +3364,10 @@ server-log audit reports no unexplained signature; the install also came back he
 
 A review of carlos-ctl#10 then found the login probe ignoring `CARLOS_DB_PORT` and calling any failed login a wrong password. With
 carlos-ctl `607c24e` installed on the upgraded container, `check` still passed; changing the account's password on `127.0.0.1` alone
-was reported as "does not log in as carlos_report@127.0.0.1", and `db-users` repaired it.
+was reported as "does not log in as carlos_report@127.0.0.1", and `db-users` repaired it. A second review found `check` printing its
+OK line beside a login it could not try (a busy account, or MariaDB not answering on the port). With carlos-ctl `325482a` installed
+(OK only after a login that worked), `check` still passed on the same container. The 22 drift assertions passed again, and so did the
+three Query by Example checks (3 of 3).
 
 The installer printed "NOT ready to use" during both the fresh `snapshot26` and the `alpha20` transactions (an nginx reload while
 `carlos-emr` configures); no marker remained and `check` passed, so it predates this change.
