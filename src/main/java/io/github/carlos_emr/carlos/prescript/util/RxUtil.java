@@ -703,10 +703,21 @@ public class RxUtil {
      * @param rx prescription to update; null is ignored
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void instrucParser(RxPrescriptionData.Prescription rx) {
+        parseDirections(rx);
+    }
+
+    /**
+     * The parse behind {@link #instrucParser}. It also hands back the exact course total the
+     * directions calculate (dose per administration over the stated duration, as a fraction before
+     * rounding), or null when nothing was calculated, so that a tapering course can sum its
+     * segments exactly and round upward once.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private static ExactAmount parseDirections(RxPrescriptionData.Prescription rx) {
         if (rx == null) {
-            return;
+            return null;
         }
         String instructions = rx.getSpecial();
         if (instructions == null) {
@@ -716,7 +727,7 @@ public class RxUtil {
         // A tapering course joins segments with "then"; each states its own dose, frequency and
         // duration, and the course dispenses their sum over their total days.
         if (TAPER_SEPARATOR.matcher(instructions).find() && sumTaperSegments(rx, instructions)) {
-            return;
+            return null;
         }
 
         // All values should be reset before each iteration as it is unknown if any previously entered
@@ -1121,6 +1132,7 @@ public class RxUtil {
         //no, leave quantity intact.
         //--start new code
         rx.setQuantity(rx.getQuantity().trim());
+        ExactAmount courseTotal = null;
         if (duration.equals("0") || duration.length() == 0 || duration == null) {//if duration is not specified, find duration based on quantity
             rx.setDurationSpecifiedByUser(false);
             if (!isUnitNameUsed && rx.getQuantity() != null && !rx.getQuantity().equalsIgnoreCase("null") && !rx.getQuantity().equals("") && !durationUnit.equals("") && !frequency.equals("") && !maximumDose.isZero()) {
@@ -1137,7 +1149,8 @@ public class RxUtil {
             rx.setDurationSpecifiedByUser(true);
             rx.setDuration(duration);
             if (!isUnitNameUsed && !durationUnit.equals("") && !minimumDose.isZero() && !maximumDose.isZero() && !frequency.equals("")) {
-                quantity = calculateDispenseQuantity(maximumDose, duration, durationUnit, frequency);
+                courseTotal = exactDispenseTotal(maximumDose, duration, durationUnit, frequency);
+                quantity = courseTotal.ceilingUnits();
             }
 
         }
@@ -1179,15 +1192,16 @@ public class RxUtil {
         hm.put("quantity", rx.getQuantity());
         hm.put("policyViolations", policyViolations);
 
-        return;
+        return courseTotal;
     }
 
     /**
      * Reads a tapering course whose segments are joined by "then" or "followed by", such as
      * {@code Take 3 tabs daily x 3 days, then 2 tabs daily x 3 days, then 1 tab daily x 3 days}. Every
-     * segment must state a dose, a frequency and a duration; the course then dispenses the sum of the
-     * segments' quantities (each rounded as the parser rounds any course) and lasts their total number
-     * of days, while the card shows the first segment's dose, frequency, method and route. A segment
+     * segment must state a dose, a frequency and a duration; the course then dispenses the segments'
+     * exact totals added together and rounded upward once (1 1/2 tablets for 3 days then 1/2 for 3 days
+     * is 6, not 5 + 2) and lasts their total number of days, while the card shows the first segment's
+     * dose, frequency, method and route. A segment
      * that cannot be read on its own (an open-ended "then stop") leaves the directions to the ordinary
      * single-segment parse, and a quantity typed with its own unit is never recalculated.
      *
@@ -1207,7 +1221,7 @@ public class RxUtil {
         if (segmentCount < 2) {
             return false;
         }
-        int totalQuantity = 0;
+        ExactAmount courseTotal = ExactAmount.ZERO;
         int totalDays = 0;
         float firstTakeMin = 0f;
         float firstTakeMax = 0f;
@@ -1222,12 +1236,12 @@ public class RxUtil {
                     return false;
                 }
                 rx.setSpecial(segment);
-                instrucParser(rx);
-                if (!rx.isDurationSpecifiedByUser() || rx.getFrequencyCode().isEmpty() || rx.getTakeMax() == 0f
-                        || rx.getQuantity() == null || !isStringToNumber(rx.getQuantity())) {
+                ExactAmount segmentTotal = parseDirections(rx);
+                if (segmentTotal == null || !rx.isDurationSpecifiedByUser() || rx.getFrequencyCode().isEmpty()
+                        || rx.getTakeMax() == 0f) {
                     return false;
                 }
-                totalQuantity += new BigDecimal(rx.getQuantity()).intValue();
+                courseTotal = courseTotal.plus(segmentTotal);
                 totalDays += (int) Math.round(Double.parseDouble(rx.getDuration()) * findNDays(rx.getDurationUnit()));
                 if (i == 0) {
                     firstTakeMin = rx.getTakeMin();
@@ -1251,7 +1265,7 @@ public class RxUtil {
         rx.setDuration(Integer.toString(totalDays));
         rx.setDurationUnit("D");
         rx.setDurationSpecifiedByUser(true);
-        rx.setQuantity(Integer.toString(totalQuantity));
+        rx.setQuantity(Integer.toString(courseTotal.ceilingUnits()));
         if (rx.isCustomNote()) {
             rx.setQuantity(null);
             rx.setUnitName(null);
@@ -1292,14 +1306,14 @@ public class RxUtil {
     }
 
     /**
-     * Calculates whole dispense units from the maximum dose and duration. The course total
-     * is formed exactly, as a fraction, and rounded upward once at the final division, so a
-     * fractional dose such as 5/6 tablet for six days gives five, not six. Periodic
-     * frequencies use exact day intervals.
+     * The exact course total for the maximum dose over the duration, as a fraction: the caller
+     * rounds it upward once ({@link ExactAmount#ceilingUnits()}), so a fractional dose such as 5/6
+     * tablet for six days gives five, not six, and a tapering course can add its segments before
+     * rounding. Periodic frequencies use exact day intervals.
      */
     // FindSecBugs IMPROPER_UNICODE: normalization of internal frequency codes, not a security or authorization decision. See docs/static-analysis-workflows.md.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "normalization of internal frequency codes, not a security or authorization decision")
-    private static int calculateDispenseQuantity(ExactAmount maximumDose, String duration, String durationUnit, String frequency) {
+    private static ExactAmount exactDispenseTotal(ExactAmount maximumDose, String duration, String durationUnit, String frequency) {
         BigDecimal total = maximumDose.numerator().multiply(new BigDecimal(duration))
                 .multiply(BigDecimal.valueOf(findNDays(durationUnit)));
         BigDecimal divisor = maximumDose.denominator();
@@ -1317,10 +1331,7 @@ public class RxUtil {
         } else {
             divisor = divisor.multiply(BigDecimal.valueOf(intervalDays));
         }
-        BigDecimal quantity = total.divide(divisor, 0, RoundingMode.CEILING);
-        // Keep the legacy integer quantity range while avoiding under-dispensing
-        // fractional totals and floating-point error in decimal dose products.
-        return quantity.min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
+        return new ExactAmount(total, divisor);
     }
 
     public static boolean isStringToNumber(String s) {//see if string contains decimal or integer
@@ -2406,6 +2417,22 @@ public class RxUtil {
 
         float floatValue() {
             return (float) doubleValue();
+        }
+
+        /** The exact sum of this amount and another. */
+        ExactAmount plus(ExactAmount other) {
+            return new ExactAmount(numerator.multiply(other.denominator).add(other.numerator.multiply(denominator)),
+                    denominator.multiply(other.denominator));
+        }
+
+        /**
+         * Whole units covering this amount, rounded upward once at this final division, within
+         * the legacy integer quantity range: no under-dispensing of fractional totals and no
+         * floating-point error from decimal dose products.
+         */
+        int ceilingUnits() {
+            return numerator.divide(denominator, 0, RoundingMode.CEILING)
+                    .min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
         }
     }
 

@@ -1029,7 +1029,10 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 1 tab daily x 1 week then 1/2 tab daily x 1 week | 1 | 1 | OD | 14 | 11",
             "Take 1 tab daily x 5 days then stop | 1 | 1 | OD | 5 | 5",
             "Take 2 tabs po bid x 3 days then 1 tab po bid x 3 days then stop | 2 | 2 | BID | 6 | 18",
-            "Take 2 tabs po bid x 3 days, then 1 tab po bid x 3 days, then discontinue. | 2 | 2 | BID | 6 | 18"
+            "Take 2 tabs po bid x 3 days, then 1 tab po bid x 3 days, then discontinue. | 2 | 2 | BID | 6 | 18",
+            "Take 1 1/2 tabs daily x 3 days then 1/2 tab daily x 3 days | 1.5 | 1.5 | OD | 6 | 6",
+            "Take 1/2 tab daily x 3 days then 1/2 tab daily x 3 days | 0.5 | 0.5 | OD | 6 | 3",
+            "Take 5/6 tab daily x 3 days then 5/6 tab daily x 3 days | 0.8333333 | 0.8333333 | OD | 6 | 5"
         })
         @DisplayName("should dispense the sum of the taper segments over their total duration")
         void shouldSumTaperSegments_whenJoinedByThen(String instructions, float takeMin, float takeMax,
