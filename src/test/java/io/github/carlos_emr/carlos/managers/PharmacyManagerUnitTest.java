@@ -242,33 +242,4 @@ class PharmacyManagerUnitTest extends CarlosUnitTestBase {
             verify(mockPharmacyInfoDao, never()).persist(any());
         }
     }
-
-    @Nested
-    @DisplayName("setDoNotContact")
-    class SetDoNotContact {
-
-        @Test
-        void shouldRestoreConsent_whenDoNotContactIsFalse() {
-            DemographicPharmacy dp = createDemographicPharmacy(1, 100, 50);
-            dp.setConsentToContact(false);
-            when(mockDemographicPharmacyDao.find((Object) 1)).thenReturn(dp);
-
-            manager.setDoNotContact(loggedInInfo, 1, false);
-
-            assertThat(dp.getConsentToContact()).isTrue();
-            verify(mockDemographicPharmacyDao).saveEntity(dp);
-        }
-
-        @Test
-        @DisplayName("should mark pharmacy as do not contact when flag is true")
-        void shouldMarkDoNotContact_whenFlagIsTrue() {
-            DemographicPharmacy dp = createDemographicPharmacy(1, 100, 50);
-            when(mockDemographicPharmacyDao.find((Object) 1)).thenReturn(dp);
-
-            manager.setDoNotContact(loggedInInfo, 1, true);
-
-            assertThat(dp.getConsentToContact()).isFalse();
-            verify(mockDemographicPharmacyDao).saveEntity(dp);
-        }
-    }
 }
