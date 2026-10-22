@@ -63,6 +63,33 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         return rx;
     }
 
+    /** Parses the directions of a custom drug and checks the dose range and the dispense quantity. */
+    private static void assertParsedDose(String instructions, float minimum, float maximum, String quantity) {
+        RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+        RxUtil.instrucParser(rx);
+        assertDoseAndQuantity(rx, minimum, maximum, quantity);
+    }
+
+    /**
+     * Parses the directions for a selected product, given by its dosage text and form as the drug
+     * picker stores them ("500.0mg", "TABLET"), and checks the dose range and the dispense quantity.
+     */
+    private static void assertParsedDose(String instructions, String dosage, String drugForm,
+            float minimum, float maximum, String quantity) {
+        RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+        rx.setDosage(dosage);
+        rx.setDrugForm(drugForm);
+        RxUtil.instrucParser(rx);
+        assertDoseAndQuantity(rx, minimum, maximum, quantity);
+    }
+
+    private static void assertDoseAndQuantity(RxPrescriptionData.Prescription rx, float minimum, float maximum,
+            String quantity) {
+        assertThat(rx.getTakeMin()).isEqualTo(minimum);
+        assertThat(rx.getTakeMax()).isEqualTo(maximum);
+        assertThat(rx.getQuantity()).isEqualTo(quantity);
+    }
+
     @Nested
     @DisplayName("strengths and dispense quantities (issue #3876)")
     class StrengthQuantities {
@@ -258,12 +285,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         })
         void shouldPreserveDoseCounts_whenInstructionsSpecifyAdministeredAmounts(String instructions,
                 float minimum, float maximum, String quantity) {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
-            RxUtil.instrucParser(rx);
-
-            assertThat(rx.getTakeMin()).isEqualTo(minimum);
-            assertThat(rx.getTakeMax()).isEqualTo(maximum);
-            assertThat(rx.getQuantity()).isEqualTo(quantity);
+            assertParsedDose(instructions, minimum, maximum, quantity);
         }
 
         /**
@@ -325,12 +347,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         })
         void shouldKeepWholePart_whenMixedNumberPrecedesFrequency(String instructions,
                 float minimum, float maximum, String quantity) {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
-            RxUtil.instrucParser(rx);
-
-            assertThat(rx.getTakeMin()).isEqualTo(minimum);
-            assertThat(rx.getTakeMax()).isEqualTo(maximum);
-            assertThat(rx.getQuantity()).isEqualTo(quantity);
+            assertParsedDose(instructions, minimum, maximum, quantity);
         }
 
         /**
@@ -368,12 +385,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         })
         void shouldUseExplicitCount_whenStrengthIsFollowedByCountedDoseForm(String instructions,
                 float minimum, float maximum, String quantity) {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
-            RxUtil.instrucParser(rx);
-
-            assertThat(rx.getTakeMin()).isEqualTo(minimum);
-            assertThat(rx.getTakeMax()).isEqualTo(maximum);
-            assertThat(rx.getQuantity()).isEqualTo(quantity);
+            assertParsedDose(instructions, minimum, maximum, quantity);
         }
 
         /**
@@ -398,12 +410,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         })
         void shouldNotReadVehicleOrCeilingAsDose_whenStrengthLeads(String instructions,
                 float minimum, float maximum, String quantity) {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
-            RxUtil.instrucParser(rx);
-
-            assertThat(rx.getTakeMin()).isEqualTo(minimum);
-            assertThat(rx.getTakeMax()).isEqualTo(maximum);
-            assertThat(rx.getQuantity()).isEqualTo(quantity);
+            assertParsedDose(instructions, minimum, maximum, quantity);
         }
 
         /**
@@ -424,12 +431,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         })
         void shouldKeepGramAmount_whenAppliedToSkinOrMucosa(String instructions,
                 float minimum, float maximum, String quantity) {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
-            RxUtil.instrucParser(rx);
-
-            assertThat(rx.getTakeMin()).isEqualTo(minimum);
-            assertThat(rx.getTakeMax()).isEqualTo(maximum);
-            assertThat(rx.getQuantity()).isEqualTo(quantity);
+            assertParsedDose(instructions, minimum, maximum, quantity);
         }
 
         /**
@@ -447,14 +449,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         })
         void shouldReadGramsAsStrength_whenGivenRectally(String instructions, String dosage, String drugForm,
                 float minimum, float maximum, String quantity) {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
-            rx.setDosage(dosage);
-            rx.setDrugForm(drugForm);
-            RxUtil.instrucParser(rx);
-
-            assertThat(rx.getTakeMin()).isEqualTo(minimum);
-            assertThat(rx.getTakeMax()).isEqualTo(maximum);
-            assertThat(rx.getQuantity()).isEqualTo(quantity);
+            assertParsedDose(instructions, dosage, drugForm, minimum, maximum, quantity);
         }
 
         /**
@@ -472,14 +467,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         })
         void shouldKeepGramAmount_whenSelectedProductIsTopical(String instructions, String dosage, String drugForm,
                 float minimum, float maximum, String quantity) {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
-            rx.setDosage(dosage);
-            rx.setDrugForm(drugForm);
-            RxUtil.instrucParser(rx);
-
-            assertThat(rx.getTakeMin()).isEqualTo(minimum);
-            assertThat(rx.getTakeMax()).isEqualTo(maximum);
-            assertThat(rx.getQuantity()).isEqualTo(quantity);
+            assertParsedDose(instructions, dosage, drugForm, minimum, maximum, quantity);
         }
 
         /**
@@ -551,14 +539,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         })
         void shouldDivideByProductStrength_whenSelectedProductStrengthIsKnown(String instructions,
                 String dosage, String drugForm, float minimum, float maximum, String quantity) {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
-            rx.setDosage(dosage);
-            rx.setDrugForm(drugForm);
-            RxUtil.instrucParser(rx);
-
-            assertThat(rx.getTakeMin()).isEqualTo(minimum);
-            assertThat(rx.getTakeMax()).isEqualTo(maximum);
-            assertThat(rx.getQuantity()).isEqualTo(quantity);
+            assertParsedDose(instructions, dosage, drugForm, minimum, maximum, quantity);
         }
 
         /**
@@ -579,12 +560,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         })
         void shouldReadOralInternationalUnits_whenDirectionsSayByMouth(String instructions,
                 float minimum, float maximum, String quantity) {
-            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
-            RxUtil.instrucParser(rx);
-
-            assertThat(rx.getTakeMin()).isEqualTo(minimum);
-            assertThat(rx.getTakeMax()).isEqualTo(maximum);
-            assertThat(rx.getQuantity()).isEqualTo(quantity);
+            assertParsedDose(instructions, minimum, maximum, quantity);
         }
 
         /**

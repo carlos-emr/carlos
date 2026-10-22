@@ -106,9 +106,13 @@ public class RxUtil {
     private static final Set<String> AFFECTED_SITES = Set.of("area", "areas", "skin", "site", "sites");
     /** A dose per kilogram or per square metre of body size, which states no fixed administered amount. */
     private static final Pattern BODY_SIZE_BASIS = Pattern.compile("(?:kg|m2|m²|m\\^2)(?!\\w)", Pattern.CASE_INSENSITIVE);
-    /** A number and the word after it in a product's dosage text, as the drug picker stores a strength ("500.0mg"). */
+    /**
+     * A number and the word after it in a product's dosage text, as the drug picker stores a strength
+     * ("500.0mg"). A match starts only where a number starts and never backtracks, so a long run of
+     * digits in a stored dosage costs linear time.
+     */
     private static final Pattern PRODUCT_STRENGTH = Pattern.compile(
-            "(\\d+(?:\\.\\d+)?)\\s*([a-zµμ]+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+            "(?<!\\d)(\\d++(?:\\.\\d++)?+)\\s*+([a-zµμ]++)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     /** Runs of ASCII letters, digits and underscores: the words of an instruction, as {@code \\b} sees them. */
     private static final Pattern WORD = Pattern.compile("\\w+");
     /** A tablet form, the only dosage form a strength may be divided into halves or quarters of. */
@@ -1464,8 +1468,6 @@ public class RxUtil {
      * the remaining strength units are strengths. An amount with no recognized unit is
      * administered (callers check its boundary).
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
     private static AmountKind classifyAmount(String instructions, int amountEnd, InstructionSegment segment) {
         int unitStart = skipWhitespaceForward(instructions, amountEnd);
         Matcher unit = STRENGTH_UNIT.matcher(instructions).region(unitStart, instructions.length());
@@ -1477,14 +1479,26 @@ public class RxUtil {
         if (hasDenominatorAfterUnit(instructions, unit.end())) {
             return AmountKind.PRODUCT_ONLY;
         }
-        boolean grams = isGramUnit(unit.group());
-        boolean internationalUnits = "iu".equalsIgnoreCase(unit.group());
-        boolean electrolyteUnits = "meq".equalsIgnoreCase(unit.group()) || "mmol".equalsIgnoreCase(unit.group());
+        return classifyStrengthUnit(instructions, unit.group(), unit.end(), segment);
+    }
+
+    /**
+     * Reads a strength unit that has no denominator after it: grams and IU written per dose, grams
+     * applied to the skin or a mucosa, IU not taken by mouth, and mEq or mmol given by a written
+     * non-oral route are administered amounts; everything else is a product strength.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
+    private static AmountKind classifyStrengthUnit(String instructions, String unit, int unitEnd,
+            InstructionSegment segment) {
+        boolean grams = isGramUnit(unit);
+        boolean internationalUnits = "iu".equalsIgnoreCase(unit);
+        boolean electrolyteUnits = "meq".equalsIgnoreCase(unit) || "mmol".equalsIgnoreCase(unit);
         // "17 g per dose" and "20 IU/dose" state an administered amount in a measurable unit. A mass
         // per dose in mg, mcg or mEq ("500 mg per dose", an inhaler's "250 mcg/dose") still does not
         // say how many dispensable units supply it, so it is read as a strength below.
         if ((grams || internationalUnits) && PER_DOSE.matcher(instructions)
-                .region(skipWhitespaceForward(instructions, unit.end()), instructions.length()).lookingAt()) {
+                .region(skipWhitespaceForward(instructions, unitEnd), instructions.length()).lookingAt()) {
             return AmountKind.ADMINISTERED;
         }
         // Grams applied to the skin or a mucosa and non-oral IU specify administered amounts.
@@ -1660,28 +1674,43 @@ public class RxUtil {
         if (statedMin.isZero() || statedMax.isZero() || statedUnit == null) {
             return new String[] {"0", "0"};
         }
-        String dosage = rx.getDosage();
-        if ((dosage != null && dosage.indexOf('/') >= 0)
-                || (rx.getDrugForm() != null && LIQUID_FORM.matcher(rx.getDrugForm()).find())) {
-            // A liquid or a rate (250 mg/5 mL, 25 mcg/hr): the strength says nothing about the volume.
+        if (isLiquidOrRate(rx)) {
             return new String[] {"0", "0"};
         }
-        ProductStrength product = ProductStrength.single(dosage);
+        ProductStrength product = ProductStrength.single(rx.getDosage());
         if (product == null || !product.measure().measure().equals(statedUnit.measure()) || product.amount().signum() <= 0) {
-            // No comparable product strength: one unit per administration, a range scaled from its lower bound.
-            String upper = unitsOf(statedMax.numerator().multiply(statedMin.denominator()),
-                    statedMax.denominator().multiply(statedMin.numerator()), 2);
-            return upper == null ? new String[] {"0", "0"} : new String[] {"1", upper};
+            return unitsWithoutProductStrength(statedMin, statedMax);
         }
-        String form = rx.getDrugForm() == null ? "" : rx.getDrugForm();
-        // Halves and quarters only for a tablet that may be split; anything else must come out whole.
-        int stepsPerUnit = TABLET_FORM.matcher(form).find() && !UNSPLITTABLE_TABLET.matcher(form).find() ? 4 : 1;
+        int stepsPerUnit = stepsPerUnit(rx.getDrugForm());
         BigDecimal productSize = product.amount().multiply(product.measure().size());
         String minimum = unitsOf(statedMin.numerator().multiply(statedUnit.size()),
                 statedMin.denominator().multiply(productSize), stepsPerUnit);
         String maximum = unitsOf(statedMax.numerator().multiply(statedUnit.size()),
                 statedMax.denominator().multiply(productSize), stepsPerUnit);
         return minimum == null || maximum == null ? new String[] {"0", "0"} : new String[] {minimum, maximum};
+    }
+
+    /** True for a liquid or a rate (250 mg/5 mL, 25 mcg/hr): the strength says nothing about the volume given. */
+    private static boolean isLiquidOrRate(RxPrescriptionData.Prescription rx) {
+        String dosage = rx.getDosage();
+        String form = rx.getDrugForm();
+        return (dosage != null && dosage.indexOf('/') >= 0) || (form != null && LIQUID_FORM.matcher(form).find());
+    }
+
+    /**
+     * Without a comparable product strength, one unit per administration; a range keeps its
+     * proportions from its lower bound (500-1000 mg is one to two units).
+     */
+    private static String[] unitsWithoutProductStrength(ExactAmount statedMin, ExactAmount statedMax) {
+        String upper = unitsOf(statedMax.numerator().multiply(statedMin.denominator()),
+                statedMax.denominator().multiply(statedMin.numerator()), 2);
+        return upper == null ? new String[] {"0", "0"} : new String[] {"1", upper};
+    }
+
+    /** Halves and quarters only for a tablet that may be split; any other form must come out whole. */
+    private static int stepsPerUnit(String drugForm) {
+        String form = drugForm == null ? "" : drugForm;
+        return TABLET_FORM.matcher(form).find() && !UNSPLITTABLE_TABLET.matcher(form).find() ? 4 : 1;
     }
 
     /**
@@ -1717,17 +1746,8 @@ public class RxUtil {
         UnitAmount found = null;
         while (amount.find()) {
             String minimum = amount.group(1);
-            String maximum = null;
-            int amountEnd = amount.end();
-            // A range such as "1-2 tabs": its upper bound follows a hyphen.
-            int hyphen = skipWhitespaceForward(instructions, amountEnd);
-            if (hyphen < frequencyStart && instructions.charAt(hyphen) == '-') {
-                NumberToken upper = findDecimalAt(instructions, skipWhitespaceForward(instructions, hyphen + 1));
-                if (upper != null && upper.end <= frequencyStart) {
-                    maximum = upper.value;
-                    amountEnd = upper.end;
-                }
-            }
+            NumberToken upper = rangeUpperBound(instructions, amount.end(), frequencyStart);
+            int amountEnd = upper == null ? amount.end() : upper.end;
             if (!namesExplicitAmount(instructions, amountEnd, frequencyStart)
                     || followsConcentrationSeparator(instructions, amount.start()) || isLabelledNotADose(instructions, amount.start())) {
                 continue;
@@ -1735,9 +1755,24 @@ public class RxUtil {
             if (found != null) {
                 return null;
             }
-            found = maximum == null ? new UnitAmount(minimum, minimum, false) : new UnitAmount(minimum, maximum, true);
+            found = upper == null ? new UnitAmount(minimum, minimum, false) : new UnitAmount(minimum, upper.value, true);
         }
         return found;
+    }
+
+    /**
+     * Finds the upper bound of a range ("1-2 tabs", "1 - 2 tabs") whose lower bound ends at
+     * {@code amountEnd}: a number after a hyphen, ending no later than {@code limit}.
+     *
+     * @return the upper bound, or null when no range is written there
+     */
+    private static NumberToken rangeUpperBound(String instructions, int amountEnd, int limit) {
+        int hyphen = skipWhitespaceForward(instructions, amountEnd);
+        if (hyphen >= limit || instructions.charAt(hyphen) != '-') {
+            return null;
+        }
+        NumberToken upper = findDecimalAt(instructions, skipWhitespaceForward(instructions, hyphen + 1));
+        return upper != null && upper.end <= limit ? upper : null;
     }
 
     /**
@@ -1759,12 +1794,9 @@ public class RxUtil {
         if (isCountedForm(word) || MEASURED_DOSE_UNITS.contains(lowerCase(word))) {
             return true;
         }
-        if (wordStart > amountEnd && ("po".equals(lowerCase(word)) || "sl".equals(lowerCase(word))
+        return wordStart > amountEnd && ("po".equals(lowerCase(word)) || "sl".equals(lowerCase(word))
                 || ("by".equals(lowerCase(word)) && "mouth".equals(lowerCase(wordAt(text,
-                        skipWhitespaceForward(text, wordStart + word.length()), text.length())))))) {
-            return true;
-        }
-        return false;
+                        skipWhitespaceForward(text, wordStart + word.length()), text.length())))));
     }
 
     /** True for "500 mg tabs" after the "x" of {@code 2 x 500 mg tabs}: a strength, then a counted dosage form. */
@@ -1826,28 +1858,46 @@ public class RxUtil {
      * {@code dispense 30}). Punctuation between the words and the amount is ignored.
      */
     private static boolean isLabelledNotADose(String instructions, int amountStart) {
-        int end = amountStart;
-        boolean afterHyphen = false;
-        while (end > 0 && !isWordCharacter(instructions.charAt(end - 1))) {
-            char c = instructions.charAt(end - 1);
-            if (c == '#') {
-                return true;
+        int start = amountStart;
+        while (true) {
+            int end = start;
+            boolean afterHyphen = false;
+            while (end > 0 && !isWordCharacter(instructions.charAt(end - 1))) {
+                char c = instructions.charAt(end - 1);
+                if (c == '#') {
+                    return true;
+                }
+                afterHyphen |= c == '-';
+                end--;
             }
-            afterHyphen |= c == '-';
-            end--;
+            // The upper bound of a range written with spaces ("in 125 - 250 mL") carries the label
+            // written before its lower bound. The walk back to that lower bound is a loop rather than a
+            // recursion, so a long chain of hyphenated numbers cannot exhaust the stack.
+            int lowerStart = afterHyphen ? numberStartBefore(instructions, end) : -1;
+            if (lowerStart < 0) {
+                return endsWithNotADoseLabel(wordsOf(instructions.substring(Math.max(0, end - 40), end)));
+            }
+            start = lowerStart;
         }
-        // The upper bound of a range written with spaces ("in 125 - 250 mL") carries the label written
-        // before its lower bound.
-        if (afterHyphen) {
-            int lowerStart = end;
-            while (lowerStart > 0 && (isDigit(instructions.charAt(lowerStart - 1)) || instructions.charAt(lowerStart - 1) == '.')) {
-                lowerStart--;
-            }
-            if (lowerStart < end && (lowerStart == 0 || !isWordCharacter(instructions.charAt(lowerStart - 1)))) {
-                return isLabelledNotADose(instructions, lowerStart);
-            }
+    }
+
+    /**
+     * Finds where a number that ends at {@code end} starts, such as the lower bound "125" of
+     * "125 - 250".
+     *
+     * @return the start of the number, or -1 when no whole number ends there
+     */
+    private static int numberStartBefore(String instructions, int end) {
+        int start = end;
+        while (start > 0 && (isDigit(instructions.charAt(start - 1)) || instructions.charAt(start - 1) == '.')) {
+            start--;
         }
-        List<String> previous = wordsOf(instructions.substring(Math.max(0, end - 40), end));
+        boolean wholeNumber = start < end && (start == 0 || !isWordCharacter(instructions.charAt(start - 1)));
+        return wholeNumber ? start : -1;
+    }
+
+    /** True when the last word, or the last two or three words, mark what follows as not a dose ("in", "max", "up to"). */
+    private static boolean endsWithNotADoseLabel(List<String> previous) {
         int count = previous.size();
         if (count == 0) {
             return false;
