@@ -14,7 +14,6 @@ package io.github.carlos_emr.carlos.lab.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;

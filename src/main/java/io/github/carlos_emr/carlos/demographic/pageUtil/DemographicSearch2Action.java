@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -93,7 +94,7 @@ public class DemographicSearch2Action extends ActionSupport {
             return "apptResults";
         }
         if (displaymode != null && !"Search".equals(displaymode)) {
-            logger.debug("DemographicSearch2Action: unexpected displaymode='{}', falling through to general search", displaymode);
+            logger.debug("DemographicSearch2Action: unexpected displaymode='{}', falling through to general search", LogSafe.sanitize(displaymode));
         }
         return SUCCESS;
     }

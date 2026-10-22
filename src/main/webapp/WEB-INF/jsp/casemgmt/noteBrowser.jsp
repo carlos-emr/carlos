@@ -166,7 +166,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
-            demographicNo="<%= demographicID %>"/></title>
+            demographicNo="<%= String.valueOf(patientNumber) %>"/></title>
     <script type="text/javascript">
 
         function popup(vheight, vwidth, varpage) { //open a new popup window
