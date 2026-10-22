@@ -16,11 +16,10 @@ function tempBase(t) {
 
 test('fixture carries the markup the login page must keep and the markup it must drop', () => {
   const text = fixture('FAKE-PW-AUA-1');
-  assert.match(text, /<h2>FAKE-PW-AUA-1 agreement<\/h2>/);
-  assert.match(text, /<b>only<\/b>/);
-  assert.match(text, /<script>/);
-  assert.match(text, /onerror=/);
-  assert.match(text, /style=/);
+  // Plain substring checks: this asserts what the fixture contains; it filters nothing.
+  for (const expected of ['<h2>FAKE-PW-AUA-1 agreement</h2>', '<b>only</b>', '<script>', 'onerror=', 'style=']) {
+    assert.ok(text.includes(expected), `fixture lacks ${expected}`);
+  }
 });
 
 test('a run on a deployment with no agreement removes the file and the directory it created', (t) => {

@@ -71,6 +71,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
     private static Logger _logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
@@ -110,7 +111,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
                 prop.setName("aua_valid_duration");
                 prop.setValue(duration + " " + validDurationPeriod);
             }
-        } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
+        } catch (IllegalArgumentException | java.time.DateTimeException _) {
             addActionError("Choose a valid agreement duration or a date in yyyy-MM-dd HH:mm:ss format.");
             request.setAttribute("error", true);
             return SUCCESS;
@@ -138,26 +139,40 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
                 AcceptableUseAgreementManager.invalidateCache();
             }
         } catch (Exception e) {
-            if (published != null) {
-                try {
-                    restoreLoginTextFile(published);
-                    restored = true;
-                } catch (IOException restoreError) {
-                    e.addSuppressed(restoreError);
-                }
-            }
+            restored = restoreAfterFailure(published, e);
             MiscUtils.getLogger().error("Error", e);
             error = true;
         } finally {
-            if (published != null && (!error || restored) && published.backup() != null) {
-                try {
-                    Files.deleteIfExists(published.backup());
-                } catch (IOException cleanupError) {
-                    _logger.warn("Could not remove agreement backup after update", cleanupError);
-                }
+            // A failed update that could not be undone keeps its backup for manual recovery.
+            if (!error || restored) {
+                discardBackup(published);
             }
         }
         request.setAttribute("error", error);
+    }
+
+    private boolean restoreAfterFailure(PublishedLoginText published, Exception failure) {
+        if (published == null) {
+            return false;
+        }
+        try {
+            restoreLoginTextFile(published);
+            return true;
+        } catch (IOException restoreError) {
+            failure.addSuppressed(restoreError);
+            return false;
+        }
+    }
+
+    private void discardBackup(PublishedLoginText published) {
+        if (published == null || published.backup() == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(published.backup());
+        } catch (IOException cleanupError) {
+            _logger.warn("Could not remove agreement backup after update", cleanupError);
+        }
     }
 
     private record PublishedLoginText(Path destination, Path backup) { }
