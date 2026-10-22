@@ -210,16 +210,27 @@ const CASES = [
     assert.equal(await page.locator('#jobTypeName').inputValue(), 'FAKE second editor');
     assert.equal(await page.getByRole('button', { name: 'Save', exact: true }).isDisabled(), false);
   }],
-  ['single and empty responses retain text-safe rows and the same table', async (page, state) => {
-    const name = '<img src=x onerror="window.__unsafeJobName=true">';
+  ['shrinking results clamp invalid pages while retaining filters, order and text-safe rows', async (page, state) => {
+    await page.evaluate(() => jobTypeTable.order([[0, 'desc']]).search('FAKE').page(2).draw(false));
+    assert.equal(await page.evaluate(() => jobTypeTable.page.info().page), 2);
+    const name = 'FAKE <img src=x onerror="window.__unsafeJobName=true">';
     state.rows = [{ ...state.rows[0], name }];
     state.mode = 'single';
     await page.evaluate(async () => { await getJobTypes(); });
+    assert.equal(await page.evaluate(() => jobTypeTable.page.info().page), 0,
+      'One matching row should be visible after the previous page becomes invalid');
     assert.equal(await page.locator('#jobTypeTable tbody td').first().innerText(), name);
     assert.equal(await page.locator('#jobTypeTable tbody img').count(), 0);
+    state.rows = jobs();
+    state.mode = 'array';
+    await page.evaluate(async () => { await getJobTypes(); jobTypeTable.page(2).draw(false); });
+    assert.equal(await page.evaluate(() => jobTypeTable.page.info().page), 2);
     state.mode = 'empty';
     await page.evaluate(async () => { await getJobTypes(); });
     assert.equal(await page.evaluate(() => jobTypeTable.rows().count()), 0);
+    assert.equal(await page.evaluate(() => jobTypeTable.page.info().page), 0);
+    assert.equal(await page.evaluate(() => jobTypeTable.search()), 'FAKE');
+    assert.deepEqual(await page.evaluate(() => jobTypeTable.order()), [[0, 'desc']]);
     assert.equal(await page.evaluate(() => jQuery.fn.dataTable.settings.length), 1);
   }],
 ];

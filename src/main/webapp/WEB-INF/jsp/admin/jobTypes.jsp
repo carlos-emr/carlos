@@ -154,6 +154,10 @@
                         table.clear();
                         table.rows.add(rows);
                         table.draw(false);
+                        var pageInfo = table.page.info();
+                        if (pageInfo.page > 0 && pageInfo.page >= pageInfo.pages) {
+                            table.page(Math.max(0, pageInfo.pages - 1)).draw(false);
+                        }
                     });
             }
 
