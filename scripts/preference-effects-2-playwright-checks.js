@@ -98,6 +98,7 @@ async function workflow(s) {
     // An untouched BC install legitimately defaults to BC. Pick a different
     // supported type so the saved preference is observable in every province.
     hcType = control.hcType === 'BC' ? 'ON' : 'BC';
+    console.log(`  preference-effects-2 defaults: ${JSON.stringify({ before: control, saved: { sex, hcType } })}`);
   });
 
   await s.step('Preferences ▸ Save All stores the patient name length, default sex and HC type', async () => {
