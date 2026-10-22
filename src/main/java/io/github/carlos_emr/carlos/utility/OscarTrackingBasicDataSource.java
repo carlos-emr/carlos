@@ -68,7 +68,9 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public static final int MAX_CONNECTION_WARN_SIZE = 2;
     public static final Logger logger = MiscUtils.getLogger();
-    public static final Map<Connection, StackTraceElement[]> debugMap = Collections.synchronizedMap(new WeakHashMap<Connection, StackTraceElement[]>());
+    // Private: callers copy it under its own lock (the synchronizedMap contract), so no outside
+    // code may hold that lock.
+    private static final Map<Connection, StackTraceElement[]> debugMap = Collections.synchronizedMap(new WeakHashMap<Connection, StackTraceElement[]>());
     private static final ThreadLocal<HashSet<Connection>> connections = new ThreadLocal<HashSet<Connection>>();
     private static final Set<HashSet<Connection>> trackedThreadConnectionSets = Collections.synchronizedSet(
             Collections.newSetFromMap(new IdentityHashMap<HashSet<Connection>, Boolean>()));

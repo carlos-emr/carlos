@@ -58,6 +58,7 @@ class FacilityWsEndpointTest extends CarlosSoapTestBase {
     protected Object getServiceBean() {
         FacilityWs ws = new FacilityWs();
         injectDependency(ws, "facilityManager", mockFacilityManager);
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("r", "_admin"));
         return ws;
     }
 

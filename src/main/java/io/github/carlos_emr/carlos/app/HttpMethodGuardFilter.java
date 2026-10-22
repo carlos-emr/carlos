@@ -134,6 +134,12 @@ public class HttpMethodGuardFilter implements Filter {
             "submit", "merge", "archive", "assign", "transfer",
             "approve", "reject", "toggle", "complete", "process",
             "cancel", "close",
+            // Chart notes (CaseManagementEntry): autosave stores the draft and saveAndExit saves the
+            // note, like save; the editor sends both by POST. saveAndExit also names the save of
+            // CaseManagementView (CPP) and form/BCAR2020, whose method=save is already POST-only.
+            "autosave", "saveandexit",
+            // ManageEmails2Action mutates status or creates token/PDF state for a copied email.
+            "setresolved", "resendemail",
             // MfaActions2Action dispatches its privileged MFA-secret reset via ?method=resetMfa;
             // classify it as a mutation so GET/HEAD are rejected before the action runs.
             "resetmfa"
@@ -380,7 +386,7 @@ public class HttpMethodGuardFilter implements Filter {
         String uri = httpRequest.getRequestURI();
         if (uri.indexOf('\0') >= 0) {
             LOGGER.warn("Blocked request with null byte in URI: {} (remote: {})",
-                    uri.replace('\0', '?'), httpRequest.getRemoteAddr());
+                    LogSafe.sanitize(uri.replace('\0', '?')), LogSafe.sanitize(httpRequest.getRemoteAddr()));
             ((HttpServletResponse) response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid request URI");
             return;
         }

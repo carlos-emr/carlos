@@ -142,6 +142,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         objectMapper.registerModule(module);
     }
 
+    /**
+     * The {@code method} values that change something: a note, an issue, a draft or a note lock. They
+     * accept only POST, matching the existing contract for {@code save}. Opening, reading, printing
+     * and restoring the chart stay GET (the default {@code edit}, {@code restore}, the histories).
+     */
+    static final Set<String> POST_ONLY_METHODS = Set.of(
+            "save", "saveAndExit", "autosave", "cancel", "ajaxsave",
+            "issueNoteSave", "issueNoteSaveJson", "ticklerSaveNote",
+            "isNoteEdited", "updateNoteLock", "releaseNoteLock",
+            "makeIssue", "issueAdd", "submitChangeDiagnosis", "ajaxChangeDiagnosis",
+            "issueChange", "issueDelete");
+
     // Whitelist for the 'from' request parameter — only "casemgmt" is a known valid value
     private static final Set<String> ALLOWED_FROM_VALUES = Set.of("casemgmt");
 
@@ -167,7 +179,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         restoreFromSession();
 
         String method = request.getParameter("method") != null ? request.getParameter("method") : (String) request.getAttribute("method");
-        
+        // Save actions accept only POST; other verbs are refused before anything is written.
+        if (POST_ONLY_METHODS.contains(method) && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if ("setUpMainEncounter".equals(method)) {
             return setUpMainEncounter();
         } else if ("isNoteEdited".equals(method)) {
@@ -2950,7 +2968,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         this.setCaseNote_history(note.getHistory());
 
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), note.getAuditString());
+        // The note's own demographic number is the patient the audit row is filed under; the note
+        // text goes in the data slot. Passing the text as the sixth argument put it in the
+        // demographicNo parameter, which logged it as a NumberFormatException and lost the patient (#4426).
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), note.getDemographic_no(), note.getAuditString());
 
         return "historyview";
     }

@@ -43,6 +43,17 @@ public interface CtlDocumentDao extends AbstractDao<CtlDocument> {
     public List<CtlDocument> findByDocumentNoAndModule(Integer ctlDocNo, String module);
 
     /**
+     * Finds every module link for the supplied document numbers.
+     * Null document numbers and duplicate values are ignored. A null, empty, or
+     * all-null collection returns an empty list. The returned list is never null
+     * and has no defined ordering.
+     *
+     * @param documentNos document numbers whose module links should be returned
+     * @return all matching module links, or an empty list when none match
+     */
+    public List<CtlDocument> findByDocumentNos(Collection<Integer> documentNos);
+
+    /**
      * Returns the subset of {@code documentNos} that are linked to the given patient through a
      * {@code ctl_document} row (module {@code demographic}, module_id = patient) and whose
      * {@code document} row exists and is not deleted ({@code document.status <> 'D'}, the flag

@@ -291,8 +291,8 @@
                                             <td colspan=2><label for="fldFavoriteName<%= i%>"><b>Favorite Name:</b></label><input type=hidden
                                                                                       name="fldFavoriteId<%= i%>"
                                                                                       value="<%= f.getFavoriteId() %>"/>
-                                                <input type=text size="50" name="fldFavoriteName<%= i%>" id="fldFavoriteName<%= i%>"
-                                                       class=tblRow size=80 value="<%= SafeEncode.forHtmlAttribute(f.getFavoriteName()) %>"/>&nbsp;&nbsp;&nbsp;
+                                                <input type="text" size="50" name="fldFavoriteName<%= i%>" id="fldFavoriteName<%= i%>"
+                                                       class="tblRow" value="<%= SafeEncode.forHtmlAttribute(f.getFavoriteName()) %>"/>&nbsp;&nbsp;&nbsp;
                                             </td>
                                             <td>
                                                 <a id="saveSuccess_<%=i%>" style="display:none;color:red">Changes
@@ -314,10 +314,10 @@
                                         </tr>
                                         <% } else { %>
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line2">
-                                            <td colspan=7><label for="fldCustomName<%= i%>"><b>Custom Drug Name:</b></label> <input type=text
+                                            <td colspan=7><label for="fldCustomName<%= i%>"><b>Custom Drug Name:</b></label> <input type="text"
                                                                                           size="50"
                                                                                           id="fldCustomName<%= i%>" name="fldCustomName<%= i%>"
-                                                                                          class=tblRow size=80
+                                                                                          class="tblRow"
                                                                                           value="<%= SafeEncode.forHtmlAttribute(f.getCustomName()) %>"/>
                                             </td>
                                         </tr>

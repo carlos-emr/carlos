@@ -10,10 +10,10 @@
  * for "allergy".
  *
  * Asserted: A's discontinue archives the drug with its reason and files one linked chart note
- * (control); after B's discontinue the first reason and date still stand (a refusal is fine) and the
- * chart holds exactly one discontinue note. RxDeleteRx2Action.Discontinue only checks that the drug
- * belongs to the patient, so a stale second discontinue overwrites archived_reason / archived_date and
- * files a second, contradictory chart note. The check fails at the reason / note step.
+ * (control); B's stale discontinue is refused with HTTP 409 and an alert telling the user it could not be
+ * completed; afterwards the first reason and date still stand and the chart holds exactly one discontinue
+ * note. RxDeleteRx2Action.Discontinue claims the row with a conditional archive (only while it is still
+ * active) and files the chart note in the same transaction, so the stale second discontinue writes nothing.
  *
  * Fixtures: one owned custom medication seeded by SQL for the owned FAKE- patient; cleanup removes the
  * drugs row, the discontinue chart notes with their links and asserts nothing remains.

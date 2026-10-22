@@ -52,6 +52,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="org.apache.commons.lang3.math.NumberUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
@@ -246,9 +247,14 @@
                 <%
                     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
                     boolean isDraft = request.getAttribute("securityEditDraft") instanceof Security;
-                    Security draft = (Security) request.getAttribute("securityEditDraft");
-                    Integer securityId = isDraft ? draft.getId() : Integer.valueOf(request.getParameter("keyword"));
-                    Security security = isDraft ? draft : securityDao.find(securityId);
+                    Security draft = isDraft ? (Security) request.getAttribute("securityEditDraft") : null;
+                    // The "keyword" request parameter is the security record id supplied by the
+                    // search-results link. It is attacker-controllable, so it is parsed defensively:
+                    // NumberUtils.toInt() yields the -1 sentinel for missing, blank, non-numeric and
+                    // out-of-range input instead of throwing NumberFormatException into errorpage.jsp.
+                    // A refused edit re-renders its own draft, whose id the update action validated.
+                    int securityId = isDraft ? draft.getId() : NumberUtils.toInt(request.getParameter("keyword"), -1);
+                    Security security = isDraft ? draft : (securityId > 0 ? securityDao.find(securityId) : null);
 
                     if (security == null) {
                 %>

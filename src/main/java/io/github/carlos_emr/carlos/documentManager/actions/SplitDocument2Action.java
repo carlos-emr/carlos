@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
@@ -52,6 +54,7 @@ import java.util.Set;
 public class SplitDocument2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
+    private final transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -94,6 +97,9 @@ public class SplitDocument2Action extends ActionSupport {
             String documentValue = request.getParameter("document");
             if (!IncomingDocumentCapacityResponse.positiveId(documentValue)) throw new IllegalArgumentException("Invalid document");
             int documentNo = Integer.parseInt(documentValue);
+            // Refuse archive eDocs by id before the document is loaded; the filename alias is
+            // checked once it is known, and both are rechecked under the source lease.
+            assertNotOutboundEmailArchiveDocument(documentValue);
             String[] revisionValues = request.getParameterValues("sourceRevision");
             if (revisionValues == null || revisionValues.length != 1 || !StoredDocumentRevision.valid(revisionValues[0])) {
                 throw new StoredDocumentRevision.ConflictException();
@@ -106,6 +112,7 @@ public class SplitDocument2Action extends ActionSupport {
             List<SplitDocumentPdfWork.PageSelection> selections = split
                     ? SplitDocumentPdfWork.selections(request.getParameterValues("page")) : List.of();
             Document document = requireDocument(documentValue);
+            assertNotOutboundEmailArchiveFileName(document.getDocfilename());
             authorize(info, documentNo);
             File directory = PathValidationUtils.validateConfiguredDirectory(
                     CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
@@ -114,6 +121,8 @@ public class SplitDocument2Action extends ActionSupport {
                 document = requireDocument(documentValue);
                 File current = StoredDocumentRevision.resolveStoredChild(directory, document.getDocfilename());
                 if (!current.getCanonicalFile().equals(lease.source())) throw new SecurityException("Document changed while waiting");
+                assertNotOutboundEmailArchiveDocument(documentValue);
+                assertNotOutboundEmailArchiveFileName(document.getDocfilename());
                 authorize(info, documentNo);
                 StoredDocumentRevision.requireMatch(lease.source().toPath(), observedRevision);
                 try (SplitDocumentPdfWork.Prepared prepared = prepare(lease.source().toPath(), directory.toPath(), operation, selections)) {
@@ -297,5 +306,25 @@ public class SplitDocument2Action extends ActionSupport {
         response.setHeader("Cache-Control", "no-store");
         response.setContentType("application/json;charset=UTF-8");
         JSON.writeValue(response.getWriter(), payload);
+    }
+
+    /**
+     * Refuses split, rotate and remove-first-page on an outbound email archive eDoc.
+     *
+     * <p>Page operations rewrite or derive from the stored file. Rewriting an archive artifact
+     * silently invalidates the SHA-256 the archive recorded, so the record would no longer match
+     * what was actually sent -- and the mismatch would surface later as an integrity failure on
+     * read, long after the cause.</p>
+     */
+    private void assertNotOutboundEmailArchiveDocument(String documentNo) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentNo)) {
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveFileName(String fileName) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao, fileName)) {
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
+        }
     }
 }

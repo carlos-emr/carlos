@@ -8,6 +8,10 @@ echo "[Bootstrap] Seeding initial database files..."
 # volume. Reapply the idempotent development privilege repair here so existing
 # local volumes receive new Administration grants after a devcontainer rebuild.
 export MYSQL_PWD="${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-password}}"
+# Migration-added security objects (issue #4369) are re-applied first, because the
+# demo snapshot wipes them and an existing volume never re-runs populate_db.sh.
+sh /workspace/.devcontainer/db/scripts/reapply_security_migrations.sh \
+    /workspace/database/mysql/migration carlos -h db -u root
 mariadb -h db -u root carlos \
     < /workspace/.devcontainer/db/scripts/development_privileges.sql
 

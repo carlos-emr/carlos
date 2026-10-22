@@ -75,10 +75,21 @@
         <action name="email/emailComposeAction" class="io.github.carlos_emr.carlos.email.action.EmailCompose2Action">
             <result name="compose">/WEB-INF/jsp/email/emailCompose.jsp</result>
             <result name="eFormError">/eform/efmshowform_data?error=true</result>
+            <result name="composeExpired">/WEB-INF/jsp/email/emailComposeExpired.jsp</result>
         </action>
+        <action name="email/portalDelivery" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalEmailDelivery2Action">
+            <result name="success">/WEB-INF/jsp/email/portalDelivery.jsp</result>
+        </action>
+        <!-- The clinic's email footer logo, for the Edit footer window (issue #3981); writes the image itself. -->
+        <action name="email/clinicEmailLogo" class="io.github.carlos_emr.carlos.email.action.ClinicEmailLogo2Action"/>
         <action name="email/emailSendAction" class="io.github.carlos_emr.carlos.email.action.EmailSend2Action">
             <result name="success">/WEB-INF/jsp/email/emailCompose.jsp</result>
-            <result name="EFORM">/eform/efmshowform_data</result>
+        </action>
+        <action name="email/myEmailFooter" class="io.github.carlos_emr.carlos.email.action.ViewMyEmailFooter2Action">
+            <result name="success">/WEB-INF/jsp/email/myEmailFooter.jsp</result>
+        </action>
+        <action name="email/saveMyEmailFooter" class="io.github.carlos_emr.carlos.email.action.SaveMyEmailFooter2Action">
+            <result name="input">/WEB-INF/jsp/email/myEmailFooter.jsp</result>
         </action>
         <action name="setProviderStaleDate" class="io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action" method="execute">
             <result name="success">/WEB-INF/jsp/provider/setNoteStaleDate.jsp</result>

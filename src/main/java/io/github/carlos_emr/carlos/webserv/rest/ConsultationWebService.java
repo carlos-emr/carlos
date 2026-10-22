@@ -67,12 +67,15 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import org.apache.commons.lang3.StringUtils;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import java.util.Objects;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
@@ -88,11 +91,12 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationRequestConverter;
@@ -119,6 +123,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ProfessionalSpecialistT
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -136,23 +141,21 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     Pattern namePtrn = Pattern.compile("sorting\\[(\\w+)\\]");
 
-    @Autowired
     private PatientLabRoutingDao patientLabRoutingDao;
 
-    @Autowired
     private AttachmentSelectionAccess attachmentSelectionAccess;
 
-    @Autowired
     private ConsultationRequestDao consultationRequestDao;
 
-    @Autowired
     private ConsultResponseDao consultationResponseDao;
 
-    @Autowired
     private PlatformTransactionManager transactionManager;
 
     @Autowired
     ConsultationManager consultationManager;
+
+    @Autowired
+    OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     @Autowired
     CaseManagementManager caseManagementManager;
@@ -160,16 +163,13 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Autowired
     DemographicManager demographicManager;
 
-    @Autowired
     private DemographicDao demographicDao;
 
     @Autowired
     private DocumentManager documentManager;
 
-    @Autowired
     private AttachmentOwnershipService attachmentOwnershipService;
 
-    @Autowired
     private SecurityInfoManager securityInfoManager;
 
     @Autowired
@@ -194,6 +194,49 @@ public class ConsultationWebService extends AbstractServiceImpl {
     private ProfessionalSpecialistConverter specialistConverter = new ProfessionalSpecialistConverter();
     private DemographicConverter demographicConverter = new DemographicConverter();
 
+    // Collaborators added with the attachment and chart-access checks are setter-injected. The
+    // older fields are still field-injected, and the tests build this class through its
+    // no-arg constructor, so moving to constructor injection is a separate whole-class change.
+    @Autowired
+    public void setPatientLabRoutingDao(PatientLabRoutingDao patientLabRoutingDao) {
+        this.patientLabRoutingDao = patientLabRoutingDao;
+    }
+
+    @Autowired
+    public void setAttachmentSelectionAccess(AttachmentSelectionAccess attachmentSelectionAccess) {
+        this.attachmentSelectionAccess = attachmentSelectionAccess;
+    }
+
+    @Autowired
+    public void setConsultationRequestDao(ConsultationRequestDao consultationRequestDao) {
+        this.consultationRequestDao = consultationRequestDao;
+    }
+
+    @Autowired
+    public void setConsultationResponseDao(ConsultResponseDao consultationResponseDao) {
+        this.consultationResponseDao = consultationResponseDao;
+    }
+
+    @Autowired
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
+    }
+
+    @Autowired
+    public void setDemographicDao(DemographicDao demographicDao) {
+        this.demographicDao = demographicDao;
+    }
+
+    @Autowired
+    public void setAttachmentOwnershipService(AttachmentOwnershipService attachmentOwnershipService) {
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
+
+    @Autowired
+    public void setSecurityInfoManager(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
 
     /********************************
      * Consultation Request methods *
@@ -217,6 +260,18 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return rp;
     }
 
+    /**
+     * Loads a stored request for a positive ID, or initializes a new request for
+     * the supplied demographic for a nonpositive ID. Includes form choice lists.
+     *
+     * @param requestId existing request ID, or a nonpositive ID for a new request
+     * @param demographicId patient identifier used when initializing a new request
+     * @param datesAsTimestamp whether date values should serialize as timestamps
+     * @return the request details and form choices
+     * @throws WebApplicationException with HTTP 400 if {@code requestId} is omitted or the applicable
+     * demographic is missing or non-positive, HTTP 403 if the caller cannot read that patient's
+     * consultations or chart, or HTTP 404 if a positive ID is not found
+     */
     @GET
     @Path("/getRequest")
     @Produces(MediaType.APPLICATION_JSON)
@@ -227,15 +282,13 @@ public class ConsultationWebService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
         }
         if (requestId > 0) {
-            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
-            if (stored == null) {
-                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
-            }
-            requirePatientConsultRead(stored.getDemographicId());
+            ConsultationRequest stored = getRequiredRequest(requestId);
+            // Authorize against the stored consultation's patient, never the demographicId parameter.
+            requireConsultationReadPrivilege(stored.getDemographicId());
             request = requestConverter.getAsTransferObject(getLoggedInInfo(), stored);
             request.setAttachments(getRequestAttachments(requestId, request.getDemographicId(), ConsultationAttachmentTo1.ATTACHED));
         } else {
-            requirePatientConsultRead(demographicId);
+            requireConsultationReadPrivilege(demographicId);
             request.setDemographicId(demographicId);
 
             RxInformation rx = new RxInformation();
@@ -270,6 +323,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return request;
     }
 
+    private ConsultationRequest getRequiredRequest(Integer requestId) {
+        ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+        if (stored == null) {
+            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
+                    .entity("Consultation request not found").build());
+        }
+        return stored;
+    }
+
     @GET
     @Path("/getRequestAttachments")
     @Produces(MediaType.APPLICATION_JSON)
@@ -282,14 +344,10 @@ public class ConsultationWebService extends AbstractServiceImpl {
         // and attached rows (looked up by consultation id alone) are listed only while they belong
         // to that patient, so a legacy foreign row is never returned.
         Integer ownerDemographicNo = demographicIdInt;
-        if (requestId != null && requestId > 0) {
-            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
-            if (stored == null) {
-                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
-            }
-            ownerDemographicNo = stored.getDemographicId();
+        if (requestId > 0) {
+            ownerDemographicNo = getRequiredRequest(requestId).getDemographicId();
         }
-        requirePatientConsultRead(ownerDemographicNo);
+        requireConsultationReadPrivilege(ownerDemographicNo);
         String demographicId = ownerDemographicNo.toString();
 
         List<EDoc> edocs = EDocUtil.listDocs(getLoggedInInfo(), demographicId, requestId.toString(), attached);
@@ -310,6 +368,16 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return attachments;
     }
 
+    /**
+     * Creates a consultation for a caller with {@code _con} write privilege, both role-level and
+     * for the submitted patient, plus access to that patient's chart. The consultation and its
+     * attachments are written in one transaction.
+     *
+     * @param data consultation request to create; outbound archive eDoc attachments are refused
+     * @return the created consultation; HTTP 400 for invalid input or an invalid attachment
+     *         selection, or HTTP 403 when a privilege or chart access is missing or an archive eDoc
+     *         or restricted attachment is submitted (both roll the transaction back)
+     */
     @POST
     @Path("/createConsultation")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -328,6 +396,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     private Response createConsultationInTransaction(ConsultationRequestTo1 data) {
         if (data == null) throw new IllegalArgumentException("Consultation request is required");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireConsultationPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
 
         if (data.getId() != null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Please use /updateConsultation service for existing consultations").build();
@@ -343,6 +412,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("required fields: \"referralDate\", \"serviceId\", \"urgency\", \"status\"").build();
         }
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
         ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data);
 
@@ -359,6 +429,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return Response.ok().entity(data).build();
     }
 
+    /**
+     * Updates a consultation for a caller with {@code _con} update privilege, both role-level and
+     * for the consultation's patient, plus access to that patient's chart. The consultation stays
+     * with its stored patient, and it and its attachments are written in one transaction.
+     *
+     * @param data consultation request to update; outbound archive eDoc attachments are refused
+     * @return the updated consultation; HTTP 400 for invalid input, a patient change or an invalid
+     *         attachment selection, HTTP 403 when a privilege or chart access is missing or an
+     *         archive eDoc or restricted attachment is submitted, or HTTP 404 when the consultation
+     *         does not exist (each rolls the transaction back)
+     */
     @POST
     @Path("/updateConsultation")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -367,6 +448,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
         try {
             return new TransactionTemplate(transactionManager)
                     .execute(status -> updateConsultationInTransaction(data));
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            // Thrown inside the transaction so it rolls back; reported as the endpoint's 404 response.
+            return Response.status(Response.Status.NOT_FOUND).entity("Consultation request not found").build();
         } catch (SecurityException e) {
             return Response.status(Response.Status.FORBIDDEN).entity("Consultation attachment access denied").build();
         } catch (IllegalArgumentException e) {
@@ -377,6 +461,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     private Response updateConsultationInTransaction(ConsultationRequestTo1 data) {
         if (data == null) throw new IllegalArgumentException("Consultation request is required");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireConsultationPrivilege(loggedInInfo, SecurityInfoManager.UPDATE);
 
         if (data.getId() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Please use /createConsultation service for new consultations").build();
@@ -392,13 +477,19 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("required fields: \"referralDate\" \"serviceId\" \"urgency\" \"status\"").build();
         }
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
-        ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, consultationManager.getRequest(loggedInInfo, data.getId()));
+        ConsultationRequest stored = consultationManager.getRequest(loggedInInfo, data.getId());
+        if (stored == null) {
+            throw new jakarta.ws.rs.NotFoundException("Consultation request not found");
+        }
+        ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, stored);
 
         request.setProfessionalSpecialist(data.getProfessionalSpecialist() == null ? null : consultationManager.getProfessionalSpecialist(data.getProfessionalSpecialist().getId()));
         consultationManager.saveConsultationRequest(loggedInInfo, request);
 
-        //save attachments
+        // An omitted or null selection leaves attachments unchanged; an empty submitted set detaches
+        // ordinary attachments (outbound email archive eDocs are always preserved).
         if (data.hasAttachmentSelection() && data.getAttachments() != null) {
             saveRequestAttachments(data);
         }
@@ -450,30 +541,47 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return rp;
     }
 
+    /**
+     * Retrieves an existing consultation response or initializes data for a new response.
+     *
+     * <p>A positive {@code responseId} loads the stored response and authorizes access against
+     * that response's demographic, regardless of the caller-supplied {@code demographicNo}.
+     * A non-positive {@code responseId} initializes a new response for the supplied demographic;
+     * an omitted one is rejected.
+     *
+     * @param responseId existing response identifier, or non-positive to initialize a new response
+     * @param demographicNo demographic used only when initializing a new response
+     * @return populated consultation response transfer object
+     * @throws WebApplicationException with HTTP 400 when {@code responseId} is omitted or the
+     * applicable demographic is missing or non-positive, HTTP 403 when consultation read or chart
+     * access is denied, or HTTP 404 when a positive {@code responseId} does not exist
+     * @since 2026-01-24
+     */
     @GET
     @Path("/getResponse")
     @Produces(MediaType.APPLICATION_JSON)
     public ConsultationResponseTo1 getResponse(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNo) {
         ConsultationResponseTo1 response = new ConsultationResponseTo1();
 
+        // A read must name its response: an omitted responseId is a malformed request (#4045), while
+        // a non-positive one initializes a new response for the supplied demographic.
         if (responseId == null) {
-            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("responseId is required").build());
         }
         if (responseId > 0) {
-            ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
-            if (responseD == null) {
-                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
-            }
+            ConsultationResponse responseD = getAuthorizedConsultationResponse(responseId);
             demographicNo = responseD.getDemographicNo();
-            requirePatientConsultRead(demographicNo);
+
             response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
 
             ProfessionalSpecialist referringDoctorD = consultationManager.getProfessionalSpecialist(responseD.getReferringDocId());
             response.setReferringDoctor(specialistConverter.getAsTransferObject(getLoggedInInfo(), referringDoctorD));
 
-            response.setAttachments(getResponseAttachments(responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
+            response.setAttachments(getResponseAttachmentsForAuthorizedResponse(
+                    responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
         } else {
-            requirePatientConsultRead(demographicNo);
+            requireConsultationReadPrivilege(demographicNo);
             response.setProviderNo(getLoggedInInfo().getLoggedInProviderNo());
             RxInformation rx = new RxInformation();
             String info = rx.getAllergies(getLoggedInInfo(), demographicNo.toString());
@@ -493,30 +601,45 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves the documents, eForms, and labs associated with a consultation response.
+     *
+     * <p>The response's persisted demographic is the authorization source. The
+     * {@code demographicNoInt} query parameter is retained for API compatibility and is not
+     * trusted for authorization.
+     *
+     * @param responseId positive consultation response identifier
+     * @param demographicNoInt legacy caller-supplied demographic; not used for authorization
+     * @param attached whether to return attached or available attachment candidates
+     * @return consultation attachment transfer objects for the requested response
+     * @throws WebApplicationException with HTTP 400 when {@code responseId} or the stored
+     * demographic is invalid, HTTP 403 when consultation read or chart access is denied, or
+     * HTTP 404 when the response does not exist
+     * @since 2026-01-24
+     */
     @GET
     @Path("/getResponseAttachments")
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getResponseAttachments(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNoInt, @QueryParam("attached") boolean attached) {
+        if (responseId == null || responseId <= 0) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("responseId is required").build());
+        }
+        ConsultationResponse responseD = getAuthorizedConsultationResponse(responseId);
+        return getResponseAttachmentsForAuthorizedResponse(responseId, responseD.getDemographicNo(), attached);
+    }
+
+    private List<ConsultationAttachmentTo1> getResponseAttachmentsForAuthorizedResponse(
+            Integer responseId, Integer resolvedDemographicNo, boolean attached) {
+
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        if (responseId == null) {
-            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
-        }
-        // Same rule as getRequestAttachments (issue #3867): the stored response's patient, and
-        // attached rows only while they belong to that patient.
-        Integer ownerDemographicNo = demographicNoInt;
-        if (responseId != null && responseId > 0) {
-            ConsultationResponse stored = consultationManager.getResponse(getLoggedInInfo(), responseId);
-            if (stored == null) {
-                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
-            }
-            ownerDemographicNo = stored.getDemographicNo();
-        }
-        requirePatientConsultRead(ownerDemographicNo);
-        String demographicNo = ownerDemographicNo.toString();
+        String demographicNo = resolvedDemographicNo.toString();
 
         List<EDoc> edocList = EDocUtil.listResponseDocs(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
         if (attached) {
-            edocList = attachmentOwnershipService.retainAttachable(DocumentType.DOC, ownerDemographicNo, edocList, EDoc::getDocId);
+            // Issue #3867: attached rows are looked up by response id alone, so list them only while
+            // they belong to the stored response's patient.
+            edocList = attachmentOwnershipService.retainAttachable(DocumentType.DOC, resolvedDemographicNo, edocList, EDoc::getDocId);
         }
         getDocuments(edocList, attached, attachments);
 
@@ -525,13 +648,25 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         List<LabResultData> labs = new CommonLabResultData().populateLabResultsDataConsultResponse(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
         if (attached) {
-            labs = attachmentOwnershipService.retainAttachable(DocumentType.LAB, ownerDemographicNo, labs, LabResultData::getSegmentID);
+            labs = attachmentOwnershipService.retainAttachable(DocumentType.LAB, resolvedDemographicNo, labs, LabResultData::getSegmentID);
         }
         getLabs(labs, demographicNo, attached, attachments);
 
         return attachments;
     }
 
+    /**
+     * Creates or updates a consultation response.
+     *
+     * @param data response to save; outbound archive eDoc attachments are refused
+     * @return the saved response
+     * @throws jakarta.ws.rs.ForbiddenException if the caller lacks write privilege for a new
+     *         response or update privilege for an existing one (role-level or for the owning
+     *         patient), cannot access that patient's chart, or attaches an archive eDoc or a
+     *         restricted attachment
+     * @throws jakarta.ws.rs.BadRequestException if the response, its patient or an attachment
+     *         selection is invalid; the transaction is rolled back
+     */
     @POST
     @Path("/saveResponse")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -550,6 +685,11 @@ public class ConsultationWebService extends AbstractServiceImpl {
     private ConsultationResponseTo1 saveResponseInTransaction(ConsultationResponseTo1 data) {
         if (data == null) throw new IllegalArgumentException("Consultation response is required");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
+        // Role-level check first, so an unauthorized caller learns nothing about stored responses or
+        // archive attachments; the patient-scoped check follows once the owning patient is known.
+        requireConsultationPrivilege(loggedInInfo,
+                data.getId() == null ? SecurityInfoManager.WRITE : SecurityInfoManager.UPDATE);
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
         ConsultationResponse stored = null;
         Integer patient;
         if (data.getId() == null) { //new consultation response
@@ -639,10 +779,24 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return RestResponse.errorResponse("Invalid or missing econsult data.");
     }
 
+    /**
+     * Retrieves recently prepared eReferral attachments for an authorized demographic.
+     *
+     * @param demographicNo demographic whose prepared attachments are requested
+     * @param httpServletRequest servlet request used by attachment rendering
+     * @param httpServletResponse servlet response used by attachment rendering
+     * @return HTTP 200 with the prepared attachments, or HTTP 500 when attachment generation fails
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when consultation read access is denied
+     * @since 2026-01-24
+     */
     @GET
     @Path("/getEReferAttachments")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getEReferAttachments(@QueryParam("demographicNo") Integer demographicNo, @Context HttpServletRequest httpServletRequest, @Context HttpServletResponse httpServletResponse) {
+        // Authorize before the try block so a denial is not reclassified as a 500 by the catch.
+        requireConsultationReadPrivilege(demographicNo);
+        requireGlobalConsultationReadPrivilege();
         Response response;
         try {
             /*
@@ -665,6 +819,68 @@ public class ConsultationWebService extends AbstractServiceImpl {
     /*******************
      * private methods *
      *******************/
+
+    /**
+     * Resolves a stored response after enforcing both the manager's global consultation
+     * privilege and the response's patient-specific privilege at the REST boundary.
+     */
+    private ConsultationResponse getAuthorizedConsultationResponse(Integer responseId) {
+        requireGlobalConsultationReadPrivilege();
+
+        ConsultationResponse response = consultationManager.getResponse(getLoggedInInfo(), responseId);
+        if (response == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.NOT_FOUND).entity("Consultation response not found").build());
+        }
+
+        // Resolve authorization from the persisted response rather than trusting a caller-supplied
+        // demographic, so a forged responseId cannot expose another patient's consultation data.
+        requireConsultationReadPrivilege(response.getDemographicNo());
+        return response;
+    }
+
+    /**
+     * Maps the manager's global consultation read requirement to a controlled REST response.
+     */
+    private void requireGlobalConsultationReadPrivilege() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_con", "r", (String) null)) {
+            LogAction.addLogSynchronous(getLoggedInInfo(),
+                    "ConsultationWebService.consultationReadDenied", "scope=global");
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+    }
+
+    /**
+     * Enforces patient-level read access to consultation data for the given demographic.
+     *
+     * <p>Guards the consultation response and attachment endpoints so a patient's
+     * consultation responses, attached documents and eReferral attachments cannot be
+     * read by supplying an arbitrary {@code demographicNo}.
+     *
+     * <p>Both the patient-scoped {@code _con} read privilege and access to the patient's chart are
+     * required (issue #3867): the role-level check in the manager is not enough.
+     *
+     * @param demographicNo the demographic whose consultation data is being requested.
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when the current user lacks {@code _con} read access or chart access
+     */
+    private void requireConsultationReadPrivilege(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo is required").build());
+        }
+        if (demographicNo <= 0) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo must be positive").build());
+        }
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_con", "r", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(getLoggedInInfo(), demographicNo)) {
+            LogAction.addLogSynchronous(getLoggedInInfo(),
+                    "ConsultationWebService.consultationReadDenied", "demographicNo=" + demographicNo);
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+    }
+
     private Date convertJSONDate(String val) {
         try {
             return jakarta.xml.bind.DatatypeConverter.parseDateTime(val).getTime();
@@ -674,13 +890,30 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return null;
     }
 
+    /**
+     * Reads a provider-number filter value as text. Provider numbers are string identifiers whose
+     * leading zeros are significant ({@code "000001"} is not {@code "1"}), so the value is never
+     * routed through {@code asInt()}. Absent, JSON-null, blank and the legacy {@code 0} "any MRP"
+     * sentinel all map to null (no filter).
+     */
+    private static String readProviderNo(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        String value = node.asText().trim();
+        if (value.isEmpty() || "0".equals(value)) {
+            return null;
+        }
+        return value;
+    }
+
     private ConsultationRequestSearchFilter convertRequestJSON(ObjectNode json) {
         ConsultationRequestSearchFilter filter = new ConsultationRequestSearchFilter();
 
         filter.setAppointmentEndDate(convertJSONDate(json.get("appointmentEndDate") != null ? json.get("appointmentEndDate").asText() : null));
         filter.setAppointmentStartDate(convertJSONDate(json.get("appointmentStartDate") != null ? json.get("appointmentStartDate").asText() : null));
         filter.setDemographicNo(json.get("demographicNo") != null ? json.get("demographicNo").asInt() : null);
-        filter.setMrpNo(json.get("mrpNo") != null ? json.get("mrpNo").asInt() : null);
+        filter.setMrpNo(readProviderNo(json.get("mrpNo")));
         // Issue #3976: same Consultant filter as the Consultations list page (specialist specId).
         filter.setConsultantId(json.get("consultantId") != null ? json.get("consultantId").asInt() : null);
         filter.setNumToReturn(json.get("numToReturn") != null ? json.get("numToReturn").asInt() : null);
@@ -712,7 +945,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         filter.setAppointmentEndDate(convertJSONDate(json.get("appointmentEndDate") != null ? json.get("appointmentEndDate").asText() : null));
         filter.setAppointmentStartDate(convertJSONDate(json.get("appointmentStartDate") != null ? json.get("appointmentStartDate").asText() : null));
         filter.setDemographicNo(json.get("demographicNo") != null ? json.get("demographicNo").asInt() : null);
-        filter.setMrpNo(json.get("mrpNo") != null ? json.get("mrpNo").asInt() : null);
+        filter.setMrpNo(readProviderNo(json.get("mrpNo")));
         filter.setNumToReturn(json.get("numToReturn") != null ? json.get("numToReturn").asInt() : null);
         filter.setReferralEndDate(convertJSONDate(json.get("referralEndDate") != null ? json.get("referralEndDate").asText() : null));
         filter.setReferralStartDate(convertJSONDate(json.get("referralStartDate") != null ? json.get("referralStartDate").asText() : null));
@@ -920,6 +1153,16 @@ public class ConsultationWebService extends AbstractServiceImpl {
         // Validate every selection before creating even an uploaded document or changing rows.
         List<ConsultDocs> currentDocs = new ArrayList<>(storedDocs);
         currentDocs.removeIf(row -> restricted.contains(DocumentType.fromType(row.getDocType())));
+
+        // Resolve archive preservation before creating any uploaded eDocs. If the archive lookup
+        // fails, the request aborts without leaving a newly-created but unattached document behind.
+        Set<Integer> preservedArchiveDocumentNos = findOutboundEmailArchiveDocumentNos(
+                currentDocs.stream()
+                        .filter(Objects::nonNull)
+                        .filter(doc -> ConsultDocs.DOCTYPE_DOC.equals(doc.getDocType()))
+                        .map(ConsultDocs::getDocumentNo)
+                        .toList());
+
         List<ConsultationAttachmentTo1> goodAttachments = new ArrayList<>();
         for (ConsultationAttachmentTo1 attachment : request.getAttachments()) {
 
@@ -988,8 +1231,11 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultDocs doc : currentDocs) {
-            doc.setDeleted(ConsultDocs.DELETED);
-            consultationManager.saveConsultRequestDoc(getLoggedInInfo(), doc);
+            if (!isPreservedArchiveDocument(doc.getDocType(), doc.getDocumentNo(), preservedArchiveDocumentNos)) {
+                // Only omitted attachments are dirty: unchanged managed entities must stay active.
+                doc.setDeleted(ConsultDocs.DELETED);
+                consultationManager.saveConsultRequestDoc(getLoggedInInfo(), doc);
+            }
         }
     }
 
@@ -1010,6 +1256,13 @@ public class ConsultationWebService extends AbstractServiceImpl {
         Set<DocumentType> restricted = validateAttachments(owner.getDemographicNo(), newAttachments, existing, false);
         List<ConsultResponseDoc> currentDocs = new ArrayList<>(storedDocs);
         currentDocs.removeIf(row -> restricted.contains(DocumentType.fromType(row.getDocType())));
+
+        Set<Integer> preservedArchiveDocumentNos = findOutboundEmailArchiveDocumentNos(
+                currentDocs.stream()
+                        .filter(Objects::nonNull)
+                        .filter(doc -> ConsultResponseDoc.DOCTYPE_DOC.equals(doc.getDocType()))
+                        .map(ConsultResponseDoc::getDocumentNo)
+                        .toList());
 
         // Compare each source-qualified selection once; duplicate checkboxes must not
         // create duplicate rows or consume an already-matched existing attachment again.
@@ -1037,9 +1290,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultResponseDoc doc : currentDocs) {
-            doc.setDeleted(ConsultResponseDoc.DELETED);
-            consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
+            if (!isPreservedArchiveDocument(doc.getDocType(), doc.getDocumentNo(), preservedArchiveDocumentNos)) {
+                // Only omitted attachments are dirty: unchanged managed entities must stay active.
+                doc.setDeleted(ConsultResponseDoc.DELETED);
+                consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
+            }
         }
+    }
+
+    private static boolean isPreservedArchiveDocument(String documentType, Integer documentNo,
+            Set<Integer> preservedDocumentNos) {
+        return ConsultDocs.DOCTYPE_DOC.equals(documentType) && preservedDocumentNos.contains(documentNo);
     }
 
     private static String attachmentIdentity(ConsultationAttachmentTo1 attachment) {
@@ -1102,17 +1363,6 @@ public class ConsultationWebService extends AbstractServiceImpl {
         }
     }
 
-    private void requirePatientConsultRead(Integer demographicNo) {
-        if (demographicNo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
-        }
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo)
-                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
-        }
-    }
-
     private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,
                                            ConsultationAttachmentTo1 attachment,
                                            String validationError) {
@@ -1128,5 +1378,55 @@ public class ConsultationWebService extends AbstractServiceImpl {
             throwable = throwable.getCause();
         }
         return false;
+    }
+
+    private void requireConsultationPrivilege(LoggedInInfo loggedInInfo, String privilege) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", privilege, null)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+    }
+
+    /**
+     * Refuses an attempt to attach an outbound email archive eDoc to a consultation.
+     *
+     * <p>Consultation attachments are stored as links to eDocs, so an archive artifact can be
+     * named here like any other document. Attaching one puts a legal record of patient email into
+     * a referral package that is then faxed or printed to a third party, outside the access
+     * controls and audit trail the archive workflow enforces.</p>
+     *
+     * <p>Only {@code TYPE_DOC} attachments name an eDoc; other types cannot be archives and are
+     * filtered out before the query.</p>
+     */
+    private void assertNoOutboundEmailArchiveAttachments(List<ConsultationAttachmentTo1> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+        List<Integer> documentNos = attachments.stream()
+                .filter(Objects::nonNull)
+                .filter(attachment -> ConsultationAttachmentTo1.TYPE_DOC.equals(attachment.getDocumentType()))
+                .map(ConsultationAttachmentTo1::getDocumentNo)
+                .toList();
+        if (documentNos.isEmpty()) {
+            return;
+        }
+        if (!findOutboundEmailArchiveDocumentNos(documentNos).isEmpty()) {
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
+        }
+    }
+
+    /**
+     * Resolves archive-owned eDocs in one query, normalizing the DAO's legacy nullable contract.
+     *
+     * <p>Consultation attachment updates replace the relationship set. Archive eDocs are hidden
+     * from the ordinary attachment picker, so they are normally absent from the submitted set;
+     * preserving their existing relationship here prevents that omission from becoming a silent
+     * detach outside the controlled archive workflow.</p>
+     */
+    private Set<Integer> findOutboundEmailArchiveDocumentNos(List<Integer> documentNos) {
+        if (documentNos == null || documentNos.isEmpty()) {
+            return Set.of();
+        }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
+        return archiveDocumentNos != null ? archiveDocumentNos : Set.of();
     }
 }

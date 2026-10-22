@@ -18,6 +18,9 @@
  * Verifies those writes roll back, then retries the same bytes and checks normal duplicates.
  * Uses the lab-upload workflow's CML_UPLOAD_KEY and LAB_UPLOAD_DOCUMENT_STORE settings.
  * Requires CREATE/DROP TRIGGER permission in the isolated test database.
+ * With LAB_UPLOAD_JOURNAL_UNIT (`carlos-emr` on a package install) or LAB_UPLOAD_SERVER_LOG (a console
+ * log file) it also asserts the server log: the database's own error at ERROR and no Hibernate
+ * HHH000099 session assertion (#4436). Without either, that half is skipped with a notice.
  */
 const { runWorkflow } = require('./lib/workflow-session');
 const { workflow } = require('./lab-upload-playwright-checks');

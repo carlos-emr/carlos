@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-alpha19-SNAPSHOT</version>
+    <version>2026.09.0-alpha1-SNAPSHOT</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -115,7 +115,7 @@
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.22.2</jackson.version>
+        <jackson.version>2.22.3</jackson.version>
         <!-- Apache HttpClient 5 -->
         <httpclient5.version>5.6.3</httpclient5.version>
         <!-- Version of the provided-scope Tomcat artifacts we compile against. The servlet
@@ -302,7 +302,8 @@
                 <artifactId>serializer</artifactId>
                 <version>2.7.3</version>
             </dependency>
-            <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3.
+            <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3
+                 and hapi-fhir-structures-r4 to a patched version.
                  Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
                  CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0),
                  CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4),
@@ -316,6 +317,11 @@
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
+                <version>6.9.10</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.r4</artifactId>
                 <version>6.9.10</version>
             </dependency>
             <!-- Override Apache Neethi 3.2.1 from CXF WSN policy dependencies.
@@ -996,6 +1002,13 @@
             <artifactId>bcpkix-jdk18on</artifactId>
             <version>${bouncycastle.version}</version>
         </dependency>
+        <!-- Used directly by PDFSigningUtil (CMS attribute tables, ESS signing-certificate-v2);
+             already resolved through bcpkix, declared because the code imports it. -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcutil-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
+        </dependency>
 
         <!-- Apache Ant (security-patched version, required by JasperReports) -->
         <dependency>
@@ -1359,6 +1372,22 @@
             <artifactId>hapi-fhir-structures-dstu3</artifactId>
             <version>${hapifhir.version}</version>
         </dependency>
+        <!-- FHIR R4 structure definitions: the National Vaccine Catalogue (NVC) v2 bundle
+             is FHIR R4 JSON (CanadianVaccineCatalogueManager / NvcBundleParser).
+             jena-shex is excluded: it only backs RDF/ShEx validation, which CARLOS never
+             uses, and would otherwise pull Apache Jena, libthrift and a JSON-LD stack
+             (~15 jars) onto the runtime classpath for no functional gain. -->
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-structures-r4</artifactId>
+            <version>${hapifhir.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.jena</groupId>
+                    <artifactId>jena-shex</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
 
         <!-- JAX-WS RI (used at runtime for SOAP web services) -->
         <dependency>
@@ -1624,25 +1653,15 @@
                         </goals>
                         <configuration>
                             <target>
-                                <!-- Build identity stamp. Written into carlos-build.properties (read by
-                                     BuildInfo), NOT into carlos.properties: that file is deployment
-                                     configuration and is re-loaded from an operator override copy, which
-                                     froze the stamp at first install. Ant properties are immutable once
-                                     set, so the two <property name="env.*"> lines below only take effect
-                                     when JOB_NAME / BUILD_NUMBER are absent from the environment; without
-                                     them an unset variable survived as the literal text ${env.JOB_NAME}
-                                     and was rendered on the login page. -->
                                 <tstamp>
                                     <format property="build.dateTime.value" pattern="yyyy-MM-dd hh:mm aa"/>
                                 </tstamp>
                                 <echo level="info" message="build time : ${build.dateTime.value}"/>
+                                <replace file="target/classes/carlos.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
                                 <property environment="env"/>
-                                <property name="env.JOB_NAME" value=""/>
-                                <property name="env.BUILD_NUMBER" value=""/>
                                 <echo level="info" message="JOB_NAME - BUILD_NUMBER : ${env.JOB_NAME}-${env.BUILD_NUMBER}"/>
-                                <replace file="target/classes/carlos-build.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
-                                <replace file="target/classes/carlos-build.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
-                                <replace file="target/classes/carlos-build.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
+                                <replace file="target/classes/carlos.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
+                                <replace file="target/classes/carlos.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
                             </target>
                         </configuration>
                     </execution>

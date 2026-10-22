@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -38,9 +39,9 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.www.admin.SecurityUpdatePasswordValidator;
-import io.github.carlos_emr.carlos.www.admin.SecurityUpdatePinHandler;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Date;
@@ -56,6 +57,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>Requires either {@code _admin} or {@code _admin.userAdmin} write privilege.
  * POST method is enforced; non-POST requests receive HTTP 405.
  * A confirmed transaction commit precedes success; refusals retain the submitted draft.</p>
+ *
+ * <p>A {@code security_no} that is not a positive integer is refused with HTTP 400 before any
+ * lookup. The accepted edit is saved through {@link SecurityManager#updateSecurityRecord}, so the
+ * previous state is written to the security archive and an MFA switch is audited, inside the same
+ * transaction that holds the row lock.</p>
  *
  * @since 2026-04-05
  */
@@ -89,13 +95,12 @@ public class SecurityUpdate2Action extends ActionSupport {
         }
         response.setHeader("Cache-Control", "no-store");
 
-        Integer id;
-        try {
-            id = Integer.valueOf(request.getParameter("security_no"));
-            if (id <= 0) throw new NumberFormatException();
-        } catch (NumberFormatException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return SUCCESS;
+        // -1 sentinel covers missing, blank, non-numeric and out-of-range input alike.
+        int id = NumberUtils.toInt(request.getParameter("security_no"), -1);
+        if (id <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "security_no is required and must be a positive integer");
+            return NONE;
         }
         int[] completion = {TransactionSynchronization.STATUS_UNKNOWN};
         try {
@@ -154,12 +159,17 @@ public class SecurityUpdate2Action extends ActionSupport {
         } catch (IllegalArgumentException | DateTimeParseException e) {
             return refuse(request, response, id, 400, "admin.securityupdate.msgUpdateFailure");
         }
+        // The row lock belongs to this transaction, not to the entity, so it holds after detaching.
+        // Detaching keeps the edits below off the managed copy, which SecurityManager must read in
+        // its original state to archive it.
+        dao.detach(row);
+        SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
         row.setUserName(userName.trim());
         row.setProviderNo(provider);
         row.setBExpireset(checked(request, "b_ExpireSet") ? 1 : 0);
         row.setDateExpiredate(expiry);
         if (!SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(password)) {
-            row.setPassword(SpringUtils.getBean(SecurityManager.class).encodePassword(password));
+            row.setPassword(securityManager.encodePassword(password));
             row.setPasswordUpdateDate(new Date());
         }
         // Controls hidden by policy or disabled by MFA must not silently clear existing protection.
@@ -171,11 +181,22 @@ public class SecurityUpdate2Action extends ActionSupport {
         if (MfaManager.isOscarLegacyPinEnabled() && !row.isUsingMfa()) {
             row.setBLocallockset(checked(request, "b_LocalLockSet") ? 1 : 0);
             row.setBRemotelockset(checked(request, "b_RemoteLockSet") ? 1 : 0);
-            SecurityUpdatePinHandler.apply(row, pin, properties.isPINEncripted());
+            // "****" is the unchanged-PIN sentinel the form renders and a null PIN means the control
+            // was omitted: both keep the stored PIN and its update date. A blank PIN clears it; any
+            // other value is stored only as a salted hash (legacy PIN encodings are read-only).
+            if (pin != null && !"****".equals(pin)) {
+                String hashed = pin.isEmpty() ? null : securityManager.encodePin(pin);
+                row.setPin(hashed);
+                row.setPinUpdateDate(hashed == null ? null : new Date());
+            }
         }
-        row.setLastUpdateDate(new Date());
-        row.setLastUpdateUser((String) request.getSession().getAttribute("user"));
-        dao.saveEntity(row);
+        try {
+            // The manager reads the pre-edit row (detached above) for the archive and MFA audit,
+            // then merges this edit onto it. It refuses an incomplete record before any write.
+            securityManager.updateSecurityRecord(LoggedInInfo.getLoggedInInfoFromSession(request), row);
+        } catch (IllegalArgumentException incomplete) {
+            return refuse(request, response, id, 400, "admin.securityupdate.msgUpdateFailure");
+        }
         LogAction.addLogSynchronous((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_SECURITY,
                 id + "->" + row.getUserName(), request.getRemoteAddr());
         return SUCCESS;

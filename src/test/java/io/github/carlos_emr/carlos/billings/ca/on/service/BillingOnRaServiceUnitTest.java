@@ -533,4 +533,60 @@ class BillingOnRaServiceUnitTest extends CarlosUnitTestBase {
             line[start + i] = value.charAt(i);
         }
     }
+
+    @Test
+    void shouldImportDetails_whenFileEndsWithBlankLineAndSubmittedAmountIsCents() throws Exception {
+        List<RaHeader> persistedHeaders = new ArrayList<>();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            RaHeader header = invocation.getArgument(0);
+            ReflectionTestUtils.setField(header, "id", 5);
+            persistedHeaders.add(header);
+            return null;
+        }).when(raHeaderDao).persist(any(RaHeader.class));
+        when(raHeaderDao.findCurrentByFilenamePaymentDate(any(), any())).thenReturn(List.of());
+        when(raHeaderDao.findByFilenamePaymentDate(any(), any())).thenAnswer(invocation -> persistedHeaders);
+        char[] line = fixedLine();
+        line[0] = 'H';
+        line[2] = '5';
+        put(line, 3, "CLAIM000001");
+        put(line, 15, "20260401");
+        put(line, 23, "01");
+        put(line, 25, "A001A");
+        put(line, 31, "000050");
+        put(line, 37, "000050");
+        String fiftyCents = new String(line);
+
+        Path file = tempDir.resolve("blank-tail.ra");
+        Files.write(file, List.of(h1("20260401", "000000050", "+"), h4("00000001"), fiftyCents, ""));
+
+        service.importRAFile(file.toString());
+
+        ArgumentCaptor<RaDetail> captor = ArgumentCaptor.forClass(RaDetail.class);
+        verify(raDetailDao).persist(captor.capture());
+        assertThat(captor.getValue().getAmountClaim()).isEqualTo("0.50");
+    }
+
+    @Test
+    void shouldAbortImport_whenFileContainsTruncatedRecord() throws Exception {
+        // A non-blank line too short to identify is a corrupt file: the import must
+        // fail (and roll back), not skip the line and report a partial success.
+        List<RaHeader> persistedHeaders = new ArrayList<>();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            RaHeader header = invocation.getArgument(0);
+            ReflectionTestUtils.setField(header, "id", 7);
+            persistedHeaders.add(header);
+            return null;
+        }).when(raHeaderDao).persist(any(RaHeader.class));
+        when(raHeaderDao.findCurrentByFilenamePaymentDate(any(), any())).thenReturn(List.of());
+        when(raHeaderDao.findByFilenamePaymentDate(any(), any())).thenAnswer(invocation -> persistedHeaders);
+        Path file = tempDir.resolve("truncated.ra");
+        Files.write(file, List.of(h1("20260401", "000000050", "+"), "H0", h4("00000001")));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.importRAFile(file.toString()))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("too short");
+        // The header row is persisted before the corrupt line is reached (rollback is
+        // the transaction's job, not exercised here); no detail row may be written.
+        verify(raDetailDao, never()).persist(any(RaDetail.class));
+    }
 }

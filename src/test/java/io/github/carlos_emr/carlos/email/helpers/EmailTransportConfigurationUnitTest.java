@@ -32,6 +32,7 @@ class EmailTransportConfigurationUnitTest extends CarlosUnitTestBase {
             "{\"password\":\"private-sentinel\",invalid}"})
     void shouldReportCheckedPrivateErrors_withInvalidStoredConfiguration(String json) {
         createAndRegisterMock(SecurityInfoManager.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.managers.NioFileManager.class);
         createAndRegisterMock(org.springframework.mail.javamail.JavaMailSender.class);
         EmailConfig config = new EmailConfig();
         config.setConfigDetailsJson(json);
@@ -48,6 +49,7 @@ class EmailTransportConfigurationUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldKeepValidTransportSettings_withStringOrNumericPorts() throws Exception {
         createAndRegisterMock(SecurityInfoManager.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.managers.NioFileManager.class);
         createAndRegisterMock(org.springframework.mail.javamail.JavaMailSender.class);
         EmailConfig config = new EmailConfig();
         config.setConfigDetailsJson("{\"host\":\"localhost\",\"port\":25}");

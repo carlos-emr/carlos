@@ -65,10 +65,10 @@ class EmailConfigSchemaMigrationUnitTest {
             Flyway flyway = Flyway.configure().dataSource("jdbc:h2:mem:email_upgrade_order;MODE=MySQL", "", "")
                     .locations("filesystem:" + migrations).ignoreMigrationPatterns(new String[0]).load();
             assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
-            // Model versions reserved on develop, without importing its unrelated features.
-            Files.writeString(migrations.resolve("V1.0.24__later_feature.sql"), "CREATE TABLE feature24 (id INT);");
-            Files.writeString(migrations.resolve("V1.0.25__later_feature.sql"), "CREATE TABLE feature25 (id INT);");
-            Files.writeString(migrations.resolve("V1.0.26__later_widening.sql"), widening);
+            // Model develop's versions (V1.0.66+ since the alpha19 forward merge), without importing its unrelated features.
+            Files.writeString(migrations.resolve("V1.0.66__later_feature.sql"), "CREATE TABLE feature66 (id INT);");
+            Files.writeString(migrations.resolve("V1.0.67__later_feature.sql"), "CREATE TABLE feature67 (id INT);");
+            Files.writeString(migrations.resolve("V1.0.68__later_widening.sql"), widening);
             assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
             flyway.validate();
         }

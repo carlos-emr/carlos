@@ -42,9 +42,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 public interface AllergyManager {
 
-    /** Replaces one active allergy atomically; false means its original was already archived or removed. */
-    boolean amendAllergy(LoggedInInfo loggedInInfo, Integer originalId, Allergy replacement);
-
     public Allergy getAllergy(LoggedInInfo loggedInInfo, Integer id);
 
     public List<Allergy> getActiveAllergies(LoggedInInfo loggedInInfo, Integer demographicNo);

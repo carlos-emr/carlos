@@ -75,15 +75,13 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    public PrintDemoAddressLabel2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
-    /**
-     * Constructs a new PrintDemoAddressLabel2Action instance.
-     *
-     * <p>This constructor initializes the action with default settings. Request and response
-     * objects are automatically injected by Struts2 via ServletActionContext.</p>
-     */
     public PrintDemoAddressLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     /**
@@ -125,7 +123,7 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
     @Override
     public String execute() throws IOException {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
         String demographicNo = DemographicLabelAccess.authorizeRead(loggedInInfo,
                 request.getParameter("demographic_no"), response, securityInfoManager);
         if (demographicNo == null) {

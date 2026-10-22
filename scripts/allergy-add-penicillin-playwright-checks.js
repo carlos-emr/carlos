@@ -19,13 +19,14 @@
  *
  *   1. opens /rx/showAllergy for the patient and clicks the "Penicillin"
  *      shortcut button; the reaction form must load into the page for
- *      PENICILLINS (drug class, TYPECODE 10, drugref id 44452);
+ *      PENICILLINS (drug class, TYPECODE 10, and the DrugRef id the shortcut carries,
+ *      which the saved row must echo; whether that id names the class is step 7);
  *   2. fills reaction, severity, onset, life stage and start date and
  *      submits "Add Allergy"; the page must return to the allergy list with
  *      PENICILLINS listed;
  *   3. asserts the allergies row: description, type code, drugref id,
- *      reaction, severity, onset, life stage, start date, not archived, and
- *      that the ATC/regional identifier lookup against DrugRef ran;
+ *      reaction, severity, onset, life stage, start date and not archived (the
+ *      DrugRef identifiers are asserted by step 6);
  *   4. asserts the eChart's Allergies module shows the new allergy;
  *   5. amends it from the list's own "Modify" link and asserts the correction
  *      path's contract: RxAddAllergy2Action ARCHIVES the original
@@ -36,19 +37,50 @@
  *      allergyToArchive surviving onto the reloaded form, which is what makes the
  *      difference between an amend and a second add.
  *
- * Both allergy rows (the original and the amendment) are deleted in a finally.
+ *   6. (Pinned to app-findings-log.md finding 178.) Both rows, the added allergy and its
+ *      amendment, must carry BOTH drug identifiers (regional_identifier and atc), and
+ *      RxAddAllergy2Action must have logged no ERROR in this run's window of the server journal.
+ *      RxAddAllergy2Action catches a failed DrugRef lookup (RxDrugData.getDrug throws
+ *      NoSuchElementException) and saves the allergy anyway, without its ATC code, which
+ *      silently turns drug-allergy checking off for it. (This step replaces step 3's old
+ *      "either identifier" assertion, which read an empty pair as set: the SQL helper trimmed the
+ *      trailing empty columns off the row, leaving both fields undefined.) It reads the journal through
+ *      CARLOS_LOG_JOURNAL_UNIT; without it the check ends SKIP (never PASS) after its other
+ *      assertions, because the no-ERROR half cannot be judged. The rows and the journal are READ in a
+ *      step of their own just before the pinned one (OBSERVATION_STEP), so the pinned step holds only
+ *      the assertion on what that step recorded and a journal this check cannot read is a failure
+ *      elsewhere, not finding 178.
+ *
+ *   7. (Pinned to app-findings-log.md finding 215, selected by ALLERGY_PIN=shortcut-id: the manifest
+ *      entry allergy-add-penicillin-shortcut-id runs this script with steps 1-5 and this step in place
+ *      of step 6, because a script stops at its first failing step and cannot pin two findings in one
+ *      run.) The DrugRef id the Penicillin shortcut posts must be the PENICILLINS drug class in the
+ *      installed DrugRef (category 10). The shortcut hard-codes 44452 (ChooseAllergy2.jsp,
+ *      ShowAllergies2.jsp), which the packaged DrugRef holds as another product, so the allergy is
+ *      filed under that product's id and gets none of the class's identifiers (finding 178 is the
+ *      missing-identifiers symptom of the same row). A control step of its own runs first and shows
+ *      the check can read DrugRef and that the installed copy holds the PENICILLINS class.
+ *
+ * FIXTURE. The check runs on a FAKE patient it creates (lib/owned-patient.js: last name = a FAKE-PW run marker) and removes
+ * with every row it wrote, by the patient's key: both allergy rows (the original and the amendment) and the chart rows the
+ * chart open in step 4 writes. It used to run on DEMO patient 1, and adding an allergy makes the application archive that
+ * patient's "No Known Drug Allergies" row; deleting the check's own rows could not undo that, so demo allergy 1 stayed archived.
  *
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
- * Optional: ALLERGY_DEMOGRAPHIC_NO (1).
+ * Optional: CARLOS_LOG_JOURNAL_UNIT (the systemd unit whose journal holds the
+ * server log, for step 6), ALLERGY_PIN (unset: step 6; shortcut-id: step 7), DRUGREF_TEST_DATABASE
+ * (the DrugRef database step 7 reads, default drugref2).
  */
 
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
+const h = require('./lib/playwright-harness');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { ALLERGY_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
   assertNoPageErrors,
@@ -74,8 +106,22 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '1';
-assert(/^\d+$/.test(demographicNo), 'ALLERGY_DEMOGRAPHIC_NO must be numeric');
+// The owned patient this run creates in main() and removes in runCleanup() (never a demo patient).
+let demographicNo = null;
+let ownedMarker = null;
+// ALLERGY_PIN selects which finding the last step pins: unset pins finding 178 (the default entry),
+// `shortcut-id` pins finding 215 (the entry allergy-add-penicillin-shortcut-id).
+const ALLERGY_PIN = (process.env.ALLERGY_PIN || '').trim();
+/**
+ * ALLERGY_PIN must be unset or `shortcut-id`. Judged when the check runs (main), never when the module is required.
+ * Only the pin is deferred: DRUGREF_TEST_DATABASE just below (and BASE_URL and MYSQL_HOST in
+ * the config above) are still validated when the module loads, so requiring this module can throw on those.
+ */
+function validatePin(value = ALLERGY_PIN) {
+  if (value !== '' && value !== 'shortcut-id') throw new Error(`ALLERGY_PIN must be unset or shortcut-id, not ${value}`);
+}
+const drugrefDatabase = process.env.DRUGREF_TEST_DATABASE || 'drugref2';
+if (!/^[A-Za-z0-9_]+$/.test(drugrefDatabase)) throw new Error('DRUGREF_TEST_DATABASE must be a plain database name');
 const reactionMarker = `PW_ALLERGY_${Date.now()}`;
 const reactionText = `${reactionMarker} rash`;
 // The amend path writes a SECOND allergies row rather than updating the first, so
@@ -100,10 +146,13 @@ function cleanupMysqlDefaults() {
 }
 function sql(query) {
   assert(mysqlDefaults, 'MySQL defaults file has not been initialized');
+  // Only the final newline is dropped. A trim() here also removed the trailing tab-separated empty
+  // columns of allergyRow(), so a row whose regional_identifier and atc were both empty came back with
+  // both fields undefined, and `undefined !== ''` read as "set".
   return execFileSync('mysql', [
     `--defaults-extra-file=${mysqlDefaults.file}`,
     '-h', mysqlHost, '-u', mysqlUser, mysqlDatabase, '-N', '-B', '-e', query,
-  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
+  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).replace(/\r?\n$/, '');
 }
 function escapeSql(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/'/g, "''");
@@ -118,37 +167,77 @@ function allergyRow(wantedReaction = reactionText) {
   return { id, description, typeCode, drugrefId, reaction, severity, onset, startDate, lifeStage, archived, regionalId, atc };
 }
 function cleanupRows() {
+  if (demographicNo === null) return;
   sql(`DELETE FROM allergies WHERE demographic_no=${Number(demographicNo)} AND reaction LIKE '${escapeSql(reactionMarker)}%'`);
+}
+// sql() adapted to the value()/execute() client lib/owned-patient.js takes.
+const ownedSql = { value: (query) => sql(query), execute: (query) => { sql(query); } };
+function removeFixturePatient() {
+  if (demographicNo === null) return;
+  removeOwnedPatient(ownedSql, demographicNo, ownedMarker, ALLERGY_ROWS);
 }
 
 let browser = null;
 let cleanupDone = false;
-// Runs once from the finally block or the signal handler: every step is attempted
-// and a step that fails marks the run as failed, because a fixture left behind is
+// Runs once, from runCheck's cleanup hook (which also runs it after an interruption): every
+// step is attempted, and a step that fails throws afterwards, because a fixture left behind is
 // a failure of this check even when every assertion passed.
 function runCleanup() {
   if (cleanupDone || !mysqlDefaults) {
     return;
   }
   cleanupDone = true;
-  for (const step of [cleanupRows]) {
+  const failures = [];
+  for (const step of [cleanupRows, removeFixturePatient]) {
     try {
       step();
     } catch (cleanupError) {
       console.error(`FAIL cleanup step ${step.name} failed: ${cleanupError.message}`);
-      process.exitCode = 1;
+      failures.push(cleanupError.message);
     }
   }
+  assert(failures.length === 0, `cleanup failed: ${failures.join('; ')}`);
 }
-// Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
-// sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
+
+/**
+ * The labels of the pinned steps. A run pins exactly one of them (IDENTIFIER_STEP, step 6, by default;
+ * SHORTCUT_ID_STEP, step 7, under ALLERGY_PIN=shortcut-id). Each is preceded by a control step with a label of its
+ * own (OBSERVATION_STEP, DRUGREF_STEP) that reads what the pin judges, and the stages before those are unlabelled, so
+ * a failure in any of them is reported as a failure elsewhere, never as the known one.
+ */
+const SHORTCUT_ID_STEP = 'the Penicillin shortcut files the allergy under the PENICILLINS drug class id';
+// The control of the shortcut-id pin, a step of its own so that a DrugRef this check cannot read (or one that holds no
+// PENICILLINS class at all) reads as a failure elsewhere and not as finding 215.
+const DRUGREF_STEP = 'the installed DrugRef is readable and holds the PENICILLINS drug class (category 10)';
+const IDENTIFIER_STEP = 'the added allergy and its amendment both carry a regional identifier and an ATC code, and the action logged no error';
+// The control of the default pin: the stored rows and this run's window of the server journal are read in a step of their own,
+// so a journal this check cannot read reads as a failure elsewhere and not as finding 178.
+const OBSERVATION_STEP = 'the added allergy and its amendment are stored, and this run\'s window of the server journal is read';
+
+/** Runs one labelled step, tagging a failure with its label for the suite runner (markFailedStep). */
+async function runStep(cancellation, label, body) {
+  try {
+    await cancellation.run(body);
+  } catch (error) {
+    throw h.markFailedStep(error, label);
+  }
+  console.log(`  PASS allergy-add-penicillin: ${label}`);
+}
+
+/**
+ * ERROR lines RxAddAllergy2Action wrote to the server journal since `since`, as a count (never the
+ * lines: the action's message can name a drug and a patient-linked id). `unit` is the systemd unit
+ * (CARLOS_LOG_JOURNAL_UNIT). The first line of a logged error names the logger, so a stack trace's
+ * continuation lines are not counted twice.
+ */
+function journalActionErrors(unit, since) {
+  assert(/^[A-Za-z0-9][A-Za-z0-9_.@-]*\.service$/.test(unit), 'CARLOS_LOG_JOURNAL_UNIT must name one systemd .service unit');
+  const stamp = since.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
+  const journal = execFileSync('journalctl', ['-u', unit, '--since', stamp, '--no-pager', '-o', 'cat'],
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 30000 });
+  assert(journal.trim() !== '' && !/^-- No entries --/.test(journal.trim()),
+    'the server journal holds nothing in this run\'s window, so it cannot show the action logged no error');
+  return journal.split('\n').filter((line) => /\bERROR\b/.test(line) && line.includes('RxAddAllergy2Action')).length;
 }
 
 function waitForListReload(page) {
@@ -169,15 +258,22 @@ async function fillStartDate(page, form, value) {
   assert(await date.inputValue() === value, 'allergy start date changed when leaving its picker');
 }
 
-(async () => {
+async function main({ cancellation }) {
+  validatePin();
   const recorder = createRecorder();
-  initMysqlDefaults();
-  // Staging and the browser launch sit inside the protected scope so a failure in
-  // either still reaches the fixture cleanup below.
+  // The browser launch sits inside the protected scope so a failure in it still reaches the
+  // fixture cleanup (runCheck's cleanup hook runs whatever this function does).
   try {
+    // The patient first, so a failure anywhere below still reaches removeFixturePatient() through runCleanup().
+    ownedMarker = newOwnedMarker();
+    const provider = sql(`SELECT provider_no FROM security WHERE user_name='${escapeSql(config.testUser)}'`);
+    assert(provider, 'the configured test login has no provider');
+    demographicNo = createOwnedPatient(ownedSql, { marker: ownedMarker, provider });
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1200, height: 1000 } });
     await login(context, config, recorder);
+    // The window of the server journal this run is judged on (step 6).
+    const windowStart = new Date(Date.now() - 2000);
 
     // 1. Allergy page -> Penicillin shortcut.
     const page = await context.newPage();
@@ -198,9 +294,12 @@ async function fillStartDate(page, form, value) {
     await form.waitFor({ state: 'visible', timeout: 30000 });
     assert((await form.locator('input[name="name"]').inputValue()) === 'PENICILLINS', 'reaction form is not for PENICILLINS');
     assert((await form.locator('input[name="type"]').inputValue()) === '10', 'PENICILLINS shortcut did not carry the drug-class type code');
-    assert((await form.locator('input[name="ID"]').inputValue()) === '44452', 'PENICILLINS shortcut did not carry its drugref id');
+    // The id is whatever the shortcut posts: step 7 (finding 215) is the one place that judges whether it is the class.
+    const shortcutId = await form.locator('input[name="ID"]').inputValue();
+    assert(/^[1-9]\d*$/.test(shortcutId), 'PENICILLINS shortcut did not carry a drugref id');
     assert((await form.locator('input[name="formDemographicNo"]').inputValue()) === demographicNo, 'reaction form is not bound to the patient');
 
+    cancellation.throwIfCancelled();
     // 2. Details + submit.
     await form.locator('#reactionDescription').fill(reactionText);
     await form.locator('select[name="severityOfReaction"]').selectOption('3');
@@ -223,17 +322,20 @@ async function fillStartDate(page, form, value) {
     await assertNotErrorPage(page, 'allergy page after add');
     assert((await page.locator('body').innerText()).includes('PENICILLINS'), 'allergy list did not show PENICILLINS after adding it');
 
+    cancellation.throwIfCancelled();
     // 3. Persistence.
     const row = allergyRow();
     assert(row, 'allergies row was not created');
     assert(row.description === 'PENICILLINS', `saved description was ${row.description}`);
     assert(row.typeCode === '10', `saved TYPECODE was ${row.typeCode}`);
-    assert(row.drugrefId === '44452', `saved drugref_id was ${row.drugrefId}`);
+    assert(row.drugrefId === shortcutId, `saved drugref_id was ${row.drugrefId}, not the ${shortcutId} the form carried`);
     assert(row.severity === '3' && row.onset === '1' && row.lifeStage === 'A', `saved severity/onset/lifeStage were ${row.severity}/${row.onset}/${row.lifeStage}`);
     assert(row.startDate.startsWith('2024-01-15'), `saved start_date was ${row.startDate}`);
     assert(row.archived === '0', 'new allergy was saved archived');
-    assert(row.regionalId !== '' || row.atc !== '', 'DrugRef lookup did not populate regional_identifier/atc for the class');
+    // The DrugRef identifiers (regional_identifier and atc) are asserted by the last step (6), for this row and
+    // for the amendment, where both are required; this stage no longer asks for either one alone.
 
+    cancellation.throwIfCancelled();
     // 4. eChart shows it.
     const chart = await context.newPage();
     wirePage(chart, 'echart', recorder);
@@ -243,6 +345,7 @@ async function fillStartDate(page, form, value) {
     await chart.waitForFunction(() => document.body.innerText.includes('PENICILLINS'), null, { timeout: 30000 });
     await chart.close();
 
+    cancellation.throwIfCancelled();
     // 5. Amend the allergy the way the list offers it: the "Modify" link beside the
     // row. This is the correction path a clinician uses when a reaction was recorded
     // wrongly, and it is not an UPDATE -- RxAddAllergy2Action archives the original
@@ -290,7 +393,7 @@ async function fillStartDate(page, form, value) {
     assert(replacement, 'the amend wrote no replacement allergies row');
     assert(replacement.id !== row.id,
       'the amend overwrote the original row instead of archiving it and adding a replacement');
-    assert(replacement.description === 'PENICILLINS' && replacement.drugrefId === '44452',
+    assert(replacement.description === 'PENICILLINS' && replacement.drugrefId === shortcutId,
       `the replacement row lost the drug identity: ${replacement.description}/${replacement.drugrefId}`);
     assert(replacement.severity === '1', `the replacement kept severity ${replacement.severity} instead of the corrected 1`);
     assert(replacement.archived === '0', 'the replacement row was written already archived');
@@ -311,16 +414,77 @@ async function fillStartDate(page, form, value) {
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(recorder.consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
-    console.log(`PASS Penicillins allergy ${row.id} added for demographic ${demographicNo}, shown in the eChart, and amended to ${replacement.id} with the original archived`);
-  } catch (error) {
-    console.error(`FAIL Penicillins allergy check: ${error.stack || error.message}`);
-    console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
-    process.exitCode = 1;
-  } finally {
-    if (browser) {
-      await browser.close().catch(() => {});
+
+    if (ALLERGY_PIN === 'shortcut-id') {
+      // 7. The shortcut's DrugRef id is the class (finding 215). The control first: the check can read DrugRef and the
+      // installed copy holds the PENICILLINS class, which is what the shortcut's id is compared with.
+      await runStep(cancellation, DRUGREF_STEP, async () => {
+        const classRow = sql(`SELECT CONCAT(id,'|',category,'|',name) FROM \`${drugrefDatabase}\`.cd_drug_search `
+          + "WHERE category=10 AND name='PENICILLINS' LIMIT 1");
+        assert(classRow !== '', `${drugrefDatabase}.cd_drug_search holds no PENICILLINS row in category 10, so the shortcut's id has no class to be compared with`);
+      });
+      // Pinned: holds only what the finding breaks.
+      await runStep(cancellation, SHORTCUT_ID_STEP, async () => {
+        const named = sql(`SELECT CONCAT(category,'|',name) FROM \`${drugrefDatabase}\`.cd_drug_search WHERE id=${Number(shortcutId)}`);
+        assert(named === '10|PENICILLINS',
+          `the Penicillin shortcut files the allergy under DrugRef id ${shortcutId}, which ${drugrefDatabase} holds as `
+          + `${named === '' ? 'no row at all' : `a row of category ${named.split('|')[0]}`}, not the PENICILLINS drug class (category 10)`);
+      });
+      console.log(`Penicillins allergy ${row.id} added for demographic ${demographicNo}, shown in the eChart, and amended to ${replacement.id} with the original archived`);
+      return;
     }
-    runCleanup();
-    cleanupMysqlDefaults();
+
+    // 6. Both identifiers, on the added allergy and on its amendment, and no logged error (finding 178).
+    // Everything that can fail for a reason other than the defect is read first, in a step of its own: the rows
+    // (read again here, after the amend archived the original, so the check judges what is stored rather than what
+    // the earlier stages saw) and this run's window of the server journal (an unreadable or empty journal throws).
+    // A failure there is reported as a failure elsewhere, never as the known one.
+    const journalUnit = (process.env.CARLOS_LOG_JOURNAL_UNIT || '').trim();
+    const observed = { rows: [], loggedErrors: null };
+    await runStep(cancellation, OBSERVATION_STEP, async () => {
+      for (const [what, wanted] of [['the added allergy', reactionText], ['its amendment', amendedReactionText]]) {
+        const stored = allergyRow(wanted);
+        assert(stored, `${what} is not stored`);
+        observed.rows.push({ what, stored });
+      }
+      if (journalUnit) observed.loggedErrors = journalActionErrors(journalUnit, windowStart);
+    });
+    // Pinned: holds only what the finding breaks, judged on what the step above recorded.
+    await runStep(cancellation, IDENTIFIER_STEP, async () => {
+      const problems = [];
+      for (const { what, stored } of observed.rows) {
+        if (stored.regionalId === '') problems.push(`${what} has no regional_identifier`);
+        if (stored.atc === '') problems.push(`${what} has no atc`);
+      }
+      if (observed.loggedErrors > 0) problems.push(`RxAddAllergy2Action logged ${observed.loggedErrors} ERROR line(s) in this run's window`);
+      assert(problems.length === 0,
+        `The saved allergy lacks the drug identifiers that drug-allergy checking needs: ${problems.join('; ')}`);
+    });
+    if (!journalUnit) {
+      throw new h.SkipCheck('the allergy rows carry both identifiers, but CARLOS_LOG_JOURNAL_UNIT is not set, so there is no server journal '
+        + 'to show RxAddAllergy2Action logged no error');
+    }
+
+    console.log(`Penicillins allergy ${row.id} added for demographic ${demographicNo}, shown in the eChart, and amended to ${replacement.id} with the original archived`);
+  } catch (error) {
+    // The failure details name pages and requests, never patient data: the same dump the check always wrote.
+    if (!(error instanceof h.SkipCheck)) console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
+    throw error;
   }
-})();
+}
+
+if (require.main === module) {
+  initMysqlDefaults();
+  h.runCheck({
+    name: 'allergy-add-penicillin',
+    run: ({ cancellation }) => main({ cancellation }),
+    cleanup: async () => {
+      try {
+        if (browser) await browser.close().catch(() => {});
+      } finally {
+        try { runCleanup(); } finally { cleanupMysqlDefaults(); }
+      }
+    },
+  });
+}
+module.exports = { main, journalActionErrors, validatePin };

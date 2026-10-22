@@ -41,7 +41,10 @@
     <%@page import="io.github.carlos_emr.CarlosProperties"%>
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
+    <%@page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver"%>
+    <%@page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+    <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
@@ -77,6 +80,17 @@
     var reloadWindows = new Object();
     var updateDivTimer = null;
     var reloadDivUrl;
+    <%-- Family Doctor / Referring Doctor left-column panels this provider's eChart preferences turn
+         on (Family Doctor on and Referring Doctor off by default; EchartDisplayPreference), in display
+         order. Static paths and ids only; navBarLoader() puts them at the top of the left column. --%>
+    <%
+        EchartDisplayPreferences navEchartPrefs = SpringUtils.getBean(EchartDisplayPreferenceResolver.class)
+                .resolve(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+    %>
+    var echartDoctorPanels = [<% if (navEchartPrefs.showFamilyDoctor()) { %>
+        {path: "/encounter/displayFamilyDoctor", id: "fDoc"},<% } %><% if (navEchartPrefs.showReferringDoctor()) { %>
+        {path: "/encounter/displayReferringDoctor", id: "rDoc"},<% } %>
+    ];
     var reloadDiv;
     var activeCCWindows = [];
 
@@ -980,6 +994,12 @@
                 ctx + "/encounter/displayEForms?hC=" + Colour.eForms,
             ];
             var leftNavBarTitles = ["preventions", "tickler", "msgs", "docs", "labs", "HRM", "measurements", "consultation", "forms", "eforms"];
+            // Family Doctor / Referring Doctor panels go first in the column, as OSCAR 19 placed its
+            // fDoc/rDoc widgets; which of them this provider sees is decided server-side above.
+            for (var panelIdx = echartDoctorPanels.length - 1; panelIdx >= 0; --panelIdx) {
+                leftNavBar.unshift(ctx + echartDoctorPanels[panelIdx].path + "?hC=" + Colour.contacts);
+                leftNavBarTitles.unshift(echartDoctorPanels[panelIdx].id);
+            }
             var rightNavBar = [
                 ctx + "/encounter/displayDisease?hC=" + Colour.disease,
                 ctx + "/CaseManagementView?hc=" + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,
@@ -2103,8 +2123,9 @@ function updateCPPNote() {
         });
     }
 
+    <fmt:message key="email.compose.msg.copyFailed" var="emailCopyFailed"/>
     function viewEmailByLogId(width, height, url) {
-        window.open(url, "_blank", "width=1100,height=1000");
+        openEmailCompose(url, width, height, "${carlos:forJavaScript(emailCopyFailed)}");
     }
 
 //this func fires only if maximize button is clicked
@@ -2353,7 +2374,10 @@ function updateCPPNote() {
         // wrap='soft', never 'hard': a hard-wrapped textarea submits a CRLF at every visual
         // wrap point (Firefox 145+ does so for scripted submissions too), and the server
         // stores those breaks as part of the note (#3955).
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='soft' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
+        // tabindex 7 is the note editor's slot in the encounter page's tab order: ChartNotesAjax.jsp's
+        // server-rendered editors also use 7, and the encounter-time fields follow at 11-14. A 0 here
+        // would put this editor after every positive tabindex, so Tab from it would skip those fields.
+        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='soft' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>"; <%-- NOSONAR Web:S6841 -- see the comment above --%>
         $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
@@ -3314,7 +3338,10 @@ function updateCPPNote() {
         // JavaScript string), spliced into markup here: escape it like every other note text.
         // wrap='soft' for the same reason as editNote(): only line breaks the clinician types
         // may reach the saved note (#3955).
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='soft' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
+        // tabindex 7 is the note editor's slot in the encounter page's tab order: ChartNotesAjax.jsp's
+        // server-rendered editors also use 7, and the encounter-time fields follow at 11-14. A 0 here
+        // would put this editor after every positive tabindex, so Tab from it would skip those fields.
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='soft' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>"; <%-- NOSONAR Web:S6841 -- see the comment above --%>
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
             "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";

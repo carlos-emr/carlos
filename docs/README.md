@@ -15,7 +15,7 @@ This directory contains technical documentation for CARLOS EMR (Clinical Assisti
 | **Testing** | [📂 test/](test/)<br>[📂 ui-tests/](ui-tests/)<br>[eForm PDF Render Smoke Test](ui-tests/eform-pdf-render-smoke-test.md) | Modern test framework docs, browser-backed UI testing, and the eForm PDF smoke runbook |
 | **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
 | **Security** | [Password System](Password_System.md) | Authentication and security architecture |
-| **APIs** | [API Collections Index](api-collections-index.md) | REST API documentation and collections |
+| **APIs** | [API Collections Index](api-collections-index.md)<br>[Cortico CARLOS API Compatibility](api/cortico-carlos-compatibility.md)<br>[CARLOS API Testing Checklist](../API-TESTING-CARLOS.md) | REST/SOAP API documentation, collections, integration compatibility notes, and the manual API testing worksheet |
 | **Development** | [Release Process](release-process.md)<br>[DS Guideline](dsGuideline.md)<br>[Copyright Header (Magenta)](copyright-header-magenta.md) | Branching, releases, and development standards |
 
 ### 🧪 Testing Documentation
@@ -44,6 +44,7 @@ Key testing resources:
 |----------|-------------|
 | [Runtime Directories](runtime-directories.md) | Required filesystem directories and permissions |
 | [Resources Directory](resources-directory.md) | Application resources structure |
+| [Provider-to-Patient Email Operations](email/provider-to-patient-email-operations.md) | Email workflow setup, monitoring, and safety runbook |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
 | [Database Schema Management](database-schema-management.md) | Flyway baseline, forward migrations, where migrations run |
 | [Database Index Review (2026-09-04)](database-index-review-2026-09-04.md) | Index state vs. DAO query patterns; rationale for the V1.0.18/V1.0.19 index migrations |
@@ -57,7 +58,7 @@ Key testing resources:
 2. **Writing Tests**: Start with [test/README.md](test/README.md)
 3. **Struts Migration**: Review [Struts Actions Summary](struts-actions-summary.md)
 4. **New Pages and JSP Routing**: Review [Struts Web Endpoints](struts-web-endpoints.md)
-5. **APIs**: Check [API Collections Index](api-collections-index.md)
+5. **APIs**: Check [API Collections Index](api-collections-index.md), [Cortico CARLOS API Compatibility](api/cortico-carlos-compatibility.md), and the [CARLOS API Testing Checklist](../API-TESTING-CARLOS.md)
 6. **Security**: Understand [Password System](Password_System.md)
 
 ### For New Team Members

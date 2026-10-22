@@ -763,13 +763,12 @@ public class AddEForm2Action extends ActionSupport {
         request.setAttribute("attachedLabs", settings.attachedLabs());
         request.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments());
         request.setAttribute("attachedForms", settings.attachedForms());
-        request.setAttribute("emailPDFPassword", settings.emailPDFPassword());
-        request.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue());
         request.setAttribute("senderEmail", settings.senderEmail());
         request.setAttribute("subjectEmail", settings.subjectEmail());
         request.setAttribute("bodyEmail", settings.bodyEmail());
         request.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail());
         request.setAttribute("emailPatientChartOption", settings.emailPatientChartOption());
+        request.setAttribute("footerEmail", settings.footerEmail());
     }
 
     private void attachToEForm(LoggedInInfo loggedInInfo, String[] attachedEForms, String[] attachedDocuments, String[] attachedLabs, String[] attachedHRMDocuments, String[] attachedForms, String fdid, String demographic_no, String providerNo) {

@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@page import="io.github.carlos_emr.carlos.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -549,10 +550,6 @@
 
             function tsr(s) {
                 popupPage(600, 860, ('<%= request.getContextPath() %>/appointment/editappointment?dboperation=search&' + s));
-            }
-
-            function goFilpView(s) {
-                self.location.href = "<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/provider/providercontrol&startDate=<%=year+"-"+month+"-"+day%>" + "&provider_no=" + s;
             }
 
             function goWeekView(s) {
@@ -1713,6 +1710,8 @@
                                 <tr>
                                     <td class="infirmaryView" NOWRAP ALIGN="center"
                                         BGCOLOR="<%=bColor?"#bfefff":"silver"%>">
+                                        <%-- Keeps the name in view within its own column (receptionistapptstyle.css). --%>
+                                        <span class="providerNameSticky">
                                         <!-- caisi infirmary view extension modify ffffffffffff-->
                                         <c:if test="${infirmaryView_isOscar != 'false'}">
                                             <%
@@ -1740,14 +1739,17 @@
                                                    onClick="goSearchView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:message key="provider.appointmentProviderAdminDay.searchView"/>"
                                                    style="color:black" class="noprint">
-                                            <input type='radio' name='flipview' class="noprint"
-                                                   onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
-                                                   title="<fmt:message key="schedule.scheduleflipview.title"/>">
                                             <a href=#
                                                onClick="goZoomView('<%=curProvider_no[nProvider]%>','<carlos:encode value='<%= curProviderName[nProvider] %>' context="javaScriptAttribute"/>')"
-                                               onDblClick="goFilpView('<%=curProvider_no[nProvider]%>')"
                                                title='<fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
                                                 <carlos:encode value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' context="html"/>
+                                            </a>
+                                            <a class="provider-availability-link noprint"
+                                               href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<carlos:encode value='<%= String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day) %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                               title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
+                                               aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
+                                                <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
+                                                <span><fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/></span>
                                             </a>
                                                 <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="true">
                                                     <a href="#"
@@ -1783,8 +1785,30 @@
                                             </c:forEach>
                                         </c:if>
                                         <!-- caisi infirmary view extension modify end ffffffffffffffff-->
+                                        </span>
                                     </td>
                                 </tr>
+                                <%-- Mirrors the desktop availability link above, which the mobile
+                                     stylesheet hides with the rest of the provider header. Keep it
+                                     under the same infirmary-view guard so CAISI infirmary mode
+                                     suppresses both entry points, not just the desktop one. The week
+                                     view shows no desktop link either, and this row would repeat
+                                     under each of its seven day columns. --%>
+                                <c:if test="${infirmaryView_isOscar != 'false'}">
+                                <% if (!isWeekView) { %>
+                                <tr class="provider-availability-mobile-row noprint">
+                                    <td class="noGrid" align="center">
+                                        <a class="provider-availability-link"
+                                           href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<carlos:encode value='<%= String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day) %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
+                                           aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
+                                            <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
+                                            <span><fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/></span>
+                                        </a>
+                                    </td>
+                                </tr>
+                                <% } %>
+                                </c:if>
                                 <!-- END for the first providers's name -->
                                 <tr>
 
@@ -2007,7 +2031,7 @@
 
                                                                   String demographicAlert = dCust != null && dCust.getAlert() != null ? dCust.getAlert() : "";
                                                                   String demographicNotes = dCust != null && dCust.getNotes() != null
-                                                                          ? SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>")
+                                                                          ? DemographicXml.userNotesText(dCust.getNotes())
                                                                           : "";
 
                                                                   String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
@@ -2143,10 +2167,10 @@
 
                                                         <!--  notes -->
                                                         <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) { %>
-                                                        <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
+                                                        <% if (dCust != null && dCust.getNotes() != null && !DemographicXml.userNotesText(dCust.getNotes()).isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
+                                                           title="<carlos:encode value='<%= DemographicXml.userNotesText(dCust.getNotes()) %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }
@@ -2201,10 +2225,10 @@
 
                                                         <!--  notes -->
                                                         <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) {%>
-                                                        <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
+                                                        <% if (dCust != null && dCust.getNotes() != null && !DemographicXml.userNotesText(dCust.getNotes()).isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
+                                                           title="<carlos:encode value='<%= DemographicXml.userNotesText(dCust.getNotes()) %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }

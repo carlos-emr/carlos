@@ -27,13 +27,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
@@ -41,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -54,6 +58,7 @@ import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationRequestConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachmentTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseTo1;
@@ -72,6 +77,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
@@ -103,6 +110,12 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
 
     @Mock
     private LoggedInInfo loggedInInfo;
+
+    @Mock
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
+
+    @Mock
+    private ConsultationRequestConverter requestConverter;
 
     @Mock
     private AttachmentOwnershipService attachmentOwnershipService;
@@ -159,6 +172,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
         ReflectionTestUtils.setField(service, "demographicDao", demographicDao);
         ReflectionTestUtils.setField(service, "securityInfoManager", securityInfoManager);
+        ReflectionTestUtils.setField(service, "outboundEmailArchiveDao", outboundEmailArchiveDao);
         createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class);
         registerMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class, routing);
         createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao.class);
@@ -171,6 +185,10 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         // binds to the int overload of hasPrivilege.
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_con"), org.mockito.ArgumentMatchers.anyString(), anyInt())).thenReturn(true);
         lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
+        // The role-level _con check (no patient) runs before any patient-scoped one; it binds to the
+        // String overload with a null patient.
+        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_con"), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.<String>isNull())).thenReturn(true);
         // REST saves verify the owning patient exists before any conversion or write.
         lenient().when(demographicDao.getDemographicById(DEMOGRAPHIC_NO))
                 .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
@@ -293,7 +311,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
     }
 
     @Test
-    @DisplayName("should reject without saving when updating an unknown consultation")
+    @DisplayName("should answer 404 without saving when updating an unknown consultation")
     void shouldRejectSave_whenUpdatingUnknownConsultation() {
         when(demographicDao.getDemographicById(DEMOGRAPHIC_NO)).thenReturn(new Demographic());
         ConsultationRequestTo1 data = new ConsultationRequestTo1();
@@ -306,7 +324,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
 
         Response response = service.updateConsultation(data);
 
-        assertThat(response.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
+        assertThat(response.getStatus()).isEqualTo(Response.Status.NOT_FOUND.getStatusCode());
         verify(consultationManager, never()).saveConsultationRequest(any(), any());
         verify(consultationManager, never()).saveConsultRequestDoc(any(), any());
     }
@@ -729,7 +747,8 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(missing ? null : stored);
         var transaction = responseTransaction();
 
-        assertThat(service.updateConsultation(submitted).getStatus()).isEqualTo(400);
+        // An unknown consultation is 404 and a patient change is 400; both roll back before any write.
+        assertThat(service.updateConsultation(submitted).getStatus()).isEqualTo(missing ? 404 : 400);
 
         assertThat(stored.getDemographicId()).isEqualTo(DEMOGRAPHIC_NO);
         assertThat(stored.getReasonForReferral()).isEqualTo("original reason");
@@ -804,6 +823,197 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         var attachment = new ConsultationAttachmentTo1(77, "L", true, "Lab", null);
         attachment.setLabType(source);
         return attachment;
+    }
+
+    /**
+     * An omitted (null) selection leaves attachments alone; an explicit empty one detaches the
+     * ordinary attachments but never an outbound email archive eDoc, which the picker hides.
+     */
+    @ParameterizedTest
+    @NullAndEmptySource
+    void shouldReconcileAttachments_whenRequestUpdateHasNullOrEmptyList(
+            List<ConsultationAttachmentTo1> attachments) {
+        ConsultationRequestTo1 data = new ConsultationRequestTo1();
+        data.setId(456);
+        data.setDemographicId(DEMOGRAPHIC_NO);
+        data.setReferralDate(new Date());
+        data.setServiceId(1);
+        data.setUrgency("1");
+        data.setStatus("1");
+        data.setAttachments(attachments);
+        ConsultationRequest request = new ConsultationRequest();
+        ConsultDocs ordinary = new ConsultDocs(456, 701, ConsultDocs.DOCTYPE_DOC, PROVIDER_NO);
+        ConsultDocs archived = new ConsultDocs(456, 702, ConsultDocs.DOCTYPE_DOC, PROVIDER_NO);
+        ReflectionTestUtils.setField(ordinary, "id", 321);
+        ReflectionTestUtils.setField(archived, "id", 322);
+        ReflectionTestUtils.setField(service, "requestConverter", requestConverter);
+        when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(request);
+        when(requestConverter.getAsDomainObject(loggedInInfo, data, request)).thenReturn(request);
+        if (attachments != null) {
+            when(consultationManager.getConsultRequestDocs(loggedInInfo, 456))
+                    .thenReturn(new ArrayList<>(List.of(ordinary, archived)));
+            when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(701, 702)))
+                    .thenReturn(Set.of(702));
+        }
+
+        try (Response response = service.updateConsultation(data)) {
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+
+        assertThat(archived.getDeleted()).isNull();
+        verify(consultationManager, never()).saveConsultRequestDoc(loggedInInfo, archived);
+        if (attachments == null) {
+            assertThat(ordinary.getDeleted()).isNull();
+            verify(consultationManager, never()).saveConsultRequestDoc(any(), any());
+        } else {
+            assertThat(ordinary.getDeleted()).isEqualTo(ConsultDocs.DELETED);
+            verify(consultationManager).saveConsultRequestDoc(loggedInInfo, ordinary);
+        }
+    }
+
+    @Test
+    void shouldKeepOrdinaryAttachmentActive_whenResubmittedWithRequest() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        request.setAttachments(List.of(new ConsultationAttachmentTo1(
+                701, ConsultationAttachmentTo1.TYPE_DOC, true, "Document", null)));
+        ConsultDocs existing = new ConsultDocs(456, 701, ConsultDocs.DOCTYPE_DOC, PROVIDER_NO);
+        ReflectionTestUtils.setField(existing, "id", 321);
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456))
+                .thenReturn(new ArrayList<>(List.of(existing)));
+        ownDocument(701);
+
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+
+        assertThat(existing.getDeleted()).isNull();
+        verify(consultationManager, never()).saveConsultRequestDoc(any(), any());
+    }
+
+    @Test
+    void shouldKeepOrdinaryAttachmentActive_whenResubmittedWithResponse() {
+        ConsultationResponseTo1 response = new ConsultationResponseTo1();
+        response.setId(456);
+        response.setAttachments(List.of(new ConsultationAttachmentTo1(
+                701, ConsultationAttachmentTo1.TYPE_DOC, true, "Document", null)));
+        ConsultResponseDoc existing = new ConsultResponseDoc(456, 701, ConsultResponseDoc.DOCTYPE_DOC, PROVIDER_NO);
+        ReflectionTestUtils.setField(existing, "id", 322);
+        when(consultationManager.getConsultResponseDocs(loggedInInfo, 456))
+                .thenReturn(new ArrayList<>(List.of(existing)));
+        ownDocument(701);
+
+        ReflectionTestUtils.invokeMethod(service, "saveResponseAttachments", response);
+
+        assertThat(existing.getDeleted()).isNull();
+        verify(consultationManager, never()).saveConsultResponseDoc(any(), any());
+    }
+
+    @Test
+    @DisplayName("should preserve an archive eDoc omitted from a consultation request attachment update")
+    void shouldPreserveArchiveEdoc_omittedFromRequestAttachmentUpdate() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        request.setAttachments(List.of(
+                new ConsultationAttachmentTo1(900, ConsultationAttachmentTo1.TYPE_EFORM, true, "Form", null)));
+        EFormData ownForm = new EFormData();
+        ownForm.setDemographicId(DEMOGRAPHIC_NO);
+        when(attachmentEforms.find(900)).thenReturn(ownForm);
+
+        ConsultDocs archiveDocument = new ConsultDocs(
+                request.getId(), 700, ConsultDocs.DOCTYPE_DOC, PROVIDER_NO);
+        ConsultDocs ordinaryDocument = new ConsultDocs(
+                request.getId(), 701, ConsultDocs.DOCTYPE_DOC, PROVIDER_NO);
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, request.getId()))
+                .thenReturn(new ArrayList<>(List.of(archiveDocument, ordinaryDocument)));
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(700, 701)))
+                .thenReturn(Set.of(700));
+
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+
+        assertThat(archiveDocument.getDeleted()).isNull();
+        assertThat(ordinaryDocument.getDeleted()).isEqualTo(ConsultDocs.DELETED);
+        verify(consultationManager, never()).saveConsultRequestDoc(eq(loggedInInfo), same(archiveDocument));
+        verify(consultationManager).saveConsultRequestDoc(eq(loggedInInfo), same(ordinaryDocument));
+    }
+
+    @Test
+    @DisplayName("should preserve an archive eDoc omitted from a consultation response attachment update")
+    void shouldPreserveArchiveEdoc_omittedFromResponseAttachmentUpdate() {
+        ConsultationResponseTo1 response = new ConsultationResponseTo1();
+        response.setId(456);
+        response.setAttachments(List.of());
+
+        ConsultResponseDoc archiveDocument = new ConsultResponseDoc(
+                response.getId(), 700, ConsultResponseDoc.DOCTYPE_DOC, PROVIDER_NO);
+        ConsultResponseDoc ordinaryDocument = new ConsultResponseDoc(
+                response.getId(), 701, ConsultResponseDoc.DOCTYPE_DOC, PROVIDER_NO);
+        when(consultationManager.getConsultResponseDocs(loggedInInfo, response.getId()))
+                .thenReturn(new ArrayList<>(List.of(archiveDocument, ordinaryDocument)));
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(700, 701)))
+                .thenReturn(Set.of(700));
+
+        ReflectionTestUtils.invokeMethod(service, "saveResponseAttachments", response);
+
+        assertThat(archiveDocument.getDeleted()).isNull();
+        assertThat(ordinaryDocument.getDeleted()).isEqualTo(ConsultResponseDoc.DELETED);
+        verify(consultationManager, never()).saveConsultResponseDoc(eq(loggedInInfo), same(archiveDocument));
+        verify(consultationManager).saveConsultResponseDoc(eq(loggedInInfo), same(ordinaryDocument));
+    }
+
+    @Test
+    @DisplayName("should refuse an archive eDoc explicitly submitted as a consultation attachment")
+    void shouldRefuseArchiveEdoc_explicitlySubmittedAsConsultationAttachment() {
+        List<ConsultationAttachmentTo1> attachments = List.of(
+                new ConsultationAttachmentTo1(700, ConsultationAttachmentTo1.TYPE_DOC, true, "Archive", null));
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(700))).thenReturn(Set.of(700));
+
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
+                service, "assertNoOutboundEmailArchiveAttachments", attachments))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("controlled archive workflow");
+    }
+
+    @Test
+    @DisplayName("should resolve archive preservation before creating an uploaded attachment eDoc")
+    void shouldResolveArchivePreservation_beforeCreatingUploadedAttachmentEdoc() throws Exception {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        request.setAttachments(List.of(newDocumentAttachment()));
+
+        ConsultDocs currentDocument = new ConsultDocs(
+                request.getId(), 700, ConsultDocs.DOCTYPE_DOC, PROVIDER_NO);
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, request.getId()))
+                .thenReturn(new ArrayList<>(List.of(currentDocument)));
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(700)))
+                .thenThrow(new IllegalStateException("archive lookup unavailable"));
+
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
+                service, "saveRequestAttachments", request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("archive lookup unavailable");
+
+        verify(documentManager, never()).createDocument(
+                eq(loggedInInfo), any(Document.class), eq(DEMOGRAPHIC_NO), eq(PROVIDER_NO), eq(FILE_CONTENTS));
+    }
+
+    @Test
+    @DisplayName("should authorize a consultation response update before looking up archive attachments")
+    void shouldAuthorizeConsultationResponseUpdate_beforeLookingUpArchiveAttachments() {
+        ConsultationResponseTo1 response = new ConsultationResponseTo1();
+        response.setId(456);
+        response.setAttachments(List.of(
+                new ConsultationAttachmentTo1(700, ConsultationAttachmentTo1.TYPE_DOC, true, "Archive", null)));
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_con", SecurityInfoManager.UPDATE, null)).thenReturn(false);
+
+        // The role-level refusal is a SecurityException inside the save transaction, reported as 403.
+        assertThatThrownBy(() -> service.saveResponse(response))
+                .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+
+        verifyNoInteractions(outboundEmailArchiveDao);
+        verify(consultationManager, never()).getResponse(any(), any());
     }
 
     private static ConsultationAttachmentTo1 newDocumentAttachment() {

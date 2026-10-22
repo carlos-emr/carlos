@@ -77,6 +77,8 @@ class RourkeExport2ActionUnitTest extends CarlosUnitTestBase {
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
         login = mockStatic(LoggedInInfo.class);
         login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(loggedInInfo);
+        // getFile uses develop's requireLoggedInInfoFromSession (#2499).
+        login.when(() -> LoggedInInfo.requireLoggedInInfoFromSession(request)).thenReturn(loggedInInfo);
         CarlosProperties config = mock(CarlosProperties.class);
         when(config.getProperty("DOCUMENT_DIR")).thenReturn(directory.toString());
         properties = mockStatic(CarlosProperties.class);

@@ -32,22 +32,61 @@
  *   - the build-identity guard the loop did by counting systemd restarts: the
  *     application must be the same process at the end as at the start, so a
  *     suite cannot finish green having tested two different deployments;
- *   - JUnit XML for CI, and a summary table a human can read.
+ *   - JUnit XML for CI, and a summary table a human can read;
+ *   - known-failure bookkeeping. A check asserts correct behaviour, so while a
+ *     logged defect stands it fails at the step that exercises it. The manifest
+ *     records that as `expectedFailure: { finding, step }` (finding = a row of
+ *     docs/ui-tests/app-findings-log.md that is not `fixed`; step = the label the
+ *     script gives s.step()), and the run reports one of three outcomes:
+ *       known-fail        failed at exactly that step: reported, does not fail the run
+ *       unexpected-pass   passed although a failure was expected: reported, does not
+ *                         fail the run (the defect may be fixed; update the manifest)
+ *       failed-elsewhere  failed at any other step, outside a labelled step, in its
+ *                         cleanup, by timeout or interruption: FAILS the run, so a
+ *                         known defect cannot hide a new one.
+ *   - the browser version. A failure that comes from the browser (Chromium 154 refuses a
+ *     beforeunload prompt from a handler that removes itself, and names a non-ASCII download
+ *     "download" under the POSIX locale) looks exactly like one that comes from the application, so
+ *     a result is only readable next to the browser that produced it. A check that starts its
+ *     browser through the harness's launchBrowser() reports it in its RESULT_JSON record
+ *     (`browserVersion`); the runner keeps it on that check's result, prints the distinct versions
+ *     once under the summary, and writes them into the JUnit <properties> as `browserVersion`. A
+ *     check that never launched one (or drives Playwright itself) reports none.
+ *   - --residue-audit. A check that changes the shared install and does not put it back
+ *     poisons every check after it (finding 180: fax-configure left a fake SRFax account
+ *     polling, and FaxImporter logged an ERROR a minute until the next restart). With the flag
+ *     the runner takes a baseline of fax_config, the encounterForm registrations and the
+ *     property rows the selected checks' manifest `mutates` names BEFORE the first check, and
+ *     audits AFTER the last (scripts/lib/residue-audit.js): marker-named fixture rows that
+ *     survive, any difference from the baseline, and any table that has MORE or FEWER ROWS than the
+ *     baseline's exact count of every base table (so a table with no marker column cannot leak
+ *     unseen, and a check cannot delete rows it does not own unseen; only the tables that grow on
+ *     every run, ROW_GROWTH_ALLOWED, are exempt from "more", and are named in a line of their own;
+ *     the diff is net, so a delete and an insert in one table cancel out). It prints
+ *     `residue: <table> <count>` per table (`<count> (rows added)` or `(rows removed)` for the
+ *     row-count diff), never a row, and exits non-zero on residue; a clean audit prints
+ *     `residue audit: no residue`. It needs MYSQL_* like a database-asserting check, and a run
+ *     that cannot take its baseline stops before any check starts rather than pass unaudited.
+ *     It also needs the install to itself: another session using the application during an audited
+ *     run adds and removes rows that are read as that run's residue.
  *
  * Usage:
  *   node scripts/run-playwright-suite.js --tier smoke
  *   node scripts/run-playwright-suite.js --tier core --tier front-door --junit out.xml
  *   node scripts/run-playwright-suite.js --only tickler-crud --only login
+ *   node scripts/run-playwright-suite.js --only fax-configure --residue-audit
  *   node scripts/run-playwright-suite.js --list
  */
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const {
-  EXIT_FAIL, EXIT_PASS, EXIT_SKIP, isLocalTlsTarget, validateBaseUrl, validateMysqlHost,
+  EXIT_FAIL, EXIT_PASS, EXIT_SKIP, createSqlRunner, isLocalTlsTarget, readConfig, validateBaseUrl, validateMysqlHost,
 } = require('./lib/playwright-harness');
+const { auditResidueDetailed, captureBaseline, describeResidue, formatResidue } = require('./lib/residue-audit');
 
 const MANIFEST_PATH = path.join(__dirname, 'playwright-suite.json');
 
@@ -61,7 +100,7 @@ function loadManifest(manifestPath = MANIFEST_PATH) {
 
 function parseArguments(argv) {
   const options = {
-    tiers: [], only: [], skip: [], province: '', junit: '', list: false, dryRun: false,
+    tiers: [], only: [], skip: [], province: '', junit: '', list: false, dryRun: false, residueAudit: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -81,6 +120,7 @@ function parseArguments(argv) {
       case '--junit': options.junit = takeValue(); break;
       case '--list': options.list = true; break;
       case '--dry-run': options.dryRun = true; break;
+      case '--residue-audit': options.residueAudit = true; break;
       case '--help': options.help = true; break;
       default: throw new Error(`Unknown argument ${argument}`);
     }
@@ -240,6 +280,82 @@ function readBuildIdentity(env, run = spawnSync) {
   return fingerprint || null;
 }
 
+/**
+ * The record runCheck() wrote to RESULT_JSON, or null when the child wrote none (it crashed
+ * before reaching runCheck, was killed, or is a script that does not use it).
+ */
+function readCheckRecord(resultPath) {
+  try {
+    const record = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+    return record && typeof record === 'object' ? record : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The browser version a child reported, or undefined. The record is a file the child wrote, so the value
+ * is data: only a short run of plain version characters is kept, because it is printed to the console and
+ * written into the JUnit report.
+ */
+function cleanBrowserVersion(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9][\w .+-]{0,79}$/.test(value) ? value : undefined;
+}
+
+/** The distinct browser versions the results report, in order first seen (none when no check reported one). */
+function browserVersionsOf(results) {
+  return [...new Set(results.map((result) => result.browserVersion).filter(Boolean))];
+}
+
+/** Outcomes that fail the run. known-fail, unexpected-pass, SKIP and PASS do not. */
+const FAILING_OUTCOMES = new Set(['FAIL', 'failed-elsewhere']);
+
+function describeExpectation(expected) {
+  return `step "${expected.step}" (finding ${expected.finding})`;
+}
+
+/**
+ * Turn what a check did into the outcome the run reports, given what the manifest expects.
+ *
+ * `raw` is { outcome: PASS|FAIL|SKIP, detail, failedStep?, cleanupFailed? }. Without an
+ * expectedFailure nothing changes. With one:
+ *   PASS                                        -> unexpected-pass
+ *   FAIL at exactly expectedFailure.step,
+ *        cleanup clean                          -> known-fail
+ *   any other FAIL (another step, no labelled
+ *        step, cleanup, timeout, signal)        -> failed-elsewhere
+ *   SKIP                                        -> SKIP (nothing was tested either way)
+ * A failure with a leaking cleanup is never a clean known failure: the fixtures it left behind
+ * are a new problem the known defect must not excuse.
+ */
+function classifyResult(check, raw) {
+  const expected = check.expectedFailure;
+  if (!expected || raw.outcome === 'SKIP') {
+    return { outcome: raw.outcome, detail: raw.detail };
+  }
+  const label = describeExpectation(expected);
+  if (raw.outcome === 'PASS') {
+    return {
+      outcome: 'unexpected-pass',
+      detail: `passed although it was expected to fail at ${label}; if the finding is fixed, mark it fixed in `
+        + 'app-findings-log.md and remove expectedFailure',
+    };
+  }
+  if (raw.failedStep === expected.step && !raw.cleanupFailed) {
+    return { outcome: 'known-fail', detail: `known failure at ${label}` };
+  }
+  const reasons = [];
+  if (raw.failedStep && raw.failedStep !== expected.step) {
+    reasons.push(`failed at step "${raw.failedStep}"`);
+  } else if (!raw.failedStep) {
+    reasons.push(`failed without reaching a labelled step (${raw.detail})`);
+  }
+  if (raw.cleanupFailed) {
+    reasons.push('its cleanup failed, so owned fixtures may remain');
+  }
+  return { outcome: 'failed-elsewhere', detail: `expected to fail at ${label} but ${reasons.join(' and ')}` };
+}
+
 function runOne(check, options, run = spawnSync) {
   const started = Date.now();
   // Resolved against the repository, not the working directory. Manifest paths
@@ -247,37 +363,73 @@ function runOne(check, options, run = spawnSync) {
   // which some CI wrappers do -- made Node fail to find the script and every
   // check "fail to start" for a reason that had nothing to do with the check.
   const script = path.resolve(__dirname, '..', check.script);
-  const result = run(process.execPath, [script], {
-    stdio: 'inherit',
-    timeout: check.timeoutSec * 1000,
-    // envSet lets one script back several named checks: the table-driven
-    // families (surface-audit, direct-response-contract) are one engine plus a
-    // row selector, and the runner has to pass the selector that picks the row.
-    // Anything already exported still wins for the shared contract variables.
-    // The CALLER's environment, not the process's. main() validates BASE_URL
-    // and MYSQL_HOST out of the env it was handed, so reading process.env here
-    // meant a caller passing an explicit environment gated one target and ran
-    // the child against another -- exactly the disassociation assertSafeTarget
-    // exists to prevent.
-    //
-    // envSet comes SECOND on purpose and the order is load-bearing: it is how
-    // one script backs several named checks (SURFACE=inbox, SURFACE=report),
-    // so a per-check selector has to beat an ambient value of the same name.
-    // Spread the other way and every surface-audit row would run whichever
-    // SURFACE happened to be exported, i.e. the same surface ten times.
-    env: { ...(options.env || process.env), ...(check.envSet || {}) },
-  });
-  const durationMs = Date.now() - started;
-  if (result.error && result.error.code === 'ETIMEDOUT') {
-    return { name: check.name, outcome: 'FAIL', detail: `timed out after ${check.timeoutSec}s`, durationMs };
+  // A private, per-check result record. runCheck() writes its outcome, failing step and
+  // cleanup status to RESULT_JSON; the runner needs the failing step to tell a known failure
+  // from a new one. The file is created fresh for each child and removed afterwards, so a
+  // record can never be a previous check's, and the runner owns the variable for the children
+  // it starts (an exported RESULT_JSON used to be overwritten by every check in turn).
+  let resultDirectory = null;
+  try {
+    resultDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-check-result-'));
+  } catch {
+    // An unwritable temp directory costs the failing-step detail, not the run: a check
+    // with an expectedFailure then reads failed-elsewhere, which fails safe.
   }
-  if (result.status === EXIT_PASS) {
-    return { name: check.name, outcome: 'PASS', detail: '', durationMs };
+  const resultPath = resultDirectory ? path.join(resultDirectory, 'result.json') : null;
+  try {
+    const result = run(process.execPath, [script], {
+      stdio: 'inherit',
+      timeout: check.timeoutSec * 1000,
+      // envSet lets one script back several named checks: the table-driven
+      // families (surface-audit, direct-response-contract) are one engine plus a
+      // row selector, and the runner has to pass the selector that picks the row.
+      // Anything already exported still wins for the shared contract variables.
+      // The CALLER's environment, not the process's. main() validates BASE_URL
+      // and MYSQL_HOST out of the env it was handed, so reading process.env here
+      // meant a caller passing an explicit environment gated one target and ran
+      // the child against another -- exactly the disassociation assertSafeTarget
+      // exists to prevent.
+      //
+      // envSet comes SECOND on purpose and the order is load-bearing: it is how
+      // one script backs several named checks (SURFACE=inbox, SURFACE=report),
+      // so a per-check selector has to beat an ambient value of the same name.
+      // Spread the other way and every surface-audit row would run whichever
+      // SURFACE happened to be exported, i.e. the same surface ten times.
+      env: {
+        ...(options.env || process.env),
+        ...(check.envSet || {}),
+        ...(resultPath ? { RESULT_JSON: resultPath } : {}),
+      },
+    });
+    const durationMs = Date.now() - started;
+    // Read once, for every outcome: the failing step matters only to a failure, but the browser a check
+    // used is worth knowing for a pass too. A timeout wrote no record (it is written when the check ends).
+    const record = resultPath ? readCheckRecord(resultPath) : null;
+    const browserVersion = cleanBrowserVersion(record && record.browserVersion);
+    let raw;
+    if (result.error && result.error.code === 'ETIMEDOUT') {
+      raw = { outcome: 'FAIL', detail: `timed out after ${check.timeoutSec}s` };
+    } else if (result.status === EXIT_PASS) {
+      raw = { outcome: 'PASS', detail: '' };
+    } else if (result.status === EXIT_SKIP) {
+      raw = { outcome: 'SKIP', detail: 'a fixture or credential this check needs is not configured' };
+    } else {
+      // The failing step counts only for an ordinary failure (exit 1) whose record says FAIL:
+      // exit 130/143 is an interruption, and a missing record means the child never reached runCheck.
+      const ordinary = result.status === EXIT_FAIL && record && record.outcome === 'FAIL';
+      const failedStep = ordinary && typeof record.failedStep === 'string' && record.failedStep
+        ? record.failedStep : undefined;
+      raw = {
+        outcome: 'FAIL',
+        detail: `exit ${result.status === null ? 'signal' : result.status}${failedStep ? ` (failed at step "${failedStep}")` : ''}`,
+        failedStep,
+        cleanupFailed: Boolean(ordinary && record.cleanupFailed),
+      };
+    }
+    return { name: check.name, ...classifyResult(check, raw), durationMs, ...(browserVersion ? { browserVersion } : {}) };
+  } finally {
+    if (resultDirectory) fs.rmSync(resultDirectory, { recursive: true, force: true });
   }
-  if (result.status === EXIT_SKIP) {
-    return { name: check.name, outcome: 'SKIP', detail: 'a fixture or credential this check needs is not configured', durationMs };
-  }
-  return { name: check.name, outcome: 'FAIL', detail: `exit ${result.status === null ? 'signal' : result.status}`, durationMs };
 }
 
 function escapeXml(value) {
@@ -287,35 +439,189 @@ function escapeXml(value) {
 }
 
 function toJUnit(results) {
-  const failures = results.filter((result) => result.outcome === 'FAIL').length;
-  const skipped = results.filter((result) => result.outcome === 'SKIP').length;
+  // failed-elsewhere is a failure (it fails the run). known-fail is a skipped testcase whose
+  // message names the finding, so CI shows it without counting it as red; unexpected-pass is a
+  // passing testcase that carries its warning in <system-out>.
+  const failures = results.filter((result) => FAILING_OUTCOMES.has(result.outcome)).length;
+  const skipped = results.filter((result) => result.outcome === 'SKIP' || result.outcome === 'known-fail').length;
   const cases = results.map((result) => {
     const time = (result.durationMs / 1000).toFixed(3);
     const open = `    <testcase classname="playwright-suite" name="${escapeXml(result.name)}" time="${time}">`;
-    if (result.outcome === 'FAIL') {
-      return `${open}\n      <failure message="${escapeXml(result.detail || 'failed')}"/>\n    </testcase>`;
+    // Only the new outcomes are prefixed, so the original FAIL/SKIP messages are unchanged.
+    const message = (fallback) => `${['FAIL', 'SKIP'].includes(result.outcome) ? '' : `${result.outcome}: `}${result.detail || fallback}`;
+    if (FAILING_OUTCOMES.has(result.outcome)) {
+      return `${open}\n      <failure message="${escapeXml(message('failed'))}"/>\n    </testcase>`;
     }
-    if (result.outcome === 'SKIP') {
-      return `${open}\n      <skipped message="${escapeXml(result.detail || 'skipped')}"/>\n    </testcase>`;
+    if (result.outcome === 'SKIP' || result.outcome === 'known-fail') {
+      return `${open}\n      <skipped message="${escapeXml(message('skipped'))}"/>\n    </testcase>`;
+    }
+    if (result.outcome === 'unexpected-pass') {
+      return `${open}\n      <system-out>${escapeXml(message('unexpected pass'))}</system-out>\n    </testcase>`;
     }
     return `${open}</testcase>`;
   }).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>\n  <testsuite name="carlos-playwright-suite" tests="${results.length}" failures="${failures}" skipped="${skipped}">\n${cases}\n  </testsuite>\n</testsuites>\n`;
+  // The browser goes in <properties> (the JUnit place for run metadata), once for the suite, and only when a
+  // check reported one, so a report from a run that launched no browser is unchanged.
+  const versions = browserVersionsOf(results);
+  const properties = versions.length
+    ? `\n    <properties>\n      <property name="browserVersion" value="${escapeXml(versions.join(', '))}"/>\n    </properties>`
+    : '';
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>\n  <testsuite name="carlos-playwright-suite" tests="${results.length}" failures="${failures}" skipped="${skipped}">${properties}\n${cases}\n  </testsuite>\n</testsuites>\n`;
 }
 
 function summarise(results, out = console) {
   const width = Math.max(...results.map((result) => result.name.length), 4);
+  // known-fail, unexpected-pass and failed-elsewhere are longer than PASS/FAIL/SKIP.
+  const outcomeWidth = Math.max(6, ...results.map((result) => result.outcome.length));
   out.log('');
-  out.log('  RESULT  CHECK'.padEnd(width + 12) + 'TIME');
+  out.log(`  ${'RESULT'.padEnd(outcomeWidth)}  ${'CHECK'.padEnd(width)}  TIME`);
   for (const result of results) {
-    out.log(`  ${result.outcome.padEnd(6)}  ${result.name.padEnd(width)}  ${(result.durationMs / 1000).toFixed(1)}s${result.detail ? `  -- ${result.detail}` : ''}`);
+    out.log(`  ${result.outcome.padEnd(outcomeWidth)}  ${result.name.padEnd(width)}  ${(result.durationMs / 1000).toFixed(1)}s${result.detail ? `  -- ${result.detail}` : ''}`);
   }
   const counts = results.reduce((totals, result) => ({ ...totals, [result.outcome]: (totals[result.outcome] || 0) + 1 }), {});
+  // The three known-failure outcomes are appended only when present, so a run with no
+  // expectedFailure prints exactly the line it always did.
+  const expectation = ['known-fail', 'unexpected-pass', 'failed-elsewhere']
+    .filter((outcome) => counts[outcome]).map((outcome) => `${counts[outcome]} ${outcome}`);
   out.log('');
-  out.log(`  ${counts.PASS || 0} passed, ${counts.FAIL || 0} failed, ${counts.SKIP || 0} skipped`);
+  out.log(`  ${counts.PASS || 0} passed, ${counts.FAIL || 0} failed, ${counts.SKIP || 0} skipped${expectation.length ? `, ${expectation.join(', ')}` : ''}`);
+  // Once per run, not per row: the browser is a property of the run, and a second version is worth a line.
+  const versions = browserVersionsOf(results);
+  if (versions.length) out.log(`  browser: ${versions.join(', ')}`);
 }
 
-function main(argv = process.argv.slice(2), env = process.env, out = console) {
+/** 1 when any result is FAIL or failed-elsewhere; known-fail and unexpected-pass are reported only. */
+function exitCodeFor(results) {
+  return results.some((result) => FAILING_OUTCOMES.has(result.outcome)) ? EXIT_FAIL : EXIT_PASS;
+}
+
+/**
+ * Problems with a manifest entry's expectedFailure, as strings (none means valid).
+ *
+ * `statuses` maps findings-log row number -> status; `scriptSource` is the text of the check's
+ * script alone and `source` that text plus the modules it requires (where step labels may live). The finding must be a row that
+ * is not `fixed` -- a fixed defect must not keep excusing a failure -- and the step must be a
+ * label the script really passes to step(), or failedStep could never equal it and the check
+ * would read failed-elsewhere forever.
+ */
+function validateExpectedFailure(check, { statuses, source, scriptSource }) {
+  const expected = check.expectedFailure;
+  if (expected === null || typeof expected !== 'object' || Array.isArray(expected)) {
+    return ['expectedFailure must be an object { finding, step }'];
+  }
+  const problems = [];
+  const extra = Object.keys(expected).filter((key) => key !== 'finding' && key !== 'step');
+  if (extra.length) {
+    problems.push(`expectedFailure takes only finding and step; remove ${extra.join(', ')}`);
+  }
+  if (!Number.isInteger(expected.finding) || expected.finding < 1) {
+    problems.push('expectedFailure.finding must be a positive integer (a row number in docs/ui-tests/app-findings-log.md)');
+  } else if (!statuses.has(expected.finding)) {
+    problems.push(`finding ${expected.finding} is not a row in docs/ui-tests/app-findings-log.md`);
+  } else if (statuses.get(expected.finding) === 'fixed') {
+    problems.push(`finding ${expected.finding} is fixed; remove expectedFailure (or cite the open finding the check fails on now)`);
+  }
+  // failedStep reaches the runner only through runCheck()'s RESULT_JSON record, and only for a
+  // step that tags its error: runWorkflow's s.step() does, a script's own step helper must call
+  // markFailedStep(). This reads the script's OWN text, never `source`: `source` includes the
+  // modules the script requires, and lib/playwright-harness.js defines markFailedStep() and
+  // runCheck() itself, so searching it would make every script look conforming. A caller that
+  // passes no scriptSource therefore fails the guard instead of silently passing it.
+  const own = typeof scriptSource === 'string' ? scriptSource : '';
+  if (!/\brunWorkflow\(/.test(own) && !(/\brunCheck\(/.test(own) && /\bmarkFailedStep\(/.test(own))) {
+    problems.push(`${check.script} reports through neither runWorkflow() nor a runCheck() whose steps call markFailedStep(), `
+      + 'so the runner can never see its failing step');
+  }
+  if (typeof expected.step !== 'string' || expected.step.trim() === '') {
+    problems.push('expectedFailure.step must be a non-empty string (the label the script gives step())');
+  } else {
+    // The label as it appears inside a quoted string literal in the script.
+    const spellings = [
+      expected.step,
+      expected.step.replace(/\\/g, '\\\\').replace(/'/g, "\\'"),
+      expected.step.replace(/\\/g, '\\\\').replace(/"/g, '\\"'),
+      expected.step.replace(/\\/g, '\\\\').replace(/`/g, '\\`'),
+    ];
+    if (!spellings.some((spelling) => source.includes(spelling))) {
+      problems.push(`${check.script} has no step labelled "${expected.step}"`);
+    }
+  }
+  return problems;
+}
+
+/** The selected checks' manifest `mutates`, each entry once, in the order first seen. */
+function mutatesOf(checks) {
+  return [...new Set(checks.flatMap((check) => check.mutates || []))];
+}
+
+/**
+ * The residue audit a real run uses: the harness mysql client, the baseline of scripts/lib/
+ * residue-audit.js, and an audit against it. `begin` throws when the database cannot be reached
+ * (MYSQL_PASSWORD unset, a non-loopback MYSQL_HOST without its opt-in), and main() then refuses
+ * to run any check, because a run it cannot audit must not read as a clean one.
+ */
+const databaseResidueAudit = Object.freeze({
+  begin({ env, mutates }) {
+    const sql = createSqlRunner(readConfig({ env }).mysql, { env });
+    let since;
+    try {
+      since = captureBaseline({ sql, mutates });
+    } catch (error) {
+      sql.dispose();
+      throw error;
+    }
+    return {
+      finish: () => auditResidueDetailed({ sql, since }),
+      dispose: () => sql.dispose(),
+    };
+  },
+});
+
+/**
+ * Run the audit, print its verdict and return the result row that makes residue fail the run
+ * (null when clean). An audit that itself fails is a failure, never a pass: it proves nothing.
+ */
+function finishResidueAudit(audit, out) {
+  let report;
+  try {
+    report = audit.finish();
+  } catch (error) {
+    out.error(`residue audit: could not run (${error.message})`);
+    return {
+      name: 'residue-audit',
+      outcome: 'FAIL',
+      detail: `the audit could not run (${error.message}), so the run is not known to be clean`,
+      durationMs: 0,
+    };
+  }
+  for (const line of formatResidue(report.residue)) out.log(line);
+  // Say what the audit did NOT cover, so a clean verdict is not read as wider than it is.
+  if (report.absent.length) out.log(`residue audit: not installed here: ${report.absent.join(', ')}`);
+  // A table named in `mutates` is still counted (rows added or removed); only a row changed in place goes unseen. A file is not covered at all.
+  const notDiffedFiles = report.notDiffed.filter((entry) => entry.startsWith('file:'));
+  const notDiffedTables = report.notDiffed.filter((entry) => !entry.startsWith('file:'));
+  if (notDiffedTables.length) out.log(`residue audit: not diffed: ${notDiffedTables.join(', ')} (only rows added or removed are counted)`);
+  if (notDiffedFiles.length) out.log(`residue audit: not diffed: ${notDiffedFiles.join(', ')} (files are not covered)`);
+  // The tables that grow on every run by design are not residue, but a reader should see how much the allow-list absorbed.
+  if ((report.allowedGrowth || []).length) {
+    out.log(`residue audit: rows added to tables that grow on every run (not residue): ${report.allowedGrowth.map(({ table, count }) => `${table} ${count}`).join(', ')}`);
+  }
+  if (!report.residue.length) return null;
+  return {
+    name: 'residue-audit',
+    outcome: 'FAIL',
+    detail: report.residue.map(describeResidue).join(', '),
+    durationMs: 0,
+  };
+}
+
+/**
+ * `deps` lets a test supply the manifest, the child-process spawner, the build probe and the
+ * residue audit; a real run uses scripts/playwright-suite.json, spawnSync, curl and MariaDB.
+ */
+function main(argv = process.argv.slice(2), env = process.env, out = console, deps = {}) {
+  const run = deps.run || spawnSync;
+  const probeIdentity = deps.readBuildIdentity || readBuildIdentity;
   let options;
   try {
     options = parseArguments(argv);
@@ -324,13 +630,13 @@ function main(argv = process.argv.slice(2), env = process.env, out = console) {
     return EXIT_FAIL;
   }
   if (options.help) {
-    out.log('Usage: node scripts/run-playwright-suite.js [--tier T]... [--only NAME]... [--skip NAME]... [--province ON|BC] [--junit FILE] [--list] [--dry-run]');
+    out.log('Usage: node scripts/run-playwright-suite.js [--tier T]... [--only NAME]... [--skip NAME]... [--province ON|BC] [--junit FILE] [--residue-audit] [--list] [--dry-run]');
     return EXIT_PASS;
   }
 
   let selected;
   try {
-    selected = selectChecks(loadManifest(), options);
+    selected = selectChecks(deps.checks || loadManifest(), options);
   } catch (error) {
     out.error(error.message);
     return EXIT_FAIL;
@@ -357,23 +663,42 @@ function main(argv = process.argv.slice(2), env = process.env, out = console) {
     return EXIT_PASS;
   }
 
-  const identityBefore = readBuildIdentity(env);
-  const results = selected.map((check) => {
-    out.log(`\n--- ${check.name} (${check.tiers.join(',')}) ---`);
-    // `env`, not process.env: main() validated BASE_URL and MYSQL_HOST out of
-    // the environment it was HANDED, so the child has to receive that same one
-    // or the gate and the run are about different deployments.
-    return runOne(check, { ...options, env });
-  });
-  const identityAfter = readBuildIdentity(env);
+  // The baseline comes BEFORE the first check and the audit AFTER the last, so everything a check
+  // leaves behind is measured against the state the run started from.
+  let audit = null;
+  if (options.residueAudit) {
+    try {
+      audit = (deps.residueAudit || databaseResidueAudit).begin({ env, mutates: mutatesOf(selected) });
+    } catch (error) {
+      out.error(`residue audit: could not take the baseline, so no check was run (${error.message})`);
+      return EXIT_FAIL;
+    }
+  }
 
-  if (identityBefore && identityAfter && identityBefore !== identityAfter) {
-    results.push({
-      name: 'application-identity',
-      outcome: 'FAIL',
-      detail: 'the deployment changed while the suite ran, so these results span two different applications',
-      durationMs: 0,
-    });
+  const results = [];
+  try {
+    const identityBefore = probeIdentity(env);
+    for (const check of selected) {
+      out.log(`\n--- ${check.name} (${check.tiers.join(',')}) ---`);
+      // `env`, not process.env: main() validated BASE_URL and MYSQL_HOST out of
+      // the environment it was HANDED, so the child has to receive that same one
+      // or the gate and the run are about different deployments.
+      results.push(runOne(check, { ...options, env }, run));
+    }
+    const identityAfter = probeIdentity(env);
+
+    if (identityBefore && identityAfter && identityBefore !== identityAfter) {
+      results.push({
+        name: 'application-identity',
+        outcome: 'FAIL',
+        detail: 'the deployment changed while the suite ran, so these results span two different applications',
+        durationMs: 0,
+      });
+    }
+    const residue = audit ? finishResidueAudit(audit, out) : null;
+    if (residue) results.push(residue);
+  } finally {
+    if (audit) audit.dispose();
   }
 
   summarise(results, out);
@@ -381,7 +706,7 @@ function main(argv = process.argv.slice(2), env = process.env, out = console) {
     fs.writeFileSync(options.junit, toJUnit(results));
     out.log(`  JUnit written to ${options.junit}`);
   }
-  return results.some((result) => result.outcome === 'FAIL') ? EXIT_FAIL : EXIT_PASS;
+  return exitCodeFor(results);
 }
 
 if (require.main === module) {
@@ -389,5 +714,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  assertSafeTarget, loadManifest, main, parseArguments, readBuildIdentity, runOne, selectChecks, toJUnit,
+  assertSafeTarget, browserVersionsOf, classifyResult, cleanBrowserVersion, exitCodeFor, loadManifest, main, mutatesOf,
+  parseArguments, readBuildIdentity, runOne, selectChecks, summarise, toJUnit, validateExpectedFailure,
 };

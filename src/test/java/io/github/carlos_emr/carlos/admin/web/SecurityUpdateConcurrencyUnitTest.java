@@ -112,7 +112,7 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         assertThat(draft.getUserName()).isEqualTo("mydraft"); assertThat(draft.getBExpireset()).isEqualTo(1);
         assertThat(request.getParameter(SecurityEditVersion.PARAMETER)).isEqualTo(original);
         assertThat(SecurityEditVersion.of(row)).isEqualTo(current);
-        verify(dao, never()).saveEntity(any()); verifyNoInteractions(passwords); logActionMock.verifyNoInteractions();
+        verifyNoInteractions(passwords); verify(dao, never()).detach(any()); logActionMock.verifyNoInteractions();
         assertThat(committed).isFalse();
     }
 
@@ -124,7 +124,7 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         else request.setParameter(SecurityEditVersion.PARAMETER, value);
         assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("conflict");
         assertThat(response.getStatus()).isEqualTo(409);
-        verify(dao, never()).saveEntity(any()); logActionMock.verifyNoInteractions();
+        verifyNoInteractions(passwords); logActionMock.verifyNoInteractions();
     }
 
     @Test
@@ -134,7 +134,7 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(404);
         assertThat(request.getAttribute("securityReviewAvailable")).isEqualTo(false);
         assertThat(request.getAttribute("securityEditDraft")).isInstanceOf(Security.class);
-        verify(dao, never()).saveEntity(any());
+        verifyNoInteractions(passwords);
     }
 
     @Test
@@ -146,7 +146,50 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         assertThat(row.getBExpireset()).isEqualTo(1);
         assertThat(row.getPassword()).isEqualTo("stored-password-hash");
         assertThat(row.getPin()).isEqualTo("stored-pin-hash");
-        verifyNoInteractions(passwords); verify(dao).saveEntity(row);
+        // Saved through the manager, which archives the pre-edit row it reads; the locked row is
+        // detached first so that read sees the original state, not this edit.
+        var order = inOrder(dao, passwords);
+        order.verify(dao).findForUpdate(17);
+        order.verify(dao).detach(row);
+        order.verify(passwords).updateSecurityRecord(any(), same(row));
+        verify(passwords, never()).encodePassword(any());
+        verify(passwords, never()).encodePin(any());
+        verify(dao, never()).saveEntity(any());
+    }
+
+    @Test
+    void shouldStoreOnlyAHashedPin_whenANewPinIsSubmitted() throws Exception {
+        when(passwords.encodePin("2468")).thenReturn("hashed-2468");
+        request.setParameter("pin", "2468"); request.setParameter("conPin", "2468");
+        assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("success");
+        assertThat(row.getPin()).isEqualTo("hashed-2468");
+        assertThat(row.getPinUpdateDate()).isNotNull();
+        verify(passwords).updateSecurityRecord(any(), same(row));
+    }
+
+    @Test
+    void shouldClearThePin_whenABlankPinIsSubmitted() throws Exception {
+        row.setPinUpdateDate(new Date(2000));
+        request.setParameter(SecurityEditVersion.PARAMETER, SecurityEditVersion.of(row));
+        request.setParameter("pin", ""); request.setParameter("conPin", "");
+        assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("success");
+        assertThat(row.getPin()).isNull();
+        assertThat(row.getPinUpdateDate()).isNull();
+        verify(passwords, never()).encodePin(any());
+    }
+
+    @Test
+    void shouldRetainDraftWithoutCommit_whenManagerRefusesAnIncompleteRecord() throws Exception {
+        doThrow(new IllegalArgumentException("Invalid Security object built"))
+                .when(passwords).updateSecurityRecord(any(), any());
+        request.setParameter("user_name", "mydraft");
+        assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("conflict");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("securityEditErrorKey")).isEqualTo("admin.securityupdate.msgUpdateFailure");
+        assertThat(((Security) request.getAttribute("securityEditDraft")).getUserName()).isEqualTo("mydraft");
+        assertThat(request.getAttribute("securityUpdateCommitted")).isNull();
+        assertThat(committed).isFalse();
+        logActionMock.verifyNoInteractions();
     }
 
     @Test
@@ -168,7 +211,7 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("conflict");
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(SecurityEditVersion.of(row)).isEqualTo(before);
-        verify(dao, never()).saveEntity(any()); verifyNoInteractions(passwords);
+        verifyNoInteractions(passwords); verify(dao, never()).detach(any());
     }
 
     @Test

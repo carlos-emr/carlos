@@ -48,8 +48,8 @@ import static org.mockito.Mockito.mock;
 class AddEForm2ActionEmailStagingUnitTest extends CarlosUnitTestBase {
     private static EmailAttachmentSettings settings(String patient, String fdid, String document, String name) {
         return new EmailAttachmentSettings(fdid, patient, null, new String[]{document}, null, null, null,
-                true, false, false, false, false, false, null, null, "fake@example.com", "FAKE subject " + name,
-                "FAKE message " + name, null, "FULL");
+                true, false, false, false, false, false, "fake@example.com", "FAKE subject " + name,
+                "FAKE message " + name, null, "FULL", null);
     }
 
     private AddEForm2Action writer() {

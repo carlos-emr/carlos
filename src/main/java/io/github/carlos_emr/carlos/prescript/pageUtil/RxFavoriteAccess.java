@@ -62,8 +62,10 @@ final class RxFavoriteAccess {
 
     /**
      * The favourite {@code rawId} names, when the logged-in provider owns it; otherwise answers
-     * 400 (malformed id), 404 (no such favourite) or 403 (another provider's) and returns
-     * {@code null}.
+     * 400 (malformed id), 403 (no logged-in provider) or 404 and returns {@code null}. The lookup
+     * is owner-scoped ({@link RxPrescriptionData#getFavorite(int, String)}), so another provider's
+     * favourite answers 404 exactly like a missing one: the response never confirms that an id
+     * exists.
      *
      * @param request  the current request
      * @param response the response the refusal is written to
@@ -77,15 +79,16 @@ final class RxFavoriteAccess {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return null;
         }
-        RxPrescriptionData.Favorite favorite = new RxPrescriptionData().getFavorite(Integer.parseInt(rawId.trim()));
-        if (favorite == null) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND);
-            return null;
-        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String caller = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
-        if (caller == null || !caller.equals(favorite.getProviderNo())) {
+        if (caller == null) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
+        RxPrescriptionData.Favorite favorite =
+                new RxPrescriptionData().getFavorite(Integer.parseInt(rawId.trim()), caller);
+        if (favorite == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return null;
         }
         return favorite;

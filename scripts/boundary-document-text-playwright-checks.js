@@ -6,8 +6,9 @@
  * Asserts: a description of exactly the 255-character column that carries an apostrophe, accents, CJK, an emoji,
  * "&amp;", quotes, a backslash, "%41", "+" and ";" is stored byte for byte; and, last, a description one character past the
  * column is refused or visibly limited rather than silently cut.
- * Fixtures: the owned FAKE- patient and a throw-away PDF; cleanup deletes the owned document / ctl_document rows and the
- * stored files they name (inside the document store only; SKIP when it is not readable) and asserts they are gone.
+ * Fixtures: the owned FAKE- patient and a throw-away PDF; cleanup deletes the owned document / ctl_document rows, the chart
+ * note and note link each upload creates, and the stored files they name (inside the document store only; SKIP when it is
+ * not readable) and asserts they are gone.
  * Implements the wave-6 "boundary values" pattern, Part 1 (document description).
  */
 const fs = require('node:fs');
@@ -17,6 +18,7 @@ const h = require('./lib/playwright-harness');
 const b = require('./lib/boundary-values');
 const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { runWorkflow } = require('./lib/workflow-session');
+const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
 
 const q = h.sqlString;
 
@@ -44,19 +46,26 @@ async function workflow(s) {
   const T = b.TOKENS;
   const column = b.columnLength(sql, 'document', 'docdesc');
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'bnd-doc-'));
+  // Each upload files a chart note for its document and a note link (lib/document-residue.js); neither carries the description.
+  const mark = markDocumentResidue(sql);
   const rows = () => sql.rows(`SELECT d.document_no, d.docfilename FROM document d JOIN ctl_document c ON c.document_no=d.document_no
     WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc LIKE ${q(`${marker}%`)}`);
   s.cleanup(() => {
     const files = new Set();
-    for (const [no, file] of rows()) {
-      h.assert(/^[1-9]\d*$/.test(no), 'Owned document id is invalid');
-      sql.execute(`DELETE FROM ctl_document WHERE document_no=${no} AND module_id=${patient}; DELETE FROM document WHERE document_no=${no}`);
-      files.add(file);
-    }
-    for (const file of files) {
-      const target = path.join(store, path.basename(file));
-      if (path.basename(file) === file && fs.existsSync(target)) fs.unlinkSync(target);
-      h.assert(!fs.existsSync(target), 'An uploaded document file was not removed from the store');
+    try {
+      for (const [no, file] of rows()) {
+        // Registered before anything that can throw: the stored PDF is removed below even when a delete for its document fails.
+        files.add(file);
+        h.assert(/^[1-9]\d*$/.test(no), 'Owned document id is invalid');
+        sql.execute(`DELETE FROM ctl_document WHERE document_no=${no} AND module_id=${patient}; DELETE FROM document WHERE document_no=${no}`);
+        removeDocumentResidue(sql, mark, [no]);
+      }
+    } finally {
+      for (const file of files) {
+        const target = path.join(store, path.basename(file));
+        if (path.basename(file) === file && fs.existsSync(target)) fs.unlinkSync(target);
+        h.assert(!fs.existsSync(target), 'An uploaded document file was not removed from the store');
+      }
     }
     fs.rmSync(scratch, { recursive: true, force: true });
     h.assert(rows().length === 0, 'Owned documents were not removed');

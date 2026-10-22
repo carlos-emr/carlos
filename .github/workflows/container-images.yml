@@ -93,6 +93,37 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify carlos Compose environment
+        run: |
+          echo "Verifying Compose does not replace the image JVM options..."
+          compose_config="$(docker compose -f .devcontainer/docker-compose.yml config --format json)"
+          compose_has_catalina_opts="$(jq -r '
+            (.services.carlos.environment // {}) | has("CATALINA_OPTS")
+          ' <<< "$compose_config")"
+          if [ "$compose_has_catalina_opts" != "false" ]; then
+            echo "ERROR: carlos Compose configuration must inherit CATALINA_OPTS from the development image"
+            exit 1
+          fi
+
+          echo "Verifying sensitive development ports bind to host loopback..."
+          while read -r target published; do
+            if ! jq -e \
+                --argjson target "$target" \
+                --arg published "$published" \
+                '[.services.carlos.ports[] | select(
+                    .target == $target
+                    and (.published | tostring) == $published
+                    and .host_ip == "127.0.0.1"
+                )] | length == 1' <<< "$compose_config" > /dev/null; then
+              echo "ERROR: carlos port $published:$target must bind exactly once to 127.0.0.1"
+              exit 1
+            fi
+          done <<'EOF'
+          8080 8080
+          8443 8443
+          8000 18000
+          EOF
+
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
@@ -216,8 +247,21 @@ jobs:
       - name: Test tomcat-dev container
         run: |
           echo "Testing container starts correctly..."
-          docker run -d --name test-tomcat carlos-tomcat-dev:test tail -f /dev/null
-          sleep 5
+          docker run -d --name test-tomcat carlos-tomcat-dev:test catalina.sh run
+          trap 'docker rm -f test-tomcat > /dev/null 2>&1 || true' EXIT
+
+          echo "Waiting for development HTTPS..."
+          for attempt in $(seq 1 30); do
+            if docker exec test-tomcat curl -kfsS -o /dev/null https://localhost:8443/; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              echo "ERROR: development HTTPS did not become ready"
+              docker logs test-tomcat
+              exit 1
+            fi
+            sleep 2
+          done
 
           # Verify key components are present
           echo "Verifying Maven..."
@@ -229,11 +273,26 @@ jobs:
           echo "Verifying Tomcat..."
           docker exec test-tomcat ls -la /usr/local/tomcat/
 
+          echo "Verifying JavaMelody development override..."
+          docker exec test-tomcat sh -eu -c '
+            matches=0
+            for option in $CATALINA_OPTS; do
+              case "$option" in
+                -Djavamelody.system-actions-enabled=*)
+                  [ "$option" = "-Djavamelody.system-actions-enabled=true" ]
+                  matches=$((matches + 1))
+                  ;;
+              esac
+            done
+            [ "$matches" -eq 1 ]
+          '
+
           echo "Verifying Node.js..."
           docker exec test-tomcat node --version
 
           echo "All tests passed!"
           docker stop test-tomcat && docker rm test-tomcat
+          trap - EXIT
 
       - name: Save tested tomcat-dev image
         run: |

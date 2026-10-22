@@ -44,11 +44,12 @@ class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
         registerMock(FavoriteDao.class, dao);
         Favorite stored = new Favorite();
         stored.setId(42);
+        stored.setProviderNo("999998");
         stored.setSpecial("Synthetic instructions");
         stored.setDispenseInternal(dispenseInternal);
         when(dao.find(42)).thenReturn(stored);
         var data = new RxPrescriptionData();
-        var favorite = data.getFavorite(42);
+        var favorite = data.getFavorite(42, "999998");
 
         assertThat(favorite.getDispenseInternal()).isEqualTo(dispenseInternal);
         assertThat(data.newPrescription("999998", 1, favorite).isDispenseInternal()).isEqualTo(dispenseInternal);
@@ -65,9 +66,10 @@ class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
         registerMock(FavoriteDao.class, dao);
         Favorite stored = new Favorite();
         stored.setId(42);
+        stored.setProviderNo("999998");
         stored.setName("Original");
         when(dao.find(42)).thenReturn(stored);
-        var favorite = new RxPrescriptionData().getFavorite(42);
+        var favorite = new RxPrescriptionData().getFavorite(42, "999998");
         favorite.setFavoriteName("Replacement");
         favorite.setSpecial("Synthetic instructions");
         clearInvocations(dao);
@@ -86,9 +88,10 @@ class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
         registerMock(FavoriteDao.class, dao);
         Favorite stored = new Favorite();
         stored.setId(42);
+        stored.setProviderNo("999998");
         stored.setSpecial("Synthetic instructions");
         when(dao.find(42)).thenReturn(stored, null);
-        var favorite = new RxPrescriptionData().getFavorite(42);
+        var favorite = new RxPrescriptionData().getFavorite(42, "999998");
         clearInvocations(dao);
 
         assertThatThrownBy(favorite::Save).isInstanceOf(IllegalStateException.class)

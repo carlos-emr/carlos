@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -104,7 +105,7 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
         try (var data = mockConstruction(RxPrescriptionData.class)) {
             assertThat(useFavorite(ajax, "42")).isEqualTo("none");
             assertThat(response.getStatus()).isEqualTo(404);
-            verify(data.constructed().getFirst()).getFavorite(42);
+            verify(data.constructed().getFirst()).getFavorite(eq(42), anyString());
             verifyNoMoreInteractions(data.constructed().getFirst());
             verify(bean, org.mockito.Mockito.never()).addStashItem(any(), any());
         }
@@ -130,7 +131,7 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
         when(favorite.getProviderNo()).thenReturn("999998");
         var prescription = mock(RxPrescriptionData.Prescription.class);
         try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) -> {
-            when(mock.getFavorite(42)).thenReturn(favorite);
+            when(mock.getFavorite(eq(42), anyString())).thenReturn(favorite);
             when(mock.newPrescription("999998", 1, favorite)).thenReturn(prescription);
         }); var util = mockStatic(RxUtil.class)) {
             util.when(() -> RxUtil.isRxUniqueInStash(bean, prescription)).thenReturn(true);
@@ -144,7 +145,7 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
     @ValueSource(booleans = {false, true})
     void shouldReturnServerErrorWithoutSuccessResult_whenFavoriteLookupFails(boolean ajax) throws Exception {
         try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) ->
-                when(mock.getFavorite(42)).thenThrow(new IllegalStateException("fixture failure")))) {
+                when(mock.getFavorite(eq(42), anyString())).thenThrow(new IllegalStateException("fixture failure")))) {
             assertThat(useFavorite(ajax, "42")).isEqualTo("none");
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(data.constructed()).hasSize(1);
@@ -164,7 +165,7 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
         when(bean.addStashItem(login, prescription)).thenReturn(3);
         when(bean.getStashItem(3)).thenReturn(prescription);
         try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) -> {
-            when(mock.getFavorite(42)).thenReturn(favorite);
+            when(mock.getFavorite(eq(42), anyString())).thenReturn(favorite);
             when(mock.newPrescription("999998", 1, favorite)).thenReturn(prescription);
         }); var util = mockStatic(RxUtil.class)) {
             util.when(() -> RxUtil.isRxUniqueInStash(bean, prescription)).thenReturn(true);
@@ -187,7 +188,7 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
             action.setRepeat("0");
             assertThat(ajax ? action.ajaxEditFavorite() : action.execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(404);
-            verify(data.constructed().getFirst()).getFavorite(42);
+            verify(data.constructed().getFirst()).getFavorite(eq(42), anyString());
             verifyNoMoreInteractions(data.constructed().getFirst());
         }
     }
@@ -258,18 +259,18 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldRejectForeignFavorite_beforeApplyingEdits(boolean ajax) throws Exception {
-        var favorite = mock(RxPrescriptionData.Favorite.class);
-        when(favorite.getProviderNo()).thenReturn("999997");
         when(bean.getProviderNo()).thenReturn("999998");
+        // The owner-scoped lookup finds nothing for another provider's favourite, so a foreign id
+        // answers exactly like a missing one and no edit is applied.
         try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) ->
-                when(mock.getFavorite(42)).thenReturn(favorite))) {
+                when(mock.getFavorite(eq(42), anyString())).thenReturn(null))) {
             var action = new RxUpdateFavorite2Action();
             action.setFavoriteId("42");
             action.setRepeat("0");
             assertThat(ajax ? action.ajaxEditFavorite() : action.execute()).isEqualTo("none");
-            assertThat(response.getStatus()).isEqualTo(403);
-            verify(favorite).getProviderNo();
-            verifyNoMoreInteractions(favorite);
+            assertThat(response.getStatus()).isEqualTo(404);
+            verify(data.constructed().getFirst()).getFavorite(42, "999998");
+            verifyNoMoreInteractions(data.constructed().getFirst());
         }
     }
 
@@ -282,7 +283,7 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
         var favorite = mock(RxPrescriptionData.Favorite.class);
         when(favorite.getProviderNo()).thenReturn("999998");
         try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) ->
-                when(mock.getFavorite(42)).thenReturn(favorite))) {
+                when(mock.getFavorite(eq(42), anyString())).thenReturn(favorite))) {
             var action = new RxUpdateFavorite2Action();
             action.setFavoriteId("42");
             action.setRepeat("0");
@@ -307,7 +308,7 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
         for (String field : new String[] {"nosubs", "prn", "customInstr"}) request.setParameter(field, "false");
         if (flag != null) request.setParameter("dispenseInternal", flag);
         try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) ->
-                when(mock.getFavorite(42)).thenReturn(favorite))) {
+                when(mock.getFavorite(eq(42), anyString())).thenReturn(favorite))) {
             assertThat(new RxUpdateFavorite2Action().ajaxEditFavorite()).isEqualTo("none");
             assertThat(response.getStatus()).isEqualTo(204);
             assertThat(response.getContentAsByteArray()).isEmpty();
@@ -328,7 +329,7 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
         request.setParameter("repeat", "0");
         for (String field : new String[] {"nosubs", "prn", "customInstr"}) request.setParameter(field, "false");
         try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) ->
-                when(mock.getFavorite(42)).thenReturn(favorite))) {
+                when(mock.getFavorite(eq(42), anyString())).thenReturn(favorite))) {
             assertThatThrownBy(() -> new RxUpdateFavorite2Action().ajaxEditFavorite())
                     .isInstanceOf(IllegalStateException.class);
             assertThat(response.getStatus()).isNotEqualTo(204);

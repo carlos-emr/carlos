@@ -77,6 +77,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%-- nosemgrep: carlos.jsp-scriptlet-xss.variable-request -- demographicID is only passed raw as the demographicNo attribute of <oscar:nameage>, which parses it as an integer (skipping on failure) and SafeEncode-encodes its output; every HTML/URL output of it uses <carlos:encode>. --%>
 <%
     if (session.getAttribute("userrole") == null) {
         response.sendRedirect(request.getContextPath() + "/logoutPage");

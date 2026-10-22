@@ -24,9 +24,9 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
     @Override
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        JsonNode jsonNode = EmailTransportConfiguration.parse(emailConfig);
-        String host = EmailTransportConfiguration.requiredText(jsonNode, "host");
-        int port = EmailTransportConfiguration.port(jsonNode);
+        JsonNode jsonNode = parseConfig(emailConfig);
+        String host = requiredText(jsonNode, "host", emailConfig).trim();
+        String port = requiredText(jsonNode, "port", emailConfig).trim();
 
         // SECURITY: Only allow localhost variations
         if (!isLocalhost(host)) {
@@ -34,15 +34,12 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
         }
 
         mailSender.setHost(host);
-        mailSender.setPort(port);
+        mailSender.setPort(parsePort(port, invalidConfiguration(emailConfig).getMessage()));
 
-        // LOCAL provider - no authentication needed
-        // Username/password can be optional or ignored
+        // LOCAL provider - no authentication needed. Username is optional; its password is not
+        // read, decrypted, or copied into the JavaMail sender when this provider cannot use it.
         if (jsonNode.has("username")) {
             mailSender.setUsername(jsonNode.get("username").asText());
-        }
-        if (jsonNode.has("password")) {
-            mailSender.setPassword(jsonNode.get("password").asText());
         }
 
         Properties properties = new Properties();
@@ -52,6 +49,8 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
         properties.put("mail.smtp.starttls.required", "false");
         properties.put("mail.debug", "false");
 
+        applySmtpTimeouts(properties);
+        applyAllOrNothingRecipients(properties);
         mailSender.setJavaMailProperties(properties);
         return mailSender;
     }

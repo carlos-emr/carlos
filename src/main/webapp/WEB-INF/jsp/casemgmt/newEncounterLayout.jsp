@@ -90,11 +90,15 @@
 <html lang="<%= SafeEncode.forHtmlAttribute(LocaleUtils.resolveBundleLocale(request).toLanguageTag()) %>">
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <title>
-            Encounter
-        </title>
+        <%-- OSCAR 19's eChart window title, "E - LAST, FIRST M 41 years": the patient's name, sex and
+             age in the popup's title bar and taskbar entry, so a provider with several charts open
+             can tell them apart. oscar:nameage encodes the text for HTML. --%>
+        <title><fmt:message key="encounter.Index.windowTitle"/> - <oscar:nameage demographicNo="${demographicNo}"/></title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/encounterStyles.css?v=<%= System.currentTimeMillis() %>" type="text/css">
+        <%-- Font Awesome 6 (bundled locally): the header bar's phone, cell and work-phone glyphs, the
+             same icon family OSCAR 19's header used. --%>
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/fontawesome-all.min.css" type="text/css">
 
         <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/css/oscarRx.css">
@@ -110,6 +114,7 @@
         <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
         <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/prototype-compat.js" type="text/javascript"></script>
         <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/email-compose-popup.js"></script>
         <!-- CSRFGuard must load AFTER prototype-compat.js so its XHR.send() interception
              takes final precedence for automatic CSRF token injection -->
         <script src="${carlos:forHtmlAttribute(ctx)}/csrfguard"></script>
@@ -406,7 +411,6 @@
         <% } %>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><fmt:message key="encounter.Index.title"/></title>
         <script type="text/javascript">
             ctx = "${carlos:forJavaScript(ctx)}";
             demographicNo = "${carlos:forJavaScript(demographicNo)}";

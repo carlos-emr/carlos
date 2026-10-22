@@ -24,6 +24,9 @@ import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
+import io.github.carlos_emr.carlos.documentManager.ConsultAttachmentWarning;
+import io.github.carlos_emr.carlos.consultation.ConsultAttachmentApprovalService;
+import io.github.carlos_emr.carlos.consultation.ConsultAttachmentApprovalService.Operation;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
@@ -45,6 +48,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.ArrayList;
@@ -81,6 +85,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
 
     private static final Logger logger = MiscUtils.getLogger();
+
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
@@ -101,6 +106,8 @@ public class EctConsultationFormFax2Action extends ActionSupport {
      * <p>Processing flow:</p>
      * <ol>
      *   <li>Validates {@code _con} read privilege</li>
+     *   <li>Checks server-held consent for the exact omissions found during rendering before
+     *       storing or queueing anything; otherwise offers a review and a render-only retry</li>
      *   <li>Renders the consultation form with attachments into a PDF</li>
      *   <li>Copies the PDF to the CARLOS documents directory</li>
      *   <li>For each fax recipient: validates the fax number, optionally prepends a cover page,
@@ -260,12 +267,34 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         // Validate the complete batch before creating a PHI-bearing temporary document.
         Path faxPdf;
         try {
+            request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
             faxPdf = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
         } catch (PDFGenerationException | RuntimeException e) {
             logger.error("Consultation fax PDF preparation failed ({})", e.getClass().getSimpleName());
-            request.setAttribute("errorMessage",
-                    "This fax could not be sent. \n\nThe consultation PDF could not be prepared; please retry or contact your administrator.");
+            // A packet that cannot be assembled is not approvable. Name any known failed
+            // attachments, without exposing renderer messages or paths.
+            List<ConsultAttachmentWarning> notRendered =
+                    ConsultAttachmentWarning.notRenderedOnly(ConsultAttachmentWarning.fromRequest(request));
+            request.setAttribute("errorMessage", e instanceof PDFGenerationException generation && generation.isRetryable()
+                    ? ConsultAttachmentWarning.bundleText(request.getLocale(), "consultation.attachments.retry")
+                    : notRendered.isEmpty()
+                    ? "This fax could not be sent. \n\nThe consultation PDF could not be prepared; please retry or contact your administrator."
+                    : MessageFormat.format(ConsultAttachmentWarning.bundleText(request.getLocale(), "consultation.fax.attachmentsNotRendered"),
+                            ConsultAttachmentWarning.formatNames(notRendered, request.getLocale())));
             return "error";
+        } finally {
+            request.removeAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE);
+        }
+        List<ConsultAttachmentWarning> warnings = ConsultAttachmentWarning.fromRequest(request);
+        if ((!warnings.isEmpty() || request.getParameter(ConsultAttachmentApprovalService.TOKEN) != null)
+                    && SpringUtils.getBean(ConsultAttachmentApprovalService.class)
+                .requiresReview(request, loggedInInfo, reqId, demoNo, Operation.FAX, warnings)) {
+            cleanupRenderedSource(faxPdf);
+            if (!Boolean.TRUE.equals(request.getAttribute(ConsultAttachmentApprovalService.REVIEW_REQUIRED))) {
+                return "error";
+            }
+            request.setAttribute("attachmentReviewFax", Boolean.TRUE);
+            return "attachmentReview";
         }
         Path renderedSource = faxPdf;
         Set<Path> attemptFiles = new HashSet<>();

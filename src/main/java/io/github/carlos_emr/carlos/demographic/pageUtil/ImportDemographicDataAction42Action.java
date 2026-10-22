@@ -82,13 +82,11 @@ import org.apache.xmlbeans.XmlOptions;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
-import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
@@ -96,6 +94,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -152,9 +151,29 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Struts creates this action per request; its Spring services are not serialized.
+    private final transient SecurityInfoManager securityInfoManager;
 
     private static final Logger logger = MiscUtils.getLogger();
+
+    /**
+     * What this action's log lines name an imported file or folder by, never its path: the first 12
+     * hex digits of the path's SHA-256 (an import folder's or report file's name can identify a
+     * patient). For a known path: {@code printf '%s' "$path" | sha256sum | cut -c1-12}.
+     */
+    static String pathReference(String path) {
+        return path == null ? "ref:none" : "ref:" + DigestUtils.sha256Hex(path).substring(0, 12);
+    }
+
+    /**
+     * A failure's trace at debug, types and code locations only: an exception's message (or a
+     * cause's) can carry a path, so the error line names the exception type and attaches nothing.
+     */
+    private static void logTrace(String step, Throwable failure) {
+        if (logger.isDebugEnabled()) {
+            logger.debug("{} failure trace:{}", step, LogSafe.exceptionTrace(failure));
+        }
+    }
     private static final String PATIENTID = "Patient";
     private static final String ALERT = "Alert";
     private static final String ALLERGY = "Allergy";
@@ -185,25 +204,87 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     CarlosProperties oscarProperties = CarlosProperties.getInstance();
     List<String> importErrors = new ArrayList<String>();
 
-    transient ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-    transient AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
-    transient AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
-    transient CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-    transient DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
-    transient DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
-    transient DemographicArchiveDao demoArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
-    transient ProviderDataDao providerDataDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
-    transient PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
-    transient DemographicExtDao demographicExtDao = (DemographicExtDao) SpringUtils.getBean(DemographicExtDao.class);
-    transient OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-    transient PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
-    transient ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-    transient MeasurementsExtDao measurementsExtDao = SpringUtils.getBean(MeasurementsExtDao.class);
-    transient IssueDAO issueDao = SpringUtils.getBean(IssueDAO.class);
-    transient DemographicContactDao contactDao = (DemographicContactDao) SpringUtils.getBean(DemographicContactDao.class);
+    private final transient ProgramManager programManager;
+    private final transient AdmissionManager admissionManager;
+    private final transient AdmissionDao admissionDao;
+    private final transient CaseManagementManager caseManagementManager;
+    private final transient DrugDao drugDao;
+    private final transient DrugReasonDao drugReasonDao;
+    private final transient DemographicArchiveDao demoArchiveDao;
+    private final transient ProviderDataDao providerDataDao;
+    private final transient PartialDateDao partialDateDao;
+    private final transient DemographicExtDao demographicExtDao;
+    private final transient OscarAppointmentDao appointmentDao;
+    private final transient PatientLabRoutingDao patientLabRoutingDao;
+    private final transient ProviderLabRoutingDao providerLabRoutingDao;
+    private final transient MeasurementsExtDao measurementsExtDao;
+    private final transient DemographicContactDao contactDao;
 
-    private final transient NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
+    private final transient NioFileManager nioFileManager;
 
+    /**
+     * Creates the import action with dependencies supplied by Struts Spring constructor injection.
+     *
+     * @param securityInfoManager manager used to authorize demographic import access
+     * @param programManager manager used to load program metadata during imports
+     * @param admissionManager manager used to load and update admissions
+     * @param admissionDao DAO used for admission persistence
+     * @param caseManagementManager manager used for case-management import records
+     * @param drugDao DAO used to persist imported medication records
+     * @param drugReasonDao DAO used to persist imported medication reasons
+     * @param demoArchiveDao DAO used to persist demographic archive records
+     * @param providerDataDao DAO used to load provider data during imports
+     * @param partialDateDao DAO used to persist partial-date values
+     * @param demographicExtDao DAO used to persist demographic extension values
+     * @param appointmentDao DAO used to persist imported appointments
+     * @param patientLabRoutingDao DAO used to route imported patient lab records
+     * @param providerLabRoutingDao DAO used to route imported provider lab records
+     * @param measurementsExtDao DAO used to persist imported measurement extensions
+     * @param contactDao DAO used to persist imported demographic contacts
+     * @param nioFileManager manager used to resolve configured import file locations
+     * @since 2026-06-01
+     */
+    @SuppressWarnings("java:S107")
+    public ImportDemographicDataAction42Action(
+            SecurityInfoManager securityInfoManager,
+            ProgramManager programManager,
+            AdmissionManager admissionManager,
+            AdmissionDao admissionDao,
+            CaseManagementManager caseManagementManager,
+            DrugDao drugDao,
+            DrugReasonDao drugReasonDao,
+            DemographicArchiveDao demoArchiveDao,
+            ProviderDataDao providerDataDao,
+            PartialDateDao partialDateDao,
+            DemographicExtDao demographicExtDao,
+            OscarAppointmentDao appointmentDao,
+            PatientLabRoutingDao patientLabRoutingDao,
+            ProviderLabRoutingDao providerLabRoutingDao,
+            MeasurementsExtDao measurementsExtDao,
+            DemographicContactDao contactDao,
+            NioFileManager nioFileManager) {
+        this.securityInfoManager = securityInfoManager;
+        this.programManager = programManager;
+        this.admissionManager = admissionManager;
+        this.admissionDao = admissionDao;
+        this.caseManagementManager = caseManagementManager;
+        this.drugDao = drugDao;
+        this.drugReasonDao = drugReasonDao;
+        this.demoArchiveDao = demoArchiveDao;
+        this.providerDataDao = providerDataDao;
+        this.partialDateDao = partialDateDao;
+        this.demographicExtDao = demographicExtDao;
+        this.appointmentDao = appointmentDao;
+        this.patientLabRoutingDao = patientLabRoutingDao;
+        this.providerLabRoutingDao = providerLabRoutingDao;
+        this.measurementsExtDao = measurementsExtDao;
+        this.contactDao = contactDao;
+        this.nioFileManager = nioFileManager;
+    }
+
+    public ImportDemographicDataAction42Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(ProgramManager.class), SpringUtils.getBean(AdmissionManager.class), SpringUtils.getBean(AdmissionDao.class), SpringUtils.getBean(CaseManagementManager.class), SpringUtils.getBean(DrugDao.class), SpringUtils.getBean(DrugReasonDao.class), SpringUtils.getBean(DemographicArchiveDao.class), SpringUtils.getBean(ProviderDataDao.class), SpringUtils.getBean(PartialDateDao.class), SpringUtils.getBean(DemographicExtDao.class), SpringUtils.getBean(OscarAppointmentDao.class), SpringUtils.getBean(PatientLabRoutingDao.class), SpringUtils.getBean(ProviderLabRoutingDao.class), SpringUtils.getBean(MeasurementsExtDao.class), SpringUtils.getBean(DemographicContactDao.class), SpringUtils.getBean(NioFileManager.class));
+    }
     private LabUploadWs labUpload = new LabUploadWs();
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -259,6 +340,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String importUploadedFile(LoggedInInfo loggedInInfo) throws Exception {
         ArrayList<String> warnings = new ArrayList<>();
         ArrayList<String[]> logs = new ArrayList<>();
@@ -528,7 +611,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         } catch (SecurityException e) {
             // Do not log the entry name: uploaded export entry/file names can carry patient-identifying
             // content (PHI). PathValidationUtils already logs the sanitized rejected path internally.
-            logger.error("SECURITY: Skipping malicious ZIP entry during demographic import", e);
+            logger.error("SECURITY: Skipping malicious ZIP entry during demographic import ({})", e.getClass().getSimpleName());
+            logTrace("ZIP entry", e);
             return null;
         }
     }
@@ -557,7 +641,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         } catch (IOException ex) {
             // Don't expose path in user-facing warnings (may contain PHI)
             warnings.add("Error while searching for XML files in directory");
-            logger.error("Error while locating .xml files in path: {}", path, ex);
+            logger.error("Error while locating .xml files in an import folder: {} ({})",
+                    pathReference(path == null ? null : path.toString()), ex.getClass().getSimpleName());
+            logTrace("Locating .xml files", ex);
         }
         return filteredFileList;
     }
@@ -672,10 +758,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             omdCds.validate(opts);
 
 
-        } catch (IOException ex) {
-            logger.error("Error", ex);
-        } catch (XmlException ex) {
-            logger.error("Error", ex);
+        } catch (IOException | XmlException ex) {
+            // The message can carry the file's path or quote its content: log the type only.
+            logger.error("Error reading an imported patient file ({})", ex.getClass().getSimpleName());
+            logTrace("Reading an imported patient file", ex);
         }
         PatientRecord patientRec = omdCds.getPatientRecord();
 
@@ -889,10 +975,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             OmdCdsDocument.OmdCds omdCds = OmdCdsDocument.Factory.parse(xmlF, opts).getOmdCds();
             omdCds.validate(opts);
             patientRec = omdCds.getPatientRecord();
-        } catch (IOException ex) {
-            logger.error("Error", ex);
-        } catch (XmlException ex) {
-            logger.error("Error", ex);
+        } catch (IOException | XmlException ex) {
+            // The message can carry the file's path or quote its content: log the type only.
+            logger.error("Error reading an imported patient file ({})", ex.getClass().getSimpleName());
+            logTrace("Reading an imported patient file", ex);
         }
 
         //DEMOGRAPHICS
@@ -2668,7 +2754,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                         try {
                             hrmDocProvider.setSignedOffTimestamp(f.parse(reviewDateTime));
                         } catch (ParseException _) {
-
+                            // The sign-off is still recorded, without its time; the date itself is not logged.
+                            logger.warn("HRM review date is not yyyy-MM-dd; sign-off timestamp left unset");
                         }
 
                         HRMDocumentToProviderDao hRMDocumentToProviderDao = SpringUtils.getBean(HRMDocumentToProviderDao.class);
@@ -2780,7 +2867,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                                         PathValidationUtils.validateGeneratedFileName(docFileName),
                                         PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR"));
                             } catch (SecurityException e) {
-                                logger.error("SECURITY: rejected report destination filename", e);
+                                logger.error("SECURITY: rejected report destination filename ({})", e.getClass().getSimpleName());
+                                logTrace("Report destination", e);
                                 err_data.add("Error! Invalid filename for Report (" + (i + 1) + ")");
                                 continue;
                             }
@@ -2812,7 +2900,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                                 } catch (SecurityException e) {
                                     // Do not log the uploaded file/source names: they can carry
                                     // patient-identifying content (PHI). The rejection itself is the signal.
-                                    logger.error("SECURITY: Rejecting file copy - resolved path outside the allowed import directory", e);
+                                    logger.error("SECURITY: Rejecting file copy - resolved path outside the allowed import directory ({})",
+                                            e.getClass().getSimpleName());
+                                    logTrace("Report source", e);
                                     err_data.add("Error! Security violation for Report (" + (i + 1) + "): Invalid file path");
                                     continue;
                                 }
@@ -3444,8 +3534,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             file = PathValidationUtils.validateExistingPath(file, allowedRoot);
             return file;
         } catch (SecurityException e) {
-            logger.error("SECURITY: Rejecting malicious file path from XML. originalPath='{}', resolvedPath='{}'",
-                    Encode.forJava(originalPath), Encode.forJava(file.getPath()), e);
+            logger.error("SECURITY: Rejecting malicious file path from XML. originalPath={}, resolvedPath={} ({})",
+                    pathReference(originalPath), pathReference(file.getPath()), e.getClass().getSimpleName());
+            logTrace("Report path", e);
             return null;
         }
     }

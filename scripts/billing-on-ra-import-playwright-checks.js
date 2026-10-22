@@ -297,6 +297,8 @@ async function workflow(s) {
     await report.locator('body').waitFor();
     const text = (await report.locator('body').innerText()).replace(/\s+/g, ' ');
     h.assert(text.includes(`Cheque amount: ${remittance.cheque}`), 'The RA description does not show the cheque amount');
+    h.assert(text.includes('Balance Forward Record') && text.includes('Claims Adjustment Advances Reductions Deductions'),
+      'The RA description does not show the balance forward section');
     h.assert(text.includes('Accounting Transaction Record') && text.includes(`${marker} advance`) && text.includes('10.00'),
       'The RA description does not show the accounting transaction');
     h.assert(text.includes(`${marker} remittance message`), 'The RA description does not show the HR8 message');

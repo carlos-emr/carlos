@@ -36,7 +36,6 @@
     Since 2026.08, generated days are visible without requiring a session cache entry.
 --%>
 <%! boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable(); %>
-<%! String[] bgColors; %>
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -55,6 +54,7 @@
 
 
 <%
+    String[] bgColors = null;
     String year = request.getParameter("year");
     String month = MyDateFormat.getDigitalXX(Integer.parseInt(request.getParameter("month")));
     String day = MyDateFormat.getDigitalXX(Integer.parseInt(request.getParameter("day")));

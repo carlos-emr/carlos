@@ -198,6 +198,7 @@
             function saveNoteDialog() {
                 //alert('not yet implemented');
                 jQuery.ajax({
+                    method: "POST",
                     url: '<%=request.getContextPath()%>/CaseManagementEntry',
                     data: {
                         method: "ticklerSaveNote",
@@ -796,14 +797,14 @@
                     <div align="center"><input type="text" name="xml_vdate"
                                                value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>"> <font size="1"
                                                                              face="Arial, Helvetica, sans-serif"> <a
-                            href="#"
-                            onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
+                            href="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>"
+                            onClick="openBrWindow(this.href,'','width=300,height=300'); return false;"><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
                 </td>
                 <td width="30%"><input type="text" name="xml_appointment_date"
                                        value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"> <font size="1"
                                                                                 face="Arial, Helvetica, sans-serif"><a
-                        href="#"
-                        onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
+                        href="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>"
+                        onClick="openBrWindow(this.href,'','width=300,height=300'); return false;"><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
                 <td width="20%">
                     <div align="right"><input type="hidden" name="demoview"
                                               value="<carlos:encode value='<%= demoview %>' context="htmlAttribute"/>"> <input type="hidden" name="Submit"
@@ -1020,7 +1021,7 @@
                                         }
                                         if (href != null) {
                                 %>
-                                <a href="javascript:reportWindow('<%=SafeEncode.forJavaScript(href)%>')" title="<carlos:encode value='<%= attachment.getDisplayName() %>' context="htmlAttribute"/>">ATT</a>
+                                <a href="<%=SafeEncode.forHtmlAttribute(href)%>" onclick="reportWindow(this.href); return false;" title="<carlos:encode value='<%= attachment.getDisplayName() %>' context="htmlAttribute"/>">ATT</a>
                                 <%
                                         } else {
                                 %>

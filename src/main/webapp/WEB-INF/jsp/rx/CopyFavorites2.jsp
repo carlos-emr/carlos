@@ -91,6 +91,8 @@
         <form action="<%= request.getContextPath()%>/rx/copyFavorite2" method="post">
         <input type="hidden" name="demographicNo" value="${bean.demographicNo}"/>
             <input type="hidden" name="dispatch" value="refresh"/>
+            <%-- The copy action takes the source from ddl_provider and the target from the session;
+                 it walks countFavorites rows and copies only the ticked ones, by id (#3908). --%>
             <input type="hidden" name="countFavorites" value="${fn:length(copyFavorites)}"/>
 
             <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" width="100%">
@@ -128,7 +130,7 @@
                                         <input type="button" value="Save sharing preference" onclick="update();this.form.submit();"/>
                                     </fieldset>
                                     <c:if test="${not empty copiedFavoritesCount}">
-                                        <p role="status"><c:out value="${copiedFavoritesCount}"/> favorites copied to your favorites.</p>
+                                        <p role="status"><carlos:encode value="${copiedFavoritesCount}"/> favorites copied to your favorites.</p>
                                     </c:if>
                                 </td>
                             </tr>
@@ -170,19 +172,19 @@
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line1">
                                                     <td colspan="2">
                                                         <input type="checkbox" name="selected${i}" id="selected${i}" value="1"/>
-                                                        <label for="selected${i}"><b>Copy <c:out value="${fav.favoriteName}"/></b></label>
-                                                        <input type="hidden" name="fldFavoriteId${i}" value="${fav.id}"/>
+                                                        <label for="selected${i}"><b>Copy <carlos:encode value="${fav.favoriteName}"/></b></label>
+                                                        <input type="hidden" name="fldFavoriteId${i}" value="${carlos:forHtmlAttribute(fav.id)}"/>
                                                     </td>
                                                 </tr>
                                                 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line2">
-                                                    <td><b>Drug:</b> <c:out value="${isCustom ? fav.customName : fav.bn}"/></td>
-                                                    <td colspan="5"><b>Generic Name:</b> <c:out value="${fav.gn}"/></td>
+                                                    <td><b>Drug:</b> <carlos:encode value="${isCustom ? fav.customName : fav.bn}"/></td>
+                                                    <td colspan="5"><b>Generic Name:</b> ${carlos:forHtmlContent(fav.gn)}</td>
                                                 </tr>
 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line3">
-                                                    <td><b>Take:</b> <c:out value="${fav.takeMin}"/> to <c:out value="${fav.takeMax}"/></td>
-                                                    <td><b>Instructions:</b> <c:out value="${fav.special}"/></td>
+                                                    <td><b>Take:</b> <carlos:encode value="${fav.takeMin}"/> to <carlos:encode value="${fav.takeMax}"/></td>
+                                                    <td><b>Instructions:</b> <carlos:encode value="${fav.special}"/></td>
                                                 </tr>
                                             </c:forEach>
                                         </table>

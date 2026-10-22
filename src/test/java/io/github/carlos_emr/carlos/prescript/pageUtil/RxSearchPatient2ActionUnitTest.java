@@ -34,8 +34,8 @@ import org.mockito.MockitoAnnotations;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,6 +43,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
@@ -169,7 +170,7 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
         when(mockRequest.getParameter("surname")).thenReturn("Smith");
         when(mockDemographicManager.searchDemographic(mockLoggedInInfo, "Smith,")).thenReturn(List.of());
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-        var replacement = org.mockito.Mockito.mock(DemographicManager.class);
+        var replacement = mock(DemographicManager.class);
         Demographic patient = new Demographic();
         patient.setDemographicNo(303);
         when(replacement.searchDemographic(mockLoggedInInfo, "Smith,")).thenReturn(List.of(patient));

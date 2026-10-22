@@ -61,10 +61,11 @@ async function openRx(session, demographicNo) {
 }
 
 function insertFavorite(sql, providerNo, name) {
+  // dispenseInternal is NOT NULL with no default: strict sql_mode refuses a row that omits it.
   const id = sql.value(`INSERT INTO favorites (provider_no, favoritename, customName, GCN_SEQNO, takemin,
-    takemax, freqcode, duration, durunit, quantity, \`repeat\`, nosubs, prn, special)
+    takemax, freqcode, duration, durunit, quantity, \`repeat\`, nosubs, prn, special, dispenseInternal)
     VALUES (${h.sqlString(providerNo)}, ${h.sqlString(name)}, ${h.sqlString(name)}, 0, 1, 1, 'OID', '30',
-    'D', '30', 0, 0, 0, ''); SELECT LAST_INSERT_ID()`);
+    'D', '30', 0, 0, 0, '', 0); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(id), `the favourite ${name} was not created`);
   return id;
 }
@@ -453,7 +454,7 @@ async function workflow(session) {
     await pad.locator(`#set_${first} a[onclick^="removePrescribingDrug"]`).click();
     await pad.locator(`#set_${first}`).waitFor({state: 'detached'});
     const pendingLink = (editor, action) => editor.locator(
-      `a[href^="javascript:submitPending('${target}',"][href$=", '${action.toLowerCase()}');"]`).first();
+      `button[onclick^="submitPending('${target}',"][onclick$=", '${action.toLowerCase()}');"]`).first();
     const edited = editors[0].waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/stash')
       && response.request().method() === 'POST');
     await pendingLink(editors[0], 'Edit').click();

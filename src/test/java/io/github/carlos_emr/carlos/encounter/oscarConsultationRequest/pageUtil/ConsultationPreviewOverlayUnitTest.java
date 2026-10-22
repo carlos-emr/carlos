@@ -75,6 +75,9 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void registerFormCollaborators() {
         registerMock(ConsultationRequestDao.class, mock(ConsultationRequestDao.class));
+        // EctConsultationFormRequestUtil reads requests through develop's ConsultRequestDao.
+        registerMock(io.github.carlos_emr.carlos.commn.dao.ConsultRequestDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.ConsultRequestDao.class));
         registerMock(ConsultationRequestExtDao.class, mock(ConsultationRequestExtDao.class));
         registerMock(ConsultationServiceDao.class, mock(ConsultationServiceDao.class));
         registerMock(DemographicManager.class, mock(DemographicManager.class));

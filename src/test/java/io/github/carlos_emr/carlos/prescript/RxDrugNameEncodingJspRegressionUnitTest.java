@@ -112,7 +112,7 @@ class RxDrugNameEncodingJspRegressionUnitTest extends CarlosUnitTestBase {
                         "value=\"<%=comment%>\"", "value=\"<carlos:encode value='<%= comment %>' context=\"htmlAttribute\"/>\""),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/rx/ListDrugs.jsp",
                         "<%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(\";\", \" \")%>",
-                        "<carlos:encode value='<%= RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(\";\", \" \") %>'/>"));
+                        "<carlos:encode value='<%= RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(\";\", \" \") %>' context=\"html\"/>"));
     }
 
     @ParameterizedTest(name = "{0}: {2}")

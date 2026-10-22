@@ -5,10 +5,10 @@
  *
  * User path: Schedule > Search > Master Record > Tickler > New Tickler > Save.
  * For each rapid activation (dblclick(), two back-to-back click({noWaitAfter}), a double
- * Enter in a text field) the check saves ONE tickler with its own marker text and asserts the
- * database holds EXACTLY ONE tickler row for the owned patient and that marker (Enter may
- * legitimately not submit a button-only form; it must never create two). ticklerAdd.jsp disables its
- * buttons in validate(); this proves it holds against a real double activation.
+ * Enter on the focused Save button -- the form has no submit-type control, so Enter in a text field
+ * cannot save by design) the check saves ONE tickler with its own marker text and asserts the
+ * database holds EXACTLY ONE tickler row for the owned patient and that marker. ticklerAdd.jsp disables
+ * its buttons in validate(); this proves it holds against a real double activation.
  *
  * Fixtures: the owned FAKE- patient from lib/workflow-session.js; every tickler row (and its
  * update/comment rows) for that patient carrying the run marker is deleted and asserted gone.
@@ -42,7 +42,7 @@ async function workflow(s) {
   const v = verdicts('tickler-add');
 
   for (const mode of MODES) {
-    await s.step(`New Tickler Save via ${mode.label} writes at most one row`, async () => {
+    await s.step(`New Tickler Save via ${mode.label} writes exactly one row`, async () => {
       const add = await s.popup(list, list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
       await add.waitForLoadState('domcontentloaded', { timeout: 20000 });
       await add.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
@@ -50,14 +50,15 @@ async function workflow(s) {
       await add.locator('select[name="task_assigned_to"]').first().selectOption(provider);
       const posts = watchPosts(add.context(), /\/tickler\/DbTicklerAdd$/);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, /\/tickler\/DbTicklerAdd/) : null;
-      await rapid(mode.key, add.locator('input.btn-primary[name="Button"]').first(),
-        { textField: add.locator('input[name="xml_appointment_date"]') });
-      const count = await settledCount(sql, `SELECT COUNT(*) FROM tickler WHERE ${owned(mode.tag)}`,
-        { min: mode.key === 'doubleEnter' ? 0 : 1 });
+      // serviceform has no submit-type control (every button is type="button" with an onclick), so Enter in a text
+      // field cannot save by design; doubleEnter presses Enter on the focused Save button, which does activate it.
+      const saveButton = add.locator('input.btn-primary[name="Button"]').first();
+      await rapid(mode.key, saveButton, { textField: saveButton });
+      const count = await settledCount(sql, `SELECT COUNT(*) FROM tickler WHERE ${owned(mode.tag)}`, { min: 1 });
       if (disarm) await disarm();
       posts.stop();
       console.log(`    (${posts.seen.length} DbTicklerAdd POST(s) sent)`);
-      v.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      v.record(mode.label, count, { exactly: 1 });
       if (!add.isClosed()) await add.close().catch(() => {});
     });
   }

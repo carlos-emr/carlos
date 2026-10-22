@@ -76,7 +76,18 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 @DisplayName("Lab acknowledgement version selection")
 @Tag("unit")
 @Tag("lab")
+@org.junit.jupiter.api.parallel.Isolated
 class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
+    private ProviderLabRoutingDao originalRoutingDao;
+
+    @org.junit.jupiter.api.AfterEach
+    void restoreRoutingDao() {
+        if (originalRoutingDao != null) {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    CommonLabResultData.class, "providerLabRoutingDao", originalRoutingDao);
+        }
+    }
+
 
     @Test
     @DisplayName("should fail closed without logging HRM linkage exception details")
@@ -120,7 +131,12 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         registerMock(Hl7TextInfoDao.class, mock(Hl7TextInfoDao.class));
         registerMock(Hl7TextMessageDao.class, mock(Hl7TextMessageDao.class));
         registerMock(EFormDocsDao.class, mock(EFormDocsDao.class));
-        Mockito.reset(staticRoutingDao());
+        // Static initialization may have captured a real DAO or a mock from a different test class.
+        if (originalRoutingDao == null) {
+            originalRoutingDao = staticRoutingDao();
+        }
+        org.springframework.test.util.ReflectionTestUtils.setField(CommonLabResultData.class,
+                "providerLabRoutingDao", mockedBeans.get(ProviderLabRoutingDao.class));
     }
 
     @org.junit.jupiter.params.ParameterizedTest

@@ -4,8 +4,10 @@ package io.github.carlos_emr.carlos.admin.web;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.commn.model.SecurityArchive;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.MfaManager;
+import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -80,10 +82,12 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
             String name = new TransactionTemplate(transactions).execute(status -> rows.find(id).getUserName());
             AtomicBoolean fail = new AtomicBoolean(true);
             AtomicBoolean injected = new AtomicBoolean(false);
-            SecurityDao dao = mock(SecurityDao.class);
-            when(dao.findForUpdate(id)).thenAnswer(call -> rows.findForUpdate(id));
-            when(dao.saveEntity(any())).thenAnswer(call -> {
-                Security saved = rows.saveEntity(call.getArgument(0));
+            // The real manager archives the pre-edit row and merges the edit; the failures are
+            // injected after its writes have been flushed.
+            SecurityManager manager = spy(applicationContext.getAutowireCapableBeanFactory()
+                    .createBean(SecurityManager.class));
+            doAnswer(call -> {
+                call.callRealMethod();
                 entities.flush();
                 if (fail.get() && "save".equals(failure)) {
                     injected.set(true);
@@ -97,8 +101,10 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
                         }
                     });
                 }
-                return saved;
-            });
+                return null;
+            }).when(manager).updateSecurityRecord(any(), any());
+            LoggedInInfo login = mock(LoggedInInfo.class);
+            when(login.getLoggedInProviderNo()).thenReturn("999998");
             PlatformTransactionManager completion = new PlatformTransactionManager() {
                 @Override public TransactionStatus getTransaction(TransactionDefinition definition) { return transactions.getTransaction(definition); }
                 @Override public void rollback(TransactionStatus status) { transactions.rollback(status); }
@@ -117,8 +123,10 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
             CarlosMethodSecurity access = mock(CarlosMethodSecurity.class); when(access.hasAdminWrite()).thenReturn(true);
             try (var spring = mockStatic(SpringUtils.class); var servlet = mockStatic(ServletActionContext.class);
                  var audit = mockStatic(LogAction.class); var mfa = mockStatic(MfaManager.class);
-                 var configuration = mockStatic(CarlosProperties.class)) {
-                spring.when(() -> SpringUtils.getBean(SecurityDao.class)).thenReturn(dao);
+                 var configuration = mockStatic(CarlosProperties.class); var sessions = mockStatic(LoggedInInfo.class)) {
+                spring.when(() -> SpringUtils.getBean(SecurityDao.class)).thenReturn(rows);
+                spring.when(() -> SpringUtils.getBean(SecurityManager.class)).thenReturn(manager);
+                sessions.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
                 spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(completion);
                 servlet.when(ServletActionContext::getRequest).thenReturn(request);
                 servlet.when(ServletActionContext::getResponse).thenReturn(response);
@@ -131,10 +139,13 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
                 assertThat(((Security) request.getAttribute("securityEditDraft")).getUserName()).isEqualTo(name + "x");
                 boolean committed = "afterCommit".equals(failure);
                 assertRow(id, committed ? name + "x" : name, committed);
+                // The archive row commits or rolls back with the edit it records.
+                assertArchives(id, committed ? 1 : 0);
                 fail.set(false); response.reset();
                 assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo(committed ? "conflict" : "success");
                 assertThat(response.getStatus()).isEqualTo(committed ? 409 : 200);
                 assertRow(id, name + "x", true);
+                assertArchives(id, 1);
             }
         } finally { cleanup(id); }
     }
@@ -170,6 +181,16 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
         });
     }
 
+    /** The archive holds the pre-edit state: the original login name, before the "x" suffix. */
+    private void assertArchives(int id, long expected) {
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            var archived = entities.createQuery("select a from SecurityArchive a where a.securityNo=:id", SecurityArchive.class)
+                    .setParameter("id", id).getResultList();
+            assertThat(archived).hasSize((int) expected);
+            archived.forEach(row -> assertThat(row.getUserName()).doesNotEndWith("x"));
+        });
+    }
+
     private int seed() {
         return new TransactionTemplate(transactions).execute(status -> {
             Security row = new Security(); row.setUserName("owned" + UUID.randomUUID().toString().replace("-", "").substring(0, 16));
@@ -181,7 +202,9 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
     }
 
     private void cleanup(int id) {
-        new TransactionTemplate(transactions).executeWithoutResult(status ->
-                entities.createQuery("delete from Security s where s.id=:id").setParameter("id", id).executeUpdate());
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            entities.createQuery("delete from SecurityArchive a where a.securityNo=:id").setParameter("id", id).executeUpdate();
+            entities.createQuery("delete from Security s where s.id=:id").setParameter("id", id).executeUpdate();
+        });
     }
 }

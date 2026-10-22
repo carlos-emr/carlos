@@ -54,6 +54,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * here is the policy contract: a route or argument that leaves the exclusion file without
  * leaving this table fails the build, and vice versa.</p>
  *
+ * <p>The clinic footer rule 1144 reuses the same per-argument six-tag scope for its admin POST, and
+ * 1145 for the same unsaved footer text carried by the logo form.
+ * These tests pin that scope; they do not establish a new front-door ModSecurity runtime result.</p>
+ *
  * @since 2026-09-11
  */
 @Tag("unit")
@@ -123,7 +127,8 @@ class ClinicalProseWafExclusionRegressionTest {
                 Arguments.of("1121", "/carlos/lab/CA/ALL/UnlinkDemographic", "POST", List.of("reason")),
                 Arguments.of("1122", "/carlos/hospitalReportManager/Modify", "POST", List.of("comment", "description")),
                 Arguments.of("1123", "/carlos/messenger/CreateMessage", "POST", List.of("message", "subject")),
-                Arguments.of("1124", "/carlos/email/emailSendAction", "POST", List.of("bodyEmail", "internalComment")),
+                Arguments.of("1124", "/carlos/email/emailSendAction", "POST",
+                        List.of("message", "footerEmail", "internalComment")),
                 Arguments.of("1125", "/carlos/appointment/AddRecord", "POST", List.of("reason", "notes")),
                 Arguments.of("1126", "/carlos/appointment/UpdateRecord", "POST", List.of("reason", "notes")),
                 Arguments.of("1127", "/carlos/appointment/CutRecord", "POST", List.of("reason", "notes")),
@@ -150,7 +155,11 @@ class ClinicalProseWafExclusionRegressionTest {
                 // The other GET: the tickler list's DataTables search term rides the query string.
                 Arguments.of("1141", "/carlos/tickler/ListTicklers", "GET", List.of("search[value]")),
                 // Back to POST: the provider encounter-note template body, note prose by construction.
-                Arguments.of("1142", "/carlos/admin/ProviderTemplate", "POST", List.of("value")));
+                Arguments.of("1142", "/carlos/admin/ProviderTemplate", "POST", List.of("value")),
+                // Mandatory clinic footer prose is configured only through this admin POST.
+                Arguments.of("1144", "/carlos/admin/saveClinicEmailFooter", "POST", List.of("clinicFooter")),
+                Arguments.of("1145", "/carlos/admin/saveClinicEmailLogo", "POST", List.of("clinicFooterDraft")),
+                Arguments.of("1143", "/carlos/email/saveMyEmailFooter", "POST", List.of("myFooter")));
     }
 
     /** Routes whose prose rides a GET query string; everything else must chain to POST. */

@@ -202,6 +202,12 @@
         <jaxrs:providers>
             <ref bean="oauthJaxbProvider"/>
             <ref bean="oauthJsonProvider"/>
+            <!-- OAuthInterceptor's 400/401/403 rejections are OAuth1Exceptions inside a CXF Fault. Without
+                 this mapper CXF writes them as an XMLFault whose faultstring is the exception's class name,
+                 which ResponseSanitizationFilter then replaces and logs at ERROR on every anonymous call
+                 (#4438). Mapped, they are a text/plain reason such as authentication_required, matching
+                 the /oauth server above. -->
+            <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuth1ExceptionMapper"/>
         </jaxrs:providers>
 
         <jaxrs:extensionMappings>

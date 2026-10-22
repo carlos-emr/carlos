@@ -91,7 +91,8 @@
     pageContext.setAttribute("demographicNo", demographicNo);
     pageContext.setAttribute("hasDemographicNo", demographicNo != null);
     pageContext.setAttribute("hasFname", request.getParameter("fname") != null);
-    pageContext.setAttribute("hasLabsAndNoDemographicNo", demographicNo == null && labs.size() > 0);
+    boolean hasLabsAndNoDemographicNo = demographicNo == null && !labs.isEmpty();
+    pageContext.setAttribute("hasLabsAndNoDemographicNo", hasLabsAndNoDemographicNo);
 %>
 
 <fmt:setBundle basename="oscarResources"/>
@@ -301,7 +302,7 @@
                                 }
                                 if (labLabel == null || labLabel.isEmpty()) labLabel = StringUtils.trimToEmpty(result.getDiscipline());
                             %>
-                            <a href="javascript:reportWindow('<%=SafeEncode.forJavaScript(labUrl)%>')">
+                            <a href="<%=SafeEncode.forHtmlAttribute(labUrl)%>" onclick="reportWindow(this.href); return false;">
                                 <%=SafeEncode.forHtmlContent(labLabel)%>
                             </a>
                         </td>

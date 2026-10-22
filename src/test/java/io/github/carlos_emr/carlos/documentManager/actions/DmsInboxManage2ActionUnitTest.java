@@ -150,52 +150,102 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"GET,false", "HEAD,false", "GET,true", "HEAD,true"})
-    void shouldRefuseQueueCreationBeforeDaoAccess_whenRequestUsesReadMethod(String method, boolean dispatch) {
-        request.setMethod(method);
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    @DisplayName("should reject non-POST addNewQueue with 405 before any privilege check or write")
+    void shouldReturn405_whenAddNewQueueIsNotPost(String httpMethod) {
+        request.setMethod(httpMethod);
         request.setParameter("method", "addNewQueue");
-        request.setParameter("newQueueName", "Owned queue");
-        var action = new DmsInboxManage2Action();
-        assertThat(dispatch ? action.execute() : action.addNewQueue()).isEqualTo(ActionSupport.NONE);
+        request.setParameter("newQueueName", "Reject Probe");
+
+        String result = new DmsInboxManage2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
-        verifyNoInteractions(queueDao, secObjectNameDao, securityInfoManager);
+        verifyNoInteractions(securityInfoManager, queueDao, secObjectNameDao);
     }
 
     @Test
-    void shouldCreateQueueAndSecurityObject_whenAdministrativePostIsSubmitted() throws Exception {
-        LoggedInInfo login = mock(LoggedInInfo.class);
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
-        when(securityInfoManager.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
-        when(queueDao.addNewQueue("Owned queue")).thenReturn(true);
-        when(queueDao.getLastId()).thenReturn("7");
+    @DisplayName("should deny addNewQueue to a read-only _edoc user and write nothing")
+    void shouldThrowSecurityException_whenAddNewQueueWithoutEdocWrite() {
         request.setMethod("POST");
         request.setParameter("method", "addNewQueue");
-        request.setParameter("newQueueName", " Owned queue ");
-        assertThat(new DmsInboxManage2Action().execute()).isNull();
-        verify(queueDao).addNewQueue("Owned queue");
-        verify(secObjectNameDao).saveOrUpdate(argThat(row -> "_queue.7".equals(row.getObjectname())
-                && "Owned queue".equals(row.getDescription())));
-        assertThat(response.getContentAsString()).contains("\"addNewQueue\":true");
+        request.setParameter("newQueueName", "Read Only Probe");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(false);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new DmsInboxManage2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_edoc)");
+        verifyNoInteractions(queueDao, secObjectNameDao);
     }
 
-    @Test
-    void shouldRefuseQueueCreation_whenPostLacksAdministrativeWritePrivilege() {
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), mock(LoggedInInfo.class));
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    @DisplayName("should answer 400 rather than throw when addNewQueue has a blank or missing name")
+    void shouldReturn400_whenAddNewQueueNameBlank(String name) {
         request.setMethod("POST");
-        request.setParameter("newQueueName", "Owned queue");
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new DmsInboxManage2Action().addNewQueue())
-                .isInstanceOf(SecurityException.class);
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", name);
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        String result = new DmsInboxManage2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(queueDao, secObjectNameDao);
     }
 
     @Test
-    void shouldRefuseQueueCreation_whenPostHasNoSession() {
+    @DisplayName("should answer 400 when addNewQueue has no newQueueName parameter")
+    void shouldReturn400_whenAddNewQueueNameMissing() {
         request.setMethod("POST");
-        request.setParameter("newQueueName", "Owned queue");
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new DmsInboxManage2Action().addNewQueue())
-                .isInstanceOf(SecurityException.class);
-        verifyNoInteractions(queueDao, secObjectNameDao, securityInfoManager);
+        request.setParameter("method", "addNewQueue");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        String result = new DmsInboxManage2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(queueDao, secObjectNameDao);
+    }
+
+    @Test
+    @DisplayName("should create the queue and its security object on an authorised POST")
+    void shouldCreateQueueAndSecObject_whenAddNewQueuePostedWithWrite() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", "  Lab Queue  ");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(queueDao.addNewQueue("Lab Queue")).thenReturn(true);
+        when(queueDao.getLastId()).thenReturn("42");
+
+        String result = new DmsInboxManage2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":true}");
+        org.mockito.Mockito.verify(secObjectNameDao).saveOrUpdate(org.mockito.ArgumentMatchers.argThat(
+                sbn -> "_queue.42".equals(sbn.getObjectname()) && "Lab Queue".equals(sbn.getDescription())));
+    }
+
+    @Test
+    @DisplayName("should not create a security object when the queue insert fails")
+    void shouldNotCreateSecObject_whenQueueInsertFails() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", "Dup");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(queueDao.addNewQueue("Dup")).thenReturn(false);
+
+        new DmsInboxManage2Action().execute();
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
+        verifyNoInteractions(secObjectNameDao);
     }
 
     @Test

@@ -67,10 +67,10 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String remoteAddress = request.getRemoteAddr();
-        logger.debug("EFormImageViewForPdfGenerationServlet request from : {}", remoteAddress);
+        logger.debug("EFormImageViewForPdfGenerationServlet request from : {}", LogSafe.sanitize(remoteAddress));
 
         if (!isLocalRequest(remoteAddress)) {
-            logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : {}", remoteAddress);
+            logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : {}", LogSafe.sanitize(remoteAddress));
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }

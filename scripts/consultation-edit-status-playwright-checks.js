@@ -81,9 +81,10 @@ async function workflow(s) {
      allergies,concurrentProblems,statusText,sendTo,patientWillBook,lastUpdateDate)
     VALUES(CURDATE(),${serviceId},${specId},${h.sqlString(provider)},${patient},'1','2',${h.sqlString(reason)},
      'Synthetic clinical information','','','','','',0,NOW())`, 'referral');
+  // position and dispenseInternal are NOT NULL with no default: strict sql_mode refuses a row that omits them.
   insertId(sql, `INSERT INTO drugs(provider_no,demographic_no,rx_date,end_date,written_date,BN,customName,special,
-    create_date,lastUpdateDate) VALUES(${h.sqlString(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),
-    CURDATE(),${h.sqlString(marker)},${h.sqlString(marker)},${h.sqlString(drugText)},NOW(),NOW())`, 'active drug');
+    position,dispenseInternal,create_date,lastUpdateDate) VALUES(${h.sqlString(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),
+    CURDATE(),${h.sqlString(marker)},${h.sqlString(marker)},${h.sqlString(drugText)},0,0,NOW(),NOW())`, 'active drug');
   const archived = () => sql.value(`SELECT COUNT(*) FROM consultationRequestsArchive WHERE requestId=${requestId}`);
   const field = column => sql.value(`SELECT IFNULL(${column},'') FROM consultationRequests WHERE requestId=${requestId}`);
 

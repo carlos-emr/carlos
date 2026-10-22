@@ -89,7 +89,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FaxConfigDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicContactDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao" %>
@@ -232,9 +231,11 @@
             }
         }
 
-        if (!isProviderActive && consultUtil.providerNo != null) {
+        // A saved consult with no provider has providerNo "", not null. getProvider builds a Provider with
+        // no number for "" or for a provider who no longer exists, and the provider list below needs a number.
+        if (!isProviderActive && !StringUtils.isNullOrEmpty(consultUtil.providerNo)) {
             Provider inactiveProvider = rx.getProvider(consultUtil.providerNo);
-            if (inactiveProvider != null) {
+            if (inactiveProvider != null && inactiveProvider.getProviderNo() != null) {
                 prList.add(inactiveProvider);
             }
         }
@@ -361,7 +362,6 @@
         // A null demo varialbe means that this iteration is a postback. This script need not be run on postback.
         if (demo != null && "true".equals(props.getProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"))) {
 
-            ContactSpecialtyDao contactSpecialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
             List<DemographicContact> demographicContacts = demographicManager.getHealthCareTeam(loggedInInfo, Integer.parseInt(demo));
             HashSet<ConsultationServices> consultationServices = new HashSet<ConsultationServices>();
             List<DemographicContact> healthCareTeam = new ArrayList<DemographicContact>();
@@ -399,21 +399,9 @@
             } else if (currentSpecialistIdInt < 0) {
 
                 // this ProfessionalSpecialist needs to have a DemographicContact created.
-                String service = consultUtil.getService();
-
-                ContactSpecialty contactSpecialty = contactSpecialtyDao.findBySpecialty(service);
-
-                if (contactSpecialty == null) {
-                    contactSpecialty = contactSpecialtyDao.findBySpecialty("other");
-                }
-
-                service = contactSpecialty.getId() + "";
-
-                if (service == null) {
-                    service = "";
-                }
-
-                DemographicContact demographicContact = addDemographicContact(loggedInInfo, demo, (currentSpecialistIdInt * -1), service);
+                String role = consultUtil.getHealthCareTeamRole();
+                DemographicContact demographicContact = addDemographicContact(
+                        loggedInInfo, demo, (currentSpecialistIdInt * -1), role);
 
                 demographicContactDao.persist(demographicContact);
                 demographicContacts = demographicManager.getHealthCareTeam(loggedInInfo, Integer.parseInt(demo));
@@ -2107,6 +2095,10 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
                 };
                 signatureImgTag.src = "<%=storedImgUrl %>" + encodeURIComponent(signatureImg.value);
             } else if (!hasPendingManualSignature()) {
+                var signatureImgTag = document.getElementById('signatureImgTag');
+                if (!signatureImgTag || !signatureImgTag.getAttribute('src')) {
+                    return true;
+                }
                 var signatureProviderNo = document.getElementById('signatureProviderNo');
                 if (signatureProviderNo) {
                     updateSignatureProvider(signatureProviderNo.value);
@@ -2224,13 +2216,19 @@ if (userAgent != null) {
             if (btn) btn.disabled = disabled;
         }
 
+        <fmt:message key="consultation.attachments.previewConfirm" var="previewAttachmentsUnavailableMessage"/>
+        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPreviewRequestFailed" var="previewRequestFailedMessage"/>
+
         // If the user clicks the 'Print Preview' button, ensure that their unsaved changes are preserved, allowing them to stay on the same page. Achieve this by making an AJAX call.
-        function getConsultFormPrintPreview(form) {
-            form.submission.value = "And Print Preview";
+	        function getConsultFormPrintPreview(form, approvalToken) {
+	            var previewAttachmentsUnavailableMessage = '${carlos:forJavaScript(previewAttachmentsUnavailableMessage)}';
+	            var previewRequestFailedMessage = '${carlos:forJavaScript(previewRequestFailedMessage)}';
+	            form.submission.value = "And Print Preview";
             jQuery.ajax({
                 type: "POST",
                 url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
-                data: jQuery(form).serialize(),
+                data: jQuery(form).serialize() + (approvalToken
+                    ? '&confirmAttachmentOmissions=true&consultAttachmentApproval=' + encodeURIComponent(approvalToken) : ''),
                 dataType: "json",
                 success: function (data) {
                     HideSpin();
@@ -2247,19 +2245,37 @@ if (userAgent != null) {
                         if (newSignature) {
                             newSignature.value = 'false';
                         }
-                        isSignatureSaved = true;
-                    }
-                    showPreview(data.consultPDF, data.consultPDFName);
-                    if (data.warningMessage) {
-                        alert(data.warningMessage.replace(/\\n/g, '\n'));
-                    }
-                },
-                error: function (xhr, status, error) {
-                    HideSpin();
-                    alert("Preview request failed: " + status + ", " + error);
-                }
-            });
-        }
+	                        isSignatureSaved = true;
+	                    }
+	                    if (data.warningMessage) {
+	                        alert(data.warningMessage.replace(/\\n/g, '\n'));
+	                    }
+                        if (data.attachmentReviewRequired) {
+                            if (window.confirm(formatPreviewMessage(previewAttachmentsUnavailableMessage, data.attachmentWarnings.join("\n")))) {
+                                getConsultFormPrintPreview(form, data.consultAttachmentApproval);
+                            }
+                            return;
+                        }
+                        showPreview(data.consultPDF, data.consultPDFName);
+	                },
+	                error: function (xhr, status, error) {
+	                    HideSpin();
+	                    alert(formatPreviewMessage(previewRequestFailedMessage, status, error));
+	                }
+	            });
+	        }
+
+	        function formatPreviewMessage(template) {
+	            var formatted = template;
+	            for (var i = 1; i < arguments.length; i++) {
+	                var value = arguments[i];
+	                if (value === null || typeof value === 'undefined') {
+	                    value = '';
+	                }
+	                formatted = formatted.split('{' + (i - 1) + '}').join(value);
+	            }
+	            return formatted.replace(/\\n/g, '\n');
+	        }
 
         function showPreview(base64PDF, pdfName) {
             const pdfData = new Uint8Array(atob(base64PDF).split('').map(char => char.charCodeAt(0)));
@@ -2723,7 +2739,10 @@ if (userAgent != null) {
                                                     for (Provider p : prList) {
                                                         if (p.getProviderNo().compareTo("-1") != 0) {
                                                 %>
-                                                <option value="<%=p.getProviderNo() %>" <%=((consultUtil.providerNo != null && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (consultUtil.providerNo == null && referringProviderDefault.equalsIgnoreCase(p.getProviderNo())) ? "selected" : "") %>>
+                                                <%-- A consult saved with no referring provider has providerNo "" (EctConsultationFormRequestUtil
+                                                     normalizes null), so blank and null both take the default, as at the other two sites. The default
+                                                     itself is null when it should be the patient's MRP and there is none. --%>
+                                                <option value="<%=p.getProviderNo() %>" <%=((!StringUtils.isNullOrEmpty(consultUtil.providerNo) && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (StringUtils.isNullOrEmpty(consultUtil.providerNo) && p.getProviderNo().equalsIgnoreCase(referringProviderDefault)) ? "selected" : "") %>>
                                                     <carlos:encode value='<%= p.getFirstName().replace("Dr.", "") %>' context="html"/>&nbsp;<carlos:encode value='<%= p.getSurname() %>' context="html"/>
                                                 </option>
                                                 <% }
@@ -3437,7 +3456,8 @@ if (userAgent != null) {
                                 document.EctConsultationFormRequest2Form.specialist.value = specialist;
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;
 
-                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null) {
+                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null
+                                        && healthCareTeam[specialist]) {
                                     document.EctConsultationFormRequest2Form.annotation.value = healthCareTeam[specialist].note;
                                     document.EctConsultationFormRequest2Form.phone.value = healthCareTeam[specialist].phoneNum;
                                     document.EctConsultationFormRequest2Form.fax.value = healthCareTeam[specialist].specFax;

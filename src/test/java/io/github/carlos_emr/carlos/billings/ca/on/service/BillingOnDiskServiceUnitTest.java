@@ -346,4 +346,24 @@ class BillingOnDiskServiceUnitTest {
         provider.setBillingGroupNo(groupNo);
         return provider;
     }
+
+    @Test
+    void shouldRetainPriorSubmissionBackup_afterSuccessfulSoloRegeneration() {
+        MockHttpServletRequest request = regenerateRequest("55");
+        BillingProviderDto provider = provider("999998", "0000");
+        when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
+        when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
+        when(diskCreationService.prepareBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(preparedHeader(78));
+        when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
+        when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
+
+        service.regenerateDisk(request);
+
+        InOrder order = inOrder(claimFileService, transactionService);
+        order.verify(claimFileService).backupFileForRollback();
+        order.verify(claimFileService).writeFile("claim-body");
+        order.verify(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
+        order.verify(claimFileService).retainFileBackup();
+        verify(claimFileService, never()).restoreRenamedFile();
+    }
 }

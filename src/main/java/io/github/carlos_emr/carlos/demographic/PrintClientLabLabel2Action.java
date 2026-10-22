@@ -64,9 +64,13 @@ public class PrintClientLabLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    public PrintClientLabLabel2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     public PrintClientLabLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     /**
@@ -85,7 +89,7 @@ public class PrintClientLabLabel2Action extends ActionSupport {
     @Override
     public String execute() throws IOException {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
         String demographicNo = DemographicLabelAccess.authorizeRead(loggedInInfo,
                 request.getParameter("demographic_no"), response, securityInfoManager);
         if (demographicNo == null) {

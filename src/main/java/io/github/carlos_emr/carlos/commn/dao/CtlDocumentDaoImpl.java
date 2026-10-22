@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import org.springframework.stereotype.Repository;
@@ -65,6 +66,25 @@ public class CtlDocumentDaoImpl extends AbstractDaoImpl<CtlDocument> implements 
         @SuppressWarnings("unchecked")
         List<CtlDocument> cList = query.getResultList();
         return cList;
+    }
+
+    @Override
+    public List<CtlDocument> findByDocumentNos(Collection<Integer> documentNos) {
+        if (documentNos == null || documentNos.isEmpty()) {
+            return List.of();
+        }
+        List<Integer> candidates = documentNos.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+        TypedQuery<CtlDocument> query = entityManager.createQuery(
+                "select x from CtlDocument x where x.id.documentNo in :documentNos",
+                CtlDocument.class);
+        query.setParameter("documentNos", candidates);
+        return query.getResultList();
     }
 
     @Override

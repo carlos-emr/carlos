@@ -71,8 +71,6 @@
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    String userfirstname = (String) session.getAttribute("userfirstname");
-    String userlastname = (String) session.getAttribute("userlastname");
     boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 %>
 

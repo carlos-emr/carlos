@@ -339,7 +339,10 @@ async function resolveAuditLink(hostPage, item, timeout) {
 }
 
 // Menu entries remain in the DOM when their menu is closed. Reveal them using
-// the same dropdown, tab, collapse or hover controls an operator uses.
+// the same dropdown, tab, collapse, folder or hover controls an operator uses.
+// A folder is the eChart Documents panel filed by type (LeftNavBarDisplay.jsp
+// displayFolders): a closed <ul class="nav-folder-items" hidden> opened by the
+// button whose aria-controls names it.
 async function revealAuditLink(page, link, timeout) {
   const controls = await link.evaluate(anchor => {
     const all = [...document.querySelectorAll('a, button')];
@@ -353,6 +356,8 @@ async function revealAuditLink(page, link, timeout) {
           || (node.classList.contains('tab-pane') && !node.classList.contains('active'))) {
         control = all.find(el => node.id && (el.getAttribute('data-bs-target') === '#' + node.id
           || el.getAttribute('href') === '#' + node.id));
+      } else if (node.classList.contains('nav-folder-items') && node.hidden) {
+        control = all.find(el => node.id && el.getAttribute('aria-controls') === node.id);
       } else if (node.classList.contains('menu') && node.id.startsWith('menu')) {
         control = document.getElementById('menuTitle' + node.id.slice(4))?.querySelector('a');
         hover = true;

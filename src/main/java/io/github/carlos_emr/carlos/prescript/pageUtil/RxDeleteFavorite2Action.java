@@ -56,8 +56,8 @@ public final class RxDeleteFavorite2Action extends ActionSupport {
 
     /**
      * Deletes a favourite of the logged-in provider. POST-only (405 otherwise), needs global
-     * {@code _rx} update, and refuses a malformed id (400), a missing favourite (404) or another
-     * provider's (403) before deleting (#3908).
+     * {@code _rx} update, and refuses a malformed id (400) and a favourite that is missing or another
+     * provider's (404; the owner-scoped lookup cannot tell them apart) before deleting (#3908).
      *
      * @return {@code success}, or {@code NONE} after an error response
      */
@@ -74,7 +74,13 @@ public final class RxDeleteFavorite2Action extends ActionSupport {
         if (favorite == null) {
             return NONE;
         }
-        new RxPrescriptionData().deleteFavorite(favorite.getFavoriteId());
+        // loadOwned has confirmed the caller owns the favourite; deleteFavorite re-reads the owner
+        // itself, so the check and the delete cannot race apart. A false result means the row
+        // vanished in between (#2508, #3908).
+        if (!new RxPrescriptionData().deleteFavorite(favorite.getFavoriteId(), favorite.getProviderNo())) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
 
         return SUCCESS;
     }

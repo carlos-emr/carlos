@@ -59,6 +59,7 @@ class ProgramWsEndpointTest extends CarlosSoapTestBase {
     protected Object getServiceBean() {
         ProgramWs ws = new ProgramWs();
         injectDependency(ws, "programManager", mockProgramManager);
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("r", "_pmm.programList", "_pmm.staffList"));
         return ws;
     }
 

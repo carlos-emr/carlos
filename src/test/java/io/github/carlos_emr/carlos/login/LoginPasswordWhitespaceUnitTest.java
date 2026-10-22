@@ -177,7 +177,10 @@ class LoginPasswordWhitespaceUnitTest extends CarlosUnitTestBase {
             bean.ini("whitespaceFixture", RAW, "", "127.0.0.1");
             assertThat(bean.authenticate()).isNull();
         }
-        verifyNoInteractions(manager);
+        // The PIN is checked through SecurityManager (develop #2502 hashes PINs); nothing else on it
+        // runs: no password validation and no hash migration once the required PIN is missing.
+        verify(manager).validatePin("", account);
+        verifyNoMoreInteractions(manager);
         verify(dao, never()).merge(any(Security.class));
     }
 }

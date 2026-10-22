@@ -145,7 +145,7 @@
                     //WorkFlowState workFlow = new WorkFlowState();
                     WorkFlowFactory flowFactory = new WorkFlowFactory();
                     WorkFlow flow = flowFactory.getWorkFlow(workflowType);
-                    ArrayList workList = flow.getActiveWorkFlowList();
+                    List<Map<String, Object>> workList = flow.getActiveWorkFlowList();
 
                     if (workList != null && workList.size() > 0) {
                         DemographicNameAgeString deName = DemographicNameAgeString.getInstance();
@@ -167,7 +167,7 @@
                         WorkFlowDS wfDS = flow.getWorkFlowDS();
 
                         for (int j = 0; j < workList.size(); j++) {
-                            Hashtable h = (Hashtable) workList.get(j);
+                            Map<String, Object> h = workList.get(j);
                           Map<String, String> demoHash = deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), ""+h.get("demographic_no"));
                             String colour = "";
 

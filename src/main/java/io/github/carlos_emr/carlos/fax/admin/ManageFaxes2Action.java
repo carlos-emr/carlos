@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -151,7 +152,8 @@ public class ManageFaxes2Action extends Fax2Action {
         }
 
         FaxConfig faxConfig = faxConfigDao.getConfigByNumber(faxJob.getFax_line());
-        log.info("Cancel requested for fax row id {} (provider job id {})", faxJob.getId(), faxJob.getJobId());
+        log.info("Cancel requested for fax row id {} (provider job id {})",
+                LogSafe.sanitizeObject(faxJob.getId()), LogSafe.sanitizeObject(faxJob.getJobId()));
 
         if (faxConfig == null) {
             // FaxJob.getId() returns an Integer, not request text.
@@ -191,7 +193,8 @@ public class ManageFaxes2Action extends Fax2Action {
                     result.put("message", "Unable to confirm fax cancellation. Check the fax status before retrying.");
                 }
             } else {
-                log.info("Fax row id {} not in a cancellable state ({})", faxJob.getId(), faxJob.getStatus());
+                log.info("Fax row id {} not in a cancellable state ({})",
+                        LogSafe.sanitizeObject(faxJob.getId()), LogSafe.sanitizeObject(faxJob.getStatus()));
             }
         }
 

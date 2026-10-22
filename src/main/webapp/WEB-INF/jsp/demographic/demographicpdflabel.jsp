@@ -76,23 +76,18 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%!
-    /*
-     * Every patient field below is written into HTML body text through this helper (the one
-     * attribute, the record's title, uses SafeEncode.forHtmlAttribute). The page is also the
-     * source the Messenger "Demographic information" PDF is rendered from, so an unencoded field
-     * (an address typed as "O'Neil & <Fixture> Lane", say) was lost from the PDF or, worse,
-     * interpreted as markup (stored HTML injection, finding L61 / #4133). Null renders as empty
-     * rather than the literal "null" a bare expression printed.
-     */
-    private static String h(Object value) {
-        return SafeEncode.forHtmlContent(value == null ? "" : String.valueOf(value));
-    }
-%>
+<%--
+    Every patient field below goes through <carlos:encode> in its output context (HTML body,
+    the record title attribute, and the referral-doctor JavaScript strings). The page is also
+    the source the Messenger "Demographic information" PDF is rendered from, so an unencoded
+    field (an address typed as "O'Neil & <Fixture> Lane", say) was lost from the PDF or, worse,
+    interpreted as markup (stored HTML injection, finding L61 / #4133). <carlos:encode> renders
+    null as empty rather than the literal "null" a bare expression printed.
+--%>
 <%
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
     DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
@@ -106,6 +101,7 @@
              scope="session"/>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -148,7 +144,7 @@
             nurse = demographicCust.getNurse();
             alert = demographicCust.getAlert();
             midwife = demographicCust.getMidwife();
-            notes = SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes");
+            notes = DemographicXml.userNotesText(demographicCust.getNotes());
             notes = notes == null ? "" : notes;
         }
 
@@ -167,6 +163,11 @@
             out.println("failed!!!");
         } else {
 
+            // <carlos:encode> declares value as java.lang.String, so a non-String
+            // expression (demographicNo is an Integer) would fail JSP translation.
+            // Stage it as a null-safe String before it reaches the tag.
+            String demographicNoLabel = Objects.toString(d.getDemographicNo(), "");
+
             //----------------------------REFERRAL DOCTOR------------------------------
             fd = d.getFamilyDoctor();
             if (fd == null) {
@@ -174,11 +175,11 @@
                 rdohip = "";
                 family_doc = "";
             } else {
-                rd = SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rd");
+                rd = DemographicXml.referralDoctor(d.getFamilyDoctor());
                 rd = rd != null ? rd : "";
-                rdohip = SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rdohip");
+                rdohip = DemographicXml.referralDoctorOhip(d.getFamilyDoctor());
                 rdohip = rdohip != null ? rdohip : "";
-                family_doc = SxmlMisc.getXmlContent(d.getFamilyDoctor(), "family_doc");
+                family_doc = DemographicXml.familyDoc(d.getFamilyDoctor());
                 family_doc = family_doc != null ? family_doc : "";
             }
             //----------------------------REFERRAL DOCTOR --------------end-----------
@@ -197,59 +198,61 @@
         <table width="100%" class="MainTableLeftColumn">
             <tr>
                 <td class="RowTop" colspan="3" align="center" bgcolor="#EEEEFF">
-                    <b>Record</b> (<%=h(d.getDemographicNo())%>) <%=h(d.getLastName())%>,
-                    <%=h(d.getFirstName())%> <%=h(d.getSex())%>
-                    <%=h(age)%> years
+                    <b>Record</b> (<carlos:encode value='<%=demographicNoLabel%>' context="html"/>)
+                    <carlos:encode value='<%=d.getLastName()%>' context="html"/>,
+                    <carlos:encode value='<%=d.getFirstName()%>' context="html"/>
+                    <carlos:encode value='<%=d.getSex()%>' context="html"/>
+                    <%=age%> years
                 </td>
             </tr>
             <tr>
                 <td align="left"
-                    title='<%=SafeEncode.forHtmlAttribute(String.valueOf(d.getDemographicNo()))%>'><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><%=h(d.getLastName())%>
+                    title="<carlos:encode value='<%=demographicNoLabel%>' context='htmlAttribute'/>"><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><carlos:encode value='<%=d.getLastName()%>' context="html"/>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>: </b></td>
-                <td align="left"><%=h(d.getFirstName())%>
+                <td align="left"><carlos:encode value='<%=d.getFirstName()%>' context="html"/>
                 </td>
             </tr>
 
 
             <tr valign="top">
-                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formAddr"/>: </b> <%=h(d.getAddress())%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formAddr"/>: </b> <carlos:encode value='<%=d.getAddress()%>' context="html"/>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b></td>
-                <td align="left"><%=h(d.getCity())%>
+                <td align="left"><carlos:encode value='<%=d.getCity()%>' context="html"/>
                 </td>
             </tr>
 
             <tr valign="top">
-                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formProcvince"/>: </b><%=h(d.getProvince())%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formProcvince"/>: </b><carlos:encode value='<%=d.getProvince()%>' context="html"/>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPostal"/>: </b></td>
-                <td align="left"><%=h(d.getPostal())%>
+                <td align="left"><carlos:encode value='<%=d.getPostal()%>' context="html"/>
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneH"/>: </b><%=h(d.getPhone())%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneH"/>: </b><carlos:encode value='<%=d.getPhone()%>' context="html"/>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneW"/>:</b></td>
-                <td align="left"><%=h(d.getPhone2())%>
+                <td align="left"><carlos:encode value='<%=d.getPhone2()%>' context="html"/>
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEmail"/>: </b><%=h(d.getEmail() != null ? d.getEmail() : "")%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEmail"/>: </b><carlos:encode value='<%=d.getEmail()%>' context="html"/>
                 </td>
             </tr>
             <tr valign="top">
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formDOB"/></b><fmt:message key="demographic.demographiceditdemographic.formDOBDetais"/><b>:
-                </b> <%=h(d.getYearOfBirth())%>/ <%=h(d.getMonthOfBirth())%>/
-                    <%=h(d.getDateOfBirth())%> <b>Age: </b> <%=h(age)%>
+                </b> <carlos:encode value='<%=d.getYearOfBirth()%>' context="html"/>/ <carlos:encode value='<%=d.getMonthOfBirth()%>' context="html"/>/
+                    <carlos:encode value='<%=d.getDateOfBirth()%>' context="html"/> <b>Age: </b> <%=age%>
                 </td>
                 <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</b></td>
-                <td align="left"><%=h(d.getSex())%>
+                <td align="left"><carlos:encode value='<%=d.getSex()%>' context="html"/>
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formHin"/>: </b><%=h(d.getHin())%>
-                    <b><fmt:message key="demographic.demographiceditdemographic.formVer"/></b> <%=h(d.getVer())%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formHin"/>: </b><carlos:encode value='<%=d.getHin()%>' context="html"/>
+                    <b><fmt:message key="demographic.demographiceditdemographic.formVer"/></b> <carlos:encode value='<%=d.getVer()%>' context="html"/>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEFFDate"/>:</b></td>
                 <td align="left">
@@ -263,13 +266,13 @@
                         decF.applyPattern("00");
                         String effDateMonth = decF.format(MyDateFormat.getMonthFromStandardDate(d.getFormattedEffDate()));
                         String effDateDay = decF.format(MyDateFormat.getDayFromStandardDate(d.getFormattedEffDate()));
-                    %> <%=h(effDateYear)%>/ <%=h(effDateMonth)%>/ <%=h(effDateDay)%>
+                    %> <carlos:encode value='<%= effDateYear%>' context="html"/>/ <carlos:encode value='<%= effDateMonth%>' context="html"/>/ <carlos:encode value='<%= effDateDay%>' context="html"/>
                 </td>
             </tr>
             <tr valign="top">
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formHCType"/>:</b> <%
                     String hctype = d.getHcType() == null ? "" : d.getHcType(); %>
-                    <%=h(hctype)%>
+                    <carlos:encode value='<%=hctype%>' context="html"/>
                 </td>
                 <td></td>
                 <td></td>
@@ -279,7 +282,7 @@
                     List<Provider> providers = providerDao.getActiveProviders();
                     for (Provider p : providers) {
                         if (p.getProviderNo().equals(d.getProviderNo())) {%>
-                    <%=h(Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen))%>
+                    <carlos:encode value='<%=Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen)%>' context="html"/>
                     <% }
                     }
                     %>
@@ -289,7 +292,7 @@
                     <%
                         for (Provider p : providers) {
                             if (p.getProviderNo().equals(resident)) {%>
-                    <%=h(Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen))%>
+                    <carlos:encode value='<%=Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen)%>' context="html"/>
                     <% }
                     }%>
                 </td>
@@ -298,7 +301,7 @@
                 <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formMidwife"/>: </b> <%
                     for (Provider p : providers) {
                         if (p.getProviderNo().equals(midwife)) {%>
-                    <%=h(Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen))%>
+                    <carlos:encode value='<%=Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen)%>' context="html"/>
                     <% }
                     }%>
                 </td>
@@ -307,7 +310,7 @@
                     <%
                         for (Provider p : providers) {
                             if (p.getProviderNo().equals(nurse)) {%>
-                    <%=h(Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen))%>
+                    <carlos:encode value='<%=Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen)%>' context="html"/>
                     <% }
                     }%>
                 </td>
@@ -335,11 +338,12 @@
                     <option value=""></option>
                     <% for (int k = 0; k < vecRef.size(); k++) {
                         prop = (Properties) vecRef.get(k);
+                        String referralDisplayName = prop.getProperty("last_name") + "," + prop.getProperty("first_name");
                     %>
                     <option
-                            value="<%=SafeEncode.forHtmlAttribute(String.valueOf(prop.getProperty("last_name")+","+prop.getProperty("first_name")))%>"
-                            <%=prop.getProperty("referral_no").equals(rdohip) ? "selected" : ""%>>
-                        <%=h(Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen))%>
+                            value="<carlos:encode value='<%=referralDisplayName%>' context='htmlAttribute'/>"
+                            <%=Objects.equals(prop.getProperty("referral_no"), rdohip) ? "selected" : ""%>>
+                        <carlos:encode value='<%=Misc.getShortStr(referralDisplayName, "", nStrShowLen)%>' context="html"/>
                     </option>
                     <% } %>
                 </select>
@@ -351,9 +355,11 @@
                             var refNo = "";
                             <% for(int k=0; k<vecRef.size(); k++) {
                                     prop= (Properties) vecRef.get(k);
+                                    String referralScriptDisplayName = prop.getProperty("last_name") + "," + prop.getProperty("first_name");
+                                    String referralNo = prop.getProperty("referral_no", "");
                             %>
-                            if (refName == "<%=SafeEncode.forJavaScript(String.valueOf(prop.getProperty("last_name")+","+prop.getProperty("first_name")))%>") {
-                                refNo = '<%=SafeEncode.forJavaScript(String.valueOf(prop.getProperty("referral_no", "")))%>';
+                            if (refName === "<carlos:encode value='<%=referralScriptDisplayName%>' context='javaScript'/>") {
+                                refNo = "<carlos:encode value='<%=referralNo%>' context='javaScript'/>";
                             }
                             <% } %>
                             document.updatedelete.r_doctor_ohip.value = refNo;
@@ -361,10 +367,10 @@
 
                         //-->
                     </script>
-                    <% } else {%> <%=h(rd)%> <% } %>
+                    <% } else {%> <carlos:encode value='<%=rd%>' context="html"/> <% } %>
                 </td>
                 <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>: </b></td>
-                <td align="left"><%=h(rdohip)%>
+                <td align="left"><carlos:encode value='<%=rdohip%>' context="html"/>
                 </td>
             </tr>
 
@@ -374,7 +380,7 @@
                     if (rosterStatus == null) {
                         rosterStatus = "";
                     }
-                %> <%=h(rosterStatus)%>
+                %> <carlos:encode value='<%=rosterStatus%>' context="html"/>
                 </td>
                 <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>: </b></td>
                 <td align="left">
@@ -385,7 +391,7 @@
                         decF.applyPattern("00");
                         String hcRenewMonth = decF.format(MyDateFormat.getMonthFromStandardDate(d.getFormattedRenewDate()));
                         String hcRenewDay = decF.format(MyDateFormat.getDayFromStandardDate(d.getFormattedRenewDate()));
-                    %> <%=h(hcRenewYear)%> <%=h(hcRenewMonth)%> <%=h(hcRenewDay)%>
+                    %> <carlos:encode value='<%= hcRenewYear %>' context="html"/> <carlos:encode value='<%= hcRenewMonth %>' context="html"/> <carlos:encode value='<%= hcRenewDay %>' context="html"/>
                 </td>
             </tr>
             <tr valign="top">
@@ -395,17 +401,17 @@
                         boolean nextStatus = true;
 
                         for (String pt : demographicDao.search_ptstatus()) {
-                            if (pacStatus.equals(pt)) { %>
-                    <%=h(pt)%> <% nextStatus = false;
+                            if (Objects.equals(pt, pacStatus)) { %>
+                    <carlos:encode value='<%=pt%>' context="html"/> <% nextStatus = false;
                     }
                     }
 
                     %> <% if (nextStatus) {
 
-                    %> <%=h(pacStatus)%> <% } %>
+                    %> <carlos:encode value='<%=pacStatus%>' context="html"/> <% } %>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formChartNo"/>:</b></td>
-                <td align="left"><%=h(d.getChartNo())%>
+                <td align="left"><carlos:encode value='<%=d.getChartNo()%>' context="html"/>
                 </td>
             </tr>
 
@@ -420,13 +426,13 @@
 
                     for (WaitingListName wln : waitingListNameDao.findCurrentByGroup(((ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)).getMyGroupNo())) {
                         if (wln.getId().toString().equals(listID)) {
-                %><%=h(wln.getName())%> <%
+                %><carlos:encode value='<%=wln.getName()%>' context="html"/> <%
                         }
                     }
                 %>
                 </td>
                 <td align="left" nowrap><b>Waiting List Note: </b></td>
-                <td align="left"><%=h(wlnote)%>
+                <td align="left"><carlos:encode value='<%=wlnote%>' context="html"/>
                 </td>
             </tr>
             <%}%>
@@ -438,7 +444,7 @@
                     decF.applyPattern("00");
                     String dateJoinedMonth = decF.format(MyDateFormat.getMonthFromStandardDate(d.getFormattedDateJoined()));
                     String dateJoinedDay = decF.format(MyDateFormat.getDayFromStandardDate(d.getFormattedDateJoined()));
-                %> <%=h(dateJoinedYear)%> <%=h(dateJoinedMonth)%> <%=h(dateJoinedDay)%>
+                %> <carlos:encode value='<%= dateJoinedYear %>' context="html"/> <carlos:encode value='<%= dateJoinedMonth %>' context="html"/> <carlos:encode value='<%= dateJoinedDay %>' context="html"/>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEndDate"/>: </b></td>
                 <td align="left">
@@ -449,19 +455,19 @@
                         decF.applyPattern("00");
                         String endMonth = decF.format(MyDateFormat.getMonthFromStandardDate(d.getFormattedEndDate()));
                         String endDay = decF.format(MyDateFormat.getDayFromStandardDate(d.getFormattedEndDate()));
-                    %> <%=h(endYear)%> <%=h(endMonth)%> <%=h(endDay)%>
+                    %> <carlos:encode value='<%= endYear %>' context="html"/> <carlos:encode value='<%= endMonth %>' context="html"/> <carlos:encode value='<%= endDay %>' context="html"/>
                 </td>
             <tr valign="top">
                 <td nowrap colspan="3">
                     <table width="100%" bgcolor="#EEEEFF">
                         <tr>
                             <td width="7%" align="left"><font color="#FF0000"><b><fmt:message key="demographic.demographiceditdemographic.formAlert"/>: </b></font></td>
-                            <td><%=h(alert)%>
+                            <td><carlos:encode value='<%=alert%>' context="html"/>
                             </td>
                         </tr>
                         <tr>
                             <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formNotes"/>: </b></td>
-                            <td><%=h(notes)%>
+                            <td><carlos:encode value='<%=notes%>' context="html"/>
                             </td>
                         </tr>
                     </table>

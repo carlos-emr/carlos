@@ -2,7 +2,7 @@
  "format": 1,
  "kind": "o19-preflight",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-3+6ea61c42",
+ "SCHEMA_MAP_VERSION": "o19map-3+da891c7a",
  "O19_PROFILE": "on",
  "SUPPORTED_PROVINCES": [
   "on",
@@ -877,7 +877,7 @@
  ],
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-3+f2e0d233",
+   "SCHEMA_MAP_VERSION": "o19map-3+41f630aa",
    "O19_PROFILE": "bc",
    "PATIENT_DATA_TABLES": [
     "DrugDispensing",

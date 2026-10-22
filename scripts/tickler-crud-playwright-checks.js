@@ -22,7 +22,7 @@
  */
 
 const { chromium } = require('playwright');
-const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
+const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -53,6 +53,9 @@ const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through e
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
+// Set before the tickler is created; until then the run owns no rows to clean. Note
+// links at or below it predate the run and are never deleted (#4409).
+let linkIdFloor = null;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -93,13 +96,27 @@ function appUrl(appPath, query = null) {
   return url.toString();
 }
 
+// A MariaDB option file is NOT a raw key=value format: in a value, '\' starts an
+// escape sequence ('\s' is a space, '\t' a tab) and an unquoted '#' starts a
+// comment that truncates the rest of the line. Writing the password verbatim
+// therefore silently corrupts it and the script dies on "Access denied".
+// Double-quoting the value neutralizes '#' and surrounding whitespace; '\' and
+// '"' still need escaping inside the quotes.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-tickler-mysql-'));
   const file = path.join(dir, 'client.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(
+    file,
+    `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`,
+    { mode: 0o600 }
+  );
   return { dir, file };
 }
 
@@ -134,7 +151,10 @@ function assert(condition, message) {
 }
 
 function cleanupRows() {
-  cleanupTicklerFixture({ sql, patient: demographicNo, stamp });
+  if (linkIdFloor === null) {
+    return;
+  }
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, linkIdFloor });
 }
 
 function getTicklerRows() {
@@ -469,7 +489,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
 });
 
 (async () => {
-  cleanupRows();
+  linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
     headless: true,

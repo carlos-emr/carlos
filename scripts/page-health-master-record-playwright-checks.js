@@ -28,6 +28,11 @@ const { closeBrowserWithChartCleanup, releaseChartLocks } = require('./lib/chart
 const { assertHealthy, beginEntry, crawl, judgePage, startSession } = require('./lib/page-health-engine');
 const { SKIP_ITEMS, openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
+// Master Record links demographic/edit.jsp renders for the test login on every province (Billing History and Invoice
+// List are province-specific, so they are left to the opened-count floor). Each must be opened and judged: a floor
+// alone lets a named link disappear or be skipped while eight others pass.
+const EXPECTED_LINKS = ['Appointment History', 'Consultations', 'Prescriptions', 'E-Chart', 'Preventions', 'Tickler'];
+
 async function main() {
   const config = h.readConfig();
   const timeout = Number(process.env.PAGE_HEALTH_TIMEOUT_MS || '20000');
@@ -49,6 +54,9 @@ async function main() {
       beforePopupClose: page => releaseChartLocks(session.context, config.baseUrl, [page]),
     });
     console.log(`  opened ${result.opened.length} Master Record link(s), skipped ${result.skipped}`);
+    for (const name of EXPECTED_LINKS) {
+      if (!result.opened.includes(name)) result.failures.push(`master-record:${name}: NOT-OPENED (missing from the Master Record or skipped by the crawl)`);
+    }
     assertHealthy(result, { surface: 'the Master Record', minimumOpened: 8 });
   } finally {
     await closeBrowserWithChartCleanup(session.browser, config.baseUrl);

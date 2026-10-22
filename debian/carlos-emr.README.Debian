@@ -149,6 +149,8 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
   /etc/carlos-emr/tomcat/                Tomcat configuration (conffiles)
   /etc/carlos-emr/modsecurity/           WAF policy and exclusions (conffiles)
   /etc/carlos-emr/tls/                   the served certificate and key
+  /etc/carlos-emr/archive-keyring/       the keys that decrypt archived patient
+                                         email (created on first start; see 7.)
   /etc/nginx/sites-available/carlos-emr  the front door (conffile)
   /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf   MariaDB settings (conffile)
 
@@ -606,7 +608,12 @@ consider the deployment finished, and copy RESTIC_PASSWORD somewhere off this
 host. Without that passphrase every backup ever written is permanently
 unreadable. The same applies to `encryption.util.secret.key` in
 carlos.properties: it decrypts stored third-party credentials, it is inside the
-backup, and it must also be escrowed separately.
+backup, and it must also be escrowed separately. The same again for
+/etc/carlos-emr/archive-keyring/outbound-email-archive.keyring, which CARLOS
+creates on first start: it decrypts the archived copy of every email sent to
+a patient, and without it that archive is permanently unreadable. It is in
+the `files` snapshot; escrow a copy off this host too, and again after every
+key rotation (docs/outbound-email-archive.md in the source tree).
 
 Set CARLOS_BACKUP_ALERT_WEBHOOK or CARLOS_BACKUP_ALERT_EMAIL. A backup failure
 nobody hears about is the same as no backup.
@@ -652,6 +659,12 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    ...then set that exact line in /etc/carlos-emr/carlos.properties
   #    (replacing the freshly-generated one) and run:
   #      sudo carlos-ctl init-config
+  #    Restore the outbound email archive keyring too, BEFORE CARLOS starts.
+  #    Without it CARLOS refuses to start once encrypted archives exist; do not
+  #    get past that with the acknowledge_loss override while a backup exists:
+  sudo install -m 0600 -o carlos -g carlos \
+      /var/backups/carlos-emr/dr-files/etc/carlos-emr/archive-keyring/outbound-email-archive.keyring \
+      /etc/carlos-emr/archive-keyring/outbound-email-archive.keyring
   # 1. The newest dump. The target is OUTSIDE work/ deliberately: work/ is
   #    wiped by every backup and drill run's cleanup, and a restore can
   #    outlive one of those even with the timers stopped (a manual run, a
@@ -778,6 +791,32 @@ the rename is deferred; catch up with
 Grants on the old `oscar` schema are left behind by the rename (harmless —
 db-users grants on the new name during the same configure); drop them by hand
 if you want a tidy grant table.
+
+OAuth integrations (/ws/oauth, /ws/services): by default an approved
+third-party app gets the restricted legacy access: the scopes it requests
+are recorded but not checked, and it may call only the legacy integration
+endpoints (create, update and read a patient, attach a document); anything
+else answers 403 restricted_endpoint. That is what the legacy
+patient-engagement integration needs and nothing more. Two settings in
+/etc/carlos-emr/carlos.properties change it, and both are server-wide (they
+apply to every OAuth client at once; there is no per-client exception):
+  oauth.scope.enforcement.enabled=true   scopes are enforced: an app must
+      request known <domain>.read / <domain>.write scopes at
+      /ws/oauth/initiate (400 invalid_scope otherwise) and each /ws/services
+      call needs the scope its endpoint requires (403 insufficient_scope
+      otherwise). Tokens already issued keep the scopes they were granted;
+      one granted none has to be re-authorized.
+  oauth.scope.legacy.access=full          while enforcement is not on, an
+      approved app may call everything its approving provider can.
+Restart after a change (sudo carlos-ctl restart). The consent page tells
+providers which mode is in force. In every mode a few endpoints stay closed
+to all OAuth clients (403 blocked_endpoint): the scheduled-job service, the
+account-rights lookups, patient record merges, provider settings writes and
+the recently-viewed lists. The first upgrade to this release resets either
+setting to the default once if it was set otherwise (see the postinst);
+after that the values stay as the operator sets them. The front door
+rate-limits /ws/services and /ws/oauth/authorize per client address
+(carlos_wsapi in conf.d/carlos-emr-limits.conf; excess answers 429).
 
 
 9. Log retention   (DECIDE THIS)

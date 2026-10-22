@@ -140,7 +140,7 @@
                                             %>
                                             <tr>
                                                 <td width="50%" valign="top"
-                                                    nowrap="nowrap"><%=DateUtils.formatDate(originalPrintDate, request.getLocale()) %>
+                                                    nowrap="nowrap"><carlos:encode value='<%= DateUtils.formatDate(originalPrintDate, request.getLocale()) %>' context="html"/>
                                                 </td>
                                                 <td width="50%" valign="top"
                                                     nowrap="nowrap"><carlos:encode value='<%= providerDao.getProvider(originalProviderNo).getFormattedName() %>' context="html"/>

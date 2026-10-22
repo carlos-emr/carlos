@@ -45,6 +45,7 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%-- nosemgrep: carlos.jsp-scriptlet-xss.variable-request -- creatorDemo is only passed raw as the demographicNo attribute of <oscar:nameage>, which parses it as an integer (skipping on failure) and SafeEncode-encodes its output; every HTML/URL output of it uses <carlos:encode>. --%>
 <%
 
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));

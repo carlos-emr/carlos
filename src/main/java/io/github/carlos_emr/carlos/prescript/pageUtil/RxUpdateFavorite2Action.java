@@ -58,8 +58,8 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
 
     /**
      * Saves an edited favourite of the logged-in provider. POST-only (405 otherwise), needs global
-     * {@code _rx} update, and refuses a malformed id or repeat (400), a missing favourite (404) or
-     * another provider's (403) before anything changes (#3908). {@code method=ajaxEditFavorite}
+     * {@code _rx} update, and refuses a malformed id or repeat (400) and a favourite that is missing
+     * or another provider's (404) before anything changes (#3908). {@code method=ajaxEditFavorite}
      * dispatches to {@link #ajaxEditFavorite()}.
      *
      * @return {@code success}, or {@code NONE} after an error response

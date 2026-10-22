@@ -77,6 +77,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%-- nosemgrep: carlos.jsp-scriptlet-xss.variable-request -- demographic_no is only passed raw as the demographicNo attribute of <oscar:nameage>, which parses it as an integer (skipping on failure) and SafeEncode-encodes its output; every HTML/URL output of it uses <carlos:encode>. --%>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String demographic_no = request.getParameter("demographic_no");

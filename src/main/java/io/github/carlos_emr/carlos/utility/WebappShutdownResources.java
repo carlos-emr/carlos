@@ -49,8 +49,9 @@ public final class WebappShutdownResources {
      * Releases shutdown-sensitive resources for the supplied web application class loader.
      * The call order is significant: servlet-thread DB state and datasource tracking are released before
      * async log workers, Drools executors, cache timers, the JDK scheduler's context loader,
-     * MySQL cleanup, and finally webapp-owned
-     * JDBC driver deregistration.
+     * MySQL cleanup, and finally webapp-owned JDBC driver deregistration. Spring-managed
+     * resources are released by their bean lifecycle callbacks before this servlet-context
+     * listener runs.
      *
      * @param webappClassLoader class loader associated with the stopping CARLOS webapp
      * @return per-step shutdown report for audit logging

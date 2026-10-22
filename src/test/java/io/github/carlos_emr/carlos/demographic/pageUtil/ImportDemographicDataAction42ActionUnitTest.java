@@ -21,18 +21,35 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.commn.dao.DrugDao;
+import io.github.carlos_emr.carlos.commn.dao.DrugReasonDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.LogEvent;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -48,6 +65,7 @@ import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.ArrayList;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -59,6 +77,7 @@ import static org.mockito.Mockito.mockConstruction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -95,7 +114,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     }
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         replaceSpringUtilsBean(EctProgramManager.class, mockEctProgramManager);
         replaceSpringUtilsBean(NioFileManager.class, mockNioFileManager);
         replaceSpringUtilsBean(ProviderDao.class, mockProviderDao);
@@ -114,7 +133,24 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         when(mockEctProgramManager.getDefaultProgramId(TEST_PROVIDER)).thenReturn(0);
         when(mockProviderDao.getActiveProviders()).thenReturn(List.of());
 
-        action = new ImportDemographicDataAction42Action();
+        action = new ImportDemographicDataAction42Action(
+                mockSecurityInfoManager,
+                mock(ProgramManager.class),
+                mock(AdmissionManager.class),
+                mock(AdmissionDao.class),
+                mock(CaseManagementManager.class),
+                mock(DrugDao.class),
+                mock(DrugReasonDao.class),
+                mock(DemographicArchiveDao.class),
+                mock(ProviderDataDao.class),
+                mock(PartialDateDao.class),
+                mock(DemographicExtDao.class),
+                mock(OscarAppointmentDao.class),
+                mock(PatientLabRoutingDao.class),
+                mock(ProviderLabRoutingDao.class),
+                mock(MeasurementsExtDao.class),
+                mock(DemographicContactDao.class),
+                mockNioFileManager);
     }
 
     @Test
@@ -239,7 +275,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldReturnRetryWarning_withoutProcessingFile_whenAnotherImportOwnsLock() throws Exception {
+    void shouldReturnRetryWarningWithoutProcessingFile_whenAnotherImportOwnsLock() throws Exception {
         prepareLockResult(0);
         action.setImportFile(Files.createFile(tempDir.resolve("waiting.xml")).toFile());
         action.setImportFileFileName("waiting.xml");
@@ -278,6 +314,10 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         List<String> warnings = (List<String>) getMockRequest().getAttribute("warnings");
         assertThat(warnings).contains(NO_VALID_XML_WARNING);
         assertThat(getMockRequest().getAttribute("importlog")).isNotNull();
+        assertThat(getMockResponse().getContentType()).contains("application/json");
+        assertThat(getMockResponse().getContentAsString())
+                .contains(NO_VALID_XML_WARNING)
+                .contains("importLog");
     }
 
     @Test
@@ -336,6 +376,59 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         assertThat(invokeExtractReportFileName("nested\\result.pdf")).isEqualTo("result.pdf");
         assertThat(invokeExtractReportFileName("nested/result.pdf/")).isEqualTo("result.pdf");
         assertThat(invokeExtractReportFileName("result.pdf")).isEqualTo("result.pdf");
+    }
+
+    @Test
+    @DisplayName("should name a path in the log by a short hash, never the path")
+    void shouldGiveShortHashReference_forPath() {
+        assertThat(ImportDemographicDataAction42Action.pathReference("/srv/FAKE-PATIENT-NAME/report.pdf"))
+                .isEqualTo("ref:41a8779aad5d");
+        assertThat(ImportDemographicDataAction42Action.pathReference(null)).isEqualTo("ref:none");
+    }
+
+    @Test
+    @DisplayName("should log a report path outside the import folder by reference, without the path or exception")
+    void shouldLogReferenceOnly_whenReportPathOutsideImportFolder() throws Exception {
+        Path importFolder = Files.createDirectories(tempDir.resolve("import"));
+        Path outside = Files.createDirectories(tempDir.resolve("FAKE-PATIENT-NAME"));
+        File report = Files.writeString(outside.resolve("report.pdf"), "FAKE").toFile();
+        Method method = ImportDemographicDataAction42Action.class.getDeclaredMethod(
+                "tryValidateExisting", File.class, File.class, String.class);
+        method.setAccessible(true);
+
+        try (LogCapture logs = LogCapture.forLogger(ImportDemographicDataAction42Action.class)) {
+            Object resolved = method.invoke(action, report, importFolder.toFile(), "../FAKE-PATIENT-NAME/report.pdf");
+
+            assertThat(resolved).isNull();
+            List<LogEvent> errors = logs.events().stream().filter(event -> event.getLevel() == Level.ERROR).toList();
+            assertThat(errors).hasSize(1);
+            assertThat(errors.get(0).getMessage().getFormattedMessage())
+                    .contains(ImportDemographicDataAction42Action.pathReference("../FAKE-PATIENT-NAME/report.pdf"))
+                    .contains(ImportDemographicDataAction42Action.pathReference(report.getPath()));
+            assertThat(errors.get(0).getThrown()).isNull();
+            assertThat(logs.messages()).noneMatch(message -> message.contains("FAKE-PATIENT-NAME"));
+        }
+    }
+
+    @Test
+    @DisplayName("should log a missing import folder by reference, without its path")
+    void shouldLogReferenceOnly_whenImportFolderMissing() throws Exception {
+        Path missing = tempDir.resolve("FAKE-PATIENT-NAME-missing");
+        Method method = ImportDemographicDataAction42Action.class.getDeclaredMethod(
+                "searchFileByExtension", Path.class, ArrayList.class);
+        method.setAccessible(true);
+        ArrayList<String> warnings = new ArrayList<>();
+
+        try (LogCapture logs = LogCapture.forLogger(ImportDemographicDataAction42Action.class)) {
+            method.invoke(action, missing, warnings);
+
+            assertThat(warnings).containsExactly("Error while searching for XML files in directory");
+            assertThat(logs.events()).filteredOn(event -> event.getLevel() == Level.ERROR)
+                    .singleElement()
+                    .satisfies(event -> assertThat(event.getThrown()).isNull());
+            assertThat(logs.messages()).noneMatch(message -> message.contains("FAKE-PATIENT-NAME"))
+                    .anyMatch(message -> message.contains(ImportDemographicDataAction42Action.pathReference(missing.toString())));
+        }
     }
 
     private boolean invokeIsAbsoluteReportPath(String path) throws Exception {

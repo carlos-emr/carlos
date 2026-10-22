@@ -35,7 +35,6 @@
     "demographic-add-playwright-checks.js": 3,
     "demographic-master-crud-smoke.js": 7,
     "echart-new-patient-notes-playwright-checks.js": 3,
-    "echart-playwright-checks.js": 1,
     "eform-consultation-acceptance-playwright-checks.js": 1,
     "eform-rtl-attachment-behavior-playwright-checks.js": 1,
     "eform-rtl-attachment-pdf-playwright-checks.js": 1,

@@ -224,15 +224,30 @@ class RxPatientLinkJspRegressionUnitTest {
                 "rx/SideLinksNoEditFavorites2.jsp"}) {
             String jsp = read(name);
             assertThat(jsp).as(name).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
+            // SideLinksEditFavorites2.jsp renders the favourite name through null-safe SafeEncode
+            // scriptlets (develop's JspEncodingRegressionTest and RxPrintFlowRegressionTest pin that
+            // form and forbid the tag there); the other sidebars use the tag.
+            boolean favouritesViaSafeEncode = name.equals("rx/SideLinksEditFavorites2.jsp");
             for (String value : new String[] {"allergies[j].getDescription()", "allergies[j].getReaction()",
                     "favorites[j].getFavoriteName()"}) {
+                if (favouritesViaSafeEncode && value.startsWith("favorites")) {
+                    continue;
+                }
                 assertThat(jsp).as(name + " attribute " + value)
                         .contains("<carlos:encode value='<%= " + value + " %>' context=\"htmlAttribute\"/>");
             }
             for (String value : new String[] {"allergies[j].getShortDesc(13, 8, \"...\")",
                     "favorites[j].getFavoriteName()", "favorites[j].getFavoriteName().substring(0, 10) + \"...\""}) {
+                if (favouritesViaSafeEncode && value.startsWith("favorites")) {
+                    continue;
+                }
                 assertThat(jsp).as(name + " text " + value)
                         .contains("<carlos:encode value='<%= " + value + " %>' context=\"html\"/>");
+            }
+            if (favouritesViaSafeEncode) {
+                assertThat(jsp).as(name + " favourite name")
+                        .contains("SafeEncode.forHtmlAttribute(favoriteName)")
+                        .contains("SafeEncode.forHtmlContent(favoriteDisplayName)");
             }
             // A raw title lets persisted quotes create attributes; a raw text label permits markup.
             assertThat(jsp).doesNotContain("title=\"<%= allergies", "title=\"<%= favorites",
@@ -314,8 +329,8 @@ class RxPatientLinkJspRegressionUnitTest {
         assertThat(read("rx/WriteScript.jsp"))
                 .contains("name=\"randomId\" value=\"\"")
                 .contains("form.elements['randomId'].value = randomId")
-                .contains("javascript:addFavorite('${rx2.randomId}'")
-                .doesNotContain("javascript:addFavorite('${loopStatus.index}'");
+                .contains("addFavorite('${rx2.randomId}'")
+                .doesNotContain("addFavorite('${loopStatus.index}'");
     }
 
     @Test

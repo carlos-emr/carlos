@@ -64,6 +64,7 @@ class ProviderWsEndpointTest extends CarlosSoapTestBase {
     protected Object getServiceBean() {
         ProviderWs ws = new ProviderWs();
         injectDependency(ws, "providerManager", mockProviderManager);
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("r", "_pref", "_admin"));
         return ws;
     }
 

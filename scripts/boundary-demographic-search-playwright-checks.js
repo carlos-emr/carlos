@@ -3,7 +3,8 @@
 /*
  * Patient search by names and addresses that carry special characters (wave 6, boundary values).
  * User path: Schedule > Search > type a name or address > Search > sortable result header.
- * Repeat searches in the same popup.
+ * Repeat searches in the same popup. The booking screen's name search from an appointment slot
+ * is not driven here.
  * Asserts: a control search by the plain run tag finds the seeded patients; then a surname with an
  * apostrophe (O'Brien), a first name with an accent (René), a first name in CJK and an address with an
  * apostrophe, and the same address typed through to its ampersand, are each found by the text a user would type. The patients are stored

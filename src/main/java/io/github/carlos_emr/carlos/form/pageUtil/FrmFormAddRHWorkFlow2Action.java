@@ -86,8 +86,8 @@ public class FrmFormAddRHWorkFlow2Action extends ActionSupport {
                 throw new IllegalArgumentException("Invalid RH state");
             }
             boolean owned = false;
-            for (Object candidate : workflows.getActiveWorkFlowList(WorkFlowState.RHWORKFLOW, demographicNo)) {
-                if (workflowId.equals(((java.util.Hashtable) candidate).get("ID"))) owned = true;
+            for (java.util.Map<String, Object> candidate : workflows.getActiveWorkFlowList(WorkFlowState.RHWORKFLOW, demographicNo)) {
+                if (workflowId.equals(candidate.get("ID"))) owned = true;
             }
             if (!owned) throw new IllegalArgumentException("RH workflow does not belong to this patient's active pregnancy");
             workflows.updateWorkFlowState(workflowId, state);

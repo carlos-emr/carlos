@@ -103,7 +103,7 @@ public final class RxUseFavorite2Action extends ActionSupport {
             return NONE;
         }
 
-        // Favourites are provider-owned: only the caller's own may be staged (400/404/403 otherwise),
+        // Favourites are provider-owned: only the caller's own may be staged (400/404 otherwise),
         // so another provider's dosing and instruction text cannot be copied by guessing ids (#3908).
         try {
             RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, this.getFavoriteId());

@@ -85,6 +85,10 @@ class ViewPrintDemographicLabelAuditLoggingUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
+        // mockStatic stubs every LoggedInInfo static, so the require* variant the action now
+        // calls (#2499) returns null unless it is stubbed too.
+        loggedInInfoMock.when(() -> LoggedInInfo.requireLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(loggedInInfo);
     }
 
     @AfterEach
@@ -99,22 +103,22 @@ class ViewPrintDemographicLabelAuditLoggingUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldAuditDemographicRead_whenViewingPrintDemoLabel() throws Exception {
-        assertThat(execute(new ViewPrintDemoLabel2Action())).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(execute(new ViewPrintDemoLabel2Action(securityInfoManager))).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
     void shouldAuditDemographicRead_whenViewingPrintClientLabLabel() throws Exception {
-        assertThat(execute(new ViewPrintClientLabLabel2Action())).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(execute(new ViewPrintClientLabLabel2Action(securityInfoManager))).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
     void shouldAuditDemographicRead_whenViewingPrintDemoChartLabel() throws Exception {
-        assertThat(execute(new ViewPrintDemoChartLabel2Action())).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(execute(new ViewPrintDemoChartLabel2Action(securityInfoManager))).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
     void shouldAuditDemographicRead_whenViewingPrintAddressLabel() throws Exception {
-        assertThat(execute(new ViewPrintAddressLabel2Action())).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(execute(new ViewPrintAddressLabel2Action(securityInfoManager))).isEqualTo(ActionSupport.SUCCESS);
     }
 
     private String execute(ActionSupport action) throws Exception {

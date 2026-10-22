@@ -86,12 +86,19 @@ OSCAR_DEFAULT_MIGRATIONS=(new_flowsheet_enabled workflow_enhance rx_fax_enabled 
     onare_labreqver lab_req_include_chartno use_lab_clientreference ALLOW_UPDATE_DOCUMENT_CONTENT
     displayNotesOnScheduleScreen displayAlertsOnScheduleScreen DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM)
 value=$(grep -E '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" || true); emit cfg.healthTracker "$value"
-migrated_keys_re="^(health_tracker$(printf '|%s' "${OSCAR_DEFAULT_MIGRATIONS[@]}"))="
+# The postinst also resets the two OAuth access-mode keys to their stock
+# default once (.oauth-access-defaults-migrated), whatever they were set to.
+# Keep in step with OAUTH_ACCESS_DEFAULTS in deb-upgrade-verify.sh.
+OAUTH_ACCESS_MIGRATIONS=(oauth.scope.enforcement.enabled oauth.scope.legacy.access)
+migrated_keys_re="^(health_tracker$(printf '|%s' "${OSCAR_DEFAULT_MIGRATIONS[@]}" "${OAUTH_ACCESS_MIGRATIONS[@]}" | sed 's/\./\\./g'))="
 for k in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
     # A key the operator redefined appears more than once; join the lines so
     # the snapshot stays one record per key. Percent-encode '%' and ';' first
     # so one line containing ';' can never read the same as two joined lines.
     value=$(grep -E "^$k=" "$CARLOS_ETC_DIR/carlos.properties" | sed 's/%/%25/g; s/;/%3B/g' | paste -sd';' - || true); emit "cfg.oscarDefault.$k" "$value"
+done
+for k in "${OAUTH_ACCESS_MIGRATIONS[@]}"; do
+    value=$(grep -F "$k=" "$CARLOS_ETC_DIR/carlos.properties" | grep -E "^$(printf '%s' "$k" | sed 's/\./\\./g')=" | sed 's/%/%25/g; s/;/%3B/g' | paste -sd';' - || true); emit "cfg.oauthAccess.$k" "$value"
 done
 value=$(grep -vE "$migrated_keys_re" "$CARLOS_ETC_DIR/carlos.properties" | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
@@ -108,7 +115,7 @@ value=$(sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' "$CARLOS_ETC_DIR/ca
     | grep -vE "$migrated_keys_re" | LC_ALL=C sort | sha256sum) || exit 1
 emit cfg.carlos.properties.active.sha "${value:0:16}"
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
-for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
+for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"
 done
 emit docs.store ok

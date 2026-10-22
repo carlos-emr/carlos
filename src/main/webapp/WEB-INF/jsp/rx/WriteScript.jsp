@@ -867,6 +867,9 @@
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
 
+        <style>
+            .link-button { background: none; border: 0; color: var(--bs-link-color, #0000EE); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+        </style>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="javascript:pageLoad();">
@@ -974,7 +977,46 @@
             String drugId = thisForm.getGCN_SEQNO();
         }
     %>
-    <% regionalIdentifier = thisForm.getRegionalIdentifier(); %>
+    <%
+        /*
+         * The field dump below used to be an HTML comment, which meant the scriptlet
+         * expressions still executed and wrote raw prescription values into the response body.
+         * It is now a JSP comment, so nothing inside it is evaluated -- which is why this
+         * assignment, previously buried at the end of that block, has to live out here.
+         * regionalIdentifier (the DIN) is read further down by the ODB formulary links and the
+         * Limited Use lookup.
+         */
+        regionalIdentifier = thisForm.getRegionalIdentifier();
+    %>
+    <%--
+DemographicNo:   <%= thisForm.getDemographicNo() %><br>
+RxDate:          <%= thisForm.getRxDate() %><br>
+EndDate:         <%= thisForm.getEndDate() %><br>
+WrittenDate:     <%= thisForm.getWrittenDate() %><br>
+GenericName:     <%= thisForm.getGenericName() %><br>
+BrandName:       <%= thisForm.getBrandName() %><br>
+GCN_SEQNO:       <%= thisForm.getGCN_SEQNO() %><br>
+CustomName:      <%= thisForm.getCustomName() %><br>
+TakeMin:         <%= thisForm.getTakeMin() %><br>
+TakeMax:         <%= thisForm.getTakeMax() %><br>
+FrequencyCode:   <%= thisForm.getFrequencyCode() %><br>
+Duration:        <%= thisForm.getDuration() %><br>
+DurationUnit:    <%= thisForm.getDurationUnit() %><br>
+Quantity:        <%= thisForm.getQuantity() %><br>
+Repeat:          <%= thisForm.getRepeat() %><br>
+Nosubs:          <%= String.valueOf(thisForm.getNosubs()) %><br>
+Prn:             <%= String.valueOf(thisForm.getPrn()) %><br>
+Long Term Med:   <%= String.valueOf(thisForm.getLongTerm()) %><br>
+Past Med:	 <%= String.valueOf(thisForm.getPastMed()) %><br>
+Patient Complia: <%= String.valueOf(thisForm.getPatientCompliance()) %><br>
+Dosage:          <%= thisForm.getDosage() %><br>
+Special:         <%= thisForm.getSpecial() %><br>
+ATC:             <%= thisForm.getAtcCode() %><br>
+regional ident:  <%= thisForm.getRegionalIdentifier() %><br>
+Custom Instruct: <%= thisForm.getCustomInstr() %><br>
+Outside ProName: <%= thisForm.getOutsideProviderName() %><br>
+Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
+--%>
     <%
 
         // set patient info
@@ -1063,7 +1105,7 @@
                     <tr>
                         <td>
                             <div class="DivContentSectionHead"><fmt:message key="WriteScript.section2Title"/>
-                                for <%= patient.getFirstName() %> <%= patient.getSurname() %>
+                                for <carlos:encode value='<%= patient.getFirstName() %>' context="html"/> <carlos:encode value='<%= patient.getSurname() %>' context="html"/>
                             </div>
                         </td>
                     </tr>
@@ -1080,18 +1122,18 @@
                                     </td>
                                     <td colspan=2>
                                         <input type="hidden" name="genericName" id="genericName" value="<carlos:encode value='<%= thisForm.getGenericName() %>' context="htmlAttribute"/>"/>
-                                        <b><carlos:encode value="<%= thisForm.getGenericName() %>" context="html"/>
+                                        <b><carlos:encode value='<%= thisForm.getGenericName() %>' context="html"/>
                                         </b>
                                         <%if (compString != null) {%>
                                         <a href="javascript: function myFunction() {return false; }"
-                                           title="<%=compString%>"><fmt:message key="WriteScript.msgComponents"/></a>
+                                           title="<carlos:encode value='<%= compString %>' context="htmlAttribute"/>"><fmt:message key="WriteScript.msgComponents"/></a>
                                         <%}%>
                                     </td>
                                     <td valign=top rowspan=9>
                                         <select size=20 name="selSpecial" ondblclick="javascript:cmdSpecial_click();">
                                             <%for (i = 0; i < spec.length; i++) {%>
-                                            <option value="<%= spec[i] %>">
-                                                <%= spec[i] %>
+                                            <option value="<carlos:encode value='<%= spec[i] %>' context="htmlAttribute"/>">
+                                                <carlos:encode value='<%= spec[i] %>' context="html"/>
                                             </option>
                                             <%}%>
                                         </select>
@@ -1104,12 +1146,12 @@
                                     </td>
                                     <td colspan=2>
                                         <input type="hidden" name="brandName" id="brandName" value="<carlos:encode value='<%= thisForm.getBrandName() %>' context="htmlAttribute"/>"/>
-                                        <b title="<carlos:encode value='<%= thisForm.getRegionalIdentifier() %>' context="htmlAttribute"/>"><carlos:encode value="<%= thisForm.getBrandName() %>" context="html"/>
+                                        <b title="<carlos:encode value='<%= thisForm.getRegionalIdentifier() %>' context="htmlAttribute"/>"><carlos:encode value='<%= thisForm.getBrandName() %>' context="html"/>
                                         </b>
                                         <oscar:oscarPropertiesCheck property="SHOW_ODB_LINK" value="yes">
-                                            <!--a href="javascript: function myFunction() {return false; }" onclick="javascript:popup(700,630,'http://216.176.50.202/formulary/SearchServlet?searchType=singleQuery&phrase=exact&keywords=<%=regionalIdentifier%>','ODBInfo')">ODB info</a-->
+                                            <!--a href="javascript: function myFunction() {return false; }" onclick="javascript:popup(700,630,'http://216.176.50.202/formulary/SearchServlet?searchType=singleQuery&phrase=exact&keywords=<carlos:encode value='<%= regionalIdentifier %>' context="uriComponent"/>','ODBInfo')">ODB info</a-->
                                             <a href="javascript: function myFunction() {return false; }"
-                                               onclick="javascript:popup(725,690,'http://216.176.50.202/formulary/SearchServlet?sort=genericName&section=1&pcg=%25&manufacturerID=%25&keywords=<%=regionalIdentifier%>&searchType=drugID&Search=Search&phrase=exact','ODBInfo')">ODB
+                                               onclick="javascript:popup(725,690,'http://216.176.50.202/formulary/SearchServlet?sort=genericName&section=1&pcg=%25&manufacturerID=%25&keywords=<carlos:encode value='<%= regionalIdentifier %>' context="uriComponent"/>&searchType=drugID&Search=Search&phrase=exact','ODBInfo')">ODB
                                                 info</a>
                                         </oscar:oscarPropertiesCheck>
                                     </td>
@@ -1130,7 +1172,7 @@
                                         <div style="z-index: 0;"><select size=20 name="selSpecial"
                                                                          ondblclick="javascript:cmdSpecial_click();">
                                             <%for (i = 0; i < spec.length; i++) {%>
-                                            <option value="<%= spec[i] %>"><%= spec[i] %>
+                                            <option value="<carlos:encode value='<%= spec[i] %>' context="htmlAttribute"/>"><carlos:encode value='<%= spec[i] %>' context="html"/>
                                             </option>
                                             <%}%>
                                         </select></div>
@@ -1206,8 +1248,8 @@
                                     </select> <select name="frequencyCode" style="width:80px"
                                                                 onchange="javascript:changeDuration();calcQty();">
                                         <%for (i = 0; i < freq.length; i++) {%>
-                                        <option value="<%= freq[i].getFreqCode() %>">
-                                            <%= freq[i].getFreqCode() %>
+                                        <option value="<carlos:encode value='<%= freq[i].getFreqCode() %>' context="htmlAttribute"/>">
+                                            <carlos:encode value='<%= freq[i].getFreqCode() %>' context="html"/>
                                         </option>
                                         <%}%>
                                     </select> <input type="hidden" name="takeMin" id="takeMin" value="<carlos:encode value='<%= thisForm.getTakeMin() %>' context="htmlAttribute"/>"/>
@@ -1393,7 +1435,7 @@
                                                     </div>
                                                     <oscar:oscarPropertiesCheck property="billregion" value="ON">
                                                         <a target="_new"
-                                                           href="https://www.healthinfo.moh.gov.on.ca/formulary/SearchServlet?searchType=drugID&keywords=<%=regionalIdentifier%>">ODB
+                                                           href="https://www.healthinfo.moh.gov.on.ca/formulary/SearchServlet?searchType=drugID&keywords=<carlos:encode value='<%= regionalIdentifier %>' context="uriComponent"/>">ODB
                                                             lookup</a>
                                                         <%
                                                             ArrayList<LimitedUseCode> luList = LimitedUseLookup.getLUInfoForDin(regionalIdentifier);
@@ -1481,8 +1523,8 @@
                                     for (int allergIndex = 0; allergIndex < allerg.length; allergIndex++) {
                             %>
                             <div style="background-color:<%=severityOfReactionColor(allerg[allergIndex].getSeverityOfReaction())%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;">
-                                <b>Allergy:</b> <%= allerg[allergIndex].getDescription() %> <b>Reaction:</b>
-                                <%= allerg[allergIndex].getReaction() %>
+                                <b>Allergy:</b> <carlos:encode value='<%= allerg[allergIndex].getDescription() %>' context="html"/> <b>Reaction:</b>
+                                <carlos:encode value='<%= allerg[allergIndex].getReaction() %>' context="html"/>
                                 <b>Severity:</b> <%=severityOfReaction(allerg[allergIndex].getSeverityOfReaction())%>
                                 <b>Onset of Reaction:</b> <%=onSetOfReaction(allerg[allergIndex].getOnsetOfReaction())%>
                             </div>
@@ -1557,30 +1599,30 @@
                                                     </c:otherwise>
                                                 </c:choose>
                                                 <td>
-                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         <fmt:message key="WriteScript.msgEdit"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'delete');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'delete');">
                                                         <fmt:message key="WriteScript.msgDelete"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         ${carlos:forHtml(rx.rxDisplay)}
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:ShowDrugInfo('<carlos:encode value='${rx2.genericName}' context="javaScriptAttribute"/>', '<carlos:encode value='${rx2.regionalIdentifier}' context="javaScriptAttribute"/>');">
+                                                    <a href="${pageContext.request.contextPath}/rx/drugInfo?GN=${carlos:forUriComponent(rx2.genericName)}<c:if test="${not empty rx2.regionalIdentifier and rx2.regionalIdentifier ne 'null' and rx2.regionalIdentifier ne '0'}">&amp;DIN=${carlos:forUriComponent(rx2.regionalIdentifier)}</c:if>" onclick="ShowDrugInfo('${carlos:forJavaScriptAttribute(rx2.genericName)}', '${carlos:forJavaScriptAttribute(rx2.regionalIdentifier)}'); return false;">
                                                         <fmt:message key="WriteScript.msgInfo"/>
                                                     </a>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
+                                                    <button type="button" class="link-button" onclick="addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScriptAttribute"/>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 </tr>
                                             </c:forEach>

@@ -1573,7 +1573,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                                     <option value="<%=i%>"
                                                             <% if ( rxAddr != null && rxAddr.equals(""+i)){ %>SELECTED<%}%>
-                                                    ><%=te%>
+                                                    ><carlos:encode value='<%= te %>' context="html"/>
                                                     </option>
                                                     <% }%>
 
@@ -1726,7 +1726,9 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
 
                                         <%}%>
-                                        <% if (CarlosProperties.getInstance().isRxSignatureEnabled()) { %>
+                                        <% if (CarlosProperties.getInstance().isRxSignatureEnabled()
+                                                && loggedInInfo.getCurrentFacility() != null
+                                                && loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) { %>
                                         <%-- Topaz signature pad check removed - HTML5 signature is now standard --%>
                                         <%-- The pad is hidden once the script carries a stored signature, EXCEPT when that
                                              signature is the prescriber's stamp applied automatically on write: the stamp is
@@ -1758,8 +1760,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         %>
                                         <tr>
                                             <td><span><a
-                                                    href="javascript:ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptAttribute"/>');">
-						<carlos:encode value="<%= rx.getGenericName() %>" context="html"/> (<carlos:encode value="<%= rx.getBrandName() %>" context="html"/>) </a></span></td>
+                                                    href="${pageContext.request.contextPath}/rx/drugInfo?GN=<carlos:encode value='<%= rx.getGenericName() %>' context="uriComponent"/><% if (rx.getRegionalIdentifier() != null && !rx.getRegionalIdentifier().isEmpty() && !"null".equals(rx.getRegionalIdentifier()) && !"0".equals(rx.getRegionalIdentifier())) { %>&amp;DIN=<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="uriComponent"/><% } %>" onclick="ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptAttribute"/>'); return false;">
+						<carlos:encode value='<%= rx.getGenericName() %>' context="html"/> (<carlos:encode value='<%= rx.getBrandName() %>' context="html"/>) </a></span></td>
                                         </tr>
                                         <%
                                                 }

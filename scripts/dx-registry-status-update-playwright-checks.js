@@ -222,7 +222,9 @@ async function workflow(s) {
       await report.locator('select[name="quickListName"]').selectOption(quickList);
       await submit(report.getByRole('button', { name: 'Add', exact: true }));
       assert(await codeRows().count() === 3, 'Mixed-case list/manual codes produced duplicate report criteria');
-      const matching = codeRows().filter({ has: report.locator('td', { hasText: new RegExp(`^${alphabeticCode}$`, 'i') }) });
+      // alphabeticCode is built from the run marker with every non-[a-z0-9] character removed, so the
+      // pattern is a literal alphanumeric anchor with no regex metacharacters to backtrack on.
+      const matching = codeRows().filter({ has: report.locator('td', { hasText: new RegExp(`^${alphabeticCode}$`, 'i') }) }); // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- alphabeticCode is alphanumeric only (line 36), so no ReDoS is possible
       assert(await matching.count() === 1, 'The alphabetic code appears more than once');
     }
     assert(JSON.stringify(sql.rows(`SELECT dxresearch_no,dxresearch_code,status FROM dxresearch

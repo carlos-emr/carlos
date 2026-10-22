@@ -35,9 +35,6 @@ import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 
 import jakarta.persistence.Query;
-import jakarta.persistence.LockModeType;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.Date;
 import java.util.List;
 
@@ -45,17 +42,6 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
 
     public AllergyDaoImpl() {
         super(Allergy.class);
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.MANDATORY)
-    public Allergy findForUpdate(Integer id) {
-        Allergy allergy = entityManager.find(Allergy.class, id, LockModeType.PESSIMISTIC_WRITE);
-        if (allergy != null) {
-            // A prior ownership read may already have cached this entity in the request's context.
-            entityManager.refresh(allergy, LockModeType.PESSIMISTIC_WRITE);
-        }
-        return allergy;
     }
 
     @Override
@@ -199,5 +185,21 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
                 """);
         query.setParameter("demoNo", demographicNo);
         return query.getResultList();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>A bulk update bypasses the entity's {@code @PreUpdate} hook, so {@code lastUpdateDate}
+     * is set here: integrator and REST sync read changes by that column.</p>
+     */
+    @Override
+    public int archiveIfActive(Integer allergyId, Integer demographicNo) {
+        Query query = entityManager.createQuery("update Allergy x set x.archived = true, x.lastUpdateDate = ?1"
+                + " where x.id = ?2 and x.demographicNo = ?3 and x.archived = false");
+        query.setParameter(1, new Date());
+        query.setParameter(2, allergyId);
+        query.setParameter(3, demographicNo);
+        return query.executeUpdate();
     }
 }
