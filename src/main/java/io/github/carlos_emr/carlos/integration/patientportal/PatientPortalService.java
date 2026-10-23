@@ -40,6 +40,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.BooleanSupplier;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ContentType;
@@ -101,7 +102,8 @@ public class PatientPortalService implements Closeable {
             "another invite delivery is being prepared", "invite delivery is not committed",
             "booking prompt not found", PatientPortalService.CHOICE_NOT_PENDING_DETAIL,
             PatientPortalService.CHOICE_WITHDRAWN_DETAIL, PatientPortalService.CHOICE_EXPIRED_DETAIL,
-            PatientPortalService.CHOICE_RESULT_CONFLICT_DETAIL);
+            PatientPortalService.CHOICE_RESULT_CONFLICT_DETAIL,
+            "key_missing", "key_revoked", "key_changed");
 
     /**
      * The portal's {@code 409} details for a choice result (carlos-portal README, "Offered times").
@@ -140,6 +142,8 @@ public class PatientPortalService implements Closeable {
     private static final String REVIEW_DECISION_PATH =
             "/internal/carlos/contact-reviews/%d/decision";
 
+    private static final String CLINIC_KEYS_PATH = "/internal/carlos/mycarlos/clinic-keys";
+    private static final String PUT = "PUT";
     private static final String GET = "GET";
     private static final String POST = "POST";
     private static final int OK = 200;
@@ -159,6 +163,7 @@ public class PatientPortalService implements Closeable {
     private final PatientPortalSettings settings;
     private final PatientPortalHttpExchange exchange;
     private final PortalStaffAssertionSigner assertionSigner;
+    private final BooleanSupplier myCarlosDeliveryEnabled;
     private final ObjectMapper objectMapper = new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
     public PatientPortalService(PatientPortalSettings settings) {
@@ -167,7 +172,8 @@ public class PatientPortalService implements Closeable {
                 settings == null ? null : new PatientPortalHttpClientExchange(settings),
                 settings == null
                         ? null
-                        : PortalStaffAssertionSigner.from(settings.staffAssertionPrivateKey()));
+                        : PortalStaffAssertionSigner.from(settings.staffAssertionPrivateKey()),
+                PortalMyCarlosDeliverySettings::isEnabled);
     }
 
     /** Test seam: lets the authenticated envelope be asserted without a socket. */
@@ -185,6 +191,18 @@ public class PatientPortalService implements Closeable {
             PatientPortalSettings settings,
             PatientPortalHttpExchange exchange,
             PortalStaffAssertionSigner assertionSigner) {
+        this(settings, exchange, assertionSigner, () -> false);
+    }
+
+    /** Test seam: enables only the isolated myCarlos channel, without deployment properties. */
+    PatientPortalService(
+            PatientPortalSettings settings,
+            PatientPortalHttpExchange exchange,
+            PortalStaffAssertionSigner assertionSigner,
+            BooleanSupplier myCarlosDeliveryEnabled) {
+        if (myCarlosDeliveryEnabled == null) {
+            throw new PatientPortalConfigurationException("myCarlos delivery switch is required");
+        }
         if (settings == null) {
             throw new PatientPortalConfigurationException("patient portal settings are required");
         }
@@ -198,6 +216,30 @@ public class PatientPortalService implements Closeable {
         this.settings = settings;
         this.exchange = exchange;
         this.assertionSigner = assertionSigner;
+        this.myCarlosDeliveryEnabled = myCarlosDeliveryEnabled;
+    }
+
+    /**
+     * Publishes an explicit complete inventory of clinic document-signing public keys.
+     *
+     * <p>The documented myCarlos switch defaults off. This method has no scheduler or inventory
+     * source: callers must include historical revoked keys, and use the separate key-publish job.
+     * A transport failure may follow a successful publication; repeat the identical full inventory.
+     *
+     * @throws PortalRequestPreparationException when disabled, missing an inventory, or given another job
+     * @throws PatientPortalException when transport fails or the portal refuses or misstates the publication
+     */
+    public PatientPortalClinicKeysPublishResult publishClinicKeys(
+            PatientPortalClinicKeysPublishRequest inventory, PortalJobAssertionSigner job) {
+        if (!myCarlosDeliveryEnabled.getAsBoolean()) {
+            throw new PortalRequestPreparationException("myCarlos delivery is disabled");
+        }
+        if (inventory == null) {
+            throw new PortalRequestPreparationException("clinic public key inventory is required");
+        }
+        Caller caller = keyPublish(job);
+        return fetch(PUT, CLINIC_KEYS_PATH, inventory.toJson(objectMapper).toString(), OK, caller,
+                payload -> PatientPortalClinicKeysPublishResult.fromJson(payload, settings.clinicId(), inventory));
     }
 
     /** Reads saved attempts using only the administrator read attestation and fixed audit endpoint. */
@@ -981,11 +1023,18 @@ public class PatientPortalService implements Closeable {
      */
     private JsonNode parsed(PatientPortalHttpResponse response, String template) {
         JsonNode payload;
+        boolean clinicPublication = CLINIC_KEYS_PATH.equals(template);
         try {
-            payload = objectMapper.readTree(response.body());
+            // A publication acknowledgment must not choose between duplicate identity fields.
+            payload = clinicPublication
+                    ? objectMapper.reader().with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                            .readTree(response.body())
+                    : objectMapper.readTree(response.body());
         } catch (JsonProcessingException exception) {
-            throw PatientPortalException.ofMalformedResponse(
-                    response.statusCode(), template, exception);
+            throw PatientPortalException.ofMalformedResponse(response.statusCode(), template,
+                    clinicPublication
+                            ? new PortalContractException("clinic key acknowledgment is not valid JSON")
+                            : exception);
         }
         if (payload == null || !payload.isContainerNode()) {
             throw PatientPortalException.ofMalformedResponse(
@@ -1069,6 +1118,15 @@ public class PatientPortalService implements Closeable {
         }
         return (request, method, uri, body) -> request.setHeader(JOB_ASSERTION_HEADER,
                 job.sign(PortalJob.PERMISSION_BOOKING_PROMPT_SYNC, settings.clinicId(), method, uri, body));
+    }
+
+    /** The publisher authenticates with its own Ed25519 job key, never a clinic document key. */
+    private Caller keyPublish(PortalJobAssertionSigner job) {
+        if (job == null || job.job() != PortalJob.KEY_PUBLISH) {
+            throw new PortalRequestPreparationException("clinic keys must be published by the key-publish job");
+        }
+        return (request, method, uri, body) -> request.setHeader(JOB_ASSERTION_HEADER,
+                job.sign(PortalJob.PERMISSION_CLINIC_KEYS_PUBLISH, settings.clinicId(), method, uri, body));
     }
 
     private URI resolve(String path) {
