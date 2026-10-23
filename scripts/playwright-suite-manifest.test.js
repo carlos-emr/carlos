@@ -864,7 +864,10 @@ test('shouldFailASkip_inItsOwnProfileRun', () => {
   const legacy = expectingCheck({ profile: 'legacy-teleplan', expectedFailure: undefined });
   const skipped = runOne(legacy, { env: {}, profile: 'legacy-teleplan' }, child({ status: 2 }));
   assert.equal(skipped.outcome, 'FAIL');
-  assert.match(skipped.detail, /not a BC install with NEW_BC_TELEPLAN=no/);
+  assert.match(skipped.detail, /skipped in its own --profile legacy-teleplan run/);
+  assert.match(skipped.detail, /needs a BC install with NEW_BC_TELEPLAN=no/);
+  // The skip's own reason stays: a missing fixture or tool skips a profile check too.
+  assert.match(skipped.detail, /a fixture or credential this check needs is not configured/);
   const plainSkip = runOne(expectingCheck({ expectedFailure: undefined }), { env: {} }, child({ status: 2 }));
   assert.equal(plainSkip.outcome, 'SKIP');
 });

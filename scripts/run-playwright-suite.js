@@ -469,7 +469,9 @@ function runOne(check, options, run = spawnSync) {
     if (raw.outcome === 'SKIP' && options.profile && check.profile === options.profile) {
       raw = {
         outcome: 'FAIL',
-        detail: `skipped in its own --profile ${options.profile} run, so the install is not ${PROFILES[options.profile]}`,
+        // Keep the check's own reason: the profile is one cause, a missing fixture or tool is another.
+        detail: `skipped in its own --profile ${options.profile} run (${raw.detail || 'no reason given'}); `
+          + `a profile run needs ${PROFILES[options.profile]}`,
       };
     }
     return { name: check.name, ...classifyResult(check, raw), durationMs, ...(browserVersion ? { browserVersion } : {}) };

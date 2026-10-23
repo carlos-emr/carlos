@@ -61,6 +61,8 @@
 #   down          remove the container (the image is kept)
 #   print-preseed print the debconf preseed this run would use
 #   print-suite-province  print the --province the suite would filter on
+#   print-profile-edit NAME  print the carlos.properties edit `profile NAME` makes
+#                 (shell text that edits the file named by $P)
 #   cgroup-mode   print how the host's cgroup hierarchy would be mounted
 #
 # Environment:
@@ -446,6 +448,13 @@ cmd_suite() {
   require_disposable
   mkdir -p "$LOG_DIR"
   [ "$#" -gt 0 ] || set -- --tier smoke
+  # The run must match the configuration the install is in: an install left in a
+  # profile skips the checks that profile cannot run, and a skip passes.
+  local active requested='' prev='' arg
+  active=$(active_profile)
+  for arg in "$@"; do [ "$prev" = --profile ] && requested=$arg; prev=$arg; done
+  [ "${active:-default}" = "${requested:-default}" ] \
+    || die "the install is in profile '${active:-default}' but the run asks for '${requested:-default}': run 'suite --profile ${active:-default}' or 'profile ${requested:-default}' first"
   # Select only checks for the installed province (and province-neutral ones),
   # unless the caller chose a province.
   local province
@@ -486,13 +495,43 @@ cmd_audit() {
 # switches in a row never keep the first profile's line as if it were the install's own.
 PROFILE_MARK='# carlos-validation-profile:'
 PROFILE_WAS='#carlos-validation-profile-was: '
-cmd_profile() {
-  local name="${1:-}" key='' value=''
-  case "$name" in
-    legacy-teleplan) key=NEW_BC_TELEPLAN; value=no ;;
+# Sets PROFILE_KEY and PROFILE_VALUE to the one carlos.properties setting profile $1
+# replaces (none for default). Not in a subshell, so an unknown name stops the script.
+select_profile() {
+  PROFILE_KEY='' PROFILE_VALUE=''
+  case "$1" in
+    legacy-teleplan) PROFILE_KEY=NEW_BC_TELEPLAN; PROFILE_VALUE=no ;;
     default) ;;
-    *) die "profile must be legacy-teleplan or default (got '$name')" ;;
+    *) die "profile must be legacy-teleplan or default (got '$1')" ;;
   esac
+}
+
+# The edit `profile NAME` makes to the properties file named by $P, as shell text:
+# undo any earlier profile byte for byte, then (for a non-default profile) comment out
+# the setting and append the marker and the replacement.
+profile_edit() {
+  select_profile "$1"
+  cat <<PROFILE_EDIT
+sed -i -E '/^$PROFILE_MARK /{N;d}' "\$P"
+sed -i -E 's/^$PROFILE_WAS//' "\$P"
+if [ -n '$PROFILE_KEY' ]; then
+  sed -i -E 's/^($PROFILE_KEY[[:space:]]*[=:].*)\$/$PROFILE_WAS\1/' "\$P"
+  # Without a final newline the marker would join the file's last line, and the
+  # next 'profile default' would not find it to remove.
+  [ -z "\$(tail -c 1 "\$P")" ] || echo >> "\$P"
+  printf '%s\n' '$PROFILE_MARK $1' '$PROFILE_KEY=$PROFILE_VALUE' >> "\$P"
+fi
+PROFILE_EDIT
+}
+
+# The profile the install was last switched to ('' when it runs the default configuration).
+active_profile() {
+  in_container "sed -n -E 's/^$PROFILE_MARK //p' /etc/carlos-emr/carlos.properties | tail -n 1" 2>/dev/null || true
+}
+
+cmd_profile() {
+  local name="${1:-}"
+  select_profile "$name"
   require_disposable
   mkdir -p "$LOG_DIR"
   if [ "$name" = legacy-teleplan ]; then
@@ -503,15 +542,10 @@ cmd_profile() {
   in_container "
     set -e
     P=/etc/carlos-emr/carlos.properties
-    sed -i -E '/^$PROFILE_MARK /{N;d}' \"\$P\"
-    sed -i -E 's/^$PROFILE_WAS//' \"\$P\"
-    if [ -n '$key' ]; then
-      sed -i -E 's/^($key[[:space:]]*[=:].*)\$/$PROFILE_WAS\1/' \"\$P\"
-      printf '%s\\n' '$PROFILE_MARK $name' '$key=$value' >> \"\$P\"
-    fi
+    $(profile_edit "$name")
     carlos-ctl restart" >"$LOG_DIR/profile-$name.log" 2>&1 || die "switching to profile $name failed; see $LOG_DIR/profile-$name.log"
   wait_front_door
-  say "profile $name: ${key:+$key=$value, }the application was restarted"
+  say "profile $name: ${PROFILE_KEY:+$PROFILE_KEY=$PROFILE_VALUE, }the application was restarted"
 }
 
 main() {
@@ -526,6 +560,7 @@ main() {
     down) require_disposable; docker rm -f "$CONTAINER" >/dev/null && say "removed $CONTAINER" ;;
     print-preseed) preseed ;;
     print-suite-province) suite_province; echo ;;
+    print-profile-edit) profile_edit "${1:-}" ;;
     cgroup-mode) cgroup_mode ;;
     -h|--help|help|'') usage ;;
     *) usage >&2; exit 2 ;;
