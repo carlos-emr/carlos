@@ -416,7 +416,8 @@
                 <td>
 
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                        <!--r>
+                        <%-- Kept out of the page as a JSP comment: in an HTML comment a saved value holding "-->" ended it early.
+                        <tr>
       <td width="55%" >DATE
 		<img src="<%= request.getContextPath() %>/images/cal.gif" id="pg1_formDate_cal">
           <%=bSync? ("<b><a href=# onClick='syncDemo(); return false;'><font color='red'>Synchronize</font></a></b>") :"" %>
@@ -424,7 +425,8 @@
       <input type="text" name="pg1_formDate" style="width:100%" size="10" maxlength="10" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_formDate", "")) %>" @oscar.formDB dbType="date" />
       </td>
       <td >      </td>
-    </tr-->
+    </tr>
+                        --%>
                         <tr>
                             <td>GIVEN NAME<br>
                                 <input type="text" name="c_givenName" style="width: 100%" size="30"
@@ -435,7 +437,8 @@
                                        maxlength="30" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_surname", "")) %>"
                                        @oscar.formDB/></td>
                         </tr>
-                        <!--tr>
+                        <%-- Kept out of the page as a JSP comment, as the date row above.
+                        <tr>
       <td>ADDRESS<br>
       <input type="text" name="c_address" style="width:100%" size="50" maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_address", "")) %>" @oscar.formDB />
       <input type="text" name="c_city" style="width:100%" size="50" maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_city", "")) %>" @oscar.formDB />
@@ -447,7 +450,8 @@
 		PHN<br>
       <input type="text" name="c_phn" style="width:100%" size="20" maxlength="20" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phn", "")) %>" @oscar.formDB />
 	  </td>
-    </tr-->
+    </tr>
+                        --%>
                     </table>
 
                 </td>

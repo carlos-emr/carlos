@@ -39,3 +39,14 @@ for (const wrapper of WRAPPERS) {
     assert.match(src, new RegExp(`getRequestDispatcher\\("/WEB-INF/jsp/form/${wrapper.prefix}" \\+ lastVisited`));
   });
 }
+
+for (const wrapper of WRAPPERS) {
+  test(`each ${wrapper.prefix} page saves itself as the page to reopen on`, () => {
+    // A page that posts another page's name can never be reopened on: BC-NewBorn 2008 pages 2 and 3 posted "pg1".
+    for (let n = 1; n <= wrapper.pages; n++) {
+      const src = fs.readFileSync(path.join(FORM_DIR, `${wrapper.prefix}pg${n}.jsp`), 'utf8');
+      const posted = [...src.matchAll(/name="c_lastVisited"\s+value="([^"]*)"/g)].map(m => m[1]);
+      assert.deepEqual(posted, [`pg${n}`], `${wrapper.prefix}pg${n}.jsp posts c_lastVisited ${JSON.stringify(posted)}`);
+    }
+  });
+}

@@ -2950,7 +2950,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                         </tr>
                         <tr>
                             <td><span class="small9"><fmt:message key="form.bcar.doula"/>:</span></td>
-                            <td
+                            <td>
                             <input type="text" name="pg3_doula" style="width:100%" size="50" maxlength="100"
                                    value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_doula", "")) %>" @oscar.formDB/>
                 </td>
