@@ -9689,12 +9689,8 @@
         "LAB_UPLOAD_JOURNAL_UNIT",
         "LAB_UPLOAD_SERVER_LOG"
       ],
-      "fixtures": "The owned synthetic patient and one session-only custom drug. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host. Server log prerequisite: LAB_UPLOAD_JOURNAL_UNIT (carlos-emr on the package) or LAB_UPLOAD_SERVER_LOG, readable by the runner; missing historical DIN must fall back without a DrugRef exception. Run against an otherwise idle installation so its journal window contains only this lookup.",
-      "notes": "Exercises the real saved-product Info popup and local reference search. The missing-DIN fallback still logs DrugRef NoResultException (#5006, finding 311); #5023/#5027 did not change the pinned DrugRef absence path. Requires a readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG; the whole check explicitly skips without it.",
-      "expectedFailure": {
-        "finding": 311,
-        "step": "missing DIN fallback does not log a DrugRef server exception"
-      }
+      "fixtures": "The owned synthetic patient and the one DrugRef product (RX_INFO_DRUG_TERM / RX_INFO_DRUG_NAME, default LIPITOR 20MG) saved for it through the Rx page; cleanup deletes the patient's drug and prescription rows and asserts them gone. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host. Server log prerequisite: LAB_UPLOAD_JOURNAL_UNIT (carlos-emr on the package) or LAB_UPLOAD_SERVER_LOG, readable by the runner; missing historical DIN must fall back without a DrugRef exception. Run against an otherwise idle installation so its journal window contains only this lookup.",
+      "notes": "Exercises the real saved-product Info popup and local reference search. The missing-DIN fallback must not log a DrugRef server exception (#5006, finding 311): it needs carlos-emr-drugref built at or past the revision in debian/drugref.pin, which answers an unknown DIN with an empty array. Requires a readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG; the whole check explicitly skips without it."
     },
     {
       "name": "gap-encounter-rx-quantity-price",
