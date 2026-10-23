@@ -38,6 +38,14 @@
             <exception-mapping exception="java.lang.Exception" result="error"/>
         </global-exception-mappings>
 
+        <action name="clinical/AiSummaryPrototype" class="io.github.carlos_emr.carlos.clinical.summary.web.AiClinicalSummaryPrototype2Action">
+            <result name="success">/WEB-INF/jsp/clinical/aiSummaryPrototype.jsp</result>
+        </action>
+        <action name="clinical/GenerateAiSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiClinicalSummaryPrototype2Action" method="generate">
+            <result name="success">/WEB-INF/jsp/clinical/aiSummaryPrototype.jsp</result>
+            <allowed-methods>generate</allowed-methods>
+        </action>
+
         <action name="encounter/decisionSupport/guidelineAction" class="io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action" method="execute">
             <result name="guidelineList">/WEB-INF/jsp/encounter/decisionSupport/guidelineList.jsp</result>
             <result name="guidelineDetail">/WEB-INF/jsp/encounter/decisionSupport/guidelineDetail.jsp</result>
