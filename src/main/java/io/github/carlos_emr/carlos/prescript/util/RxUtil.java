@@ -200,6 +200,8 @@ public class RxUtil {
      * product count, as in "1000 mg = 2 tabs".
      */
     private static final String COMPARISON_CHARACTERS = "<>\u2264\u2265";
+    /** Words that write a threshold ("if SBP greater than 140", "if BP over 140"): the amount after them is not a dose. */
+    private static final Set<String> THRESHOLD_WORDS = Set.of("than", "over", "above", "below", "under");
     /** The largest denominator of a fraction read as a dose on its own: halves to eighths, including sixths. */
     private static final BigDecimal LARGEST_DOSE_FRACTION_DENOMINATOR = BigDecimal.valueOf(8);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
@@ -2204,10 +2206,11 @@ public class RxUtil {
     }
 
     /**
-     * True when a date word ({@code starting 3-15}, {@code on 1/4}, {@code until 11/12}) or a
-     * comparison operator ({@code > 140}, {@code >= 140}, {@code < 90/60}) introduces the amount
-     * that starts at {@code start}: the amount is a date or a threshold, not a dose, whatever follows
-     * it. A lone {@code =} is not a comparison ({@code 1000 mg = 2 tabs}).
+     * True when a date word ({@code starting 3-15}, {@code on 1/4}, {@code until 11/12}), a
+     * comparison operator ({@code > 140}, {@code >= 140}, {@code < 90/60}) or a threshold word
+     * ({@code greater than 140}, {@code over 140}, {@code below 60}) introduces the amount that starts
+     * at {@code start}: the amount is a date or a threshold, not a dose, whatever follows it. A lone
+     * {@code =} is not a comparison ({@code 1000 mg = 2 tabs}).
      */
     private static boolean isDatedOrCompared(String instructions, int start) {
         int operatorEnd = skipWhitespaceBackward(instructions, start);
@@ -2217,7 +2220,8 @@ public class RxUtil {
         if (operatorEnd > 0 && COMPARISON_CHARACTERS.indexOf(instructions.charAt(operatorEnd - 1)) >= 0) {
             return true;
         }
-        return DATE_WORDS.contains(lowerCase(wordBefore(instructions, start)));
+        String word = lowerCase(wordBefore(instructions, start));
+        return DATE_WORDS.contains(word) || THRESHOLD_WORDS.contains(word);
     }
 
     /**

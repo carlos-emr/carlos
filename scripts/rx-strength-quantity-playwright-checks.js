@@ -131,6 +131,7 @@ async function workflow(s) {
     ['Take 1 tab po if SBP > 140 bid x 30 days', 1, 1, '60', 'BID', '30'],
     ['1000 mg = 2 tabs po bid x 7 days', 2, 2, '28', 'BID'],
     ['Take 1 tab po if SBP >= 140 BID x 30 days', 1, 1, '60', 'BID', '30'],
+    ['Take 1 tab po if SBP greater than 140 bid x 30 days', 1, 1, '60', 'BID', '30'],
     ['Take 1 tab po daily until 11/12', 1, 1, '0', 'OD', '0'],
     ['Take 1 1/2 hr before meals 1 tab po bid x 7 days', 1, 1, '14', 'BID'],
     ['Take 30 min before meals 1 tab po bid x 7 days', 1, 1, '14', 'BID'],

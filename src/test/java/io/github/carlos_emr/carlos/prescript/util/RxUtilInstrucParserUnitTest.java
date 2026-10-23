@@ -334,8 +334,9 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
          * leading range is kept instead of the trailing half. A fraction written as a schedule or
          * a ratio ("x 3/7", "140/90") never replaces an explicit leading count, and after a strength a
          * date or a comparison ("starting 3/15", "on 1/4", "> 90/140") is not the dose either, whether
-         * the route is written before it or right after it ("starting 3/15 PO"), and a hyphenated date
-         * ("starting 3-15 PO") is not a dose range. An amount that
+         * the route is written before it or right after it ("starting 3/15 PO"), a hyphenated date
+         * ("starting 3-15 PO") is not a dose range, and a threshold ("if SBP >= 140", "greater than
+         * 140", "over 140") is not a dose before the frequency either. An amount that
          * measures a time ("2 1/2 hours before meals", "30 min before meals") is not a dose; the dose
          * is the one explicit amount written after it, if any.
          */
@@ -372,6 +373,12 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1000 mg po if SBP >= 140 bid x 30 days | 1 | 1 | 60",
             "1000 mg if SBP <= 140 PO bid x 30 days | 1 | 1 | 60",
             "1000 mg if BP >= 90/140 PO bid x 30 days | 1 | 1 | 60",
+            "Take 1 tab po if SBP greater than 140 bid x 30 days | 1 | 1 | 60",
+            "1000 mg po if BP over 140 bid x 30 days | 1 | 1 | 60",
+            "1000 mg if glucose above 10 PO bid x 30 days | 1 | 1 | 60",
+            "Take 1 tab po if HR below 60 daily x 30 days | 1 | 1 | 30",
+            "Take 1-2 tabs po q4h prn not to exceed 8 daily x 5 days | 1 | 2 | 60",
+            "Take 1 tab po q4h prn max 6 daily x 5 days | 1 | 1 | 30",
             "1000 mg = 2 tabs po bid x 7 days | 2 | 2 | 28",
             "Take 1000 mg (= 2 tabs) po bid x 7 days | 2 | 2 | 28",
             "500 mg = 1/2 tab po bid x 7 days | 0.5 | 0.5 | 7",
