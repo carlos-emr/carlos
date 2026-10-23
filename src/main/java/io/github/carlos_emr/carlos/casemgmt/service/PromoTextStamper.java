@@ -30,7 +30,9 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 
 import java.util.Objects;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
 import org.openpdf.text.Document;
+import org.openpdf.text.Font;
 import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfWriter;
 
@@ -74,12 +76,10 @@ public class PromoTextStamper extends FooterSupport {
         float width = document.getPageSize().getWidth();
         float center = width / 2.0f;
 
-        cb.beginText();
-        cb.setFontAndSize(getFont(), getFontSize());
-
-        cb.setTextMatrix(document.left(), textBase);
-        cb.showTextAligned(PdfContentByte.ALIGN_CENTER, text, center, textBase, 0);
-        cb.endText();
+        // Configured clinic text can be in any script; draw characters the footer face lacks in
+        // the bundled fallback faces rather than dropping them (#5046).
+        PdfFonts.showTextAligned(cb, PdfContentByte.ALIGN_CENTER, text, new Font(getFont(), getFontSize()),
+                center, textBase, 0);
         cb.restoreState();
     }
 

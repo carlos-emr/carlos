@@ -10,6 +10,8 @@ import org.openpdf.text.Font;
 import org.openpdf.text.Paragraph;
 import org.openpdf.text.Phrase;
 import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
 
 /**
  * Embedded fonts for clinical PDF text. The standard PDF Latin font families are
@@ -146,6 +148,28 @@ public final class PdfFonts {
         Paragraph paragraph = new Paragraph("", font);
         addText(paragraph, text, font);
         return paragraph;
+    }
+
+    /**
+     * Draws one line of text at a point, as {@code PdfContentByte.showTextAligned} does, but with
+     * the fallback faces of {@link #addText}. The baseline sits at {@code y}; call it outside
+     * {@code beginText()}/{@code endText()}.
+     *
+     * @param canvas the content to draw on
+     * @param alignment {@code Element.ALIGN_LEFT}, {@code ALIGN_CENTER} or {@code ALIGN_RIGHT}
+     *                  (the {@code PdfContentByte} constants share these values)
+     * @param text the text, or {@code null}/empty to draw nothing
+     * @param font the font for the characters it can draw
+     * @param x the reference point's horizontal position
+     * @param y the baseline
+     * @param rotation the rotation in degrees
+     */
+    public static void showTextAligned(PdfContentByte canvas, int alignment, String text, Font font,
+            float x, float y, float rotation) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        ColumnText.showTextAligned(canvas, alignment, phrase(text, font), x, y, rotation);
     }
 
     /** Groups consecutive characters drawn by the same face into one chunk. */

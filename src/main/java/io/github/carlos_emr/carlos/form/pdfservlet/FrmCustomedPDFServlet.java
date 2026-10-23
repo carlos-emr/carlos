@@ -676,7 +676,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             // characters the base font lacks (the prescriber's name in Chinese, Japanese or Korean)
             // are drawn in the bundled fallback faces rather than dropped (#5046). The PdfContentByte
             // and Element alignment constants share their values.
-            ColumnText.showTextAligned(cb, alignment, PdfFonts.phrase(text, new Font(bf, fontSize)), x, y, rotation);
+            PdfFonts.showTextAligned(cb, alignment, text, new Font(bf, fontSize), x, y, rotation);
         }
 
         private String geti18nTagValue(Locale locale, String tag) {

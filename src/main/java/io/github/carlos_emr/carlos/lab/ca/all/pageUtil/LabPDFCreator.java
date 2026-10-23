@@ -1193,8 +1193,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 				String pageIdentifier = getPageIdentifier();
                 // The identifier names the patient; draw it through a phrase so characters the
                 // base font lacks fall back to the bundled faces instead of vanishing (#5046).
-                ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT, PdfFonts.phrase(pageIdentifier, new Font(bf, 8)),
-                        575, height - 30, 0);
+                PdfFonts.showTextAligned(cb, Element.ALIGN_RIGHT, pageIdentifier, new Font(bf, 8), 575, height - 30, 0);
 
             }
 
