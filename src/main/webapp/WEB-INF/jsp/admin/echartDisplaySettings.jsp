@@ -39,6 +39,9 @@
     Gated on the general "_admin" privilege (see EchartDisplaySettings2Action for why
     "_admin.encounter" is not used).
 
+    The page also edits the ChartSpace clinic default layout (SystemPreferences key
+    chartspace_default_layout), validated by the action against ChartSpaceLayout.
+
     @since 2026-09-18
 --%>
 <!DOCTYPE HTML>
@@ -94,6 +97,31 @@
                 <div class="form-text text-muted">
                     <fmt:message key="admin.echartDisplaySettings.displayOceanUIHelp"/>
                 </div>
+            </div>
+        </div>
+
+        <%-- ChartSpace clinic default layout (#5159). Option ids and labels come only from the
+             ChartSpaceLayout enum; a rejected submission is reported with a fixed message and the
+             submitted value is never echoed. --%>
+        <fmt:message key="admin.echartDisplaySettings.layout.label" var="csLayoutLabel"/>
+        <fmt:message key="admin.echartDisplaySettings.layout.help" var="csLayoutHelp"/>
+        <div class="card mt-3" style="max-width: 640px;">
+            <div class="card-body">
+                <label class="form-label" for="chartspace_default_layout"><carlos:encode value="${csLayoutLabel}"/></label>
+                <select class="form-select" id="chartspace_default_layout" name="chartspace_default_layout"
+                        aria-describedby="chartspace_default_layout_help">
+                    <c:forEach var="csLayout" items="${chartSpaceLayouts}">
+                        <fmt:message key="admin.echartDisplaySettings.layout.${csLayout.id()}" var="csLayoutOption"/>
+                        <option value="${carlos:forHtmlAttribute(csLayout.id())}" ${csLayout == chartSpaceLayout ? "selected" : ""}><carlos:encode value="${csLayoutOption}"/></option>
+                    </c:forEach>
+                </select>
+                <div class="form-text text-muted" id="chartspace_default_layout_help">
+                    <carlos:encode value="${csLayoutHelp}"/>
+                </div>
+                <c:if test="${layoutInvalid}">
+                    <fmt:message key="admin.echartDisplaySettings.layout.invalid" var="csLayoutInvalid"/>
+                    <div class="text-danger mt-2" role="alert"><carlos:encode value="${csLayoutInvalid}"/></div>
+                </c:if>
             </div>
         </div>
 

@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.admin.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.chartspace.ChartSpaceLayout;
+import io.github.carlos_emr.carlos.chartspace.ChartSpaceLayoutService;
 import io.github.carlos_emr.carlos.commn.dao.OceanSettingDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
@@ -34,6 +36,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import java.util.List;
+import java.util.Optional;
+
 /**
  * Security gate for the eChart Display Settings admin page.
  *
@@ -44,9 +49,16 @@ import org.apache.struts2.ServletActionContext;
  * gating this action on it would lock out every role, admins included.
  * POST requires write access before changing the preference.</p>
  *
+ * <p>Also edits the ChartSpace clinic default layout: the submitted id is validated against
+ * {@link ChartSpaceLayout} first, an invalid id writes nothing, and the saving is delegated to
+ * {@link ChartSpaceLayoutService}.</p>
+ *
  * @since 2026-09-18
  */
 public class EchartDisplaySettings2Action extends ActionSupport {
+
+    private static final SystemPreferences.ECHART_PREFERENCE_KEYS LAYOUT_KEY =
+            SystemPreferences.ECHART_PREFERENCE_KEYS.chartspace_default_layout;
 
     @Override
     public String execute() {
@@ -68,18 +80,32 @@ public class EchartDisplaySettings2Action extends ActionSupport {
         }
 
         var key = SystemPreferences.ECHART_PREFERENCE_KEYS.echart_show_ocean;
-        boolean saved = "POST".equals(method) && saveIntent;
+        ChartSpaceLayoutService layoutService = SpringUtils.getBean(ChartSpaceLayoutService.class);
+        boolean saveRequested = "POST".equals(method) && saveIntent;
+        // Validate the layout against the allow-list BEFORE any write, so an invalid value
+        // saves nothing (neither Ocean nor ChartSpace) and is never echoed back to the page.
+        String submittedLayout = saveRequested ? request.getParameter(LAYOUT_KEY.name()) : null;
+        Optional<ChartSpaceLayout> layoutToSave = ChartSpaceLayout.fromId(submittedLayout);
+        boolean layoutInvalid = submittedLayout != null && layoutToSave.isEmpty();
+        boolean saved = saveRequested && !layoutInvalid;
         boolean displayOcean;
         if (saved) {
             displayOcean = "true".equals(request.getParameter(key.name()));
             SpringUtils.getBean(OceanSettingDao.class).saveDisplayPreference(displayOcean,
                     loggedInInfo.getLoggedInProviderNo());
+            // After Ocean: its committed write is what makes the SystemPreferences table non-empty
+            // (see ChartSpaceLayoutService#saveClinicDefault). The two saves are not atomic.
+            layoutToSave.ifPresent(layoutService::saveClinicDefault);
         } else {
             var preference = SpringUtils.getBean(SystemPreferencesDao.class).findPreferenceByName(key);
             displayOcean = preference == null || preference.getValueAsBoolean();
         }
         request.setAttribute("displayOceanUI", displayOcean);
         request.setAttribute("saved", saved);
+        request.setAttribute("layoutInvalid", layoutInvalid);
+        // A database error while reading propagates: never show an invented value the admin could re-save.
+        request.setAttribute("chartSpaceLayout", layoutToSave.orElseGet(layoutService::loadClinicDefault));
+        request.setAttribute("chartSpaceLayouts", List.of(ChartSpaceLayout.values()));
         return SUCCESS;
     }
 }
