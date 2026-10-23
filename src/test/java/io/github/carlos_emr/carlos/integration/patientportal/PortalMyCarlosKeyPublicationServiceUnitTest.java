@@ -32,6 +32,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.time.Instant;
+import java.util.function.Supplier;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -72,8 +74,14 @@ class PortalMyCarlosKeyPublicationServiceUnitTest extends CarlosUnitTestBase {
         configurationReads = new AtomicInteger();
         claim = new PortalMyCarlosPublicationState.Claim(
                 catalogue(), TARGET_A, TOKEN_A, NOW.plusSeconds(120), 0);
-        when(inventory.claim(TARGET_A, TOKEN_A, NOW, PortalMyCarlosKeyPublicationService.LEASE))
-                .thenReturn(Optional.of(claim));
+        when(inventory.claimCurrent(any(), eq(TOKEN_A), any(), eq(PortalMyCarlosKeyPublicationService.LEASE)))
+                .thenAnswer(call -> {
+                    Supplier<PortalMyCarlosPublicationState.Target> target = call.getArgument(0);
+                    Supplier<Instant> now = call.getArgument(2);
+                    assertThat(target.get()).isEqualTo(TARGET_A);
+                    assertThat(now.get()).isEqualTo(NOW);
+                    return Optional.of(claim);
+                });
         signer = signer(PortalJob.KEY_PUBLISH);
         publisher = new PortalMyCarlosKeyPublicationService(inventory, enabled::get, () -> {
             configurationReads.incrementAndGet();
@@ -120,7 +128,7 @@ class PortalMyCarlosKeyPublicationServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldAvoidTransportWithoutADurableClaim_andRejectOtherJobIdentities() {
-        when(inventory.claim(TARGET_A, TOKEN_A, NOW, PortalMyCarlosKeyPublicationService.LEASE))
+        when(inventory.claimCurrent(any(), eq(TOKEN_A), any(), eq(PortalMyCarlosKeyPublicationService.LEASE)))
                 .thenReturn(Optional.empty());
         publisher.runOnce(signer);
         verify(clientA, never()).publishClinicKeys(any(), any());
@@ -137,8 +145,10 @@ class PortalMyCarlosKeyPublicationServiceUnitTest extends CarlosUnitTestBase {
             return response;
         });
         publisher.runOnce(signer);
-        verify(inventory).acknowledge(claim, TARGET_B, response, NOW);
-        verify(inventory, never()).acknowledge(claim, TARGET_A, response, NOW);
+        verify(inventory).acknowledgeCurrent(eq(claim), argThat(value -> TARGET_B.equals(value.get())),
+                eq(response), argThat(value -> NOW.equals(value.get())));
+        verify(inventory, never()).acknowledgeCurrent(eq(claim), argThat(value -> TARGET_A.equals(value.get())),
+                eq(response), any());
         verify(clientB, never()).publishClinicKeys(any(), any());
     }
 
@@ -147,8 +157,9 @@ class PortalMyCarlosKeyPublicationServiceUnitTest extends CarlosUnitTestBase {
         when(clientA.publishClinicKeys(claim.inventory().publication(), signer))
                 .thenThrow(new IllegalStateException("FAKE transport failure, do not log this message"));
         publisher.runOnce(signer);
-        verify(inventory).failed(claim, TARGET_A, NOW, Duration.ofSeconds(30));
-        verify(inventory, never()).acknowledge(any(), any(), any(), any());
+        verify(inventory).failedCurrent(eq(claim), argThat(value -> TARGET_A.equals(value.get())),
+                argThat(value -> NOW.equals(value.get())), eq(Duration.ofSeconds(30)));
+        verify(inventory, never()).acknowledgeCurrent(any(), any(), any(), any());
     }
 
     @Test
@@ -158,9 +169,9 @@ class PortalMyCarlosKeyPublicationServiceUnitTest extends CarlosUnitTestBase {
             return acknowledgement(claim);
         });
         publisher.runOnce(signer);
-        verify(inventory, never()).acknowledge(any(), any(), any(), any());
-        verify(inventory, never()).failed(any(), any(), any(), any());
-        assertThat(clientReads).hasValue(1);
+        verify(inventory, never()).acknowledgeCurrent(any(), any(), any(), any());
+        verify(inventory, never()).failedCurrent(any(), any(), any(), any());
+        assertThat(clientReads).hasValue(2);
     }
 
     @Test
@@ -191,5 +202,21 @@ class PortalMyCarlosKeyPublicationServiceUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> PortalMyCarlosKeyPublicationService.retryDelay(1, Double.NaN))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldNotSendToAnOldClientWhenConfigurationChangesAfterTheClaim() {
+        when(inventory.claimCurrent(any(), eq(TOKEN_A), any(), eq(PortalMyCarlosKeyPublicationService.LEASE)))
+                .thenAnswer(call -> {
+                    Supplier<PortalMyCarlosPublicationState.Target> target = call.getArgument(0);
+                    assertThat(target.get()).isEqualTo(TARGET_A);
+                    client.set(clientB);
+                    return Optional.of(claim);
+                });
+        publisher.runOnce(signer);
+        verify(clientA, never()).publishClinicKeys(any(), any());
+        verify(clientB, never()).publishClinicKeys(any(), any());
+        verify(inventory).failedCurrent(eq(claim), argThat(value -> TARGET_B.equals(value.get())),
+                argThat(value -> NOW.equals(value.get())), any());
     }
 }

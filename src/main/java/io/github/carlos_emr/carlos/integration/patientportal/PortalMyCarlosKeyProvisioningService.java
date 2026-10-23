@@ -36,7 +36,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -45,6 +44,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class PortalMyCarlosKeyProvisioningService {
     private final PortalMyCarlosKeyInventoryService repository;
     private final SecurityInfoManager security;
+    private final AuditSink audit;
+
+    @FunctionalInterface
+    interface AuditSink { void write(LoggedInInfo info, long generation, int keys); }
     private final Supplier<String> clinicId;
     private final Supplier<PatientPortalClinicKeysPublishRequest.Key> currentSigner;
     private final BiFunction<PDFSigningConfig, PatientPortalClinicKeysPublishRequest.Key, PrivateKey> retainedKey;
@@ -61,8 +64,19 @@ public class PortalMyCarlosKeyProvisioningService {
             PortalMyCarlosKeyInventoryService repository, SecurityInfoManager security,
             Supplier<String> clinicId, Supplier<PatientPortalClinicKeysPublishRequest.Key> currentSigner,
             BiFunction<PDFSigningConfig, PatientPortalClinicKeysPublishRequest.Key, PrivateKey> retainedKey) {
+        this(repository, security, clinicId, currentSigner, retainedKey,
+                (info, generation, keys) -> LogAction.addLog(info, LogConst.UPDATE, "mycarlosKeyInventory",
+                        null, null, "generation=" + generation + " keyCount=" + keys));
+    }
+
+    PortalMyCarlosKeyProvisioningService(
+            PortalMyCarlosKeyInventoryService repository, SecurityInfoManager security,
+            Supplier<String> clinicId, Supplier<PatientPortalClinicKeysPublishRequest.Key> currentSigner,
+            BiFunction<PDFSigningConfig, PatientPortalClinicKeysPublishRequest.Key, PrivateKey> retainedKey,
+            AuditSink audit) {
         this.repository = repository;
         this.security = security;
+        this.audit = audit;
         this.clinicId = clinicId;
         this.currentSigner = currentSigner;
         this.retainedKey = retainedKey;
@@ -72,15 +86,18 @@ public class PortalMyCarlosKeyProvisioningService {
      * The operator must explicitly declare that all historical public keys have been supplied.
      * A lost response requires rereading/ comparing the generation before another explicit CAS.
      */
-    @Transactional
     public PortalMyCarlosKeyInventory provision(
             LoggedInInfo loggedInInfo, long expectedGeneration,
             List<PatientPortalClinicKeysPublishRequest.Key> completeInventory, boolean declaredComplete) {
-        String clinic = configuredClinic(loggedInInfo, declaredComplete);
-        PortalMyCarlosKeyInventory result = repository.provision(
-                clinic, expectedGeneration, completeInventory, this::validateNewActiveKeys);
-        auditIfChanged(loggedInInfo, expectedGeneration, result);
-        return result;
+        repository.requireStandalone();
+        var supplied = List.copyOf(completeInventory);
+        return repository.withCurrentInventory(current -> {
+            String clinic = configuredClinic(loggedInInfo, declaredComplete);
+            PortalMyCarlosKeyInventory result = current.provision(
+                    clinic, expectedGeneration, supplied, this::validateNewActiveKeys);
+            auditIfChanged(loggedInInfo, expectedGeneration, result);
+            return result;
+        });
     }
 
     /**
@@ -88,18 +105,22 @@ public class PortalMyCarlosKeyProvisioningService {
      * The server-side retained configuration selects one alias; it is never accepted from a route.
      * A current-generation retry reuses an existing exact proof without loading private material.
      */
-    @Transactional
     public PortalMyCarlosKeyInventory provisionWithReplacement(
             LoggedInInfo loggedInInfo, long expectedGeneration,
             List<PatientPortalClinicKeysPublishRequest.Key> completeInventory, boolean declaredComplete,
             String replacementKid, String predecessorKid, PDFSigningConfig selectedRetainedKey) {
-        String clinic = configuredClinic(loggedInInfo, declaredComplete);
-        PortalMyCarlosKeyInventory result = repository.provisionPrepared(clinic, expectedGeneration,
-                previous -> prepareReplacement(clinic, previous, completeInventory,
-                        replacementKid, predecessorKid, selectedRetainedKey),
-                this::validateNewActiveKeys);
-        auditIfChanged(loggedInInfo, expectedGeneration, result);
-        return result;
+        repository.requireStandalone();
+        var supplied = List.copyOf(completeInventory);
+        PortalMyCarlosPreparedInventory saved = new PortalMyCarlosPreparedInventory();
+        return repository.withCurrentInventory(current -> {
+            String clinic = configuredClinic(loggedInInfo, declaredComplete);
+            PortalMyCarlosKeyInventory result = current.provisionPrepared(clinic, expectedGeneration,
+                    previous -> saved.get(clinic, previous, () -> prepareReplacement(clinic, previous,
+                            supplied, replacementKid, predecessorKid, selectedRetainedKey)),
+                    this::validateNewActiveKeys);
+            auditIfChanged(loggedInInfo, expectedGeneration, result);
+            return result;
+        });
     }
 
     private String configuredClinic(LoggedInInfo loggedInInfo, boolean declaredComplete) {
@@ -118,7 +139,7 @@ public class PortalMyCarlosKeyProvisioningService {
         return clinic;
     }
 
-    private static void auditIfChanged(
+    private void auditIfChanged(
             LoggedInInfo info, long expectedGeneration, PortalMyCarlosKeyInventory result) {
         if (result.generation() != expectedGeneration) {
             auditAfterCommit(info, result.generation(), result.publication().keys().size());
@@ -178,15 +199,14 @@ public class PortalMyCarlosKeyProvisioningService {
         }
     }
 
-    private static void auditAfterCommit(LoggedInInfo info, long generation, int keys) {
+    private void auditAfterCommit(LoggedInInfo info, long generation, int keys) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             throw new IllegalStateException("key provisioning requires transaction synchronization");
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                LogAction.addLog(info, LogConst.UPDATE, "mycarlosKeyInventory", null, null,
-                        "generation=" + generation + " keyCount=" + keys);
+                audit.write(info, generation, keys);
             }
         });
     }

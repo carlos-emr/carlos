@@ -35,10 +35,10 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
 import java.security.PrivateKey;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -56,7 +56,9 @@ class PortalMyCarlosKeyProvisioningServiceUnitTest extends CarlosUnitTestBase {
     private AtomicReference<PrivateKey> retainedPrivate;
     private AtomicInteger signerReads;
     private AtomicInteger retainedReads;
+    private AtomicInteger audits;
     private PortalMyCarlosKeyInventoryService inventory;
+    private PortalMyCarlosInventoryTestSupport.Fixture transactionFixture;
     private PortalMyCarlosKeyProvisioningService provisioning;
 
     @BeforeEach
@@ -70,6 +72,7 @@ class PortalMyCarlosKeyProvisioningServiceUnitTest extends CarlosUnitTestBase {
         retainedPrivate = new AtomicReference<>(FIRST_PAIR.getPrivate());
         signerReads = new AtomicInteger();
         retainedReads = new AtomicInteger();
+        audits = new AtomicInteger();
         when(properties.findByNameForUpdate(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
                 .thenAnswer(ignored -> persisted.get() == null ? List.of() : List.of(persisted.get()));
         when(properties.findByName(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
@@ -79,7 +82,8 @@ class PortalMyCarlosKeyProvisioningServiceUnitTest extends CarlosUnitTestBase {
         doAnswer(call -> { persisted.set(call.getArgument(0)); return null; })
                 .when(properties).merge(any(Property.class));
         when(security.hasPrivilege(admin, "_admin", SecurityInfoManager.WRITE, null)).thenReturn(true);
-        inventory = new PortalMyCarlosKeyInventoryService(properties, coordination);
+        transactionFixture = PortalMyCarlosInventoryTestSupport.fixture(properties, coordination);
+        inventory = transactionFixture.service;
         provisioning = new PortalMyCarlosKeyProvisioningService(inventory, security, () -> CLINIC, () -> {
             signerReads.incrementAndGet();
             var signer = configuredSigner.get();
@@ -90,13 +94,7 @@ class PortalMyCarlosKeyProvisioningServiceUnitTest extends CarlosUnitTestBase {
         }, (selection, expected) -> {
             retainedReads.incrementAndGet();
             return retainedPrivate.get();
-        });
-        TransactionSynchronizationManager.initSynchronization();
-    }
-
-    @AfterEach
-    void clearSynchronization() {
-        TransactionSynchronizationManager.clearSynchronization();
+        }, (info, generation, keys) -> audits.incrementAndGet());
     }
 
     @Test
@@ -104,7 +102,8 @@ class PortalMyCarlosKeyProvisioningServiceUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(admin, "_admin", SecurityInfoManager.WRITE, null)).thenReturn(false);
         assertThatThrownBy(() -> provisioning.provision(admin, 0, List.of(FIRST), true))
                 .isInstanceOf(SecurityException.class);
-        verifyNoInteractions(properties, coordination);
+        verifyNoInteractions(properties);
+        verify(coordination).lockRoutingReport(PortalMyCarlosKeyInventoryService.COORDINATION_KEY);
         assertThat(signerReads).hasValue(0);
         assertThat(retainedReads).hasValue(0);
     }
@@ -113,7 +112,8 @@ class PortalMyCarlosKeyProvisioningServiceUnitTest extends CarlosUnitTestBase {
     void shouldRequireExplicitCompleteness_beforeInferringAnythingFromTheSigner() {
         assertThatThrownBy(() -> provisioning.provision(admin, 0, List.of(FIRST), false))
                 .isInstanceOf(IllegalArgumentException.class);
-        verifyNoInteractions(properties, coordination);
+        verifyNoInteractions(properties);
+        verify(coordination).lockRoutingReport(PortalMyCarlosKeyInventoryService.COORDINATION_KEY);
         assertThat(signerReads).hasValue(0);
     }
 
@@ -125,7 +125,7 @@ class PortalMyCarlosKeyProvisioningServiceUnitTest extends CarlosUnitTestBase {
         var result = provisioning.provision(admin, 0, List.of(FIRST), true);
         assertThat(result.publication().keys()).containsExactly(FIRST);
         assertThat(signerReads).hasValue(2);
-        assertThat(TransactionSynchronizationManager.getSynchronizations()).hasSize(1);
+        assertThat(audits).hasValue(1);
     }
 
     @Test
@@ -183,5 +183,46 @@ class PortalMyCarlosKeyProvisioningServiceUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(persisted.get().getValue()).isEqualTo(original);
         assertThat(signerReads).hasValue(0);
+    }
+
+    @Test
+    void shouldRejectAnInheritedTransactionBeforeAuthorizationOrPreparation() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            assertThatThrownBy(() -> provisioning.provisionWithReplacement(admin, 0,
+                    List.of(FIRST, SECOND), true, SECOND.kid(), FIRST.kid(), null))
+                    .isInstanceOf(IllegalStateException.class);
+        } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        verifyNoInteractions(properties, coordination, security);
+        assertThat(retainedReads).hasValue(0);
+        assertThat(audits).hasValue(0);
+    }
+
+    @Test
+    void shouldReuseExactMintedProofAfterAWriteRollbackAndAuditOnlyTheWinningCommit() {
+        inventory.provision(CLINIC, 0, List.of(FIRST), (old, next) -> {});
+        configuredSigner.set(SECOND);
+        AtomicReference<String> before = new AtomicReference<>(), firstWrite = new AtomicReference<>();
+        AtomicInteger writes = new AtomicInteger();
+        transactionFixture.manager.onBegin = () -> before.set(persisted.get().getValue());
+        transactionFixture.manager.onRollback = () -> persisted.get().setValue(before.get());
+        doAnswer(call -> {
+            Property row = call.getArgument(0);
+            if (writes.incrementAndGet() == 1) {
+                firstWrite.set(row.getValue());
+                throw new IllegalStateException("FAKE after-write snapshot conflict",
+                        new SQLException("FAKE conflict", "HY000", 1020));
+            }
+            return null;
+        }).when(properties).merge(any(Property.class));
+        var result = provisioning.provisionWithReplacement(admin, 1, List.of(FIRST, SECOND), true,
+                SECOND.kid(), FIRST.kid(), mock(PDFSigningConfig.class));
+        assertThat(result.generation()).isEqualTo(2);
+        assertThat(persisted.get().getValue()).isEqualTo(firstWrite.get());
+        assertThat(retainedReads).hasValue(1);
+        assertThat(signerReads).hasValue(2);
+        assertThat(audits).hasValue(1);
+        assertThat(writes).hasValue(2);
+        assertThat(transactionFixture.manager.rollbacks).isEqualTo(1);
     }
 }

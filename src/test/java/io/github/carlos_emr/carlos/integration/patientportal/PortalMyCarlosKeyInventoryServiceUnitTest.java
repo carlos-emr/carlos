@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,7 +77,7 @@ class PortalMyCarlosKeyInventoryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     private PortalMyCarlosKeyInventoryService anotherInstance() {
-        return new PortalMyCarlosKeyInventoryService(properties, coordination);
+        return PortalMyCarlosInventoryTestSupport.service(properties, coordination);
     }
 
     private PortalMyCarlosKeyInventory initial() {
@@ -195,5 +196,48 @@ class PortalMyCarlosKeyInventoryServiceUnitTest extends CarlosUnitTestBase {
         var claim = service.claim(TARGET_A, TOKEN_A, NOW, Duration.ofMinutes(2)).orElseThrow();
         assertThat(service.acknowledge(claim, TARGET_A, acknowledgement(claim), NOW.plusSeconds(1))).isTrue();
         assertThat(service.isPublished(TARGET_A)).isTrue();
+    }
+
+    @Test
+    void shouldRefuseLateAcknowledgementWhenTheFinalPropertyLockWaitCrossesLeaseExpiry() {
+        initial();
+        var claim = service.claim(TARGET_A, TOKEN_A, NOW, Duration.ofMinutes(2)).orElseThrow();
+        AtomicReference<Instant> clock = new AtomicReference<>(NOW.plusSeconds(119));
+        when(properties.findByNameForUpdate(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
+                .thenAnswer(ignored -> { clock.set(NOW.plusSeconds(120)); return rows(); });
+        assertThat(service.acknowledgeCurrent(claim, () -> TARGET_A, acknowledgement(claim), clock::get)).isFalse();
+        assertThat(service.isPublished(TARGET_A)).isFalse();
+    }
+
+    @Test
+    void shouldStartTheClaimLeaseFromTheFreshClockAfterTheFinalPropertyLock() {
+        initial();
+        AtomicReference<Instant> clock = new AtomicReference<>(NOW);
+        when(properties.findByNameForUpdate(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
+                .thenAnswer(ignored -> { clock.set(NOW.plusSeconds(40)); return rows(); });
+        var claim = service.claimCurrent(() -> TARGET_A, TOKEN_A, clock::get, Duration.ofMinutes(2)).orElseThrow();
+        assertThat(claim.expiresAt()).isEqualTo(NOW.plusSeconds(160));
+    }
+
+    @Test
+    void shouldNotScheduleFailureBookkeepingForAClaimWhichExpiredDuringTheFinalPropertyLock() {
+        initial();
+        var claim = service.claim(TARGET_A, TOKEN_A, NOW, Duration.ofMinutes(2)).orElseThrow();
+        AtomicReference<Instant> clock = new AtomicReference<>(NOW.plusSeconds(119));
+        when(properties.findByNameForUpdate(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
+                .thenAnswer(ignored -> { clock.set(NOW.plusSeconds(120)); return rows(); });
+        assertThat(service.failedCurrent(claim, () -> TARGET_A, clock::get, Duration.ofSeconds(30))).isFalse();
+    }
+
+    @Test
+    void shouldRecheckTheEffectiveTargetAfterTheFinalPropertyLockBeforeAcknowledgement() {
+        initial();
+        var claim = service.claim(TARGET_A, TOKEN_A, NOW, Duration.ofMinutes(2)).orElseThrow();
+        AtomicReference<PortalMyCarlosPublicationState.Target> target = new AtomicReference<>(TARGET_A);
+        when(properties.findByNameForUpdate(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
+                .thenAnswer(ignored -> { target.set(TARGET_B); return rows(); });
+        assertThat(service.acknowledgeCurrent(claim, target::get, acknowledgement(claim),
+                () -> NOW.plusSeconds(1))).isFalse();
+        assertThat(service.isPublished(TARGET_A)).isFalse();
     }
 }

@@ -127,21 +127,25 @@ public class PortalMyCarlosKeyPublicationService {
         if (job == null || job.job() != PortalJob.KEY_PUBLISH) {
             throw new IllegalArgumentException("the key-publish job identity is required");
         }
-        PatientPortalService client = portal.get();
-        PortalMyCarlosPublicationState.Target target = client.clinicKeysPublicationTarget();
         Optional<PortalMyCarlosPublicationState.Claim> pending =
-                repository.claim(target, tokens.get(), clock.instant(), LEASE);
+                repository.claimCurrent(this::currentTarget, tokens.get(), clock::instant, LEASE);
         if (pending.isEmpty()) {
             return;
         }
         var claim = pending.get();
         try {
+            if (!enabled.getAsBoolean() || !portalConfigured.getAsBoolean()) return;
+            PatientPortalService client = portal.get();
+            if (!client.clinicKeysPublicationTarget().equals(claim.target())) {
+                recordFailure(claim);
+                return;
+            }
             PatientPortalClinicKeysPublishResult response =
                     client.publishClinicKeys(claim.inventory().publication(), job);
             if (enabled.getAsBoolean() && portalConfigured.getAsBoolean()) {
                 // Re-read the effective client after HTTP: an old A response cannot acknowledge B.
-                repository.acknowledge(
-                        claim, portal.get().clinicKeysPublicationTarget(), response, clock.instant());
+                repository.acknowledgeCurrent(
+                        claim, this::currentTarget, response, clock::instant);
             }
         } catch (RuntimeException failure) {
             recordFailure(claim);
@@ -150,10 +154,15 @@ public class PortalMyCarlosKeyPublicationService {
         }
     }
 
+    private PortalMyCarlosPublicationState.Target currentTarget() {
+        return enabled.getAsBoolean() && portalConfigured.getAsBoolean()
+                ? portal.get().clinicKeysPublicationTarget() : null;
+    }
+
     private void recordFailure(PortalMyCarlosPublicationState.Claim claim) {
         try {
             if (enabled.getAsBoolean() && portalConfigured.getAsBoolean()) {
-                repository.failed(claim, portal.get().clinicKeysPublicationTarget(), clock.instant(),
+                repository.failedCurrent(claim, this::currentTarget, clock::instant,
                         retryDelay(claim.failures(), jitter.getAsDouble()));
             }
         } catch (RuntimeException failure) {
