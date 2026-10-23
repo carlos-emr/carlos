@@ -8829,7 +8829,7 @@
         "LAB_UPLOAD_SERVER_LOG"
       ],
       "fixtures": "Owned FAKE-PW patient with one WT reading and one dxresearch row (an unused ICD-9 code chosen at run time); one flowsheet created through Administration > Create New Flowsheet (display name = run marker) with its customization rows; all removed and asserted gone. The application keeps a deleted flowsheet's trigger registered in memory, so the check finds its flowsheet by name.",
-      "notes": "Verifies clinic/provider customization layers, patient display and saved flowsheet headings after customization (#4171). Requires a readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG and asserts that this rule-free flowsheet logs no flowsheet exception (#5187); explicitly skips without a log source. Run against an otherwise idle installation."
+      "notes": "Verifies clinic/provider customization layers, patient display and saved flowsheet headings after customization (#4171). Requires a readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG, proves the stream is live with a safely refused Health Tracker GET, and asserts that this rule-free flowsheet logs no flowsheet exception (#5187); explicitly skips without a log source. Run against an otherwise idle installation."
     },
     {
       "name": "gap-clinical-prevention-notifications",
