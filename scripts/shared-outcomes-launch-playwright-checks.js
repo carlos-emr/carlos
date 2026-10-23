@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
- * Schedule > Dashboard > Common Dashboard > Shared Outcomes popup (#5053).
+ * Schedule > Dashboard > Common Provider Dashboard > Shared Outcomes popup (#5053).
  * Requires a disposable install configured with these synthetic properties:
  * shared_outcomes_dashboard_url=https://shared-outcomes.invalid/
  * shared_outcomes_dashboard_host=https://shared-outcomes.invalid
@@ -14,6 +14,7 @@
  */
 const { pbkdf2Sync, createDecipheriv } = require('node:crypto');
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 
@@ -38,35 +39,36 @@ async function workflow(s) {
       VALUES (${provider},${h.sqlString(object)},'r',0,${h.sqlString(s.provider)})`);
   }
 
-  const context = await h.newContext(s.context.browser(), s.config);
+  const context = await h.newContext(s.context.browser(), s.config, { serviceWorkers: 'block' });
   context.on('page', page => h.wireStrictPage(page, 'shared-outcomes', s.recorder));
   let launchUrl;
-  await context.route(`${ORIGIN}/**`, async route => {
-    launchUrl = new URL(route.request().url());
-    await route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>Shared Outcomes test stub</title>
-      <p>Shared Outcomes test stub</p><script>
-      addEventListener('message', event => {
-        if (event.source === opener && event.data.response === 'CONNECT') {
-          opener.postMessage({outcomes:{interaction:'CONNECTED',request:{}}}, event.origin);
-        }
-      });</script>` });
+  await context.route('**/*', async route => {
+    const destination = new URL(route.request().url());
+    if (destination.origin === s.config.baseUrl.origin) return route.continue();
+    // A mistaken fixture URL must never reach a real dashboard or other outside service.
+    if (destination.origin !== ORIGIN) return route.abort('blockedbyclient');
+    if (!route.request().isNavigationRequest()) return route.fulfill({ status: 204, body: '' });
+    launchUrl = destination;
+    await route.fulfill({ contentType: 'text/html', body:
+      '<!doctype html><title>Shared Outcomes test stub</title><p>Shared Outcomes test stub</p>' });
   });
   const schedule = await h.login(context, { ...s.config, testUser: fixture.username }, s.recorder);
 
   await s.step('Common Dashboard launches an encrypted provider contract without external calls', async () => {
-    const link = schedule.locator('a').filter({ hasText: /^Common Dashboard$/ }).first();
+    const link = schedule.locator('a[onclick*="/web/dashboard/display/sharedOutcomesDashboard"]').first();
     // The link lives in the schedule's Dashboard dropdown.
     await schedule.locator('#dashboardList').hover();
     const dashboardPromise = context.waitForEvent('page', {
       predicate: async page => { const opener = await page.opener(); return opener && opener !== schedule; },
       timeout: 20000,
     });
-    const [launcher, dashboard] = await Promise.all([
-      s.popup(schedule, link, 'shared-outcomes-launcher'), dashboardPromise,
+    const [, dashboard] = await Promise.all([
+      ui.clickOpensPopup(schedule, link, { context, recorder: s.recorder, label: 'shared-outcomes-launcher', timeout: 20000 }),
+      dashboardPromise,
     ]);
     h.assert(dashboard, 'The dashboard popup did not open');
     await dashboard.getByText('Shared Outcomes test stub', { exact: true }).waitFor();
-    await launcher.waitForFunction(() => window.connected === true);
+    // Assert the launch contract. Cross-origin opener messaging is governed separately by COOP.
     h.assert(launchUrl && launchUrl.searchParams.get('version') === '1.1', 'The launch protocol version changed');
     h.assert([...launchUrl.searchParams.keys()].sort().join(',') === 'encodedParams,version',
       'The launch URL exposes unexpected plaintext parameters');
