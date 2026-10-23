@@ -3629,3 +3629,46 @@ install, then the fixed files put back byte for byte:
   cache; after a restart it passes. This is a property of the check's fixture (documented in its header), not a defect.
 - `bpmh-form` fails at "Print answers a PDF of the saved form", as recorded for #3394 above with the pre-fix classes;
   it is not caused by this change.
+
+**Final packages (`69ffc538`).** The review fixes after the runs above (Chart Checklist descriptions, BC-NewBorn page
+dates, the BC-AR 2007 doula boxes, BC-AR 2012's EPDS restore and substance-use "No" box, BC-NewBorn 2008's saved page,
+the PRI default) were packaged from `69ffc538` with `dpkg-buildpackage -us -uc -b`, the WAR compiled by `debian/rules`
+(lintian clean). Before installing, every one of the package's 1,045 `WEB-INF/jsp` files was compared with the commit
+and matched. An earlier rebuild with `-nc` had kept the previous build's WAR: debhelper's build stamp skips
+`dh_auto_build`, so the package carried code from before these fixes, and the comparison found 6 pages that differ.
+The runs below are on a fresh `CARLOS_PROVINCE=bc` install of the checked packages (`carlos-ctl check` passed).
+
+| Run | Result |
+|---|---|
+| `--tier smoke` | **PASS**, 12 of 12 |
+| `billing-bc-wcb-links`, after `carlos-ctl restart` | **PASS** |
+| The other 44 BC-only checks of the default profile, `--residue-audit` | 42 **PASS** and 2 known failures (findings 145 and 153), no residue. `form-bc-legacy-field-restore` passes all 5 steps and `form-bc-epds-wording` all 8 |
+| The 25 province-neutral checks whose scripts use `scripts/lib/get-reject-probe.js`, which this PR changed (`expect405`, off by default), `--residue-audit` | 13 **PASS**, 10 known failures (findings 263 and 264), 2 FAIL: `get-reject-chart-notes` and `get-reject-eform-editor`, both among the 66 that fail on the base above. Their routes answer GET with 200 or 302 and write; `expect405` changes only how a 403 is read, and neither check sets it. The residue audit found 434 `form_boolean_value` rows: `rourke-measurement` deletes its `formRourke2017` row but not the checkbox rows the form keeps for it, the gap `form-rourke2017` closed for itself. Neither check is changed here |
+| `profile legacy-teleplan`, `suite --profile legacy-teleplan --residue-audit`, `profile default` | `billing-bc-remittance-upload` **PASS**, no residue |
+| server-log audit | 2 unexplained signatures, `Misc.areaCode` and `Misc.phoneNumber` (`StringIndexOutOfBoundsException`), both from `billing-bc-wcb-links`: `TeleplanCorrectionActionWCB2Action` (lines 195 and 196) splits the patient's second phone number, which here is 1 character, into area code and number. Neither the action nor the check is changed here |
+
+**Negative control (form fixes).** Each pre-fix page was swapped into the install, with a Tomcat restart, and the fixed
+page put back byte for byte:
+- `formbcar2007pg2.jsp` and `formbcar2012pg2.jsp`: `form-bc-legacy-field-restore` fails at the BC-AR 2007 doula step
+  ("formbcar2007pg2 offers no doula box"), and `form-bc-epds-wording` fails at the BC-AR 2012 reopen: no EPDS answer is
+  ticked (every position `-1`).
+- `formbcar2012pg1.jsp`: the substance-use "No" box reopens unticked.
+- `formBCNewBorn2008pg2.jsp`: the record stores `c_lastVisited` `pg1` and reopens on page 1.
+- `formbcclientchartchecklist.jsp`: the description comes back as `FAKE desc `, cut at its first `'`.
+- BC-NewBorn page 2's date: on the package that kept the earlier WAR, the reopened page 2 shows "23/10/2026", page 1's
+  date, instead of the 05/03/2025 saved for it.
+
+**Defects found and fixed after the first runs.**
+- BC-AR 2007 pages 2 and 3 left the doula's `<td` unclosed, so the browser read the box as the cell's attributes:
+  the saved doula was never shown and never posted again.
+- BC-AR 2012 page 2 defined its EPDS restore but never called it: a reopened record showed no answer ticked, and the
+  next Save stored the answers as empty. The DOM-ready handler now restores them before the dirty check records the form.
+- BC-AR 2012 page 1 printed the substance-use "No" box's saved state as text after the box, so it never showed ticked
+  and the next Save cleared it.
+- BC-NewBorn 2008 pages 2 and 3 saved themselves as page 1, so a record always reopened on page 1.
+- BC-NewBorn pages 2 and 3 showed page 1's date in their own date boxes, so the next Save stored it over theirs
+  (CodeRabbit).
+- The Chart Checklist built its 17 free-text description boxes as Java strings with the saved value unencoded: a `'`
+  ended the attribute, and `<` or `&` did not come back as typed (CodeRabbit).
+- A configured PRI default billed privately even when the PRI form was not installed and another form was chosen in
+  its place (CodeRabbit). The private billing type now follows the chosen form.
