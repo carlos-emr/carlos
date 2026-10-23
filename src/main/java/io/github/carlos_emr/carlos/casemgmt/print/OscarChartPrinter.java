@@ -131,7 +131,6 @@ public class OscarChartPrinter implements java.io.Closeable {
     private BaseFont bf;
     private Font font, boldFont;
     boolean newPage;
-    private PdfContentByte cb;
 
     private ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     private DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
@@ -313,7 +312,7 @@ public class OscarChartPrinter implements java.io.Closeable {
         getDocument().add(table);
 
         //Write title with top and bottom borders on p1
-        cb = writer.getDirectContent();
+        PdfContentByte cb = writer.getDirectContent();
         cb.setColorStroke(Color.BLACK);
         cb.setLineWidth(0.5f);
 

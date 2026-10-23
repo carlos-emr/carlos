@@ -24,8 +24,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.openpdf.text.pdf.PdfWriter;
-import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
@@ -84,9 +82,6 @@ class OscarChartPrinterUnicodeUnitTest extends CarlosUnitTestBase {
         allergy.setDescription("FAKE-페니실린 hives");
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (OscarChartPrinter printer = new OscarChartPrinter(mock(HttpServletRequest.class), output)) {
-            // printDocHeaderFooter (which reads clinic data from the database) sets this up in production.
-            PdfWriter writer = (PdfWriter) ReflectionTestUtils.getField(printer, "writer");
-            ReflectionTestUtils.setField(printer, "cb", writer.getDirectContent());
             printer.printNotes(List.of(note("FAKE-复诊 ≥5 mmol/L")), true);
             printer.printNotes(List.of(note("FAKE-さくら follow-up")), false);
             printer.printCPPItem("Social History", List.of(note("FAKE-김민준 lives alone")));

@@ -78,7 +78,7 @@ public class PromoTextStamper extends FooterSupport {
 
         // Configured clinic text can be in any script; draw characters the footer face lacks in
         // the bundled fallback faces rather than dropping them (#5046).
-        PdfFonts.showTextAligned(cb, PdfContentByte.ALIGN_CENTER, text, new Font(getFont(), getFontSize()),
+        PdfFonts.showTextAligned(cb, PdfContentByte.ALIGN_CENTER, text, new Font(getFont(), (float) getFontSize()),
                 center, textBase, 0);
         cb.restoreState();
     }

@@ -174,7 +174,7 @@ class JasperTemplateFontPolicyUnitTest {
             LineMetrics metrics = face.getFont().deriveFont(element.getFontSize()).getLineMetrics("Hg", MEASURING);
             float line = lineHeight(element, metrics.getAscent() + metrics.getDescent() + metrics.getLeading());
             boolean rotated = element.getRotation() == RotationEnum.LEFT || element.getRotation() == RotationEnum.RIGHT;
-            float available = (rotated ? element.getWidth() : element.getHeight())
+            float available = (float) (rotated ? element.getWidth() : element.getHeight())
                     - padding(element.getLineBox().getTopPadding()) - padding(element.getLineBox().getBottomPadding());
             if (line > available + 0.01f) {
                 violations.add(String.format(Locale.ROOT, "%.2fpt line in %.2fpt: %s", line, available, box));
