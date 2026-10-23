@@ -100,6 +100,7 @@ async function workflow(s) {
     let capturedResolve, capturedReject;
     const captured = new Promise((resolve, reject) => { capturedResolve = resolve; capturedReject = reject; });
     captured.catch(() => {});
+    let routingError;
     const delayQuantity = async route => {
       const request = route.request();
       const params = new URLSearchParams(request.postData() || '');
@@ -111,11 +112,13 @@ async function workflow(s) {
         await held;
         await route.fulfill({ response });
       } catch (error) {
+        routingError = error;
         capturedReject(error);
-        throw error;
+        await route.abort().catch(() => {});
       }
     };
     await rx.route(quantityRoute, delayQuantity);
+    const captureTimeout = setTimeout(() => capturedReject(new Error('The staging quantity request was not captured')), 20000);
     try {
       card = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME);
       const initialQuantity = await captured;
@@ -140,6 +143,7 @@ async function workflow(s) {
       releaseQuantity();
       await (await delivered).finished();
       await rx.waitForLoadState('networkidle');
+      h.assert(!routingError, `The delayed quantity response could not be delivered: ${routingError}`);
       h.assert((await rx.locator(`#frequency_${card}`).innerText()).trim() === 'BID'
         && (await rx.locator(`#duration_${card}`).innerText()).trim() === '14'
         && (await rx.locator(`#durationUnit_${card}`).innerText()).trim() === 'D'
@@ -147,6 +151,7 @@ async function workflow(s) {
         && (await rx.locator(`#quantityStr_${card}`).innerText()).trim() === '28',
       'The delayed staging quantity response overwrote the parsed frequency, duration or quantity');
     } finally {
+      clearTimeout(captureTimeout);
       releaseQuantity();
       await rx.unroute(quantityRoute, delayQuantity);
     }
