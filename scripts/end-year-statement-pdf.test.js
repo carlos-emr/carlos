@@ -21,7 +21,7 @@ test('invoice IDs must occur in invoice rows, not dates, amounts or patient deta
   ]);
   // All of these excluded IDs trigger the old whole-PDF word-boundary assertion.
   for (const id of ['1', '2', '15', '25', '31', '70', '2025', '1234567890']) {
-    assert.match(text, new RegExp(`\\b${id}\\b`));
+    assert.ok(text.split(/\b/).includes(id));
     assert.ok(!statementInvoiceRows(text).some(row => row.id === id));
   }
 });

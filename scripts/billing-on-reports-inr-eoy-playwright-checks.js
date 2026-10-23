@@ -162,6 +162,11 @@ async function workflow(s) {
       VALUES (${id},'HE','T',${q(code)},${q(total)},'1',${q(date)},'250','','','O')`);
     ids.bills.push({ id, program, date, code, total, paid: paid === null ? total : paid });
   }
+  // Deliberately collide with the excluded invoice number in patient details.
+  // Whole-PDF number searches reject this valid statement; invoice-row checks must not.
+  const phoneCollision = ids.bills[3].id;
+  sql.execute(`UPDATE demographic SET phone=${q(phoneCollision)},phone2=''
+    WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
   // A real second patient is essential: a nonexistent demographic would also be
   // excluded by the report's JOIN, even if its patient predicate were missing.
   let otherPatient;
@@ -352,6 +357,7 @@ async function workflow(s) {
     const invoiced = statement.reduce((sum, b) => sum + Number(b.total), 0).toFixed(2);
     const paid = statement.reduce((sum, b) => sum + Number(b.paid), 0).toFixed(2);
     h.assert(text.includes('End Year Statement') && text.includes(marker), 'The PDF does not name the statement and patient');
+    h.assert(text.split(/\b/).includes(phoneCollision), 'The PDF omitted the synthetic phone/invoice-number collision');
     const expectedRows = statement.map(b => ({ id: b.id, date: b.date, invoiced: b.total, paid: b.paid }));
     h.assert(JSON.stringify(statementInvoiceRows(text)) === JSON.stringify(expectedRows),
       'The PDF invoice rows do not match the PAT/patient/date selection');
