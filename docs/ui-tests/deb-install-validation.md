@@ -3505,6 +3505,49 @@ answered 200 in all five. With this PR's `administration-menu-gate.jspf` all fiv
 Administration pages compiled, this PR's `admin-role-management` fails at "the granted throwaway opens Add A Role…": a login with
 `_admin.userAdmin` read was offered the Assign Role/Rights to Object card on the home page.
 
+### Rx Info: an unknown DIN is an empty DrugRef lookup (2026-10-22, issue #5006, finding 311)
+
+`release/2026.08` at `7a0aa6afa9` plus the PR commits, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04` container
+(JDK 25, `dpkg-buildpackage -us -uc -b`, lintian `--fail-on error` clean). DrugRef was fetched by `debian/fetch-drugref.sh` at the new
+pin `0d240f07` (carlos-emr/drugref2026#17) and its WAR built from that checkout with the `debian/rules` flags, then passed as
+`DRUGREF_WAR` because Maven's transfers through the egress proxy kept failing inside the package build; the WAR's `TablesDao` carries
+`findDrugIdFromDIN`. That override skips the default handoff, so it was then exercised on its own: a second
+`dpkg-buildpackage -nc -us -uc -b` from a fresh checkout of the same commit, with `DRUGREF_WAR`, `DRUGREF_SRC` and `DRUGREF_REF`
+unset and only the DrugRef build's Maven repository seeded under `debian/build/m2`, read the pin, fetched `0d240f07` through
+`debian/fetch-drugref.sh` and built DrugRef itself. Its `carlos-emr-drugref` deb carries DrugRef classes byte-identical to the
+installed one's. carlos-ctl was built from the `debian/carlos-ctl.pin` fallback commit `325482a2` re-versioned
+`1.2.0+validation1` locally, as in the section above. Installed fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo
+data, `carlos-ctl check` clean; the IPv6 nginx reload note recurred). `LAB_UPLOAD_JOURNAL_UNIT=carlos-emr` was set so the check reads
+the journal.
+
+| Installed DrugRef classes | `gap-encounter-rx-drug-info-on-host` |
+|---|---|
+| packaged (new pin) | PASS, 5 of 5, two runs; "missing DIN fallback does not log a DrugRef server exception" passes |
+| `TablesDao` and `Drugref` from the previous pin `1941e14`, swapped into the installed webapp | FAIL at that step: "An unknown DIN logged 2 DrugRef exception event(s) in journal unit carlos-emr: ERROR util.SimpleXmlRpcServer; ERROR util.SimpleXmlRpcServer"; the four steps before it, including the name-search fallback, pass |
+| packaged classes restored (`dpkg -V carlos-emr-drugref` clean) | PASS, 5 of 5 |
+
+The first run on the fresh install reported residue in `measurementType` (63 rows) and `validations` (44 rows):
+`MeasurementTemplateFlowSheetConfig` imports the flowsheet measurement types the first time an E-Chart opens after install. Later runs
+have no residue.
+
+Every manifest check whose name names Rx, a drug, DrugRef, an allergy or a prescription (113) then ran on the new pin: 108 pass.
+`inactive-drug-status` passes with `INACTIVE_DRUG_DIN=02303027` and `INACTIVE_DRUG_DATE=2018-06-12` from the installed dataset,
+`fax-prescription-drugref` with `scripts/e2e/fax/fixtures.sql` loaded, and `rx-unique-medication-list` with
+`CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` (restored afterwards). The rest are known and not DrugRef's:
+`allergy-partial-start-date` fails at its last step as its manifest note says it does on `release/2026.08` (#4807),
+`rx-quantity-delete-race` and `rx-instructions-delete-race` are known failures (finding 312), `rx-preview-visit-site-isolation`
+skips without multisites, and `allergy-add-penicillin` is below. The smoke tier passes, 12 of 12, with no `carlos-emr` restart. The
+server-log audit has no DrugRef signature in any window that ran the packaged classes: its only `TablesDao.getDrugIdFromDIN`
+`NoResultException` events (four) were logged by the Tomcat process that ran the previous pin's classes for the failing run above,
+two by each of the check's two unknown-DIN requests. From the restore on, the audit's only unexplained signatures are finding 312's
+three `RxWriteScript2Action` errors (the discarded-card NullPointerException).
+
+`allergy-add-penicillin` fails at its control step ("the added allergy and its amendment are stored, and this run's window of the
+server journal is read") with "the server journal holds nothing in this run's window" on a server that has already served a few
+requests: the step needs some line from `carlos-emr.service` during the check's ten seconds, and the app logged none. This is not the
+DrugRef change. With the previous pin's classes swapped in, it passes on the first run after a restart (startup warnings
+fill its window) and fails the same way on the next run.
+
 ### Ontario hospital (shortcut) billing (2026-10-22, issue #5055)
 
 `release/2026.08` at `7a0aa6afa9` plus this change, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04`
