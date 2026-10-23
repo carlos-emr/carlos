@@ -110,7 +110,7 @@
                value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
 
-        <table class="Head hidePrint">
+        <table class="Head hidePrint" role="presentation">
             <tr>
                 <td align="left"><input type="submit"
                                         value="<fmt:message key="encounter.formAlpha.btnSave"/>"
@@ -325,8 +325,8 @@
                 <td><fmt:message key="encounter.formAlpha.formSmokingCessation"/></td>
                 <td><input type="checkbox" name="other1"
                         <%= props.getProperty("other1", "") %>></td>
-                <td><fmt:message key="encounter.formAlpha.formOther"/>:<input
-                        type="text" name="other1Name" maxlength="30"
+                <td><label for="other1Name"><fmt:message key="encounter.formAlpha.formOther"/>:</label><input
+                        type="text" id="other1Name" name="other1Name" maxlength="30"
                         value="<carlos:encode value='<%= props.getProperty("other1Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
@@ -338,8 +338,8 @@
                 <td><fmt:message key="encounter.formAlpha.formSocialWorker"/></td>
                 <td><input type="checkbox" name="other2"
                         <%= props.getProperty("other2", "") %>></td>
-                <td><fmt:message key="encounter.formAlpha.formOther"/>:<input
-                        type="text" name="other2Name" maxlength="30"
+                <td><label for="other2Name"><fmt:message key="encounter.formAlpha.formOther"/>:</label><input
+                        type="text" id="other2Name" name="other2Name" maxlength="30"
                         value="<carlos:encode value='<%= props.getProperty("other2Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
@@ -351,7 +351,7 @@
                 <td><fmt:message key="encounter.formAlpha.formPsychologist"/></td>
                 <td><input type="checkbox" name="other3"
                         <%= props.getProperty("other3", "") %>></td>
-                <td>Other:<input type="text" name="other3Name" maxlength="30"
+                <td><label for="other3Name"><fmt:message key="encounter.formAlpha.formOther"/>:</label><input type="text" id="other3Name" name="other3Name" maxlength="30"
                                  value="<carlos:encode value='<%= props.getProperty("other3Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
@@ -363,8 +363,8 @@
                 <td><fmt:message key="encounter.formAlpha.formFamilyTherapist"/></td>
                 <td><input type="checkbox" name="other4"
                         <%= props.getProperty("other4", "") %>></td>
-                <td><fmt:message key="encounter.formAlpha.formOther"/>:<input
-                        type="text" name="other4Name" maxlength="30"
+                <td><label for="other4Name"><fmt:message key="encounter.formAlpha.formOther"/>:</label><input
+                        type="text" id="other4Name" name="other4Name" maxlength="30"
                         value="<carlos:encode value='<%= props.getProperty("other4Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
@@ -387,7 +387,7 @@
             </tr>
         </table>
 
-        <table class="Head hidePrint">
+        <table class="Head hidePrint" role="presentation">
             <tr>
                 <td align="left"><input type="submit"
                                         value="<fmt:message key="encounter.formAlpha.btnSave"/>"
