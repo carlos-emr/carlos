@@ -333,8 +333,9 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
          * part. A whole number that ends a range ("1-1 1/2") is not read as a mixed number; the
          * leading range is kept instead of the trailing half. A fraction written as a schedule or
          * a ratio ("x 3/7", "140/90") never replaces an explicit leading count, and after a strength a
-         * date or a comparison ("starting 3/15", "on 1/4", "> 90/140") is not the dose either. A
-         * whole number and a fraction that measure a time ("1 1/2 hr before meals") are not a dose.
+         * date or a comparison ("starting 3/15", "on 1/4", "> 90/140") is not the dose either. An
+         * amount that measures a time ("2 1/2 hours before meals", "30 min before meals") is not a
+         * dose; the dose is the one explicit amount written after it, if any.
          */
         @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
         @CsvSource(delimiter = '|', value = {
@@ -354,6 +355,13 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1000 mg po if BP > 90/140 bid x 30 days | 1 | 1 | 60",
             "Take 1 1/2 hr before meals 1 tab po bid x 7 days | 1 | 1 | 14",
             "Take 1 1/2 hours before meals 1 tab po bid x 7 days | 1 | 1 | 14",
+            "Take 2 1/2 hours before meals 1 tab po bid x 7 days | 1 | 1 | 14",
+            "Take 30 min before meals 1 tab po bid x 7 days | 1 | 1 | 14",
+            "Take 2 hours before bed 1 tab po qhs x 30 days | 1 | 1 | 30",
+            "Take 1/2 hr before meals 1 tab po bid x 7 days | 1 | 1 | 14",
+            "30 min before meals 1 tab po bid x 7 days | 1 | 1 | 14",
+            "Take 30 min before meals bid x 7 days | 0 | 0 | 0",
+            "Take 1 tab 30 min before breakfast daily x 30 days | 1 | 1 | 30",
             "1 1/2 tabs po bid x 30 days | 1.5 | 1.5 | 90",
             "Take 1 1/2 tab po daily x 30 days | 1.5 | 1.5 | 45",
             "2 1/2 tabs po daily x 30 days | 2.5 | 2.5 | 75",

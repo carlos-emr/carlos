@@ -2328,6 +2328,14 @@ public class RxUtil {
         if (segment.inDailyCount(amountStart - segment.textOffset)) {
             return;
         }
+        // "Take 30 min before meals 1 tab", "Take 2 1/2 hours before meals 1 tab": an amount
+        // followed by a unit of time measures a time, not a dose. The dose is then the one explicit
+        // amount written after the time and before the frequency, when there is exactly one.
+        int timeEnd = timeAmountEnd(instructions, amountStart);
+        if (timeEnd >= 0) {
+            readDoseAfterTime(segment, instructions, timeEnd);
+            return;
+        }
         if (setRangeAfterMethod(segment, instructions, amountStart)) {
             return;
         }
@@ -2411,19 +2419,49 @@ public class RxUtil {
         if (numerator.signum() <= 0 || numerator.compareTo(denominator) >= 0) {
             return null;
         }
-        int fractionEnd = fractionStart + fraction.length();
-        // "1 1/2 hr before meals" measures a time, not a dose.
-        if (isTime(instructions, fractionEnd)) {
-            return null;
-        }
         BigInteger improper = new BigInteger(whole.value).multiply(denominator).add(numerator);
-        return new NumberToken(whole.start, fractionEnd, improper + "/" + denominator, true);
+        return new NumberToken(whole.start, fractionStart + fraction.length(), improper + "/" + denominator, true);
     }
 
-    /** True when the word after {@code amountEnd} is a unit of time ("hr", "hours", "min"). */
-    private static boolean isTime(String instructions, int amountEnd) {
-        String next = wordAt(instructions, skipWhitespaceForward(instructions, amountEnd), instructions.length());
-        return next != null && TIME_WORDS.contains(lowerCase(next));
+    /**
+     * The end of the unit of time when the text at {@code start} is an amount (a number, a fraction
+     * or a mixed number) followed by one ("30 min", "1/2 hr", "2 1/2 hours"); -1 otherwise.
+     */
+    private static int timeAmountEnd(String text, int start) {
+        int amountEnd = -1;
+        String fraction = findFractionAt(text, start);
+        if (fraction != null) {
+            amountEnd = start + fraction.length();
+        } else {
+            NumberToken number = findDecimalAt(text, start);
+            if (number != null) {
+                NumberToken mixed = findMixedNumberAt(text, number);
+                amountEnd = mixed != null ? mixed.end : number.end;
+            }
+        }
+        if (amountEnd < 0) {
+            return -1;
+        }
+        int wordStart = skipWhitespaceForward(text, amountEnd);
+        String word = wordAt(text, wordStart, text.length());
+        return word != null && TIME_WORDS.contains(lowerCase(word)) ? wordStart + word.length() : -1;
+    }
+
+    /** Records the one explicit amount between a time and the frequency as the dose ("... before meals 1 tab po bid"). */
+    private static void readDoseAfterTime(InstructionSegment segment, String instructions, int timeEnd) {
+        if (segment.frequencyStart < 0) {
+            return;
+        }
+        UnitAmount dose = findExplicitAmountAfterProduct(instructions, timeEnd, segment.frequencyStart + segment.textOffset);
+        if (dose == null) {
+            return;
+        }
+        if (dose.range()) {
+            segment.takeMin = dose.min();
+            segment.takeMax = dose.max();
+        } else {
+            segment.amountMethod = dose.min();
+        }
     }
 
     /** The run of letters that ends, after optional whitespace, at {@code end}; empty when none does. */

@@ -14,9 +14,10 @@
  * same unit as "g", "international units" the same as "IU", and a method word
  * after a product name ("Amoxicillin 250 mg/5 mL: take 7.5 mL") opens the dose.
  * A product count in parentheses needs no form word, a date after the frequency
- * ("until 11/12", "starting 3/15") is neither a duration nor a dose, a time
- * ("1 1/2 hr before meals") is not a dose, and a later taper segment keeps the
- * first segment's method ("Apply ... then 2 g daily") (PR #5077 review).
+ * ("until 11/12", "starting 3/15") is neither a duration nor a dose, an amount
+ * of time ("30 min before meals") is skipped for the dose written after it, and
+ * a later taper segment keeps the first segment's method ("Apply ... then 2 g
+ * daily") (PR #5077 review).
  * Uses an owned synthetic patient and removes its prescription rows after
  * the browser closes; do not run concurrently with other checks.
  */
@@ -127,6 +128,7 @@ async function workflow(s) {
     ['1000 mg po starting 3/15 bid x 30 days', 1, 1, '60', 'BID', '30'],
     ['Take 1 tab po daily until 11/12', 1, 1, '0', 'OD', '0'],
     ['Take 1 1/2 hr before meals 1 tab po bid x 7 days', 1, 1, '14', 'BID'],
+    ['Take 30 min before meals 1 tab po bid x 7 days', 1, 1, '14', 'BID'],
     ['Apply 2 g bid x 2 weeks then 2 g daily x 2 weeks', 2, 2, '84', 'BID', '28'],
     ['1000 mg po tid x 7 days', 1, 1, '21'],
   ];
