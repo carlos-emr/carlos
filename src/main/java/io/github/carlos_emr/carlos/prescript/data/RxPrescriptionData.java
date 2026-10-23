@@ -222,8 +222,8 @@ public class RxPrescriptionData {
         }
         prescription.setDispenseInternal(Boolean.TRUE.equals(drug.getDispenseInternal()));
         prescription.setPharmacyId(drug.getPharmacyId());
-        // Read it like toPrescription does: re-prescribing and the long-term toggle copy this
-        // prescription into a new drugs row, which would otherwise lose the tick (#5056).
+        // Read it like toPrescription does. The Long Term toggle saves this same prescription
+        // again as a new drugs row, which would otherwise lose the tick (#5056).
         if (drug.isNonAuthoritative() != null) prescription.setNonAuthoritative(drug.isNonAuthoritative());
         return prescription;
     }
@@ -281,10 +281,15 @@ public class RxPrescriptionData {
     /**
      * Creates the in-memory copy that re-prescribing (ReRx) stages from a saved prescription.
      *
-     * <p>A renewal defaults to what the prescriber set on the old card, including its
-     * Non-Authoritative tick (#5056). The Comment is the exception: it belongs to one prescribing
-     * of a given set of medications, so the renewal starts with none (clinical guidance on #5169;
-     * a reprint, which shows the original script, keeps it). The copy starts and is written
+     * <p>A renewal defaults to what the prescriber set on the old card, with two deliberate
+     * exceptions (clinical guidance on #5169, settling #5056):</p>
+     * <ul>
+     *   <li>the Non-Authoritative tick is not copied: a renewal is itself an original
+     *       prescription, so it starts authoritative;</li>
+     *   <li>the Comment is not copied: it belongs to one prescribing of a given set of
+     *       medications.</li>
+     * </ul>
+     * <p>A reprint, which shows the original script, keeps both. The copy starts and is written
      * today, has no end date, and records the old drug as its {@code drugReferenceId}.</p>
      *
      * @param providerNo the prescribing provider
@@ -345,8 +350,7 @@ public class RxPrescriptionData {
         prescription.setDispenseInternal(rePrescribe.getDispenseInternal());
         prescription.setProtocol(rePrescribe.getProtocol());
         prescription.setPriorRxProtocol(rePrescribe.getPriorRxProtocol());
-        // The Comment is deliberately left blank: it is transient to one prescribing (see Javadoc).
-        prescription.setNonAuthoritative(rePrescribe.isNonAuthoritative());
+        // The Comment and the Non-Authoritative tick are deliberately not copied (see Javadoc).
         return prescription;
     }
 

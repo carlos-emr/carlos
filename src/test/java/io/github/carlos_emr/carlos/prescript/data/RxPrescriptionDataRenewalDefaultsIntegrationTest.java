@@ -37,22 +37,23 @@ import java.util.Date;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Re-prescribing a saved drug keeps its Non-Authoritative tick, and starts the renewal without
- * its Comment, after a database round trip (#5056).
+ * What a renewal (ReRx) and the Long Term toggle keep from a persisted drug, after a database
+ * round trip (#5056).
  *
  * <p>The unit test covers the in-memory copy; this one reads the source from a real drugs row
  * (where a legacy row may hold NULL in {@code non_authoritative}) and saves the copy as a new
- * row the way the prescription save does, then reads that row back. The Comment is transient to
- * one prescribing, so only the long-term toggle, which saves the same prescription again, keeps it.
+ * row the way the prescription save does, then reads that row back. A renewal is a new original
+ * prescription, so it starts with the Non-Authoritative tick clear and no Comment (clinical
+ * guidance on #5169). The Long Term toggle saves the same prescription again, so it keeps both.
  *
  * @since 2026-10-22
  */
-@DisplayName("Re-prescribing a persisted drug keeps its Non-Authoritative tick but not its Comment")
+@DisplayName("Renewal defaults and the Long Term toggle on persisted drugs")
 @Tag("integration")
 @Tag("prescription")
 @Tag("create")
 @Transactional
-class RxPrescriptionDataReRxCarryOverIntegrationTest extends CarlosTestBase {
+class RxPrescriptionDataRenewalDefaultsIntegrationTest extends CarlosTestBase {
 
     private static final int DEMO_NO = 5056;
     private static final String PROVIDER_NO = "999001";
@@ -100,8 +101,8 @@ class RxPrescriptionDataReRxCarryOverIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("should save the re-prescribed copy with the source's Non-Authoritative tick and no comment")
-    void shouldSaveNonAuthoritativeWithoutComment_whenRePrescribingPersistedDrug() {
+    @DisplayName("should save the renewal authoritative and without a comment, leaving the source as it was")
+    void shouldSaveAuthoritativeRenewalWithoutComment_whenRePrescribingPersistedDrug() {
         Drug source = persistSource(true);
         RxPrescriptionData data = new RxPrescriptionData();
 
@@ -112,15 +113,15 @@ class RxPrescriptionDataReRxCarryOverIntegrationTest extends CarlosTestBase {
         Drug saved = reload(staged.getDrugId());
         assertThat(saved.getId()).isNotEqualTo(source.getId());
         assertThat(saved.getComment()).isNull();
-        assertThat(saved.isNonAuthoritative()).isTrue();
+        assertThat(saved.isNonAuthoritative()).isFalse();
         Drug unchanged = entityManager.find(Drug.class, source.getId());
         assertThat(unchanged.getComment()).isEqualTo(COMMENT);
         assertThat(unchanged.isNonAuthoritative()).isTrue();
     }
 
     @Test
-    @DisplayName("should stage an unticked copy when the source row's non_authoritative is NULL")
-    void shouldStageUntickedCopy_whenSourceNonAuthoritativeIsNull() {
+    @DisplayName("should read a NULL legacy non_authoritative as unticked")
+    void shouldLoadUnticked_whenSourceNonAuthoritativeIsNull() {
         Drug source = persistSource(false);
         entityManager.createNativeQuery("UPDATE drugs SET non_authoritative = NULL WHERE drugid = ?1")
                 .setParameter(1, source.getId())
@@ -128,15 +129,14 @@ class RxPrescriptionDataReRxCarryOverIntegrationTest extends CarlosTestBase {
         entityManager.clear();
         RxPrescriptionData data = new RxPrescriptionData();
 
-        RxPrescriptionData.Prescription staged =
-                data.newPrescription(PROVIDER_NO, DEMO_NO, data.getPrescriptionIfPresent(source.getId()));
+        RxPrescriptionData.Prescription loaded = data.getPrescriptionIfPresent(source.getId());
 
-        assertThat(staged.isNonAuthoritative()).isFalse();
-        assertThat(staged.getComment()).isNull();
+        assertThat(loaded.isNonAuthoritative()).isFalse();
+        assertThat(loaded.getComment()).isEqualTo(COMMENT);
     }
 
     @Test
-    @DisplayName("should keep the Non-Authoritative tick when the long-term toggle saves the drug as a new row")
+    @DisplayName("should keep the Non-Authoritative tick and comment when the Long Term toggle saves a new row")
     void shouldKeepNonAuthoritative_whenLongTermToggleSavesNewRow() {
         Drug source = persistSource(true);
 

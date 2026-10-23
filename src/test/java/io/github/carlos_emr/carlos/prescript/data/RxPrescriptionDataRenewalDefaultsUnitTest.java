@@ -44,22 +44,22 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Re-prescribing (ReRx) keeps the old card's Non-Authoritative tick but not its Comment (#5056).
+ * What a renewal (ReRx) and the Long Term toggle keep from a saved prescription (#5056).
  *
- * <p>Every ReRx route loads the saved drug with {@code getPrescription} or
- * {@code getPrescriptionIfPresent} and stages a copy with the re-prescribe
- * {@code newPrescription} overload, whose values pre-fill the restaged card. The loader did not
- * read the Non-Authoritative flag and the copy did not take it, so it was lost. The Comment is
- * transient to one prescribing, so a renewal deliberately starts without it (clinical guidance on
- * #5169). The long-term toggle saves the loaded prescription itself as a new drugs row through the
- * same loader, so it keeps both.
+ * <p>A renewal is a new original prescription: it starts with the Non-Authoritative tick clear
+ * and no Comment, whatever the old card had (clinical guidance on #5169). Every ReRx route stages
+ * it with the re-prescribe {@code newPrescription} overload from a prescription loaded by
+ * {@code getPrescription} or {@code getPrescriptionIfPresent}.
+ *
+ * <p>The Long Term toggle loads the drug the same way and saves that same prescription again as a
+ * new drugs row. The loader did not read the Non-Authoritative flag, so the toggle cleared it.
  *
  * @since 2026-10-22
  */
 @Tag("unit")
 @Tag("prescription")
-@DisplayName("Re-prescribing carries the Non-Authoritative tick but not the Comment")
-class RxPrescriptionDataReRxCarryOverUnitTest extends CarlosUnitTestBase {
+@DisplayName("Renewal defaults and the Long Term toggle")
+class RxPrescriptionDataRenewalDefaultsUnitTest extends CarlosUnitTestBase {
 
     private static final int DRUG_ID = 50561;
     private static final int DEMOGRAPHIC_NO = 50562;
@@ -108,9 +108,9 @@ class RxPrescriptionDataReRxCarryOverUnitTest extends CarlosUnitTestBase {
             "'  ',NULL,true,NULL,false",
             "NULL,NULL,false,NULL,false",
     })
-    @DisplayName("should stage the old Non-Authoritative tick and a blank Comment on the ReRx copy")
-    void shouldCarryNonAuthoritativeAndStartBlankComment_whenRePrescribing(String comment, Boolean nonAuthoritative,
-            boolean loadedById, String storedComment, boolean expectedNonAuthoritative) {
+    @DisplayName("should stage a renewal with the Non-Authoritative tick clear and no Comment")
+    void shouldStartAuthoritativeWithoutComment_whenRePrescribing(String comment, Boolean nonAuthoritative,
+            boolean loadedById, String storedComment, boolean storedNonAuthoritative) {
         Drug drug = savedDrug(comment, nonAuthoritative);
         RxPrescriptionData data = new RxPrescriptionData();
         RxPrescriptionData.Prescription oldRx = loadedById
@@ -118,18 +118,19 @@ class RxPrescriptionDataReRxCarryOverUnitTest extends CarlosUnitTestBase {
 
         RxPrescriptionData.Prescription staged = data.newPrescription(PROVIDER_NO, DEMOGRAPHIC_NO, oldRx);
 
-        assertThat(staged.isNonAuthoritative()).isEqualTo(expectedNonAuthoritative);
-        // The loader still reads the comment; only the renewal leaves it behind.
+        // The loader reads both; the renewal leaves both behind.
+        assertThat(oldRx.isNonAuthoritative()).isEqualTo(storedNonAuthoritative);
         assertThat(oldRx.getComment()).isEqualTo(storedComment);
+        assertThat(staged.isNonAuthoritative()).isFalse();
         assertThat(staged.getComment()).isNull();
         // The saved row is only read: the ReRx copy never edits the prescription it came from.
         assertThat(drug.getComment()).isEqualTo(storedComment);
-        assertThat(drug.isNonAuthoritative()).isEqualTo(expectedNonAuthoritative);
+        assertThat(drug.isNonAuthoritative()).isEqualTo(storedNonAuthoritative);
     }
 
     @Test
     @DisplayName("should still restage the copy as a new script written today that points at its source")
-    void shouldResetDatesAndLinkSource_whenRePrescribingWithCommentAndNonAuthoritative() {
+    void shouldResetDatesAndLinkSource_whenRePrescribingNonAuthoritativeDrug() {
         savedDrug("FAKE keep with food", true);
         RxPrescriptionData data = new RxPrescriptionData();
 
@@ -144,7 +145,7 @@ class RxPrescriptionDataReRxCarryOverUnitTest extends CarlosUnitTestBase {
         assertThat(isToday(staged.getWrittenDate())).as("written date is today").isTrue();
         assertThat(staged.getEndDate()).isNull();
         assertThat(staged.getComment()).isNull();
-        assertThat(staged.isNonAuthoritative()).isTrue();
+        assertThat(staged.isNonAuthoritative()).isFalse();
     }
 
     @ParameterizedTest(name = "[{index}] nonAuthoritative={0}, expected={1}")
@@ -160,8 +161,8 @@ class RxPrescriptionDataReRxCarryOverUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    // Not a renewal: the long-term toggle saves the same prescription again, so it keeps its comment.
-    @DisplayName("should keep the Non-Authoritative tick and comment when the long-term toggle saves a new row")
+    // Not a renewal: the Long Term toggle saves the same prescription again, so it keeps both.
+    @DisplayName("should keep the Non-Authoritative tick and comment when the Long Term toggle saves a new row")
     void shouldKeepNonAuthoritative_whenSavingLoadedPrescriptionAsNewRow() {
         savedDrug("FAKE keep with food", true);
         when(drugDao.getMaxPosition(DEMOGRAPHIC_NO)).thenReturn(4);
