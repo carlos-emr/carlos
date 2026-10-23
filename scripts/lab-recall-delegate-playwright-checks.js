@@ -246,7 +246,9 @@ async function workflow(s) {
       context.off('page', collect);
     }
     h.assert(pages.length === 2, `Recall opened ${pages.length} window(s), not a message and a tickler form`);
-    await Promise.all(pages.map(page => page.waitForLoadState('domcontentloaded', { timeout: 30000 })));
+    // The named windows first open about:blank; its DOM is already loaded before the form POST navigates.
+    await Promise.all(pages.map(page => page.waitForURL(url => String(url) !== 'about:blank',
+      { timeout: 30000, waitUntil: 'domcontentloaded' })));
     const byPath = pathEnd => pages.find(page => h.pathOnly(page.url()).endsWith(pathEnd));
     const message = byPath('/messenger/SendDemoMessage');
     tickler = byPath('/tickler/ForwardDemographicTickler');
