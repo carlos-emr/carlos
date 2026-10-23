@@ -185,6 +185,11 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
         return notes;
     }
 
+    /**
+     * Stores notes with CRLF and lone CR line endings converted to LF.
+     *
+     * @param notes the notes to store; may be null
+     */
     public void setNotes(String notes) {
         this.notes = normalizeLineEndings(notes);
     }
@@ -193,6 +198,11 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
         return reason;
     }
 
+    /**
+     * Stores the reason with CRLF and lone CR line endings converted to LF.
+     *
+     * @param reason the reason to store; may be null
+     */
     public void setReason(String reason) {
         this.reason = normalizeLineEndings(reason);
     }
@@ -202,6 +212,10 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
      * sends CRLF. Store LF so a full reason (80) or notes (255) fits its column
      * without losing the final character. Apply this to every appointment writer,
      * including recurring bookings, without trimming or truncating clinical text.
+     * Also used when comparing legacy CRLF series with new LF occurrences.
+     *
+     * @param text the multiline text to normalize; may be null
+     * @return the text with LF line endings, or null when the input is null
      */
     public static String normalizeLineEndings(String text) {
         return text == null ? null : text.replace("\r\n", "\n").replace('\r', '\n');
