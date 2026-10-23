@@ -16135,7 +16135,8 @@
         "providerLabRouting",
         "providerLabRoutingLock",
         "fileUploadCheck"
-      ]
+      ],
+      "fixtures": "Disposable BC package install with OLD_LAB_UPLOAD=yes and PATHNET_LABS=yes; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Uses owned FAKE patients and removes their segment, link, routing and upload rows."
     }
   ]
 }
