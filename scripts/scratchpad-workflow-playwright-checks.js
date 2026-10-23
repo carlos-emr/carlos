@@ -16,6 +16,17 @@ function isSave(response) {
     && !new URLSearchParams(response.request().postData() || '').has('method');
 }
 
+async function closeSavedEditor(page) {
+  h.assert(await page.locator('#dirty').inputValue() === 'false'
+    && await page.locator('#savebutton').isDisabled(), 'Saved editor still has unconfirmed changes');
+  // Playwright's default close skips beforeunload, so exercise the user's close.
+  // An unexpected prompt stays a strict finding and prevents this close.
+  await Promise.all([
+    page.waitForEvent('close', {timeout: 20000}),
+    page.close({runBeforeUnload: true}),
+  ]);
+}
+
 // Consume only the specific HTTP failure deliberately asserted by a negative
 // step. Other endpoints, statuses, JavaScript errors and dialogs stay strict.
 function consumeExpectedFailure(recorder, url, status, since) {
@@ -71,11 +82,29 @@ async function workflow(s) {
   let id;
   let secondContext;
   let current;
+  let stale;
   await s.step('save literal characters and reopen the exact note', async () => {
     const text = `${s.marker} A+B %20 &amp; <note>\n  indented line  `;
     id = await save(editor, text);
-    await editor.close(); editor = await open(s.schedule);
+    await closeSavedEditor(editor); editor = await open(s.schedule);
     h.assert(await editor.locator('#thetext').inputValue() === text, 'Reopened scratchpad changed literal text');
+  });
+  await s.step('unsaved text warns before closing and Cancel keeps the draft', async () => {
+    const savedText = await editor.locator('#thetext').inputValue();
+    const draft = `${s.marker} deliberately unsaved navigation probe`;
+    await editor.locator('#thetext').fill(draft);
+    const dialogs = await h.withExpectedDialogs(editor, async () => {
+      const shown = editor.waitForEvent('dialog', {timeout: 20000});
+      await editor.close({runBeforeUnload: true});
+      await shown;
+    }, {accept: false});
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload',
+      'Closing an unsaved scratchpad did not raise exactly one beforeunload warning');
+    h.assert(!editor.isClosed() && await editor.locator('#thetext').inputValue() === draft
+      && await editor.locator('#dirty').inputValue() === 'true', 'Cancel discarded the unsaved draft');
+    await save(editor, savedText);
+    await closeSavedEditor(editor); editor = await open(s.schedule);
+    h.assert(await editor.locator('#thetext').inputValue() === savedText, 'Saving after Cancel lost the note');
   });
   await s.step('autosave a literal plus edit and deliberately clear the note', async () => {
     await save(editor, `${s.marker} alpha beta`);
@@ -86,7 +115,7 @@ async function workflow(s) {
     const response = await editor.waitForResponse(isSave, {timeout: 35000});
     await acknowledged(editor, response, text);
     await save(editor, '');
-    await editor.close(); editor = await open(s.schedule);
+    await closeSavedEditor(editor); editor = await open(s.schedule);
     h.assert(await editor.locator('#thetext').inputValue() === '', 'Deliberate clear was not saved');
     id = await save(editor, `${s.marker} history baseline`);
   });
@@ -150,7 +179,7 @@ async function workflow(s) {
     secondContext = await h.newContext(s.context.browser(), s.config);
     secondContext.on('page', page => h.wireStrictPage(page, 'scratch-second-browser', s.recorder));
     const secondSchedule = await h.login(secondContext, s.config, s.recorder);
-    const stale = await open(secondSchedule);
+    stale = await open(secondSchedule);
     const staleId = await stale.locator('#curr_id').inputValue();
     const serverText = `${s.marker} first browser wins`;
     const latestId = await save(editor, serverText);
@@ -191,6 +220,7 @@ async function workflow(s) {
     };
     const since = { responses: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length };
     for (const page of pages) await page.route('**/Scratch', handler);
+    let winner;
     try {
       const [responses] = await Promise.all([
         Promise.all(pages.map(page => page.waitForResponse(isSave))),
@@ -198,7 +228,7 @@ async function workflow(s) {
       ]);
       h.assert(arrivals === 2 && responses.map(response => response.status()).sort().join(',') === '200,409',
         'Simultaneous revision checks did not accept exactly one save and reject the other');
-      const winner = responses.findIndex(response => response.status() === 200);
+      winner = responses.findIndex(response => response.status() === 200);
       const loser = 1 - winner;
       await acknowledged(pages[winner], responses[winner], texts[winner]);
       await pages[loser].locator('#saveError').filter({hasText: 'Another window changed'}).waitFor();
@@ -210,7 +240,14 @@ async function workflow(s) {
       release();
       for (const page of pages) await page.unroute('**/Scratch', handler);
     }
-    // Context teardown bypasses beforeunload; the stale note is an owned fixture.
+    await closeSavedEditor(pages[winner]);
+    for (const draft of [pages[1 - winner], stale]) {
+      h.assert(await draft.locator('#dirty').inputValue() === 'true', 'Conflicted draft unexpectedly became saved');
+      // These owned conflict probes intentionally retain unsaved text. Dispose
+      // their pages before context.close(): its teardown logout broadcasts a
+      // close/redirect to live tabs, which correctly warns about these drafts.
+      await draft.close();
+    }
     await secondContext.close();
   });
 }
