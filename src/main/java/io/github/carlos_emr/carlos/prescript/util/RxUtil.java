@@ -194,8 +194,11 @@ public class RxUtil {
     /** Units of time after an amount ("1 1/2 hr before meals"): the amount measures a time, not a dose. */
     private static final Set<String> TIME_WORDS = Set.of("h", "hr", "hrs", "hour", "hours", "min", "mins", "minute",
             "minutes");
-    /** Characters of a comparison before a fraction ("if BP > 90/140"), which is then a value, not a dose. */
-    private static final String COMPARISON_CHARACTERS = "<>=\u2264\u2265";
+    /**
+     * Characters of a comparison before an amount ("if BP > 90/140", "if SBP > 140"), which is then a
+     * threshold, not a dose. "=" is not one: directions write a product count as "1000 mg = 2 tabs".
+     */
+    private static final String COMPARISON_CHARACTERS = "<>\u2264\u2265";
     /** The largest denominator of a fraction read as a dose on its own: halves to eighths, including sixths. */
     private static final BigDecimal LARGEST_DOSE_FRACTION_DENOMINATOR = BigDecimal.valueOf(8);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
@@ -907,11 +910,18 @@ public class RxUtil {
                 //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
                 NumberRange frequencyRange = findRangeBeforeFrequency(instructions, matcher.start());
+                // A date or a threshold written just before the frequency ("starting 3-15 bid",
+                // "if SBP > 140 bid") is not the dose, whether it reads as a range or as a number.
                 if (frequencyRange != null) {
-                    takeMinFrequency = frequencyRange.min;
-                    takeMaxFrequency = frequencyRange.max;
+                    if (!isDatedOrCompared(instructions, frequencyRange.start)) {
+                        takeMinFrequency = frequencyRange.min;
+                        takeMaxFrequency = frequencyRange.max;
+                    }
                 } else {
                     NumberToken frequencyAmount = findDecimalBeforeFrequency(instructions, matcher.start());
+                    if (frequencyAmount != null && isDatedOrCompared(instructions, frequencyAmount.start)) {
+                        frequencyAmount = null;
+                    }
                     if (frequencyAmount == null) {
                         // Whether a fraction here is the dose depends on the leading amount, which is
                         // read below; keep it aside until then.
@@ -1992,12 +2002,14 @@ public class RxUtil {
      * True when the amount that starts with the number {@code first} and ends at {@code end} is
      * written as an administered dose: a counted dosage form, volume, unit count or the oral route
      * follows it, and it is not a concentration denominator, a vehicle, a ceiling or an amount to
-     * dispense. A bare fraction counts only when it can stand as a dose ({@code 1/2 po}): a date
-     * ({@code starting 3/15 PO}, {@code on 1/4 po}), a comparison ({@code > 90/140 PO}) or a
-     * schedule ({@code x 3/7}) is not one, however the route follows it.
+     * dispense. A date ({@code starting 3/15 PO}, {@code starting 3-15 PO}, {@code on 1/4 po}) or a
+     * comparison ({@code > 90/140 PO}, {@code > 140 PO}) introduces no dose, whatever follows it, and
+     * a bare fraction counts only when it can stand as a dose ({@code 1/2 po}), so a schedule
+     * ({@code x 3/7}) is not one either.
      */
     private static boolean isWrittenAsDose(String instructions, NumberToken first, int end, int frequencyStart) {
-        if (first.value.indexOf('/') >= 0 && !isPlainDoseFraction(instructions, first)) {
+        if (isDatedOrCompared(instructions, first.start)
+                || (first.value.indexOf('/') >= 0 && !isPlainDoseFraction(instructions, first))) {
             return false;
         }
         return namesExplicitAmount(instructions, end, frequencyStart)
@@ -2182,15 +2194,25 @@ public class RxUtil {
     private static boolean isPlainDoseFraction(String instructions, NumberToken fraction) {
         ExactAmount amount = ExactAmount.parse(fraction.value);
         if (amount.isZero() || amount.numerator().compareTo(amount.denominator()) >= 0
-                || amount.denominator().compareTo(LARGEST_DOSE_FRACTION_DENOMINATOR) > 0) {
-            return false;
-        }
-        int end = skipWhitespaceBackward(instructions, fraction.start);
-        if (end > 0 && COMPARISON_CHARACTERS.indexOf(instructions.charAt(end - 1)) >= 0) {
+                || amount.denominator().compareTo(LARGEST_DOSE_FRACTION_DENOMINATOR) > 0
+                || isDatedOrCompared(instructions, fraction.start)) {
             return false;
         }
         String previousWord = lowerCase(wordBefore(instructions, fraction.start));
-        return !("x".equals(previousWord) || "for".equals(previousWord) || DATE_WORDS.contains(previousWord));
+        return !("x".equals(previousWord) || "for".equals(previousWord));
+    }
+
+    /**
+     * True when a date word ({@code starting 3-15}, {@code on 1/4}, {@code until 11/12}) or a
+     * comparison character ({@code > 140}, {@code < 90/60}) introduces the amount that starts at
+     * {@code start}: the amount is a date or a threshold, not a dose, whatever follows it.
+     */
+    private static boolean isDatedOrCompared(String instructions, int start) {
+        int end = skipWhitespaceBackward(instructions, start);
+        if (end > 0 && COMPARISON_CHARACTERS.indexOf(instructions.charAt(end - 1)) >= 0) {
+            return true;
+        }
+        return DATE_WORDS.contains(lowerCase(wordBefore(instructions, start)));
     }
 
     /**

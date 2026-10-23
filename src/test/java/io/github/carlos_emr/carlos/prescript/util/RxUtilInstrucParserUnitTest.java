@@ -334,7 +334,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
          * leading range is kept instead of the trailing half. A fraction written as a schedule or
          * a ratio ("x 3/7", "140/90") never replaces an explicit leading count, and after a strength a
          * date or a comparison ("starting 3/15", "on 1/4", "> 90/140") is not the dose either, whether
-         * the route is written before it or right after it ("starting 3/15 PO"). An amount that
+         * the route is written before it or right after it ("starting 3/15 PO"), and a hyphenated date
+         * ("starting 3-15 PO") is not a dose range. An amount that
          * measures a time ("2 1/2 hours before meals", "30 min before meals") is not a dose; the dose
          * is the one explicit amount written after it, if any.
          */
@@ -359,6 +360,17 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "500 mg on 1/4 po bid x 30 days | 1 | 1 | 60",
             "1000 mg if BP > 90/140 PO bid x 30 days | 1 | 1 | 60",
             "500 mg on 1/4 by mouth bid x 30 days | 1 | 1 | 60",
+            "1000 mg starting 3-15 PO BID x 30 days | 1 | 1 | 60",
+            "Take 1000 mg starting 3-15 po bid x 30 days | 1 | 1 | 60",
+            "500 mg on 1-4 po bid x 30 days | 1 | 1 | 60",
+            "1000 mg if BP > 140-90 PO bid x 30 days | 1 | 1 | 60",
+            "1000 mg po starting 3-15 bid x 30 days | 1 | 1 | 60",
+            "Take 1 tab po starting 3-15 bid x 30 days | 1 | 1 | 60",
+            "1000 mg po if SBP > 140 bid x 30 days | 1 | 1 | 60",
+            "Take 1 tab po if SBP > 140 bid x 30 days | 1 | 1 | 60",
+            "1000 mg = 2 tabs po bid x 7 days | 2 | 2 | 28",
+            "Take 1000 mg (= 2 tabs) po bid x 7 days | 2 | 2 | 28",
+            "500 mg = 1/2 tab po bid x 7 days | 0.5 | 0.5 | 7",
             "1000 mg 1/2 po tid x 8 days | 0.5 | 0.5 | 12",
             "1000 mg 1/2 - 1 tab po bid x 7 days | 0.5 | 1 | 14",
             "1000 mg 1 1/2 po bid x 7 days | 1.5 | 1.5 | 21",
@@ -1001,6 +1013,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         @ValueSource(strings = {
             "Take 1 tab po daily until 11/12",
             "Take 1 tab po bid starting 3/12",
+            "Take 1 tab po bid starting 3-15",
             "Take 1 tab po bid until 10/12",
             "Take 1 tab po bid from 5/7"
         })
