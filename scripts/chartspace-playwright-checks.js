@@ -203,11 +203,12 @@ async function checkWidth(page, baseUrl, demographicNo, viewport) {
     const style = window.getComputedStyle(node);
     return { id: node.id, style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
   });
-  if (!outline && state === 'OK' && disabled && focusableCount === 0) {
+  if (!outline && isFocusCheckNotApplicable(state, disabled, focusableCount)) {
     // Nothing on the page is keyboard-reachable (the only button is disabled with no
     // hidden sections), so there is no element whose focus ring could be asserted.
     console.log(`${label}: focus: n/a (no focusable elements)`);
-    // OK with nothing hidden marks focus and Esc n/a; CI (clean DB, patient 2 in EMPTY) exercises them.
+    // OK with nothing hidden and NO_ACCESS (no allergy rows to hide) mark focus and Esc n/a;
+    // CI (clean DB, patient 2 in EMPTY) exercises them.
     return state;
   }
   assert(outline, `${label}: keyboard focus did not land on any element (${focusDiag})`);
@@ -376,6 +377,18 @@ async function main() {
     await browser.close().catch(() => {});
   }
 }
+
+/**
+ * True when the focus and Esc checks have nothing to assert: the card settled in OK or
+ * NO_ACCESS (neither leaves hidden sections to reveal), the toggle is disabled and no
+ * element is focusable. Any other state, an enabled toggle or a focusable element means
+ * the checks must run.
+ */
+function isFocusCheckNotApplicable(state, toggleDisabled, focusableCount) {
+  return (state === 'OK' || state === 'NO_ACCESS') && toggleDisabled && focusableCount === 0;
+}
+
+module.exports = { isFocusCheckNotApplicable };
 
 if (require.main === module) {
   runCheck({ name: 'chartspace', run: main }).catch((error) => {
