@@ -11189,6 +11189,22 @@
       "fixtures": "Needs scripts/e2e/fax/fixtures.sql loaded (fixture patient Loopback/Faxtest). Writes nothing."
     },
     {
+      "name": "chart-entry-appointment-ownership",
+      "script": "scripts/chart-entry-appointment-ownership-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue #4676: a chart entry (IncomingEncounter) remembers only an appointment of its own patient. Two chart windows of one login: A entered for A's own visit by the logged-in provider, B entered from another provider's day sheet for one of B's visits; each note save's re-rendered notes panel names its chart's entry provider. The entry of A's own visit, also with the old appointmentList flag, opens A's chart for that visit. Requests naming A with B's visit (with and without appointmentList), with a visit that does not exist or one booked without a patient, naming B with A's visit, and the old getAnotherEncounter() request (no patient) are refused (400) without a redirect and change neither patient's rows or any visit row. Afterwards each chart's next note save still names its own entry provider and links its own visit. With the old action, the appointmentList request overwrote B's remembered entry (B's panel named the logged-in provider) and the request naming A with B's visit opened A's chart with B's visit as its appointment.",
+      "fixtures": "Owned FAKE patients A/B (the run marker as last name), one visit of A's, two of B's and one booked without a patient, all named with the run marker; B is entered for a second active doctor. Cleanup removes both patients' notes and their extensions, links, issue links and issues, note locks, drafts, eChart revisions, appointment archive rows and appointments, and the unbooked visit, by key and asserts each is gone; B is removed and the harness removes A.",
+      "mutates": []
+    },
+    {
       "name": "echart-two-patient-isolation",
       "script": "scripts/echart-two-patient-isolation-playwright-checks.js",
       "tiers": [
@@ -12783,8 +12799,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "The clinic-wide document description list (Administration ▸ Document Description Template) and the same page opened from Preferences by a provider with only the doctor role; provider-preferences covers the administrator test login's own list. On develop the last step fails: the doctor is refused (HTTP 403) on the page their Preferences link to (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
-      "fixtures": "The test login's own entry and a throwaway doctor login; every entry carries the run marker. Entries and the throwaway are removed in cleanup."
+      "notes": "The clinic-wide document description list (Administration ▸ Document Description Template), and a provider with only the doctor role using their own list (#5057): it opens from Preferences, Add/Update/Delete keep entries the doctor's own, Incoming Docs in Fast mode offers the doctor's own shortcuts and then the clinic's, crafted requests for another provider's entries are refused with no row changed, and the doctor role's seeded _admin.document grant opens the clinic-wide list from Administration. provider-preferences covers the administrator test login's own list.",
+      "fixtures": "The test login's own entry, a clinic-wide entry and a throwaway doctor login (its template preference and Incoming Docs entry mode go with it); every entry carries the run marker. Entries and the throwaway are removed in cleanup. Needs the seeded doctor role's _admin.document grant."
     },
     {
       "name": "allergy-list-views",
