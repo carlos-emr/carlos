@@ -150,6 +150,9 @@ async function workflow(s) {
       && response.request().method() === 'POST' && (response.headers()['content-type'] || '').includes('json'),
     { timeout: 60000 });
     const download = page.waitForEvent('download', { timeout: 60000 });
+    // Handled now so a failed preview below cannot leave it rejecting unobserved; the await
+    // after the preview still reports a missing download.
+    download.catch(() => {});
     await page.locator('input[name="printPreview"]').click();
     const reply = await (await previewArrived).json();
     await download;

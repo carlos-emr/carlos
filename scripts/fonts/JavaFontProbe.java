@@ -18,10 +18,17 @@ import java.util.Locale;
  * what JasperReports compares against a field's box height.
  *
  * <p>Usage: {@code java -Duser.home=<dir> scripts/fonts/JavaFontProbe.java}
+ *
+ * @since 2026-10-23
  */
 public final class JavaFontProbe {
     private JavaFontProbe() { }
 
+    /**
+     * Prints {@code sansserif.line12=<points>} and {@code families=<a|b|...>} to standard output.
+     *
+     * @param args String[] command-line arguments; none are read
+     */
     public static void main(String[] args) {
         String[] families = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames(Locale.ROOT);
         LineMetrics metrics = new Font(Font.SANS_SERIF, Font.PLAIN, 12)

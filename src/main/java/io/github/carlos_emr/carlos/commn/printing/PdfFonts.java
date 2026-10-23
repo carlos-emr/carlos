@@ -114,9 +114,9 @@ public final class PdfFonts {
      * Returns a phrase in the given font holding text added through {@link #addText}, as a
      * drop-in for {@code new Phrase(text, font)}, which draws only the characters that font has.
      *
-     * @param text the text, or {@code null} for an empty phrase
-     * @param font the phrase font, which later {@code Phrase.add(String)} calls also use
-     * @return the phrase
+     * @param text String the text, or {@code null} for an empty phrase
+     * @param font Font the phrase font, which later {@code Phrase.add(String)} calls also use
+     * @return Phrase the new phrase
      */
     public static Phrase phrase(String text, Font font) {
         return phrase(Float.NaN, text, font);
@@ -125,10 +125,10 @@ public final class PdfFonts {
     /**
      * Returns a phrase with the given leading, as a drop-in for {@code new Phrase(leading, text, font)}.
      *
-     * @param leading the line leading, or {@code Float.NaN} for the font's default
-     * @param text the text, or {@code null} for an empty phrase
-     * @param font the phrase font
-     * @return the phrase
+     * @param leading float the line leading, or {@code Float.NaN} for the font's default
+     * @param text String the text, or {@code null} for an empty phrase
+     * @param font Font the phrase font
+     * @return Phrase the new phrase
      */
     public static Phrase phrase(float leading, String text, Font font) {
         Phrase phrase = new Phrase(leading, "", font);
@@ -140,9 +140,9 @@ public final class PdfFonts {
      * Returns a paragraph holding text added through {@link #addText}, as a drop-in for
      * {@code new Paragraph(text, font)}.
      *
-     * @param text the text, or {@code null} for an empty paragraph
-     * @param font the paragraph font
-     * @return the paragraph
+     * @param text String the text, or {@code null} for an empty paragraph
+     * @param font Font the paragraph font
+     * @return Paragraph the new paragraph
      */
     public static Paragraph paragraph(String text, Font font) {
         Paragraph paragraph = new Paragraph("", font);
@@ -155,14 +155,14 @@ public final class PdfFonts {
      * the fallback faces of {@link #addText}. The baseline sits at {@code y}; call it outside
      * {@code beginText()}/{@code endText()}.
      *
-     * @param canvas the content to draw on
-     * @param alignment {@code Element.ALIGN_LEFT}, {@code ALIGN_CENTER} or {@code ALIGN_RIGHT}
+     * @param canvas PdfContentByte the content to draw on
+     * @param alignment int {@code Element.ALIGN_LEFT}, {@code ALIGN_CENTER} or {@code ALIGN_RIGHT}
      *                  (the {@code PdfContentByte} constants share these values)
-     * @param text the text, or {@code null}/empty to draw nothing
-     * @param font the font for the characters it can draw
-     * @param x the reference point's horizontal position
-     * @param y the baseline
-     * @param rotation the rotation in degrees
+     * @param text String the text, or {@code null}/empty to draw nothing
+     * @param font Font the font for the characters it can draw
+     * @param x float the reference point's horizontal position
+     * @param y float the baseline
+     * @param rotation float the rotation in degrees
      */
     public static void showTextAligned(PdfContentByte canvas, int alignment, String text, Font font,
             float x, float y, float rotation) {

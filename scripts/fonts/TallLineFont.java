@@ -17,10 +17,20 @@ import java.nio.file.Path;
  * fontconfig, FreeType nor the JDK verifies them.
  *
  * <p>Usage: {@code java scripts/fonts/TallLineFont.java <input.ttf> <output.ttf>}
+ *
+ * @since 2026-10-23
  */
 public final class TallLineFont {
     private TallLineFont() { }
 
+    /**
+     * Writes the tall-line copy of a TrueType font.
+     *
+     * @param args String[] the input font path, then the output font path
+     * @throws IOException if the input cannot be read or the output cannot be written
+     * @throws IllegalArgumentException if there are not exactly two arguments, or the font lacks
+     *         a head, hhea or OS/2 table
+     */
     public static void main(String[] args) throws IOException {
         if (args.length != 2) {
             throw new IllegalArgumentException("usage: TallLineFont <input.ttf> <output.ttf>");

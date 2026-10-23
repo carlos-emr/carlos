@@ -101,19 +101,18 @@ class ClinicalFormJasperRenderingUnitTest {
         Files.write(OUTPUT.resolve(page + ".pdf"), bytes.toByteArray());
 
         try (PDDocument pdf = Loader.loadPDF(bytes.toByteArray())) {
-            int checked = 0;
             for (Map.Entry<String, String> value : values.entrySet()) {
-                for (JRTextField field : fields(report, value.getKey())) {
+                List<JRTextField> boxes = fields(report, value.getKey());
+                assertThat(boxes).as("%s boxes for %s", page, value.getKey()).isNotEmpty();
+                for (JRTextField field : boxes) {
                     PDFTextStripperByArea area = new PDFTextStripperByArea();
                     area.addRegion("field", new Rectangle2D.Double(field.getX(), field.getY(),
                             field.getWidth(), field.getHeight()));
                     area.extractRegions(pdf.getPage(0));
                     assertThat(area.getTextForRegion("field").strip()).as("%s %s", page, value.getKey())
                             .isEqualTo(value.getValue());
-                    checked++;
                 }
             }
-            assertThat(checked).as("identifier boxes checked on %s", page).isGreaterThanOrEqualTo(values.size());
             var resources = pdf.getPage(0).getResources();
             for (COSName name : resources.getFontNames()) {
                 var font = resources.getFont(name);

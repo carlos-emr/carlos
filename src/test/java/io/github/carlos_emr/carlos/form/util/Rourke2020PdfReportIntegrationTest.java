@@ -174,7 +174,21 @@ class Rourke2020PdfReportIntegrationTest extends CarlosTestBase {
                 }
             }
             BufferedImage form = renderPage(blank, page);
-            BufferedImage printed = renderPage(filled, page);
+            BufferedImage printed;
+            try (PDDocument pdf = Loader.loadPDF(print(filled, List.of(page)))) {
+                printed = new PDFRenderer(pdf).renderImageWithDPI(0, 108);
+                // Each full value must also be the text of its own box: the layout checks see pixels, not words.
+                for (Map.Entry<String, JRTextField> entry : fields.entrySet()) {
+                    JRTextField field = entry.getValue();
+                    PDFTextStripperByArea text = new PDFTextStripperByArea();
+                    text.addRegion("field", new Rectangle2D.Double(field.getX(), field.getY(), field.getWidth(), field.getHeight()));
+                    text.extractRegions(pdf.getPage(0));
+                    if (!text.getTextForRegion("field").replaceAll("\\s+", "")
+                            .equals(filled.getProperty(entry.getKey()).replaceAll("\\s+", ""))) {
+                        problems.add("page " + page + ": " + entry.getKey() + " box does not hold its full value");
+                    }
+                }
+            }
             problems.addAll(layoutProblems(page, fields, form, printed));
         }
         assertThat(problems).isEmpty();
