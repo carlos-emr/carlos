@@ -28,9 +28,11 @@ java_command=java
 if [ -n "${JAVA_HOME:-}" ]; then
     java_command=$JAVA_HOME/bin/java
 fi
+# Use Jasper's defaults, as the runtime does. The application JDK can exceed
+# the source/target levels this distribution's JDTCompiler accepts.
 "$java_command" -cp "$tomcat/lib/*:$tomcat/bin/*:$webapp/WEB-INF/lib/*:$webapp/WEB-INF/classes" \
     org.apache.jasper.JspC -uriroot "$webapp" -d "$output" \
-    -compile -failFast -die1 -source 25 -target 25 "$jsp"
+    -compile -failFast -die1 "$jsp"
 
 # Assert bytecode exists as well as checking Jasper's exit status. Keep generated
 # classes outside the webapp so this smoke check cannot change the shipped WAR.
