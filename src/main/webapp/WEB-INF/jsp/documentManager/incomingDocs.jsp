@@ -103,7 +103,7 @@
     UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
     UserProperty uProp = userPropertyDAO.getProp(user_no, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
     String useDocumentDescriptionTemplateType = UserProperty.CLINIC;
-    if (uProp != null && uProp.getValue().equals(UserProperty.USER)) {
+    if (uProp != null && UserProperty.USER.equals(uProp.getValue())) {
         useDocumentDescriptionTemplateType = UserProperty.USER;
     }
 
@@ -889,8 +889,13 @@
             }
         }
 
+        // Each type change starts a new shortcut read; only the latest may fill the row, so a slow
+        // reply for an earlier type cannot add its buttons (or its failure note) under a later one.
+        var descriptionShortcutRequest = 0;
+
         function addDocumentDescriptionTemplateButton() {
             if (document.PdfInfoForm.entryMode.value == "Fast") {
+                var shortcutRequest = ++descriptionShortcutRequest;
                 var bdoc;
                 var docDescriptionList;
                 var docType = document.getElementById('docType').options[document.getElementById('docType').selectedIndex].value;
@@ -919,6 +924,7 @@
                     return response.json();
                 })
                 .then(function(json) {
+                    if (shortcutRequest !== descriptionShortcutRequest) return;
                     if (json != null) {
                         for (var i = 0; i < json.documentDescriptionTemplate.length; i++) {
                             bdoc = document.createElement('input');
@@ -934,6 +940,7 @@
                     }
                 })
                 .catch(function() {
+                    if (shortcutRequest !== descriptionShortcutRequest) return;
                     // Say so instead of leaving an empty row: a refused or failed read is otherwise
                     // indistinguishable from a type with no shortcuts (issue #5057).
                     var note = document.createElement('span');
