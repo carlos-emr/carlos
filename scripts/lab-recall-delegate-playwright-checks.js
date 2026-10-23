@@ -18,8 +18,8 @@
  *   - Saving the tickler window Recall opened stores a tickler for the lab's patient, assigned to the
  *     delegate at that priority, created by the provider, linked to the lab in ticklerdocs.
  *   - Last: the recall message's Subject is the subject saved in the settings.
- * Not asserted: the text of the banner shown after Submit and Delete (it prints the message key), and the lab
- * display once the tickler is linked to it (it fails to open); both have their own pending findings.
+ * The delegate provider number and the "assign the tickler to the delegate" yes/no flag are separate
+ * properties (#5185). Toggling the flag must preserve the chosen provider.
  * Fixtures: one synthetic PATHL7 ORU^R01 (serviceName CARLOSRECALL) in hl7TextMessage/hl7TextInfo with
  * provider routing for the test provider and patient routing for the owned FAKE-PW patient; the tickler
  * saved from Recall carries the run marker. The test provider's recall settings are snapshotted and
@@ -33,9 +33,9 @@ const { runWorkflow } = require('./lib/workflow-session');
 
 const TIMEOUT = 20000;
 const SERVICE = 'CARLOSRECALL';
-// What the settings page writes, plus the name the messenger reads the subject from.
-const SETTINGS = ['lab_recall_delegate', 'labRecallMsgSubject', 'lab_recall_tickler_assignee', 'lab_recall_tickler_priority'];
-const SNAPSHOT_NAMES = [...SETTINGS, 'lab_recall_msg_subject'];
+// What the settings page and messenger use, plus the legacy subject name for cleanup.
+const SETTINGS = ['lab_recall_delegate', 'lab_recall_msg_subject', 'lab_recall_tickler_assignee', 'lab_recall_tickler_priority'];
+const SNAPSHOT_NAMES = [...SETTINGS, 'labRecallMsgSubject'];
 
 function hl7(marker, accession, stamp) {
   return [
@@ -140,7 +140,8 @@ async function workflow(s) {
     submit: page.locator('input[name="btnApply"]'),
     remove: page.locator('input[name="delete"]'),
   });
-  const saved = sorted({ lab_recall_delegate: delegate, labRecallMsgSubject: subject, lab_recall_tickler_assignee: 'yes', lab_recall_tickler_priority: 'High' });
+  const savedValues = { lab_recall_delegate: delegate, lab_recall_msg_subject: subject, lab_recall_tickler_assignee: 'yes', lab_recall_tickler_priority: 'High' };
+  const saved = sorted(savedValues);
 
   await s.step('Preferences ▸ Lab Recall Settings opens empty and Submit stores the delegate, subject, tickler assignee and priority', async () => {
     const settings = await openSettings('lab-recall-settings');
@@ -168,6 +169,23 @@ async function workflow(s) {
     h.assert(await f.priority.inputValue() === 'High', 'The reopened page does not select the saved priority');
     h.assert(await f.submit.isEnabled() && await f.remove.isVisible(), 'The reopened page does not offer Submit and Delete');
     await settings.close();
+  });
+
+  await s.step('turning default-to-delegate off and on preserves the selected provider independently of the yes/no flag', async () => {
+    for (const checked of [false, true]) {
+      const settings = await openSettings(`lab-recall-settings-toggle-${checked}`);
+      const f = form(settings);
+      await f.assignee.setChecked(checked);
+      await ui.clickAndAwaitReload(settings, f.submit, { label: 'Lab Recall Settings toggle Submit' });
+      const expected = sorted({ ...savedValues, lab_recall_tickler_assignee: checked ? 'yes' : 'no' });
+      h.assert(stored() === expected, `Toggling default-to-delegate stored ${stored()}`);
+      await settings.close();
+      const reopened = await openSettings(`lab-recall-settings-toggle-reopen-${checked}`);
+      const restored = form(reopened);
+      h.assert(await restored.delegate.inputValue() === delegate, 'Toggling default-to-delegate changed the selected provider');
+      h.assert(await restored.assignee.isChecked() === checked, 'The default-to-delegate checkbox did not round-trip');
+      await reopened.close();
+    }
   });
 
   await s.step('a delegate who is not an active provider is refused and changes nothing', async () => {
@@ -260,8 +278,8 @@ async function workflow(s) {
     await lab.close();
   });
 
-  // Delete runs while the recall tickler is still unsaved: the lab is reopened here, and a lab that has a linked
-  // tickler fails to open (pending finding 287, #4722), which would hide what this step asserts.
+  // Delete runs before saving the recall tickler so its lab reopen tests preference removal independently
+  // of linked-tickler rendering (covered by lab-linked-tickler).
   await s.step('Delete in Lab Recall Settings removes every setting and the lab no longer offers Recall', async () => {
     const settings = await openSettings('lab-recall-settings-delete');
     const dialogs = await h.withExpectedDialogs(settings, async () => {
