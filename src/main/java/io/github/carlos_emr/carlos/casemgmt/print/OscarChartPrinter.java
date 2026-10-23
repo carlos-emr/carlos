@@ -730,7 +730,7 @@ public class OscarChartPrinter implements java.io.Closeable {
                 curFont = normal;
                 phrase = PdfFonts.phrase(LEADING, "", curFont);
                 PdfFonts.addText(phrase, formatter.format(drug.getRxDate()) + " - ", phrase.getFont());
-                PdfFonts.addText(phrase, drug.getFullOutLine().replaceAll(";", " "), phrase.getFont());
+                PdfFonts.addText(phrase, drug.getFullOutLine().replace(';', ' '), phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }

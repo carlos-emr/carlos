@@ -135,7 +135,7 @@ class JasperTemplateFontPolicyUnitTest {
         assertThat(templates).extracting(t -> t.path().getFileName().toString())
                 .contains("end_year_statement_report.jrxml", "page1.jrxml", "BCAR2020_pg1.jrxml",
                         "label.xml", "reflabel.xml", "pdf_rep_wo.jrxml", "billDaySheet.xml");
-        assertThat(textBoxes().size()).as("text elements across the shipped templates").isGreaterThan(1500);
+        assertThat(textBoxes()).as("text elements across the shipped templates").hasSizeGreaterThan(1500);
     }
 
     @Test

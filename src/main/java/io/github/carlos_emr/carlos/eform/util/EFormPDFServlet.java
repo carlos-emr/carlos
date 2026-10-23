@@ -734,13 +734,19 @@ public class EFormPDFServlet extends HttpServlet {
             } else {
                 // Static "__" text, or a field value. Values can be in any script: PdfFonts draws
                 // characters the configured face lacks in the bundled fallback faces (#5046).
-                String text = temp.toString().startsWith("__")
-                        ? (cfgVal.length >= 7 ? cfgVal[6].trim() : propValue)
-                        : (cfgVal.length >= 7 ? (propValue.equals("") ? "" : cfgVal[6].trim()) : propValue);
-                int alignment = cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
-                        : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT : PdfContentByte.ALIGN_CENTER);
-                PdfFonts.showTextAligned(cb, alignment, text, new Font(bf, Integer.parseInt(cfgVal[5].trim())),
-                        Integer.parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
+                // A seventh column is fixed text: always printed for "__" lines, and for a field (a
+                // checkbox's "X") only when the field has a value.
+                String text = propValue;
+                if (cfgVal.length >= 7) {
+                    text = temp.toString().startsWith("__") || !propValue.isEmpty() ? cfgVal[6].trim() : "";
+                }
+                int alignment = switch (cfgVal[0].trim()) {
+                    case "left" -> PdfContentByte.ALIGN_LEFT;
+                    case "right" -> PdfContentByte.ALIGN_RIGHT;
+                    default -> PdfContentByte.ALIGN_CENTER;
+                };
+                PdfFonts.showTextAligned(cb, alignment, text, new Font(bf, Float.parseFloat(cfgVal[5].trim())),
+                        Float.parseFloat(cfgVal[1].trim()), height - Float.parseFloat(cfgVal[2].trim()), 0);
             }
         }
     }

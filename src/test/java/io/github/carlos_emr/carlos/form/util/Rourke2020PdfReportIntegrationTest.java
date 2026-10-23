@@ -166,7 +166,7 @@ class Rourke2020PdfReportIntegrationTest extends CarlosTestBase {
                     for (JRElement element : band.getElements()) {
                         if (!(element instanceof JRTextField field)) continue;
                         String expression = field.getExpression().getText();
-                        if (!expression.matches("\\$P\\{\\w+}") || expression.matches(".*c_(?:male|female).*")) continue;
+                        if (!expression.matches("\\$P\\{\\w+}") || expression.contains("c_male") || expression.contains("c_female")) continue;
                         String parameter = expression.substring(3, expression.length() - 1);
                         fields.put(parameter, field);
                         filled.setProperty(parameter, capacityText(parameter, field, dejaVu));

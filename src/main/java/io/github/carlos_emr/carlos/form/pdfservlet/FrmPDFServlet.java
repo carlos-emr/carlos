@@ -707,8 +707,8 @@ public class FrmPDFServlet extends HttpServlet {
                             // face lacks in the bundled fallback faces instead of dropping them (#5046).
                             PdfFonts.showTextAligned(cb, alignmentOf(cfgVal[0]),
                                     (cfgVal.length >= 7 ? (cfgVal[6].trim()) : propValue),
-                                    new Font(bf, Integer.parseInt(cfgVal[5].trim())),
-                                    Integer.parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
+                                    new Font(bf, Float.parseFloat(cfgVal[5].trim())),
+                                    Float.parseFloat(cfgVal[1].trim()), height - Float.parseFloat(cfgVal[2].trim()), 0);
                         } else if (tempName.toString().equals("forms_promotext")) {
 //	                        if ( CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
 //	                            log.info("adding user placed forms_promotext");
@@ -738,8 +738,8 @@ public class FrmPDFServlet extends HttpServlet {
                                 text = propValue.isEmpty() ? "" : cfgVal[6].trim();
                             }
                             PdfFonts.showTextAligned(cb, alignmentOf(cfgVal[0]), text,
-                                    new Font(bf, Integer.parseInt(cfgVal[5].trim())),
-                                    Float.parseFloat(cfgVal[1].trim()), height - Integer.parseInt(cfgVal[2].trim()), 0);
+                                    new Font(bf, Float.parseFloat(cfgVal[5].trim())),
+                                    Float.parseFloat(cfgVal[1].trim()), height - Float.parseFloat(cfgVal[2].trim()), 0);
                         }
 
                     }

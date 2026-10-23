@@ -130,7 +130,7 @@ class JasperBundledFontRenderingUnitTest {
     @DisplayName("should refuse a template naming a face nobody provides, instead of substituting a host font")
     void shouldRefuseUnknownFont_insteadOfSubstitutingHostFont() {
         // Pinned in jasperreports.properties: a silent substitution would bring back host-dependent output.
-        assertThatThrownBy(() -> fill(template(List.of("CARLOS Missing Face 5046"))))
-                .isInstanceOf(JRFontNotFoundException.class);
+        String unknownFace = template(List.of("CARLOS Missing Face 5046"));
+        assertThatThrownBy(() -> fill(unknownFace)).isInstanceOf(JRFontNotFoundException.class);
     }
 }
