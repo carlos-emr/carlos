@@ -371,7 +371,7 @@
                         <%-- A <button>, so the label is translated while the value posted stays
                              "Next": BillingShortcutPg2Service only calculates and saves for that
                              value, and an <input> posted its label ("Suivant", ...) (#5055). --%>
-                        <td align="right"><button type="submit" name="submit" value="Next"
+                        <td style="text-align: right;"><button type="submit" name="submit" value="Next"
                                                   style="width: 120px;"><fmt:message key="billing.hospitalBilling.btnNext"/></button> <input type="button"
                                                                                 name="button"
                                                                                 value="<fmt:message key="global.btnExit"/>"

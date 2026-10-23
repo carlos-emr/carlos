@@ -3504,6 +3504,7 @@ installed fresh also passed `--tier smoke` (12 of 12) and `billing-on-hospital-s
 | Link only, with the fixed `calendar-setup.js` (the release `BillingShortcutPg2Service`) | FAIL at "Save writes one claim for this patient and closes the window": the claim was written, page 1 reloaded |
 | PR head (`a681b3f12f`, base merged), fresh install, with the release `billingShortcutPg1.jsp` compiled | FAIL at the fr-CA step: "The French Next did not price the Confirmation" |
 | The same with the fixed `billingShortcutPg1.jsp` compiled, 2 runs | PASS, 10 of 10 steps, no residue |
+| Final PR head (`810fe2e9c6`), packaged and installed fresh | PASS, 10 of 10 steps; with it `master-record-tabs`, `page-health-master-record`, `billing-on-submit`, `billing-on-third-party`, `demographic-master-crud-smoke`, `gap-billing-inr-calendar-popup` and `--tier smoke` (12 of 12) |
 
 On the final package: `--tier smoke` 12 of 12; `master-record-tabs` and `page-health-master-record` (with Hospital Billing
 added to its patient-scope list) open and judge the new link; `billing-on-submit`, `billing-on-third-party`,
