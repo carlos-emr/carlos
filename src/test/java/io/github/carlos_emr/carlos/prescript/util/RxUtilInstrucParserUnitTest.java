@@ -378,7 +378,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         /**
          * Issue #3876 defaults a strength to one unit only when no explicit count is given. A
          * count written with its dose form between the strength and the frequency, such as
-         * "1000 mg (2 tabs)", is that explicit count. Dispensing counts ("#30 tabs",
+         * "1000 mg (2 tabs)", is that explicit count. A range is one count, with or without spaces
+         * and with mixed-number bounds ("1 - 2 tabs", "1-1 1/2 tabs"). Dispensing counts ("#30 tabs",
          * "dispense 30 tabs") and counts written after the frequency are not doses.
          */
         @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
@@ -410,6 +411,12 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "500 mg 2 1/2 tabs po bid x 7 days | 2.5 | 2.5 | 35",
             "1000 mg 1 1/2 po bid x 7 days | 1.5 | 1.5 | 21",
             "Take 30 min before meals 1 1/2 tabs po bid x 7 days | 1.5 | 1.5 | 21",
+            "1000 mg 1 - 2 tabs po bid x 7 days | 1 | 2 | 28",
+            "1000 mg (1 - 2 tabs) po bid x 7 days | 1 | 2 | 28",
+            "1000 mg 1-1 1/2 tabs po bid x 7 days | 1 | 1.5 | 21",
+            "1000 mg 1 - 1 1/2 tabs po bid x 7 days | 1 | 1.5 | 21",
+            "500 mg 1 1/2 - 2 tabs po bid x 7 days | 1.5 | 2 | 28",
+            "Take 30 min before meals 1 - 2 tabs po bid x 7 days | 1 | 2 | 28",
             "1000 mg #30 tabs po tid x 7 days | 1 | 1 | 21",
             "1000 mg dispense 30 tabs po tid x 7 days | 1 | 1 | 21",
             "1000 mg po tid x 7 days (2 tabs) | 1 | 1 | 21",

@@ -1938,39 +1938,70 @@ public class RxUtil {
         UnitAmount found = null;
         int readTo = from;
         while (amount.find()) {
+            // A number inside an amount already read, such as the fraction of "1 1/2" or the "2" of
+            // "1 - 2", is part of that amount, not a second one.
             if (amount.start() < readTo) {
                 continue;
             }
-            String minimum = amount.group(1);
-            // "1000 mg 1 1/2 tabs PO BID": a whole number and a proper fraction are one amount (3/2),
-            // as on the leading-dose path; the fraction is not read again as a second amount.
-            NumberToken mixed = minimum.indexOf('/') < 0
-                    ? findMixedNumberAt(instructions, new NumberToken(instructions, amount.start(), amount.end())) : null;
-            NumberToken upper = null;
-            int amountEnd;
-            if (mixed != null && mixed.end <= frequencyStart) {
-                minimum = mixed.value;
-                amountEnd = mixed.end;
-                readTo = mixed.end;
-            } else {
-                upper = rangeUpperBound(instructions, amount.end(), frequencyStart);
-                amountEnd = upper == null ? amount.end() : upper.end;
-            }
-            if (!namesExplicitAmount(instructions, amountEnd, frequencyStart)
-                    || followsConcentrationSeparator(instructions, amount.start()) || isLabelledNotADose(instructions, amount.start())) {
-                continue;
-            }
-            if (found != null) {
+            ScannedAmount scanned = scanAmount(instructions, amount, frequencyStart);
+            readTo = scanned.end();
+            boolean dose = isWrittenAsDose(instructions, amount.start(), readTo, frequencyStart);
+            // A chain such as "1 - 2 - 3 tabs", or a second dose ("1 tab or 2 tabs"), is ambiguous.
+            if (scanned.chained() || (dose && found != null)) {
                 return null;
             }
-            found = upper == null ? new UnitAmount(minimum, minimum, false) : new UnitAmount(minimum, upper.value, true);
+            if (dose) {
+                found = scanned.amount();
+            }
         }
         return found;
     }
 
     /**
-     * Finds the upper bound of a range ("1-2 tabs", "1 - 2 tabs") whose lower bound ends at
-     * {@code amountEnd}: a number after a hyphen, ending no later than {@code limit}.
+     * An amount read where an amount token starts, the index where its text ends, and whether a
+     * further hyphen continues its range ("1 - 2 - 3").
+     */
+    private record ScannedAmount(UnitAmount amount, int end, boolean chained) {
+    }
+
+    /**
+     * Reads the amount whose first number {@code amount} just found: a number, a fraction or a mixed
+     * number ({@code 1 1/2}, kept as {@code 3/2}, as on the leading-dose path), optionally followed by
+     * the upper bound of a range ({@code 1-2}, {@code 1 - 2}, {@code 1-1 1/2}). Nothing past
+     * {@code limit} is read.
+     */
+    private static ScannedAmount scanAmount(String instructions, Matcher amount, int limit) {
+        NumberToken lower = new NumberToken(instructions, amount.start(), amount.end());
+        if (lower.value.indexOf('/') < 0) {
+            NumberToken mixed = findMixedNumberAt(instructions, lower);
+            if (mixed != null && mixed.end <= limit) {
+                lower = mixed;
+            }
+        }
+        NumberToken upper = rangeUpperBound(instructions, lower.end, limit);
+        if (upper == null) {
+            return new ScannedAmount(new UnitAmount(lower.value, lower.value, false), lower.end, false);
+        }
+        int next = skipWhitespaceForward(instructions, upper.end);
+        boolean chained = next < limit && instructions.charAt(next) == '-';
+        return new ScannedAmount(new UnitAmount(lower.value, upper.value, true), upper.end, chained);
+    }
+
+    /**
+     * True when the amount from {@code start} to {@code end} is written as an administered dose: a
+     * counted dosage form, volume or unit count follows it, and it is not a concentration denominator,
+     * a vehicle, a ceiling or an amount to dispense.
+     */
+    private static boolean isWrittenAsDose(String instructions, int start, int end, int frequencyStart) {
+        return namesExplicitAmount(instructions, end, frequencyStart)
+                && !followsConcentrationSeparator(instructions, start) && !isLabelledNotADose(instructions, start);
+    }
+
+    /**
+     * Finds the upper bound of a range ("1-2 tabs", "1 - 2 tabs", "1-1 1/2 tabs") whose lower bound
+     * ends at {@code amountEnd}: a number or a mixed number after a hyphen, ending no later than
+     * {@code limit}. A fraction after the hyphen ("1-1/2", "1 - 1/2") is not read as a bound, since it
+     * may be a hyphenated mixed number.
      *
      * @return the upper bound, or null when no range is written there
      */
@@ -1980,7 +2011,11 @@ public class RxUtil {
             return null;
         }
         NumberToken upper = findDecimalAt(instructions, skipWhitespaceForward(instructions, hyphen + 1));
-        return upper != null && upper.end <= limit ? upper : null;
+        if (upper == null || upper.end > limit || instructions.startsWith("/", upper.end)) {
+            return null;
+        }
+        NumberToken mixed = findMixedNumberAt(instructions, upper);
+        return mixed != null && mixed.end <= limit ? mixed : upper;
     }
 
     /**
