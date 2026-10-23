@@ -7148,6 +7148,21 @@
       "fixtures": "Snapshots and restores the clinic-wide gstControl, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned bill with billing_on_ext GST rows and one unused fake fee code created by a one-line synthetic schedule upload; no existing fee is changed."
     },
     {
+      "name": "billing-on-hospital-shortcut",
+      "script": "scripts/billing-on-hospital-shortcut-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Master Record ▸ Billing ▸ Hospital Billing ▸ shortcut page 1 ▸ Next ▸ Save (#5055). Before the fix the link did not exist, so the shortcut pages had no opener and this check failed at its first step.",
+      "fixtures": "runWorkflow FAKE- Ontario patient; the one hospital claim it saves (header, item, ext and transaction rows) is removed by id in cleanup."
+    },
+    {
       "name": "encoder-null-document-review",
       "script": "scripts/encoder-null-document-review-playwright-checks.js",
       "tiers": [
@@ -9780,12 +9795,8 @@
         "LAB_UPLOAD_JOURNAL_UNIT",
         "LAB_UPLOAD_SERVER_LOG"
       ],
-      "fixtures": "The owned synthetic patient and one session-only custom drug. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host. Server log prerequisite: LAB_UPLOAD_JOURNAL_UNIT (carlos-emr on the package) or LAB_UPLOAD_SERVER_LOG, readable by the runner; missing historical DIN must fall back without a DrugRef exception. Run against an otherwise idle installation so its journal window contains only this lookup.",
-      "notes": "Exercises the real saved-product Info popup and local reference search. The missing-DIN fallback still logs DrugRef NoResultException (#5006, finding 311); #5023/#5027 did not change the pinned DrugRef absence path. Requires a readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG; the whole check explicitly skips without it.",
-      "expectedFailure": {
-        "finding": 311,
-        "step": "missing DIN fallback does not log a DrugRef server exception"
-      }
+      "fixtures": "The owned synthetic patient and the one DrugRef product (RX_INFO_DRUG_TERM / RX_INFO_DRUG_NAME, default LIPITOR 20MG) saved for it through the Rx page; cleanup deletes the patient's drug and prescription rows and asserts them gone. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host. Server log prerequisite: LAB_UPLOAD_JOURNAL_UNIT (carlos-emr on the package) or LAB_UPLOAD_SERVER_LOG, readable by the runner; missing historical DIN must fall back without a DrugRef exception. Run against an otherwise idle installation so its journal window contains only this lookup.",
+      "notes": "Exercises the real saved-product Info popup and local reference search. The missing-DIN fallback must not log a DrugRef server exception (#5006, finding 311): it needs carlos-emr-drugref built at or past the revision in debian/drugref.pin, which answers an unknown DIN with an empty array. Requires a readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG; the whole check explicitly skips without it."
     },
     {
       "name": "gap-encounter-rx-quantity-price",
@@ -11263,6 +11274,22 @@
       ],
       "notes": "live-external: grouped with the manual SRFax loopback set (scripts/e2e/fax/README.md step 4) but, unlike the others, it contacts no SRFax account and sends no fax. It runs rx/searchDrug three times (amoxicillin, a nonsense term, metformin) to prove the DrugRef2 lookup behind prescribing answers, so it needs the carlos-emr-drugref service and its dataset, not SRFax credentials or SRFAX_LIVE. It reads one demographic through the MARIADB launcher, not MYSQL_*.",
       "fixtures": "Needs scripts/e2e/fax/fixtures.sql loaded (fixture patient Loopback/Faxtest). Writes nothing."
+    },
+    {
+      "name": "chart-entry-appointment-ownership",
+      "script": "scripts/chart-entry-appointment-ownership-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue #4676: a chart entry (IncomingEncounter) remembers only an appointment of its own patient. Two chart windows of one login: A entered for A's own visit by the logged-in provider, B entered from another provider's day sheet for one of B's visits; each note save's re-rendered notes panel names its chart's entry provider. The entry of A's own visit, also with the old appointmentList flag, opens A's chart for that visit. Requests naming A with B's visit (with and without appointmentList), with a visit that does not exist or one booked without a patient, naming B with A's visit, and the old getAnotherEncounter() request (no patient) are refused (400) without a redirect and change neither patient's rows or any visit row. Afterwards each chart's next note save still names its own entry provider and links its own visit. With the old action, the appointmentList request overwrote B's remembered entry (B's panel named the logged-in provider) and the request naming A with B's visit opened A's chart with B's visit as its appointment.",
+      "fixtures": "Owned FAKE patients A/B (the run marker as last name), one visit of A's, two of B's and one booked without a patient, all named with the run marker; B is entered for a second active doctor. Cleanup removes both patients' notes and their extensions, links, issue links and issues, note locks, drafts, eChart revisions, appointment archive rows and appointments, and the unbooked visit, by key and asserts each is gone; B is removed and the harness removes A.",
+      "mutates": []
     },
     {
       "name": "echart-two-patient-isolation",
@@ -12859,8 +12886,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "The clinic-wide document description list (Administration ▸ Document Description Template) and the same page opened from Preferences by a provider with only the doctor role; provider-preferences covers the administrator test login's own list. On develop the last step fails: the doctor is refused (HTTP 403) on the page their Preferences link to (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
-      "fixtures": "The test login's own entry and a throwaway doctor login; every entry carries the run marker. Entries and the throwaway are removed in cleanup."
+      "notes": "The clinic-wide document description list (Administration ▸ Document Description Template), and a provider with only the doctor role using their own list (#5057): it opens from Preferences, Add/Update/Delete keep entries the doctor's own, Incoming Docs in Fast mode offers the doctor's own shortcuts and then the clinic's, crafted requests for another provider's entries are refused with no row changed, and the doctor role's seeded _admin.document grant opens the clinic-wide list from Administration. provider-preferences covers the administrator test login's own list.",
+      "fixtures": "The test login's own entry, a clinic-wide entry and a throwaway doctor login (its template preference and Incoming Docs entry mode go with it); every entry carries the run marker. Entries and the throwaway are removed in cleanup. Needs the seeded doctor role's _admin.document grant."
     },
     {
       "name": "allergy-list-views",
