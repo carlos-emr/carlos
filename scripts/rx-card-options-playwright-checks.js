@@ -11,13 +11,14 @@
  *      Substitution not allowed, Last Refill Date, Written Date, Protocol Reference, Pick Up Date and
  *      Time, Comment, eTreatment type and Rx status ▸ Save Only: the drugs row stores each value;
  *   2. Rx again ▸ tick the drug's ReRx box ▸ Stage Medication: the restaged card shows the saved
- *      options, including the last refill and pick-up date and time, the Comment and the
- *      Non-Authoritative tick (#5056), and a Written Date reset to the new script's start date (by
- *      design: RxPrescriptionData.newPrescription sets both to today); its remove link unstages it
- *      and nothing is saved;
- *   3. Rx again ▸ ReRx ▸ Stage Medication ▸ Save Only: the new drugs row stores the Comment and the
- *      Non-Authoritative tick without the prescriber re-entering them (#5056), and the source is
- *      archived as re-prescribed;
+ *      options, including the last refill and pick-up date and time and the Non-Authoritative tick
+ *      (#5056), a Written Date reset to the new script's start date (by design:
+ *      RxPrescriptionData.newPrescription sets both to today), and an empty Comment (by design: a
+ *      comment belongs to one prescribing, so a renewal starts without it; clinical guidance on
+ *      #5169); its remove link unstages it and nothing is saved;
+ *   3. Rx again ▸ ReRx ▸ Stage Medication ▸ Save Only: the new drugs row keeps the
+ *      Non-Authoritative tick without the prescriber re-ticking it (#5056) and has no comment, and
+ *      the source is archived as re-prescribed with its comment intact;
  *   4. a second custom drug with a 12:30 pick-up time ▸ Save Only: the time is stored as 12:30. The
  *      field asks for 24-hour HH:MM (checkDate.js isValidTime); the save once read 12 as midnight
  *      (#4799). This step runs last so the earlier ones are proven first.
@@ -197,7 +198,7 @@ async function workflow(s) {
       outsideOhip: options.outsideOhip, pastMed: true, compliance: true, nosubs: true,
       lastRefill: options.lastRefill, pickupDate: options.pickupDate, pickupTime: options.pickupTime,
       protocol: options.protocol, eTreatment: options.eTreatment, rxStatus: options.rxStatus,
-      nonAuthoritative: true, comment: options.comment,
+      nonAuthoritative: true, comment: '',
     };
     const wrong = Object.keys(expected).filter(key => shown[key] !== expected[key]);
     h.assert(wrong.length === 0, `The restaged card shows ${wrong.map(key => `${key}=${shown[key]} (saved ${expected[key]})`).join(', ')}`);
@@ -217,7 +218,7 @@ async function workflow(s) {
   });
 
   let reRxDrug;
-  await s.step('saving the re-prescribed card keeps the Comment and Non-Authoritative tick (#5056)', async () => {
+  await s.step('saving the re-prescribed card keeps the Non-Authoritative tick and no comment (#5056)', async () => {
     await rx.close();
     rx = await openRx('rx-module-rerx-save');
     await rx.locator(`#reRxCheckBox_${drug}`).check();
@@ -227,19 +228,22 @@ async function workflow(s) {
     const card = (await restaged.locator('[id^="instructions_"]').first().getAttribute('id')).slice('instructions_'.length);
     // Nothing is typed: the prescriber saves the copy exactly as it was restaged.
     h.assert(await rx.locator(`#nonAuthoritativeN_${card}`).isChecked()
-      && await rx.locator(`#comment_${card}`).inputValue() === options.comment,
-      'The restaged card did not show the saved Comment and Non-Authoritative tick');
+      && await rx.locator(`#comment_${card}`).inputValue() === '',
+      'The restaged card did not show the saved Non-Authoritative tick with an empty Comment');
     await saveOnly(rx);
     const renewal = `FROM drugs WHERE demographic_no=${patient} AND archived=0 AND drugid<>${drug}`;
     await expectValue(sql, `SELECT COUNT(*) ${renewal}`, '1', 'Save Only did not store exactly one re-prescribed drug');
-    const [[id, comment, nonAuthoritative]] = sql.rows(`SELECT drugid, comment, non_authoritative ${renewal}`);
+    const [[id, noComment, nonAuthoritative]] =
+      sql.rows(`SELECT drugid, IFNULL(comment,'')='', non_authoritative ${renewal}`);
     reRxDrug = id;
     h.assert(/^[1-9]\d*$/.test(reRxDrug), 'The re-prescribed drug id is invalid');
-    h.assert(comment === options.comment && nonAuthoritative === '1',
-      `The re-prescribed drug stored ${comment === options.comment ? 'the comment' : 'another comment'} `
-      + `and non_authoritative=${nonAuthoritative} (the source had the comment and 1)`);
+    h.assert(noComment === '1' && nonAuthoritative === '1',
+      `The re-prescribed drug stored ${noComment === '1' ? 'no comment' : 'a comment'} `
+      + `and non_authoritative=${nonAuthoritative} (expected no comment and 1)`);
     h.assert(sql.value(`SELECT CONCAT(archived,'|',archived_reason) FROM drugs WHERE drugid=${drug}`) === '1|represcribed',
       'The re-prescribed source was not archived as re-prescribed');
+    h.assert(sql.value(`SELECT comment FROM drugs WHERE drugid=${drug}`) === options.comment,
+      'Re-prescribing changed the archived source\'s comment');
   });
 
   await s.step('a 12:30 pick-up time is stored as 12:30', async () => {

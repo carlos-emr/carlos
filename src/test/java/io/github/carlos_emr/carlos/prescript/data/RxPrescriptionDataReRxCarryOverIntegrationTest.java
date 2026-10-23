@@ -37,16 +37,17 @@ import java.util.Date;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Re-prescribing a saved drug keeps its Comment and Non-Authoritative tick after a database
- * round trip (#5056).
+ * Re-prescribing a saved drug keeps its Non-Authoritative tick, and starts the renewal without
+ * its Comment, after a database round trip (#5056).
  *
  * <p>The unit test covers the in-memory copy; this one reads the source from a real drugs row
  * (where a legacy row may hold NULL in {@code non_authoritative}) and saves the copy as a new
- * row the way the prescription save does, then reads that row back.
+ * row the way the prescription save does, then reads that row back. The Comment is transient to
+ * one prescribing, so only the long-term toggle, which saves the same prescription again, keeps it.
  *
  * @since 2026-10-22
  */
-@DisplayName("Re-prescribing a persisted drug keeps its Comment and Non-Authoritative tick")
+@DisplayName("Re-prescribing a persisted drug keeps its Non-Authoritative tick but not its Comment")
 @Tag("integration")
 @Tag("prescription")
 @Tag("create")
@@ -99,8 +100,8 @@ class RxPrescriptionDataReRxCarryOverIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("should save the re-prescribed copy with the source's comment and Non-Authoritative tick")
-    void shouldSaveCommentAndNonAuthoritative_whenRePrescribingPersistedDrug() {
+    @DisplayName("should save the re-prescribed copy with the source's Non-Authoritative tick and no comment")
+    void shouldSaveNonAuthoritativeWithoutComment_whenRePrescribingPersistedDrug() {
         Drug source = persistSource(true);
         RxPrescriptionData data = new RxPrescriptionData();
 
@@ -110,7 +111,7 @@ class RxPrescriptionDataReRxCarryOverIntegrationTest extends CarlosTestBase {
 
         Drug saved = reload(staged.getDrugId());
         assertThat(saved.getId()).isNotEqualTo(source.getId());
-        assertThat(saved.getComment()).isEqualTo(COMMENT);
+        assertThat(saved.getComment()).isNull();
         assertThat(saved.isNonAuthoritative()).isTrue();
         Drug unchanged = entityManager.find(Drug.class, source.getId());
         assertThat(unchanged.getComment()).isEqualTo(COMMENT);
@@ -131,7 +132,7 @@ class RxPrescriptionDataReRxCarryOverIntegrationTest extends CarlosTestBase {
                 data.newPrescription(PROVIDER_NO, DEMO_NO, data.getPrescriptionIfPresent(source.getId()));
 
         assertThat(staged.isNonAuthoritative()).isFalse();
-        assertThat(staged.getComment()).isEqualTo(COMMENT);
+        assertThat(staged.getComment()).isNull();
     }
 
     @Test

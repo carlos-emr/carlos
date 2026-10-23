@@ -281,8 +281,10 @@ public class RxPrescriptionData {
     /**
      * Creates the in-memory copy that re-prescribing (ReRx) stages from a saved prescription.
      *
-     * <p>The copy keeps what the prescriber set on the old card, including its Comment and
-     * Non-Authoritative tick (#5056), so neither has to be re-entered. It starts and is written
+     * <p>A renewal defaults to what the prescriber set on the old card, including its
+     * Non-Authoritative tick (#5056). The Comment is the exception: it belongs to one prescribing
+     * of a given set of medications, so the renewal starts with none (clinical guidance on #5169;
+     * a reprint, which shows the original script, keeps it). The copy starts and is written
      * today, has no end date, and records the old drug as its {@code drugReferenceId}.</p>
      *
      * @param providerNo the prescribing provider
@@ -343,7 +345,7 @@ public class RxPrescriptionData {
         prescription.setDispenseInternal(rePrescribe.getDispenseInternal());
         prescription.setProtocol(rePrescribe.getProtocol());
         prescription.setPriorRxProtocol(rePrescribe.getPriorRxProtocol());
-        prescription.setComment(rePrescribe.getComment());
+        // The Comment is deliberately left blank: it is transient to one prescribing (see Javadoc).
         prescription.setNonAuthoritative(rePrescribe.isNonAuthoritative());
         return prescription;
     }
