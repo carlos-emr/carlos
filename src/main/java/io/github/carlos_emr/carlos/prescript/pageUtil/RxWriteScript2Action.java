@@ -1159,10 +1159,10 @@ public final class RxWriteScript2Action extends ActionSupport {
 
                     String frequency = rx.getFrequencyCode();
                     String durationUnit = rx.getDurationUnit();
-                    // The stored dose is compared and divided as a number: its three-decimal text
-                    // ("0.667" for two thirds of a tablet) would shorten the derived duration.
-                    if (rx.getUnitName() != null || rx.getTakeMin() <= 0f || rx.getTakeMax() <= 0f || frequency.equals("")) {
-                    } else {
+                    // The duration is derived only for a plain numeric quantity with a positive dose and
+                    // a frequency. The stored dose is compared and divided as a number: its three-decimal
+                    // text ("0.667" for two thirds of a tablet) would shorten the derived duration.
+                    if (rx.getUnitName() == null && rx.getTakeMin() > 0f && rx.getTakeMax() > 0f && !frequency.isEmpty()) {
                         if (durationUnit == null || durationUnit.isEmpty()) {
                             durationUnit = "D";
                         }
