@@ -8,15 +8,19 @@
  *   - BC-AR 2012 page 1 printed the substance-use "No" box's saved state as text after the box, so the box never showed
  *     ticked and the next Save cleared it.
  *   - BC-NewBorn 2008 pages 2 and 3 saved themselves as page 1 (c_lastVisited), so a record always reopened on page 1.
+ *   - BC-NewBorn pages 2 and 3 showed page 1's date in their own date boxes, so the next Save stored it over theirs.
+ *   - The Chart Checklist built its free-text description boxes as Java strings with the saved value unencoded, so a
+ *     saved "'" ended the box's value and "<" or "&" did not come back as typed (CodeRabbit, PR #5167).
  *
  * User path: Schedule ▸ Search ▸ Master Record ▸ E-Chart ▸ Forms menu ▸ the form ▸ its page link ▸ type or tick ▸
  * Save; then a fresh E-Chart ▸ the saved form in the chart's list ▸ the reopened record.
  * Asserted, per form: Save stores the value (the row read back over SQL), and the record reopened from the chart shows
- * it: the doula on both BC-AR 2007 pages, the ticked "No" box on BC-AR 2012 (with no saved state printed as text), and
- * BC-NewBorn 2008 reopened on page 2, the page it was saved from.
+ * it: the doula on both BC-AR 2007 pages, the ticked "No" box on BC-AR 2012 (with no saved state printed as text),
+ * BC-NewBorn 2008 reopened on page 2, the page it was saved from, BC-NewBorn page 2's own date, and a Chart Checklist
+ * description holding ' " < > & exactly.
  *
  * Fixtures: the owned FAKE- patient and one marker-named Forms-menu registration per form (clinic-wide, so EXCLUSIVE=1);
- * cleanup deletes the registrations and the owned patient's records of the three forms and asserts them gone.
+ * cleanup deletes the registrations and the owned patient's records of these forms and asserts them gone.
  *
  *   npm run test:form-bc-legacy-field-restore-playwright
  */
@@ -30,6 +34,8 @@ const FORMS = [
   { code: 'AR07', title: 'BC-AR 2007', view: 'formbcar2007', table: 'formBCAR2007' },
   { code: 'AR12', title: 'BC-AR 2012', view: 'formbcar2012', table: 'formBCAR2012' },
   { code: 'NB08', title: 'BC-NewBorn 2008', view: 'formBCNewBorn2008', table: 'formBCNewBorn2008' },
+  { code: 'NB', title: 'BC-NewBorn', view: 'formbcnewborn', table: 'formBCNewBorn' },
+  { code: 'CL', title: 'Chart Checklist', view: 'formbcclientchartchecklist', table: 'formBCClientChartChecklist' },
 ];
 // A doula name with the characters a round trip damages, inside the boxes' maxlength (100).
 const doula = (page) => `FAKE doula ${page} "A&B" <c>`;
@@ -39,7 +45,7 @@ async function workflow(s) {
   const q = h.sqlString;
   const present = sql.value(`SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()
     AND TABLE_NAME IN (${FORMS.map(form => q(form.table)).join(',')})`);
-  if (present !== String(FORMS.length)) throw new h.SkipCheck('This BC check needs the BC-AR 2007, BC-AR 2012 and BC-NewBorn 2008 tables');
+  if (present !== String(FORMS.length)) throw new h.SkipCheck(`This BC check needs the ${FORMS.map(form => form.title).join(', ')} tables`);
   const entries = Object.fromEntries(FORMS.map(form => [form.code, { form, name: `${marker.slice(-12)} ${form.code}` }]));
   s.cleanup(() => {
     sql.execute(`DELETE FROM encounterForm WHERE form_value LIKE ${q(`%fixture=${marker}&%`)}`);
@@ -157,6 +163,42 @@ async function workflow(s) {
     const reopened = await reopen(entry, row.id);
     const on = await shownPage(reopened);
     h.assert(on === 'formBCNewBorn2008pg2', `the record saved from page 2 reopened on ${on}`);
+    await reopened.close();
+  });
+
+  await s.step("BC-NewBorn: page 2's own date is stored and shown again when the record reopens", async () => {
+    const entry = entries.NB;
+    const page = await open(entry);
+    await goToPage(page, 'formbcnewbornpg2');
+    // A date unlike page 1's (a new record dates every page today), in the record's dd/MM/yyyy.
+    const pageTwoDate = '05/03/2025';
+    await page.locator('input[name="pg2_formDate"]').fill(pageTwoDate);
+    await save(page);
+    const row = newest(entry.form.table, ['pg1_formDate', 'pg2_formDate']);
+    h.assert(row.values.pg2_formDate === '2025-03-05', `${entry.form.table} stored pg2_formDate ${JSON.stringify(row.values.pg2_formDate)}`);
+    h.assert(row.values.pg1_formDate !== row.values.pg2_formDate, 'page 1 holds the same date, so the page could not show the wrong one');
+    await page.close();
+    const reopened = await reopen(entry, row.id);
+    if (await shownPage(reopened) !== 'formbcnewbornpg2') await goToPage(reopened, 'formbcnewbornpg2');
+    const shown = await reopened.locator('input[name="pg2_formDate"]').inputValue();
+    h.assert(shown === pageTwoDate, `the reopened page 2 shows its date as ${JSON.stringify(shown)}, not ${pageTwoDate}`);
+    await reopened.close();
+  });
+
+  await s.step('Chart Checklist: a free-text description is stored and shown again exactly', async () => {
+    const entry = entries.CL;
+    const page = await open(entry);
+    const description = `FAKE desc 'A&B' "q" <c>`;
+    await page.locator('input[type="text"][name="descCon0"]').fill(description);
+    await save(page);
+    const row = newest(entry.form.table, ['descCon0']);
+    h.assert(row.values.descCon0 === description, `${entry.form.table} stored descCon0 as ${JSON.stringify(row.values.descCon0)}`);
+    await page.close();
+    const reopened = await reopen(entry, row.id);
+    const boxes = reopened.locator('input[type="text"][name="descCon0"]');
+    h.assert(await boxes.count() === 1, `the reopened Chart Checklist has ${await boxes.count()} descCon0 boxes`);
+    const shown = await boxes.inputValue();
+    h.assert(shown === description, `the reopened Chart Checklist shows the description as ${JSON.stringify(shown)}`);
     await reopened.close();
   });
 }

@@ -4015,16 +4015,18 @@
       "provinces": [
         "BC"
       ],
-      "timeoutSec": 420,
+      "timeoutSec": 600,
       "env": [],
       "mutates": [
         "encounterForm",
         "formBCAR2007",
         "formBCAR2012",
-        "formBCNewBorn2008"
+        "formBCNewBorn2008",
+        "formBCNewBorn",
+        "formBCClientChartChecklist"
       ],
-      "notes": "Issue #5090: three BC form fields that never came back after a save because of the page's markup. BC-AR 2007's doula boxes (pages 2 and 3) sat in a \"<td\" with no \">\", so there was no box; BC-AR 2012's substance-use \"No\" box printed its saved state as text after the box, so it never showed ticked; BC-NewBorn 2008 pages 2 and 3 saved c_lastVisited as pg1, so the record always reopened on page 1. Each is saved, read back over SQL and reopened from a fresh chart's saved forms.",
-      "fixtures": "Owned synthetic patient. One marker-named Forms-menu registration per form (encounterForm, clinic-wide), so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1), and one saved BC-AR 2007, BC-AR 2012 and BC-NewBorn 2008 record of the owned patient; cleanup deletes them and asserts them gone."
+      "notes": "Issue #5090: three BC form fields that never came back after a save because of the page's markup. BC-AR 2007's doula boxes (pages 2 and 3) sat in a \"<td\" with no \">\", so there was no box; BC-AR 2012's substance-use \"No\" box printed its saved state as text after the box, so it never showed ticked; BC-NewBorn 2008 pages 2 and 3 saved c_lastVisited as pg1, so the record always reopened on page 1; BC-NewBorn pages 2 and 3 showed page 1's date in their own date boxes; and the Chart Checklist built its description boxes with the saved value unencoded, so a saved apostrophe ended the box's value. Each is saved, read back over SQL and reopened from a fresh chart's saved forms.",
+      "fixtures": "Owned synthetic patient. One marker-named Forms-menu registration per form (encounterForm, clinic-wide), so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1), and one saved BC-AR 2007, BC-AR 2012, BC-NewBorn 2008, BC-NewBorn and Chart Checklist record of the owned patient; cleanup deletes them and asserts them gone."
     },
     {
       "name": "form-bc-add-form-defaults",

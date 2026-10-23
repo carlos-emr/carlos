@@ -9,7 +9,7 @@
  *
  * User path: Schedule ▸ Search ▸ Master Record ▸ E-Chart ▸ Forms menu ▸ BC-AR 2007 / BC-AR 2012 ▸ the AR2 (pg.1)
  * link (page 2, where the EPDS is), once logged in with an English browser and once with a French one
- * (Accept-Language fr-CA; that login opens the chart address the English login reached). Step 4 saves one record
+ * (Accept-Language fr-CA; that login enters the same patient's chart through the E-Chart link's route). Step 4 saves one record
  * per form for the owned patient, and reopens it from the chart's saved forms.
  * Asserted, per language and form:
  *   1. the form opens from the Forms menu and its page 2 link opens page 2;
@@ -101,10 +101,14 @@ async function workflow(s) {
       s.cleanup(() => context.close().catch(() => {}));
       await h.login(context, config, s.recorder);
       // The Master Record's links are translated, and the shared helper finds them by their English names, so the
-      // French login opens the chart address the English login's E-Chart link opened.
+      // French login enters the chart through the E-Chart link's own route. Loading the address the English chart ended
+      // on instead skips that entry, and the chart page then answers parts of itself with 500 (a session without the
+      // encounter's program: CaseManagementManagerImpl.hasAccessRight).
       chart = await context.newPage();
-      await chart.goto((await s.chart()).url(), { waitUntil: 'domcontentloaded' });
+      await h.gotoApp(chart, config.baseUrl,
+        `/encounter/IncomingEncounter?demographicNo=${encodeURIComponent(patient)}&providerNo=${encodeURIComponent(s.provider)}`);
       await waitForNavbars(chart, 20000);
+      h.assert(new URL(chart.url()).searchParams.get('demographicNo') === patient, 'the French login opened another chart');
       h.assert(/^fr\b/i.test(await chart.evaluate(() => navigator.language)), 'the French context does not report a French browser');
     });
 
