@@ -36,9 +36,16 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Collections;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -226,6 +233,22 @@ class HttpMethodGuardFilterUnitTest {
             // are present, and rejects that case unless the request is POST.
             when(request.getMethod()).thenReturn("GET");
             when(request.getRequestURI()).thenReturn("/carlos/demographic/AddRelation");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should pass through GET to the RH form's injection editor view")
+        void shouldPassThrough_forGetToRhInjectionEditor() throws Exception {
+            // form/addRhInjection starts with "add" but is a ViewForm2Action wildcard view: the RH
+            // form's Add Injection opens it with GET, and the injection is stored by the editor's
+            // POST to prevention/AddPrevention (#4992).
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/form/addRhInjection");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -429,6 +452,104 @@ class HttpMethodGuardFilterUnitTest {
 
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
+        }
+    }
+
+    /**
+     * Mixed-method actions name most of their writes with a compound value (the provider preference
+     * saves, the program and staff editors, the HRM report changes): each counts as the verb it starts
+     * with. Every page that sends one of these sends it by POST, so only GET and HEAD are refused.
+     */
+    @Nested
+    @DisplayName("GET requests with a compound mutator method parameter")
+    class CompoundMutatorMethodParams {
+
+        @ParameterizedTest
+        @ValueSource(strings = {"saveRxPageSize", "deleteComment", "removeTarget", "updateCategory",
+                "assign_role", "cancelStagedEFormFax", "SaveRxPageSize"})
+        @DisplayName("should block GET with a method value that starts with a mutator verb")
+        void shouldBlock_forGetWithCompoundMutatorMethod(String method) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/setProviderStaleDate");
+            when(request.getParameter("method")).thenReturn(method);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).setHeader("Allow", "POST");
+            verify(response).sendError(eq(405), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block HEAD with a compound mutator method")
+        void shouldBlock_forHeadWithCompoundMutatorMethod() throws Exception {
+            when(request.getMethod()).thenReturn("HEAD");
+            when(request.getRequestURI()).thenReturn("/carlos/hospitalReportManager/Modify");
+            when(request.getParameter("method")).thenReturn("updateCategory");
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(405), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"viewRxPageSize", "editRemove", "ticklerGetNote", "list", "fetch"})
+        @DisplayName("should pass through GET with a method value that does not start with a mutator verb")
+        void shouldPassThrough_forGetWithReadMethod(String method) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/setProviderStaleDate");
+            when(request.getParameter("method")).thenReturn(method);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should pass through POST with a compound mutator method")
+        void shouldPassThrough_forPostWithCompoundMutatorMethod() throws Exception {
+            when(request.getMethod()).thenReturn("POST");
+            when(request.getRequestURI()).thenReturn("/carlos/setProviderStaleDate");
+            when(request.getParameter("method")).thenReturn("saveRxPageSize");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should label the refusal of a compound method name in its one log line")
+        void shouldLabelRefusal_forCompoundMutatorMethod() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/setProviderStaleDate");
+            when(request.getParameter("method")).thenReturn("saveRxPageSize");
+
+            try (LogCapture logs = LogCapture.forLogger(HttpMethodGuardFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(logs.messages()).hasSize(1);
+                assertThat(logs.messages().get(0))
+                        .contains("/setProviderStaleDate?method=saveRxPageSize")
+                        .contains("(compound method name)");
+            }
+        }
+
+        @Test
+        @DisplayName("should not label the refusal of an exact method name")
+        void shouldNotLabelRefusal_forExactMutatorMethod() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/SystemMessage");
+            when(request.getParameter("method")).thenReturn("save");
+
+            try (LogCapture logs = LogCapture.forLogger(HttpMethodGuardFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(logs.messages()).hasSize(1);
+                assertThat(logs.messages().get(0)).doesNotContain("compound");
+            }
         }
     }
 
@@ -986,6 +1107,184 @@ class HttpMethodGuardFilterUnitTest {
 
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
+        }
+    }
+
+    /**
+     * Routes that take their write from a parameter other than {@code method} (issue #3394): neither the
+     * route name nor {@code method} gives the write away, so the filter keys on the parameter per route.
+     * Real Spring mock requests, so parameter names enumerate as the container would.
+     */
+    @Nested
+    @DisplayName("GET requests carrying a route's own write parameter")
+    class RouteWriteParameters {
+
+        private MockHttpServletResponse doFilter(String httpMethod, String route, String... nameValuePairs)
+                throws Exception {
+            MockHttpServletRequest req = new MockHttpServletRequest(httpMethod, "/carlos" + route);
+            req.setContextPath("/carlos");
+            for (int i = 0; i < nameValuePairs.length; i += 2) {
+                req.addParameter(nameValuePairs[i], nameValuePairs[i + 1]);
+            }
+            MockHttpServletResponse res = new MockHttpServletResponse();
+            filter.doFilter(req, res, chain);
+            return res;
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"GET", "HEAD"})
+        @DisplayName("should block the privilege-row Update when it is not posted")
+        void shouldBlock_forProviderPrivilegeButtonUpdate(String httpMethod) throws Exception {
+            // The working exploit recorded in #2862: privilege bits rewritten from a link.
+            MockHttpServletResponse res = doFilter(httpMethod, "/admin/ProviderPrivilege",
+                    "buttonUpdate", "Update", "roleUserGroup", "doctor", "objectName", "_casemgmt",
+                    "privileger", "on", "privilegew", "on", "priority", "5");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            assertThat(res.getHeader("Allow")).isEqualTo("POST");
+            verify(chain, never()).doFilter(any(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"submit", "buttonUpdate", "buttonSetPrimaryRole"})
+        @DisplayName("should block each Provider Role write parameter, whatever its localized value")
+        void shouldBlock_forProviderRoleWriteParameter(String param) throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/admin/ProviderRole", param, "Ajouter");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            verify(chain, never()).doFilter(any(), any());
+        }
+
+        @Test
+        @DisplayName("should block a message delete sent by GET")
+        void shouldBlock_forHandleMessagesDelete() throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/messenger/HandleMessages",
+                    "messageNo", "1", "delete", "Delete");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            verify(chain, never()).doFilter(any(), any());
+        }
+
+        @Test
+        @DisplayName("should block a Select Forms reorder sent by GET")
+        void shouldBlock_forFormSelectForward() throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/form/select",
+                    "forward", "add", "selectedAddTypes", "2 Minute Walk");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            verify(chain, never()).doFilter(any(), any());
+        }
+
+        @Test
+        @DisplayName("should match the route and the parameter name case-insensitively")
+        void shouldBlock_forDifferentlyCasedRouteAndParameter() throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/admin/providerprivilege", "BUTTONUPDATE", "x");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+        }
+
+        @Test
+        @DisplayName("should block the write parameter even when its value is empty")
+        void shouldBlock_forEmptyWriteParameter() throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/admin/ProviderRole", "submit", "");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+        }
+
+        @Test
+        @DisplayName("should block the write parameter on a path that needs normalizing")
+        void shouldBlock_forWriteParameterOnUnnormalizedPath() throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/x/../admin//ProviderPrivilege;jsessionid=1",
+                    "buttonUpdate", "Update");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"/admin/ProviderPrivilege", "/admin/ProviderRole", "/messenger/HandleMessages"})
+        @DisplayName("should pass a bare GET that only opens the page")
+        void shouldPassThrough_forBareGet(String route) throws Exception {
+            MockHttpServletResponse res = doFilter("GET", route);
+
+            assertThat(res.getStatus()).isEqualTo(200);
+            verify(chain).doFilter(any(), any());
+        }
+
+        @Test
+        @DisplayName("should pass the Provider Role filter search, which writes nothing")
+        void shouldPassThrough_forProviderRoleSearch() throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/admin/ProviderRole",
+                    "keyword", "FAKE", "search", "Filter");
+
+            assertThat(res.getStatus()).isEqualTo(200);
+            verify(chain).doFilter(any(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"reply", "replyAll", "forward"})
+        @DisplayName("should pass Reply, Reply All and Forward, which only open the compose page")
+        void shouldPassThrough_forHandleMessagesComposeButtons(String button) throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/messenger/HandleMessages",
+                    "messageNo", "1", button, "x");
+
+            assertThat(res.getStatus()).isEqualTo(200);
+            verify(chain).doFilter(any(), any());
+        }
+
+        @Test
+        @DisplayName("should pass a POST that carries a write parameter")
+        void shouldPassThrough_forPostedWrite() throws Exception {
+            MockHttpServletResponse res = doFilter("POST", "/admin/ProviderPrivilege", "buttonUpdate", "Update");
+
+            assertThat(res.getStatus()).isEqualTo(200);
+            verify(chain).doFilter(any(), any());
+        }
+
+        @Test
+        @DisplayName("should not apply a route's write parameters to another route")
+        void shouldPassThrough_forWriteParameterNameOnUnlistedRoute() throws Exception {
+            // Log Admin's report form sends submit, and it only reads.
+            MockHttpServletResponse res = doFilter("GET", "/admin/LogReport", "submit", "Search",
+                    "buttonUpdate", "x", "delete", "x");
+
+            assertThat(res.getStatus()).isEqualTo(200);
+            verify(chain).doFilter(any(), any());
+        }
+
+        @Test
+        @DisplayName("should label the refusal with the parameter's name and never its value")
+        void shouldLabelRefusal_withWriteParameterNameOnly() throws Exception {
+            try (LogCapture logs = LogCapture.forLogger(HttpMethodGuardFilter.class)) {
+                doFilter("GET", "/admin/ProviderPrivilege", "buttonUpdate", "FAKE-VALUE-NOT-LOGGED");
+
+                assertThat(logs.messages()).hasSize(1);
+                assertThat(logs.messages().get(0))
+                        .contains("/admin/ProviderPrivilege")
+                        .contains("(write parameter buttonUpdate)")
+                        .doesNotContain("FAKE-VALUE-NOT-LOGGED");
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"GET", "HEAD"})
+        @DisplayName("should block the Dx registry's code-description write sent without POST")
+        void shouldBlock_forDxresearchEditDesc(String httpMethod) throws Exception {
+            MockHttpServletResponse res = doFilter(httpMethod, "/report/DxresearchReport",
+                    "method", "editDesc", "editingCodeType", "icd9", "editingCodeCode", "250",
+                    "editingCodeDesc", "FAKE");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            verify(chain, never()).doFilter(any(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"patientRegistedAll", "patientExcelReport", "addSearchCode", "clearSearchCode"})
+        @DisplayName("should pass the Dx registry's report dispatches")
+        void shouldPassThrough_forDxresearchReportMethods(String method) throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/report/DxresearchReport", "method", method);
+
+            assertThat(res.getStatus()).isEqualTo(200);
+            verify(chain).doFilter(any(), any());
         }
     }
 }

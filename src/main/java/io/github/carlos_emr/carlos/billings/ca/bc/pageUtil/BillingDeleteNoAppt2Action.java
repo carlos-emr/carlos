@@ -35,7 +35,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -50,6 +52,7 @@ import org.apache.struts2.ServletActionContext;
 public final class BillingDeleteNoAppt2Action extends ActionSupport {
 
     HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
@@ -60,6 +63,10 @@ public final class BillingDeleteNoAppt2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+        // The delete is a write: like its Ontario twin, it takes only the form post its pages send.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
 
         String billCode = request.getParameter("billCode");

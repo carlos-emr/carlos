@@ -13104,7 +13104,8 @@
    "passwordUpdateDate",
    "pinUpdateDate",
    "lastUpdateUser",
-   "lastUpdateDate"
+   "lastUpdateDate",
+   "usingMfa"
   ],
   "ServiceClient": [
    "id",
@@ -43123,7 +43124,8 @@
      "passwordUpdateDate",
      "pinUpdateDate",
      "lastUpdateUser",
-     "lastUpdateDate"
+     "lastUpdateDate",
+     "usingMfa"
     ],
     "ServiceClient": [
      "id",
@@ -58951,9 +58953,7 @@
      "ID",
      "billing_no",
      "demographic_no",
-     "formNeeded",
-     "provider_no",
-     "w_duration"
+     "provider_no"
     ]
    },
    "PRISTINE_TOLERATED_TABLES": [

@@ -57,7 +57,6 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="encounter.formAlpha.title"/></title>
-        <link rel="stylesheet" type="text/css" href="alphaStyle.css">
         <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -96,17 +95,17 @@
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<carlos:encode value='<%= props.getProperty("demographic_no", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="ID"
-               value="<%= props.getProperty("ID", "0") %>"/>
+               value="<carlos:encode value='<%= props.getProperty("ID", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="provider_no"
                value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
+               value="<carlos:encode value='<%= props.getProperty("formCreated", "") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="pName"
-               value="<%= props.getProperty("pName", "") %>"/>
+               value="<carlos:encode value='<%= props.getProperty("pName", "") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="provNo"
                value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
@@ -143,7 +142,7 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgFormWhoHelp"/></font></li>
                 </td>
                 <td><textarea name="socialSupport" style="width: 100%" cols="40"
-                              rows="3"><%= props.getProperty("socialSupport", "") %></textarea></td>
+                              rows="3"><carlos:encode value='<%= props.getProperty("socialSupport", "") %>'/></textarea></td>
             </tr>
             <tr>
                 <td><b><fmt:message key="encounter.formAlpha.formRecentStressfulEvents"/></b>
@@ -151,7 +150,7 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgPlanningChanges"/></font></li>
                 </td>
                 <td><textarea name="lifeEvents" style="width: 100%" cols="40"
-                              rows="3"><%= props.getProperty("lifeEvents", "") %></textarea></td>
+                              rows="3"><carlos:encode value='<%= props.getProperty("lifeEvents", "") %>'/></textarea></td>
             </tr>
             <tr>
                 <td><b><fmt:message key="encounter.formAlpha.formCoupleRelationship"/></b>
@@ -160,7 +159,7 @@
                     </li>
                 </td>
                 <td><textarea name="coupleRelationship" style="width: 100%"
-                              cols="40" rows="3"><%= props.getProperty("coupleRelationship", "") %></textarea>
+                              cols="40" rows="3"><carlos:encode value='<%= props.getProperty("coupleRelationship", "") %>'/></textarea>
                 </td>
             </tr>
             <tr bgcolor="#99FF99">
@@ -171,14 +170,14 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgPrenatalVisit"/></font></li>
                 </td>
                 <td><textarea name="prenatalCare" style="width: 100%" cols="40"
-                              rows="2"><%= props.getProperty("prenatalCare", "") %></textarea></td>
+                              rows="2"><carlos:encode value='<%= props.getProperty("prenatalCare", "") %>'/></textarea></td>
             </tr>
             <tr>
                 <td valign="top"><b><fmt:message key="encounter.formAlpha.formPrenatalEducation"/></b>
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgPrenatalPlans"/> </font></li>
                 </td>
                 <td><textarea name="prenatalEducation" style="width: 100%"
-                              cols="40" rows="2"><%= props.getProperty("prenatalEducation", "") %></textarea>
+                              cols="40" rows="2"><carlos:encode value='<%= props.getProperty("prenatalEducation", "") %>'/></textarea>
                 </td>
             </tr>
             <tr>
@@ -187,7 +186,7 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgFellAboutpregnant"/></font></li>
                 </td>
                 <td><textarea name="feelingsRePregnancy" style="width: 100%"
-                              cols="40" rows="2"><%= props.getProperty("feelingsRePregnancy", "") %></textarea>
+                              cols="40" rows="2"><carlos:encode value='<%= props.getProperty("feelingsRePregnancy", "") %>'/></textarea>
                 </td>
             </tr>
             <tr>
@@ -196,7 +195,7 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgLovedByParents"/></font></li>
                 </td>
                 <td><textarea name="relationshipParents" style="width: 100%"
-                              cols="40" rows="2"><%= props.getProperty("relationshipParents", "") %></textarea>
+                              cols="40" rows="2"><carlos:encode value='<%= props.getProperty("relationshipParents", "") %>'/></textarea>
                 </td>
             </tr>
             <tr>
@@ -204,7 +203,7 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgSelfEsteemConcerns"/></font></li>
                 </td>
                 <td><textarea name="selfEsteem" style="width: 100%" cols="40"
-                              rows="2"><%= props.getProperty("selfEsteem", "") %></textarea></td>
+                              rows="2"><carlos:encode value='<%= props.getProperty("selfEsteem", "") %>'/></textarea></td>
             </tr>
             <tr>
                 <td valign="top"><b><fmt:message key="encounter.formAlpha.formEmotionalProblems"/></b>
@@ -212,14 +211,14 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgPsychiatrist"/></font></li>
                 </td>
                 <td><textarea name="psychHistory" style="width: 100%" cols="40"
-                              rows="2"><%= props.getProperty("psychHistory", "") %></textarea></td>
+                              rows="2"><carlos:encode value='<%= props.getProperty("psychHistory", "") %>'/></textarea></td>
             </tr>
             <tr>
                 <td valign="top"><b><fmt:message key="encounter.formAlpha.formDepression"/></b>
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgMood"/> </font></li>
                 </td>
                 <td><textarea name="depression" style="width: 100%" cols="40"
-                              rows="2"><%= props.getProperty("depression", "") %></textarea></td>
+                              rows="2"><carlos:encode value='<%= props.getProperty("depression", "") %>'/></textarea></td>
             </tr>
             <tr bgcolor="#99FF99">
                 <td valign="top" colspan="2"><b><fmt:message key="encounter.formAlpha.msgSubstanceUse"/></b></td>
@@ -233,7 +232,7 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgCAGE"/></font></li>
                 </td>
                 <td><textarea name="alcoholDrugAbuse" style="width: 100%"
-                              cols="40" rows="5"><%= props.getProperty("alcoholDrugAbuse", "") %></textarea>
+                              cols="40" rows="5"><carlos:encode value='<%= props.getProperty("alcoholDrugAbuse", "") %>'/></textarea>
                 </td>
             </tr>
             <tr bgcolor="#99FF99">
@@ -247,7 +246,7 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgAbusedAsAChild"/></font></li>
                 </td>
                 <td><textarea name="abuse" style="width: 100%" cols="40"
-                              rows="5"><%= props.getProperty("abuse", "") %></textarea></td>
+                              rows="5"><carlos:encode value='<%= props.getProperty("abuse", "") %>'/></textarea></td>
             </tr>
             <tr>
                 <td valign="top"><b><fmt:message key="encounter.formAlpha.formWomanAbuse"/></b><br>
@@ -258,7 +257,7 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgForcedSex"/> </font></li>
                 </td>
                 <td><textarea name="womanAbuse" style="width: 100%" cols="40"
-                              rows="5"><%= props.getProperty("womanAbuse", "") %></textarea></td>
+                              rows="5"><carlos:encode value='<%= props.getProperty("womanAbuse", "") %>'/></textarea></td>
             </tr>
             <tr style="page-break-before: always;">
                 <td valign="top"><b><fmt:message key="encounter.formAlpha.formPreviousChildAbuse"/></b>
@@ -266,7 +265,7 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgChildProtectionAgency"/> </font></li>
                 </td>
                 <td><textarea name="childAbuse" style="width: 100%" cols="40"
-                              rows="2"><%= props.getProperty("childAbuse", "") %></textarea></td>
+                              rows="2"><carlos:encode value='<%= props.getProperty("childAbuse", "") %>'/></textarea></td>
             </tr>
             <tr>
                 <td valign="top"><b><fmt:message key="encounter.formAlpha.formChildDiscipline"/> </b>
@@ -275,7 +274,7 @@
                     <li><font size="-1"><fmt:message key="encounter.formAlpha.msgMisbehave"/></font></li>
                 </td>
                 <td><textarea name="childDiscipline" style="width: 100%"
-                              cols="40" rows="3"><%= props.getProperty("childDiscipline", "") %></textarea>
+                              cols="40" rows="3"><carlos:encode value='<%= props.getProperty("childDiscipline", "") %>'/></textarea>
                 </td>
             </tr>
         </table>
@@ -328,7 +327,7 @@
                         <%= props.getProperty("other1", "") %>></td>
                 <td><fmt:message key="encounter.formAlpha.formOther"/>:<input
                         type="text" name="other1Name"
-                        value="<%= props.getProperty("other1Name", "")%>"></td>
+                        value="<carlos:encode value='<%= props.getProperty("other1Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
                 <td><input type="checkbox" name="publicHealth"
@@ -341,7 +340,7 @@
                         <%= props.getProperty("other2", "") %>></td>
                 <td><fmt:message key="encounter.formAlpha.formOther"/>:<input
                         type="text" name="other2Name"
-                        value="<%= props.getProperty("other2Name", "") %>"></td>
+                        value="<carlos:encode value='<%= props.getProperty("other2Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
                 <td><input type="checkbox" name="prenatalEdu"
@@ -353,7 +352,7 @@
                 <td><input type="checkbox" name="other3"
                         <%= props.getProperty("other3", "") %>></td>
                 <td>Other:<input type="text" name="other3Name"
-                                 value="<%= props.getProperty("other3Name", "") %>"></td>
+                                 value="<carlos:encode value='<%= props.getProperty("other3Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
                 <td><input type="checkbox" name="nutritionist"
@@ -366,7 +365,7 @@
                         <%= props.getProperty("other4", "") %>></td>
                 <td><fmt:message key="encounter.formAlpha.formOther"/>:<input
                         type="text" name="other4Name"
-                        value="<%= props.getProperty("other4Name", "") %>"></td>
+                        value="<carlos:encode value='<%= props.getProperty("other4Name", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr>
                 <td><input type="checkbox" name="resources"
@@ -382,7 +381,7 @@
             <tr>
                 <td><b><fmt:message key="encounter.formAlpha.formComments"/></b>:<br>
                     <textarea name="comments" style="width: 100%"
-                              cols="80"><%= props.getProperty("comments", "") %></textarea>
+                              cols="80"><carlos:encode value='<%= props.getProperty("comments", "") %>'/></textarea>
                 </td>
 
             </tr>

@@ -9,8 +9,9 @@
  * User path (throwaway login holding one owned role with report, billing, schedule, messenger, patient and search read rights):
  * Schedule ▸ Report ▸ Generate a billing report (billing/CA/ON/ViewBillingReportCenter) ▸ Billed ▸
  * provider ▸ dates ▸ Create Report (billing/CA/ON/ViewBillingReportControl); the same form ▸ Unsettled, then
- * OB, then Flu ▸ Create Report.
- * Asserted: the login gets the Report Center (not the dashboard), which offers the owned report provider;
+ * OB, then Flu ▸ Create Report; a Billed row ▸ the claim (billing/CA/ON/ViewBillingONDisplay).
+ * Asserted: the login gets the Report Center (not the dashboard), which offers the owned report provider; a
+ * Billed row opens its claim read-only, with the login's billing read rights;
  * the Billed report lists the provider's open claim in the range and the Unsettled report its submitted
  * (billed, not yet paid) claim, as the dashboard lists them for administrators and doctors; the OB report
  * lists its obstetric claim (P006A) and the Flu report its flu-shot claim (G590A), each with its total.
@@ -150,6 +151,25 @@ async function workflow(s) {
     h.assert(new URL(center.url()).pathname.endsWith('/billing/CA/ON/ViewBillingReportControl'), `The ${action} report did not open`);
     return center.locator('body').innerText();
   };
+
+  // Before the four reports' step.
+  await s.step('a Billed row opens its claim for viewing with the login\'s billing read rights', async () => {
+    const claim = ids.claims.find(entry => entry.report === 'billed');
+    await run('billed');
+    // The id is followed by the closing quote of the popup URL, so claim 12 cannot match claim 123's link.
+    const link = center.locator(`a[onclick*='/billing/CA/ON/ViewBillingONDisplay?billing_no=${claim.id}"']`);
+    h.assert(await link.count() === 1, `The Billed report offers no read-only link to its claim ${claim.id}`);
+    // The row link is href="#" with a popup onClick: the "#" navigates the report page in place too, so wait for
+    // the popup itself rather than the first navigation.
+    const shown = await ui.clickOpensPopup(center, link, { context, recorder, label: 'claim-display', timeout: TIMEOUT });
+    await h.assertNotErrorPage(shown, 'the claim a Billed row opens');
+    const number = shown.locator('input[name="xml_billing_no"]');
+    await number.waitFor({ state: 'attached', timeout: TIMEOUT });
+    h.assert(await number.inputValue() === claim.id, `The Billed row opened another claim than ${claim.id}`);
+    const codes = await shown.locator('input[name^="xml_service_code"]').evaluateAll(inputs => inputs.map(input => input.value));
+    h.assert(codes.includes('A007A'), `The opened claim does not show its service code: ${codes.join(', ')}`);
+    if (!shown.isClosed()) await shown.close();
+  });
 
   await s.step('the Billed, Unsettled, OB and Flu reports list the provider\'s Ontario claims in the range', async () => {
     const what = { billed: 'Billed: the open claim', unsettled: 'Unsettled: the submitted, unpaid claim',

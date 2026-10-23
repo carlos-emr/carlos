@@ -56,7 +56,7 @@
  */
 const { randomUUID } = require('node:crypto');
 const h = require('./lib/playwright-harness');
-const { clickAndAwaitReload } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, openFormsMenu } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { watchFrontDoor } = require('./lib/front-door-checks');
@@ -808,7 +808,7 @@ function rows(s, ctx) {
         let form;
         try {
           const chart = await s.chart();
-          await chart.locator('#menuTitle1 a').hover();
+          await openFormsMenu(chart);
           form = await s.popup(chart, chart.getByRole('link', { name: 'Rourke2017', exact: true }), 'rourke');
           await form.locator('#frmP1').waitFor();
           await form.locator(`a[onclick*="displayDemographicMeasurements('p1_wt1w'"]`).first().click();

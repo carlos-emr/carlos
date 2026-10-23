@@ -66,6 +66,30 @@ class ProviderRoleAssetRegressionTest {
                 .doesNotContain("secRole.getName().equals(omit)");
     }
 
+    @Test
+    @DisplayName("should write the primary-role script's provider and role values through the JavaScript encoder")
+    void shouldEncodeScriptItemValues_inPrimaryRoleScript() throws IOException {
+        String jsp = readProviderRoleJsp();
+
+        // Each row becomes a JavaScript string literal in the items array, so every value needs the block encoder.
+        assertThat(jsp)
+                .contains("providerNo: \"<carlos:encode value='<%= (String)prop.get(\"provider_no\") %>' context=\"javaScriptBlock\"/>\"")
+                .contains("role_id: \"<carlos:encode value='<%= (String)prop.get(\"role_id\") %>' context=\"javaScriptBlock\"/>\"")
+                .contains("roleName: \"<carlos:encode value='<%= (String)prop.get(\"role_name\") %>' context=\"javaScriptBlock\"/>\"")
+                .doesNotContainPattern("(providerNo|role_id|roleName): \"<%=");
+    }
+
+    @Test
+    @DisplayName("should build the primary-role options with DOM APIs so a role name stays text")
+    void shouldBuildPrimaryRoleOptions_withDomApis() throws IOException {
+        String jsp = readProviderRoleJsp();
+
+        // roleName is decoded back to its stored characters in the script, so it must not be pasted into HTML.
+        assertThat(jsp)
+                .contains("$(\"#primaryRoleRole\").append($('<option>').val(items[i].roleName).text(items[i].roleName));")
+                .doesNotContain("'<option value=\"' + items[i].roleName");
+    }
+
     private static String readProviderRoleJsp() throws IOException {
         return Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
     }

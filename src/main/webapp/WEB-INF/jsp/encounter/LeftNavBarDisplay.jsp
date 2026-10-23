@@ -86,13 +86,25 @@
 
     // Render auto-complete items with OWASP encoding (defense-in-depth, issue #1386)
     java.util.List<NavBarDisplayDAO.AutoCompleteItem> acItems = dao.getAutoCompleteItems();
-    if (!acItems.isEmpty()) {
+    if (!acItems.isEmpty() || "forms".equals(navbarName)) {
 %>
 <script type="text/javascript">
+<% if ("forms".equals(navbarName)) { %>
+replaceEncounterFormCompletions([
+<% for (NavBarDisplayDAO.AutoCompleteItem acItem : acItems) { %>
+    ['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>',
+     '<carlos:encode value='<%= acItem.jsExpression() %>' context="javaScriptBlock"/>',
+     '<carlos:encode value='<%= acItem.bgColour() %>' context="javaScriptBlock"/>'],
+<% } %>
+]);
+<% } else { %>
 <% for (NavBarDisplayDAO.AutoCompleteItem acItem : acItems) { %>
 itemColours['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>'] = '<carlos:encode value='<%= acItem.bgColour() %>' context="javaScriptBlock"/>';
-autoCompList.push('<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>');
+if (autoCompList.indexOf('<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>') === -1) {
+    autoCompList.push('<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>');
+}
 autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>'] = "<carlos:encode value='<%= acItem.jsExpression() %>' context="javaScriptBlock"/>";
+<% } %>
 <% } %>
 </script>
 <%
@@ -142,6 +154,11 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
                     style = "menuItemleft";
                 }%>
         <a href="javascript:void(0)" class="<%=style%>"
+<% if ("forms".equals(navbarName) && dao.getPopUpConfig(idx) != null) { %>
+           data-encounter-form-url="<carlos:encode value='<%= dao.getPopUpConfig(idx).url() %>' context="htmlAttribute"/>"
+           data-encounter-form-window="<carlos:encode value='<%= dao.getPopUpConfig(idx).windowName() %>' context="htmlAttribute"/>"
+           data-encounter-form-name="<carlos:encode value='<%= dao.getPopUpText(idx) %>' context="htmlAttribute"/>"
+<% } %>
            onmouseover='this.style.color="black"'
            onmouseout='this.style.color="white"'
 <%         NavBarDisplayDAO.PopupConfig popCfg = dao.getPopUpConfig(idx);

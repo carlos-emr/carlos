@@ -339,7 +339,7 @@
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="nameUsed" <%=getDisabled("nameUsed")%>
-                                                                                size="30"
+                                                                                size="30" maxlength="<%= Demographic.ALIAS_MAX_LENGTH %>"
                                                                                 value="<carlos:encode value='<%= demographic.getAlias() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td style="text-align: right;">

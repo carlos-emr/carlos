@@ -66,6 +66,35 @@
   `scripts/build-eform-scoped-bootstrap.js`; new chrome goes inside an element with
   `class="carlos-eform-ui"`. See `docs/eform-chrome-bootstrap-scope.md`.
 
+## eForm Signature Data URIs and the WAF
+
+- Signature pads store data URIs in author-named eForm fields, which the packaged WAF cannot name.
+  `eform_floating_toolbar.js` moves each image data URI into the fixed `carlos-data-uri` argument
+  while the save request is built (leaving `carlos-data-uri:<nonce>:<n>` in the field, with a
+  per-submission nonce in `carlos-data-uri-nonce` so typed text is never taken for a reference), and
+  `AddEForm2Action` restores it through `EFormDataUriCarrier` before anything is stored (#3552).
+- WAF rule 1040 exempts only `ARGS:carlos-data-uri`; never return to a request-wide
+  `ruleRemoveById`. `EFormDataUriCarrier` is the boundary: it accepts only padded Base64
+  PNG/JPEG/GIF/WebP (file signature checked) and jSignature base30, never SVG. The page and server
+  rules must stay identical: `scripts/fixtures/eform/data-uri-carrier-cases.json` drives both sides'
+  tests, and `scripts/waf/check-clinical-policy.py` (`data-uri-*`) pins the real-engine behaviour.
+
+## Query by Example Reporting Account
+
+- Query by Example runs every query as the read-only database account `carlos_report`
+  (`db_reporting_username` / `db_reporting_password`), never as `db_username`, and refuses to run
+  without it (issue #3372). There is no fallback to the application account.
+- `src/main/resources/db/reporting/carlos_report_grants.sql` lists every table as `reportable` or
+  `restricted` and rebuilds the account's grants. A migration that creates a table must add its
+  row there; `QueryByExampleReportingClassificationUnitTest` fails the build until it does, and
+  when the restricted rows differ from `QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES`.
+- The application reads the same file from the WAR (`ReportingGrantList`) and refuses an account
+  whose `SHOW GRANTS` reach past it, so keep its one-row-per-line format: a row the reader cannot
+  parse closes Query by Example rather than being skipped.
+- Provisioning: `carlos-ctl db-users` / `db-migrate` on packaged installs; `populate_db.sh` and
+  the `qbe-reporting-account` helper in the devcontainer. See
+  `docs/query-by-example-least-privilege.md`.
+
 ## Debian Packaging and carlos-ctl
 
 The single-host deployment is three Debian packages (plus a transitional one):
@@ -358,6 +387,13 @@ the top of that file:
   `verifyNoInteractions(...)` on the mutation dependency.
 - `NON_MUTATOR_GATES` — a read-scope gate that permits GET and only 405s
   on truly unsupported methods like DELETE/PUT.
+
+`HttpMethodGuardFilter` only infers a write from the route name or the
+`method` value. When a route picks its write from another parameter
+(`buttonUpdate`, `delete`, `forward`, ...), the action must refuse the GET
+itself; also list the route in the filter's
+`MUTATION_INTENT_PARAMS_BY_ROUTE`, and the contract test drives every entry
+there against its action (issue #3394).
 
 **When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
 the slice's package prefix only after the existing guarded actions in that

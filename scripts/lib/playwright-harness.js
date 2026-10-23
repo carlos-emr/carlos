@@ -687,6 +687,13 @@ function wireStrictPage(page, label, recorder, options = {}) {
     if (!strictSignals) {
       return;
     }
+    // The teardown logout (logoutOnClose) broadcasts the logout to every open page, and each one
+    // moves to the login page 500 ms later (LogoutBroadcastFilter); closing the context then abandons
+    // those loads. That is the harness ending the session, not the check: a teardown must never turn
+    // a passing check red. Only request failures are excused, and only once the close has begun.
+    if (isTearingDown(page)) {
+      return;
+    }
     const failure = request.failure();
     const url = request.url();
     if (isExpectedMissingAsset(404, url)) {
@@ -956,13 +963,156 @@ function recordBrowserVersion(browser) {
   return launchedBrowserVersion;
 }
 
-/** Lazy so the harness stays require()-able in CI, which has no browser binary. */
-async function launchBrowser(config) {
+/** How long a teardown logout may take before it is given up with a warning. */
+const TEARDOWN_LOGOUT_TIMEOUT_MS = 10000;
+
+/**
+ * End one context's CARLOS session through the app's own logout, best-effort.
+ *
+ * WHY. A chart holds a note lock (casemgmt_note_lock) for its session and releases it on pagehide.
+ * A check that ends with a chart still open -- a failed assertion, a timeout -- closes the browser
+ * without pagehide, so the lock lives on with the session (session-timeout, 120 minutes), and every
+ * later check that opens the same chart as the same user is asked to continue an edit "in another
+ * window", is answered Cancel by the harness, and gets a blank page. Logging out invalidates the
+ * session, and OscarSessionListener then drops every lock it held, whatever state the pages are in.
+ *
+ * HOW. The way a user logs out: GET /logoutPage, whose page POSTs its own form to /logout (Logout2Action
+ * refuses a GET). A context that never signed in has no session cookie and is left alone. Any failure
+ * is logged as a warning and swallowed: a teardown must never turn a passing check red.
+ *
+ * @returns {Promise<boolean>} whether /logout answered below 400
+ */
+async function logoutContext(context, config, { log = console, timeout = TEARDOWN_LOGOUT_TIMEOUT_MS, closePage = true } = {}) {
+  let page;
+  let posted;
+  try {
+    const baseUrl = config.baseUrl instanceof URL ? config.baseUrl : new URL(String(config.baseUrl));
+    const cookies = await context.cookies(baseUrl.href);
+    if (!cookies.some((cookie) => cookie.name === 'JSESSIONID')) return false;
+    page = await context.newPage();
+    posted = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/logout'), { timeout });
+    posted.catch(() => {});
+    await gotoApp(page, baseUrl, '/logoutPage');
+    const response = await posted;
+    if (response.status() >= 400) throw new Error(`/logout answered HTTP ${response.status()}`);
+    return true;
+  } catch (error) {
+    log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
+    return false;
+  } finally {
+    if (page && closePage) await page.close().catch(() => {});
+  }
+}
+
+/** Contexts whose session must outlive their close (keepSessionOnClose); never logged out on close. */
+const SESSIONS_KEPT_ON_CLOSE = new WeakSet();
+
+/** Contexts whose close (teardown logout, then close) has begun; see isTearingDown. */
+const CONTEXTS_TEARING_DOWN = new WeakSet();
+
+/** Whether the page belongs to a context that logoutOnClose has started to tear down. */
+function isTearingDown(page) {
+  try {
+    const context = typeof page.context === 'function' ? page.context() : null;
+    return Boolean(context) && CONTEXTS_TEARING_DOWN.has(context);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Keep this context's session alive when it is closed: no teardown logout for it.
+ *
+ * For a check that closes a context to stand in for a crashed window and then asserts what that
+ * session left behind (echart-note-draft-recovery's stale note lock). The session then lives on until
+ * it times out, so the check's own cleanup must remove what the session held.
+ *
+ * @returns the same context
+ */
+function keepSessionOnClose(context) {
+  SESSIONS_KEPT_ON_CLOSE.add(context);
+  return context;
+}
+
+/**
+ * Make closing a context, or the browser, log its sessions out first (see logoutContext).
+ *
+ * Wraps browser.newContext() so each context's own close() logs it out, and browser.close() so any
+ * context still open is logged out before the browser goes. Each context is logged out at most once.
+ * The check's own cleanup runs first and keeps its session for as long as its pages are open.
+ *
+ * A context made from another one's storageState carries the same session. Closing it must not end
+ * the session the other context is still using, so a session is logged out only by the last open
+ * context that holds it.
+ */
+function logoutOnClose(browser, config, { log = console, logout = logoutContext } = {}) {
+  const done = new WeakSet();
+  const sessionOf = async (context) => {
+    const baseUrl = config.baseUrl instanceof URL ? config.baseUrl : new URL(String(config.baseUrl));
+    const cookie = (await context.cookies(baseUrl.href)).find((entry) => entry.name === 'JSESSIONID');
+    return cookie ? cookie.value : null;
+  };
+  /** Whether a context not yet closing still holds this context's session. */
+  const sessionStillHeld = async (context) => {
+    const session = await sessionOf(context);
+    if (!session || typeof browser.contexts !== 'function') return false;
+    for (const other of browser.contexts()) {
+      if (other !== context && !done.has(other) && await sessionOf(other) === session) return true;
+    }
+    return false;
+  };
+  const logoutOnce = async (context) => {
+    if (done.has(context) || SESSIONS_KEPT_ON_CLOSE.has(context)) return;
+    done.add(context);
+    try {
+      if (await sessionStillHeld(context)) return;
+      // The enclosing close will dispose this temporary page with the context.
+      // Closing it separately can stall Chromium after the logout redirect and
+      // prevent the enclosing browser/context close from ever being reached.
+      await logout(context, config, { log, closePage: false });
+    } catch (error) {
+      log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
+    }
+  };
+  if (typeof browser.newContext === 'function') {
+    const newContext = browser.newContext.bind(browser);
+    browser.newContext = async (...args) => {
+      const context = await newContext(...args);
+      const closeContext = context.close.bind(context);
+      context.close = async (...closeArgs) => {
+        CONTEXTS_TEARING_DOWN.add(context);
+        await logoutOnce(context);
+        return closeContext(...closeArgs);
+      };
+      return context;
+    };
+  }
+  if (typeof browser.close === 'function') {
+    const closeBrowser = browser.close.bind(browser);
+    browser.close = async (...args) => {
+      const open = typeof browser.contexts === 'function' ? browser.contexts() : [];
+      for (const context of open) CONTEXTS_TEARING_DOWN.add(context);
+      for (const context of open) await logoutOnce(context);
+      return closeBrowser(...args);
+    };
+  }
+  return browser;
+}
+
+/**
+ * Lazy so the harness stays require()-able in CI, which has no browser binary.
+ *
+ * Closing the browser or one of its contexts logs its sessions out first (logoutOnClose). A check that
+ * needs every session to outlive the browser passes `{ logoutOnClose: false }` (none does today); one that
+ * needs a single context's session kept marks it with keepSessionOnClose(context).
+ */
+async function launchBrowser(config, { logoutOnClose: logout = true } = {}) {
   // Deliberately not a top-level require: see the module header.
   const { chromium } = require('playwright');
   const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
   recordBrowserVersion(browser);
-  return browser;
+  return logout && config.baseUrl ? logoutOnClose(browser, config) : browser;
 }
 
 /**
@@ -1499,7 +1649,10 @@ module.exports = {
   explainTlsFailure,
   isLocalTlsTarget,
   isWafPage,
+  keepSessionOnClose,
   launchBrowser,
+  logoutContext,
+  logoutOnClose,
   describeBrowserVersion,
   recordBrowserVersion,
   loadConsoleBaseline,

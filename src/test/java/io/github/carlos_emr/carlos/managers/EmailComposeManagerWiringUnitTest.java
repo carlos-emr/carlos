@@ -60,6 +60,7 @@ class EmailComposeManagerWiringUnitTest {
             beans.registerSingleton("documentAttachmentManager", mock(DocumentAttachmentManager.class));
             beans.registerSingleton("formsManager", mock(FormsManager.class));
             beans.registerSingleton("patientConsentManager", mock(PatientConsentManager.class));
+            beans.registerSingleton("nioFileManager", mock(NioFileManager.class));
             context.register(EmailComposeManager.class);
             context.refresh();
             EmailComposeManager manager = context.getBean(EmailComposeManager.class);

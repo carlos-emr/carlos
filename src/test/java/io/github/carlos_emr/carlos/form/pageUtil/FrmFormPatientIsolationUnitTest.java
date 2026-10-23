@@ -27,6 +27,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockServletContext;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -96,6 +97,9 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         registered.setFormTable("formVTForm");
         when(forms.findByFormTable("formVTForm")).thenReturn(List.of(registered));
         measurements = createAndRegisterMock(MeasurementDao.class);
+        // The save runs the form row and the measurements in one transaction (#4674); this test's
+        // persistence is mocked, so a mock transaction manager stands in for the real one.
+        createAndRegisterMock(PlatformTransactionManager.class);
         createAndRegisterMock(MeasurementTypeDao.class);
         createAndRegisterMock(DemographicCustDao.class);
         createAndRegisterMock(BillingDao.class);

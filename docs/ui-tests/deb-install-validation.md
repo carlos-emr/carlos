@@ -126,7 +126,64 @@ check therefore excuses that one aborted `/csrfguard` script load, proven by `na
 `legacy-lab-display` does.
 `clinical-forms-save-reopen` failed on this install at "Mental Health Form 14: Print Pdf answers a PDF
 carrying the saved prose", on two runs. Its other failing pairs are pinned by its own variants. That
-form is not touched here and no finding records the print failure yet.
+form is not touched here and no finding records the print failure yet. (Fixed in #5161: see the next
+paragraph.)
+The Mental Health form fixes of #5161 (issues #4595, #4596, #4597, #4600 and #4683, findings 236, 238,
+239 and 242) were validated on 2026-10-22. The 2026.09.0~snapshot26 packages were built inside an Ubuntu
+26.04 container from the `release/2026.08` fix branch at 57c87cb777: DrugRef came from its pinned ref, and
+carlos-ctl from the pin's fallback commit `325482a`, stamped 1.2.0 because that tag is not published yet.
+They were installed fresh with `scripts/deb-docker-validation.sh up` into an Ubuntu 26.04 systemd container
+with the demo dataset (`carlos-ctl check` clean, `:443`). That host reached the network only through an
+egress proxy that resets reused connections. So apt ran with `Acquire::https::Pipeline-Depth "0"` (set in
+the image passed as `BASE_IMAGE`) and Maven with `-Daether.connector.http.reuseConnections=false`.
+Results:
+
+- `clinical-forms-save-reopen` and its `-form14-42`, `-mental-health-script`,
+  `-mental-health-chart-reload`, `-mental-health-reopen` and `-mental-health-print` variants **PASS**, with
+  no expected failure left. So do `form-catalog-smoke` and `form-catalog-smoke-rourke2006-reopen`.
+- The Mental Health chain carries a Referred By of `Dr "Sam" O'Neil & <Co>` through the three Saves, the
+  reopen and the three prints.
+- The Form 14 Print Pdf failure recorded above is fixed in the same PR. The physician's name started at
+  x=415 and ran off the page, so the PDF lost its end. The new opt-in `fit` print-config column sets such a
+  value small enough to stay on its blank.
+- `--residue-audit` reports 63 `measurementType` and 44 `validations` rows added on the first run after a
+  fresh install. The Vascular Tracker's setup (`FrmSetupForm2Action`, through
+  `EctFindMeasurementTypeUtil.checkMeasurmentTypes`) adds its dictionary the first time it opens. A
+  second run reports no residue.
+- Negative control: the pre-fix pages, servlet and print config were put back into the installed webapp,
+  with `touch` so Jasper recompiled them. The five variants and `-rourke2006-reopen` then **FAIL** at
+  their steps, and the default entry fails at "Mental Health Form 14: each real date is validated". The
+  Mental Health chain stops at "The redisplayed form does not show the saved c_referredBy". Only
+  `-mental-health-script` (finding 237, fixed earlier) still passes.
+- Rows saved before the fix reopen on the right page through `formmentalhealth` and `formrourke2006`
+  (an ad-hoc check, not committed). That covers `c_lastVisited` stored as `referral/`, `assessment/`,
+  `outcome/`, `p1/`, `p2/` and `p3/`, and an unknown `../x`, which opens the first page.
+- The installer's "NOT ready to use" notice came from nginx's stock site on this IPv6-less container
+  (`[::]:80`), as section 2 describes. No `.install-incomplete` marker remained.
+- A later refactor of the `fit` branch moved it into the existing print-branch chain, with no output
+  change. Its `FrmPDFServlet` class was swapped into the same install, and `clinical-forms-save-reopen`
+  and `-form14-42` were run again: both **PASS**.
+`chart-entry-appointment-ownership-playwright-checks.js` (issue #4676) was added on 2026-10-22. It was run
+against 2026.09.0~snapshot26 packages built inside an Ubuntu 26.04 container from the `release/2026.08` fix
+branch: DrugRef from its pinned ref, and carlos-ctl from the pin's fallback commit `325482a`, stamped 1.2.0
+because that tag is not published yet. They were installed fresh with `scripts/deb-docker-validation.sh up`
+and the Ontario demo dataset (`carlos-ctl check` clean, `:443`). Behind the same connection-resetting egress
+proxy, the image's apt trusted the proxy's full CA bundle (`BUILD_CA_BUNDLE=/root/.ccr/ca-bundle.crt`; the
+proxy CA alone failed verification) and Maven ran with short request timeouts. Results:
+
+- The new check **PASS**es 4/4 steps and leaves no fixture rows. With the pre-fix
+  `EctIncomingEncounter2Action` and `EctSessionBean` classes swapped into the installed webapp, it **FAIL**s
+  at "entries naming a visit that is not their patient's are refused": every hostile entry answered 302.
+- `echart`, `echart-navbar-modules`, `echart-new-patient-notes`, `echart-note-sign-bill`, `echart-print`,
+  `echart-lock-lifecycle`, `echart-forms-latest-item`, `echart-note-verify-appointment-status`,
+  `chart-session-state-two-window-isolation`, `pmm-attach-note-two-window-isolation`,
+  `gap-provider-messenger-write-to-encounter`, `page-health-master-record`, `anonymous-access-refused`,
+  `mutator-get-rejection-live` and `waf-clinical-text-corpus-incoming-encounter-reason` **PASS**.
+- `echart-two-patient-isolation` fails at "Vascular Tracker setup and Update in A's window" (native Tab from
+  MedR comments did not focus MedA comments) and `echart-note-lifecycle` at "reopened, the signed note is
+  read-only"; both fail at the same steps with the pre-fix classes, so neither is this change's.
+  `session-state-two-window-isolation` failed once at its year-end statement step and once at its compose
+  attachment step, and passed on the next run with the fix and once with the pre-fix classes.
 `rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
 run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
 (DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
@@ -694,6 +751,12 @@ VALUES
  ('999998','2026-08-08','10:00:00','10:15:00','LOCAL_SEED_OBEC_REPORT_2',71,'','','','',NULL,'','','t',NOW(),'carlosdoc'),
  ('999998','2026-08-10','11:00:00','11:15:00','LOCAL_SEED_OBEC_REPORT_3',81,'','','','',NULL,'','','t',NOW(),'carlosdoc');"
 ```
+
+`episode-lifecycle-playwright-checks.js` needs both Episode module gates, `_episode`
+and `_newCasemgmt.episode`. The seeded `doctor` role holds `o` on both. The check
+uses `grantEpisodeModule` to grant the test login's provider number access for the
+run and restores or removes each provider row during cleanup. No manual role-wide
+grant is needed; see `scripts/lib/episode-module-access.js`.
 
 `cds-export-lab-documents-playwright-checks.js` (#3946) needs one more
 fixture, and it deliberately does **not** relax the package's
@@ -3163,6 +3226,40 @@ identically with the pre-fix JSPs restored, so it is not from this change. The s
 
 The WAF answers 403 to a `contactType` value carrying `"` and `=` before the page sees it, so the check's tampered values are plain text.
 
+### Manage Flowsheets opens read-only for `_admin.flowsheet` read (2026-10-19, issue #4623)
+
+Finding 267. The seeded doctor holds `_admin.flowsheet` read only; the Administration nav and `manageFlowsheets.jsp` admitted it
+while `ManageFlowsheets2Action` required write for every request, so the link answered 403. `release/2026.08` at `fefceecc62` plus
+the fix branch was packaged unstamped as `2026.09.0~snapshot26`: the CARLOS WAR was compiled in an `ubuntu:26.04` container with
+JDK 25 and the `debian/rules` Maven flags (`-Dmaven.artifact.threads=2` and short `aether.connector.http` timeouts, because the
+egress proxy stalled a parallel Maven run), DrugRef was built from the commit `debian/drugref.pin` names (`1941e14`), and
+`dpkg-buildpackage -us -uc -b` ran with `CARLOS_WAR`, `DRUGREF_WAR` and `CHROMIUM_DIST`. carlos-ctl was 1.1.2 from its release.
+The packages were installed fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean) and the
+suite ran with `EXCLUSIVE=1` appended to `/root/suite-env.sh`.
+
+| Run | `manage-flowsheets-access` |
+|---|---|
+| fixed packages (fresh install of the final head) | PASS, 5 of 5 steps |
+| original `ManageFlowsheets2Action.class` and `manageFlowsheets.jsp` swapped into the installed webapp | FAILS at "a read-only doctor opens Manage Flowsheets from the Administration nav…": the page answers 403 |
+| fixed action with the first commit's page (its combined `oscarSec` tag over `_admin`, `_admin.misc`, `_admin.flowsheet`) | FAILS at "an explicit no-rights row on _admin.misc beside the doctor's read…": the reader is redirected to `/securityError` |
+
+`admin-role-management` passes on the fixed packages (16 of 16), `flowsheet-admin` and `gap-provider-flowsheet-upload` pass (an
+administrator still lists, uploads, disables and enables), and `authz-read-role-matrix` pins 16 refused routes for the doctor
+instead of 17 (`admin/ManageFlowsheets` is served now); it still ends at its known last step, 2 `oscarResearch` routes answering
+500 instead of 403. Those two ran on the first install (first-commit packages with the second commit's page swapped in; the second
+commit changed only comments in the action). The smoke tier passed 11 of 12 on the final install; `browser-surface` timed out
+waiting for a patient popup, the same failure recorded for earlier unrelated validations. `authz-read-admin-objects` stopped at
+its control step for a field-note eForm route that the full-privilege login was not served, which this change does not touch.
+The server-log audit's unexplained signatures were BC billing and dxresearch errors; the check's refusals are logged as
+`Authorization refused` WARN lines.
+
+**The seeded doctor has no Administration link on the day sheet on this install.** The link's tag names 13 objects, and
+`OscarRoleObjectPrivilege.getPrivilegeProp()` keeps one privilege per role across them: the doctor's `_admin.reporting` `o` row
+(`on/V1.0.6`) is returned after `_admin.flowsheet` `r`, overwrites it, and the link is not rendered. So `admin-role-management`'s
+doctor-panel step is skipped by its own `#admin-panel` guard and says nothing about this fix on such an install, and
+`manage-flowsheets-access` opens the shell by its address (`/administration`, which the link opens) instead. The same limit is
+why the page no longer repeats the access check in its own combined tag.
+
 ### Saved checkbox ticks on the legacy questionnaires (2026-10-19, issue #4466, finding 231)
 
 Nineteen `Frm*Record` classes decided whether a column was a checkbox with `getColumnTypeName(i).equalsIgnoreCase("TINY")`. MySQL
@@ -3192,3 +3289,296 @@ The whole form-catalogue family (`form-catalog-smoke` and its nine variants) plu
 signatures, all from the ALPHA (`/form/formalpha`, HTTP 500, finding 230) and Rourke 2006 (`/form/formrourke2006`, HTTP 500, finding
 236) pins; none involved a form this change touches. The seven `scripts/dependency-security.test.js` cases that need the Docusaurus
 dependencies fail with `MODULE_NOT_FOUND` where those packages are not installed; they do not read this change.
+
+### CML report-version chain validation (2026-10-15, issue #4568)
+
+`release/2026.08` at `244556ad` plus the #4568 branch at `9d1cd46f` was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR
+was compiled on the host with the `debian/rules` Maven flags, and `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder
+with `CARLOS_WAR` and `DRUGREF_WAR` (DrugRef built on the host from the commit `debian/drugref.pin` names, `1941e14`). carlos-ctl
+was 1.1.2 from its release. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported "All checks passed"). Behind the egress proxy one apt download in the image build ended in a
+"Broken pipe"; the repeat built the image. The installed classes were checked to be the fixed ones before any check ran
+(`MDSResultsData$CmlChain` present; the `ORDER BY tr.printDate, tr.printTime, lpp.id` and `TRIM(lpp2.accessionNum)` text in the
+DAO class).
+
+`cml-version-chain` (`npm run test:cml-version-chain-playwright`) seeds three reports of one accession (two versions two days
+apart, and a third that recycled the number two years earlier) and three more, unmatched, for the match step, then drives the real
+CML pages through the front door.
+
+| Run | `cml-version-chain` |
+|---|---|
+| fixed packages, fresh install | all five steps pass: seed, the newest version lists the older one as a `Version:` link (and not the recycled report), the older version opens from its link and links back, acknowledging the newest files the older one and leaves the recycled report alone, matching one unmatched version to the owned patient links every version of it and not the recycled report |
+| the two `release/2026.08` classes (`MDSResultsData`, `LabPatientPhysicianInfoDaoImpl`, byte-for-byte what `244556ad` compiles to) put back into the installed webapp | fails at the display step: "The final report page shows 0 "Version:" rows, expected 1"; the journal logs `ERROR data.MDSResultsData (MDSResultsData.java:610) - exception in getMatchingCMLLabs (ClassCastException)`, the line the issue quotes |
+| the same, seed and match steps only (a scratch wrapper that is not in the repository) | choosing the patient makes `oscarMDS/PatientMatch` answer HTTP 500, expected 200; the journal shows `IllegalStateException: Lab version lookup failed` caused by `ClassCastException: class java.lang.String cannot be cast to class java.util.Date`, the strict lookup that `PatientMatch` uses |
+| fixed classes restored and the service restarted | all five steps pass again |
+
+On the fixed install, built before #4558 landed, `legacy-lab-display` and `legacy-lab-display-mds` were unchanged: `known-fail` at Forward on finding 184 (fixed since, by #4558).
+`legacy-lab-display-pathnet` SKIPs on Ontario. The residue audit reported no residue. Until the classes were swapped the journal
+held no `getMatchingCMLLabs` error, and the server-log audit's only signatures were the two that the matching popup writes for a
+CML report (`Factory.getHandler` finding no HL7 text message under the lab's number, then the empty-message fallback), which is
+finding 313; both are now in `scripts/lib/server-log-baseline.tsv` with that citation, and the audit passes.
+
+The smoke tier passed 11 of 12. `echart` failed at "a Social History item and an encounter-note draft carrying WAF-scored text save
+and refresh" (`page.waitForResponse` timed out waiting for the `encounter/displayIssues?cmd=unresolvedIssues` refresh), twice in a
+row, and the same way with the two `release/2026.08` classes put back, so this change does not cause it. #4641 (`cbe3c561`)
+changed the CPP save to a POST that redirects and did not touch `scripts/echart-playwright-checks.js`, which still waits for that
+refresh; that is the likely cause, and it is not pursued here.
+
+The swaps used `docker cp` of the compiled classes and a `carlos-ctl restart`; Tomcat takes about a minute to be ready after it,
+and an HTTP 200 from the front door before then is nginx's, not the application's.
+
+### PR #4670 follow-up validation (2026-10-19)
+
+The follow-up includes `release/2026.08` through `da14420497750b5109914d461598899570270ace`.
+This is a local WAR deployment on Tomcat 11/JDK 25 and MariaDB 11.8.8, using the Ontario
+migration set and development fixtures with `CML_LABS=yes`. It is not a repeat of the older
+Debian/nginx packaged-install validation above.
+
+- All 1,703 lab-tagged Java tests pass with no failures, errors or skips. The suite includes the
+  real H2 candidate query, source identity conflicts, differently routed valid versions, missing or malformed
+  print headers, exact four-month DST boundaries in Havana and Santiago, month-end clamping,
+  and injected later-version failures proving Forward/File rollback.
+- Another 36 HTTP mutation and document-authorization tests pass. A failed acknowledgement
+  returns HTTP 500 instead of success, and successful/audited outcomes retain their behavior.
+- All 88 JavaScript cleanup, log-audit and browser-manifest checks pass; BDD naming and encoder
+  null-safety lint pass. The 25 cleanup/log-audit checks also pass after the final fixture cleanup edit.
+- `mvn -B -DskipTests package` passes, including dependency-lock verification, compilation,
+  Checkstyle and Javadoc. Maven emits existing documentation/deprecation warnings.
+- The seven-step `cml-version-chain` workflow passes: seed; display; older-version navigation;
+  acknowledge final/file older; forward both versions through the picker; match both unmatched
+  versions; display an explicit warning without sibling links for conflicting source identities.
+  Recycled accessions remain untouched, and fixture cleanup is verified.
+- The browser-window server log contains no ERROR or SEVERE entries and one expected,
+  identifier-free warning from the deliberate ambiguous-identity fixture. This is checked on
+  the running application's raw log, without the removed missing-HL7 baseline exception.
+
+The first browser pass revealed another cross-source lookup in the patient list's service-date
+loader. Both copies of that loader now query the HL7 factory only for HL7 reports, with tests
+covering overlapping numeric IDs. The patient-search popup has the same source guard. The chart and patient lab list also use
+source-qualified version grouping, retaining the newest visible report when a later version
+is outside the current result set. Tests cover CML/HL7 numeric-ID collisions and the browser
+checks actual list collapsing when CML lists are enabled. The warning
+message is present in every shipped locale bundle.
+
+Source patient identities establish CML membership; current chart assignments do not. An HIN
+match needs matching DOB or full name, and absent HINs require matching DOB plus full name.
+Conflicting HINs or insufficient source evidence block chain-wide mutations and require source
+review, including corrections that change all corroborating identity fields. The resolver does
+not silently omit an uncertain sibling. Other lab sources retain their existing membership rules.
+
+### Writes named by a parameter other than `method` (2026-10-22, issue #3394)
+
+Finding 315. `release/2026.08` at 3b86a51e57 plus the fix branch was packaged as `2026.09.0~snapshot26` with
+`dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` builder (OpenJDK 25), the CARLOS WAR compiled from source with
+the `debian/rules` Maven flags and DrugRef built from the `debian/drugref.pin` ref (`1941e14`). `lintian --fail-on
+error` passed and carlos-ctl was 1.1.2 from its release. The packages were installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo dataset) and `carlos-ctl check` reported "All checks passed".
+The first run used the branch's first commit; the final run rebuilt and reinstalled from its head (`5038ddbd81`).
+
+| Run | `get-reject-dispatch-params` |
+|---|---|
+| fixed packages | PASS, all 5 steps. Each real POST writes (a privilege row's Update, a role's Add and Update, a message's Delete, a code description's Modify) and carries its CSRF token; all 9 GET and HEAD replays answer 405 with the application's header and change nothing. |
+| pre-fix `ProviderPrivilege2Action`, `ProviderRole2Action`, `MsgHandleMessages2Action`, `DxresearchReport2Action` and `HttpMethodGuardFilter` swapped in | FAILS at the last step: 6 of 9 replays answer 200, and the GETs rewrite privilege row B, change the throwaway provider's role, delete message B and rewrite the owned ICD-9 description. |
+
+The other checks that drive these routes ran on the final packages:
+- The smoke tier passes 12 of 12.
+- `assign-role`, `admin-role-management` (with `EXCLUSIVE=1`), `select-forms-panel`, `rh-form-workflow`
+  (`form/AddRHWorkFlow`), `form-adfv2-save-exit`, `form-checkbox-reopen`, `echart-forms-latest-item`,
+  `mutator-get-rejection-live`, `get-reject-provider-groups`, `get-reject-measurement-groups`,
+  `messenger-reply-conversation`, `messenger-reply-all-forward`, `messenger-demographic-link` and
+  `export-content-dx-registry-xlsx` pass. The `form/formname` saves in `clinical-forms-save-reopen` (twelve forms,
+  each redirected through `/form/forwardname` and redisplayed) and the Save and reopen steps of `bpmh-form` pass.
+- Five checks fail at the same step with the pre-fix classes and `struts-form.xml` swapped back in, so none comes from
+  this change: `clinical-forms-save-reopen` at "Mental Health Form 14: Print Pdf answers a PDF carrying the saved
+  prose", `bpmh-form` at "Print answers a PDF of the saved form", `authz-read-role-matrix` (`oscarResearch/dxresearch/
+  setupDxResearch` and `dxResearchLoadQuickList` answer 500 to a login with no sec object), `authz-read-admin-objects`
+  (its full-privilege control is not served `eform/fieldNoteReport/fieldnotereportdetail`) and
+  `messenger-reply-send-archive` at "Send and Archive archives exactly the message replied to".
+- `session-state-two-window-isolation` failed at its year-end statement step only when it ran after the twenty
+  checks above; alone it passes, three times on the fixed packages and once on the pre-fix ones.
+
+Review follow-up (CodeRabbit): `StrutsFormNestedForwardUnitTest` compared locations with action names only, so it
+missed `form/formname`'s `printAllJasperReport` result, `/form/formPdfJasperReport`, which the `form/*` wildcard
+serves. That is a nested action FORWARD to a view that does not exist. The test now matches wildcard actions and
+honours `struts.action.excludePattern`, and the result prints through `/form/createpdf` like `printAll`. Checked on
+the same install with only `struts-form.xml` changed:
+- A Lab Req 2007 Print post rewritten to `submit=printAllJasperReport` answers 404 (HTML) with the old location and
+  a 46 KB `application/pdf` with the new one. Rourke 2020's own Print, which writes its PDF in `Frm2Action`, still
+  passes in `form-rourke2020-growth`.
+- `select-forms-panel`, `rh-form-workflow`, `form-adfv2-save-exit`, `form-checkbox-reopen` and
+  `echart-forms-latest-item` pass.
+- `form-rourke2020-growth` fails with the old base-branch `struts-form.xml`, with the PR's previous head and with
+  this change. Growth 0-36m and Growth Chart never open from the Forms menu, and the Rourke 2020 save step varies
+  from run to run (two rows for one request, or Tomcat closing the `form/formname` connection so nginx answers
+  502). It is not caused by this change.
+- `form-print-pdf` cannot start on this install: the Forms menu lists no Lab Req 2007 for the admin login.
+
+### Query by Example reporting account (2026-10-22, issue #3372)
+
+Query by Example now runs every query as the read-only `carlos_report` account that carlos-ctl 1.2.0 provisions from the grant list
+the WAR ships (`WEB-INF/classes/db/reporting/carlos_report_grants.sql`); see `docs/query-by-example-least-privilege.md`. The branch
+(`claude/issue-3372-20261022`, WAR from `89f982f8`) was packaged unstamped as `2026.09.0~snapshot26`: the CARLOS WAR compiled on the host
+with JDK 25, DrugRef from `debian/drugref.pin`, `dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` builder with `CARLOS_WAR` and
+`DRUGREF_WAR`. carlos-ctl was built from its PR branch (carlos-emr/carlos-ctl#10) as `1.2.0`. Docker Hub rate-limited the `ubuntu:26.04`
+pull, so `BASE_IMAGE` named a local image built from it earlier the same day.
+
+**Fresh install** (Ontario, demo dataset, `scripts/deb-docker-validation.sh up`): `carlos-ctl check` passed, including "Query by Example
+runs as carlos_report: SELECT on 409 reportable table(s), nothing else". `SHOW GRANTS` lists `casemgmt_note` and `DigitalSignature`
+column by column, without `password` and `signatureImage`, and no restricted table.
+
+| Run | Result |
+|---|---|
+| `report-query-by-example-least-privilege` (new), `report-query-by-example`, `report-query-by-example-front-door` | **PASS**, 3 of 3 through `:443`: a reportable table answers; a table created after provisioning (with a planted secret) is refused by MariaDB in the outer query and in a subquery, the secret never reaches the page and no history row is written; every hidden column is refused by name and through `SELECT *` while the other columns answer; in MariaDB the account holds SELECT only, no table with hidden columns as a whole, no schema, global or role privilege |
+| `--tier smoke` | **PASS**, 12 of 12 |
+| server-log audit | **PASS**, no unexplained signature (6 known) |
+
+Drift, introduced by hand on the running install and then repaired (`/root/qbe-drift-scenarios.sh`, 22 assertions, all pass with the
+final carlos-ctl):
+
+| Drift | `carlos-ctl check` | Repair |
+|---|---|---|
+| table-wide `SELECT` on `DigitalSignature` | FAIL: "DigitalSignature (every column, hidden ones included)" | `db-users` |
+| `SELECT (password)` on `casemgmt_note` | FAIL: "casemgmt_note.password" | `db-users` |
+| `SELECT` on `security` | FAIL: "security (restricted)" | `db-users` |
+| `PROXY ON ''@'%'` | FAIL: privileges beyond SELECT (proxy) | `db-users` revokes the PROXY grant |
+| `appointment` revoked on `127.0.0.1` only | FAIL: "1 reportable table(s) are not granted to carlos_report@127.0.0.1" | `db-users` |
+| `casemgmt_note.note` revoked on `localhost` only | FAIL: "casemgmt_note.note for localhost" | `db-users` |
+| an extra `carlos_report@'%'` login | FAIL: "also exists for host(s) %" | `DROP USER` |
+| the account's password changed in MariaDB | FAIL: the recorded password "does not log in as carlos_report@localhost" | `db-users` |
+| a `PUBLIC` grant on the schema plus a stale `SELECT, INSERT` on `security` | FAIL: PUBLIC holds privileges | `db-users` reports the refused list; the refused run had already revoked the stale grant; revoke from PUBLIC, `db-users` |
+
+With the table-wide `DigitalSignature` grant in place, the application refused the account before running anything: the
+`report-query-by-example` check failed at its first query, as intended, and the log read "Query-by-Example refused the reporting
+account: it holds a privilege other than SELECT on reportable tables of carlos". MariaDB prints a table grant and a column grant on
+one table as a single `GRANT SELECT, SELECT (...)` line, which the audit refuses as unrecognised; `carlos-ctl check` names the
+table. After `db-users` both checks passed again.
+
+One defect was found and fixed here: when the grant list refused to run, `db-users` warned with the first 400 characters of the
+client's stderr, which the client fills with the echoed `BEGIN NOT ATOMIC` block, so MariaDB's message was cut off. carlos-ctl now
+reports the last `ERROR` line (carlos-ctl `b98c931`).
+
+**Upgrade from `2026.08.0~alpha20`** (carlos-ctl 1.1.2, no reporting account) to the same packages: `deb-upgrade-baseline.sh`, then
+`apt-get install` of `carlos-ctl_1.2.0`, `carlos-emr` and `carlos-emr-drugref`. The transaction created `carlos_report` on both hosts
+and granted 409 tables; Flyway applied exactly `1.0.58` (45 in all); `carlos-ctl check` passed. `deb-upgrade-verify.sh` first scored
+44 of 45: `carlos.properties` changed, because provisioning records `db_reporting_username` and `db_reporting_password`. The baseline
+now snapshots those two keys (the password as a digest only) apart from its other digests, and the verifier accepts exactly that
+addition. Re-run against the same PRE snapshot (alpha20 had neither key, so its digests are identical under both script versions):
+**46 passed, 0 failed**. On the upgraded install the three Query by Example checks pass 3 of 3, `--tier smoke` passes 12 of 12 and the
+server-log audit reports no unexplained signature; the install also came back healthy after its container was restarted mid-run.
+
+A review of carlos-ctl#10 then found the login probe ignoring `CARLOS_DB_PORT` and calling any failed login a wrong password. With
+carlos-ctl `607c24e` installed on the upgraded container, `check` still passed; changing the account's password on `127.0.0.1` alone
+was reported as "does not log in as carlos_report@127.0.0.1", and `db-users` repaired it. A second review found `check` printing its
+OK line beside a login it could not try (a busy account, or MariaDB not answering on the port). With carlos-ctl `325482a` installed
+(OK only after a login that worked), `check` still passed on the same container. The 22 drift assertions passed again, and so did the
+three Query by Example checks (3 of 3).
+
+The installer printed "NOT ready to use" during both the fresh `snapshot26` and the `alpha20` transactions (an nginx reload while
+`carlos-emr` configures); no marker remained and `check` passed, so it predates this change.
+
+### Administration navigation gates (2026-10-22, PR #4328, issues #4238 and #4623)
+
+`release/2026.08` at `9982baba3e` merged into the PR branch, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04`
+container (JDK 25, `dpkg-buildpackage -us -uc -b`; DrugRef from its pin, the pinned Chromium; Maven Central through a mirror because
+`repo1` answered 429), with carlos-ctl built from the `debian/carlos-ctl.pin` fallback commit `325482a2` re-versioned
+`1.2.0+pr4328test1` locally, because `1.2.0` is unpublished and `1.2.0~dev1` sorts below the `Depends` floor. Installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean; the IPv6 nginx reload note above recurred).
+The six changed JSP files were compared byte for byte with the commit. Checks ran with `EXCLUSIVE=1`.
+
+| Run | Result |
+|---|---|
+| `manage-flowsheets-access`, 6 runs after the harness fix | PASS every run, 5 of 5 steps |
+| `admin-role-management`, 6 runs after the harness fix | PASS 29 of 29 in 4; 2 failed at the Access Control step on a deleted throwaway provider (cached list, fixed in the check) |
+| `admin-role-management` and `manage-flowsheets-access` back to back, twice, after the Access Control fix | PASS, PASS |
+| `admin-index-links`, `flowsheet-admin`, `get-reject-dispatch-params`, `gap-provider-flowsheet-upload` | PASS |
+| smoke tier | PASS, 12 of 12; `carlos-emr` did not restart |
+
+Before the harness fix, both checks failed on their own teardown: closing a context logs it out, LogoutBroadcastFilter sends every
+open page to the login page 500 ms later, and the close aborted those loads. With the `release/2026.08` pages compiled (the package
+runs Jasper with `development=false`, so a swapped JSP needs a restart), the same probe recorded the aborts in 2 of 4 runs with the
+previous harness and in 0 of 4 with the fixed one.
+
+Day-sheet gate, same install: a throwaway role holding `_admin.flowsheet r` plus an `o` row on a second day-sheet object. With the
+`release/2026.08` day sheet compiled, the link was hidden in exactly the three cases where the database returned the `o` row last
+(`_admin.reporting`, `_admin.misc`, `_admin.schedule`) and shown for `_admin.billing` and `_admin.fax`; `/administration`
+answered 200 in all five. With this PR's `administration-menu-gate.jspf` all five offer the link. With the `release/2026.08`
+Administration pages compiled, this PR's `admin-role-management` fails at "the granted throwaway opens Add A Role…": a login with
+`_admin.userAdmin` read was offered the Assign Role/Rights to Object card on the home page.
+
+### Rx Info: an unknown DIN is an empty DrugRef lookup (2026-10-22, issue #5006, finding 311)
+
+`release/2026.08` at `7a0aa6afa9` plus the PR commits, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04` container
+(JDK 25, `dpkg-buildpackage -us -uc -b`, lintian `--fail-on error` clean). DrugRef was fetched by `debian/fetch-drugref.sh` at the new
+pin `0d240f07` (carlos-emr/drugref2026#17) and its WAR built from that checkout with the `debian/rules` flags, then passed as
+`DRUGREF_WAR` because Maven's transfers through the egress proxy kept failing inside the package build; the WAR's `TablesDao` carries
+`findDrugIdFromDIN`. That override skips the default handoff, so it was then exercised on its own: a second
+`dpkg-buildpackage -nc -us -uc -b` from a fresh checkout of the same commit, with `DRUGREF_WAR`, `DRUGREF_SRC` and `DRUGREF_REF`
+unset and only the DrugRef build's Maven repository seeded under `debian/build/m2`, read the pin, fetched `0d240f07` through
+`debian/fetch-drugref.sh` and built DrugRef itself. Its `carlos-emr-drugref` deb carries DrugRef classes byte-identical to the
+installed one's. carlos-ctl was built from the `debian/carlos-ctl.pin` fallback commit `325482a2` re-versioned
+`1.2.0+validation1` locally, as in the section above. Installed fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo
+data, `carlos-ctl check` clean; the IPv6 nginx reload note recurred). `LAB_UPLOAD_JOURNAL_UNIT=carlos-emr` was set so the check reads
+the journal.
+
+| Installed DrugRef classes | `gap-encounter-rx-drug-info-on-host` |
+|---|---|
+| packaged (new pin) | PASS, 5 of 5, two runs; "missing DIN fallback does not log a DrugRef server exception" passes |
+| `TablesDao` and `Drugref` from the previous pin `1941e14`, swapped into the installed webapp | FAIL at that step: "An unknown DIN logged 2 DrugRef exception event(s) in journal unit carlos-emr: ERROR util.SimpleXmlRpcServer; ERROR util.SimpleXmlRpcServer"; the four steps before it, including the name-search fallback, pass |
+| packaged classes restored (`dpkg -V carlos-emr-drugref` clean) | PASS, 5 of 5 |
+
+The first run on the fresh install reported residue in `measurementType` (63 rows) and `validations` (44 rows):
+`MeasurementTemplateFlowSheetConfig` imports the flowsheet measurement types the first time an E-Chart opens after install. Later runs
+have no residue.
+
+Every manifest check whose name names Rx, a drug, DrugRef, an allergy or a prescription (113) then ran on the new pin: 108 pass.
+`inactive-drug-status` passes with `INACTIVE_DRUG_DIN=02303027` and `INACTIVE_DRUG_DATE=2018-06-12` from the installed dataset,
+`fax-prescription-drugref` with `scripts/e2e/fax/fixtures.sql` loaded, and `rx-unique-medication-list` with
+`CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` (restored afterwards). The rest are known and not DrugRef's:
+`allergy-partial-start-date` fails at its last step as its manifest note says it does on `release/2026.08` (#4807),
+`rx-quantity-delete-race` and `rx-instructions-delete-race` are known failures (finding 312), `rx-preview-visit-site-isolation`
+skips without multisites, and `allergy-add-penicillin` is below. The smoke tier passes, 12 of 12, with no `carlos-emr` restart. The
+server-log audit has no DrugRef signature in any window that ran the packaged classes: its only `TablesDao.getDrugIdFromDIN`
+`NoResultException` events (four) were logged by the Tomcat process that ran the previous pin's classes for the failing run above,
+two by each of the check's two unknown-DIN requests. From the restore on, the audit's only unexplained signatures are finding 312's
+three `RxWriteScript2Action` errors (the discarded-card NullPointerException).
+
+`allergy-add-penicillin` fails at its control step ("the added allergy and its amendment are stored, and this run's window of the
+server journal is read") with "the server journal holds nothing in this run's window" on a server that has already served a few
+requests: the step needs some line from `carlos-emr.service` during the check's ten seconds, and the app logged none. This is not the
+DrugRef change. With the previous pin's classes swapped in, it passes on the first run after a restart (startup warnings
+fill its window) and fails the same way on the next run.
+
+### Ontario hospital (shortcut) billing (2026-10-22, issue #5055)
+
+`release/2026.08` at `7a0aa6afa9` plus this change, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04`
+container (JDK 25, `dpkg-buildpackage -us -uc -b`; DrugRef built from its pin, the pinned Chromium; Maven Central through
+the Google mirror because `repo.maven.apache.org` answered 429), with carlos-ctl built from the `debian/carlos-ctl.pin`
+fallback commit `325482a2` re-versioned `1.2.0+pr5055test1` locally (`1.2.0` is unpublished). Each package was installed
+fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean; the IPv6 nginx reload
+note above recurred). Findings 317 to 320 of `app-findings-log.md` record what each round found. The PR-head package
+installed fresh also passed `--tier smoke` (12 of 12) and `billing-on-hospital-shortcut`, `master-record-tabs`,
+`page-health-master-record`, `billing-on-submit`, `billing-on-third-party`, `demographic-master-crud-smoke` and
+`gap-billing-inr-calendar-popup`.
+
+| Package, or file swapped into the installed webapp | `billing-on-hospital-shortcut` |
+|---|---|
+| Package at `42ba5b7222` (before the fr-CA step was added), 4 runs | PASS, 9 of 9 steps, no residue |
+| Package at `42ba5b7222` with the release `demographic/edit.jsp` compiled | FAIL at "the Master Record offers Hospital Billing for this patient" |
+| Link only (`74e7c46485`): the release `calendar-setup.js` | FAIL at "the service-date calendar records the picked date"; page errors `trimEnd` and "Maximum call stack size exceeded" |
+| Link only, with the fixed `calendar-setup.js` (the release `BillingShortcutPg2Service`) | FAIL at "Save writes one claim for this patient and closes the window": the claim was written, page 1 reloaded |
+| PR head (`a681b3f12f`, base merged), fresh install, with the release `billingShortcutPg1.jsp` compiled | FAIL at the fr-CA step: "The French Next did not price the Confirmation" |
+| The same with the fixed `billingShortcutPg1.jsp` compiled, 2 runs | PASS, 10 of 10 steps, no residue |
+| Final PR head (`810fe2e9c6`), packaged and installed fresh | PASS, 10 of 10 steps; with it `master-record-tabs`, `page-health-master-record`, `billing-on-submit`, `billing-on-third-party`, `demographic-master-crud-smoke`, `gap-billing-inr-calendar-popup` and `--tier smoke` (12 of 12) |
+
+On the final package: `--tier smoke` 12 of 12; `master-record-tabs` and `page-health-master-record` (with Hospital Billing
+added to its patient-scope list) open and judge the new link; `billing-on-submit`, `billing-on-third-party`,
+`billing-on-correction-delete`, `billing-on-correction-save-another`, `billing-on-invoice-third-party`,
+`demographic-master-crud-smoke`, `tickler-crud` and `gap-billing-inr-calendar-popup` pass. `authz-read-role-matrix`
+refused `billingShortcutPg1View` with 403 to a login without `_billing`. Three checks fail identically with the release
+file swapped back, so they predate this change: `calendar-keyboard` (Ontario bill form Service Date: "the calendar button
+is not a named button or link") and `allergy-partial-start-date` (partial dates saved as full) with the release
+`calendar-setup.js`, `popup-opener-master-record` (Update Record did not navigate) with the release `edit.jsp`. Two fail
+on routes this change does not touch: `authz-read-role-matrix` (two `oscarResearch` routes answer 500) and
+`authz-read-patient-lock` (the routes it lists, none of them the shortcut pages). The server-log audit's
+unexplained signatures are BC billing routes probed on this Ontario install and those two research routes; every log
+line naming the shortcut routes is the check's deliberate GET (405) or that 403.
