@@ -546,6 +546,16 @@ async function submitEditWithReceipt(context, popup, appointmentNo) {
 
 async function editAppointment(context, daySheet, appointmentNo) {
   const popup = await openEditPopup(context, daySheet, appointmentNo);
+  const accessibility = await popup.evaluate(() => ({
+    language: document.documentElement.lang,
+    labelled: ['reasonCode', 'location', 'user_id'].every(name => {
+      const control = document.querySelector(`[name="${name}"]`);
+      return control && [...control.labels].some(label => label.textContent.trim().length > 0);
+    }),
+  }));
+  assert(accessibility.language && accessibility.labelled,
+    'edit appointment must declare its language and label its reason, location and creator controls');
+  pass('Edit Appointment exposes its language and associated reason, location and creator labels');
   const prefilled = await popup.locator('#reason').inputValue();
   assert(prefilled === bookedReason,
     `edit popup prefilled reason ${prefilled}, expected the booked ${bookedReason}`);

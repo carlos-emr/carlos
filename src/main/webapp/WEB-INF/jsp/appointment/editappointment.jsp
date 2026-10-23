@@ -267,7 +267,7 @@
     boolean bMultipleSameDayGroupAppt = false;
 %>
 
-<html>
+<html lang="<carlos:encode value='<%= request.getLocale().getLanguage() %>' context="htmlAttribute"/>">
     <head>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
@@ -1100,7 +1100,8 @@
                         <label for="reason"><fmt:message key="Appointment.formReason"/>:</label>
                     </td>
                     <td>
-				<select name="reasonCode" class="form-select">
+				<label for="reasonCode" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
+                <select name="reasonCode" id="reasonCode" class="form-select">
                             <%
                                 String rCode = bFirstDisp && appt.getReasonCode() != null ? appt.getReasonCode().toString() : request.getParameter("reasonCode");
                                 pageContext.setAttribute("rCode", rCode);
@@ -1132,7 +1133,7 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formLocation"/>:</label>
+                        <label for="location"><fmt:message key="Appointment.formLocation"/>:</label>
                     </td>
                     <td>
                         <%
@@ -1146,7 +1147,7 @@
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
 
                             if (bMultisites) { %>
-				        <select tabindex="4" name="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+				        <select tabindex="4" name="location" id="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                             <%
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
@@ -1165,7 +1166,7 @@
                             isSiteSelected = true;
                             if (locationEnabled) {
                         %>
-		<select name="location" class="form-select">
+		<select name="location" id="location" class="form-select">
                             <%
                                 String location = SafeEncode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
                                 if (programs != null && !programs.isEmpty()) {
@@ -1180,7 +1181,7 @@
                             %>
                         </select>
                         <% } else { %>
-		        <input type="text" class="form-control" name="location" tabindex="4"
+		        <input type="text" class="form-control" name="location" id="location" tabindex="4"
                        value="<carlos:encode value='<%= bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : "") %>' context="htmlAttribute"/>" >
                         <% } %>
                         <% } %>
@@ -1188,11 +1189,11 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formCreator"/>:</label>
+                        <label for="user_id"><fmt:message key="Appointment.formCreator"/>:</label>
                     </td>
                     <td>
                         <% String lastCreatorNo = bFirstDisp ? (appt.getCreator()) : request.getParameter("user_id"); %>
-                <input type="text" class="form-control" name="user_id" value="<carlos:encode value='<%= lastCreatorNo %>' context="htmlAttribute"/>" readonly >
+                <input type="text" class="form-control" name="user_id" id="user_id" value="<carlos:encode value='<%= lastCreatorNo %>' context="htmlAttribute"/>" readonly >
                     </td>
                 </tr>
                 <%
