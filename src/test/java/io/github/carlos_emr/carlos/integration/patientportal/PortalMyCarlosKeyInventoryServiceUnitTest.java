@@ -61,9 +61,15 @@ class PortalMyCarlosKeyInventoryServiceUnitTest extends CarlosUnitTestBase {
                 .thenAnswer(ignored -> rows());
         when(properties.findByNameForUpdate(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
                 .thenAnswer(ignored -> rows());
-        doAnswer(invocation -> { persisted.set(invocation.getArgument(0)); return null; })
+        doAnswer(invocation -> {
+            persisted.set(invocation.getArgument(0));
+            return null;
+        })
                 .when(properties).persist(any(Property.class));
-        doAnswer(invocation -> { persisted.set(invocation.getArgument(0)); return null; })
+        doAnswer(invocation -> {
+            persisted.set(invocation.getArgument(0));
+            return null;
+        })
                 .when(properties).merge(any(Property.class));
         service = anotherInstance();
     }
@@ -204,7 +210,10 @@ class PortalMyCarlosKeyInventoryServiceUnitTest extends CarlosUnitTestBase {
         var claim = service.claim(TARGET_A, TOKEN_A, NOW, Duration.ofMinutes(2)).orElseThrow();
         AtomicReference<Instant> clock = new AtomicReference<>(NOW.plusSeconds(119));
         when(properties.findByNameForUpdate(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
-                .thenAnswer(ignored -> { clock.set(NOW.plusSeconds(120)); return rows(); });
+                .thenAnswer(ignored -> {
+                    clock.set(NOW.plusSeconds(120));
+                    return rows();
+                });
         assertThat(service.acknowledgeCurrent(claim, () -> TARGET_A, acknowledgement(claim), clock::get)).isFalse();
         assertThat(service.isPublished(TARGET_A)).isFalse();
     }
@@ -214,7 +223,10 @@ class PortalMyCarlosKeyInventoryServiceUnitTest extends CarlosUnitTestBase {
         initial();
         AtomicReference<Instant> clock = new AtomicReference<>(NOW);
         when(properties.findByNameForUpdate(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
-                .thenAnswer(ignored -> { clock.set(NOW.plusSeconds(40)); return rows(); });
+                .thenAnswer(ignored -> {
+                    clock.set(NOW.plusSeconds(40));
+                    return rows();
+                });
         var claim = service.claimCurrent(() -> TARGET_A, TOKEN_A, clock::get, Duration.ofMinutes(2)).orElseThrow();
         assertThat(claim.expiresAt()).isEqualTo(NOW.plusSeconds(160));
     }
@@ -225,7 +237,10 @@ class PortalMyCarlosKeyInventoryServiceUnitTest extends CarlosUnitTestBase {
         var claim = service.claim(TARGET_A, TOKEN_A, NOW, Duration.ofMinutes(2)).orElseThrow();
         AtomicReference<Instant> clock = new AtomicReference<>(NOW.plusSeconds(119));
         when(properties.findByNameForUpdate(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
-                .thenAnswer(ignored -> { clock.set(NOW.plusSeconds(120)); return rows(); });
+                .thenAnswer(ignored -> {
+                    clock.set(NOW.plusSeconds(120));
+                    return rows();
+                });
         assertThat(service.failedCurrent(claim, () -> TARGET_A, clock::get, Duration.ofSeconds(30))).isFalse();
     }
 
@@ -235,7 +250,10 @@ class PortalMyCarlosKeyInventoryServiceUnitTest extends CarlosUnitTestBase {
         var claim = service.claim(TARGET_A, TOKEN_A, NOW, Duration.ofMinutes(2)).orElseThrow();
         AtomicReference<PortalMyCarlosPublicationState.Target> target = new AtomicReference<>(TARGET_A);
         when(properties.findByNameForUpdate(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
-                .thenAnswer(ignored -> { target.set(TARGET_B); return rows(); });
+                .thenAnswer(ignored -> {
+                    target.set(TARGET_B);
+                    return rows();
+                });
         assertThat(service.acknowledgeCurrent(claim, target::get, acknowledgement(claim),
                 () -> NOW.plusSeconds(1))).isFalse();
         assertThat(service.isPublished(TARGET_A)).isFalse();

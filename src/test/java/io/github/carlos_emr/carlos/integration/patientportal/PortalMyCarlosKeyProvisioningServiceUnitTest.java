@@ -77,9 +77,15 @@ class PortalMyCarlosKeyProvisioningServiceUnitTest extends CarlosUnitTestBase {
                 .thenAnswer(ignored -> persisted.get() == null ? List.of() : List.of(persisted.get()));
         when(properties.findByName(PortalMyCarlosKeyInventoryService.PROPERTY_NAME))
                 .thenAnswer(ignored -> persisted.get() == null ? List.of() : List.of(persisted.get()));
-        doAnswer(call -> { persisted.set(call.getArgument(0)); return null; })
+        doAnswer(call -> {
+            persisted.set(call.getArgument(0));
+            return null;
+        })
                 .when(properties).persist(any(Property.class));
-        doAnswer(call -> { persisted.set(call.getArgument(0)); return null; })
+        doAnswer(call -> {
+            persisted.set(call.getArgument(0));
+            return null;
+        })
                 .when(properties).merge(any(Property.class));
         when(security.hasPrivilege(admin, "_admin", SecurityInfoManager.WRITE, null)).thenReturn(true);
         transactionFixture = PortalMyCarlosInventoryTestSupport.fixture(properties, coordination);

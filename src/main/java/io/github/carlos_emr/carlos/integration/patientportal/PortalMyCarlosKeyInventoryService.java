@@ -56,21 +56,21 @@ public class PortalMyCarlosKeyInventoryService {
     void requireStandalone() { transactions.requireStandalone(); }
 
     /** Package-internal whole-operation boundary for authorization/audit and future combined M3 work. */
-    <T> T withCurrentInventory(Function<PortalMyCarlosKeyInventoryWorker,T> operation) {
+    <T> T withCurrentInventory(Function<PortalMyCarlosKeyInventoryWorker, T> operation) {
         return transactions.execute(() -> operation.apply(worker));
     }
 
     public PortalMyCarlosKeyInventory provision(String clinicId, long expectedGeneration,
             List<PatientPortalClinicKeysPublishRequest.Key> completeInventory,
-            BiConsumer<PortalMyCarlosKeyInventory,PortalMyCarlosKeyInventory> validator) {
+            BiConsumer<PortalMyCarlosKeyInventory, PortalMyCarlosKeyInventory> validator) {
         requireStandalone();
         var saved = List.copyOf(completeInventory);
         return withCurrentInventory(current -> current.provision(clinicId, expectedGeneration, saved, validator));
     }
 
     public PortalMyCarlosKeyInventory provisionPrepared(String clinicId, long expectedGeneration,
-            Function<PortalMyCarlosKeyInventory,List<PatientPortalClinicKeysPublishRequest.Key>> preparation,
-            BiConsumer<PortalMyCarlosKeyInventory,PortalMyCarlosKeyInventory> validator) {
+            Function<PortalMyCarlosKeyInventory, List<PatientPortalClinicKeysPublishRequest.Key>> preparation,
+            BiConsumer<PortalMyCarlosKeyInventory, PortalMyCarlosKeyInventory> validator) {
         PortalMyCarlosPreparedInventory saved = new PortalMyCarlosPreparedInventory();
         return withCurrentInventory(current -> current.provisionPrepared(clinicId, expectedGeneration,
                 previous -> saved.get(clinicId, previous, () -> preparation.apply(previous)), validator));

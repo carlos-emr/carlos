@@ -34,7 +34,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
@@ -72,7 +71,7 @@ public class PortalMyCarlosKeyPublicationService {
         this(repository, PortalMyCarlosDeliverySettings::isEnabled, PatientPortalSettings::isConfigured,
                 () -> SpringUtils.getBean(PatientPortalService.class), PortalJobKey::fromCarlosProperties,
                 Clock.systemUTC(), PortalMyCarlosKeyPublicationService::newToken,
-                () -> ThreadLocalRandom.current().nextDouble());
+                RANDOM::nextDouble);
     }
 
     PortalMyCarlosKeyPublicationService(

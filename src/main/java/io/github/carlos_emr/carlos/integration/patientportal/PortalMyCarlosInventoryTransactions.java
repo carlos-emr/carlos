@@ -142,7 +142,11 @@ class PortalMyCarlosInventoryTransactions {
         private boolean replaySafe = true;
         @Override public void beforeCommit(boolean readOnly) { commitStarted = true; }
         @Override public void afterCommit() { status = STATUS_COMMITTED; }
-        @Override public void afterCompletion(int completed) { status = completed; callbackReceived = true; }
+        @Override
+        public void afterCompletion(int completed) {
+            status = completed;
+            callbackReceived = true;
+        }
         boolean rolledBackBeforeCommit() {
             return callbackReceived && status == STATUS_ROLLED_BACK && !commitStarted && replaySafe;
         }
