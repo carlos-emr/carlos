@@ -27,7 +27,7 @@ const AFTER_CRS = path.join(WAF_DIR, 'RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.con
 const characters = (text) => Array.from(text).length;
 
 test('pregnancy prose exclusion covers only notes on the exact POST route', () => {
-  const rule = exemptArguments(BEFORE_CRS).get('1146');
+  const rule = exemptArguments(BEFORE_CRS).get('1098');
   assert.equal(rule.route, 'Pregnancy');
   assert.equal(rule.shape, 'exact');
   assert.deepEqual([...rule.methods], ['POST']);
