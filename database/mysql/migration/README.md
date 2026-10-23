@@ -61,13 +61,14 @@ migration/
            V1.0.2__bc_data.sql              # British Columbia reference data (rows)
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
            V1.0.19__bc_billingmaster_indexes.sql
+           V1.0.59.3__restore_wcb_reference_data.sql
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.2`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `bc/V1.0.59.3`.
 `V1.0.48`–`V1.0.51` and `V1.0.59.1` are claimed by open pull requests. `develop` already uses
 `V1.0.60` and above, so this release line stays below its floor (`scripts/flyway-released-migrations.txt`):
-the next unallocated number for ANY location — shared or province — is `V1.0.59.3`.
+the next unallocated number for ANY location — shared or province — is `V1.0.59.4`.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
 The V1.0.31/V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;

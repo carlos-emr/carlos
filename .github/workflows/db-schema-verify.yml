@@ -94,6 +94,14 @@ jobs:
           MYSQL_PWD: password
         run: python3 scripts/test-provider-signature-migration.py
 
+      - name: Test WorkSafeBC reference migration content and preservation
+        if: matrix.province == 'bc'
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_USER: root
+          MYSQL_PWD: password
+        run: python3 scripts/test-wcb-reference-migration.py
+
       - name: Migrate the V1 baseline and smoke-check the result
         env:
           # DB password stays off the process argv: the mariadb client reads MYSQL_PWD and Flyway
