@@ -63,7 +63,7 @@
     // Block registry: the second block is registered here.
     var blocks = { allergies: cs.allergies };
     var ids = Object.keys(blocks);
-    var layout = cs.layout.normalizeLayout(cs.layout.PRESET, ids);
+    var layout = cs.layout.normalizeLayout(cs.layout.resolvePreset(options.layoutId), ids);
 
     var regions = {
       top: doc.getElementById('cs-top'),

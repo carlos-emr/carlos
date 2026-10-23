@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { PRESET, TOP_MAX, normalizeLayout, partition } =
+const { PRESETS, DEFAULT_PRESET_ID, resolvePreset, TOP_MAX, normalizeLayout, partition } =
   require('../src/main/webapp/js/chartspace/chartspace-layout.js');
 
 test('normalizeLayout drops unknown ids and duplicates, first region wins', () => {
@@ -24,14 +24,78 @@ test('normalizeLayout tolerates missing or non-array regions', () => {
   assert.deepEqual(normalizeLayout({ top: 'a', right: 7 }, ['a']), { top: [], right: [], hidden: [] });
 });
 
-test('normalizeLayout returns a fresh object and never mutates PRESET', () => {
-  const out = normalizeLayout(PRESET, ['allergies']);
-  assert.notEqual(out, PRESET);
-  assert.notEqual(out.right, PRESET.right);
-  assert.ok(Object.isFrozen(PRESET));
+test('normalizeLayout returns a fresh object and never mutates the preset', () => {
+  assert.ok(PRESETS[DEFAULT_PRESET_ID], 'the default preset exists');
+  const out = normalizeLayout(PRESETS[DEFAULT_PRESET_ID], ['allergies']);
+  assert.notEqual(out, PRESETS[DEFAULT_PRESET_ID]);
+  assert.notEqual(out.right, PRESETS[DEFAULT_PRESET_ID].right);
+  assert.ok(Object.isFrozen(PRESETS[DEFAULT_PRESET_ID]));
   assert.deepEqual(out, { top: [], right: ['allergies'], hidden: [] });
   out.right.push('zzz');
-  assert.deepEqual(PRESET.right, ['allergies']);
+  assert.deepEqual(PRESETS[DEFAULT_PRESET_ID].right, ['allergies']);
+});
+
+const ALL_PRESET_IDS = ['familyPractice', 'eyeCare'];
+
+test('PRESETS, every preset and every region array are frozen', () => {
+  assert.ok(Object.isFrozen(PRESETS));
+  Object.keys(PRESETS).forEach((id) => {
+    assert.ok(Object.isFrozen(PRESETS[id]), id);
+    Object.keys(PRESETS[id]).forEach((region) => assert.ok(Object.isFrozen(PRESETS[id][region]), id + '.' + region));
+  });
+  assert.deepEqual(Object.keys(PRESETS).sort(), ALL_PRESET_IDS.slice().sort());
+});
+
+test('presets match the contract', () => {
+  assert.equal(DEFAULT_PRESET_ID, 'familyPractice');
+  assert.deepEqual(PRESETS.familyPractice, {
+    top: ['socialHistory', 'medicalHistory', 'ongoingConcerns', 'reminders'],
+    right: ['allergies']
+  });
+  assert.deepEqual(PRESETS.eyeCare, {
+    top: ['ocularHistory', 'impressionHistory', 'ocularMedications', 'iopTrend'],
+    right: ['allergies']
+  });
+  assert.ok(PRESETS.eyeCare.top.length <= TOP_MAX);
+  assert.ok(PRESETS.familyPractice.top.length <= TOP_MAX);
+});
+
+test('with only allergies registered both presets normalize to top empty and right allergies', () => {
+  assert.deepEqual(normalizeLayout(PRESETS.familyPractice, ['allergies']),
+    { top: [], right: ['allergies'], hidden: [] });
+  assert.deepEqual(normalizeLayout(PRESETS.eyeCare, ['allergies']),
+    { top: [], right: ['allergies'], hidden: [] });
+  assert.deepEqual(normalizeLayout(PRESETS.familyPractice, ['allergies']),
+    normalizeLayout(PRESETS[DEFAULT_PRESET_ID], ['allergies']));
+});
+
+test('resolvePreset returns the named preset for known ids', () => {
+  const eye = resolvePreset('eyeCare');
+  const family = resolvePreset('familyPractice');
+  assert.ok(eye && family, 'resolvePreset returns an object');
+  assert.equal(eye, PRESETS.eyeCare);
+  assert.equal(family, PRESETS.familyPractice);
+  assert.deepEqual(eye.top, ['ocularHistory', 'impressionHistory', 'ocularMedications', 'iopTrend']);
+  assert.deepEqual(family.top, ['socialHistory', 'medicalHistory', 'ongoingConcerns', 'reminders']);
+});
+
+test('resolvePreset falls back to the default for anything else', () => {
+  [undefined, null, '', 'x', '__proto__', 'constructor', 'toString', 'hasOwnProperty', 7, {}].forEach((bad) => {
+    const got = resolvePreset(bad);
+    assert.ok(got, 'default preset returned for ' + String(bad));
+    assert.equal(got, PRESETS.familyPractice, String(bad));
+    assert.deepEqual(got.right, ['allergies']);
+  });
+});
+
+test('PRESETS ids equal the ChartSpaceLayout.java enum ids', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname,
+    '../src/main/java/io/github/carlos_emr/carlos/chartspace/ChartSpaceLayout.java'), 'utf8');
+  const ids = Array.from(src.matchAll(/^\s*[A-Z][A-Z_]*\("([A-Za-z]+)"\)\s*[,;]/gm), (m) => m[1]);
+  assert.ok(ids.length > 0, 'enum ids found in source');
+  assert.deepEqual(Object.keys(PRESETS).sort(), ids.sort());
 });
 
 test('partition auto-hides EMPTY blocks but never NO_ACCESS, ERROR or LOADING', () => {
