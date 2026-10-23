@@ -2982,7 +2982,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </table>
 
 
-        <table class="Head" class="hidePrint">
+        <table class="Head" class="hidePrint" role="presentation">
             <tr>
                 <td align="left">
                     <%

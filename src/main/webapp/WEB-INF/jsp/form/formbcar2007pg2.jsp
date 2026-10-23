@@ -3123,7 +3123,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </table>
 
 
-        <table class="Head" class="hidePrint">
+        <table class="Head" class="hidePrint" role="presentation">
             <tr>
                 <td align="left">
                     <%
@@ -3169,7 +3169,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </table>
 
 
-        <table width="100%" border="1" cellspacing="0" cellpadding="5">
+        <table width="100%" border="1" cellspacing="0" cellpadding="5" role="presentation">
             <tr valign="top">
                 <td>
                     <table width="100%" cellspacing="0" cellpadding="0">
