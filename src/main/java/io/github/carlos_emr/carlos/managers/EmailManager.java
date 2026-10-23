@@ -68,6 +68,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
+import io.github.carlos_emr.carlos.utility.DocumentManifest;
 import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
 import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -1749,7 +1750,8 @@ public class EmailManager {
      * {@code pdf.signing.document_id.secret} is set, embeds each document's manifest in the same
      * update as its signature (carlos-emr/carlos#4691). An attachment with no CARLOS record behind
      * it, such as the rendered message text, gets no manifest. A manifest that cannot be built
-     * stops the send like any other signing failure.
+     * stops the send like any other signing failure. Each signed attachment gets an audit entry
+     * naming the signing key, the record and its document ID (carlos-emr/carlos#4691).
      *
      * @param emailData EmailData containing the final attachment list
      * @param loggedInInfo the sending provider's session, or {@code null} for no manifests
@@ -1774,13 +1776,15 @@ public class EmailManager {
         // An encrypted PDF can only be modified with its owner password.
         String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
         EmailDocumentManifestComposer.AttachmentManifests manifests = documentManifests(loggedInInfo, emailLog);
+        String keyId = signingKeyIdForAudit(signingConfig, loggedInInfo, emailLog);
         for (EmailAttachment attachment : attachments) {
             Path signedPDFPath = null;
             try {
                 Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
-                signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword,
-                        manifests.forAttachment(attachment));
+                DocumentManifest manifest = manifests.forAttachment(attachment);
+                signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword, manifest);
                 attachment.setFilePath(emailData.getWorkingDirectory().adoptGeneratedPdf(signedPDFPath).toString());
+                auditSignedAttachment(loggedInInfo, emailLog, attachment, keyId, manifest, emailData.getIsEncrypted());
             } catch (IOException | RuntimeException e) {
                 // Any RuntimeException, not a chosen few: one that escaped would skip
                 // completeFailedSend and strand the EmailLog at PENDING behind a 500.
@@ -1792,6 +1796,47 @@ public class EmailManager {
                 throw new EmailSendingException("Failed to sign email PDF attachment", e);
             }
         }
+    }
+
+    /**
+     * The signing key's ID for the audit entries, or {@code null} when the send has no context to
+     * audit under. Read once per send; an unreadable keystore fails the send here, as signing would.
+     */
+    private String signingKeyIdForAudit(PDFSigningConfig signingConfig, LoggedInInfo loggedInInfo,
+            EmailLog emailLog) throws EmailSendingException {
+        if (loggedInInfo == null || emailLog == null) {
+            return null;
+        }
+        try {
+            return PDFSigningUtil.signingKeyId(signingConfig);
+        } catch (IOException | RuntimeException e) {
+            logger.error("Failed to read the PDF signing key for an email's signed PDFs", e);
+            throw new EmailSendingException("Failed to sign email PDF attachment", e);
+        }
+    }
+
+    /**
+     * Records that CARLOS signed one attachment: the email, the record it came from, the signing
+     * key and the embedded document ID and version, if any. The document ID is an opaque HMAC, so
+     * the entry is how a document ID is traced back to its record. No names or content.
+     */
+    private static void auditSignedAttachment(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailAttachment attachment,
+            String keyId, DocumentManifest manifest, boolean encrypted) {
+        if (loggedInInfo == null || emailLog == null) {
+            return;
+        }
+        String data = "emailLogId=" + emailLog.getId()
+                + "&source=" + (attachment.getDocumentType() == null ? "" : attachment.getDocumentType().getName())
+                + "&recordId=" + attachment.getDocumentId()
+                + "&kid=" + keyId
+                + "&documentId=" + (manifest == null ? "" : manifest.documentId())
+                + "&version=" + (manifest == null ? "" : String.valueOf(manifest.version()))
+                + "&encrypted=" + encrypted;
+        String demographicNo = emailLog.getDemographic() == null ? null
+                : String.valueOf(emailLog.getDemographic().getDemographicNo());
+        // contentId is limited to 80 characters; keep the full tracing payload in log.data.
+        LogAction.addLog(loggedInInfo, "EmailManager.signAttachment", EMAIL_AUDIT_CONTENT,
+                String.valueOf(emailLog.getId()), demographicNo, data);
     }
 
     private EmailDocumentManifestComposer.AttachmentManifests documentManifests(LoggedInInfo loggedInInfo,
