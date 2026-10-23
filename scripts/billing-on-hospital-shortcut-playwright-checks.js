@@ -13,10 +13,13 @@
  * Save asks once, writes exactly one claim for the patient (header: billing date, provider,
  * appointment 0, hospital visit type, admission date, total; item: service code, fee, unit, dx,
  * service date) and closes the window; page 1 reopened lists that claim in the patient's history;
- * Save and Back writes a second claim and returns the window to page 1 for the same patient.
+ * Save and Back writes a second claim and returns the window to page 1 for the same patient; a
+ * French (fr-CA) browser's page 1 shows a translated Next that still posts "Next", so its bill is
+ * priced and saved.
  * Before #5055 the Master Record had no Hospital Billing link (#654 removed it), so this check failed
  * at its first step; the service-date calendar then threw on open ("Maximum call stack size
- * exceeded"), and Save reopened page 1 instead of closing.
+ * exceeded"), Save reopened page 1 instead of closing, and a translated Next posted its label, which
+ * the service never priced or saved.
  * Fixtures: runWorkflow FAKE- patient (Ontario, the login's provider as MRP). Every claim row written
  * for that patient is removed and re-checked in cleanup. Implements coverage-plan billing-shortcut.
  */
@@ -24,6 +27,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 const CODE = 'A007A';
 const DX = '250';
@@ -86,8 +90,10 @@ async function confirmButton(page, value, waitFor) {
     `${value} should ask "Are you sure you want to ${value}?" once; saw ${JSON.stringify(dialogs.map(d => d.text))}`);
 }
 
+const nextButton = page => page.locator('form[name="titlesearch"] [type="submit"][name="submit"]');
+
 async function next(page) {
-  await navigation(page, () => page.locator('form[name="titlesearch"] input[type="submit"][name="submit"]').click(), SAVE_ROUTE);
+  await navigation(page, () => nextButton(page).click(), SAVE_ROUTE);
   await h.assertNotErrorPage(page, 'shortcut confirmation');
 }
 
@@ -250,6 +256,40 @@ async function workflow(s) {
       && (await page1.locator('body').innerText()).includes(marker),
     'Save and Back did not return to page 1 for the same patient');
     h.assert(!page1.isClosed(), 'Save and Back closed the window');
+  });
+
+  await s.step('a French browser\'s Next and Save price and write the bill too', async () => {
+    // Page 1's Next is translated; what it posts must not be, or the service never prices or saves.
+    const fr = await h.newContext(s.context.browser(), s.config, { locale: 'fr-CA' });
+    fr.setDefaultTimeout(20000);
+    fr.on('page', page => h.wireStrictPage(page, 'hospital-billing-fr', s.recorder));
+    try {
+      const schedule = await h.login(fr, s.config, s.recorder, { label: 'login-fr' });
+      const { masterPage } = await openMasterRecord(fr, schedule, s.recorder, {
+        searchTerm: marker, preferredDemographicNo: patient, timeout: 20000,
+      });
+      const page = await ui.clickOpensPopup(masterPage, masterPage.locator('#hospitalBillingLink'), {
+        context: fr, recorder: s.recorder, label: 'hospital-billing-fr', timeout: 20000,
+      });
+      const label = await nextButton(page).evaluate(el => (el.tagName === 'INPUT' ? el.value : el.textContent).trim());
+      h.assert(label === 'Suivant', 'Page 1 is not rendered in French');
+      await pickServiceDate(page);
+      const filled = await fillBill(page, { admission, provider });
+      if (filled.physician !== physician) await page.locator('select[name="xml_provider"]').selectOption(physician);
+      await next(page);
+      const body = await page.locator('body').innerText();
+      h.assert(body.includes(CODE) && body.includes(fee), 'The French Next did not price the Confirmation');
+      const closed = page.waitForEvent('close', { timeout: 20000 });
+      closed.catch(() => {});
+      await h.withExpectedDialogs(page, async () => {
+        await page.locator('input[type="submit"][name="button"][value="Save"]').click({ noWaitAfter: true });
+        await expectValue(sql, `SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`, '3',
+          'Save from the French page did not write a claim');
+      });
+      await closed;
+    } finally {
+      await fr.close();
+    }
   });
 }
 

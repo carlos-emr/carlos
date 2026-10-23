@@ -368,9 +368,11 @@
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr>
                         <td><b><fmt:message key="billing.hospitalBilling.formOscarBilling"/> </b></td>
-                        <td align="right"><input type="submit" name="submit"
-                                                 value="<fmt:message key="billing.hospitalBilling.btnNext"/>"
-                                                 style="width: 120px;"/> <input type="button"
+                        <%-- A <button>, so the label is translated while the value posted stays
+                             "Next": BillingShortcutPg2Service only calculates and saves for that
+                             value, and an <input> posted its label ("Suivant", ...) (#5055). --%>
+                        <td align="right"><button type="submit" name="submit" value="Next"
+                                                  style="width: 120px;"><fmt:message key="billing.hospitalBilling.btnNext"/></button> <input type="button"
                                                                                 name="button"
                                                                                 value="<fmt:message key="global.btnExit"/>"
                                                                                 style="width: 120px;"

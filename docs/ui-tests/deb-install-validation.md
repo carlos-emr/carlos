@@ -3491,7 +3491,10 @@ container (JDK 25, `dpkg-buildpackage -us -uc -b`; DrugRef built from its pin, t
 the Google mirror because `repo.maven.apache.org` answered 429), with carlos-ctl built from the `debian/carlos-ctl.pin`
 fallback commit `325482a2` re-versioned `1.2.0+pr5055test1` locally (`1.2.0` is unpublished). Each package was installed
 fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean; the IPv6 nginx reload
-note above recurred). Findings 317 to 319 of `app-findings-log.md` record what each round found.
+note above recurred). Findings 317 to 320 of `app-findings-log.md` record what each round found. The PR-head package
+installed fresh also passed `--tier smoke` (12 of 12) and `billing-on-hospital-shortcut`, `master-record-tabs`,
+`page-health-master-record`, `billing-on-submit`, `billing-on-third-party`, `demographic-master-crud-smoke` and
+`gap-billing-inr-calendar-popup`.
 
 | Package, or file swapped into the installed webapp | `billing-on-hospital-shortcut` |
 |---|---|
@@ -3499,6 +3502,8 @@ note above recurred). Findings 317 to 319 of `app-findings-log.md` record what e
 | Final package with the release `demographic/edit.jsp` compiled | FAIL at "the Master Record offers Hospital Billing for this patient" |
 | Link only (`74e7c46485`): the release `calendar-setup.js` | FAIL at "the service-date calendar records the picked date"; page errors `trimEnd` and "Maximum call stack size exceeded" |
 | Link only, with the fixed `calendar-setup.js` (the release `BillingShortcutPg2Service`) | FAIL at "Save writes one claim for this patient and closes the window": the claim was written, page 1 reloaded |
+| PR head (`a681b3f12f`, base merged), fresh install, with the release `billingShortcutPg1.jsp` compiled | FAIL at the fr-CA step: "The French Next did not price the Confirmation" |
+| The same with the fixed `billingShortcutPg1.jsp` compiled, 2 runs | PASS, 10 of 10 steps, no residue |
 
 On the final package: `--tier smoke` 12 of 12; `master-record-tabs` and `page-health-master-record` (with Hospital Billing
 added to its patient-scope list) open and judge the new link; `billing-on-submit`, `billing-on-third-party`,
