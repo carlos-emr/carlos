@@ -871,3 +871,13 @@ test('shouldFailASkip_inItsOwnProfileRun', () => {
   const plainSkip = runOne(expectingCheck({ expectedFailure: undefined }), { env: {} }, child({ status: 2 }));
   assert.equal(plainSkip.outcome, 'SKIP');
 });
+
+test('shouldSelectTheDefaultRun_whenOptionsCarryNoProfile', () => {
+  // selectChecks is exported; an options object built without profile must mean the default run, not no run.
+  const plain = expectingCheck({ name: 'plain-check', expectedFailure: undefined });
+  const legacy = expectingCheck({ name: 'legacy-check', profile: 'legacy-teleplan', expectedFailure: undefined });
+  const { profile, ...withoutProfile } = parseArguments([]);
+  assert.equal(profile, '');
+  assert.deepEqual(selectChecks([plain, legacy], withoutProfile).map((c) => c.name), ['plain-check']);
+  assert.deepEqual(selectChecks([plain, legacy], { ...withoutProfile, only: ['plain-check'] }).map((c) => c.name), ['plain-check']);
+});

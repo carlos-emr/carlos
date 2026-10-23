@@ -60,6 +60,10 @@ public final class DownloadBilling2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final BillActivityDao billActivityDao;
 
+    /**
+     * @param securityInfoManager checks the requester's {@code _billing} read right
+     * @param billActivityDao names the Teleplan batch files the route may serve
+     */
     public DownloadBilling2Action(SecurityInfoManager securityInfoManager, BillActivityDao billActivityDao) {
         this.securityInfoManager = securityInfoManager;
         this.billActivityDao = billActivityDao;

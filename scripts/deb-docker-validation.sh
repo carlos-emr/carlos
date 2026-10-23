@@ -515,7 +515,7 @@ profile_edit() {
 sed -i -E '/^$PROFILE_MARK /{N;d}' "\$P"
 sed -i -E 's/^$PROFILE_WAS//' "\$P"
 if [ -n '$PROFILE_KEY' ]; then
-  sed -i -E 's/^($PROFILE_KEY[[:space:]]*[=:].*)\$/$PROFILE_WAS\1/' "\$P"
+  sed -i -E 's/^(${PROFILE_KEY}[[:space:]]*[=:].*)\$/${PROFILE_WAS}\1/' "\$P"
   # Without a final newline the marker would join the file's last line, and the
   # next 'profile default' would not find it to remove.
   [ -z "\$(tail -c 1 "\$P")" ] || echo >> "\$P"

@@ -163,16 +163,18 @@ function selectChecks(checks, options) {
   // runs only that profile's checks. Naming one with --only outside its profile is refused rather than
   // quietly selecting nothing.
   const profileOf = (check) => check.profile || '';
+  // selectChecks is exported: an options object without profile is the default run.
+  const wanted = options.profile || '';
   for (const name of options.only) {
     const check = checks.find((entry) => entry.name === name);
     // An unknown name is reported where the selection is checked against --only, below.
-    if (check && profileOf(check) !== options.profile) {
+    if (check && profileOf(check) !== wanted) {
       throw new Error(profileOf(check)
         ? `${name} runs only with --profile ${profileOf(check)} (${PROFILES[profileOf(check)] || 'unknown profile'})`
-        : `${name} has no profile, so it does not run with --profile ${options.profile}`);
+        : `${name} has no profile, so it does not run with --profile ${wanted}`);
     }
   }
-  let selected = checks.filter((check) => profileOf(check) === options.profile);
+  let selected = checks.filter((check) => profileOf(check) === wanted);
   selected = selected.filter((check) => !check.manual || options.list || options.only.includes(check.name));
   if (options.tiers.length) {
     selected = selected.filter((check) => check.tiers.some((tier) => options.tiers.includes(tier)));
