@@ -111,9 +111,9 @@ public class RxUtil {
     /** A dose per kilogram or per square metre of body size, which states no fixed administered amount. */
     private static final Pattern BODY_SIZE_BASIS = Pattern.compile("(?:kg|m2|m²|m\\^2)(?!\\w)", Pattern.CASE_INSENSITIVE);
     /**
-     * A number and the word after it in a product's dosage text, as the drug picker stages a strength
-     * ("500.0 mg", or "500.0mg" without the space). A match starts only where a number starts and
-     * never backtracks, so a long run of digits in a stored dosage costs linear time.
+     * A number and the word after it in a product's dosage text, as the Rx page stages a strength
+     * ("500.0mg") or the legacy drug-choice page does ("500.0 mg"). A match starts only where a
+     * number starts and never backtracks, so a long run of digits in a stored dosage costs linear time.
      */
     @SuppressWarnings("java:S8786") // linear: the lookbehind and possessive quantifiers never backtrack (60,000 digits parse in under 1 s)
     private static final Pattern PRODUCT_STRENGTH = Pattern.compile(
@@ -176,6 +176,21 @@ public class RxUtil {
     /** A figure or a number word: anything in the directions that could be the dose. */
     private static final Pattern DOSE_NUMBER = Pattern.compile(
             "\\d|\\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten)\\b", Pattern.CASE_INSENSITIVE);
+    /** The route tokens the parser recognises, each as a whole token ending the text or followed by a space. */
+    private static final String[] ROUTE_PATTERNS = {"\\s(?i)PO$", "\\s(?i)SL$", "\\s(?i)IM$", "\\s(?i)SC$", "\\s(?i)PATCH$", "\\s(?i)TOP\\.$", "\\s(?i)INH$", "\\s(?i)SUPP$", "\\s(?i)O\\.D\\.$", "\\s(?i)O\\.S\\.$", "\\s(?i)O\\.U\\.$", "\\s(?i)OD$", "\\s(?i)OS$", "\\s(?i)OU$", "\\s(?i)PO\\s", "\\s(?i)SL\\s", "\\s(?i)IM\\s", "\\s(?i)SC\\s", "\\s(?i)PATCH\\s", "\\s(?i)TOP\\.\\s", "\\s(?i)INH\\s", "\\s(?i)SUPP\\s", "\\s(?i)O\\.D\\.\\s", "\\s(?i)O\\.S\\.\\s", "\\s(?i)O\\.U\\.\\s", "\\s(?i)OD\\s", "\\s(?i)OS\\s", "\\s(?i)OU\\s"};
+    /** The method words, as whole words ("intake" and "mistake" are not "take"; "Take1" still is). */
+    private static final String[] METHOD_PATTERNS = {"(?i)\\btake(?![a-z])", "(?i)\\b" + METHOD_APPLY + "(?![a-z])",
+            "(?i)\\b" + METHOD_RUB_WELL_IN + "\\b"};
+    /** Words before an n/7, n/52 or n/12 token or a fraction that make it a date, not a duration or a dose ("until 11/12", "starting 3/15"). */
+    private static final Set<String> DATE_WORDS = Set.of("until", "till", "on", "by", "from", "starting", "after",
+            "before", "since");
+    /** Units of time after an amount ("1 1/2 hr before meals"): the amount measures a time, not a dose. */
+    private static final Set<String> TIME_WORDS = Set.of("h", "hr", "hrs", "hour", "hours", "min", "mins", "minute",
+            "minutes");
+    /** Characters of a comparison before a fraction ("if BP > 90/140"), which is then a value, not a dose. */
+    private static final String COMPARISON_CHARACTERS = "<>=\u2264\u2265";
+    /** The largest denominator of a fraction read as a dose on its own: halves to eighths, including sixths. */
+    private static final BigDecimal LARGEST_DOSE_FRACTION_DENOMINATOR = BigDecimal.valueOf(8);
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
 
     public static void setDefaultQuantity(String quantity) {
@@ -513,11 +528,11 @@ public class RxUtil {
     public static String findDuration(RxPrescriptionData.Prescription rx) {
         String typedQuantity = rx.getQuantity() == null ? "" : rx.getQuantity().trim();
         instrucParser(rx);
-        if (rx.isDurationSpecifiedByUser()) {
-            return rx.getDuration();
-        }
         if (!typedQuantity.isEmpty() && calculatedNoQuantity(rx)) {
             rx.setQuantity(typedQuantity);
+        }
+        if (rx.isDurationSpecifiedByUser()) {
+            return rx.getDuration();
         }
         if (rx.getUnitName() != null) {
             return null;
@@ -550,13 +565,55 @@ public class RxUtil {
      * @return the whole duration, or null when the dose, the frequency or the duration unit is unknown
      */
     private static String durationForQuantity(RxPrescriptionData.Prescription rx, double quantity) {
-        double takeMax = rx.getTakeMax();
-        double nPerDay = findNPerDay(rx.getFrequencyCode());
-        double nDays = findNDays(rx.getDurationUnit());
-        if (takeMax == 0d || nPerDay == 0d || nDays == 0d) {
+        return wholeDurationUnits(quantity, rx.getTakeMax(), rx.getFrequencyCode(), rx.getDurationUnit());
+    }
+
+    /**
+     * The whole number of duration units a quantity lasts: the quantity divided by the units taken
+     * per duration unit (dose per administration, administrations per day, days per unit), rounded
+     * down. A weekly or monthly frequency divides by its exact interval in days, so three doses
+     * every three months last nine months, not eight. The quotient is rounded to six decimals
+     * first, so a dose stored as a float (a third of a tablet) does not fall just short of a whole
+     * unit. Shared with the quantity callback of the Rx page.
+     *
+     * @return the duration in the given unit, at most {@link Integer#MAX_VALUE}, or null when the
+     *         dose, the frequency or the duration unit is unknown
+     */
+    public static String wholeDurationUnits(double quantity, double dosePerAdministration, String frequency,
+            String durationUnit) {
+        double nDays = durationUnit == null ? 0d : findNDays(durationUnit);
+        if (dosePerAdministration <= 0d || nDays == 0d || frequency == null) {
             return null;
         }
-        return Integer.toString((int) (quantity / (takeMax * nPerDay * nDays)));
+        BigDecimal unitsPerDurationUnit;
+        int intervalDays = periodicIntervalDays(frequency);
+        if (intervalDays > 0) {
+            unitsPerDurationUnit = BigDecimal.valueOf(dosePerAdministration).multiply(BigDecimal.valueOf(nDays))
+                    .divide(BigDecimal.valueOf(intervalDays), MathContext.DECIMAL64);
+        } else {
+            double nPerDay = findNPerDay(frequency);
+            if (nPerDay == 0d) {
+                return null;
+            }
+            unitsPerDurationUnit = BigDecimal.valueOf(dosePerAdministration).multiply(BigDecimal.valueOf(nPerDay))
+                    .multiply(BigDecimal.valueOf(nDays));
+        }
+        return BigDecimal.valueOf(quantity).divide(unitsPerDurationUnit, MathContext.DECIMAL64)
+                .setScale(6, RoundingMode.HALF_UP).setScale(0, RoundingMode.FLOOR)
+                .min(BigDecimal.valueOf(Integer.MAX_VALUE)).toPlainString();
+    }
+
+    /** The interval in days of a weekly or monthly frequency code, or 0 for a frequency given per day. */
+    // FindSecBugs IMPROPER_UNICODE: normalization of internal frequency codes, not a security or authorization decision. See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "normalization of internal frequency codes, not a security or authorization decision")
+    private static int periodicIntervalDays(String frequency) {
+        return switch (frequency.toUpperCase(Locale.ROOT)) {
+            case "Q1WEEK" -> 7;
+            case "Q2WEEK" -> 14;
+            case "Q1MONTH" -> 30;
+            case "Q3MONTH" -> 90;
+            default -> 0;
+        };
     }
 
     private static void setEmptyValues(RxPrescriptionData.Prescription rx) {
@@ -679,13 +736,14 @@ public class RxUtil {
      * <ul>
      *   <li>A product strength such as {@code 1000 mg} is turned into dispensable units per
      *       administration. When the selected product has one known strength in a comparable unit
-     *       ({@code dosage} {@code "500.0 mg"}, as the drug picker stages it), the strength is
-     *       divided by it: two tablets here. A result that is not a whole number of units (or, for
-     *       tablets, of halves or quarters), a liquid product whose volume per dose is not written,
-     *       or a combination product ({@code "5.0 mg / 325.0 mg"}, whose component strengths are
-     *       not compared) leaves the dose unset. Without a comparable product strength (a custom
-     *       drug, a strength in another measure) one unit per administration is assumed, and a
-     *       strength range keeps its proportions ({@code 500-1000 mg} is one to two units).</li>
+     *       ({@code dosage} {@code "500.0mg"} as the Rx page stages it, {@code "500.0 mg"} from the
+     *       legacy drug-choice page), the strength is divided by it: two tablets here. A result that
+     *       is not a whole number of units (or, for tablets, of halves or quarters), or a liquid
+     *       product whose volume per dose is not written, leaves the dose unset. Without a
+     *       comparable product strength (a custom drug, a strength in another measure, a combination
+     *       product staged as {@code "325.0mg 30.0mg"} or {@code "5.0 mg / 325.0 mg"}, whose
+     *       components are not compared) one unit per administration is assumed, and a strength
+     *       range keeps its proportions ({@code 500-1000 mg} is one to two units).</li>
      *   <li>A concentration such as {@code 250 mg/5 mL} or a dose per body size such as
      *       {@code 10 mg/kg} names the product and supplies no administered amount, so no dose or
      *       quantity is calculated from it.</li>
@@ -715,6 +773,7 @@ public class RxUtil {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @SuppressWarnings("java:S3776") // the legacy parser body of instrucParser, renamed here; its complexity predates this change and its decomposition is follow-up work
     private static ExactAmount parseDirections(RxPrescriptionData.Prescription rx) {
         if (rx == null) {
             return null;
@@ -769,7 +828,7 @@ public class RxUtil {
             }
         }
 
-        String[] routes = {"\\s(?i)PO$", "\\s(?i)SL$", "\\s(?i)IM$", "\\s(?i)SC$", "\\s(?i)PATCH$", "\\s(?i)TOP\\.$", "\\s(?i)INH$", "\\s(?i)SUPP$", "\\s(?i)O\\.D\\.$", "\\s(?i)O\\.S\\.$", "\\s(?i)O\\.U\\.$", "\\s(?i)OD$", "\\s(?i)OS$", "\\s(?i)OU$", "\\s(?i)PO\\s", "\\s(?i)SL\\s", "\\s(?i)IM\\s", "\\s(?i)SC\\s", "\\s(?i)PATCH\\s", "\\s(?i)TOP\\.\\s", "\\s(?i)INH\\s", "\\s(?i)SUPP\\s", "\\s(?i)O\\.D\\.\\s", "\\s(?i)O\\.S\\.\\s", "\\s(?i)O\\.U\\.\\s", "\\s(?i)OD\\s", "\\s(?i)OS\\s", "\\s(?i)OU\\s"};
+        String[] routes = ROUTE_PATTERNS;
         String[] frequences = {"\\s(?i)OD\\s", "\\s(?i)BID\\s", "\\s(?i)TID\\s", "\\s(?i)QID\\s", "\\s(?i)Q1H\\s", "\\s(?i)Q2H\\s", "\\s(?i)Q1-2H\\s", "\\s(?i)Q3-4H\\s", "\\s(?i)Q4H\\s", "\\s(?i)Q4-6H\\s", "\\s(?i)Q6H\\s", "\\s(?i)Q8H\\s", "\\s(?i)Q12H\\s", "\\s(?i)QAM\\s", "\\s(?i)QPM\\s", "\\s(?i)QHS\\s", "\\s(?i)Q1Week\\s", "\\s(?i)weekly\\s", "\\s(?i)Q2Week\\s", "\\s(?i)Q1Month\\s", "\\s(?i)Q3Month\\s", "\\s(?i)monthly\\s", "\\s(?i)once daily\\s", "\\s(?i)twice daily\\s", "\\s(?i)3x day\\s",
                 "\\s(?i)4x day\\s", "\\s(?i)3x daily\\s", "\\s(?i)4x daily\\s", "\\s(?i)OD$", "\\s(?i)BID$", "\\s(?i)TID$", "\\s(?i)QID$", "\\s(?i)Q1H$", "\\s(?i)Q2H$", "\\s(?i)Q1-2H$", "\\s(?i)Q3-4H$", "\\s(?i)Q4H$", "\\s(?i)Q4-6H$", "\\s(?i)Q6H$", "\\s(?i)Q8H$", "\\s(?i)Q12H$", "\\s(?i)QAM$", "\\s(?i)QPM$", "\\s(?i)QHS$", "\\s(?i)Q1Week$", "\\s(?i)weekly$", "\\s(?i)Q2Week$", "\\s(?i)Q1Month$", "\\s(?i)Q3Month$", "\\s(?i)monthly$", "\\s(?i)once daily$", "\\s(?i)twice daily$", "\\s(?i)3x day$",
                 "\\s(?i)4x day$", "\\s(?i)3x daily$", "\\s(?i)4x daily$",
@@ -780,7 +839,7 @@ public class RxUtil {
         // Which occurrence opens the dose is decided in scanInstruction: a trailing ", take with
         // food" after the dose and frequency is advice, while "Amoxicillin 250 mg/5 mL: take 7.5 mL"
         // and "Please take 1 tab" open the dose although the method is not the first word.
-        String[] methods = {"(?i)\\btake(?![a-z])", "(?i)\\b" + METHOD_APPLY + "(?![a-z])", "(?i)\\b" + METHOD_RUB_WELL_IN + "\\b"};
+        String[] methods = METHOD_PATTERNS;
         // A duration unit ends at whitespace, punctuation or the end of the text ("x 7 days, take
         // with food"), never inside a longer word ("daily", "months" against "m") and never before a
         // slash: "w/" (with) and "d/c" (discontinue) are abbreviations, not a week or a day.
@@ -992,11 +1051,12 @@ public class RxUtil {
             Matcher m = p.matcher(instructionToCheck);
 
             if (m.find()) {
-                durationUnitSpec = (instructionToCheck.substring(m.start(), m.end())).trim();
                 // The number and its unit must come from one match: in "on alternate days x 10
                 // days" the first unit word carries no number, and cutting the text between the
                 // two matches threw when the number came after that first word.
                 // The number likewise starts where its digits start and takes them all at once.
+                // A unit word with no number before it ("M-F", "for several days") states no
+                // duration unit; the unit then follows the frequency, as when nothing is written.
                 Pattern p1 = Pattern.compile("(?<![0-9])([0-9]++)" + s);
                 Matcher m1 = p1.matcher(instructionToCheck);
                 if (m1.find()) {
@@ -1035,13 +1095,14 @@ public class RxUtil {
         // n/7, n/52 and n/12 state a duration in days, weeks or months. The shorthand is read only
         // when no duration with a unit was written, and only after the frequency or introduced by
         // "x" or "for", so that a dose fraction such as "1/2 tab" or a mixed number is never taken
-        // for one.
+        // for one. After a date word ("until 11/12", "starting 3/12") the token is a date.
         if (durationUnitSpec.isEmpty()) {
             Matcher shorthand = SHORTHAND_DURATION.matcher(instructions);
             while (shorthand.find()) {
                 boolean introduced = shorthand.group(1) != null;
                 boolean afterFrequency = frequencyStart >= 0 && shorthand.start(2) > frequencyStart;
-                if (introduced || afterFrequency) {
+                boolean dated = !introduced && DATE_WORDS.contains(lowerCase(wordBefore(instructions, shorthand.start(2))));
+                if ((introduced || afterFrequency) && !dated) {
                     duration = shorthand.group(2);
                     durationUnitSpec = switch (shorthand.group(3)) {
                         case "7" -> "days";
@@ -1234,14 +1295,17 @@ public class RxUtil {
         String firstFrequency = "";
         String firstMethod = "";
         String firstRoute = "";
-        boolean firstPrn = false;
+        boolean coursePrn = false;
         try {
             for (int i = 0; i < segmentCount; i++) {
                 String segment = stripTrailingCommas(segments[i]);
                 if (segment.isEmpty()) {
                     return false;
                 }
-                rx.setSpecial(segment);
+                // A later segment that names no method or route is read with the first segment's,
+                // as if written: "Apply 2 g bid x 2 weeks then 2 g daily x 2 weeks" stays grams of
+                // cream, and IU after "Take ... po" stays a strength.
+                rx.setSpecial(i == 0 ? segment : inheritContext(segment, firstMethod, firstRoute));
                 ExactAmount segmentTotal = parseDirections(rx);
                 if (segmentTotal == null || !rx.isDurationSpecifiedByUser() || rx.getFrequencyCode().isEmpty()
                         || rx.getTakeMax() == 0f) {
@@ -1253,13 +1317,14 @@ public class RxUtil {
                 long segmentDays = Math.min(Math.round(Double.parseDouble(rx.getDuration())
                         * findNDays(rx.getDurationUnit())), Integer.MAX_VALUE);
                 totalDays = Math.min(totalDays + segmentDays, Integer.MAX_VALUE);
+                // "prn" on any segment marks the course, as the whole-text scan did.
+                coursePrn |= rx.getPrn();
                 if (i == 0) {
                     firstTakeMin = rx.getTakeMin();
                     firstTakeMax = rx.getTakeMax();
                     firstFrequency = rx.getFrequencyCode();
                     firstMethod = rx.getMethod();
                     firstRoute = rx.getRoute();
-                    firstPrn = rx.getPrn();
                 }
             }
         } finally {
@@ -1271,7 +1336,7 @@ public class RxUtil {
         rx.setFrequencyCode(firstFrequency);
         rx.setMethod(firstMethod);
         rx.setRoute(firstRoute);
-        rx.setPrn(firstPrn);
+        rx.setPrn(coursePrn);
         rx.setDuration(Long.toString(totalDays));
         rx.setDurationUnit("D");
         rx.setDurationSpecifiedByUser(true);
@@ -1282,6 +1347,27 @@ public class RxUtil {
         }
         rx.setPolicyViolations(RxInstructionPolicy.checkInstructions(instructions.trim()));
         return true;
+    }
+
+    /** Reads a later taper segment with the first segment's method and route when it names none of its own. */
+    private static String inheritContext(String segment, String method, String route) {
+        String text = segment;
+        if (!method.isEmpty() && !matchesAny(METHOD_PATTERNS, text)) {
+            text = method + " " + text;
+        }
+        if (!route.isEmpty() && !matchesAny(ROUTE_PATTERNS, text)) {
+            text = text + " " + route;
+        }
+        return text;
+    }
+
+    private static boolean matchesAny(String[] patterns, String text) {
+        for (String pattern : patterns) {
+            if (Pattern.compile(pattern).matcher(text).find()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Words that close a tapering course without a dose: "then stop", "then discontinue", "then d/c". */
@@ -1321,21 +1407,13 @@ public class RxUtil {
      * tablet for six days gives five, not six, and a tapering course can add its segments before
      * rounding. Periodic frequencies use exact day intervals.
      */
-    // FindSecBugs IMPROPER_UNICODE: normalization of internal frequency codes, not a security or authorization decision. See docs/static-analysis-workflows.md.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "normalization of internal frequency codes, not a security or authorization decision")
     private static ExactAmount exactDispenseTotal(ExactAmount maximumDose, String duration, String durationUnit, String frequency) {
         BigDecimal total = maximumDose.numerator().multiply(new BigDecimal(duration))
                 .multiply(BigDecimal.valueOf(findNDays(durationUnit)));
         BigDecimal divisor = maximumDose.denominator();
         // Use exact day intervals instead of the approximate daily frequency for
         // weekly/monthly prescriptions, so an exact total does not round up twice.
-        int intervalDays = switch (frequency.toUpperCase(Locale.ROOT)) {
-            case "Q1WEEK" -> 7;
-            case "Q2WEEK" -> 14;
-            case "Q1MONTH" -> 30;
-            case "Q3MONTH" -> 90;
-            default -> 0;
-        };
+        int intervalDays = periodicIntervalDays(frequency);
         if (intervalDays == 0) {
             total = total.multiply(BigDecimal.valueOf(findNPerDay(frequency)));
         } else {
@@ -1729,11 +1807,11 @@ public class RxUtil {
      * has one known strength in a comparable unit, the stated strength is divided by it (1000 mg of a
      * 500 mg tablet is two tablets) and accepted only as a whole number of units, or for tablets that
      * may be split a whole number of halves or quarters, up to {@link #MAX_UNITS_PER_DOSE}. A
-     * modified-release, enteric-coated or similar tablet is never split. Any other result, a liquid
-     * or rate product whose volume per dose is not written, or a combination product (staged as
-     * {@code "5.0 mg / 325.0 mg"}; its component strengths are not compared) leaves the dose unset so
-     * the prescriber's quantity is kept. Without a comparable product strength (a custom drug, IU
-     * against a mass strength) one unit per administration is assumed, as
+     * modified-release, enteric-coated or similar tablet is never split. Any other result, or a
+     * liquid or rate product whose volume per dose is not written, leaves the dose unset so the
+     * prescriber's quantity is kept. Without a comparable product strength (a custom drug, a
+     * combination product in either staged format, IU against a mass strength) one unit per
+     * administration is assumed, as
      * issue #3876 asks, and a strength range keeps its proportions from that unit.
      *
      * @return the minimum and maximum units per administration; {@code "0"} when none can be established
@@ -1767,14 +1845,28 @@ public class RxUtil {
     }
 
     /**
-     * True for a liquid or a rate (250 mg/5 mL, 25 mcg/hr), whose strength says nothing about the
-     * volume given, and for a combination product, which the drug picker stages with the same
-     * slash ("5.0 mg / 325.0 mg") and whose component strengths are not compared.
+     * True for a liquid or a rate ("250.0mg/5.0ml", "25.0mcg/hr", "50.0mg/1.0g"), whose strength says
+     * nothing about the volume given. The legacy drug-choice page joins a combination product's
+     * components with a spaced slash ("5.0 mg / 325.0 mg"), which is a separator, not a denominator,
+     * so both pages read a combination product the same way; a liquid combination is still a liquid
+     * by its form.
      */
     private static boolean isLiquidOrRate(RxPrescriptionData.Prescription rx) {
         String dosage = rx.getDosage();
         String form = rx.getDrugForm();
-        return (dosage != null && dosage.indexOf('/') >= 0) || (form != null && LIQUID_FORM.matcher(form).find());
+        return (dosage != null && hasConcentrationSlash(dosage)) || (form != null && LIQUID_FORM.matcher(form).find());
+    }
+
+    /** True when the dosage text has a slash that is not the legacy page's component separator, a slash with a space on both sides. */
+    private static boolean hasConcentrationSlash(String dosage) {
+        for (int slash = dosage.indexOf('/'); slash >= 0; slash = dosage.indexOf('/', slash + 1)) {
+            boolean separator = slash > 0 && slash + 1 < dosage.length()
+                    && dosage.charAt(slash - 1) == ' ' && dosage.charAt(slash + 1) == ' ';
+            if (!separator) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1890,8 +1982,13 @@ public class RxUtil {
         if (unit == null || StrengthMeasure.of(unit) == null) {
             return false;
         }
-        String form = wordAt(text, skipWhitespaceForward(text, unitStart + unit.length()), limit);
-        return form != null && isCountedForm(form);
+        int afterUnit = skipWhitespaceForward(text, unitStart + unit.length());
+        String form = wordAt(text, afterUnit, limit);
+        if (form != null) {
+            return isCountedForm(form);
+        }
+        // "(2 x 500 mg)" and "2 x 500 mg, ...": the product count stands without its form word.
+        return afterUnit >= limit || text.charAt(afterUnit) == ')' || text.charAt(afterUnit) == ',';
     }
 
     /**
@@ -2000,22 +2097,22 @@ public class RxUtil {
 
     /**
      * True when a fraction found just before the frequency can stand alone as a dose: a proper
-     * fraction that is not written as a schedule ({@code x 3/7}, {@code for 2/52}).
+     * fraction with a denominator of at most eight that is not written as a schedule ({@code x 3/7},
+     * {@code for 2/52}), a date ({@code starting 3/15}, {@code on 1/4}) or a comparison
+     * ({@code > 90/140}).
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of parsed instruction tokens, not a security or authorization decision.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed instruction tokens, not a security or authorization decision")
     private static boolean isPlainDoseFraction(String instructions, NumberToken fraction) {
         ExactAmount amount = ExactAmount.parse(fraction.value);
-        if (amount.isZero() || amount.numerator().compareTo(amount.denominator()) >= 0) {
+        if (amount.isZero() || amount.numerator().compareTo(amount.denominator()) >= 0
+                || amount.denominator().compareTo(LARGEST_DOSE_FRACTION_DENOMINATOR) > 0) {
             return false;
         }
         int end = skipWhitespaceBackward(instructions, fraction.start);
-        int start = end;
-        while (start > 0 && Character.isLetter(instructions.charAt(start - 1))) {
-            start--;
+        if (end > 0 && COMPARISON_CHARACTERS.indexOf(instructions.charAt(end - 1)) >= 0) {
+            return false;
         }
-        String previousWord = instructions.substring(start, end);
-        return !("x".equalsIgnoreCase(previousWord) || "for".equalsIgnoreCase(previousWord));
+        String previousWord = lowerCase(wordBefore(instructions, fraction.start));
+        return !("x".equals(previousWord) || "for".equals(previousWord) || DATE_WORDS.contains(previousWord));
     }
 
     /**
@@ -2294,8 +2391,29 @@ public class RxUtil {
         if (numerator.signum() <= 0 || numerator.compareTo(denominator) >= 0) {
             return null;
         }
+        int fractionEnd = fractionStart + fraction.length();
+        // "1 1/2 hr before meals" measures a time, not a dose.
+        if (isTime(instructions, fractionEnd)) {
+            return null;
+        }
         BigInteger improper = new BigInteger(whole.value).multiply(denominator).add(numerator);
-        return new NumberToken(whole.start, fractionStart + fraction.length(), improper + "/" + denominator, true);
+        return new NumberToken(whole.start, fractionEnd, improper + "/" + denominator, true);
+    }
+
+    /** True when the word after {@code amountEnd} is a unit of time ("hr", "hours", "min"). */
+    private static boolean isTime(String instructions, int amountEnd) {
+        String next = wordAt(instructions, skipWhitespaceForward(instructions, amountEnd), instructions.length());
+        return next != null && TIME_WORDS.contains(lowerCase(next));
+    }
+
+    /** The run of letters that ends, after optional whitespace, at {@code end}; empty when none does. */
+    private static String wordBefore(String text, int end) {
+        int wordEnd = skipWhitespaceBackward(text, end);
+        int start = wordEnd;
+        while (start > 0 && Character.isLetter(text.charAt(start - 1))) {
+            start--;
+        }
+        return text.substring(start, wordEnd);
     }
 
     /**
@@ -2389,10 +2507,10 @@ public class RxUtil {
         }
     }
 
-    /** The one strength of a selected product, read from its dosage text as the drug picker stages it ("500.0 mg"). */
+    /** The one strength of a selected product, read from its dosage text ("500.0mg" on the Rx page, "500.0 mg" on the legacy page). */
     private record ProductStrength(BigDecimal amount, StrengthMeasure measure) {
 
-        /** @return the product's strength, or null when the text names none or several strengths */
+        /** @return the product's strength, or null when the text names none or several ("325.0mg 30.0mg", "5.0 mg / 325.0 mg") */
         static ProductStrength single(String dosage) {
             Matcher strength = PRODUCT_STRENGTH.matcher(dosage == null ? "" : dosage);
             ProductStrength found = null;

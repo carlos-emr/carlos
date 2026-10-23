@@ -75,8 +75,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
 
     /**
      * Parses the directions for a selected product, given by its dosage text and form as the drug
-     * picker stages them ("500.0 mg", "TABLET"; "500.0mg" is read the same way), and checks the dose
-     * range and the dispense quantity.
+     * pages stage them ("500.0mg" on the Rx page, "500.0 mg" on the legacy drug-choice page; "TABLET"),
+     * and checks the dose range and the dispense quantity.
      */
     private static void assertParsedDose(String instructions, String dosage, String drugForm,
             float minimum, float maximum, String quantity) {
@@ -332,7 +332,9 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
          * half units, so the fraction found just before the frequency must not drop the whole
          * part. A whole number that ends a range ("1-1 1/2") is not read as a mixed number; the
          * leading range is kept instead of the trailing half. A fraction written as a schedule or
-         * a ratio ("x 3/7", "140/90") never replaces an explicit leading count.
+         * a ratio ("x 3/7", "140/90") never replaces an explicit leading count, and after a strength a
+         * date or a comparison ("starting 3/15", "on 1/4", "> 90/140") is not the dose either. A
+         * whole number and a fraction that measure a time ("1 1/2 hr before meals") are not a dose.
          */
         @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
         @CsvSource(delimiter = '|', value = {
@@ -347,6 +349,11 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1 tab po for 3/7 bid x 3 days | 1 | 1 | 6",
             "Take 6 tabs po 1/7 weekly x 12 weeks | 6 | 6 | 72",
             "Take 1 tab PO if SBP > 140/90 BID x 30 days | 1 | 1 | 60",
+            "1000 mg po starting 3/15 bid x 30 days | 1 | 1 | 60",
+            "500 mg po on 1/4 bid x 30 days | 1 | 1 | 60",
+            "1000 mg po if BP > 90/140 bid x 30 days | 1 | 1 | 60",
+            "Take 1 1/2 hr before meals 1 tab po bid x 7 days | 1 | 1 | 14",
+            "Take 1 1/2 hours before meals 1 tab po bid x 7 days | 1 | 1 | 14",
             "1 1/2 tabs po bid x 30 days | 1.5 | 1.5 | 90",
             "Take 1 1/2 tab po daily x 30 days | 1.5 | 1.5 | 45",
             "2 1/2 tabs po daily x 30 days | 2.5 | 2.5 | 75",
@@ -386,6 +393,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "15 mg (6 tabs) po weekly x 12 weeks | 6 | 6 | 72",
             "2000 IU (2 caps) po daily x 30 days | 2 | 2 | 60",
             "1000 mg (2 x 500 mg tabs) po q6h for 7 days | 2 | 2 | 56",
+            "1000 mg (2 x 500 mg) po tid x 7 days | 2 | 2 | 42",
+            "Take 1000 mg (2 x 500mg) po tid x 7 days | 2 | 2 | 42",
             "Take 20 mg (2 x 10 mg tabs) po daily x 30 days | 2 | 2 | 60",
             "2.5 mg (1/2 x 5 mg tabs) po daily x 30 days | 0.5 | 0.5 | 15",
             "1000 mg #30 tabs po tid x 7 days | 1 | 1 | 21",
@@ -501,14 +510,15 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         }
 
         /**
-         * When the selected product has one known strength (the drug picker stages it as
-         * {@code dosage}, e.g. "500.0 mg"; "500.0mg" is read the same way), the typed strength is
-         * divided by it: 1000 mg of a 500 mg tablet is two tablets, 0.5 mg of a 1 mg tablet is half a
-         * tablet. A result that is not a whole number of units (halves and quarters for tablets
-         * only), a liquid product, a combination product (staged as "5.0 mg / 325.0 mg", whose
-         * component strengths are not compared), or more than 20 units leaves the dose unset so the
-         * prescriber's quantity is kept, and a modified-release or enteric-coated tablet is never
-         * split. A strength in another measure keeps the one-unit default. With a tablet or capsule in IU
+         * When the selected product has one known strength (the Rx page stages {@code dosage} as
+         * "500.0mg", the legacy drug-choice page as "500.0 mg"), the typed strength is divided by it:
+         * 1000 mg of a 500 mg tablet is two tablets, 0.5 mg of a 1 mg tablet is half a tablet. A
+         * result that is not a whole number of units (halves and quarters for tablets only), a liquid
+         * or rate product ("250.0mg/5.0ml", "25.0mcg/hr"), or more than 20 units leaves the dose unset
+         * so the prescriber's quantity is kept, and a modified-release or enteric-coated tablet is
+         * never split. A combination product ("325.0mg 30.0mg" on the Rx page, "5.0 mg / 325.0 mg" on
+         * the legacy page) or a strength in another measure keeps the one-unit default; the typed
+         * strength is not compared with the components. With a tablet or capsule in IU
          * selected (vitamin D), an IU amount is its strength even without a route, while insulin
          * solutions and injected IU keep the typed amount.
          */
@@ -540,9 +550,14 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 250 mg po tid x 10 days | 250.0mg/5.0ml | SUSPENSION | 0 | 0 | 0",
             "Take 10 mg po daily x 30 days | 10.0mg | SOLUTION | 0 | 0 | 0",
             "1000 mg po tid x 7 days | 500.0 mg | TABLET | 2 | 2 | 42",
-            "Take 300 mg po q4h x 5 days | 300.0 mg / 30.0 mg / 15.0 mg | TABLET | 0 | 0 | 0",
-            "Take 5 mg po q4h prn x 5 days | 5.0 mg / 325.0 mg | TABLET | 0 | 0 | 0",
+            "Take 325 mg po q4h x 5 days | 325.0mg 30.0mg | TABLET | 1 | 1 | 30",
+            "Take 300 mg po q4h x 5 days | 300.0 mg / 30.0 mg / 15.0 mg | TABLET | 1 | 1 | 30",
+            "Take 5 mg po q4h prn x 5 days | 5.0 mg / 325.0 mg | TABLET | 1 | 1 | 30",
             "Take 1 tab po q4h prn x 5 days | 5.0 mg / 325.0 mg | TABLET | 1 | 1 | 30",
+            "Take 25 mcg daily x 30 days | 25.0mcg/hr | PATCH | 0 | 0 | 0",
+            "Take 250 mg po tid x 10 days | 250.0 mg/5.0ml | SUSPENSION | 0 | 0 | 0",
+            "Take 125 mg po tid x 10 days | 125.0 mg / 31.25 mg | SUSPENSION | 0 | 0 | 0",
+            "Apply 50 mg bid x 14 days | 50.0mg/1.0g | CREAM | 0 | 0 | 0",
             "Take 1000 IU po daily x 30 days | 25.0mcg | TABLET | 1 | 1 | 30",
             "1000 IU daily x 90 days | 1000.0unit | TABLET | 1 | 1 | 90",
             "2000 IU daily x 90 days | 1000.0unit | CAPSULE | 2 | 2 | 180",
@@ -831,6 +846,38 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
 
             assertThat(RxUtil.findDuration(rx)).isEqualTo(duration);
         }
+
+        /** A stated duration is returned, and the typed quantity is kept when nothing was calculated. */
+        @Test
+        @DisplayName("should keep the typed quantity when the directions state a duration but no dose")
+        void shouldKeepTypedQuantity_whenDurationIsStatedWithoutADose() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Apply sparingly bid x 7 days");
+            rx.setQuantity("30");
+
+            assertThat(RxUtil.findDuration(rx)).isEqualTo("7");
+            assertThat(rx.getQuantity()).isEqualTo("30");
+        }
+
+        /** Periodic frequencies divide by their exact interval, so three doses every three months last nine months. */
+        @ParameterizedTest(name = "{0} with quantity {1} lasts {2} {3}")
+        @CsvSource(delimiter = '|', value = {
+            "Take 1 tab po q3month | 1 | 3 | M",
+            "Take 1 tab po q3month | 2 | 6 | M",
+            "Take 1 tab po monthly | 3 | 3 | M",
+            "Take 1 tab po weekly | 4 | 4 | W",
+            "Take 1 tab po q2week | 2 | 4 | W"
+        })
+        @DisplayName("should derive whole periods for weekly and monthly frequencies")
+        void shouldDeriveWholePeriods_forPeriodicFrequencies(String instructions, String quantity, String duration,
+                String durationUnit) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            rx.setQuantity(quantity);
+
+            String derived = RxUtil.findDuration(rx);
+
+            assertThat(rx.getDurationUnit()).isEqualTo(durationUnit);
+            assertThat(derived).isEqualTo(duration);
+        }
     }
 
     @Nested
@@ -918,6 +965,40 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
 
             assertThat(rx.getDurationUnit()).isEqualTo(durationUnit);
             assertThat(derived).isEqualTo(duration);
+        }
+
+        /** A date after the frequency ("until 11/12", "starting 3/12") is not the n/7, n/52 or n/12 shorthand. */
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {
+            "Take 1 tab po daily until 11/12",
+            "Take 1 tab po bid starting 3/12",
+            "Take 1 tab po bid until 10/12",
+            "Take 1 tab po bid from 5/7"
+        })
+        @DisplayName("should not read a date after the frequency as a shorthand duration")
+        void shouldNotReadDate_asShorthandDuration(String instructions) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getDuration()).isEqualTo("0");
+            assertThat(rx.getDurationUnit()).isEqualTo("D");
+            assertThat(rx.getQuantity()).isEqualTo("0");
+        }
+
+        /**
+         * A unit letter that is not a duration ("M-F", Monday to Friday) sets no duration unit: the
+         * unit of a duration derived from the quantity still follows the frequency.
+         */
+        @Test
+        @DisplayName("should not read M-F as a month unit")
+        void shouldKeepFrequencyUnit_whenMondayToFridayIsWritten() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po bid M-F");
+            rx.setQuantity("20");
+
+            String derived = RxUtil.findDuration(rx);
+
+            assertThat(rx.getDurationUnit()).isEqualTo("D");
+            assertThat(derived).isEqualTo("10");
         }
     }
 
@@ -1091,7 +1172,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         /**
          * Segments joined by "then" each carry their own dose, frequency and duration; the course
          * dispenses their sum and lasts their total days, while the card shows the first segment's
-         * dose and frequency.
+         * dose and frequency. A later segment that names no method or route is read with the first
+         * segment's ("Apply 2 g bid x 2 weeks then 2 g daily x 2 weeks" stays grams of cream).
          */
         @ParameterizedTest(name = "{0}")
         @CsvSource(delimiter = '|', value = {
@@ -1103,7 +1185,11 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 2 tabs po bid x 3 days, then 1 tab po bid x 3 days, then discontinue. | 2 | 2 | BID | 6 | 18",
             "Take 1 1/2 tabs daily x 3 days then 1/2 tab daily x 3 days | 1.5 | 1.5 | OD | 6 | 6",
             "Take 1/2 tab daily x 3 days then 1/2 tab daily x 3 days | 0.5 | 0.5 | OD | 6 | 3",
-            "Take 5/6 tab daily x 3 days then 5/6 tab daily x 3 days | 0.8333333 | 0.8333333 | OD | 6 | 5"
+            "Take 5/6 tab daily x 3 days then 5/6 tab daily x 3 days | 0.8333333 | 0.8333333 | OD | 6 | 5",
+            "Apply 2 g bid x 2 weeks then 2 g daily x 2 weeks | 2 | 2 | BID | 28 | 84",
+            "2 g TOP. bid x 7 days then 2 g daily x 7 days | 2 | 2 | BID | 14 | 42",
+            "Take 2000 IU po daily x 7 days then 1000 IU daily x 7 days | 1 | 1 | OD | 14 | 14",
+            "Take 2 tabs po bid x 3 days then 1 tab po bid prn x 7 days | 2 | 2 | BID | 10 | 26"
         })
         @DisplayName("should dispense the sum of the taper segments over their total duration")
         void shouldSumTaperSegments_whenJoinedByThen(String instructions, float takeMin, float takeMax,
@@ -1148,6 +1234,19 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getDuration()).isEqualTo(Integer.toString(Integer.MAX_VALUE));
             assertThat(rx.getDurationUnit()).isEqualTo("D");
             assertThat(rx.getQuantity()).isEqualTo(Integer.toString(Integer.MAX_VALUE));
+        }
+
+        /** "prn" on any segment marks the course as needed, as the whole-text scan did before tapers were summed. */
+        @Test
+        @DisplayName("should keep prn when a later segment is as needed")
+        void shouldKeepPrn_whenLaterSegmentIsAsNeeded() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(
+                    "Take 2 tabs po bid x 3 days then 1 tab po bid prn x 7 days");
+
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getPrn()).isTrue();
+            assertThat(rx.getQuantity()).isEqualTo("26");
         }
     }
 }

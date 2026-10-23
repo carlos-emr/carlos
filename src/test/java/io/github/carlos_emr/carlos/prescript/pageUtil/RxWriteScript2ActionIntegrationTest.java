@@ -156,17 +156,19 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     }
 
     /**
-     * A drug chosen from the drug reference carries its strength in {@code dosage} ("500.0 mg" as
-     * the drug picker stages it; "500.0mg" is read the same way) and its form in {@code drugForm}.
-     * A typed strength is divided by that strength, so the response and the staged card agree on
-     * the number of units per dose and the quantity; a strength that is not a whole number of units
-     * of the product, or a combination product ("5.0 mg / 325.0 mg"), calculates nothing.
+     * A drug chosen from the drug reference carries its strength in {@code dosage} ("500.0mg" as
+     * the Rx page stages it, "500.0 mg" from the legacy drug-choice page) and its form in
+     * {@code drugForm}. A typed strength is divided by that strength, so the response and the staged
+     * card agree on the number of units per dose and the quantity; a strength that is not a whole
+     * number of units of the product calculates nothing, and a combination product in either
+     * format keeps the one-unit default.
      */
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
         "1000 mg po tid x 7 days | 500.0mg | TABLET | 2 | 42",
         "1000 mg po tid x 7 days | 500.0 mg | TABLET | 2 | 42",
-        "Take 5 mg po q4h x 5 days | 5.0 mg / 325.0 mg | TABLET | 0 | 0",
+        "Take 325 mg po q4h x 5 days | 325.0mg 30.0mg | TABLET | 1 | 30",
+        "Take 5 mg po q4h x 5 days | 5.0 mg / 325.0 mg | TABLET | 1 | 30",
         "Take 0.5 mg po qhs x 30 days | 1.0mg | TABLET | 0.5 | 15",
         "Take 3 mg po daily x 30 days | 1.0mg | TABLET | 3 | 90",
         "Take 1 g po tid x 7 days | 500.0mg | CAPSULE | 2 | 42",
@@ -263,6 +265,29 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         assertThat(body.path("duration").asText()).isEqualTo("30");
         assertThat(body.path("durationUnit").asText()).isEqualTo("D");
         assertThat(body.path("calQuantity").asText()).isEqualTo("30000");
+    }
+
+    /** The quantity callback divides by the exact interval of a periodic frequency: one dose every three months lasts three months. */
+    @Test
+    void shouldDeriveWholeMonths_whenUpdateQtyFollowsAQuarterlyDose() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setSpecial("Take 1 tab po q3month");
+        RxUtil.instrucParser(rx);
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "updateQty");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("quantity", "1");
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("duration").asText()).isEqualTo("3");
+        assertThat(body.path("durationUnit").asText()).isEqualTo("M");
+        assertThat(body.path("calQuantity").asText()).isEqualTo("1");
     }
 
     /**
