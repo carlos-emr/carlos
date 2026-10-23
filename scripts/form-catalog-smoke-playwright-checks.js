@@ -7,8 +7,8 @@
 // Table-driven over 25 forms (Rourke 2006 and the original Rourke, Letterhead, the 2003 Lab Req, ADFv2,
 // ALPHA, CESD, CHF, Caregiver and its SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Grip
 // Strength, ImmunAllergies, Intake Information, both Late Life FDI forms, Position Hazard, Risk
-// Assessment, Self Efficacy, Self Management, Treatment Preference, Health Passport) plus the Patient
-// Encounter Worksheet, which only prints. Rourke 2020 and the growth charts are form-rourke2020-*.
+// Assessment, Self Efficacy, Self Management, Treatment Preference, Health Passport). The Patient Encounter
+// Worksheet, which only printed, was retired in #5089. Rourke 2020 and the growth charts are form-rourke2020-*.
 // British Columbia: the same flow over seven BC forms (BC-AR, BC-AR 2007, the Labour and Birth Summary and the
 // Birth Summary 2008, BC-INR, Chart Checklist, BC-NewBorn), claimed only by the form-catalog-smoke-bc* entries,
 // which run on a BC install. BC-AR 2012/2020 are form-bc-antenatal-record, BC-NewBorn 2008 form-bc-newborn.
@@ -151,9 +151,6 @@ const FORMS = [
   { key: 'healthpassport', code: 'HPP', title: 'Health Passport', view: 'formbchp', table: 'formBCHP',
     prose: { name: 'pg1_allergies' }, fields: [check('pg1_diabetes')], print: { kind: 'pdf', button: 'Print', where: 'popup' },
     bare: true },
-  // Prints a worksheet and saves nothing: no table, so no save, redisplay or reopen.
-  { key: 'worksheet', code: 'PEW', title: 'Patient Encounter Worksheet', view: 'patientEncounterWorksheet', table: '',
-    prose: { name: 'encounter_notes' }, fields: [], ready: 'Print', print: { kind: 'pdf', button: 'Print', where: 'same' } },
   // British Columbia forms, asserted only by the form-catalog-smoke-bc* entries, which run on a BC install. BC-AR and
   // BC-AR 2007 open on page 1 of three, BC-NewBorn on page 1 of three; the BC seed shows five of these in the Forms menu
   // already, but each still gets its own marker-named registration like every other row.
@@ -195,9 +192,9 @@ function validatePin(env = process.env) {
  * cannot be found there. scripts/form-claims.test.js proves each literal equals the generated label, so the
  * table cannot drift from the wording below.
  */
-const PINNED = Object.freeze({
-  'cesd.redisplay': 'CESD: Save redisplays the saved record in the window it was pressed in',
-});
+// Empty: findings 230 (ALPHA, #4590) and 232 (CESD, #4591) are fixed, as is 236 (Rourke 2006 and Mental Health
+// reopen, #4595).
+const PINNED = Object.freeze({});
 const CONCERN_STEP = Object.freeze({
   bare: 'opens for a patient whose address, phone and health-card columns are NULL',
   open: 'opens from the Forms menu with no error page, script error or failed asset',

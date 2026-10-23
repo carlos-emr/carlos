@@ -787,7 +787,7 @@
                                                     <td valign="top" width="25%" align="right">
                                                         <table>
                                                             <tr>
-                                                                <td>FP Visit Date</td>
+                                                                <td><fmt:message key="form.vt.visitDate"/></td>
                                                                 <td rowspan="2"><input type="text" size="8" name="value(visitCod)"/></td>
                                                             </tr>
                                                             <tr>

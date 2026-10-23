@@ -52,11 +52,12 @@ class FrmAlphaRenderingUnitTest {
     }
 
     private String renderProperties(String fragment) {
-        Pattern tags = Pattern.compile("<carlos:encode value='<%=\\s*props.getProperty\\(\"[^\"]+\",\\s*\"[^\"]*\"\\)\\s*%>' context=\"(html|htmlAttribute)\"/>");
+        // <carlos:encode> without a context encodes as html content, as context="html" does (CarlosEncodeTag).
+        Pattern tags = Pattern.compile("<carlos:encode value='<%=\\s*props.getProperty\\(\"[^\"]+\",\\s*\"[^\"]*\"\\)\\s*%>'(?: context=\"(html|htmlAttribute)\")?/>");
         Matcher found = tags.matcher(fragment);
         StringBuffer result = new StringBuffer();
-        while (found.find()) found.appendReplacement(result, Matcher.quoteReplacement(found.group(1).equals("html")
-                ? Encode.forHtml(PAYLOAD) : Encode.forHtmlAttribute(PAYLOAD)));
+        while (found.find()) found.appendReplacement(result, Matcher.quoteReplacement("htmlAttribute".equals(found.group(1))
+                ? Encode.forHtmlAttribute(PAYLOAD) : Encode.forHtmlContent(PAYLOAD)));
         found.appendTail(result);
         // Model the same stored value at a legacy unencoded expression to make this fail on original JSP markup.
         return result.toString().replaceAll("<%=\\s*props.getProperty\\(\"[^\"]+\",\\s*\"[^\"]*\"\\)\\s*%>", Matcher.quoteReplacement(PAYLOAD));

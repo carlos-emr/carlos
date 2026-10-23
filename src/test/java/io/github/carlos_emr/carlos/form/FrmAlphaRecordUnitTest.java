@@ -112,7 +112,7 @@ class FrmAlphaRecordUnitTest {
         Connection connection = mock(Connection.class);
         PreparedStatement insert = mock(PreparedStatement.class), id = mock(PreparedStatement.class);
         ResultSet row = savedRow(schema, props), generated = mock(ResultSet.class);
-        when(connection.prepareStatement("SELECT * FROM formAlpha WHERE demographic_no=? AND ID=0", ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE)).thenReturn(insert);
+        when(connection.prepareStatement("SELECT * FROM formAlpha WHERE demographic_no = ? AND ID = 0", ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE)).thenReturn(insert);
         when(connection.prepareStatement("SELECT LAST_INSERT_ID()", ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY)).thenReturn(id);
         when(insert.executeQuery()).thenReturn(row);
         when(id.executeQuery()).thenReturn(generated);

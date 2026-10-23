@@ -59,4 +59,5 @@ on/V1.0.56__preserve_claim_item_explanations.sql
 common/V1.0.57__preserve_rourke2020_immunization_notes.sql
 common/V1.0.58__preserve_on_behalf_lab_filing_comments.sql
 common/V1.0.59__archive_security_mfa_setting.sql
-common/V1.0.59.1__preserve_full_appointment_names.sql
+common/V1.0.59.2__remove_patient_encounter_worksheet.sql
+common/V1.0.59.3__preserve_full_appointment_names.sql
