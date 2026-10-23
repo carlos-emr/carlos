@@ -618,7 +618,15 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "Take 10 IU SC qhs x 30 days | 1000.0unit | TABLET | 10 | 10 | 300",
             "1000 mg (2 tabs) po tid x 7 days | 1000.0mg | TABLET | 2 | 2 | 42",
             "Take 1 1/2 mg po daily x 30 days | 0.5mg | TABLET | 3 | 3 | 90",
-            "Take 5 mL po tid x 7 days | 250.0mg/5.0ml | SUSPENSION | 5 | 5 | 105"
+            "Take 5 mL po tid x 7 days | 250.0mg/5.0ml | SUSPENSION | 5 | 5 | 105",
+            "Take 100 mcg INH BID x 30 days | 50.0mcg/act | METERED-DOSE AEROSOL | 2 | 2 | 120",
+            "Take 800 mcg INH BID x 30 days | 400.0mcg/actuation | INHALER | 2 | 2 | 120",
+            "Take 100 mcg INH BID x 30 days | 50.0 MCG/ACT | AEROSOL | 2 | 2 | 120",
+            "Take 100 mcg intranasally daily x 30 days | 50.0mcg/spray | SPRAY, METERED DOSE | 2 | 2 | 60",
+            "Take 400 mcg INH BID x 30 days | 200.0mcg/dose | POWDER (METERED DOSE) | 2 | 2 | 120",
+            "Take 50 mcg INH BID x 30 days | 50.0mcg/act | METERED-DOSE AEROSOL | 1 | 1 | 60",
+            "Take 2 puffs INH BID x 30 days | 50.0mcg/act | METERED-DOSE AEROSOL | 2 | 2 | 120",
+            "Take 75 mcg INH BID x 30 days | 50.0mcg/act | METERED-DOSE AEROSOL | 0 | 0 | 0"
         })
         void shouldDivideByProductStrength_whenSelectedProductStrengthIsKnown(String instructions,
                 String dosage, String drugForm, float minimum, float maximum, String quantity) {

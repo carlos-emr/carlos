@@ -169,6 +169,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         "1000 mg po tid x 7 days | 500.0 mg | TABLET | 2 | 42",
         "Take 325 mg po q4h x 5 days | 325.0mg 30.0mg | TABLET | 1 | 30",
         "Take 5 mg po q4h x 5 days | 5.0 mg / 325.0 mg | TABLET | 1 | 30",
+        "Take 100 mcg INH BID x 30 days | 50.0mcg/act | METERED-DOSE AEROSOL | 2 | 120",
         "Take 0.5 mg po qhs x 30 days | 1.0mg | TABLET | 0.5 | 15",
         "Take 3 mg po daily x 30 days | 1.0mg | TABLET | 3 | 90",
         "Take 1 g po tid x 7 days | 500.0mg | CAPSULE | 2 | 42",

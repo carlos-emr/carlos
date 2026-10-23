@@ -143,6 +143,15 @@ public class RxUtil {
     /** A liquid dosage form, measured by volume rather than counted. */
     private static final Pattern LIQUID_FORM = Pattern.compile(
             "\\b(?:solution|suspension|syrup|elixir|liquid|emulsion|tincture)\\b", Pattern.CASE_INSENSITIVE);
+    /**
+     * The denominator of a metered product's strength ("50 mcg/act", "50 mcg/spray", "200 mcg/dose",
+     * "100 mcg/metered dose"): what one actuation delivers, so the strength counts units like a
+     * tablet's does. DrugRef stores it as the component's dosage unit (ACT, SPRAY, DOSE, BLISTER,
+     * METERED DOSE); a volume, mass or time denominator is a concentration or a rate instead.
+     */
+    private static final Pattern METERED_UNIT_DENOMINATOR = Pattern.compile(
+            "^\\s*+(?:act|actuations?|doses?|puffs?|sprays?|inh|inhalations?|blisters?|metered\\s++dose)\\b",
+            Pattern.CASE_INSENSITIVE);
     /** More units than this per administration means the strength and the product do not match. */
     private static final BigDecimal MAX_UNITS_PER_DOSE = BigDecimal.valueOf(20);
     private static final Pattern CONCENTRATION_SEPARATOR = Pattern.compile("(?:/|per\\b)\\s*", Pattern.CASE_INSENSITIVE);
@@ -1882,7 +1891,8 @@ public class RxUtil {
      * nothing about the volume given. The legacy drug-choice page joins a combination product's
      * components with a spaced slash ("5.0 mg / 325.0 mg"), which is a separator, not a denominator,
      * so both pages read a combination product the same way; a liquid combination is still a liquid
-     * by its form.
+     * by its form. A metered product's strength ("50.0mcg/act", "50.0 MCG/SPRAY") is per actuation,
+     * so it divides a typed strength into actuations as a tablet's strength divides it into tablets.
      */
     private static boolean isLiquidOrRate(RxPrescriptionData.Prescription rx) {
         String dosage = rx.getDosage();
@@ -1890,12 +1900,16 @@ public class RxUtil {
         return (dosage != null && hasConcentrationSlash(dosage)) || (form != null && LIQUID_FORM.matcher(form).find());
     }
 
-    /** True when the dosage text has a slash that is not the legacy page's component separator, a slash with a space on both sides. */
+    /**
+     * True when the dosage text has a slash that is neither the legacy page's component separator (a
+     * slash with a space on both sides) nor followed by a metered unit ({@code /act}, {@code /spray},
+     * {@code /dose}).
+     */
     private static boolean hasConcentrationSlash(String dosage) {
         for (int slash = dosage.indexOf('/'); slash >= 0; slash = dosage.indexOf('/', slash + 1)) {
             boolean separator = slash > 0 && slash + 1 < dosage.length()
                     && dosage.charAt(slash - 1) == ' ' && dosage.charAt(slash + 1) == ' ';
-            if (!separator) {
+            if (!separator && !METERED_UNIT_DENOMINATOR.matcher(dosage.substring(slash + 1)).find()) {
                 return true;
             }
         }
