@@ -240,6 +240,22 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
         }
+
+        @Test
+        @DisplayName("should pass through GET to the RH form's injection editor view")
+        void shouldPassThrough_forGetToRhInjectionEditor() throws Exception {
+            // form/addRhInjection starts with "add" but is a ViewForm2Action wildcard view: the RH
+            // form's Add Injection opens it with GET, and the injection is stored by the editor's
+            // POST to prevention/AddPrevention (#4992).
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/form/addRhInjection");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
     }
 
     @Nested

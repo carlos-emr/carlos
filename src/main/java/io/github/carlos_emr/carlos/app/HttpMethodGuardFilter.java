@@ -227,6 +227,10 @@ public class HttpMethodGuardFilter implements Filter {
                                           // Mapping, #3335): GET with no row id renders the table
                                           // and its Search; the action answers 405 to any non-POST
                                           // that names an id (a removal or remap).
+            "addrhinjection",            // form/addRhInjection, the RH form's injection editor
+                                          // (#4992): a ViewForm2Action wildcard view that only
+                                          // renders addRhInjection.jsp. The injection itself is
+                                          // stored by its form's POST to prevention/AddPrevention.
             "addrelation"                // AddDemographicRelationship2Action (demographic "Add
                                           // Relation" popup, edit-view.jsp): GET with only `demo`
                                           // renders the contact-search form (AddAlternateContact.jsp).

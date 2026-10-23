@@ -2,7 +2,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
  * Issue #5051 (BC installs only): a new BC install offers the current antenatal record, BC-AR 2020, in the E-Chart's
- * Forms menu, not the older BC-AR and BC-AR 2007. bc/V1.0.59.3 makes that change while the four BC antenatal rows
+ * Forms menu, not the older BC-AR and BC-AR 2007. bc/V1.0.59.4 makes that change while the four BC antenatal rows
  * are still as the baseline seeded them (BC-AR 1, BC-AR 2007 1, BC-AR 2012 0, BC-AR 2020 0; encounterForm.hidden is
  * the menu position and 0 hides a form), and leaves a clinic's own Select Forms choices alone.
  *
@@ -44,7 +44,7 @@ async function workflow(s) {
   await s.step('the BC antenatal rows are as the migration leaves a new install: BC-AR 2020 shown, the older records hidden', async () => {
     const baseline = hidden['BC-AR'] === '1' && hidden['BC-AR 2007'] === '1' && hidden['BC-AR 2012'] === '0' && hidden['BC-AR 2020'] === '0';
     h.assert(!baseline, 'the BC antenatal rows are still at the baseline values (BC-AR and BC-AR 2007 shown, BC-AR 2020 hidden): '
-      + 'bc/V1.0.59.3 did not run');
+      + 'bc/V1.0.59.4 did not run');
     const migrated = !SHOWN(hidden['BC-AR']) && !SHOWN(hidden['BC-AR 2007']) && !SHOWN(hidden['BC-AR 2012']) && SHOWN(hidden['BC-AR 2020']);
     if (!migrated) {
       throw new h.SkipCheck(`the clinic has its own BC antenatal choices (${JSON.stringify(hidden)}), so a new install's defaults cannot be judged`);
