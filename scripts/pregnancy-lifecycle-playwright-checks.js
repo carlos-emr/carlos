@@ -184,6 +184,8 @@ async function workflow(s) {
       && rows[0][6].startsWith('2026-01-02') && rows[0][8] === String(provider) && rows[0][10] === wireNotes,
     'Create lost pregnancy type, start date, provider or literal notes');
     await chart.locator(`#pregnancy a[onclick*="episodeId=${id}"]`).first().waitFor();
+    assert(await chart.locator(`#pregnancy a[onclick*="episodeId=${id}"]`).first().getAttribute('title') === literalNotes,
+      'Pregnancy chart tooltip did not preserve literal notes safely');
     const before = snapshot();
     await popup.reload();
     assert(JSON.stringify(snapshot()) === JSON.stringify(before), 'Reload after create duplicated pregnancy');
