@@ -74,7 +74,7 @@
     UserProperty uProp = userPropertyDAO.getProp(curProvider_no, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
     Boolean clinicDefault = true;
 
-    if (uProp != null && uProp.getValue().equals(UserProperty.USER)) {
+    if (uProp != null && UserProperty.USER.equals(uProp.getValue())) {
         clinicDefault = false;
     }
 %>
@@ -330,8 +330,8 @@
 
     <table style="visibility:hidden" id="tblDesc">
         <tr>
-            <th align="left"><label for="docDescriptionShortcut"><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></label></th>
-            <th align="left"><label for="docDescription"><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></label></th>
+            <th style="text-align: left"><label for="docDescriptionShortcut"><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></label></th>
+            <th style="text-align: left"><label for="docDescription"><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></label></th>
         </tr>
         <tr>
             <td><input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo == null ? "null" : providerNo %>' context="htmlAttribute"/>"><input

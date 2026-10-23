@@ -106,6 +106,9 @@ class DocumentDescriptionTemplateJspRegressionTest {
 
         assertThat(jsp)
                 .contains("if (!response.ok || response.redirected) throw new Error('Description shortcuts request failed');")
+                .contains("var shortcutRequest = ++descriptionShortcutRequest;")
+                .contains("if (shortcutRequest !== descriptionShortcutRequest) return;")
+                .contains("UserProperty.USER.equals(uProp.getValue())")
                 .contains("dms.incomingDocs.descriptionShortcutsUnavailable");
         for (String locale : LOCALES) {
             Properties bundle = new Properties();
