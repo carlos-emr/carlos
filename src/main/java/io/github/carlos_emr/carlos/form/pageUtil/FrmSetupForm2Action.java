@@ -131,6 +131,30 @@ public final class FrmSetupForm2Action extends ActionSupport {
             return NONE;
         }
 
+        return render(loggedInInfo, demo, formId, formName, null);
+    }
+
+    /**
+     * Shows a refused save again: the form as {@link #execute()} renders it, with the values the
+     * clinician typed in place of the stored ones and the refusal reasons (the {@code actionErrors}
+     * request attribute the page lists). {@link FrmForm2Action} calls it after its own patient,
+     * privilege and form-name checks, in the same request, before anything is written (issue #4674).
+     *
+     * @param trustedFormName a registered SetupForm name the caller already validated
+     * @param formId          the record the form was opened from ({@code 0} for a new form)
+     * @param demo            the patient, already checked by the caller
+     * @param submitted       typed values keyed as the page names its fields ({@code WTValue}, ...)
+     * @return {@link #NONE}: the page is forwarded to directly
+     * @throws Exception as {@link #execute()} does
+     */
+    String redisplay(String trustedFormName, String formId, String demo, Map<String, String> submitted)
+            throws Exception {
+        this.setValue("formId", formId);
+        return render(LoggedInInfo.getLoggedInInfoFromSession(request), demo, formId, trustedFormName, submitted);
+    }
+
+    private String render(LoggedInInfo loggedInInfo, String demo, String formId, String formName,
+                          Map<String, String> submitted) throws Exception {
         // An existing record must belong to the explicit patient before any clinical prefill.
         Properties currentRec;
         try {
@@ -228,6 +252,16 @@ public final class FrmSetupForm2Action extends ActionSupport {
             MiscUtils.getLogger().debug("Error, file " + formName + ".xml not found.");
             MiscUtils.getLogger().debug("This file must be placed at www/form");
             MiscUtils.getLogger().error("Error", e);
+        }
+        if (submitted != null) {
+            // A refused save shows what was typed, not the stored record. The page restores every
+            // formValues entry into its field; Date and Comments are also read as request attributes.
+            for (Map.Entry<String, String> field : submitted.entrySet()) {
+                values.put(field.getKey(), field.getValue());
+                if (field.getKey().endsWith("Date") || field.getKey().endsWith("Comments")) {
+                    request.setAttribute(field.getKey(), field.getValue());
+                }
+            }
         }
         // Keep patient identity and clinical prefill in this request, never in the shared session.
         request.setAttribute("formValues", values);

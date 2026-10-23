@@ -6266,7 +6266,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Table-driven over 26 Ontario forms that had no save/reopen check: Rourke 2006 and the original Rourke, Letterhead, the 2003 Lab Req, ADFv2, ALPHA, CESD, CHF, Caregiver and Caregiver - SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Grip Strength, ImmunAllergies, Intake Information, FDI Disability and Function, Position Hazard, Risk Assessment, Self Efficacy, Self Management, Treatment Preference, Health Passport and the Patient Encounter Worksheet (print only). Per form, opened from a marker-named Forms-menu registration of its shipped form_value: it opens with no error page, uncaught script error, console error or failed asset; it shows no unresolved ???message key???; Save stores one new row holding the typed values and the signing provider; Save redisplays the record in the window it was pressed in; a fresh chart's saved-form entry reopens it; the redisplayed and reopened forms show every saved value; Print produces a PDF (%PDF, the typed text where the template carries it) or calls the browser print. This entry asserts every pair not claimed by a variant, so it passes when the rest of the catalogue is sound. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "notes": "Table-driven over 25 Ontario forms that had no save/reopen check: Rourke 2006 and the original Rourke, Letterhead, the 2003 Lab Req, ADFv2, ALPHA, CESD, CHF, Caregiver and Caregiver - SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Grip Strength, ImmunAllergies, Intake Information, FDI Disability and Function, Position Hazard, Risk Assessment, Self Efficacy, Self Management, Treatment Preference and Health Passport (the print-only Patient Encounter Worksheet was retired in #5089). Per form, opened from a marker-named Forms-menu registration of its shipped form_value: it opens with no error page, uncaught script error, console error or failed asset; it shows no unresolved ???message key???; Save stores one new row holding the typed values and the signing provider; Save redisplays the record in the window it was pressed in; a fresh chart's saved-form entry reopens it; the redisplayed and reopened forms show every saved value; Print produces a PDF (%PDF, the typed text where the template carries it) or calls the browser print. This entry asserts every pair not claimed by a variant, so it passes when the rest of the catalogue is sound. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
       "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -6291,12 +6291,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "ALPHA, pinned to finding 230: the Forms-menu entry answers HTTP 500 because formalpha.jsp asks for a record class (Alpha) that does not exist. The pin is the open step; the form's other steps are asserted once it opens. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
-      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 230,
-        "step": "ALPHA: opens from the Forms menu with no error page, script error or failed asset"
-      }
+      "notes": "ALPHA, finding 230 (fixed, #4590): the Forms-menu entry answered HTTP 500 because formalpha.jsp asked for a record class (Alpha) that did not exist; FrmAlphaRecord now reads and saves formAlpha, and the page no longer links a missing stylesheet. The entry asserts every pair of the form, so a regression is attributed to the finding. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-checkbox-restore",
@@ -6345,12 +6341,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "CESD, pinned to finding 232: Save stores the row and then lands on the error page (HTTP 404) because the form's hidden form_link is formCDSD.jsp. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
-      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 232,
-        "step": "CESD: Save redisplays the saved record in the window it was pressed in"
-      }
+      "notes": "CESD, finding 232 (fixed, #4591): Save stored the row and then landed on the error page (HTTP 404) because the form's hidden form_link was formCDSD.jsp; it is now formCESD.jsp. The redisplay pair stays in its own entry so a regression is attributed to the finding. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-letterhead-restore",
@@ -6644,6 +6636,54 @@
       ],
       "notes": "ADFv2, finding 240 (fixed, #4598), the Save and Exit half: from the Forms menu, Save and Exit is confirmed once, posted into the form's own window (answered by close.jsp), and that window closes with no other window opened; exactly one formAdfV2 row holds the typed values and the signing provider. Before the fix the post went to a window named apptProviderSearch, which close.jsp closed, and the form window stayed open on the unsaved form. The Save half is form-catalog-smoke-adfv2-window; scripts/adfv2-save-window-target.test.js runs the page's handlers.",
       "fixtures": "Owned synthetic patient and one marker-named encounterForm registration of formadfv2; cleanup deletes the owned patient's formAdfV2 rows and the registration, and asserts both gone. The registration is clinic-wide (the shipped row is hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "form-consultant-print-no-save",
+      "script": "scripts/form-consultant-print-no-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "mutates": [],
+      "notes": "Issue #4370, the consultant letter (Letterhead, form/formConsultant): OK on the \"Do you wish to make changes?\" question after Print used to send the form with submit=save, saving the letter unasked. A new letter is opened for the owned patient, Comments typed, Print answered OK (the editor and buttons return, nothing is posted or stored) and then Cancel (the print view stays with the buttons shown, nothing is posted or stored), and Save then stores the letter once with the typed Comments. window.print is stubbed and counted.",
+      "fixtures": "Owned synthetic patient and the letter Save stores; cleanup deletes the owned patient's formConsult rows and asserts them gone. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
+    },
+    {
+      "name": "form-vt-save-refusal",
+      "script": "scripts/form-vt-save-refusal-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "mutates": [],
+      "notes": "Issue #4674, the Vascular Tracker save: the validation result was overwritten by each later check (so an invalid value was saved whenever the visit date was valid), a refused save redirected to a fresh form without the typed values or the reason, and Save & Exit committed its measurements before the form row. A new VT form is opened by its Setup route for the owned patient (the registration is hidden by default), blood pressure 120/80 and a weight of 999 kg are typed and Update VT is pressed: the form comes back listing the weight's 0 to 300 range, both values are still in their boxes and nothing is stored. The weight is corrected and Save & Exit is confirmed: one VT record and the BP and WT measurements are stored. Rollback of a failed write is covered by FrmVtSaveIntegrityIntegrationTest.",
+      "fixtures": "Owned synthetic patient and the VT record and measurements Save & Exit stores; cleanup deletes the owned patient's formVTForm and measurements rows and asserts them gone. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
+    },
+    {
+      "name": "rh-workflow-form-links",
+      "script": "scripts/rh-workflow-form-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [],
+      "notes": "Issue #4992 (findings-log numbers; the issue numbers them 284 to 290), the Rh immune globulin workflow around the RH form: the WorkFlow queue's RH link left the application and named a Forms-menu shortcut no shipped install registers (287), Add Injection opened addRhInjection without form/ (288), the injection editor's Save raised a script error (290), and the injection panel stayed empty because its lookup parsed the prevention entity's toString() as an id (291). Behind them the packaged install also refused the editor's GET (HttpMethodGuardFilter, an add* route) and every RH injection save and delete (prevention/AddPrevention, an unlisted prevention type); both are fixed. A saved RH form bound to an active workflow is opened for the owned patient: its panel lists the seeded injection with its lot (carrying inert markup, shown as text), product, location and reason; Add Injection opens the editor for the same patient, workflow and form; Save Injection stores one linked injection without a script error and the panel refreshes to two; the panel's Delete removes only the chosen injection; the queue row's link resolves inside the application to that workflow's saved form and opens it. The log-privacy half (293) is PreventionDataExtLookupUnitTest.",
+      "fixtures": "Owned synthetic patient; one active RH workflow, one saved formRhImmuneGlobulin row bound to it and one RH prevention with workflowId, formId, lot, product, dosage, location and reason extensions; the injection Save Injection stores. Cleanup deletes the owned patient's preventions and their extensions, formRhImmuneGlobulin rows and workflow rows, and asserts them gone. The queue lists every active RH workflow, so other clinics' rows may show; the check reads only the owned patient's link."
     },
     {
       "name": "form-checkbox-reopen",
@@ -14141,15 +14181,11 @@
       "env": [
         "RH_QUEUE_ONLY"
       ],
-      "notes": "RH Form Save, WorkFlow queue membership and RH link, close, later pregnancy. Requires WORKFLOW=yes. Verifies persisted state and rendered queue; leaves closed history intact. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 287.",
+      "notes": "RH Form Save, WorkFlow queue membership and RH link, close, later pregnancy. Requires WORKFLOW=yes. Verifies persisted state and rendered queue; leaves closed history intact. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 287 (fixed, #4992): the queue's RH link now opens the RH form saved for that workflow inside the application.",
       "mutates": [
         "encounterForm"
       ],
-      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 287,
-        "step": "the queue RH link reopens the saved form for that pregnancy"
-      }
+      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "rh-injection-workflow",
@@ -14165,15 +14201,11 @@
       "env": [
         "RH_INJECTION_ONLY"
       ],
-      "notes": "RH Form > Add Injection > Save Injection > Delete. Verifies the real popup, prevention fields and the opener injection panel. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 288.",
+      "notes": "RH Form > Add Injection > Save Injection > Delete. Verifies the real popup, prevention fields and the opener injection panel. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 288 (fixed, #4992): Add Injection opens form/addRhInjection, which HttpMethodGuardFilter no longer refuses as a GET to an add* write; Save Injection (finding 290) and Delete reach prevention/AddPrevention, which accepts the RH type the Preventions page does not list.",
       "mutates": [
         "encounterForm"
       ],
-      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 288,
-        "step": "Add Injection opens for the saved RH form and the same patient and workflow"
-      }
+      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "tickler-bulk-actions",
@@ -14228,17 +14260,13 @@
       "env": [
         "RH_INJECTION_ONLY"
       ],
-      "notes": "An existing injection on the current pregnancy is displayed through the RH form and archived by its panel Delete link. Independent of Add Injection so that a broken add path cannot hide display/delete failures. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 291.",
+      "notes": "An existing injection on the current pregnancy is displayed through the RH form and archived by its panel Delete link. Independent of Add Injection so that a broken add path cannot hide display/delete failures. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 291 (fixed, #4992): the panel looks injections up by their prevention id again, and its Delete posts the prevention type and date prevention/AddPrevention requires.",
       "mutates": [
         "encounterForm"
       ],
       "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "envSet": {
         "RH_INJECTION_ONLY": "existing"
-      },
-      "expectedFailure": {
-        "finding": 291,
-        "step": "a saved RH form displays an existing injection with its lot, product, dose and reason"
       }
     },
     {
@@ -14276,17 +14304,13 @@
         "CARLOS_LOG_JOURNAL_UNIT",
         "CARLOS_LOG_AUDIT_SINCE"
       ],
-      "notes": "Opens a current pregnancy with an existing RH injection through the chart and scans the server journal for the unique synthetic clinical marker. Verifies the panel request and that the journal was read; requires CARLOS_LOG_JOURNAL_UNIT. Independent of the blank panel assertion. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 293.",
+      "notes": "Opens a current pregnancy with an existing RH injection through the chart and scans the server journal for the unique synthetic clinical marker. Verifies the panel request and that the journal was read; requires CARLOS_LOG_JOURNAL_UNIT. Independent of the blank panel assertion. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 293 (fixed, #4992): the panel no longer logs the prevention entity, and a non-numeric id is refused without echoing it.",
       "mutates": [
         "encounterForm"
       ],
       "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "envSet": {
         "RH_INJECTION_ONLY": "privacy"
-      },
-      "expectedFailure": {
-        "finding": 293,
-        "step": "the RH injection panel writes no clinical fixture data to the server log"
       }
     },
     {
