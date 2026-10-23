@@ -24,8 +24,7 @@ import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Conditional-POST gate for {@code lab/CA/BC/index}. The JSP's scriptlet
- * performs DB mutations (linkDao.merge/persist or LabRequestReportLink save/update/delete) when a submit/action parameter is present. Enforces
+ * Conditional-POST gate for {@code lab/CA/BC/index}. An explicit POST links the selected patient through a transactional service. Enforces
  * {@code _lab} w privilege always, plus POST-only when the mutation
  * trigger is supplied (CSRF hardening). GET without trigger params is
  * allowed so the initial form renders via popup/navigation.
@@ -64,6 +63,23 @@ public final class ViewLabBcIndex2Action extends ActionSupport {
             return NONE;
         }
 
+        if (hasMutationTrigger) {
+            try {
+                var service = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.PathnetPatientLinkService.class);
+                String pid = request.getParameter("pid");
+                String demographic = request.getParameter("demo_id");
+                if (pid != null && !pid.isBlank() && demographic != null && !demographic.isBlank()) {
+                    service.link(Integer.parseInt(pid), Integer.valueOf(demographic), loggedInInfo.getLoggedInProviderNo());
+                }
+                String[] checked = request.getParameterValues("chk");
+                if (checked != null) {
+                    for (String id : checked) service.link(Integer.parseInt(id), null, loggedInInfo.getLoggedInProviderNo());
+                }
+            } catch (IllegalArgumentException ex) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Select a valid lab and patient");
+                return NONE;
+            }
+        }
         return SUCCESS;
     }
 }

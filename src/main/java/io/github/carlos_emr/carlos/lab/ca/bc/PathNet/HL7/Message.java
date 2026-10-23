@@ -43,7 +43,8 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Message;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
-import io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -209,39 +210,41 @@ public class Message {
         l.setDemographicNo(demographicNo == null ? 0 : demographicNo);
         patientLabRoutingDao.persist(l);
 
+        for (Hl7Pid patient : SpringUtils.getBean(Hl7PidDao.class).findByMessageId(segmentID)) {
+            Hl7Link link = new Hl7Link();
+            link.setId(patient.getId());
+            link.setDemographicNo(demographicNo == null ? 0 : demographicNo);
+            SpringUtils.getBean(Hl7LinkDao.class).persist(link);
+        }
+
         // NOT ALL DOCS WANT ALL LABS ECHO'D INTO THERE INBOX
         if (demographicNo != null) {
             patientProviderRoute("" + segmentID, demographicNo.toString());
         }
     }
 
-    // Matches an active patient on initials, date of birth and sex, and the health number when
-    // the PID carries one; null when the PID is absent, unparseable or matches nobody.
+    // Never guess from name/sex or take the first of several patients. A supplied DOB must agree.
     private Integer matchPatient(int segmentID) {
         List<Hl7Pid> pids = SpringUtils.getBean(Hl7PidDao.class).findByMessageId(segmentID);
-        if (pids.isEmpty()) {
-            return null;
-        }
-        Hl7Pid pid = pids.get(0);
-        String name = pid.getPatientName();
-        Date dob = pid.getDateOfBirth();
-        if (name == null || dob == null) {
-            return null;
-        }
-        String[] nameParts = name.split("\\^");
-        if (nameParts.length < 2 || nameParts[0].isEmpty() || nameParts[1].isEmpty()) {
-            return null;
-        }
-        String lastInitial = nameParts[0].toUpperCase().substring(0, 1);
-        String firstInitial = nameParts[1].toUpperCase().substring(0, 1);
-        String dobYear = new SimpleDateFormat("yyyy").format(dob);
-        String dobMonth = new SimpleDateFormat("MM").format(dob);
-        String dobDay = new SimpleDateFormat("dd").format(dob);
+        if (pids.size() != 1) return null;
+        Hl7Pid patient = pids.get(0);
+        Date dob = patient.getDateOfBirth();
+        String phn = patient.getExternalId();
+        if (phn == null || phn.isBlank()) return null;
+        if (dob == null && pid != null && !pid.get("date_of_birth", "").isBlank()) return null;
+        List<Demographic> matches = SpringUtils.getBean(DemographicDao.class).findActiveByExactHin(phn).stream()
+                .filter(demo -> dob == null || matchesBirthDate(demo, dob)).toList();
+        return matches.size() == 1 ? matches.get(0).getDemographicNo() : null;
+    }
 
-        DemographicDaoImpl dDao = SpringUtils.getBean(DemographicDaoImpl.class);
-        List<Demographic> demos = dDao.findByCriterion(new DemographicDaoImpl.DemographicCriterion(
-                pid.getExternalId(), lastInitial, firstInitial, dobYear, dobMonth, dobDay, pid.getSex(), "AC"));
-        return demos.isEmpty() ? null : demos.get(0).getDemographicNo();
+    private boolean matchesBirthDate(Demographic demo, Date dob) {
+        try {
+            return Integer.parseInt(demo.getYearOfBirth()) == Integer.parseInt(new SimpleDateFormat("yyyy").format(dob))
+                    && Integer.parseInt(demo.getMonthOfBirth()) == Integer.parseInt(new SimpleDateFormat("MM").format(dob))
+                    && Integer.parseInt(demo.getDateOfBirth()) == Integer.parseInt(new SimpleDateFormat("dd").format(dob));
+        } catch (NumberFormatException ex) {
+            return false;
+        }
     }
 
     ////

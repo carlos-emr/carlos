@@ -4953,9 +4953,13 @@
     {
       "name": "flowsheet-prevention-print",
       "script": "scripts/flowsheet-prevention-print-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": true,
-      "provinces": ["all"],
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 180,
       "env": [],
       "fixtures": "Owned synthetic patient with three preventions and four A1C readings; all removed and verified by workflow cleanup.",
@@ -16102,6 +16106,36 @@
         "secUserRole"
       ],
       "notes": "Issue #3585: reprint audit writes require global and patient-scoped write; rejects GET/HEAD and tokenless POST, with browser reprint and persisted audit assertions."
+    },
+    {
+      "name": "pathnet-patient-link",
+      "script": "scripts/pathnet-patient-link-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "manual": true,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "mutates": [
+        "demographic",
+        "hl7_message",
+        "hl7_msh",
+        "hl7_pid",
+        "hl7_orc",
+        "hl7_obr",
+        "hl7_obx",
+        "hl7_link",
+        "patientLabRouting",
+        "providerLabRouting",
+        "providerLabRoutingLock",
+        "fileUploadCheck"
+      ]
     }
   ]
 }

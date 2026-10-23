@@ -47,6 +47,18 @@ import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.Node;
  * www.andromedia.ca
  */
 public class PID extends Node {
+    /** HL7 DOB accepts date precision; malformed supplied dates must never enable PHN-only matching. */
+    private static java.util.Date parseBirthDate(String value) {
+        if (value == null || value.length() < 8) return null;
+        try {
+            java.time.LocalDate date = java.time.LocalDate.parse(value.substring(0, 8),
+                    java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+            return java.sql.Date.valueOf(date);
+        } catch (java.time.DateTimeException ex) {
+            return null;
+        }
+    }
+
     private static Logger logger = MiscUtils.getLogger();
     private static Hl7PidDao dao = SpringUtils.getBean(Hl7PidDao.class);
     private ArrayList<PIDContainer> containers;
@@ -114,13 +126,14 @@ public class PID extends Node {
     public int ToDatabase(int parent) throws SQLException {
 
         Hl7Pid h = new Hl7Pid();
+        h.setMessageId(parent);
         h.setSetId(get("set_id", ""));
         h.setExternalId(get("external_id", ""));
         h.setInternalId(get("internal_id", ""));
         h.setAlternateId(get("alternate_id", ""));
         h.setPatientName(get("patient_name", ""));
         h.setMotherMaidenName(get("mother_maiden_name", ""));
-        h.setDateOfBirth(this.convertTSToDate(get("date_of_birth", "")));
+        h.setDateOfBirth(parseBirthDate(get("date_of_birth", "")));
         h.setSex(get("sex", ""));
         h.setPatientAlias(get("patient_alias", ""));
         h.setRace(get("race", ""));

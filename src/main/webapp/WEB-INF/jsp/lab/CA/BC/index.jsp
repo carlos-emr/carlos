@@ -54,43 +54,12 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
 
     Hl7LinkDao linkDao = SpringUtils.getBean(Hl7LinkDao.class);
 
-    if (request.getParameterValues("chk") != null) {
-        String[] values = request.getParameterValues("chk");
-        for (int i = 0; i < values.length; ++i) {
-            Hl7Link l = linkDao.find(Integer.parseInt(values[i]));
-            if (l != null) {
-                l.setStatus("N");
-                linkDao.merge(l);
-            }
-        }
-    }
-
-    for (Object[] o : linkDao.findMagicLinks()) {
-        Demographic demo = (Demographic) o[0];
-        Hl7Pid pid = (Hl7Pid) o[0];
-        Hl7Link link = (Hl7Link) o[0];
-
-        Hl7Link h = new Hl7Link();
-        h.setId(pid.getId());
-        h.setDemographicNo(demo.getDemographicNo());
-        linkDao.persist(h);
-    }
-
-    if (request.getParameter("demo_id") != null && request.getParameter("pid") != null) {
-
-        linkDao.remove(linkDao.find(Integer.parseInt(request.getParameter("pid"))));
-
-        Hl7Link h = new Hl7Link();
-        h.setId(Integer.parseInt(request.getParameter("pid")));
-        h.setDemographicNo(Integer.parseInt(request.getParameter("demo_id")));
-        linkDao.persist(h);
-
-    }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <html>
@@ -106,9 +75,16 @@
 
             function PopupDemo(pid) {
                 var ctx = '<%= request.getContextPath() %>';
-                demo = window.open(ctx + '/lab/CA/BC/ViewDemoSelect?postTo=' + encodeURIComponent(ctx + '/lab/CA/BC/ViewIndex') + '?pid=' + pid + '-demo_id=', 'Patients', 'height=500,width=750,scrollbars=1,toolbar=0,status=1,menubar=0,location=0,directories=0,resizable=1');
+                demo = window.open(ctx + '/lab/CA/BC/ViewDemoSelect?pid=' + encodeURIComponent(pid), 'Patients', 'height=500,width=750,scrollbars=1,toolbar=0,status=1,menubar=0,location=0,directories=0,resizable=1');
                 demo.focus();
                 return false;
+            }
+
+            function selectPathnetPatient(pid, demographic) {
+                var form = document.getElementById('patientLinkForm');
+                form.elements.pid.value = pid;
+                form.elements.demo_id.value = demographic;
+                form.requestSubmit();
             }
 
             function PopupLab(pid) {
@@ -119,7 +95,9 @@
         </script>
     </head>
     <body>
-    <form action="<%= request.getContextPath() %>/lab/CA/BC/ViewIndex" method="post">
+    <form id="patientLinkForm" action="<%= request.getContextPath() %>/lab/CA/BC/ViewIndex" method="post">
+        <input type="hidden" name="pid" value=""/>
+        <input type="hidden" name="demo_id" value=""/>
         <table width="100%" border="0" cellspacing="0" cellpadding="0"
                bgcolor="#D3D3D3">
             <tr>
@@ -166,32 +144,32 @@
             %>
             <tr class="<%=(other? "WhiteBG" : "LightBG")%>">
                 <td class="Text"><input type="checkbox" name="chk"
-                                        value="<%=pid.getId()%>"/></td>
+                                        value="<%=pid.getId()%>" <%=demo == null ? "disabled" : ""%>/></td>
                 <td class="Text"><a href="#"
-                                    onclick="return PopupLab('<%=pid.getId()%>');"><%=Misc.check(pid.getPatientName(), "")%>
+                                    onclick="return PopupLab('<%=pid.getId()%>');"><%=Encode.forHtml(Misc.check(pid.getPatientName(), ""))%>
                 </a></td>
                 <td class="Text">
                     <%=ConversionUtils.toDateString(pid.getDateOfBirth())%>
                 </td>
                 <td class="Text" align="center">
-                    <%=Misc.check(pid.getSex(), "")%>
+                    <%=Encode.forHtml(Misc.check(pid.getSex(), ""))%>
                 </td>
                 <td class="Text">
-                    <%=Misc.check(obr.getOrderingProvider(), "").replaceAll("~", ",<br/>")%>
+                    <%=Encode.forHtml(obr == null ? "" : Misc.check(obr.getOrderingProvider(), ""))%>
                 </td>
                 <td class="Text" style="border-right: #464646 1px solid;">
-                    <%=Misc.check(obr.getResultCopiesTo(), "").replaceAll("~", ",<br/>")%>
+                    <%=Encode.forHtml(obr == null ? "" : Misc.check(obr.getResultCopiesTo(), ""))%>
                 </td>
                 <td class="Text" style="border-left: #464646 1px solid;">
-                    <a href="#" onclick="return PopupDemo('<%=link.getId()%>');">
-                        <%=Misc.check("" + demo.getDemographicNo(), "select")%>
+                    <a href="#" onclick="return PopupDemo('<%=pid.getId()%>');">
+                        <%=demo == null ? "Select patient" : demo.getDemographicNo()%>
                     </a>
                 </td>
                 <td class="Text">
-                    <%= demo.getFullName()%>
+                    <%= demo == null ? "" : Encode.forHtml(demo.getFullName())%>
                 </td>
                 <td class="Text">
-                    <%=    demo.getBirthDayAsString() %>
+                    <%=    demo == null ? "" : Encode.forHtml(demo.getBirthDayAsString()) %>
                 </td>
             </tr>
             <%

@@ -3251,6 +3251,14 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             true);
     }
 
+    @Override
+    public List<Demographic> findActiveByExactHin(String hin) {
+        if (hin == null || hin.isBlank()) return List.of();
+        return entityManager().createQuery(
+                "FROM Demographic d WHERE d.hin = :hin AND d.patientStatus = 'AC'", Demographic.class)
+                .setParameter("hin", hin).getResultList();
+    }
+
     // --- DTO projection methods ---
 
     /**
