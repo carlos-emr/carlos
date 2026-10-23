@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "campaign_id": "carlos-pipeline-v1",
+  "models": [
+    "qwen3.5:27b",
+    "mistral-small3.2:24b-instruct-2506-q4_K_M"
+  ],
+  "seeds": [42, 43, 44],
+  "think": false,
+  "options": {
+    "temperature": 0.15,
+    "top_p": 0.85,
+    "presence_penalty": 0.0,
+    "num_ctx": 4096,
+    "num_predict": 2500
+  },
+  "baseline": {
+    "case_id": "evelyn-longitudinal",
+    "prompt_file": "../prompt-v2.txt",
+    "facts_file": "../authoritative-facts.json"
+  },
+  "counterfactuals_file": "counterfactuals.json"
+}

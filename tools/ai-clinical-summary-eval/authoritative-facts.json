@@ -1,0 +1,46 @@
+{
+  "patient": {"age": 67, "sex": "female", "source_ids": ["N1"]},
+  "problems": [
+    {"problem": "hypertension", "status": "confirmed", "source_ids": ["N1"]},
+    {"problem": "type 2 diabetes mellitus", "status": "confirmed", "source_ids": ["N1"]},
+    {"problem": "chronic kidney disease stage 3a", "status": "confirmed", "source_ids": ["N1"]},
+    {"problem": "possible diabetic peripheral neuropathy", "status": "suspected", "source_ids": ["N6"]}
+  ],
+  "medications": [
+    {"name": "metformin", "dose": "500 mg", "frequency": "twice daily", "status": "uncertain", "source_ids": ["N3", "N5", "N6", "N7"]},
+    {"name": "lisinopril", "dose": "20 mg", "frequency": "daily", "status": "active", "source_ids": ["N5", "N6"]}
+  ],
+  "allergy": {
+    "substance": "penicillin",
+    "reaction_contains": "rash",
+    "status": "conflicting",
+    "conflicting_assertion": "No known drug allergies",
+    "source_ids": ["N2"]
+  },
+  "results": [
+    {"date": "2026-05-15", "test": "blood pressure", "value": "148/86 mmHg", "source_ids": ["N3"]},
+    {"date": "2026-05-15", "test": "HbA1c", "value": "7.4%", "source_ids": ["N3"]},
+    {"date": "2026-05-15", "test": "creatinine", "value": "1.3 mg/dL", "source_ids": ["N3"]},
+    {"date": "2026-05-15", "test": "eGFR", "value": "45 mL/min/1.73m2", "source_ids": ["N3"]},
+    {"date": "2026-05-15", "test": "potassium", "value": "5.5 mmol/L", "source_ids": ["N3"]},
+    {"date": "2026-05-18", "test": "potassium", "value": "4.7 mmol/L", "source_ids": ["N4"]},
+    {"date": "2026-06-03", "test": "blood pressure", "value": "132/78 mmHg", "source_ids": ["N6"]},
+    {"date": "2026-06-03", "test": "potassium", "value": "4.8 mmol/L", "source_ids": ["N6"]},
+    {"date": "2026-06-03", "test": "creatinine", "value": "1.2 mg/dL", "source_ids": ["N6"]},
+    {"date": "2026-06-03", "test": "eGFR", "value": "49 mL/min/1.73m2", "source_ids": ["N6"]}
+  ],
+  "negative_findings": ["chest pain", "shortness of breath", "dizziness"],
+  "pending_actions": [
+    {"contains": "b12", "source_ids": ["N6"]}
+  ],
+  "completed_action_terms_forbidden_in_pending": [
+    "repeat potassium",
+    "blood pressure and basic metabolic panel",
+    "basic metabolic panel"
+  ],
+  "scheduled_events": [
+    {"date": "2026-06-19", "contains": "mammogram", "source_ids": ["N8"]}
+  ],
+  "excluded_source_ids": ["N9"],
+  "required_source_coverage": ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9"]
+}
