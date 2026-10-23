@@ -69,7 +69,8 @@ class PortalMyCarlosInventoryTransactionsUnitTest extends CarlosUnitTestBase {
     @Test void shouldStopAfterThreeKnownRolledBackConflicts() {
         AtomicInteger attempts = new AtomicInteger();
         assertThatThrownBy(() -> fixture.transactions.execute(() -> {
-            attempts.incrementAndGet(); throw conflict(1213, "40001");
+            attempts.incrementAndGet();
+            throw conflict(1213, "40001");
         })).isInstanceOf(IllegalStateException.class);
         assertThat(attempts).hasValue(3);
         assertThat(fixture.manager.rollbacks).isEqualTo(3);
@@ -92,7 +93,8 @@ class PortalMyCarlosInventoryTransactionsUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> fixture.transactions.execute(effects::incrementAndGet))
                     .isInstanceOf(IllegalStateException.class);
         } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
-        assertThat(effects).hasValue(0);assertThat(fixture.manager.begins).isZero();
+        assertThat(effects).hasValue(0);
+        assertThat(fixture.manager.begins).isZero();
         verifyNoInteractions(properties, coordination);
     }
     @Test void shouldRefuseAnExternallyBoundPersistenceContextBeforeBeginning() {
@@ -101,14 +103,18 @@ class PortalMyCarlosInventoryTransactionsUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> fixture.transactions.execute(() -> "FAKE"))
                     .isInstanceOf(IllegalStateException.class);
         } finally { TransactionSynchronizationManager.unbindResource(fixture.factory); }
-        assertThat(fixture.manager.begins).isZero();verifyNoInteractions(coordination);
+        assertThat(fixture.manager.begins).isZero();
+        verifyNoInteractions(coordination);
     }
     @Test void shouldRejectAReusedEntityManagerInsteadOfClaimingAFreshReadView() {
-        fixture.manager.reuseEntityManager = true;AtomicInteger attempts = new AtomicInteger();
+        fixture.manager.reuseEntityManager = true;
+        AtomicInteger attempts = new AtomicInteger();
         assertThatThrownBy(() -> fixture.transactions.execute(() -> {
-            attempts.incrementAndGet();throw conflict(1020, "HY000");
+            attempts.incrementAndGet();
+            throw conflict(1020, "HY000");
         })).isInstanceOf(IllegalStateException.class).hasMessageContaining("fresh transaction-owned");
-        assertThat(attempts).hasValue(1);assertThat(fixture.manager.begins).isEqualTo(2);
+        assertThat(attempts).hasValue(1);
+        assertThat(fixture.manager.begins).isEqualTo(2);
     }
     @Test void shouldNeverReplayCommittedMutationWhenAfterCommitAuditThrowsASqlLookingException() {
         for (int code : new int[]{1020,1213,1205}) {
@@ -118,12 +124,18 @@ class PortalMyCarlosInventoryTransactionsUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> fixture.transactions.execute(() -> {
                 mutations.incrementAndGet();
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                    @Override public void afterCommit() { audits.incrementAndGet();throw failure; }
+                    @Override
+                    public void afterCommit() {
+                        audits.incrementAndGet();
+                        throw failure;
+                    }
                 });
                 return "FAKE committed";
             })).isSameAs(failure);
-            assertThat(mutations).hasValue(1);assertThat(audits).hasValue(1);
-            assertThat(fixture.manager.commits).isEqualTo(1);assertThat(fixture.manager.rollbacks).isZero();
+            assertThat(mutations).hasValue(1);
+            assertThat(audits).hasValue(1);
+            assertThat(fixture.manager.commits).isEqualTo(1);
+            assertThat(fixture.manager.rollbacks).isZero();
             assertThat(fixture.manager.begins).isEqualTo(1);
         }
     }
@@ -132,15 +144,18 @@ class PortalMyCarlosInventoryTransactionsUnitTest extends CarlosUnitTestBase {
         AtomicInteger mutations = new AtomicInteger();
         assertThatThrownBy(() -> fixture.transactions.execute(mutations::incrementAndGet))
                 .isInstanceOf(IllegalStateException.class);
-        assertThat(mutations).hasValue(1);assertThat(fixture.manager.begins).isEqualTo(1);
+        assertThat(mutations).hasValue(1);
+        assertThat(fixture.manager.begins).isEqualTo(1);
         assertThat(fixture.manager.commits).isEqualTo(1);
     }
     @Test void shouldNotRepeatAPreparationWhichThrewBeforeSavingExactBytes() {
         AtomicInteger preparations = new AtomicInteger();
         assertThatThrownBy(() -> fixture.transactions.execute(() -> {
-            preparations.incrementAndGet();PortalMyCarlosInventoryTransactions.preparationFailed();
+            preparations.incrementAndGet();
+            PortalMyCarlosInventoryTransactions.preparationFailed();
             throw conflict(1020,"HY000");
         })).isInstanceOf(IllegalStateException.class);
-        assertThat(preparations).hasValue(1);assertThat(fixture.manager.begins).isEqualTo(1);
+        assertThat(preparations).hasValue(1);
+        assertThat(fixture.manager.begins).isEqualTo(1);
     }
 }

@@ -80,8 +80,16 @@ final class PortalMyCarlosInventoryTestSupport {
             TransactionSynchronizationManager.bindResource(factory, holder);
             onBegin.run();
         }
-        @Override protected void doCommit(DefaultTransactionStatus status) { commits++; onCommit.run(); }
-        @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; onRollback.run(); }
+        @Override
+        protected void doCommit(DefaultTransactionStatus status) {
+            commits++;
+            onCommit.run();
+        }
+        @Override
+        protected void doRollback(DefaultTransactionStatus status) {
+            rollbacks++;
+            onRollback.run();
+        }
         @Override protected void doCleanupAfterCompletion(Object transaction) {
             var holder = (EntityManagerHolder) TransactionSynchronizationManager.unbindResource(factory);
             holder.getEntityManager().close();
