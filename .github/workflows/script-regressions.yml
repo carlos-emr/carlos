@@ -80,6 +80,8 @@ jobs:
         run: bash scripts/validate_struts_actions.sh
       - name: Install Chromium for the isolated RTL fixture
         run: npx --no-install playwright install --with-deps chromium
+      - name: Check measurement calculation DOM events in Chromium
+        run: node scripts/measurement-whtr-browser-check.js
       - name: Check RTL measurement loading in Chromium
         run: node scripts/rtl-measurement-browser-check.js
       - name: Check eForm toolbar and fax compatibility in Chromium
