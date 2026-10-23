@@ -30,6 +30,13 @@
 package io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.V2_3;
 
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.DateTimeException;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.ResolverStyle;
+import java.time.temporal.ChronoField;
+import java.util.Locale;
 import java.util.ArrayList;
 
 import org.apache.logging.log4j.Logger;
@@ -47,14 +54,29 @@ import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.Node;
  * www.andromedia.ca
  */
 public class PID extends Node {
-    /** HL7 DOB accepts date precision; malformed supplied dates must never enable PHN-only matching. */
+    private static final DateTimeFormatter BIRTH_DATE_FORMAT = new DateTimeFormatterBuilder()
+            .appendValue(ChronoField.YEAR, 4)
+            .appendValue(ChronoField.MONTH_OF_YEAR, 2)
+            .appendValue(ChronoField.DAY_OF_MONTH, 2)
+            .optionalStart().appendPattern("HH")
+                .optionalStart().appendPattern("mm")
+                    .optionalStart().appendPattern("ss")
+                        .optionalStart().appendFraction(ChronoField.NANO_OF_SECOND, 1, 4, true).optionalEnd()
+                    .optionalEnd()
+                .optionalEnd()
+            .optionalEnd()
+            .optionalStart().appendOffset("+HHMM", "+0000").optionalEnd()
+            .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
+            .parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
+            .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
+            .toFormatter(Locale.ROOT).withResolverStyle(ResolverStyle.STRICT);
+
+    /** Preserve the literal HL7 birth date; never normalize an invalid date or discard malformed trailing data. */
     private static java.util.Date parseBirthDate(String value) {
-        if (value == null || value.length() < 8) return null;
+        if (value == null || value.isBlank()) return null;
         try {
-            java.time.LocalDate date = java.time.LocalDate.parse(value.substring(0, 8),
-                    java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-            return java.sql.Date.valueOf(date);
-        } catch (java.time.DateTimeException ex) {
+            return java.sql.Date.valueOf(LocalDate.parse(value, BIRTH_DATE_FORMAT));
+        } catch (DateTimeException ex) {
             return null;
         }
     }

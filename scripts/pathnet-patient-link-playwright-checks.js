@@ -26,6 +26,7 @@ async function workflow(s) {
   const phn = `99${String(Number.parseInt(marker.slice(-8), 16)).padStart(8, '0').slice(-8)}`;
   sql.execute(`UPDATE demographic SET hin=${h.sqlString(phn)},hc_type='BC',province='BC' WHERE demographic_no=${patient}`);
   let duplicate;
+  const existingLocks = new Set(sql.rows('SELECT lab_no FROM providerLabRoutingLock').map(([id]) => id));
   cleanup(async () => {
     const ids = sql.rows(`SELECT message_id FROM hl7_pid WHERE patient_name LIKE ${h.sqlString(`${marker}%`)}`)
       .map(([id]) => id).filter(id => /^[1-9]\d*$/.test(id));
@@ -38,8 +39,10 @@ async function workflow(s) {
         DELETE FROM hl7_pid WHERE message_id IN (${list}); DELETE FROM hl7_msh WHERE message_id IN (${list});
         DELETE FROM patientLabRouting WHERE lab_type='BCP' AND lab_no IN (${list});
         DELETE FROM providerLabRouting WHERE lab_type='BCP' AND lab_no IN (${list});
-        DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list}); DELETE FROM hl7_message WHERE message_id IN (${list});`);
+        DELETE FROM hl7_message WHERE message_id IN (${list});`);
     }
+    const newLocks = ids.filter(id => !existingLocks.has(id));
+    if (newLocks.length) sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${newLocks.join(',')})`);
     sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(`%${marker}%`)}`);
     if (duplicate) sql.execute(`DELETE FROM demographic WHERE demographic_no=${duplicate} AND last_name=${h.sqlString(marker)}`);
     if (process.env.LAB_UPLOAD_DOCUMENT_STORE) {
@@ -92,6 +95,9 @@ async function workflow(s) {
     let frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
     let row = frame.locator('tr').filter({ hasText: `${marker}^mismatch` });
     await row.getByText('Select patient', { exact: true }).waitFor();
+    const report = await s.popup(admin, row.getByRole('link', { name: `${marker}^mismatch`, exact: true }), 'pathnet-result');
+    h.assert((await report.locator('body').innerText()).includes('5.2'), 'The stored observation is missing from the report');
+    await report.close();
     frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
     row = frame.locator('tr').filter({ hasText: `${marker}^mismatch` });
     h.assert(sql.value(`SELECT demographic_no FROM hl7_link WHERE pid_id=${unlinked}`) === '0', 'Opening page auto-linked a lab');

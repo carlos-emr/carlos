@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 /** Keeps the legacy PID link and the inbox/chart's message routing in one transaction. */
 @Service
@@ -21,7 +22,7 @@ public class PathnetPatientLinkService {
         this.routing = routing;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void link(int pidId, Integer demographicNo, String actor) {
         Hl7Pid pid = pids.find(pidId);
         if (pid == null || pid.getMessageId() <= 0) throw new IllegalArgumentException("Lab does not exist");

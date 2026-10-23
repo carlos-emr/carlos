@@ -57,10 +57,11 @@ class PathnetImportIntegrationTest extends CarlosTestBase {
                 .setParameter("phn", phn).setMaxResults(1).getSingleResult();
     }
 
-    @Test
-    void shouldStoreConnectedSegmentsAndBothPatientLinks_whenPhnAndDateMatch() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"19800115", "1980011512", "198001151230", "19800115123000", "19800115123000.1234-0800"})
+    void shouldStoreConnectedSegmentsAndBothPatientLinks_whenPhnAndDateMatch(String birthDate) throws Exception {
         Demographic demo = patient("5052000001", "AC");
-        Hl7Pid pid = upload("5052000001", "19800115");
+        Hl7Pid pid = upload("5052000001", birthDate);
         assertThat(pid.getMessageId()).isPositive();
         assertThat(pid.getDateOfBirth()).hasYear(1980).hasMonth(1).hasDayOfMonth(15);
         Hl7Obr obr = obrs.findByPid(pid.getId()).get(0);
@@ -74,7 +75,7 @@ class PathnetImportIntegrationTest extends CarlosTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"19810115", "19800230", "1980", "garbage"})
+    @ValueSource(strings = {"19810115", "19800230", "1980", "garbage", "19800115junk", "19800115999999"})
     void shouldStoreVisibleUnmatchedLab_whenSuppliedBirthDateDoesNotMatch(String dob) throws Exception {
         patient("5052000002", "AC");
         Hl7Pid pid = upload("5052000002", dob);
