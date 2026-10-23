@@ -3498,8 +3498,8 @@ installed fresh also passed `--tier smoke` (12 of 12) and `billing-on-hospital-s
 
 | Package, or file swapped into the installed webapp | `billing-on-hospital-shortcut` |
 |---|---|
-| Final package (`42ba5b7222`), 4 runs | PASS, 9 of 9 steps, no residue |
-| Final package with the release `demographic/edit.jsp` compiled | FAIL at "the Master Record offers Hospital Billing for this patient" |
+| Package at `42ba5b7222` (before the fr-CA step was added), 4 runs | PASS, 9 of 9 steps, no residue |
+| Package at `42ba5b7222` with the release `demographic/edit.jsp` compiled | FAIL at "the Master Record offers Hospital Billing for this patient" |
 | Link only (`74e7c46485`): the release `calendar-setup.js` | FAIL at "the service-date calendar records the picked date"; page errors `trimEnd` and "Maximum call stack size exceeded" |
 | Link only, with the fixed `calendar-setup.js` (the release `BillingShortcutPg2Service`) | FAIL at "Save writes one claim for this patient and closes the window": the claim was written, page 1 reloaded |
 | PR head (`a681b3f12f`, base merged), fresh install, with the release `billingShortcutPg1.jsp` compiled | FAIL at the fr-CA step: "The French Next did not price the Confirmation" |

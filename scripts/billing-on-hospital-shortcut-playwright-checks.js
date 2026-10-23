@@ -191,8 +191,8 @@ async function workflow(s) {
 
   await s.step('a GET to the save route writes nothing', async () => {
     const response = await page1.context().request.get(
-      `${s.config.baseUrl}/billing/CA/ON/BillingShortcutPg2Save?addition=Confirm&submit=Save&button=Save&demographic_no=${patient}`
-      + `&billDate=${today}&serviceDate0=${CODE}&serviceUnit0=1&dxCode=${DX}&xml_provider=${encodeURIComponent(physician)}`,
+      h.appUrl(s.config.baseUrl, `/billing/CA/ON/BillingShortcutPg2Save?addition=Confirm&submit=Save&button=Save&demographic_no=${patient}`
+      + `&billDate=${today}&serviceDate0=${CODE}&serviceUnit0=1&dxCode=${DX}&xml_provider=${encodeURIComponent(physician)}`),
       { maxRedirects: 0, failOnStatusCode: false });
     h.assert(response.status() === 405, `A GET to the save route answered ${response.status()}, not 405`);
     h.assert(claims().length === 0, 'A GET to the save route wrote a claim');
