@@ -1102,9 +1102,10 @@
       ],
       "timeoutSec": 120,
       "env": [
-        "PATHNET_LABS"
+        "PATHNET_LABS",
+        "PATHNET_JOURNAL_UNIT"
       ],
-      "fixtures": "Owned synthetic patient and three legacy BCP reports (final, preliminary and one holding both a final and a preliminary result); requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in.",
+      "fixtures": "Owned synthetic patient and four legacy BCP reports (final, preliminary, mixed F/P and mixed F/I); requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in. Set PATHNET_JOURNAL_UNIT=carlos-emr.service on a packaged install to require a readable journal cursor and reject factory warnings/errors from this check's requests (#5189).",
       "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows. Last, the regression check for app-findings-log.md finding 165 (fixed, #4552): a report with both an F and a P result is listed as Partial, not Final (the report status aggregate used to be the alphabetical MIN of its OBR statuses). BC-only: it ends SKIP on an Ontario install (the hl7_* tables exist only on a schema the BC migrations built) (issue #4439)."
     },
     {
