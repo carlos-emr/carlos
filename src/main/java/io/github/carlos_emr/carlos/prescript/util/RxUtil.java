@@ -196,7 +196,8 @@ public class RxUtil {
             "minutes");
     /**
      * Characters of a comparison before an amount ("if BP > 90/140", "if SBP > 140"), which is then a
-     * threshold, not a dose. "=" is not one: directions write a product count as "1000 mg = 2 tabs".
+     * threshold, not a dose. "=" is one only after them ("SBP >= 140"): on its own it introduces a
+     * product count, as in "1000 mg = 2 tabs".
      */
     private static final String COMPARISON_CHARACTERS = "<>\u2264\u2265";
     /** The largest denominator of a fraction read as a dose on its own: halves to eighths, including sixths. */
@@ -2204,12 +2205,16 @@ public class RxUtil {
 
     /**
      * True when a date word ({@code starting 3-15}, {@code on 1/4}, {@code until 11/12}) or a
-     * comparison character ({@code > 140}, {@code < 90/60}) introduces the amount that starts at
-     * {@code start}: the amount is a date or a threshold, not a dose, whatever follows it.
+     * comparison operator ({@code > 140}, {@code >= 140}, {@code < 90/60}) introduces the amount
+     * that starts at {@code start}: the amount is a date or a threshold, not a dose, whatever follows
+     * it. A lone {@code =} is not a comparison ({@code 1000 mg = 2 tabs}).
      */
     private static boolean isDatedOrCompared(String instructions, int start) {
-        int end = skipWhitespaceBackward(instructions, start);
-        if (end > 0 && COMPARISON_CHARACTERS.indexOf(instructions.charAt(end - 1)) >= 0) {
+        int operatorEnd = skipWhitespaceBackward(instructions, start);
+        if (operatorEnd > 0 && instructions.charAt(operatorEnd - 1) == '=') {
+            operatorEnd--;
+        }
+        if (operatorEnd > 0 && COMPARISON_CHARACTERS.indexOf(instructions.charAt(operatorEnd - 1)) >= 0) {
             return true;
         }
         return DATE_WORDS.contains(lowerCase(wordBefore(instructions, start)));
