@@ -202,8 +202,7 @@ public class OscarChartPrinter implements java.io.Closeable {
     }
 
     private Paragraph getParagraph(String value) {
-        Paragraph p = PdfFonts.paragraph(value, font);
-        return p;
+        return PdfFonts.paragraph(value, font);
     }
 
     /**
