@@ -27,6 +27,26 @@ function run(args, env) {
   return spawnSync('bash', [SCRIPT, ...args], { encoding: 'utf8', env });
 }
 
+test('should enable consultation auto-include before restarting the disposable validation install', (t) => {
+  const box = sandbox(t);
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  const start = source.indexOf("    if grep -qE '^CONSULTATION_AUTO_INCLUDE_MEDICATIONS");
+  const end = source.indexOf('    carlos-ctl restart', start);
+  assert.ok(start > 0 && end > start);
+  // Unquote the in_container string, then execute the real fixture commands
+  // against a temporary properties file, never /etc or a running installation.
+  const fixture = source.slice(start, end).replaceAll('\\"', '"').replaceAll('\\$', '$');
+  const props = path.join(box.dir, 'carlos.properties');
+  for (const before of ['', 'CONSULTATION_AUTO_INCLUDE_MEDICATIONS=false\n',
+    'CONSULTATION_AUTO_INCLUDE_MEDICATIONS = false\n', 'CONSULTATION_AUTO_INCLUDE_MEDICATIONS: false\n']) {
+    fs.writeFileSync(props, `other.setting=unchanged\n${before}`);
+    const r = spawnSync('bash', ['-ec', fixture], { encoding: 'utf8', env: { ...box.env, P: props } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(fs.readFileSync(props, 'utf8'), 'other.setting=unchanged\nCONSULTATION_AUTO_INCLUDE_MEDICATIONS=true\n');
+  }
+  assert.match(source, /^export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true$/m);
+});
+
 test('should pass bash syntax checking', () => {
   assert.equal(spawnSync('bash', ['-n', SCRIPT]).status, 0);
 });

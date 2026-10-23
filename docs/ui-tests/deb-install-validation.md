@@ -796,13 +796,25 @@ suite; the check runs as root and decrypts the `.pgp` download with it.
 consultation's Current Medications, which the form fills from the chart only
 when `CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true`. The package ships `false`,
 and the form's "Import active medications" button takes a different path
-(`getActiveMedications`), so turn the property on for the suite:
+(`getActiveMedications`), so turn the property on for the suite. Issue #5211
+was a missing prerequisite in the validation setup, rather than a form defect.
+`scripts/deb-docker-validation.sh up` now sets it on its disposable install
+before restarting. For a manual install:
 
 ```bash
 lxc exec carlos-test -- sed -i \
     's/^CONSULTATION_AUTO_INCLUDE_MEDICATIONS=false/CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true/' \
     /etc/carlos-emr/carlos.properties
 ```
+
+After restarting, export `CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` in the
+**suite process** to confirm that the running application has this setting.
+The variable confirms the operator setup; it does not change the application.
+Without confirmation, `rx-unique-medication-list` reports SKIP with setup
+instructions before creating fixtures. With confirmation, an empty or incorrect
+medication list remains a FAIL. The Docker helper writes this export to
+`/root/suite-env.sh`. Keep the package default off; on an existing manual
+validation install, restore the original property value and restart when done.
 
 Restart once after loading so nothing serves from a pre-load cache:
 
@@ -911,6 +923,8 @@ Environment contract (one block, exported before every script):
 ```bash
 cd /root/carlos
 export BASE_URL=https://127.0.0.1/carlos
+# Confirm section 4 enabled the application property and restarted CARLOS.
+export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true
 export CHROME_PATH=/usr/lib/carlos-emr/chromium/chrome
 # A secure fresh install randomises both secrets. Read the root-only handoff file,
 # then perform the mandatory first-login reset once before any suite loop.
