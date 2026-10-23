@@ -27,7 +27,7 @@ const PAGES = [PAGE, path.join(ROOT, 'src/main/webapp/WEB-INF/jsp/form/formbcar2
 const LOCALES = ['en', 'fr', 'es', 'pt_BR', 'pl'];
 const ENGLISH_ONLY_LOCALES = ['es', 'pt_BR', 'pl'];
 
-const { ENGLISH, FRENCH, FORWARD_SCORED } = require('./lib/epds-wording');
+const { ENGLISH, FRENCH, FORWARD_SCORED, FRENCH_FOLLOW_UP } = require('./lib/epds-wording');
 
 /** Reads a .properties file the way java.util.Properties does for the lines these keys use. */
 function readBundle(locale) {
@@ -148,6 +148,17 @@ test('French shows the validated Guedeney & Fermanian (1998) wording as the page
             assert.notEqual(shown, english.get(`form.bcar.epds.${key}`), `French item ${item} answer ${position + 1} is still English`);
             assert.equal(shown, expectedAnswers[position], `French item ${item} answer ${position + 1} (${key})`);
         });
+    }
+});
+
+test('French follow-up guidance is translated without changing its clinical thresholds', () => {
+    const french = readBundle('fr');
+    const english = readBundle('en');
+    for (const [key, expected] of Object.entries(FRENCH_FOLLOW_UP)) {
+        const name = `form.bcar.epds.${key}`;
+        assert.equal(french.get(name), expected, name);
+        assert.notEqual(french.get(name), english.get(name), `${name} is still English`);
+        assert.deepEqual(french.get(name).match(/\d+/g), english.get(name).match(/\d+/g), `${name} changed thresholds`);
     }
 });
 

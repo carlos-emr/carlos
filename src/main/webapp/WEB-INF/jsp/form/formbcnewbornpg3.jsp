@@ -585,11 +585,11 @@
                             <td><fmt:message key='form.bcnewborn.date'/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg3_formDate_cal">
                                 <%=bSync ? ("<b><a href=# onClick='syncDemo(); return false;'><font color='red'>Synchronize</font></a></b>") : "" %>
                                 <br>
-                                <%-- This page's own date; page 1's only when the record has none for this page (it printed page 1's always, so
-                                     reopening showed page 1's date here and the next Save stored it over this page's). --%>
+                                <%-- A cleared date is SQL NULL and absent from props on reload. Keep it empty; falling back to page one's
+                                     date would fill it again and the next Save would store the substituted date. --%>
                                 <input type="text" name="pg3_formDate" id="pg3_formDate"
                                        style="width: 100%" size="10" maxlength="10"
-                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_formDate", "").isEmpty() ? props.getProperty("pg1_formDate", "") : props.getProperty("pg3_formDate", "")) %>" @oscar.formDB
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_formDate", "")) %>" @oscar.formDB
                                        dbType="date"/></td>
                         </tr>
                         <tr>

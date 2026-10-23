@@ -19,6 +19,7 @@
  *   4. (English, after both languages) the ticked answers are saved and come back ticked when the chart reopens the
  *      record: BC-AR 2012 defined its EPDS restore but never called it (#5090), so a reopened record showed no answer
  *      and its next Save stored the answers as empty.
+ * French pages also show the self-harm and score-band follow-up guidance in French, with unchanged thresholds.
  * BC-AR 2012 printed its own English copy until #5050 (with item 6 damaged to "coping as card card-body
  * bg-body-tertiary as usual"), so it showed no French at all; scripts/bcar-epds-wording.test.js holds the bundles.
  *
@@ -32,7 +33,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
-const { ENGLISH, FRENCH, FORWARD_SCORED } = require('./lib/epds-wording');
+const { ENGLISH, FRENCH, FORWARD_SCORED, FRENCH_FOLLOW_UP } = require('./lib/epds-wording');
 
 const NAME = 'form-bc-epds-wording';
 const FORMS = [
@@ -155,6 +156,13 @@ async function workflow(s) {
           if (here.answers.length !== 4) wrong.push(`item ${item} offers ${here.answers.length} answers`);
         }
         h.assert(!wrong.length, `${form.title} page 2 (${language.tag}) does not show the published EPDS: ${wrong.join('; ')}`);
+
+        if (language.tag === 'fr-CA') {
+          const text = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
+          for (const [key, guidance] of Object.entries(FRENCH_FOLLOW_UP)) {
+            h.assert(text.includes(guidance), `${form.title} does not show the French ${key} follow-up guidance`);
+          }
+        }
 
         let total = 0;
         for (let item = 1; item <= 10; item++) {

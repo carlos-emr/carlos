@@ -165,8 +165,8 @@ test("each page's date box shows that page's own saved date", () => {
   const wrong = [];
   for (const page of lib.BC_LEGACY_FORM_PAGES) {
     for (const m of read(page).matchAll(/name="(pg\d_formDate)"[^>]*?value="<%=([^%]*)%>"/g)) {
-      const first = /props\.getProperty\("(\w+)"/.exec(m[2]);
-      if (!first || first[1] !== m[1]) wrong.push(`${page}: ${m[1]} shows ${first ? first[1] : 'no saved value'}`);
+      const fields = [...m[2].matchAll(/props\.getProperty\("(\w+)"/g)].map(match => match[1]);
+      if (!fields.length || fields.some(field => field !== m[1])) wrong.push(`${page}: ${m[1]} shows ${fields.join(', ') || 'no saved value'}`);
     }
   }
   assert.deepEqual(wrong, [], wrong.join('; '));

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
- * Issue #5090 (BC installs only): three BC form fields that never came back after a save, each because of the page's
+ * Issue #5090 (BC installs only): legacy BC form fields that never came back after a save, each because of the page's
  * markup rather than its encoding.
  *   - BC-AR 2007 pages 2 and 3 opened the doula cell as "<td" with no ">": the browser read the doula box as the
  *     cell's attributes, so there was no box to type in and a saved doula was never shown or posted again.
  *   - BC-AR 2012 page 1 printed the substance-use "No" box's saved state as text after the box, so the box never showed
  *     ticked and the next Save cleared it.
  *   - BC-NewBorn 2008 pages 2 and 3 saved themselves as page 1 (c_lastVisited), so a record always reopened on page 1.
- *   - BC-NewBorn pages 2 and 3 showed page 1's date in their own date boxes, so the next Save stored it over theirs.
+ *   - BC-NewBorn pages 2 and 3 showed page 1's date in their own date boxes, including after clearing their dates.
  *   - The Chart Checklist built its free-text description boxes as Java strings with the saved value unencoded, so a
  *     saved "'" ended the box's value and "<" or "&" did not come back as typed (CodeRabbit, PR #5167).
  *
@@ -16,7 +16,8 @@
  * Save; then a fresh E-Chart ▸ the saved form in the chart's list ▸ the reopened record.
  * Asserted, per form: Save stores the value (the row read back over SQL), and the record reopened from the chart shows
  * it: the doula on both BC-AR 2007 pages, the ticked "No" box on BC-AR 2012 (with no saved state printed as text),
- * BC-NewBorn 2008 reopened on page 2, the page it was saved from, BC-NewBorn page 2's own date, and a Chart Checklist
+ * BC-NewBorn 2008 reopened on page 2, the page it was saved from, BC-NewBorn pages 2 and 3's own dates (including
+ * cleared dates after another save), and a Chart Checklist
  * description holding ' " < > & exactly.
  *
  * Fixtures: the owned FAKE- patient and one marker-named Forms-menu registration per form (clinic-wide, so EXCLUSIVE=1);
@@ -166,22 +167,61 @@ async function workflow(s) {
     await reopened.close();
   });
 
-  await s.step("BC-NewBorn: page 2's own date is stored and shown again when the record reopens", async () => {
+  await s.step("BC-NewBorn: each page's own date is stored and shown again when the record reopens", async () => {
     const entry = entries.NB;
     const page = await open(entry);
-    await goToPage(page, 'formbcnewbornpg2');
-    // A date unlike page 1's (a new record dates every page today), in the record's dd/MM/yyyy.
-    const pageTwoDate = '05/03/2025';
-    await page.locator('input[name="pg2_formDate"]').fill(pageTwoDate);
-    await save(page);
-    const row = newest(entry.form.table, ['pg1_formDate', 'pg2_formDate']);
-    h.assert(row.values.pg2_formDate === '2025-03-05', `${entry.form.table} stored pg2_formDate ${JSON.stringify(row.values.pg2_formDate)}`);
-    h.assert(row.values.pg1_formDate !== row.values.pg2_formDate, 'page 1 holds the same date, so the page could not show the wrong one');
+    const dates = { 2: ['05/03/2025', '2025-03-05'], 3: ['06/03/2025', '2025-03-06'] };
+    for (const [number, [typed]] of Object.entries(dates)) {
+      await goToPage(page, `formbcnewbornpg${number}`);
+      await page.locator(`input[name="pg${number}_formDate"]`).fill(typed);
+      await save(page);
+    }
+    const row = newest(entry.form.table, ['pg1_formDate', 'pg2_formDate', 'pg3_formDate']);
+    for (const [number, [, stored]] of Object.entries(dates)) {
+      h.assert(row.values[`pg${number}_formDate`] === stored, `page ${number} did not store its own date`);
+      h.assert(row.values.pg1_formDate !== stored, 'page 1 holds the same date, so the page could not show the wrong one');
+    }
     await page.close();
     const reopened = await reopen(entry, row.id);
-    if (await shownPage(reopened) !== 'formbcnewbornpg2') await goToPage(reopened, 'formbcnewbornpg2');
-    const shown = await reopened.locator('input[name="pg2_formDate"]').inputValue();
-    h.assert(shown === pageTwoDate, `the reopened page 2 shows its date as ${JSON.stringify(shown)}, not ${pageTwoDate}`);
+    for (const [number, [typed]] of Object.entries(dates)) {
+      const view = `formbcnewbornpg${number}`;
+      if (await shownPage(reopened) !== view) await goToPage(reopened, view);
+      const shown = await reopened.locator(`input[name="pg${number}_formDate"]`).inputValue();
+      h.assert(shown === typed, `the reopened page ${number} shows its date as ${JSON.stringify(shown)}, not ${typed}`);
+    }
+    await reopened.close();
+  });
+
+  await s.step('BC-NewBorn: cleared page dates stay empty after reopening and saving again', async () => {
+    const entry = entries.NB;
+    const columns = ['pg1_formDate', 'pg2_formDate', 'pg3_formDate'];
+    let row = newest(entry.form.table, columns);
+    const pageOneDate = row.values.pg1_formDate;
+    const page = await reopen(entry, row.id);
+    for (const number of [2, 3]) {
+      const view = `formbcnewbornpg${number}`;
+      if (await shownPage(page) !== view) await goToPage(page, view);
+      await page.locator(`input[name="pg${number}_formDate"]`).fill('');
+      await save(page);
+    }
+    row = newest(entry.form.table, columns);
+    const assertCleared = () => {
+      h.assert(sql.value('SELECT pg2_formDate IS NULL AND pg3_formDate IS NULL FROM formBCNewBorn WHERE ID=?', [row.id]) === '1',
+        'cleared page dates were replaced in the saved record');
+      h.assert(row.values.pg1_formDate === pageOneDate, 'clearing another page changed page one\'s date');
+    };
+    assertCleared();
+    await page.close();
+    const reopened = await reopen(entry, row.id);
+    for (const number of [2, 3]) {
+      const view = `formbcnewbornpg${number}`;
+      if (await shownPage(reopened) !== view) await goToPage(reopened, view);
+      h.assert(await reopened.locator(`input[name="pg${number}_formDate"]`).inputValue() === '',
+        `the reopened page ${number} substituted page one's date for its cleared date`);
+      await save(reopened);
+    }
+    row = newest(entry.form.table, columns);
+    assertCleared();
     await reopened.close();
   });
 

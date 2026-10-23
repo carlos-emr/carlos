@@ -36,9 +36,8 @@ const SHOWN = row => Number(row) > 0;
 
 async function workflow(s) {
   const { sql, patient } = s;
-  const q = h.sqlString;
   const hidden = Object.fromEntries(Object.entries(ROWS).map(([name, value]) =>
-    [name, sql.value(`SELECT hidden FROM encounterForm WHERE form_value=${q(value)}`)]));
+    [name, sql.value('SELECT hidden FROM encounterForm WHERE form_value=?', [value])]));
   if (Object.values(hidden).some(value => value === '')) throw new h.SkipCheck('This BC check needs the BC antenatal form rows');
 
   await s.step('the BC antenatal rows are as the migration leaves a new install: BC-AR 2020 shown, the older records hidden', async () => {
@@ -63,11 +62,14 @@ async function workflow(s) {
 
   await s.step('a saved BC-AR record is still listed in the chart and opens', async () => {
     s.cleanup(() => {
-      sql.execute(`DELETE FROM formBCAR WHERE demographic_no=${patient}`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM formBCAR WHERE demographic_no=${patient}`) === '0', 'the owned BC-AR row remains');
+      sql.execute('DELETE FROM formBCAR WHERE demographic_no=?', [patient]);
+      h.assert(sql.value('SELECT COUNT(*) FROM formBCAR WHERE demographic_no=?', [patient]) === '0', 'the owned BC-AR row remains');
     });
-    const formId = sql.value(`INSERT INTO formBCAR (demographic_no, provider_no, formCreated, formEdited, c_surname)
-      VALUES (${patient}, ${q(s.provider)}, CURDATE(), NOW(), ${q(s.marker)}); SELECT LAST_INSERT_ID()`);
+    sql.execute(`INSERT INTO formBCAR (demographic_no, provider_no, formCreated, formEdited, c_surname)
+      VALUES (?, ?, CURDATE(), NOW(), ?)`, [patient, s.provider, s.marker]);
+    const formId = sql.value(`SELECT ID FROM formBCAR WHERE demographic_no=? AND provider_no=? AND c_surname=?
+      ORDER BY ID DESC LIMIT 1`, [patient, s.provider, s.marker]);
+    h.assert(formId !== '', 'the owned BC-AR record was not inserted');
     const refreshed = await s.context.newPage();
     await refreshed.goto(chart.url(), { waitUntil: 'domcontentloaded' });
     await waitForNavbars(refreshed, 20000);

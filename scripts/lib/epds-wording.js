@@ -65,4 +65,11 @@ const FRENCH = {
 // Items whose first answer scores 0; every other item is reverse scored (first answer scores 3).
 const FORWARD_SCORED = new Set([1, 2, 4]);
 
-module.exports = { ENGLISH, FRENCH, FORWARD_SCORED };
+// Clinical follow-up guidance accompanies the scale; it is not part of the validated questionnaire.
+const FRENCH_FOLLOW_UP = {
+    selfHarmWarning: "Un score de 1 à 3 à la question 10, indiquant un risque de se faire du mal, nécessite une évaluation immédiate de la santé mentale et une intervention appropriée.",
+    score11to13: "Pour un score de 11 à 13 : surveiller, soutenir et fournir de l'information.",
+    score14plus: "Pour un score de 14 ou plus : assurer un suivi comprenant une évaluation diagnostique biopsychosociale complète de la dépression.",
+};
+
+module.exports = { ENGLISH, FRENCH, FORWARD_SCORED, FRENCH_FOLLOW_UP };
