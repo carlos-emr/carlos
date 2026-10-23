@@ -33,6 +33,8 @@ const { ENGLISH, FRENCH, FORWARD_SCORED } = require('./lib/epds-wording');
 function readBundle(locale) {
     const text = fs.readFileSync(path.join(ROOT, `src/main/resources/oscarResources_${locale}.properties`), 'utf8');
     const entries = new Map();
+    // How often each key is defined: java.util.Properties keeps the last one, so a later duplicate wins silently.
+    entries.definitions = new Map();
     const lines = text.split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].replace(/^[ \t\f]+/, '');
@@ -43,7 +45,9 @@ function readBundle(locale) {
         }
         const match = line.match(/^((?:\\.|[^=:\s\\])+)[ \t\f]*[=:]?[ \t\f]*(.*)$/);
         if (!match) continue;
-        entries.set(unescape(match[1]), unescape(match[2]));
+        const key = unescape(match[1]);
+        entries.set(key, unescape(match[2]));
+        entries.definitions.set(key, (entries.definitions.get(key) || 0) + 1);
     }
     return entries;
 }
@@ -114,6 +118,22 @@ test('every EPDS key is defined in every locale bundle', () => {
             assert.ok(bundle.has(key), `oscarResources_${locale} lacks ${key}`);
             assert.notEqual(bundle.get(key).trim(), '', `oscarResources_${locale} has an empty ${key}`);
         }
+    }
+});
+
+test('each EPDS key is defined once per bundle, in a bundle that escapes every non-ASCII character', () => {
+    // A second definition later in a bundle replaces the reviewed wording without any of the checks above noticing,
+    // and a raw UTF-8 character would be read as two Latin-1 characters by a reader that assumes ISO-8859-1.
+    const english = readBundle('en');
+    const epdsKeys = [...english.keys()].filter((key) => key.startsWith('form.bcar.epds.'));
+    for (const locale of LOCALES) {
+        const file = path.join(ROOT, `src/main/resources/oscarResources_${locale}.properties`);
+        const raw = fs.readFileSync(file);
+        const nonAscii = raw.findIndex((byte) => byte > 0x7f);
+        assert.equal(nonAscii, -1, `oscarResources_${locale} has a raw non-ASCII byte at offset ${nonAscii}; use a \\u escape`);
+        const { definitions } = readBundle(locale);
+        const repeated = epdsKeys.filter((key) => (definitions.get(key) || 0) > 1);
+        assert.deepEqual(repeated, [], `oscarResources_${locale} defines these EPDS keys more than once`);
     }
 });
 
