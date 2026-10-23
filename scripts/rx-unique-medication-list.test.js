@@ -17,7 +17,7 @@ test('the script entry point registers the prerequisite before the workflow crea
       registered = true;
       assert.equal(name, 'rx-unique-medication-list');
       assert.equal(typeof body, 'function');
-      assert.throws(() => options.preflight(), error => error instanceof h.SkipCheck);
+      assert.throws(() => options.preflightConfig(), error => error instanceof h.SkipCheck);
     } };
   };
   requireStub.main = entry;
@@ -34,6 +34,33 @@ test('an unconfirmed or disabled auto-include prerequisite is a SKIP, never an a
   }
   assert.doesNotThrow(() => preflight({ CONSULTATION_AUTO_INCLUDE_MEDICATIONS: 'true' }));
 });
+
+for (const confirmation of [undefined, 'true']) {
+  test(`the real lifecycle ${confirmation ? 'fails for missing SQL credentials after confirmation' : 'skips before SQL setup without confirmation'}`, async t => {
+    const { runWorkflow } = require('./lib/workflow-session');
+    const realRunCheck = h.runCheck;
+    const realSqlRunner = h.createSqlRunner;
+    const processRef = { env: {}, on() {}, removeListener() {} };
+    t.mock.method(h, 'readConfig', () => ({
+      testUser: 'fixture', mysql: { host: 'localhost', user: 'root', database: 'carlos' },
+    }));
+    const sql = t.mock.method(h, 'createSqlRunner', (...args) => realSqlRunner(...args));
+    t.mock.method(h, 'launchBrowser', () => assert.fail('browser must not launch'));
+    t.mock.method(h, 'runCheck', options => realRunCheck({ ...options, processRef, stdout: { log() {} } }));
+    t.mock.method(console, 'error', () => {});
+    const result = await runWorkflow('rx-unique-medication-list', () => assert.fail('workflow must not run'), {
+      preflightConfig: async ({ config }) => {
+        assert.equal(config.testUser, 'fixture');
+        await Promise.resolve();
+        preflight({ CONSULTATION_AUTO_INCLUDE_MEDICATIONS: confirmation });
+      },
+    });
+    assert.equal(result.outcome, confirmation ? 'FAIL' : 'SKIP');
+    assert.equal(processRef.exitCode, confirmation ? h.EXIT_FAIL : h.EXIT_SKIP);
+    assert.equal(sql.mock.callCount(), confirmation ? 1 : 0);
+    assert.match(result.detail, confirmation ? /MYSQL_PASSWORD/ : /packaged default: false/);
+  });
+}
 
 // Drive the workflow with the chart already showing the six expected entries.
 // A confirmed prerequisite must never turn an empty/broken consultation into a SKIP.

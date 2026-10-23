@@ -121,6 +121,6 @@ async function workflow(s) {
 }
 
 if (require.main === module) {
-  runWorkflow('rx-unique-medication-list', workflow, { openPatient: true, preflight: () => preflight() });
+  runWorkflow('rx-unique-medication-list', workflow, { openPatient: true, preflightConfig: () => preflight() });
 }
 module.exports = { workflow, preflight };
