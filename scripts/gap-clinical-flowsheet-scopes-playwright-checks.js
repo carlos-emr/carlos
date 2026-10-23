@@ -31,8 +31,13 @@ const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
+const {serverLogFromEnvironment, splitLogEvents} = require('./lib/server-log');
 
 async function workflow(s) {
+  const log = serverLogFromEnvironment();
+  if (!log.configured) throw new h.SkipCheck('A readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG is required to verify rule-free flowsheets');
+  h.assert(splitLogEvents(log.since(null)).length > 0, 'The configured server log contains no application events');
+  const logMark = log.mark();
   const {sql, patient, provider, marker} = s;
   const q = h.sqlString;
   const code = sql.value(`SELECT icd9 FROM icd9 WHERE icd9 REGEXP '^[0-9]{3,4}$'
@@ -154,6 +159,17 @@ async function workflow(s) {
       AND measurement='HT' AND provider_no=${q(provider)} AND archived='0'`, '0', 'Show left the provider-scope delete active');
     await openFlowsheet('flowsheet-restored');
     h.assert((await page.locator('body').innerText()).includes(names.HT), 'The restored clinic item is not back on the patient\'s flowsheet');
+  });
+
+  await s.step('a custom flowsheet without decision-support rules renders without logging a flowsheet exception', async () => {
+    // Browser assertions passed before #5187: the exception was caught and only logged by the JSP.
+    // The fixture deliberately adds measurements and guidelines, with no decision-support rules.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const errors = splitLogEvents(log.since(logMark)).filter(event =>
+      /^(ERROR|FATAL)$/.test(event.level)
+      && /TemplateFlowSheetPage|MeasurementFlowSheet|Error getting messages for flowsheet/.test(event.text));
+    h.assert(errors.length === 0, `The rule-free flowsheet logged ${errors.length} exception event(s) in ${log.source}: `
+      + errors.map(event => `${event.level} ${event.logger}`).join('; '));
   });
 }
 
