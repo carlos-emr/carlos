@@ -3490,7 +3490,11 @@ Administration pages compiled, this PR's `admin-role-management` fails at "the g
 (JDK 25, `dpkg-buildpackage -us -uc -b`, lintian `--fail-on error` clean). DrugRef was fetched by `debian/fetch-drugref.sh` at the new
 pin `0d240f07` (carlos-emr/drugref2026#17) and its WAR built from that checkout with the `debian/rules` flags, then passed as
 `DRUGREF_WAR` because Maven's transfers through the egress proxy kept failing inside the package build; the WAR's `TablesDao` carries
-`findDrugIdFromDIN`. carlos-ctl was built from the `debian/carlos-ctl.pin` fallback commit `325482a2` re-versioned
+`findDrugIdFromDIN`. That override skips the default handoff, so it was then exercised on its own: a second
+`dpkg-buildpackage -nc -us -uc -b` from a fresh checkout of the same commit, with `DRUGREF_WAR`, `DRUGREF_SRC` and `DRUGREF_REF`
+unset and only the DrugRef build's Maven repository seeded under `debian/build/m2`, read the pin, fetched `0d240f07` through
+`debian/fetch-drugref.sh` and built DrugRef itself. Its `carlos-emr-drugref` deb carries DrugRef classes byte-identical to the
+installed one's. carlos-ctl was built from the `debian/carlos-ctl.pin` fallback commit `325482a2` re-versioned
 `1.2.0+validation1` locally, as in the section above. Installed fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo
 data, `carlos-ctl check` clean; the IPv6 nginx reload note recurred). `LAB_UPLOAD_JOURNAL_UNIT=carlos-emr` was set so the check reads
 the journal.
@@ -3503,8 +3507,19 @@ the journal.
 
 The first run on the fresh install reported residue in `measurementType` (63 rows) and `validations` (44 rows):
 `MeasurementTemplateFlowSheetConfig` imports the flowsheet measurement types the first time an E-Chart opens after install. Later runs
-have no residue. `allergy-rx-alert`, `allergy-class-shortcut-alert`, `allergy-add-penicillin-shortcut-id`, `allergy-save-retry`,
-`drug-search` and `drugref-update` also pass on the new pin.
+have no residue.
+
+Every manifest check whose name names Rx, a drug, DrugRef, an allergy or a prescription (113) then ran on the new pin: 108 pass.
+`inactive-drug-status` passes with `INACTIVE_DRUG_DIN=02303027` and `INACTIVE_DRUG_DATE=2018-06-12` from the installed dataset,
+`fax-prescription-drugref` with `scripts/e2e/fax/fixtures.sql` loaded, and `rx-unique-medication-list` with
+`CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` (restored afterwards). The rest are known and not DrugRef's:
+`allergy-partial-start-date` fails at its last step as its manifest note says it does on `release/2026.08` (#4807),
+`rx-quantity-delete-race` and `rx-instructions-delete-race` are known failures (finding 312), `rx-preview-visit-site-isolation`
+skips without multisites, and `allergy-add-penicillin` is below. The smoke tier passes, 12 of 12, with no `carlos-emr` restart. The
+server-log audit has no DrugRef signature in any window that ran the packaged classes: its only `TablesDao.getDrugIdFromDIN`
+`NoResultException` events (four) were logged by the Tomcat process that ran the previous pin's classes for the failing run above,
+two by each of the check's two unknown-DIN requests. From the restore on, the audit's only unexplained signatures are finding 312's
+three `RxWriteScript2Action` errors (the discarded-card NullPointerException).
 
 `allergy-add-penicillin` fails at its control step ("the added allergy and its amendment are stored, and this run's window of the
 server journal is read") with "the server journal holds nothing in this run's window" on a server that has already served a few
