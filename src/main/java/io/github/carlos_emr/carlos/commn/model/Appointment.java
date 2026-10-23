@@ -203,7 +203,7 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
      * without losing the final character. Apply this to every appointment writer,
      * including recurring bookings, without trimming or truncating clinical text.
      */
-    private static String normalizeLineEndings(String text) {
+    public static String normalizeLineEndings(String text) {
         return text == null ? null : text.replace("\r\n", "\n").replace('\r', '\n');
     }
 
