@@ -59,7 +59,9 @@ function seedBcBillingTargets(s) {
     if (codes.dx.length) sql.execute(`DELETE FROM diagnosticcode WHERE diagnostic_code IN (${dxList}) AND description=${q(`${marker} diagnosis`)}`);
     sql.execute(`DELETE FROM billingreferral WHERE billingreferral_no>${referralMark} AND last_name=${q(marker)}`);
     sql.execute(`DELETE FROM wcb WHERE demographic_no=${patient}`);
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM ctl_servicecodes_dxcodes WHERE service_code=${q(codes.fee || '')} OR dxcode IN (${dxList}))
+    // Before the fee code is chosen there is no owned association to count: service_code='' would count the legacy
+    // code-less rows (#4941) and report a cleanup failure in place of the real one.
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM ctl_servicecodes_dxcodes WHERE ${codes.fee ? `service_code=${q(codes.fee)} OR ` : ''}dxcode IN (${dxList}))
       + (SELECT COUNT(*) FROM billingservice WHERE description LIKE ${q(`${marker}%`)})
       + (SELECT COUNT(*) FROM diagnosticcode WHERE description LIKE ${q(`${marker}%`)})
       + (SELECT COUNT(*) FROM billingreferral WHERE last_name=${q(marker)})

@@ -443,7 +443,7 @@
 
         <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
-        <input type="hidden" name="c_lastVisited" value="pg1"/>
+        <input type="hidden" name="c_lastVisited" value="pg3"/>
         <input type="hidden" name="demographic_no"
                value="<%= SafeEncode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="formCreated"

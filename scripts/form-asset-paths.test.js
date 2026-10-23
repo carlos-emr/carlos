@@ -170,13 +170,15 @@ test('the known-absent list names only assets that really are absent', () => {
  * neither pattern above can see. On BC-AR, BC-AR 2007 and BC-AR 2012 pages 2 and 3 the <base> came first, so the
  * bare name resolved against the context root and every one of those pages was drawn without its stylesheet.
  */
-const CHOSEN_STYLESHEET = /href\s*=\s*"([^"<]*)<%=\s*\w+\s*\?\s*"([\w.-]+\.css)"\s*:\s*"([\w.-]+\.css)"\s*%>"/g;
+const CHOSEN_STYLESHEET = /href\s*=\s*"((?:<%=\s*request\.getContextPath\(\)\s*%>|\$\{pageContext\.request\.contextPath\})?[^"<]*)<%=\s*\w+\s*\?\s*"([\w.-]+\.css)"\s*:\s*"([\w.-]+\.css)"\s*%>"/g;
 
 test('a stylesheet a form chooses in a scriptlet is context-rooted and both choices exist', () => {
   const wrong = [];
+  let found = 0;
   for (const name of formJsps()) {
     const source = fs.readFileSync(path.join(FORM_JSP_DIR, name), 'utf8');
     for (const [, prefix, viewCss, editCss] of source.matchAll(CHOSEN_STYLESHEET)) {
+      found++;
       if (!/^(?:<%=\s*request\.getContextPath\(\)\s*%>|\$\{pageContext\.request\.contextPath\})\/form\/$/.test(prefix)) {
         wrong.push(`${name}: "${viewCss}"/"${editCss}" is not prefixed with the context path and /form/`);
         continue;
@@ -189,5 +191,8 @@ test('a stylesheet a form chooses in a scriptlet is context-rooted and both choi
       wrong.push(`${name}: a stylesheet chosen in a scriptlet has no context path`);
     }
   }
+  // The pattern must see the references it judges: the BC-AR, BC-AR 2007 and BC-AR 2012 pages and the other BC forms
+  // choose 14 stylesheets this way. A pattern that matches none would pass whatever the pages say.
+  assert.ok(found >= 14, `only ${found} scriptlet-chosen stylesheets were found`);
   assert.deepEqual(wrong, [], wrong.join('\n'));
 });

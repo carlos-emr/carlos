@@ -607,11 +607,19 @@ Properties oscarVariables = CarlosProperties.getInstance();
 					<fmt:message key="admin.admin.addRole"/></a></li>
 				</security:oscarSec>
 
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r" reverse="<%=false%>">			
-								
+				<%-- Same rule as DisplayDocumentDescriptionTemplate2Action for the clinic-wide list: read on
+				     either object, each checked alone so one object's row cannot mask the other (#5057). --%>
+				<c:set var="canOpenDocumentDescriptionTemplates" value="${false}" />
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r">
+					<c:set var="canOpenDocumentDescriptionTemplates" value="${true}" />
+				</security:oscarSec>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.document" rights="r">
+					<c:set var="canOpenDocumentDescriptionTemplates" value="${true}" />
+				</security:oscarSec>
+				<c:if test="${canOpenDocumentDescriptionTemplates}">
 				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/DisplayDocumentDescriptionTemplate?setDefault=true"><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>		
-				</security:oscarSec>		
+					class="xlink" rel="${ctx}/admin/DisplayDocumentDescriptionTemplate?setDefault=true"><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
+				</c:if>
 						
 						
 				<%-- Same gate as ProviderPrivilege2Action and providerPrivilege.jsp: write on either object. --%>

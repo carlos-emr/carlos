@@ -416,7 +416,8 @@
                 <td>
 
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                        <!--r>
+                        <%-- Kept out of the page as a JSP comment: in an HTML comment a saved value holding "-->" ended it early.
+                        <tr>
       <td width="55%" >DATE
 		<img src="<%= request.getContextPath() %>/images/cal.gif" id="pg1_formDate_cal">
           <%=bSync? ("<b><a href=# onClick='syncDemo(); return false;'><font color='red'>Synchronize</font></a></b>") :"" %>
@@ -424,7 +425,8 @@
       <input type="text" name="pg1_formDate" style="width:100%" size="10" maxlength="10" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_formDate", "")) %>" @oscar.formDB dbType="date" />
       </td>
       <td >      </td>
-    </tr-->
+    </tr>
+                        --%>
                         <tr>
                             <td>GIVEN NAME<br>
                                 <input type="text" name="c_givenName" style="width: 100%" size="30"
@@ -435,7 +437,8 @@
                                        maxlength="30" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_surname", "")) %>"
                                        @oscar.formDB/></td>
                         </tr>
-                        <!--tr>
+                        <%-- Kept out of the page as a JSP comment, as the date row above.
+                        <tr>
       <td>ADDRESS<br>
       <input type="text" name="c_address" style="width:100%" size="50" maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_address", "")) %>" @oscar.formDB />
       <input type="text" name="c_city" style="width:100%" size="50" maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_city", "")) %>" @oscar.formDB />
@@ -447,7 +450,8 @@
 		PHN<br>
       <input type="text" name="c_phn" style="width:100%" size="20" maxlength="20" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phn", "")) %>" @oscar.formDB />
 	  </td>
-    </tr-->
+    </tr>
+                        --%>
                     </table>
 
                 </td>
@@ -520,9 +524,9 @@
                         "Syph",
                         "Rubella",
                         "Rh Neg FOB blood gp",
-                        "<input type='text' name='descCon0' size='70' maxlength='70' value='" + props.getProperty("descCon0", "") + "'",
-                        "<input type='text' name='descCon1' size='70' maxlength='70' value='" + props.getProperty("descCon1", "") + "'",
-                        "<input type='text' name='descCon2' size='70' maxlength='70' value='" + props.getProperty("descCon2", "") + "'",
+                        "<input type='text' name='descCon0' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("descCon0", "")) + "'",
+                        "<input type='text' name='descCon1' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("descCon1", "")) + "'",
+                        "<input type='text' name='descCon2' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("descCon2", "")) + "'",
                 };
             %>
             <% for (int i = 0; i < descConA.length; i++) { %>
@@ -578,8 +582,8 @@
                         "Doula info. Given",
                         "Lab results",
                         "Prenatal classes",
-                        "<input type='text' name='desc1st0' size='70' maxlength='70' value='" + props.getProperty("desc1st0", "") + "'",
-                        "<input type='text' name='desc1st1' size='70' maxlength='70' value='" + props.getProperty("desc1st1", "") + "'",
+                        "<input type='text' name='desc1st0' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc1st0", "")) + "'",
+                        "<input type='text' name='desc1st1' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc1st1", "")) + "'",
                 };
             %>
             <% for (int i = 0; i < desc1st.length; i++) { %>
@@ -631,8 +635,8 @@
                         "Rh Neg WinRho ordered (24-26 wk)",
                         "Home birth  pkg / copy of HBDP booklet",
                         "Hosp pre-reg (29 wks)",
-                        "<input type='text' name='desc2nd0' size='70' maxlength='70' value='" + props.getProperty("desc2nd0", "") + "'",
-                        "<input type='text' name='desc2nd1' size='70' maxlength='70' value='" + props.getProperty("desc2nd1", "") + "'",
+                        "<input type='text' name='desc2nd0' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc2nd0", "")) + "'",
+                        "<input type='text' name='desc2nd1' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc2nd1", "")) + "'",
                 };
             %>
             <% for (int i = 0; i < desc2nd.length; i++) { %>
@@ -685,8 +689,8 @@
                         "Hospital - registered",
                         "Circumcision info",
                         "Blood transfusion info",
-                        "<input type='text' name='desc3rd10' size='70' maxlength='70' value='" + props.getProperty("desc3rd10", "") + "'",
-                        "<input type='text' name='desc3rd11' size='70' maxlength='70' value='" + props.getProperty("desc3rd11", "") + "'",
+                        "<input type='text' name='desc3rd10' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc3rd10", "")) + "'",
+                        "<input type='text' name='desc3rd11' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc3rd11", "")) + "'",
                 };
             %>
             <% for (int i = 0; i < desc3rd1.length; i++) { %>
@@ -732,8 +736,8 @@
                         "PP preparation / care",
                         "Risk of PPD",
                         "Home birth - birth papers in chart",
-                        "<input type='text' name='desc3rd20' size='70' maxlength='70' value='" + props.getProperty("desc3rd20", "") + "'",
-                        "<input type='text' name='desc3rd21' size='70' maxlength='70' value='" + props.getProperty("desc3rd21", "") + "'",
+                        "<input type='text' name='desc3rd20' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc3rd20", "")) + "'",
+                        "<input type='text' name='desc3rd21' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc3rd21", "")) + "'",
                 };
 
             %>
@@ -900,8 +904,8 @@
                         "When to call in labour",
                         "Chart reviewed / faxed",
                         "Review Emergency birth",
-                        "<input type='text' name='desc3rd30' size='70' maxlength='70' value='" + props.getProperty("desc3rd30", "") + "'",
-                        "<input type='text' name='desc3rd31' size='70' maxlength='70' value='" + props.getProperty("desc3rd31", "") + "'",
+                        "<input type='text' name='desc3rd30' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc3rd30", "")) + "'",
+                        "<input type='text' name='desc3rd31' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc3rd31", "")) + "'",
                 };
 
             %>
@@ -957,8 +961,8 @@
             <%
                 String desc3rd4[] = {
                         "Postdates discussion",
-                        "<input type='text' name='desc3rd40' size='70' maxlength='70' value='" + props.getProperty("desc3rd40", "") + "'",
-                        "<input type='text' name='desc3rd41' size='70' maxlength='70' value='" + props.getProperty("desc3rd41", "") + "'",
+                        "<input type='text' name='desc3rd40' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc3rd40", "")) + "'",
+                        "<input type='text' name='desc3rd41' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc3rd41", "")) + "'",
                 };
 
             %>
@@ -1002,8 +1006,8 @@
                         "NST scheduled",
                         "AFI / U/S scheduled",
                         "Induction",
-                        "<input type='text' name='desc3rd50' size='70' maxlength='70' value='" + props.getProperty("desc3rd50", "") + "'",
-                        "<input type='text' name='desc3rd51' size='70' maxlength='70' value='" + props.getProperty("desc3rd51", "") + "'",
+                        "<input type='text' name='desc3rd50' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc3rd50", "")) + "'",
+                        "<input type='text' name='desc3rd51' size='70' maxlength='70' value='" + SafeEncode.forHtmlAttribute(props.getProperty("desc3rd51", "")) + "'",
                 };
             %>
             <% for (int i = 0; i < desc3rd5.length; i++) { %>

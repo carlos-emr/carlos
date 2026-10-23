@@ -3091,7 +3091,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                         </tr>
                         <tr>
                             <td><span class="small9"><fmt:message key="form.bcar.doula"/>:</span></td>
-                            <td
+                            <td>
                             <input type="text" name="pg2_doula" style="width:100%" size="50" maxlength="100"
                                    value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_doula", "")) %>" @oscar.formDB/>
                 </td>
@@ -3123,7 +3123,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </table>
 
 
-        <table class="Head" class="hidePrint">
+        <table class="Head" class="hidePrint" role="presentation">
             <tr>
                 <td align="left">
                     <%
@@ -3169,7 +3169,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </table>
 
 
-        <table width="100%" border="1" cellspacing="0" cellpadding="5">
+        <table width="100%" border="1" cellspacing="0" cellpadding="5" role="presentation">
             <tr valign="top">
                 <td>
                     <table width="100%" cellspacing="0" cellpadding="0">

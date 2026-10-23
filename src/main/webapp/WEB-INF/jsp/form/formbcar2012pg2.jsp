@@ -128,6 +128,10 @@
  * JQuery dirty form check
  */
             $(function () {
+                // Tick the saved EPDS answers before the dirty check records the form's starting state. The radios
+                // carry no checked state of their own, so without this a reopened record showed no answer and its
+                // next Save stored them as empty (BC-AR 2007 restores them from its body onload).
+                setEPDSscores();
                 $('form').areYouSure({'addRemoveFieldsMarksDirty': true});
 
                 //dirty form enable/disable save button.

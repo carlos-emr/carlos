@@ -174,10 +174,6 @@ function onSplit() {
     return confirm(encounterConfig.i18n.confirmSplit);
 }
 
-function getAnotherEncounter(newAppointmentNo) {
-    location = "./IncomingEncounter?appointmentList=true&appointmentNo=" + newAppointmentNo;
-}
-
 function measurementLoaded(name) {
     measurementWindows.push(openWindows[name]);
 }

@@ -44,6 +44,39 @@ test('the BC-AR 2007 and 2012 EPDS answers are restored from an encoded string, 
   }
 });
 
+test('no BC form page breaks a tag open over the field inside it, or prints a checkbox state outside its box', () => {
+  // BC-AR 2007's doula boxes sat in a "<td" with no ">": the browser read the <input> as the cell's attributes, so the
+  // saved doula was never shown and never posted again. BC-AR 2012's substance-use "No" box printed its saved state as
+  // text after the box, so it never showed ticked and the next Save cleared it.
+  for (const page of lib.BC_LEGACY_FORM_PAGES) {
+    const lines = read(page).split('\n');
+    lines.forEach((line, i) => {
+      if (/^\s*<(td|tr|th|table|div|span)\s*$/i.test(line)) {
+        const next = lines.slice(i + 1).find(l => l.trim() !== '') || '';
+        assert.ok(!/^\s*</.test(next), `${page}:${i + 1}: "${line.trim()}" is left open over "${next.trim().slice(0, 40)}"`);
+      }
+    });
+    const src = lines.join('\n');
+    for (const m of src.matchAll(/<input type="checkbox" name="(\w+)"\s*\/>\s*<%=[^%]*props\.getProperty\("\1"/g)) {
+      assert.fail(`${page}: the saved state of checkbox ${m[1]} is printed after its box`);
+    }
+  }
+});
+
+test('the BC-AR 2007 and 2012 page 2s run their EPDS restore when the page opens', () => {
+  // The radios carry no checked state of their own: a page that defines setEPDSscores but never calls it reopens a
+  // record with no answer ticked, and its next Save stores the answers as empty (BC-AR 2012 did, before #5090).
+  const calls = (src) => src.split('\n').filter(line => /setEPDSscores\(\)\s*;/.test(line) && !/function\s+setEPDSscores/.test(line));
+  assert.ok(calls(read('formbcar2007pg2.jsp')).some(line => /<body[^>]*onload="setEPDSscores\(\);"/.test(line)),
+    'formbcar2007pg2.jsp: the body onload calls setEPDSscores()');
+  const src2012 = read('formbcar2012pg2.jsp');
+  const ready = src2012.indexOf('$(function () {');
+  const restore = src2012.indexOf('setEPDSscores();', ready);
+  const dirtyCheck = src2012.indexOf("$('form').areYouSure(", ready);
+  assert.ok(ready >= 0 && restore > ready && dirtyCheck > restore,
+    'formbcar2012pg2.jsp: the DOM-ready handler calls setEPDSscores() before the dirty check records the form');
+});
+
 test('scanner: a value in a quoted attribute is encoded as an attribute', () => {
   const page = '<%@ page import="java.util.*" %>\n<input type="text" name="h" value="<%= props.getProperty("h", "") %>">';
   const { src, changed } = lib.rewrite(page);
@@ -94,4 +127,47 @@ test('scanner: a saved value printed as bare script or bare in a text box tag is
     '<a onclick="go(\'<%= props.getProperty("e", "") %>\')">x</a>',
   ].join('\n');
   assert.deepEqual(lib.classify(page).unhandled.map((o) => o.ctx), ['JS_CODE', 'TAG_BARE', 'ATTR_EVENT']);
+});
+
+test('scanner: a custom tag inside a quoted attribute is judged by its own context, never wrapped again', () => {
+  const field = (inner) => `<input type="text" name="x" value="${inner}">`;
+  const tag = (expr, context) => `<carlos:encode value='<%= ${expr} %>'${context ? ` context="${context}"` : ''}/>`;
+  const saved = 'props.getProperty("x", "")';
+  // Encoding for the attribute itself: kept, and the codemod leaves it alone (wrapping it would print "&amp;amp;").
+  const safe = field(tag(saved, 'htmlAttribute'));
+  assert.equal(lib.rewrite(safe).changed, 0);
+  assert.deepEqual(lib.classify(safe).unhandled, []);
+  // The tag's default HTML-content context leaves '"' as it is, so inside an attribute it is reported, not kept.
+  const defaultContext = lib.classify(field(tag(saved)));
+  assert.equal(defaultContext.kept.length, 0);
+  assert.match(defaultContext.unhandled[0].reason, /without an attribute context/);
+  // A value encoded before the tag encodes it again is reported too.
+  const twice = lib.classify(field(tag(`SafeEncode.forHtmlAttribute(${saved})`, 'htmlAttribute')));
+  assert.match(twice.unhandled[0].reason, /already encoded/);
+});
+
+test('no saved text value is concatenated raw into an input a scriptlet builds', () => {
+  // The Chart Checklist builds its free-text description boxes as Java strings ("<input ... value='" + value + "'"),
+  // which the output scanner never sees: a saved "'" ended the attribute, and "<" or "&" did not come back as typed.
+  const raw = [];
+  for (const page of lib.BC_LEGACY_FORM_PAGES) {
+    read(page).split('\n').forEach((line, i) => {
+      if (/value=\\?'"\s*\+\s*props\.getProperty\(/.test(line)) raw.push(`${page}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(raw, [], `saved values concatenated raw into a value attribute: ${raw.join(', ')}`);
+  assert.equal((read('formbcclientchartchecklist.jsp').match(/value='" \+ SafeEncode\.forHtmlAttribute\(props\.getProperty\("desc/g) || []).length, 17);
+});
+
+test("each page's date box shows that page's own saved date", () => {
+  // BC-NewBorn pages 2 and 3 printed page 1's date in their own date boxes, so a reopened record showed page 1's date
+  // there and the next Save stored it over the page's own.
+  const wrong = [];
+  for (const page of lib.BC_LEGACY_FORM_PAGES) {
+    for (const m of read(page).matchAll(/name="(pg\d_formDate)"[^>]*?value="<%=([^%]*)%>"/g)) {
+      const first = /props\.getProperty\("(\w+)"/.exec(m[2]);
+      if (!first || first[1] !== m[1]) wrong.push(`${page}: ${m[1]} shows ${first ? first[1] : 'no saved value'}`);
+    }
+  }
+  assert.deepEqual(wrong, [], wrong.join('; '));
 });

@@ -2444,8 +2444,8 @@
                                                dbType="tinyint(1)"/></td>
                                     <td><span class="small8">Substance use</span></td>
                                     <td>
-                                        <input type="checkbox" name="pg1_subUseNo"/>
-                                        <%= SafeEncode.forHtmlContent(props.getProperty("pg1_subUseNo", "")) %>
+                                        <input type="checkbox" name="pg1_subUseNo"
+                                            <%= props.getProperty("pg1_subUseNo", "") %>/>
 
                                         <span class="small8">No</span>
                                         <input type="checkbox"

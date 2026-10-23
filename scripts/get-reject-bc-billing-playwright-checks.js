@@ -16,7 +16,8 @@
  * User path: the writes are sent as a signed-in clinician (a throwaway login holding the test login's roles, so
  * BC Billing Preferences' Save, which always saves the signed-in provider's own, would land on the throwaway) from
  * the browser context, as a link or image would send them: GET, then HEAD.
- * Asserted (LAST step, all routes together): each GET and HEAD is answered 405 or 403 by CARLOS itself and changes
+ * Asserted (LAST step, all routes together): each GET and HEAD is answered 405 by CARLOS itself (not 403: the actions
+ * check the privilege before the method, so a 403 would be the throwaway's role, not a GET guard) and changes
  * none of the rows its write would (the owned bill, bill line, appointment status and payments; the owned WCB forms;
  * the owned fee codes; the owned association; referral doctors named by the marker; the throwaway's preferences).
  * Before, the first step proves the throwaway can open BC billing (the Bill Status of the owned bill), so a refusal is
@@ -58,7 +59,8 @@ async function workflow(s) {
 
   for (const write of M.bcBillingWrites(s, targets, fixture.providerNo)) {
     await s.step(`${write.label} sent as a GET and a HEAD is recorded`, async () => {
-      await ledger.probe(clinician, { label: write.label, path: M.appPath(s, write.route), params: write.params, snapshot: write.snapshot });
+      await ledger.probe(clinician, { label: write.label, path: M.appPath(s, write.route), params: write.params, snapshot: write.snapshot,
+        expect405: true });
     });
   }
 

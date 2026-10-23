@@ -27,3 +27,16 @@ test('the Billing form list compares the chosen form null-safely', () => {
   assert.doesNotMatch(src, /bean\.getBillForm\(\)\.equalsIgnoreCase\(/);
   assert.match(src, /billformlist\[i\]\.getFormCode\(\)\.equalsIgnoreCase\(bean\.getBillForm\(\)\)/);
 });
+
+test('a PRI default sets the private billing type only when PRI is the form the bill form chose', () => {
+  // When the clinic's default is PRI and this install has no PRI form, the fallback picks another form; setting the
+  // private billing type before the form was resolved left that form billing privately.
+  const src = fs.readFileSync(PAGE, 'utf8');
+  const privateType = src.indexOf('bean.setBillType("Pri");');
+  assert.ok(privateType > 0, 'the PRI default no longer sets the private billing type');
+  assert.equal(src.indexOf('bean.setBillType("Pri");', privateType + 1), -1, 'the private billing type is set in more than one place');
+  // It still reads the configured default, not the bill's own form that step 4 puts in its place on a reload.
+  assert.match(src, /String configuredBillingForm = defaultBillingForm;\s*\/\/ 4\. logged in user is overriding/);
+  assert.match(src, /if \("PRI"\.equals\(configuredBillingForm\) && "PRI"\.equals\(bean\.getBillForm\(\)\)\) \{\s*bean\.setBillType\("Pri"\);/);
+  assert.ok(privateType > src.indexOf('bean.setBillForm(installedForms[0].getFormCode());'), 'the billing type is set before the fallback chose the form');
+});

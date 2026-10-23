@@ -58,8 +58,9 @@ const SAFE_ENCODE_IMPORT = '<%@ page import="io.github.carlos_emr.carlos.utility
  * Every JSP output expression in a page, with the HTML context it is printed in.
  * ctx is one of: TEXT, ATTR (quoted attribute value), ATTR_EVENT (quoted on* attribute), ATTR_UNQUOTED,
  * TAG_BARE (inside a tag, not in an attribute value), CUSTOM_TAG (an attribute of a JSP custom tag such as
- * carlos:encode), JS_STRING (inside a <script> string literal), JS_COMMENT (inside a <script> comment) or JS_CODE
- * (inside <script>, outside a string or comment).
+ * carlos:encode), CUSTOM_TAG_IN_ATTR (an attribute of a custom tag that is itself inside a quoted attribute value; the
+ * entry carries the tag's text as nestedText), JS_STRING (inside a <script> string literal), JS_COMMENT (inside a
+ * <script> comment) or JS_CODE (inside <script>, outside a string or comment).
  */
 function scanOutputs(src) {
   const outputs = [];
@@ -124,6 +125,35 @@ function scanOutputs(src) {
     }
     if (mode === 'tag') {
       if (quote) {
+        // A JSP custom tag inside the quoted value (value="<carlos:encode value='<%= v %>' context="htmlAttribute"/>")
+        // prints its own output into this attribute: its expressions are that tag's attributes, not this value's text.
+        const nested = c === '<' && /^<([A-Za-z][\w.-]*:[\w.-]+)/.exec(src.slice(i, i + 64));
+        if (nested) {
+          const found = [];
+          let j = i + nested[0].length;
+          while (j < src.length) {
+            if (src.startsWith('<%=', j)) {
+              const end = src.indexOf('%>', j + 3);
+              if (end < 0) { j = src.length; break; }
+              const raw = src.slice(j + 3, end);
+              const lead = raw.length - raw.trimStart().length;
+              const expr = raw.trim();
+              found.push({
+                start: j, end: end + 2, exprStart: j + 3 + lead, exprEnd: j + 3 + lead + expr.length,
+                expr, ctx: 'CUSTOM_TAG_IN_ATTR', attr, tagName: nested[1], tagStart: i,
+              });
+              j = end + 2;
+              continue;
+            }
+            if (src.startsWith('/>', j)) { j += 2; break; }
+            if (src[j] === '>') { j++; break; }
+            j++;
+          }
+          const nestedText = src.slice(i, j);
+          for (const output of found) outputs.push({ ...output, nestedText });
+          i = j;
+          continue;
+        }
         if (c === quote) { quote = null; attr = ''; afterEquals = false; }
         i++;
         continue;
@@ -224,6 +254,15 @@ function classify(src) {
   const kept = [];
   for (const o of scanOutputs(src)) {
     if (!readsSavedValue(o.expr)) continue;
+    if (o.ctx === 'CUSTOM_TAG_IN_ATTR') {
+      // The custom tag's own output lands in this attribute: it must encode for an attribute itself (the tag's
+      // default HTML-content context leaves '"' as it is), and its value must not be encoded a second time.
+      if (isEncoded(o.expr)) unhandled.push({ ...o, reason: `${o.tagName} encodes an already encoded value` });
+      else if (/\bcontext\s*=\s*["'](htmlAttribute|uriComponent)["']/.test(o.nestedText)) {
+        kept.push({ ...o, reason: 'custom tag encoding for this attribute' });
+      } else unhandled.push({ ...o, reason: `${o.tagName} inside the ${o.attr || 'quoted'} attribute without an attribute context` });
+      continue;
+    }
     if (isEncoded(o.expr)) { kept.push({ ...o, reason: 'encoded' }); continue; }
     if (o.ctx === 'CUSTOM_TAG') { kept.push({ ...o, reason: 'custom tag attribute' }); continue; }
     if (isConstantTernary(o.expr)) { kept.push({ ...o, reason: 'constant' }); continue; }
