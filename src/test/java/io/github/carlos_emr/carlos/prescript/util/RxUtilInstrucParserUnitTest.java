@@ -1206,6 +1206,29 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getSpecial()).isEqualTo(instructions);
         }
 
+        /**
+         * A later segment that names its own route, as a route token or in words, is read as
+         * written: an IV or subcutaneous IU amount after an oral course stays the amount given, not
+         * an oral strength, and oral or vaginal wording keeps its own meaning (Codex on 820a60b2).
+         */
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '|', value = {
+            "Take 1000 IU po daily x 7 days then 20 IU IV daily x 7 days | 147",
+            "Take 1000 IU po daily x 7 days then 20 IU intravenously daily x 7 days | 147",
+            "Take 1000 IU po daily x 7 days then 20 IU subcut daily x 7 days | 147",
+            "Take 2000 IU po daily x 7 days then 1000 IU orally daily x 7 days | 14",
+            "Take 2000 IU po daily x 7 days then 1000 IU by mouth daily x 7 days | 14",
+            "Apply 2 g topically bid x 7 days then 2 g vaginally daily x 7 days | 42"
+        })
+        @DisplayName("should read a later taper segment that names its own route as written")
+        void shouldKeepSegmentRoute_whenLaterSegmentNamesItsOwn(String instructions, String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial(instructions);
+            RxUtil.instrucParser(rx);
+
+            assertThat(rx.getDuration()).isEqualTo("14");
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
         /** With one dosing segment left after the end marker, the ordinary parse keeps its own unit. */
         @Test
         @DisplayName("should leave a single segment followed by 'then stop' to the ordinary parse")

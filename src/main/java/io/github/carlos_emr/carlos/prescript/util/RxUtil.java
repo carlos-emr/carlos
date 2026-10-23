@@ -86,6 +86,13 @@ public class RxUtil {
     /** Beginnings of words for routes other than by mouth ("subcutaneously", "injection", "inhaled"). */
     private static final List<String> NON_ORAL_WORD_STARTS = List.of("subcut", "intramuscular", "intravenous", "inject", "inh");
     /**
+     * Written routes that no dose rule reads but that still say how a taper segment is given, so it
+     * does not take the first segment's route ("then 1 supp rectally qhs").
+     */
+    private static final Set<String> OTHER_ROUTE_WORDS = Set.of("pr", "rectal", "rectally", "rectum", "vagina",
+            "nasal", "nasally", "intranasal", "intranasally", "buccal", "buccally", "sublingual", "sublingually",
+            "ophthalmic", "otic", "transdermal", "transdermally");
+    /**
      * Words after which an amount is not the dose: a vehicle or diluent ("in 100 mL", "with 250 mL"),
      * a ceiling ("max 8 tabs") or an amount to dispense ("dispense 30", "qty 30").
      */
@@ -1349,16 +1356,29 @@ public class RxUtil {
         return true;
     }
 
-    /** Reads a later taper segment with the first segment's method and route when it names none of its own. */
+    /**
+     * Reads a later taper segment with the first segment's method and route when it names neither.
+     * A segment that names a method or a route of its own, as a route token or in words ("IV",
+     * "subcut", "by mouth", "vaginally", "rectally"), is read as written: appending the first
+     * segment's "po" to "20 IU IV daily" made the IV amount an oral strength.
+     */
     private static String inheritContext(String segment, String method, String route) {
-        String text = segment;
-        if (!method.isEmpty() && !matchesAny(METHOD_PATTERNS, text)) {
-            text = method + " " + text;
+        if (matchesAny(METHOD_PATTERNS, segment) || namesRoute(segment)) {
+            return segment;
         }
-        if (!route.isEmpty() && !matchesAny(ROUTE_PATTERNS, text)) {
-            text = text + " " + route;
-        }
-        return text;
+        String text = method.isEmpty() ? segment : method + " " + segment;
+        return route.isEmpty() ? text : text + " " + route;
+    }
+
+    /**
+     * True when the directions say how the product is given: a route token the route list parses
+     * ("IM", "TOP."), a route the dose rules read from words ("IV", "subcut", "by mouth", "vaginally",
+     * "to the skin"), or another written route ("rectally", "intranasally").
+     */
+    private static boolean namesRoute(String instructions) {
+        return matchesAny(ROUTE_PATTERNS, instructions) || hasNonOralWord(instructions)
+                || ORAL_CONTEXT.matcher(instructions).find() || hasTopicalWording(instructions)
+                || wordsOf(instructions).stream().anyMatch(OTHER_ROUTE_WORDS::contains);
     }
 
     private static boolean matchesAny(String[] patterns, String text) {
