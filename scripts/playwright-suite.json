@@ -11174,6 +11174,22 @@
       "fixtures": "Needs scripts/e2e/fax/fixtures.sql loaded (fixture patient Loopback/Faxtest). Writes nothing."
     },
     {
+      "name": "chart-entry-appointment-ownership",
+      "script": "scripts/chart-entry-appointment-ownership-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue #4676: a chart entry (IncomingEncounter) remembers only an appointment of its own patient. Two chart windows of one login: A entered for A's own visit by the logged-in provider, B entered from another provider's day sheet for one of B's visits; each note save's re-rendered notes panel names its chart's entry provider. The entry of A's own visit, also with the old appointmentList flag, opens A's chart for that visit. Requests naming A with B's visit (with and without appointmentList), with a visit that does not exist or one booked without a patient, naming B with A's visit, and the old getAnotherEncounter() request (no patient) are refused (400) without a redirect and change neither patient's rows or any visit row. Afterwards each chart's next note save still names its own entry provider and links its own visit. With the old action, the appointmentList request overwrote B's remembered entry (B's panel named the logged-in provider) and the request naming A with B's visit opened A's chart with B's visit as its appointment.",
+      "fixtures": "Owned FAKE patients A/B (the run marker as last name), one visit of A's, two of B's and one booked without a patient, all named with the run marker; B is entered for a second active doctor. Cleanup removes both patients' notes and their extensions, links, issue links and issues, note locks, drafts, eChart revisions, appointment archive rows and appointments, and the unbooked visit, by key and asserts each is gone; B is removed and the harness removes A.",
+      "mutates": []
+    },
+    {
       "name": "echart-two-patient-isolation",
       "script": "scripts/echart-two-patient-isolation-playwright-checks.js",
       "tiers": [

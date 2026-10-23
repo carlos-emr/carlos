@@ -163,6 +163,27 @@ Results:
 - A later refactor of the `fit` branch moved it into the existing print-branch chain, with no output
   change. Its `FrmPDFServlet` class was swapped into the same install, and `clinical-forms-save-reopen`
   and `-form14-42` were run again: both **PASS**.
+`chart-entry-appointment-ownership-playwright-checks.js` (issue #4676) was added on 2026-10-22. It was run
+against 2026.09.0~snapshot26 packages built inside an Ubuntu 26.04 container from the `release/2026.08` fix
+branch: DrugRef from its pinned ref, and carlos-ctl from the pin's fallback commit `325482a`, stamped 1.2.0
+because that tag is not published yet. They were installed fresh with `scripts/deb-docker-validation.sh up`
+and the Ontario demo dataset (`carlos-ctl check` clean, `:443`). Behind the same connection-resetting egress
+proxy, the image's apt trusted the proxy's full CA bundle (`BUILD_CA_BUNDLE=/root/.ccr/ca-bundle.crt`; the
+proxy CA alone failed verification) and Maven ran with short request timeouts. Results:
+
+- The new check **PASS**es 4/4 steps and leaves no fixture rows. With the pre-fix
+  `EctIncomingEncounter2Action` and `EctSessionBean` classes swapped into the installed webapp, it **FAIL**s
+  at "entries naming a visit that is not their patient's are refused": every hostile entry answered 302.
+- `echart`, `echart-navbar-modules`, `echart-new-patient-notes`, `echart-note-sign-bill`, `echart-print`,
+  `echart-lock-lifecycle`, `echart-forms-latest-item`, `echart-note-verify-appointment-status`,
+  `chart-session-state-two-window-isolation`, `pmm-attach-note-two-window-isolation`,
+  `gap-provider-messenger-write-to-encounter`, `page-health-master-record`, `anonymous-access-refused`,
+  `mutator-get-rejection-live` and `waf-clinical-text-corpus-incoming-encounter-reason` **PASS**.
+- `echart-two-patient-isolation` fails at "Vascular Tracker setup and Update in A's window" (native Tab from
+  MedR comments did not focus MedA comments) and `echart-note-lifecycle` at "reopened, the signed note is
+  read-only"; both fail at the same steps with the pre-fix classes, so neither is this change's.
+  `session-state-two-window-isolation` failed once at its year-end statement step and once at its compose
+  attachment step, and passed on the next run with the fix and once with the pre-fix classes.
 `rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
 run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
 (DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
