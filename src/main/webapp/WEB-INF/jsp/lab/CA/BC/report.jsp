@@ -147,10 +147,12 @@
 
         Hl7Pid hl7pid = pidDao.find(ConversionUtils.fromIntString(pid));
         if (hl7pid != null) {
-            int age = 0;
-            java.util.GregorianCalendar calendar = new java.util.GregorianCalendar();
-            calendar.setTime(hl7pid.getDateOfBirth());
-            age = MyDateFormat.getAge(calendar.get(java.util.GregorianCalendar.YEAR), calendar.get(java.util.GregorianCalendar.MONTH), calendar.get(java.util.GregorianCalendar.DATE));
+            Integer age = null;
+            if (hl7pid.getDateOfBirth() != null) {
+                java.util.GregorianCalendar calendar = new java.util.GregorianCalendar();
+                calendar.setTime(hl7pid.getDateOfBirth());
+                age = MyDateFormat.getAge(calendar.get(java.util.GregorianCalendar.YEAR), calendar.get(java.util.GregorianCalendar.MONTH), calendar.get(java.util.GregorianCalendar.DATE));
+            }
     %>
     <table width="100%">
         <tr>
@@ -170,7 +172,7 @@
             <td class="Text"><carlos:encode value='<%= hl7pid.getExternalId() %>' context="html"/>
             </td>
             <td class="Text" align="right">Age:</td>
-            <td class="Text"><%=age%>
+            <td class="Text"><%=age == null ? "" : age%>
             </td>
         </tr>
         <tr>

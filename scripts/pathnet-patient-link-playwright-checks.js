@@ -99,6 +99,10 @@ async function workflow(s) {
   });
   await s.step('opening linking page makes no patient changes; selection posts the match', async () => {
     let frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
+    const noDobRow = frame.locator('tr').filter({ hasText: `${marker}^nodob` });
+    const noDobReport = await s.popup(admin, noDobRow.getByRole('link', { name: `${marker}^nodob`, exact: true }), 'pathnet-no-dob-result');
+    h.assert((await noDobReport.locator('body').innerText()).includes('5.2'), 'A missing DOB prevented displaying the observation');
+    await noDobReport.close();
     let row = frame.locator('tr').filter({ hasText: `${marker}^mismatch` });
     await row.getByText('Select patient', { exact: true }).waitFor();
     const report = await s.popup(admin, row.getByRole('link', { name: `${marker}^mismatch`, exact: true }), 'pathnet-result');
@@ -119,6 +123,9 @@ async function workflow(s) {
     'Manual match did not synchronize legacy and inbox/chart links');
     const rejected = await admin.request.get(h.appUrl(s.config.baseUrl, `/lab/CA/BC/ViewIndex?pid=${unlinked}&demo_id=${duplicate}`));
     h.assert(rejected.status() === 405, 'GET patient-link mutation was accepted');
+    h.assert(sql.value(`SELECT COUNT(*) FROM hl7_link l JOIN hl7_pid p ON p.pid_id=l.pid_id
+      WHERE p.patient_name IN (${h.sqlString(`${marker}^malformed`)},${h.sqlString(`${marker}^ambiguous`)})
+      AND l.demographic_no=0`) === '2', 'Manual linking changed other unmatched reports');
   });
 }
 if (require.main === module) runWorkflow('pathnet-patient-link', workflow, { openMaster: false });
