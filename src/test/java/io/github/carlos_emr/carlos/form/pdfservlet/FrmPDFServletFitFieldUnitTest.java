@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.openpdf.text.Element;
 import org.openpdf.text.pdf.BaseFont;
 import org.openpdf.text.pdf.PdfContentByte;
 
@@ -103,6 +104,15 @@ class FrmPDFServletFitFieldUnitTest {
         assertThat(FrmPDFServlet.alignmentOf("right")).isEqualTo(PdfContentByte.ALIGN_RIGHT);
         assertThat(FrmPDFServlet.alignmentOf("center")).isEqualTo(PdfContentByte.ALIGN_CENTER);
         assertThat(FrmPDFServlet.alignmentOf("anything")).isEqualTo(PdfContentByte.ALIGN_CENTER);
+    }
+
+    @Test
+    @DisplayName("should give the column branch the alignment values ColumnText expects")
+    void shouldMatchColumnTextAlignment_forEveryConfiguredValue() {
+        // The rectangle (column) branch hands alignmentOf's result to ColumnText, which reads Element's constants.
+        assertThat(FrmPDFServlet.alignmentOf("left")).isEqualTo(Element.ALIGN_LEFT);
+        assertThat(FrmPDFServlet.alignmentOf("right")).isEqualTo(Element.ALIGN_RIGHT);
+        assertThat(FrmPDFServlet.alignmentOf("center")).isEqualTo(Element.ALIGN_CENTER);
     }
 
     @Test

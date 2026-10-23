@@ -15,6 +15,17 @@ carlos-emr (2026.09.0~snapshot26) resolute; urgency=medium
     every db-migrate; check reports drift. Tables holding passwords, PINs,
     tokens, keys, live session identifiers or integration settings are never
     granted, nor is a table no one has classified yet.
+  * The Patient Encounter Worksheet (a printed encounter summary with space
+    for handwritten notes) is retired (#5089): its page, PDF template and
+    print layout are removed, and migration V1.0.59.2 deletes its Forms-menu
+    entry on new and upgraded databases. It stored nothing, so no patient
+    records are affected.
+  * carlos-emr-drugref answers a DIN it does not carry as "not found"
+    instead of an error (#5006). Opening Rx Info for a drug saved with an
+    old or imported DIN logged two DrugRef NoResultException ERRORs on every
+    open, although the page went on to its name search. A DIN shared by two
+    products, and a database failure, are still errors. This upload moves
+    debian/drugref.pin to the DrugRef revision that carries the fix.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 28 Sep 2026 23:06:10 +0000
 

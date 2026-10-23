@@ -168,6 +168,15 @@ class AdministrationNavigationRegressionTest {
     }
 
     @Test
+    @DisplayName("Document Description Template link should follow the page gate's per-object read rule")
+    void shouldGuardDocumentDescriptionTemplateLink_withPerObjectReadChecks() throws IOException {
+        // DisplayDocumentDescriptionTemplate2Action opens the clinic-wide list for read on either
+        // object (issue #5057); _admin.document gates nothing else, so the menu offers it alone too.
+        assertEntryGuardedByEachObject(Files.readString(LEFT_NAV), "/admin/DisplayDocumentDescriptionTemplate?setDefault=true",
+                "canOpenDocumentDescriptionTemplates", "r", "_admin", "_admin.document");
+    }
+
+    @Test
     @DisplayName("System Management section should open for read on any of its objects, each checked alone")
     void shouldGateSystemManagementSection_withPerObjectReadChecks() throws IOException {
         assertEntryGuardedByEachObject(Files.readString(LEFT_NAV), "admin.admin.SystemManagement",

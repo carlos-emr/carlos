@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.admin.web;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplateAccess;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -31,26 +32,36 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Security gate for the Document Description Template display page.
+ * Security gate for the document description template page.
  *
- * <p>Enforces {@code _admin r} privilege before forwarding to the JSP.
- * All display and mutation logic is delegated to the JSP and its downstream
- * action endpoints.</p>
+ * <p>The page shows one of two lists. With {@code setDefault=true} it is the clinic-wide list,
+ * which needs {@code _admin} or {@code _admin.document} read; without it, it is the signed-in
+ * provider's own list, which needs {@code _pref} write like the other Preferences editors, so a
+ * provider who is not an administrator can open their own templates (issue #5057). The rules live
+ * in {@link DocumentDescriptionTemplateAccess}; the page and its endpoint apply the same ones.</p>
  *
  * @since 2026-04-05
  */
 public class DisplayDocumentDescriptionTemplate2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // ActionSupport is Serializable; the privilege service is not, and a per-request gate never is.
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public DisplayDocumentDescriptionTemplate2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    DisplayDocumentDescriptionTemplate2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
+        DocumentDescriptionTemplateAccess.requireOpenPage(securityInfoManager, loggedInInfo,
+                DocumentDescriptionTemplateAccess.isClinicListRequest(request));
 
         return SUCCESS;
     }
