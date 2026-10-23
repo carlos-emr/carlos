@@ -25,6 +25,8 @@
 .cs-page { padding: 1rem; background: var(--carlos-bg-light); }
 .cs-header { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: 1rem; }
 .cs-title { font-size: 1.25rem; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.cs-layout-info { margin: 0; color: var(--bs-secondary-color); }
+.cs-layout-name { font-weight: 600; color: var(--bs-body-color); }
 .cs-patient-age { font-weight: 400; color: inherit; margin-left: .25rem; }
 
 .cs-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; }
@@ -32,7 +34,7 @@
 @media (min-width: 1460px) { .cs-layout { grid-template-columns: minmax(0, 1fr) 360px; } }
 @media (max-width: 767.98px) { .cs-layout { grid-template-columns: minmax(0, 1fr); } }
 
-.cs-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.cs-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
 .cs-top > *, .cs-right > *, .cs-hidden-body > * { min-width: 0; }
 .cs-right, .cs-hidden-body { display: flex; flex-direction: column; gap: 1rem; }
 

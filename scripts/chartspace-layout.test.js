@@ -216,3 +216,38 @@ test('JSP passes the announce messages to the shell, JavaScript-encoded', () => 
     assert.ok(jsp.includes(k + ": '${carlos:forJavaScript(" + cap + ")}'"), k);
   });
 });
+
+test('JSP passes the layout id to init, JavaScript-encoded', () => {
+  assert.ok(readJsp().includes("layoutId: '${carlos:forJavaScript(csLayoutId)}'"));
+});
+
+test('JSP shows the layout name through fmt:message var and carlos:encode only', () => {
+  const jsp = readJsp();
+  assert.ok(jsp.includes('<fmt:message key="chartspace.chartSpace.layout.${csLayoutId}" var="csLayoutName"/>'));
+  assert.ok(jsp.includes('<fmt:message key="chartspace.chartSpace.layoutLabel" var="csLayoutLabel"/>'));
+  const span = /<span class="cs-layout-name">([\s\S]*?)<\/span>/.exec(jsp);
+  assert.ok(span, 'cs-layout-name span present');
+  assert.equal(span[1].trim(), '<carlos:encode value="${csLayoutName}"/>');
+  assert.ok(jsp.includes('<carlos:encode value="${csLayoutLabel}"/>'));
+  const bare = (jsp.match(/<fmt:message\b(?![^>]*\bvar=)[^>]*>/g) || []);
+  assert.deepEqual(bare, [], 'no fmt:message written straight into the HTML');
+});
+
+test('CSS top row shrinks to 12rem tracks so up to TOP_MAX cards fit', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const css = fs.readFileSync(path.join(__dirname, '../src/main/webapp/css/chartspace.css'), 'utf8');
+  const m = /\.cs-top\s*\{([^}]*)\}/.exec(css);
+  assert.ok(m, '.cs-top rule present');
+  assert.ok(m[1].includes('repeat(auto-fit, minmax(12rem, 1fr))'), m[1]);
+  assert.ok(!/!important/.test(m[1]), 'no !important in the rule');
+});
+
+test('CSS styles the layout name text with a cs- class', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const css = fs.readFileSync(path.join(__dirname, '../src/main/webapp/css/chartspace.css'), 'utf8');
+  const rule = /\.cs-layout-name\s*\{([^}]*)\}/.exec(css);
+  assert.ok(rule && rule[1].includes('font-weight'), '.cs-layout-name rule present');
+  assert.ok(!/!important/.test(rule[1]), 'no !important in the rule');
+});

@@ -131,6 +131,12 @@ async function checkWidth(page, baseUrl, demographicNo, viewport) {
   assert(identity.title.startsWith(expectedPrefix) && identity.title.length > expectedPrefix.length,
     `${label}: <title> "${identity.title}" does not start with "${expectedPrefix}" followed by the page title`);
 
+  // The clinic default layout is named in visible text (not colour or an attribute only).
+  const layoutName = page.locator('.cs-layout-name');
+  assert((await layoutName.count()) === 1, `${label}: expected one .cs-layout-name element`);
+  assert(await layoutName.isVisible(), `${label}: layout name is not visible`);
+  assert((await layoutName.innerText()).trim().length > 0, `${label}: layout name text is empty`);
+
   const overflow = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,

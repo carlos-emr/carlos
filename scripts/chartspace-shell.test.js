@@ -105,6 +105,21 @@ test('init with layoutId eyeCare mounts without errors and without empty cards',
   assert.equal($('cs-top').childNodes.length, 0, 'no empty top region cards');
 });
 
+test('init resolves the preset for the layoutId it received', async () => {
+  const original = layout.resolvePreset;
+  const seen = [];
+  layout.resolvePreset = function (id) {
+    seen.push(id);
+    return original(id);
+  };
+  try {
+    await startShell(OK_JSON, undefined, { layoutId: 'eyeCare' });
+  } finally {
+    layout.resolvePreset = original;
+  }
+  assert.deepEqual(seen, ['eyeCare'], 'resolvePreset called once with the layoutId given to init');
+});
+
 test('an EMPTY block moves to the hidden panel, enables the toggle and is announced', async () => {
   const { $, card } = await startShell({ status: 'EMPTY', items: [] });
   assert.equal(card.getAttribute('data-state'), 'EMPTY');

@@ -72,6 +72,7 @@ class ViewChartSpace2ActionUnitTest {
     private SecurityInfoManager securityInfoManager;
     private CaseManagementManager caseManagementManager;
     private DemographicManager demographicManager;
+    private ChartSpaceLayoutService layoutService;
     private ViewChartSpace2Action action;
     private String originalBaseName;
 
@@ -96,8 +97,10 @@ class ViewChartSpace2ActionUnitTest {
         when(caseManagementManager.isClientInProgramDomain("999998", "2")).thenReturn(true);
         demographicManager = mock(DemographicManager.class);
         when(demographicManager.getDemographic(any(), eq(2))).thenReturn(fakePatient());
+        layoutService = mock(ChartSpaceLayoutService.class);
+        when(layoutService.loadClinicDefault()).thenReturn(ChartSpaceLayout.DEFAULT);
         action = new ViewChartSpace2Action(new ChartSpaceRequestValidator(securityInfoManager, caseManagementManager),
-                demographicManager);
+                demographicManager, layoutService);
     }
 
     private static Demographic fakePatient() {
@@ -280,5 +283,55 @@ class ViewChartSpace2ActionUnitTest {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         verifyNoInteractions(demographicManager);
+    }
+
+    @Test
+    void shouldExposeLayoutId_whenServiceReturnsEyeCare() throws Exception {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+        when(layoutService.loadClinicDefault()).thenReturn(ChartSpaceLayout.EYE_CARE);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("csLayoutId")).isEqualTo("eyeCare");
+    }
+
+    @Test
+    void shouldExposeFamilyPracticeId_whenServiceReturnsDefault() throws Exception {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("csLayoutId")).isEqualTo("familyPractice");
+    }
+
+    @Test
+    void shouldNotReadLayout_whenValidationFails() {
+        request.setParameter("demographicNo", "2");
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(layoutService);
+        assertThat(request.getAttribute("csLayoutId")).isNull();
+    }
+
+    @Test
+    void shouldNotReadLayout_whenPatientNotFound() throws Exception {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+        when(demographicManager.getDemographic(any(), eq(2))).thenReturn(null);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verifyNoInteractions(layoutService);
+        assertThat(request.getAttribute("csLayoutId")).isNull();
+    }
+
+    @Test
+    void shouldPropagateError_whenLayoutReadFails() {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+        when(layoutService.loadClinicDefault()).thenThrow(new IllegalStateException("FAKE-db-down"));
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("FAKE-db-down");
     }
 }

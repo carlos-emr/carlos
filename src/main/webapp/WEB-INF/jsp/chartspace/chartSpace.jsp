@@ -32,6 +32,8 @@
            csPatientName (full name, "Last, First") and csPatientAge (localized,
            optional), both set by the gate action. Only name and age are rendered, in the
            title and heading; no date of birth, sex, HIN or MRP.
+  Request attribute: csLayoutId (an allow-listed ChartSpaceLayout id, set by the gate from the enum,
+           never from a parameter), used to build the layout message key and passed to init.
   No CSRF bootstrap include: the page performs no POST (read-only JSON GET).
   @since 2026-10-09
 --%>
@@ -59,6 +61,9 @@
 <fmt:message key="chartspace.chartSpace.labelSeverityUnknown" var="csSevUnknown"/>
 <%-- No <fmt:param>: JSTL returns these patterns verbatim (no MessageFormat), and
      chartspace.js substitutes {0} (block title) and {1} (record count) as text. --%>
+<fmt:message key="chartspace.chartSpace.layoutLabel" var="csLayoutLabel"/>
+<%-- The key is built from csLayoutId, which the gate takes from ChartSpaceLayout.id() only. --%>
+<fmt:message key="chartspace.chartSpace.layout.${csLayoutId}" var="csLayoutName"/>
 <fmt:message key="chartspace.chartSpace.announceLoaded" var="csAnnounceLoaded"/>
 <fmt:message key="chartspace.chartSpace.announceEmpty" var="csAnnounceEmpty"/>
 <fmt:message key="chartspace.chartSpace.announceNoAccess" var="csAnnounceNoAccess"/>
@@ -77,6 +82,8 @@
 <header class="cs-header">
     <h1 class="cs-title"><carlos:encode value="${csPatientName}"/>
         <span class="cs-patient-age">${empty csPatientAge ? '' : '<span aria-hidden="true">&middot;</span> '}<carlos:encode value="${csPatientAge}"/></span></h1>
+    <p class="cs-layout-info"><carlos:encode value="${csLayoutLabel}"/>:
+        <span class="cs-layout-name"><carlos:encode value="${csLayoutName}"/></span></p>
     <button type="button" id="cs-hidden-toggle" class="btn btn-outline-secondary btn-sm"
             aria-expanded="false" aria-controls="cs-hidden-panel" data-has-data="false" disabled>
         <carlos:encode value="${csBtnHidden}"/> (0)
@@ -120,6 +127,7 @@
         window.ChartSpace.init({
             contextPath: '${carlos:forJavaScript(pageContext.request.contextPath)}',
             demographicNo: '${carlos:forJavaScript(demographicNo)}',
+            layoutId: '${carlos:forJavaScript(csLayoutId)}',
             i18n: {
                 btnHidden: '${carlos:forJavaScript(csBtnHidden)}',
                 msgHiddenHasData: '${carlos:forJavaScript(csMsgHiddenHasData)}',
