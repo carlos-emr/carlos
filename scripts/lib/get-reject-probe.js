@@ -57,10 +57,21 @@ function multipartFields(buffer, contentType) {
  * (body = the urlencoded or multipart text fields), the request `headers` (lower-case names, so
  * whether the page sent the CSRF-TOKEN as a header is known), its `contentType` and its raw
  * `postData` (a JSON body, which has no fields).
+ *
+ * `frameUrl` is the address of the page that sent the request, read as it was sent. A check that
+ * must reload that page uses it, never the Referer header: the packaged front door answers every
+ * page with Referrer-Policy: no-referrer, so a browser behind it sends no Referer at all.
  */
 async function captureRequest(page, match, act, { timeout = 20000, method = 'POST' } = {}) {
   // method: null captures whatever verb the page used (to prove a page that WRITES by GET).
-  const requested = page.waitForRequest(r => (!method || r.method() === method) && match(new URL(r.url())), { timeout });
+  let frameUrl = '';
+  const requested = page.waitForRequest((r) => {
+    if (!((!method || r.method() === method) && match(new URL(r.url())))) return false;
+    // Read now: once a form post's response commits, the frame shows the action's URL, and a popup
+    // that closes itself after saving has no frame left to ask.
+    try { frameUrl = r.frame().url(); } catch { frameUrl = ''; }
+    return true;
+  }, { timeout });
   requested.catch(() => {});
   await act();
   const request = await requested;
@@ -79,6 +90,7 @@ async function captureRequest(page, match, act, { timeout = 20000, method = 'POS
   return {
     path: url.pathname, params, method: request.method(), status: response ? response.status() : 0,
     query: new URLSearchParams(url.search), body, headers, contentType: type, postData: request.postData() || '',
+    frameUrl,
   };
 }
 
