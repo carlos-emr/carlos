@@ -38,6 +38,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,6 +93,20 @@ class ChartSpaceLayoutServiceUnitTest {
             assertThat(capture.events()).hasSize(1);
             assertThat(capture.events().get(0).getLevel()).isEqualTo(Level.WARN);
             assertThat(capture.messages().get(0)).contains(KEY.name()).doesNotContain(FAKE_STORED_VALUE);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    @DisplayName("should load family practice without any log event when the stored value is blank")
+    void shouldLoadFamilyPractice_whenStoredBlank(String blank) {
+        when(dao.findPreferenceByName(KEY)).thenReturn(new SystemPreferences(KEY.name(), blank));
+
+        try (LogCapture capture = LogCapture.forLogger(ChartSpaceLayoutService.class)) {
+            ChartSpaceLayout loaded = service.loadClinicDefault();
+
+            assertThat(loaded).isEqualTo(ChartSpaceLayout.DEFAULT);
+            assertThat(capture.events()).isEmpty();
         }
     }
 

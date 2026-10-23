@@ -29,6 +29,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -42,11 +44,19 @@ import org.junit.jupiter.params.provider.ValueSource;
 @DisplayName("ChartSpaceLayout")
 class ChartSpaceLayoutUnitTest {
 
-    @Test
+    @ParameterizedTest
+    @CsvSource({"familyPractice, FAMILY_PRACTICE", "eyeCare, EYE_CARE"})
+    @DisplayName("should map each persisted id string to its layout")
+    void shouldMapPersistedId_toLayout(String id, ChartSpaceLayout expected) {
+        // Pins the literal strings stored in the database and used by PRESETS in chartspace-layout.js.
+        assertThat(ChartSpaceLayout.fromId(id)).isEqualTo(Optional.of(expected));
+    }
+
+    @ParameterizedTest
+    @EnumSource(ChartSpaceLayout.class)
     @DisplayName("should return the layout for each known id")
-    void shouldReturnLayout_forKnownIds() {
-        assertThat(ChartSpaceLayout.fromId("familyPractice")).isEqualTo(Optional.of(ChartSpaceLayout.FAMILY_PRACTICE));
-        assertThat(ChartSpaceLayout.fromId("eyeCare")).isEqualTo(Optional.of(ChartSpaceLayout.EYE_CARE));
+    void shouldReturnLayout_forKnownIds(ChartSpaceLayout layout) {
+        assertThat(ChartSpaceLayout.fromId(layout.id())).isEqualTo(Optional.of(layout));
     }
 
     @ParameterizedTest
