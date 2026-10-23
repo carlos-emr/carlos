@@ -1943,9 +1943,10 @@ public class RxUtil {
             if (amount.start() < readTo) {
                 continue;
             }
-            ScannedAmount scanned = scanAmount(instructions, amount, frequencyStart);
+            NumberToken first = new NumberToken(instructions, amount.start(), amount.end());
+            ScannedAmount scanned = scanAmount(instructions, first, frequencyStart);
             readTo = scanned.end();
-            boolean dose = isWrittenAsDose(instructions, amount.start(), readTo, frequencyStart);
+            boolean dose = isWrittenAsDose(instructions, first, readTo, frequencyStart);
             // A chain such as "1 - 2 - 3 tabs", or a second dose ("1 tab or 2 tabs"), is ambiguous.
             if (scanned.chained() || (dose && found != null)) {
                 return null;
@@ -1965,13 +1966,13 @@ public class RxUtil {
     }
 
     /**
-     * Reads the amount whose first number {@code amount} just found: a number, a fraction or a mixed
-     * number ({@code 1 1/2}, kept as {@code 3/2}, as on the leading-dose path), optionally followed by
-     * the upper bound of a range ({@code 1-2}, {@code 1 - 2}, {@code 1-1 1/2}). Nothing past
+     * Reads the amount whose first number is {@code first}: a number, a fraction or a mixed number
+     * ({@code 1 1/2}, kept as {@code 3/2}, as on the leading-dose path), optionally followed by the
+     * upper bound of a range ({@code 1-2}, {@code 1 - 2}, {@code 1-1 1/2}). Nothing past
      * {@code limit} is read.
      */
-    private static ScannedAmount scanAmount(String instructions, Matcher amount, int limit) {
-        NumberToken lower = new NumberToken(instructions, amount.start(), amount.end());
+    private static ScannedAmount scanAmount(String instructions, NumberToken first, int limit) {
+        NumberToken lower = first;
         if (lower.value.indexOf('/') < 0) {
             NumberToken mixed = findMixedNumberAt(instructions, lower);
             if (mixed != null && mixed.end <= limit) {
@@ -1988,13 +1989,19 @@ public class RxUtil {
     }
 
     /**
-     * True when the amount from {@code start} to {@code end} is written as an administered dose: a
-     * counted dosage form, volume or unit count follows it, and it is not a concentration denominator,
-     * a vehicle, a ceiling or an amount to dispense.
+     * True when the amount that starts with the number {@code first} and ends at {@code end} is
+     * written as an administered dose: a counted dosage form, volume, unit count or the oral route
+     * follows it, and it is not a concentration denominator, a vehicle, a ceiling or an amount to
+     * dispense. A bare fraction counts only when it can stand as a dose ({@code 1/2 po}): a date
+     * ({@code starting 3/15 PO}, {@code on 1/4 po}), a comparison ({@code > 90/140 PO}) or a
+     * schedule ({@code x 3/7}) is not one, however the route follows it.
      */
-    private static boolean isWrittenAsDose(String instructions, int start, int end, int frequencyStart) {
+    private static boolean isWrittenAsDose(String instructions, NumberToken first, int end, int frequencyStart) {
+        if (first.value.indexOf('/') >= 0 && !isPlainDoseFraction(instructions, first)) {
+            return false;
+        }
         return namesExplicitAmount(instructions, end, frequencyStart)
-                && !followsConcentrationSeparator(instructions, start) && !isLabelledNotADose(instructions, start);
+                && !followsConcentrationSeparator(instructions, first.start) && !isLabelledNotADose(instructions, first.start);
     }
 
     /**

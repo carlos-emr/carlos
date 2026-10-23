@@ -333,9 +333,10 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
          * part. A whole number that ends a range ("1-1 1/2") is not read as a mixed number; the
          * leading range is kept instead of the trailing half. A fraction written as a schedule or
          * a ratio ("x 3/7", "140/90") never replaces an explicit leading count, and after a strength a
-         * date or a comparison ("starting 3/15", "on 1/4", "> 90/140") is not the dose either. An
-         * amount that measures a time ("2 1/2 hours before meals", "30 min before meals") is not a
-         * dose; the dose is the one explicit amount written after it, if any.
+         * date or a comparison ("starting 3/15", "on 1/4", "> 90/140") is not the dose either, whether
+         * the route is written before it or right after it ("starting 3/15 PO"). An amount that
+         * measures a time ("2 1/2 hours before meals", "30 min before meals") is not a dose; the dose
+         * is the one explicit amount written after it, if any.
          */
         @ParameterizedTest(name = "{0} keeps dose {1}-{2}")
         @CsvSource(delimiter = '|', value = {
@@ -353,6 +354,14 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             "1000 mg po starting 3/15 bid x 30 days | 1 | 1 | 60",
             "500 mg po on 1/4 bid x 30 days | 1 | 1 | 60",
             "1000 mg po if BP > 90/140 bid x 30 days | 1 | 1 | 60",
+            "1000 mg starting 3/15 PO BID x 30 days | 1 | 1 | 60",
+            "Take 1000 mg starting 3/15 po bid x 30 days | 1 | 1 | 60",
+            "500 mg on 1/4 po bid x 30 days | 1 | 1 | 60",
+            "1000 mg if BP > 90/140 PO bid x 30 days | 1 | 1 | 60",
+            "500 mg on 1/4 by mouth bid x 30 days | 1 | 1 | 60",
+            "1000 mg 1/2 po tid x 8 days | 0.5 | 0.5 | 12",
+            "1000 mg 1/2 - 1 tab po bid x 7 days | 0.5 | 1 | 14",
+            "1000 mg 1 1/2 po bid x 7 days | 1.5 | 1.5 | 21",
             "Take 1 1/2 hr before meals 1 tab po bid x 7 days | 1 | 1 | 14",
             "Take 1 1/2 hours before meals 1 tab po bid x 7 days | 1 | 1 | 14",
             "Take 2 1/2 hours before meals 1 tab po bid x 7 days | 1 | 1 | 14",
