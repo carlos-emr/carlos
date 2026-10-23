@@ -1158,10 +1158,10 @@ public final class RxWriteScript2Action extends ActionSupport {
                     }
 
                     String frequency = rx.getFrequencyCode();
-                    String takeMin = rx.getTakeMinString();
-                    String takeMax = rx.getTakeMaxString();
                     String durationUnit = rx.getDurationUnit();
-                    if (rx.getUnitName() != null || takeMin.equals("0") || takeMax.equals("0") || frequency.equals("")) {
+                    // The stored dose is compared and divided as a number: its three-decimal text
+                    // ("0.667" for two thirds of a tablet) would shorten the derived duration.
+                    if (rx.getUnitName() != null || rx.getTakeMin() <= 0f || rx.getTakeMax() <= 0f || frequency.equals("")) {
                     } else {
                         if (durationUnit == null || durationUnit.isEmpty()) {
                             durationUnit = "D";
@@ -1171,7 +1171,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                             // quantity = takeMax * nDays * duration * nPerDay; a weekly or monthly
                             // frequency divides by its exact interval (RxUtil.wholeDurationUnits).
                             String derived = RxUtil.wholeDurationUnits(Double.parseDouble(quantity),
-                                    Double.parseDouble(takeMax), frequency, durationUnit);
+                                    rx.getTakeMax(), frequency, durationUnit);
                             if (derived != null) {
                                 rx.setDuration(derived);
                             }

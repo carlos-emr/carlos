@@ -290,6 +290,29 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         assertThat(body.path("calQuantity").asText()).isEqualTo("1");
     }
 
+    /** The quantity callback divides by the stored numeric dose, not its three-decimal text: two tablets at two thirds a day last three days. */
+    @Test
+    void shouldDeriveWholeDays_whenUpdateQtyFollowsAThirdsDose() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setSpecial("Take 2/3 tab po daily");
+        RxUtil.instrucParser(rx);
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "updateQty");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("quantity", "2");
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMax").asDouble()).isCloseTo(2d / 3, within(1e-6));
+        assertThat(body.path("duration").asText()).isEqualTo("3");
+        assertThat(body.path("durationUnit").asText()).isEqualTo("D");
+    }
+
     /**
      * A staged prescription that carries its own administered unit keeps the amount typed
      * with per-dose syntax, so the structured dose the export reads agrees with the directions.
