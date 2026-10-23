@@ -1936,10 +1936,26 @@ public class RxUtil {
         }
         Matcher amount = AMOUNT_TOKEN.matcher(instructions).region(from, frequencyStart).useTransparentBounds(true);
         UnitAmount found = null;
+        int readTo = from;
         while (amount.find()) {
+            if (amount.start() < readTo) {
+                continue;
+            }
             String minimum = amount.group(1);
-            NumberToken upper = rangeUpperBound(instructions, amount.end(), frequencyStart);
-            int amountEnd = upper == null ? amount.end() : upper.end;
+            // "1000 mg 1 1/2 tabs PO BID": a whole number and a proper fraction are one amount (3/2),
+            // as on the leading-dose path; the fraction is not read again as a second amount.
+            NumberToken mixed = minimum.indexOf('/') < 0
+                    ? findMixedNumberAt(instructions, new NumberToken(instructions, amount.start(), amount.end())) : null;
+            NumberToken upper = null;
+            int amountEnd;
+            if (mixed != null && mixed.end <= frequencyStart) {
+                minimum = mixed.value;
+                amountEnd = mixed.end;
+                readTo = mixed.end;
+            } else {
+                upper = rangeUpperBound(instructions, amount.end(), frequencyStart);
+                amountEnd = upper == null ? amount.end() : upper.end;
+            }
             if (!namesExplicitAmount(instructions, amountEnd, frequencyStart)
                     || followsConcentrationSeparator(instructions, amount.start()) || isLabelledNotADose(instructions, amount.start())) {
                 continue;
