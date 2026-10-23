@@ -28,6 +28,18 @@ const M = require('./lib/bc-billing-mutators');
 
 const NAME = 'authz-bc-billing';
 
+/**
+ * A write's refusal must be the role's. CSRFGuard rejects a POST whose token it does not accept with its own 403
+ * (errorpage.jsp, which carries the application header too), so a 403 counts only as the securityError page, which
+ * the action's SecurityException alone renders and which therefore also proves the token was accepted.
+ */
+function postVerdict(result) {
+  if (result.status === 403 && result.fromApp && result.securityError) return 'refused';
+  if (result.status >= 300 && result.status < 400 && /securityError|noRights/i.test(result.location || '')) return 'refused';
+  if (result.status === 403 && result.fromApp) return 'error (a 403 that is not the securityError page: CSRF?)';
+  return classify(result) === 'served' ? 'served' : 'error';
+}
+
 /** The BC billing pages a clinic opens (menus, the bill form's popups, the master record). */
 function pages(s, targets) {
   const { bill, codes } = targets;
@@ -105,15 +117,16 @@ async function workflow(s) {
           data: body.toString(), maxRedirects: 0, failOnStatusCode: false, timeout: 40000,
         });
         const text = await response.text();
-        const title = (/<title[^>]*>([\s\S]*?)<\/title>/i.exec(text) || [])[1] || '';
+        const plain = text.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/g, ' ');
         result = { status: response.status(), location: response.headers().location || '', length: text.length,
-          fromApp: Object.prototype.hasOwnProperty.call(response.headers(), 'x-permitted-cross-domain-policies'),
-          lead: (title || text.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 60), found: [] };
+          fromApp: Object.prototype.hasOwnProperty.call(response.headers(), h.APPLICATION_HEADER),
+          securityError: h.isSecurityErrorBody(text),
+          lead: plain.replace(/\s+/g, ' ').trim().slice(0, 60), found: [] };
       } catch (error) {
         result = { status: 0, lead: String(error.message).slice(0, 60), found: [] };
       }
       const changed = write.snapshot() !== before;
-      const verdict = classify(result);
+      const verdict = postVerdict(result);
       console.log(`  probe ${NAME}: POST ${write.route} -> ${result.status} ${verdict}${changed ? ', CHANGED the owned rows' : ''}`);
       if (verdict !== 'refused' || changed) {
         open.add(`POST ${write.route}`, `${result.status} ${verdict}: ${result.lead}${changed ? '; changed the owned rows' : ''}`);

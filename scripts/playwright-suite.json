@@ -3976,7 +3976,9 @@
         "BC"
       ],
       "timeoutSec": 900,
-      "env": [],
+      "env": [
+        "FORM_ENCODING_ONLY"
+      ],
       "mutates": [
         "encounterForm"
       ],
@@ -3989,7 +3991,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "BC"
       ],

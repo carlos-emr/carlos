@@ -83,6 +83,8 @@ async function workflow(s) {
   // FORM_ENCODING_ONLY=<code>,<code> narrows the run to some forms (a debugging aid; the manifest runs them all).
   const only = (process.env.FORM_ENCODING_ONLY || '').split(',').map(code => code.trim()).filter(Boolean);
   const entries = FORMS.filter(form => !only.length || only.includes(form.code)).map(form => ({ form, name: `${marker.slice(-12)} ${form.code}`.slice(0, 30), typed: {} }));
+  h.assert(entries.length > 0, `FORM_ENCODING_ONLY=${only.join(',')} names none of this check's forms`);
+  if (only.length) console.log(`  ${NAME}: FORM_ENCODING_ONLY narrows the run to ${entries.map(entry => entry.form.code).join(', ')}`);
   const tables = [...new Set(entries.map(entry => entry.form.table))];
   const regValue = form => `../form/${form.view}.jsp?fixture=${marker}&demographic_no=`;
 
@@ -208,12 +210,17 @@ async function workflow(s) {
       // form_link. Check that page first, then follow the links to the others.
       const shown = (await page.locator('[name="form_link"]').first().inputValue().catch(() => '')).replace(/\.jsp$/, '');
       const first = form.pages.includes(shown) ? shown : form.pages[0];
+      const found = new Set();
       for (const [index, view] of [first, ...form.pages.filter(other => other !== first)].entries()) {
         if (index > 0) await goToPage(page, view, entry.formId);
         const here = await page.evaluate(names => names.filter(name => document.querySelector(`[name="${name}"]`)),
           Object.keys(entry.typed));
+        here.forEach(name => found.add(name));
         wrong.push(...await shownDifferences(page, Object.fromEntries(here.map(name => [name, entry.typed[name]]))));
       }
+      // Each typed field must be on one of the pages: a field the reopened record no longer renders is compared nowhere.
+      const missing = Object.keys(entry.typed).filter(name => !found.has(name));
+      h.assert(!missing.length, `the reopened ${form.title} shows no field named ${missing.join(', ')}`);
       h.assert(!wrong.length, `the reopened ${form.title} does not show the saved values: ${wrong.join('; ')}`);
       await page.close();
     });
