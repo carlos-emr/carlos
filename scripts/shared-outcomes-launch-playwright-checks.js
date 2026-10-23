@@ -77,7 +77,7 @@ async function workflow(s) {
     // 16-byte IV followed by ciphertext and its 16-byte authentication tag.
     const bytes = Buffer.from(launchUrl.searchParams.get('encodedParams').replace(/ /g, '+'), 'base64');
     const key = pbkdf2Sync('carlos-5053-fixture', Buffer.from(SALT, 'hex'), 1024, 32, 'sha1');
-    const decipher = createDecipheriv('aes-256-gcm', key, bytes.subarray(0, 16));
+    const decipher = createDecipheriv('aes-256-gcm', key, bytes.subarray(0, 16), { authTagLength: 16 });
     decipher.setAuthTag(bytes.subarray(-16));
     const payload = JSON.parse(Buffer.concat([decipher.update(bytes.subarray(16, -16)), decipher.final()]).toString('utf8'));
     h.assert(payload.user.role === 'provider', 'Dashboard role must be the external protocol value provider');
