@@ -15,6 +15,11 @@ carlos-emr (2026.09.0~snapshot26) resolute; urgency=medium
     every db-migrate; check reports drift. Tables holding passwords, PINs,
     tokens, keys, live session identifiers or integration settings are never
     granted, nor is a table no one has classified yet.
+  * The Patient Encounter Worksheet (a printed encounter summary with space
+    for handwritten notes) is retired (#5089): its page, PDF template and
+    print layout are removed, and migration V1.0.59.2 deletes its Forms-menu
+    entry on new and upgraded databases. It stored nothing, so no patient
+    records are affected.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 28 Sep 2026 23:06:10 +0000
 

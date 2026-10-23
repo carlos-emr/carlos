@@ -24,10 +24,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockServletContext;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -103,6 +105,9 @@ class FrmVtRetentionIntegrationTest {
         spring.when(() -> SpringUtils.getBean(EncounterFormDao.class)).thenReturn(forms);
         spring.when(() -> SpringUtils.getBean(DemographicManager.class)).thenReturn(demographics);
         spring.when(() -> SpringUtils.getBean(MeasurementDao.class)).thenReturn(measurements);
+        // The save runs the form insert and the measurement writes in one transaction (#4674).
+        spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class))
+                .thenReturn(new DataSourceTransactionManager(source));
         var config = mock(CarlosProperties.class);
         when(config.getProperty("db_type", "")).thenReturn("mysql");
         when(config.getProperty("save_as_xml", "false")).thenReturn("false");
