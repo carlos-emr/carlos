@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Transactional
 @DisplayName("Stored immunization report origin contract")
 class ImmunizationReportOriginIntegrationTest extends CarlosTestBase {
-    @PersistenceContext(unitName = "testPersistenceUnit")
+    @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
     @Autowired
     private PreventionDao preventionDao;
