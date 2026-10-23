@@ -90,21 +90,21 @@ async function workflow(s) {
     h.assert(await editor.locator('#thetext').inputValue() === text, 'Reopened scratchpad changed literal text');
   });
   await s.step('unsaved text warns before closing and Cancel keeps the draft', async () => {
-    const savedText = await editor.locator('#thetext').inputValue();
     const draft = `${s.marker} deliberately unsaved navigation probe`;
     await editor.locator('#thetext').fill(draft);
     const dialogs = await h.withExpectedDialogs(editor, async () => {
-      const shown = editor.waitForEvent('dialog', {timeout: 20000});
-      await editor.close({runBeforeUnload: true});
-      await shown;
+      await Promise.all([
+        editor.waitForEvent('dialog', {timeout: 20000}),
+        editor.close({runBeforeUnload: true}),
+      ]);
     }, {accept: false});
     h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload',
       'Closing an unsaved scratchpad did not raise exactly one beforeunload warning');
     h.assert(!editor.isClosed() && await editor.locator('#thetext').inputValue() === draft
       && await editor.locator('#dirty').inputValue() === 'true', 'Cancel discarded the unsaved draft');
-    await save(editor, savedText);
+    await save(editor, draft);
     await closeSavedEditor(editor); editor = await open(s.schedule);
-    h.assert(await editor.locator('#thetext').inputValue() === savedText, 'Saving after Cancel lost the note');
+    h.assert(await editor.locator('#thetext').inputValue() === draft, 'Saving after Cancel lost the note');
   });
   await s.step('autosave a literal plus edit and deliberately clear the note', async () => {
     await save(editor, `${s.marker} alpha beta`);
