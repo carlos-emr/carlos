@@ -223,7 +223,9 @@ public class BillingSaveBilling2Action extends ActionSupport {
         // Saved and finished with: a repeated submit still finds the bill, but it is the first to
         // go when room is needed, before bills still open in other windows.
         BcBillStaging.release(request);
-        if ("Save & Print Receipt".equals(submit)) {
+        // Keep the label out of the posted value: "& Print" trips CRS rule 932115 (#5181).
+        // Retain the legacy action value for compatibility.
+        if ("saveAndPrintReceipt".equals(submit) || "Save & Print Receipt".equals(submit)) {
             String redirectUrl = receiptRedirectUrl(request.getContextPath(), billingIds);
             sendReceiptRedirect(response, redirectUrl);
             return NONE;

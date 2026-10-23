@@ -21,7 +21,8 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("integration") @Tag("security")
 class Alpha20MutationCsrfIntegrationTest {
     @ParameterizedTest
-    @ValueSource(strings={"/report/ViewReportonbilledvisitprovider","/admin/UpdateDemographicProvider","/CaseManagementEntry"})
+    @ValueSource(strings={"/report/ViewReportonbilledvisitprovider","/admin/UpdateDemographicProvider","/CaseManagementEntry",
+            "/billing/CA/BC/SaveBilling", "/billing/CA/BC/UpdateBilling"})
     void shouldRejectMissingAndWrongTokensButAllowValidPost(String path) throws Exception {
         Properties properties=new Properties();
         try(var input=Files.newInputStream(Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties"))) {properties.load(input);}
