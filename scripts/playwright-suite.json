@@ -11406,7 +11406,7 @@
       "mutates": [
         "secObjPrivilege"
       ],
-      "notes": "Native pregnancy heading, four Add choices, read-only form reloads, Create, current-episode reopening, Complete, completed history and own-chart refresh. Verifies literal notes, patient/episode identity, exact saved dates and no duplicate writes after reload; unsafe GET mutations, malformed inputs, unreviewed legacy operations and stale completion are rejected. Two-patient and authorization probes verify foreign episode 404, read-only write 403, individual restriction 403, valid CSRF transport and unchanged demographic/episode rows.",
+      "notes": "Native pregnancy heading, four Add choices, read-only form reloads, Create, current-episode reopening, Complete, completed history and own-chart refresh. Verifies literal notes through the WAF, the actual 302/Location contract, patient/episode identity, exact saved dates and no writes on reload or create-token replay before and after completion; unsafe GET mutations, malformed inputs, unreviewed legacy operations and stale completion are rejected. Two-patient and authorization probes verify foreign episode 404, read-only write 403, individual restriction 403, valid CSRF transport and unchanged demographic/episode rows.",
       "fixtures": "Two owned synthetic patients and pregnancy episodes. Temporarily grants the test provider pregnancy-module privileges and applies scoped read-only/individual-patient restrictions; snapshots complete existing privilege rows and restores them with an ownership guard. Removes all owned episodes and patients. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {

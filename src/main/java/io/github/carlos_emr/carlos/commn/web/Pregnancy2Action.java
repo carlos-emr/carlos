@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -144,6 +145,8 @@ public class Pregnancy2Action extends ActionSupport {
         request.setAttribute("code", code);
         request.setAttribute("description", PREGNANCY_TYPES.get(code));
         request.setAttribute("startDate", LocalDate.now(ZoneId.systemDefault()).toString());
+        request.setAttribute("formSubmissionToken", FormSubmissionGuard.issue(request.getSession(),
+                FormSubmissionGuard.Scope.PREGNANCY_CREATE, patient.toString()));
         return "form";
     }
 
@@ -164,33 +167,47 @@ public class Pregnancy2Action extends ActionSupport {
         if (!"POST".equals(request.getMethod())) return postRequired();
         Integer patient = authorizePatient("w");
         if (patient == null) return NONE;
-        String code = request.getParameter("code");
-        LocalDate start = calendarDate(request.getParameter("startDate"));
-        String notes = request.getParameter("notes");
-        if (!validType(code) || start == null || start.isAfter(LocalDate.now(ZoneId.systemDefault())) || !validNotes(notes)) {
-            return invalidForm("Check the pregnancy type, start date and notes.");
+        FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
+                request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.PREGNANCY_CREATE,
+                patient.toString(), FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+        switch (attempt.verdict()) {
+            case PROCEED, ABSENT -> { }
+            case ALREADY_SAVED -> { return "saved"; }
+            default -> { return FormSubmissionGuard.refuse(request, response, attempt.verdict()); }
         }
-        Mutation result = inPatientTransaction(patient, em -> {
-            if (!em.createQuery("SELECT e FROM Episode e WHERE e.demographicNo=:patient "
-                            + "AND e.status='Current' AND e.codingSystem=:system AND e.code IN :codes", Episode.class)
-                    .setParameter("patient", patient).setParameter("system", CODING_SYSTEM)
-                    .setParameter("codes", PREGNANCY_TYPES.keySet()).setMaxResults(1).getResultList().isEmpty()) {
-                return new Mutation(409, "A current pregnancy already exists.");
+        try (FormSubmissionGuard.Claim claim = attempt.claim()) {
+            String code = request.getParameter("code");
+            LocalDate start = calendarDate(request.getParameter("startDate"));
+            String notes = request.getParameter("notes");
+            if (!validType(code) || start == null || start.isAfter(LocalDate.now(ZoneId.systemDefault())) || !validNotes(notes)) {
+                return invalidForm("Check the pregnancy type, start date and notes.");
             }
-            Episode episode = new Episode();
-            episode.setDemographicNo(patient);
-            episode.setCode(code);
-            episode.setCodingSystem(CODING_SYSTEM);
-            episode.setDescription(PREGNANCY_TYPES.get(code));
-            episode.setStatus("Current");
-            episode.setStartDate(asDate(start));
-            episode.setNotes(notes == null ? "" : notes);
-            episode.setLastUpdateUser(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
-            em.persist(episode);
-            em.flush();
-            return new Mutation(200, null);
-        });
-        return finishMutation(result);
+            Mutation result = inPatientTransaction(patient, em -> {
+                if (!em.createQuery("SELECT e FROM Episode e WHERE e.demographicNo=:patient "
+                                + "AND e.status='Current' AND e.codingSystem=:system AND e.code IN :codes", Episode.class)
+                        .setParameter("patient", patient).setParameter("system", CODING_SYSTEM)
+                        .setParameter("codes", PREGNANCY_TYPES.keySet()).setMaxResults(1).getResultList().isEmpty()) {
+                    return new Mutation(409, "A current pregnancy already exists.");
+                }
+                Episode episode = new Episode();
+                episode.setDemographicNo(patient);
+                episode.setCode(code);
+                episode.setCodingSystem(CODING_SYSTEM);
+                episode.setDescription(PREGNANCY_TYPES.get(code));
+                episode.setStatus("Current");
+                episode.setStartDate(asDate(start));
+                episode.setNotes(notes == null ? "" : notes);
+                episode.setLastUpdateUser(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+                if (claim != null) claim.storageStarted();
+                em.persist(episode);
+                em.flush();
+                return new Mutation(200, null);
+            });
+            // Record success only after TransactionTemplate has confirmed the commit. The
+            // binding and result both name this authorized patient's read-only history.
+            if (claim != null && result.status() == 200) claim.saved(patient.toString());
+            return finishMutation(result);
+        }
     }
 
     /** POST-only completion; invalid or stale submissions never alter managed fields. */
