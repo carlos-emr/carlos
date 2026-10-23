@@ -241,6 +241,9 @@ own fixture. `scripts/xss-poison-helpers.test.js` pins these rules.
 `patient-retired-spreadsheet` regression checks that authenticated GET and CSRF-valid
 POST requests return 404 without patient data or a download.
 
+`billing/CA/ON/billingShortcutPg1View` was on this list until #5055 restored its opener,
+Master Record ▸ Billing ▸ Hospital Billing; `billing-on-hospital-shortcut` now covers it.
+
 Per the suite's rule a route with no link gets no check; each is a finding about the route.
 The checks' authors confirmed these by source search and by the absence of an opener on the
 live install:
@@ -265,8 +268,7 @@ live install:
 - **Administration and preferences:** `admin/ViewLookupLists*`, the waiting-list management
   page, `provider/ViewProviderDefaultDxCode`, `ViewPreferenceAction`, `UserPreference`,
   `PrinterList`, `Provider/showPersonal`, `EditAddress` / `EditFaxNum` / `EditPhoneNum`,
-  `appointment/appointmentaddrecordcard` / `appointmentaddrecordprint`,
-  `billingShortcutPg1View` (so no check was written for the billing shortcut).
+  `appointment/appointmentaddrecordcard` / `appointmentaddrecordprint`.
 - **Billing:** `ViewGenReport`, `ViewGenGroupReport`, `ImportOnRA`, `ViewGenRASummary` /
   `ViewGenRASummaryDetail`, `BillingInvoice`, `ViewBillingON3rdPayments`,
   `Add3rdPartyPayment`, `BillingEditWithApptNo`, `inr/DbINRbilling`,

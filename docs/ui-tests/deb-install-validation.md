@@ -3547,3 +3547,38 @@ server journal is read") with "the server journal holds nothing in this run's wi
 requests: the step needs some line from `carlos-emr.service` during the check's ten seconds, and the app logged none. This is not the
 DrugRef change. With the previous pin's classes swapped in, it passes on the first run after a restart (startup warnings
 fill its window) and fails the same way on the next run.
+
+### Ontario hospital (shortcut) billing (2026-10-22, issue #5055)
+
+`release/2026.08` at `7a0aa6afa9` plus this change, packaged unstamped as `2026.09.0~snapshot26` in an `ubuntu:26.04`
+container (JDK 25, `dpkg-buildpackage -us -uc -b`; DrugRef built from its pin, the pinned Chromium; Maven Central through
+the Google mirror because `repo.maven.apache.org` answered 429), with carlos-ctl built from the `debian/carlos-ctl.pin`
+fallback commit `325482a2` re-versioned `1.2.0+pr5055test1` locally (`1.2.0` is unpublished). Each package was installed
+fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo data, `carlos-ctl check` clean; the IPv6 nginx reload
+note above recurred). Findings 317 to 320 of `app-findings-log.md` record what each round found. The PR-head package
+installed fresh also passed `--tier smoke` (12 of 12) and `billing-on-hospital-shortcut`, `master-record-tabs`,
+`page-health-master-record`, `billing-on-submit`, `billing-on-third-party`, `demographic-master-crud-smoke` and
+`gap-billing-inr-calendar-popup`.
+
+| Package, or file swapped into the installed webapp | `billing-on-hospital-shortcut` |
+|---|---|
+| Package at `42ba5b7222` (before the fr-CA step was added), 4 runs | PASS, 9 of 9 steps, no residue |
+| Package at `42ba5b7222` with the release `demographic/edit.jsp` compiled | FAIL at "the Master Record offers Hospital Billing for this patient" |
+| Link only (`74e7c46485`): the release `calendar-setup.js` | FAIL at "the service-date calendar records the picked date"; page errors `trimEnd` and "Maximum call stack size exceeded" |
+| Link only, with the fixed `calendar-setup.js` (the release `BillingShortcutPg2Service`) | FAIL at "Save writes one claim for this patient and closes the window": the claim was written, page 1 reloaded |
+| PR head (`a681b3f12f`, base merged), fresh install, with the release `billingShortcutPg1.jsp` compiled | FAIL at the fr-CA step: "The French Next did not price the Confirmation" |
+| The same with the fixed `billingShortcutPg1.jsp` compiled, 2 runs | PASS, 10 of 10 steps, no residue |
+| Final PR head (`810fe2e9c6`), packaged and installed fresh | PASS, 10 of 10 steps; with it `master-record-tabs`, `page-health-master-record`, `billing-on-submit`, `billing-on-third-party`, `demographic-master-crud-smoke`, `gap-billing-inr-calendar-popup` and `--tier smoke` (12 of 12) |
+
+On the final package: `--tier smoke` 12 of 12; `master-record-tabs` and `page-health-master-record` (with Hospital Billing
+added to its patient-scope list) open and judge the new link; `billing-on-submit`, `billing-on-third-party`,
+`billing-on-correction-delete`, `billing-on-correction-save-another`, `billing-on-invoice-third-party`,
+`demographic-master-crud-smoke`, `tickler-crud` and `gap-billing-inr-calendar-popup` pass. `authz-read-role-matrix`
+refused `billingShortcutPg1View` with 403 to a login without `_billing`. Three checks fail identically with the release
+file swapped back, so they predate this change: `calendar-keyboard` (Ontario bill form Service Date: "the calendar button
+is not a named button or link") and `allergy-partial-start-date` (partial dates saved as full) with the release
+`calendar-setup.js`, `popup-opener-master-record` (Update Record did not navigate) with the release `edit.jsp`. Two fail
+on routes this change does not touch: `authz-read-role-matrix` (two `oscarResearch` routes answer 500) and
+`authz-read-patient-lock` (the routes it lists, none of them the shortcut pages). The server-log audit's
+unexplained signatures are BC billing routes probed on this Ontario install and those two research routes; every log
+line naming the shortcut routes is the check's deliberate GET (405) or that 403.

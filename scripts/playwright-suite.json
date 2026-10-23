@@ -7057,6 +7057,21 @@
       "fixtures": "Snapshots and restores the clinic-wide gstControl, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned bill with billing_on_ext GST rows and one unused fake fee code created by a one-line synthetic schedule upload; no existing fee is changed."
     },
     {
+      "name": "billing-on-hospital-shortcut",
+      "script": "scripts/billing-on-hospital-shortcut-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Master Record ▸ Billing ▸ Hospital Billing ▸ shortcut page 1 ▸ Next ▸ Save (#5055). Before the fix the link did not exist, so the shortcut pages had no opener and this check failed at its first step.",
+      "fixtures": "runWorkflow FAKE- Ontario patient; the one hospital claim it saves (header, item, ext and transaction rows) is removed by id in cleanup."
+    },
+    {
       "name": "encoder-null-document-review",
       "script": "scripts/encoder-null-document-review-playwright-checks.js",
       "tiers": [

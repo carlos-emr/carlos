@@ -554,6 +554,7 @@
     "test:form-catalog-smoke-bc-textarea-restore-playwright": "FORM_CATALOG_ONLY=bcar.restore,bclabourbirth.restore,bcbirthsum2008.restore,bcnewborn.restore node scripts/form-catalog-smoke-playwright-checks.js",
     "test:palliative-care-save-reopen-playwright": "node scripts/palliative-care-save-reopen-playwright-checks.js",
     "test:billing-on-gst-css-benefit-playwright": "node scripts/billing-on-gst-css-benefit-playwright-checks.js",
+    "test:billing-on-hospital-shortcut-playwright": "node scripts/billing-on-hospital-shortcut-playwright-checks.js",
     "test:encoder-null-document-review-playwright": "node scripts/encoder-null-document-review-playwright-checks.js",
     "test:encoder-null-eform-lists-playwright": "node scripts/encoder-null-eform-lists-playwright-checks.js",
     "test:csrf-runtime-form-day-sheet-unbill-playwright": "node scripts/csrf-runtime-form-day-sheet-unbill-playwright-checks.js",
