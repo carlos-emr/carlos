@@ -5440,6 +5440,24 @@
       "fixtures": "SQL-seeded dashboard and indicator template (no shipped dashboard, no working import UI), a throwaway login holding the dashboard privileges and three owned patients; all removed."
     },
     {
+      "name": "shared-outcomes-launch",
+      "script": "scripts/shared-outcomes-launch-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [
+        "SHARED_OUTCOMES_TEST_FIXTURE"
+      ],
+      "notes": "Schedule Common Dashboard launches an encrypted payload with the external provider role (#5053); Playwright stubs all dashboard requests.",
+      "fixtures": "Disposable install with the synthetic Shared Outcomes properties documented in the script. Owned throwaway login and dashboard grants are removed."
+    },
+    {
       "name": "measurement-group-entry",
       "script": "scripts/measurement-group-entry-playwright-checks.js",
       "tiers": [

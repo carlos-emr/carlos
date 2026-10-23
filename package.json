@@ -460,6 +460,7 @@
     "test:consultation-letterhead-playwright": "node scripts/consultation-letterhead-playwright-checks.js",
     "test:consultation-chart-import-playwright": "node scripts/consultation-chart-import-playwright-checks.js",
     "test:dashboard-display-playwright": "node scripts/dashboard-display-playwright-checks.js",
+    "test:shared-outcomes-launch-playwright": "node scripts/shared-outcomes-launch-playwright-checks.js",
     "test:measurement-group-entry-playwright": "node scripts/measurement-group-entry-playwright-checks.js",
     "test:measurement-whtr-playwright": "node scripts/measurement-whtr-playwright-checks.js",
     "test:report-by-template-groups-playwright": "node scripts/report-by-template-groups-playwright-checks.js",
