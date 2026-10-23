@@ -144,14 +144,13 @@ public class RxUtil {
     private static final Pattern LIQUID_FORM = Pattern.compile(
             "\\b(?:solution|suspension|syrup|elixir|liquid|emulsion|tincture)\\b", Pattern.CASE_INSENSITIVE);
     /**
-     * The denominator of a metered product's strength ("50 mcg/act", "50 mcg/spray", "200 mcg/dose",
+     * The denominators of a metered product's strength ("50 mcg/act", "50 mcg/spray", "200 mcg/dose",
      * "100 mcg/metered dose"): what one actuation delivers, so the strength counts units like a
      * tablet's does. DrugRef stores it as the component's dosage unit (ACT, SPRAY, DOSE, BLISTER,
      * METERED DOSE); a volume, mass or time denominator is a concentration or a rate instead.
      */
-    private static final Pattern METERED_UNIT_DENOMINATOR = Pattern.compile(
-            "^\\s*+(?:act|actuations?|doses?|puffs?|sprays?|inh|inhalations?|blisters?|metered\\s++dose)\\b",
-            Pattern.CASE_INSENSITIVE);
+    private static final Set<String> METERED_UNITS = Set.of("act", "actuation", "actuations", "dose", "doses", "puff",
+            "puffs", "spray", "sprays", "inh", "inhalation", "inhalations", "blister", "blisters", "metered dose");
     /** More units than this per administration means the strength and the product do not match. */
     private static final BigDecimal MAX_UNITS_PER_DOSE = BigDecimal.valueOf(20);
     private static final Pattern CONCENTRATION_SEPARATOR = Pattern.compile("(?:/|per\\b)\\s*", Pattern.CASE_INSENSITIVE);
@@ -1909,11 +1908,34 @@ public class RxUtil {
         for (int slash = dosage.indexOf('/'); slash >= 0; slash = dosage.indexOf('/', slash + 1)) {
             boolean separator = slash > 0 && slash + 1 < dosage.length()
                     && dosage.charAt(slash - 1) == ' ' && dosage.charAt(slash + 1) == ' ';
-            if (!separator && !METERED_UNIT_DENOMINATOR.matcher(dosage.substring(slash + 1)).find()) {
+            if (!separator && !METERED_UNITS.contains(denominatorWords(dosage, slash + 1))) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * The lower-cased word after a slash in a dosage text, with the word after it when the two name a
+     * unit together ({@code metered dose}); empty when a number follows the slash, as in {@code /5.0ml}.
+     */
+    private static String denominatorWords(String dosage, int start) {
+        int wordStart = skipWhitespaceForward(dosage, start);
+        int wordEnd = letterRunEnd(dosage, wordStart);
+        String word = lowerCase(dosage.substring(wordStart, wordEnd));
+        int nextStart = skipWhitespaceForward(dosage, wordEnd);
+        int nextEnd = letterRunEnd(dosage, nextStart);
+        String twoWords = word + " " + lowerCase(dosage.substring(nextStart, nextEnd));
+        return METERED_UNITS.contains(twoWords) ? twoWords : word;
+    }
+
+    /** The index just past the run of letters that starts at {@code start}; {@code start} itself when none does. */
+    private static int letterRunEnd(String text, int start) {
+        int end = start;
+        while (end < text.length() && Character.isLetter(text.charAt(end))) {
+            end++;
+        }
+        return end;
     }
 
     /**
