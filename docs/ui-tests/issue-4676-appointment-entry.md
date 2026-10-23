@@ -59,9 +59,17 @@ entries send no appointment or `0`, so no page's entry changes.
 - **Browser check.** `chart-entry-appointment-ownership` (core tier): two chart windows of one
   login, B entered from another provider's day sheet. The refused entries answer 400 without a
   redirect and change no row; each chart's next note save still names its own entry provider and
-  links its own visit. Against the old action the appointmentList request makes B's notes panel name
-  the logged-in provider, and the request naming A with B's visit opens A's chart instead of being
-  refused.
+  links its own visit.
+- **Packaged install (2026-10-22).** 2026.09.0~snapshot26 packages built in an Ubuntu 26.04
+  container from this branch (DrugRef from its pinned ref; carlos-ctl from the
+  `debian/carlos-ctl.pin` fallback commit `325482a`, stamped 1.2.0 because that tag is not
+  published), lintian clean, installed fresh with `scripts/deb-docker-validation.sh up` and the
+  Ontario demo dataset (`carlos-ctl check` clean, `:443`). `chart-entry-appointment-ownership`
+  **PASS**es 4/4 steps and leaves no fixture rows. With the pre-fix `EctIncomingEncounter2Action`
+  and `EctSessionBean` classes swapped into the installed webapp it **FAIL**s at the refusal step:
+  every hostile entry answered 302 and opened a chart. A throwaway variant that only logged those
+  answers then showed the overwrite itself: B's notes panel named the logged-in provider instead of
+  the provider B was entered from, and A's named the other provider.
 
 ```bash
 npm run test:chart-entry-appointment-ownership-playwright
