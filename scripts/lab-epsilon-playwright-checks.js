@@ -222,9 +222,18 @@ async function workflow(s) {
           DELETE FROM measurements WHERE id IN (${ids})`);
       }
       sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+        DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list})
+          AND NOT EXISTS (SELECT 1 FROM providerLabRouting other
+            WHERE other.lab_no=providerLabRoutingLock.lab_no AND other.lab_type<>'HL7');
         DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
         DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
+      // Locks use the numeric lab ID across sources. Never remove a lock still
+      // used by another source (for example a document with the same number).
+      h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no IN (${list})
+        AND NOT EXISTS (SELECT 1 FROM providerLabRouting other
+          WHERE other.lab_no=providerLabRoutingLock.lab_no AND other.lab_type<>'HL7')`) === '0',
+      'The synthetic Epsilon routing locks were not all removed');
     }
     sql.execute(`DELETE FROM fileUploadCheck WHERE ${ownUpload}`);
     removeArchivedUploads(stamp);
