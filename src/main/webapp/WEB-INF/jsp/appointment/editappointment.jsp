@@ -1133,7 +1133,9 @@
                 </tr>
                 <tr>
                     <td>
-                        <label for="location"><fmt:message key="Appointment.formLocation"/>:</label>
+                        <%-- Only one of the three location controls below is rendered. Each has its own id and
+                             hidden label so the ids stay unique in this source too; the caption is shared. --%>
+                        <label><fmt:message key="Appointment.formLocation"/>:</label>
                     </td>
                     <td>
                         <%
@@ -1147,6 +1149,7 @@
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
 
                             if (bMultisites) { %>
+				        <label for="location" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
 				        <select tabindex="4" name="location" id="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                             <%
                                 StringBuilder sb = new StringBuilder();
@@ -1166,7 +1169,8 @@
                             isSiteSelected = true;
                             if (locationEnabled) {
                         %>
-		<select name="location" id="location" class="form-select">
+		<label for="locationProgram" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
+		<select name="location" id="locationProgram" class="form-select">
                             <%
                                 String location = SafeEncode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
                                 if (programs != null && !programs.isEmpty()) {
@@ -1181,7 +1185,8 @@
                             %>
                         </select>
                         <% } else { %>
-		        <input type="text" class="form-control" name="location" id="location" tabindex="4"
+		        <label for="locationText" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
+		        <input type="text" class="form-control" name="location" id="locationText" tabindex="4"
                        value="<carlos:encode value='<%= bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : "") %>' context="htmlAttribute"/>" >
                         <% } %>
                         <% } %>
