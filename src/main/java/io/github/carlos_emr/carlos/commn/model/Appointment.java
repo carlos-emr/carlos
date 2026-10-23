@@ -186,7 +186,7 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     }
 
     public void setNotes(String notes) {
-        this.notes = notes;
+        this.notes = normalizeLineEndings(notes);
     }
 
     public String getReason() {
@@ -194,7 +194,17 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     }
 
     public void setReason(String reason) {
-        this.reason = reason;
+        this.reason = normalizeLineEndings(reason);
+    }
+
+    /**
+     * Textareas count each line break as one UTF-16 unit, but HTML form submission
+     * sends CRLF. Store LF so a full reason (80) or notes (255) fits its column
+     * without losing the final character. Apply this to every appointment writer,
+     * including recurring bookings, without trimming or truncating clinical text.
+     */
+    private static String normalizeLineEndings(String text) {
+        return text == null ? null : text.replace("\r\n", "\n").replace('\r', '\n');
     }
 
     public String getLocation() {

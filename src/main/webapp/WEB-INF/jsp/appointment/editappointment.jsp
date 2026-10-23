@@ -1058,7 +1058,7 @@
                                value="<fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>
                     <td>
-            	<input type="text" name="keyword" id="keyword" class="form-control"
+                        <input type="text" name="keyword" id="keyword" class="form-control" maxlength="50"
                                value="<carlos:encode value='<%= bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "") %>' context="htmlAttribute"/>"
                                placeholder="<fmt:message key="Appointment.formName"/>">
                     </td>
@@ -1325,7 +1325,7 @@
                         <label><fmt:message key="Appointment.formResources"/>:</label>
                     </td>
                     <td>
-                <input type="text" name="resources" tabindex="5" class="form-control"
+                <input type="text" name="resources" tabindex="5" class="form-control" maxlength="255"
                                value="<carlos:encode value='<%= bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : "") %>' context="htmlAttribute"/>">
                     </td>
                 </tr>
