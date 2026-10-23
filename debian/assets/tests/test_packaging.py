@@ -152,6 +152,36 @@ class TestTheCarlosCtlPin(unittest.TestCase):
         self.assertNotIn("fallback", fetch)
 
 
+class TestTheDrugrefPin(unittest.TestCase):
+
+    """debian/drugref.pin names the DrugRef revision carlos-emr-drugref is
+    built from when no DRUGREF_SRC or DRUGREF_WAR is given. debian/rules
+    reads it with sed and debian/fetch-drugref.sh checks that revision out,
+    so a branch name would ship different code under one package version
+    and a short id can become ambiguous (#5006 moved it by hand)."""
+
+    PIN = ROOT / "debian" / "drugref.pin"
+
+    def _fields(self):
+        fields = {}
+        for line in self.PIN.read_text(encoding="utf-8").splitlines():
+            if line and not line.startswith("#"):
+                key, _, value = line.partition("=")
+                self.assertNotIn(key, fields, f"{key}= appears twice in debian/drugref.pin")
+                fields[key] = value
+        return fields
+
+    def test_the_ref_names_one_full_commit(self):
+        fields = self._fields()
+        self.assertEqual(set(fields), {"ref"}, "debian/drugref.pin must hold exactly one ref= line")
+        self.assertRegex(fields["ref"], r"^[0-9a-f]{40}$")
+
+    def test_the_build_reads_the_ref_the_way_the_pin_writes_it(self):
+        rules = (ROOT / "debian" / "rules").read_text(encoding="utf-8")
+        self.assertIn("DRUGREF_REF ?= $(shell sed -n 's/^ref=//p' debian/drugref.pin)", rules)
+        self.assertIn('debian/fetch-drugref.sh "$(DRUGREF_REF)"', rules)
+
+
 class TestPinnedCliWorkflowCheckout(unittest.TestCase):
     """Run both workflow checkout steps without a network or GitHub runner."""
 
