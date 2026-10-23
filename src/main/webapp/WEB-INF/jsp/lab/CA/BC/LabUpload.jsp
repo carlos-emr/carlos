@@ -106,6 +106,7 @@
                     onsubmit="javascript: return displayAndDisable()">
                 <input type="file" name="importFile" value="">
                 <input type="submit" name="Submit" value="Import">
+                <div id="waitingMessage" style="display:none" role="status">Uploading lab file...</div>
             </form> <%--
                 Multipart rejections reach this page through the action's
                 "input" result, before the action runs, so "outcome" below is

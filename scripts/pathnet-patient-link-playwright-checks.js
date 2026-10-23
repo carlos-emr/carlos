@@ -14,9 +14,13 @@ const { submitInFrame, reopenAdminPage } = require('./lib/admin-frame');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 
 function batch(phn, dob, name, accession) {
+  const obr = Array(26).fill('');
+  obr[0] = 'OBR'; obr[1] = '1'; obr[3] = accession; obr[4] = 'GLU^Glucose';
+  for (const field of [6, 7, 14, 22]) obr[field] = '20261023090000';
+  obr[24] = 'CH'; obr[25] = 'F';
   const hl7 = `MSH|^~\\&|FAKE|PATHNET|CARLOS|TEST|20261023090000||ORU^R01|${accession}|P|2.3\n`
     + `PID|1|${phn}|||${name}||${dob}|M\nORC|RE||${accession}\n`
-    + `OBR|1||${accession}|GLU^Glucose||20261023090000|20261023090000\n`
+    + `${obr.join('|')}\n`
     + 'OBX|1|NM|GLU^Glucose||5.2|mmol/L|3.6-6.0|N|||F\n';
   return Buffer.from(`<Messages MessageFormat="ORUR01" Version="2.3" MessageCount="1"><Message><![CDATA[${hl7}]]></Message></Messages>`);
 }
@@ -70,9 +74,10 @@ async function workflow(s) {
     const name = `${marker}^${kind}`;
     let frame = await openFrame(uploadLink, 'lab/labUpload');
     await frame.locator('input[type=file]').setInputFiles({ name: `${marker}-${kind}.xml`,
-      mimeType: 'application/xml', buffer: batch(phn, dob, name, `${marker}-${kind}`) });
+      mimeType: 'application/xml', buffer: batch(phn, dob, name, `F-${marker.slice(-8)}${kind}`) });
     ({ frame } = await submitInFrame(admin, frame.locator('input[type=submit]'), 'lab/labUpload'));
-    h.assert((await frame.locator('body').innerText()).includes('Lab File Successfully Uploaded'), `${kind}: upload failed`);
+    const resultText = await frame.locator('body').innerText();
+    h.assert(resultText.includes('Lab File Successfully Uploaded'), `${kind}: upload failed: ${resultText.slice(-700)}`);
     const row = sql.rows(`SELECT p.pid_id,p.message_id,l.demographic_no,r.demographic_no,x.observation_results
       FROM hl7_pid p JOIN hl7_link l ON l.pid_id=p.pid_id JOIN hl7_orc c ON c.pid_id=p.pid_id
       JOIN hl7_obr o ON o.pid_id=p.pid_id JOIN hl7_obx x ON x.obr_id=o.obr_id
@@ -86,6 +91,7 @@ async function workflow(s) {
   await s.step('upload links a unique PHN when DOB is absent', () => upload('nodob', '', patient));
   let unlinked;
   await s.step('a conflicting DOB stays visible and unlinked', async () => { unlinked = await upload('mismatch', '19810102', '0'); });
+  await s.step('malformed DOB stays unlinked despite an exact PHN', () => upload('malformed', '19800102junk', '0'));
   await s.step('duplicate PHNs stay unlinked', async () => {
     duplicate = sql.value(`INSERT INTO demographic (last_name,first_name,hin,hc_type,province,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,lastUpdateDate)
       VALUES (${h.sqlString(marker)},'Duplicate',${h.sqlString(phn)},'BC','BC','1980','01','02','F','AC',${h.sqlString(s.provider)},NOW()); SELECT LAST_INSERT_ID()`);

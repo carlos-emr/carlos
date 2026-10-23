@@ -75,6 +75,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
+        if ("GET".equals(request.getMethod()) && importFile == null && uploadValidationError == null) {
+            return SUCCESS;
+        }
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);
             request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
