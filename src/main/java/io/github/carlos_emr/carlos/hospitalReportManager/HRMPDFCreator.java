@@ -230,16 +230,16 @@ public class HRMPDFCreator extends PdfPageEventHelper {
         cell.setBorder(0);
 
         //Creates the Demographic Info area
-        cell.setPhrase(new Phrase("Demographic Info:", boldFont));
+        cell.setPhrase(PdfFonts.phrase("Demographic Info:", boldFont));
         mainPage.addCell(cell);
 
-        cell.setPhrase(new Phrase(hrmReport.getLegalName(), font));
+        cell.setPhrase(PdfFonts.phrase(hrmReport.getLegalName(), font));
         mainPage.addCell(cell);
 
-        cell.setPhrase(new Phrase(hrmReport.getHCN() + " " + hrmReport.getHCNVersion() + " " + hrmReport.getGender(), font));
+        cell.setPhrase(PdfFonts.phrase(hrmReport.getHCN() + " " + hrmReport.getHCNVersion() + " " + hrmReport.getGender(), font));
         mainPage.addCell(cell);
 
-        cell.setPhrase(new Phrase("DOB: " + hrmReport.getDateOfBirthAsString(), font));
+        cell.setPhrase(PdfFonts.phrase("DOB: " + hrmReport.getDateOfBirthAsString(), font));
         mainPage.addCell(cell);
 
         //Adds a spacing cell
@@ -247,7 +247,7 @@ public class HRMPDFCreator extends PdfPageEventHelper {
 
         //Outputs the when the HRM report was received
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-        cell.setPhrase(new Phrase("This report was received from the Hospital Report Manager (HRM) at " + hrmDocument.getTimeReceived(), italicFont));
+        cell.setPhrase(PdfFonts.phrase("This report was received from the Hospital Report Manager (HRM) at " + hrmDocument.getTimeReceived(), italicFont));
         mainPage.addCell(cell);
 
         //Adds a separator and spacing
@@ -256,13 +256,13 @@ public class HRMPDFCreator extends PdfPageEventHelper {
 
         //If the report is binary, outputs a message letting the user know that there was an attachment
         if (hrmReport.isBinary()) {
-            cell.setPhrase(new Phrase("This report contains an attachment", font));
+            cell.setPhrase(PdfFonts.phrase("This report contains an attachment", font));
             mainPage.addCell(cell);
         }
 
         //Outputs the main content from the report
         cell.setHorizontalAlignment(Element.ALIGN_LEFT);
-        cell.setPhrase(new Phrase(hrmReport.getFirstReportTextContent(), font));
+        cell.setPhrase(PdfFonts.phrase(hrmReport.getFirstReportTextContent(), font));
         mainPage.addCell(cell);
         mainPage.addCell(space);
 
@@ -270,53 +270,53 @@ public class HRMPDFCreator extends PdfPageEventHelper {
         float[] metaDataBoxWidths = {1f, 2f};
         PdfPTable metaDataBox = new PdfPTable(metaDataBoxWidths);
 
-        cell.setPhrase(new Phrase("Message Unique ID: ", boldFont));
+        cell.setPhrase(PdfFonts.phrase("Message Unique ID: ", boldFont));
         cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
         metaDataBox.addCell(cell);
 
-        cell.setPhrase(new Phrase(hrmReport.getMessageUniqueId(), font));
+        cell.setPhrase(PdfFonts.phrase(hrmReport.getMessageUniqueId(), font));
         cell.setHorizontalAlignment(Element.ALIGN_LEFT);
         metaDataBox.addCell(cell);
 
-        cell.setPhrase(new Phrase("Sending Author: ", boldFont));
+        cell.setPhrase(PdfFonts.phrase("Sending Author: ", boldFont));
         cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
         metaDataBox.addCell(cell);
 
-        cell.setPhrase(new Phrase(hrmReport.getSendingAuthor(), font));
+        cell.setPhrase(PdfFonts.phrase(hrmReport.getSendingAuthor(), font));
         cell.setHorizontalAlignment(Element.ALIGN_LEFT);
         metaDataBox.addCell(cell);
 
-        cell.setPhrase(new Phrase("Sending Facility ID: ", boldFont));
+        cell.setPhrase(PdfFonts.phrase("Sending Facility ID: ", boldFont));
         cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
         metaDataBox.addCell(cell);
 
-        cell.setPhrase(new Phrase(hrmReport.getSendingFacilityId(), font));
+        cell.setPhrase(PdfFonts.phrase(hrmReport.getSendingFacilityId(), font));
         cell.setHorizontalAlignment(Element.ALIGN_LEFT);
         metaDataBox.addCell(cell);
 
-        cell.setPhrase(new Phrase("Sending Facility Report No.: ", boldFont));
+        cell.setPhrase(PdfFonts.phrase("Sending Facility Report No.: ", boldFont));
         cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
         metaDataBox.addCell(cell);
 
-        cell.setPhrase(new Phrase(hrmReport.getSendingFacilityReportNo(), font));
+        cell.setPhrase(PdfFonts.phrase(hrmReport.getSendingFacilityReportNo(), font));
         cell.setHorizontalAlignment(Element.ALIGN_LEFT);
         metaDataBox.addCell(cell);
 
-        cell.setPhrase(new Phrase("Date and Time of Report: ", boldFont));
+        cell.setPhrase(PdfFonts.phrase("Date and Time of Report: ", boldFont));
         cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
         metaDataBox.addCell(cell);
 
-        cell.setPhrase(new Phrase(HRMReportParser.getAppropriateDateStringFromReport(hrmReport), font));
+        cell.setPhrase(PdfFonts.phrase(HRMReportParser.getAppropriateDateStringFromReport(hrmReport), font));
 
         cell.setHorizontalAlignment(Element.ALIGN_LEFT);
         metaDataBox.addCell(cell);
 
-        cell.setPhrase(new Phrase("Result Status: ", boldFont));
+        cell.setPhrase(PdfFonts.phrase("Result Status: ", boldFont));
         cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
         metaDataBox.addCell(cell);
 
         String resultStatus = hrmReport.getResultStatus() != null && hrmReport.getResultStatus().equalsIgnoreCase("C") ? "Cancelled" : "Signed by the responsible author and Released by health records";
-        cell.setPhrase(new Phrase(resultStatus, font));
+        cell.setPhrase(PdfFonts.phrase(resultStatus, font));
         cell.setHorizontalAlignment(Element.ALIGN_LEFT);
         metaDataBox.addCell(cell);
 
