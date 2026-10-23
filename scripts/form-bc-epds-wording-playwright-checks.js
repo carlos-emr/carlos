@@ -87,6 +87,22 @@ async function workflow(s) {
       FROM encounterForm`);
   }
 
+  // A chart holds its patient's note lock for its session and releases it on pagehide. The two logins are the same
+  // user in two sessions, so each leaves the chart before the other enters it, as echart-lock-lifecycle does; entering
+  // while the other holds it asks "You have started to edit this note in another window".
+  const lockCount = `SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no=${q(s.provider)}`;
+  const leaveChart = async (page) => {
+    if (!page || page.isClosed()) return;
+    const closed = page.waitForEvent('close', { timeout: 20000 });
+    await page.close({ runBeforeUnload: true });
+    await closed;
+    const deadline = Date.now() + 15000;
+    while (sql.value(lockCount) !== '0') {
+      h.assert(Date.now() < deadline, 'closing the chart did not release its note lock');
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+  };
+
   for (const language of LANGUAGES) {
     let chart;
     await s.step(`${language.name}: a ${language.tag} login reaches the patient's chart`, async () => {
@@ -104,6 +120,7 @@ async function workflow(s) {
       // French login enters the chart through the E-Chart link's own route. Loading the address the English chart ended
       // on instead skips that entry, and the chart page then answers parts of itself with 500 (a session without the
       // encounter's program: CaseManagementManagerImpl.hasAccessRight).
+      await leaveChart(await s.chart());
       chart = await context.newPage();
       await h.gotoApp(chart, config.baseUrl,
         `/encounter/IncomingEncounter?demographicNo=${encodeURIComponent(patient)}&providerNo=${encodeURIComponent(s.provider)}`);
@@ -150,6 +167,8 @@ async function workflow(s) {
         await page.close();
       });
     }
+    // The English login's step 4 below reopens the chart.
+    if (language.tag !== 'en-CA') await leaveChart(chart);
   }
 
   // Step 4: the answers ticked on page 2 are stored and come back ticked when the record is reopened.
