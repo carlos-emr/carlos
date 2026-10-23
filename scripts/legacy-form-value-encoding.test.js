@@ -145,3 +145,29 @@ test('scanner: a custom tag inside a quoted attribute is judged by its own conte
   const twice = lib.classify(field(tag(`SafeEncode.forHtmlAttribute(${saved})`, 'htmlAttribute')));
   assert.match(twice.unhandled[0].reason, /already encoded/);
 });
+
+test('no saved text value is concatenated raw into an input a scriptlet builds', () => {
+  // The Chart Checklist builds its free-text description boxes as Java strings ("<input ... value='" + value + "'"),
+  // which the output scanner never sees: a saved "'" ended the attribute, and "<" or "&" did not come back as typed.
+  const raw = [];
+  for (const page of lib.BC_LEGACY_FORM_PAGES) {
+    read(page).split('\n').forEach((line, i) => {
+      if (/value=\\?'"\s*\+\s*props\.getProperty\(/.test(line)) raw.push(`${page}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(raw, [], `saved values concatenated raw into a value attribute: ${raw.join(', ')}`);
+  assert.equal((read('formbcclientchartchecklist.jsp').match(/value='" \+ SafeEncode\.forHtmlAttribute\(props\.getProperty\("desc/g) || []).length, 17);
+});
+
+test("each page's date box shows that page's own saved date", () => {
+  // BC-NewBorn pages 2 and 3 printed page 1's date in their own date boxes, so a reopened record showed page 1's date
+  // there and the next Save stored it over the page's own.
+  const wrong = [];
+  for (const page of lib.BC_LEGACY_FORM_PAGES) {
+    for (const m of read(page).matchAll(/name="(pg\d_formDate)"[^>]*?value="<%=([^%]*)%>"/g)) {
+      const first = /props\.getProperty\("(\w+)"/.exec(m[2]);
+      if (!first || first[1] !== m[1]) wrong.push(`${page}: ${m[1]} shows ${first ? first[1] : 'no saved value'}`);
+    }
+  }
+  assert.deepEqual(wrong, [], wrong.join('; '));
+});
