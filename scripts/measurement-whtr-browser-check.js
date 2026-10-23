@@ -8,12 +8,12 @@ const { launchBrowser } = require('./lib/playwright-harness');
 
 const source = fs.readFileSync(path.join(__dirname,
   '../src/main/webapp/WEB-INF/jsp/encounter/oscarMeasurements/Measurements.jsp'), 'utf8');
-const definition = source.indexOf('function calcWHtR(');
-assert.ok(definition >= 0, 'The page must define calcWHtR');
-const open = source.lastIndexOf('<script>', definition);
-const close = source.indexOf('</script>', definition);
-assert.ok(open >= 0 && close > definition, 'The calculation must remain in one script block');
-const script = source.slice(open + '<script>'.length, close);
+// The page's inline script blocks, read with one pattern rather than by slicing at offsets; the
+// calculation must sit in exactly one of them for the fixture to run it as the page does.
+const blocks = Array.from(source.matchAll(/<script>([\s\S]*?)<\/script>/g), (match) => match[1]);
+const calculationBlocks = blocks.filter((block) => block.includes('function calcWHtR('));
+assert.equal(calculationBlocks.length, 1, 'The page must define calcWHtR in exactly one script block');
+const script = calculationBlocks[0];
 assert.ok(!/<%|\$\{/.test(script), 'The browser fixture must run the page script without rewriting JSP expressions');
 
 async function run() {
@@ -30,11 +30,14 @@ async function run() {
         if (new URL(route.request().url()).pathname === '/calculation.js') {
           return route.fulfill({ contentType: 'text/javascript', body: script });
         }
-        // Representative rendered rows: value is in the third cell, as Measurements.jsp emits it.
-        const rows = ['HT', 'WAIS', code].map(type =>
-          `<tr id="row-${type}"><td>${type}</td><td></td><td><input aria-label="${type}"></td><td></td><td></td></tr>`).join('');
-        return route.fulfill({ contentType: 'text/html', body:
-          `<!doctype html><html><body><table>${rows}</table><script src="/calculation.js"></script></body></html>` });
+        // Representative rendered rows: value is in the third cell, as Measurements.jsp emits it. The
+        // row types are this fixture's own constants; the script tag loads the block read above.
+        let html = '<!doctype html><html><body><table>';
+        for (const type of ['HT', 'WAIS', code]) {
+          html += `<tr id="row-${type}"><td>${type}</td><td></td><td><input aria-label="${type}"></td><td></td><td></td></tr>`;
+        }
+        html += '</table><script src="/calculation.js"></script></body></html>';
+        return route.fulfill({ contentType: 'text/html', body: html });
       });
       await page.goto('http://127.0.0.1/measurement-fixture');
       const height = page.getByRole('textbox', { name: 'HT', exact: true });
