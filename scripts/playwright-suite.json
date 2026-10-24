@@ -9227,6 +9227,21 @@
       "notes": "PASS expected; fails at the first stored-field comparison naming the lost field, or at the last step if a refused duplicate-HIN update still writes part of the submission."
     },
     {
+      "name": "demographic-postal-validation",
+      "script": "scripts/demographic-postal-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "The owned runWorkflow FAKE- patient; cleanup removes demographiccust and demographicExtArchive before the harness removes demographicExt and demographicArchive.",
+      "notes": "Issue #5243: unchanged blank and legacy postal codes allow unrelated city edits; changing province revalidates an unchanged legacy code; changing to an invalid value raises validation, sends no update POST and stores nothing; a valid correction persists after reopening. PASS expected."
+    },
+    {
       "name": "demographic-paper-chart-country",
       "script": "scripts/demographic-paper-chart-country-playwright-checks.js",
       "tiers": [
