@@ -44,10 +44,29 @@
     <%@page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver"%>
     <%@page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-    <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
+
+<%
+    // Same-tab modes ("tab" and "focused") open eChart left-nav links in a
+    // browser tab instead of a sized popup window. Measurement popups
+    // (SetupMeasurements, ViewTemplateFlowSheet, ViewAddMeasurementData) are
+    // excluded in popupPage() below because those destination pages write
+    // back into this window via window.opener; real popups stay safest there.
+    boolean openEncounterInTab = false;
+    LoggedInInfo caseViewLoggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (caseViewLoggedInInfo != null) {
+        String caseViewProviderNo = caseViewLoggedInInfo.getLoggedInProviderNo();
+        UserPropertyDAO caseViewUserPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
+        UserProperty caseViewTabProp = caseViewUserPropertyDao.getProp(caseViewProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
+        UserProperty caseViewModeProp = caseViewUserPropertyDao.getProp(caseViewProviderNo, UserProperty.SCHEDULE_NAVIGATION_MODE);
+        openEncounterInTab = !UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP.equals(
+                UserProperty.resolveScheduleNavigationMode(caseViewModeProp == null ? null : caseViewModeProp.getValue(),
+                        caseViewTabProp != null && "yes".equalsIgnoreCase(caseViewTabProp.getValue())));
+    }
+%>
+    var openEncounterInTab = <%=openEncounterInTab%>;
 
     var ctx;        //url context
     var providerNo;
@@ -119,13 +138,21 @@
             varpage = ctx + varpage.substr(2);
         }
         var page = "" + varpage;
-        windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
-        //var popup =window.open(page, "<fmt:message key="encounter.Index.popupPageWindow"/>", windowprops);
-        openWindows[name] = window.open(page, name, windowprops);
-
-        if (page.indexOf("/encounter/oscarMeasurements/SetupMeasurements") !== -1
+        var isMeasurementPage = page.indexOf("/encounter/oscarMeasurements/SetupMeasurements") !== -1
                 || page.indexOf("/encounter/oscarMeasurements/ViewTemplateFlowSheet") !== -1
-                || page.indexOf("/encounter/oscarMeasurements/ViewAddMeasurementData") !== -1) {
+                || page.indexOf("/encounter/oscarMeasurements/ViewAddMeasurementData") !== -1;
+
+        if (openEncounterInTab && !isMeasurementPage) {
+            // Measurement pages always stay real popups: they write results
+            // back into this window's encounter note via window.opener.
+            openWindows[name] = window.open(page, "_blank");
+        } else {
+            windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
+            //var popup =window.open(page, "<fmt:message key="encounter.Index.popupPageWindow"/>", windowprops);
+            openWindows[name] = window.open(page, name, windowprops);
+        }
+
+        if (isMeasurementPage) {
             registerMeasurementWindow(openWindows[name]);
         }
 
@@ -3507,10 +3534,14 @@ function autoSave() {
 
     function showHistory(noteId, event) {
         Event.stop(event);
-        var rnd = Math.round(Math.random() * 1000);
-        win = "win" + rnd;
         var url = ctx + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(noteId)
             + "&demographicNo=" + encodeURIComponent(demographicNo);
+        if (openEncounterInTab) {
+            window.open(url, "_blank");
+            return false;
+        }
+        var rnd = Math.round(Math.random() * 1000);
+        win = "win" + rnd;
         window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
         return false;
     }
@@ -3519,10 +3550,14 @@ function autoSave() {
  *Pop up window for Showing all notes that have linked to an issue
  */
     function showIssueHistory(demoNo, issueIds) {
+        var url = ctx + "/CaseManagementEntry?method=issuehistory&demographicNo=" + demoNo + "&issueIds=" + issueIds;
+        if (openEncounterInTab) {
+            window.open(url, "_blank");
+            return false;
+        }
         var rnd = Math.round(Math.random() * 1000);
         win = "win" + rnd;
-        var url = ctx + "/CaseManagementEntry?method=issuehistory&demographicNo=" + demoNo + "&issueIds=" + issueIds;
-        window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
+        window.open(url, win, "scrollbars=yes, location=no, width=647, height=600");
         return false;
     }
 
