@@ -37,6 +37,7 @@
  * Requires pdftotext (poppler-utils) and a headless browser (page.pdf()).
  */
 const { execFileSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -762,10 +763,56 @@ async function workflow(s) {
     await s.step('a writer belonging only to the originating chart program can save and reread its shared note', async () => {
       const page = defaultChartAfterPaste;
       const editor = () => page.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
+      const fingerprint = text => ({ length: text.length, sha256: createHash('sha256').update(text).digest('hex') });
+      const departurePhases = new Map();
+      const pingRequests = new WeakMap();
+      const failedPings = [];
+      const failedPingRequests = [];
+      const reloadPings = [];
+      const nativeBeacons = [];
+      const beaconPrefix = `owned-rx-beacon-${marker}:`;
+      const observeNativeBeacon = message => {
+        if (message.type() === 'debug' && message.text().startsWith(beaconPrefix)) {
+          nativeBeacons.push(JSON.parse(message.text().slice(beaconPrefix.length)));
+        }
+      };
+      page.on('console', observeNativeBeacon);
+      const pingParameters = (url, data) => {
+        const query = new URL(url).searchParams;
+        const body = new URLSearchParams(data || '');
+        const param = name => {
+          const values = [...query.getAll(name), ...body.getAll(name)];
+          return values.length && values.every(value => value === values[0]) ? values[0] : null;
+        };
+        return { method: param('method'), provider: param('providerNo'), patient: param('demographicNo'),
+          noteId: param('noteId'), chart: tokens.indexOf(param('chartContext')),
+          csrfPresent: Boolean(param('CSRF-TOKEN')) };
+      };
+      const observePing = request => {
+        if (request.resourceType() !== 'ping') return;
+        const target = new URL(request.url());
+        let originPage;
+        try { originPage = request.frame().page(); } catch { /* Keep an unknown origin explicit. */ }
+        pingRequests.set(request, { path: target.pathname, verb: request.method(),
+          ...pingParameters(request.url(), request.postData()),
+          phase: departurePhases.get(originPage) || 'unknown', originPage });
+        if (originPage === page && departurePhases.get(page) === 'owned-Y-reload') reloadPings.push(request);
+      };
+      const observePingFailure = request => {
+        const ping = pingRequests.get(request);
+        if (!ping) return;
+        const { originPage, ...evidence } = ping;
+        failedPings.push({ ...evidence, pageClosed: originPage ? originPage.isClosed() : null,
+          error: request.failure()?.errorText });
+        failedPingRequests.push({ request, ping });
+      };
+      context.on('request', observePing);
+      context.on('requestfailed', observePingFailure);
       // Close only this owned context's first-program windows before removing its membership.
       for (const chart of new Set([charts[0], opened, launchedRx, isolatedRx])) {
         h.assert(chart.context() === context, 'A first-program window belongs to another browser context');
         if (!chart.isClosed()) {
+          departurePhases.set(chart, 'owned-X-close');
           await chart.evaluate(() => { if (typeof clearAutoSaveTimer === 'function') clearAutoSaveTimer(); });
           await chart.close();
         }
@@ -860,12 +907,52 @@ async function workflow(s) {
           && otherDrafts() === draftsBefore && providerAndPatients() === identitiesBefore,
         'The Y-only Save changed another draft, provider, patient, or the originating membership');
         h.assert(await editor().inputValue() === text, 'The native Save did not retain the shared editor text');
+        const storedRevision = JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${revision}`));
+        const readbackEvidence = { expected: fingerprint(text), beforeReload: fingerprint(await editor().inputValue()) };
+        // Chromium omits sendBeacon Blob bodies from Playwright and CDP. Observe
+        // this outgoing document's native arguments while forwarding them unchanged.
+        // Only normalized identity/acknowledgment metadata leaves the page.
+        await page.evaluate(({ prefix, token }) => {
+          const NativeBlob = window.Blob;
+          const nativeBeacon = navigator.sendBeacon;
+          const payloads = new WeakMap();
+          window.Blob = new Proxy(NativeBlob, { construct(target, args, newTarget) {
+            const blob = Reflect.construct(target, args, newTarget);
+            if (Array.isArray(args[0]) && args[0].every(part => typeof part === 'string')) {
+              payloads.set(blob, args[0].join(''));
+            }
+            return blob;
+          } });
+          navigator.sendBeacon = function observedBeacon(url, blob) {
+            const accepted = nativeBeacon.call(this, url, blob);
+            const target = new URL(url, location.href);
+            if (target.pathname.endsWith('/CaseManagementEntry')) {
+              const body = new URLSearchParams(payloads.get(blob) || '');
+              const param = name => {
+                const values = [...target.searchParams.getAll(name), ...body.getAll(name)];
+                return values.length && values.every(value => value === values[0]) ? values[0] : null;
+              };
+              console.debug(prefix + JSON.stringify({ path: target.pathname,
+                bodyKnown: payloads.has(blob), method: param('method'), provider: param('providerNo'),
+                patient: param('demographicNo'), noteId: param('noteId'),
+                chartMatches: param('chartContext') === token, csrfPresent: Boolean(param('CSRF-TOKEN')), accepted }));
+            }
+            return accepted;
+          };
+        }, { prefix: beaconPrefix, token: tokens[1] });
+        departurePhases.set(page, 'owned-Y-reload');
         await page.reload({ waitUntil: 'domcontentloaded' });
         await waitForNavbars(page, 30000);
         h.assert(await page.locator('#caseManagementEntryForm input[name="chartContext"]').inputValue() === tokens[1],
           'The Y-only chart reload changed its originating program');
         const edit = page.locator(`#edit${revision}`);
         await edit.waitFor({ state: 'visible' });
+        readbackEvidence.afterReload = fingerprint(await editor().inputValue());
+        readbackEvidence.full = await page.locator(`#full${revision}`).inputValue();
+        h.assert(['true', 'false'].includes(readbackEvidence.full), 'The shared-note view mode is unknown');
+        // Full-view Edit presents its rendered note with one trailing newline.
+        // Keep the stored bytes exact and assert this existing presentation exactly.
+        const presentedText = readbackEvidence.full === 'true' ? `${text.trim()}\n` : text;
         const [readback, dialogs] = await Promise.all([
           page.waitForResponse(response => response.request().method() === 'POST'
             && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
@@ -873,16 +960,59 @@ async function workflow(s) {
           h.withExpectedDialogs(page, () => edit.click(), { accept: true }),
         ]);
         await readback.finished();
+        const returnedEditor = await page.evaluate(({ html, id }) => {
+          const document = new DOMParser().parseFromString(html, 'text/html');
+          return document.getElementById(`caseNote_note${id}`)?.value ?? null;
+        }, { html: await readback.text(), id: revision });
+        readbackEvidence.responseEditor = returnedEditor === null ? null : fingerprint(returnedEditor);
         h.assert(readback.status() === 200 && hasChartContext(readback.request(), tokens[1])
           && dialogs.length <= 1 && dialogs.every(dialog => dialog.type === 'confirm'
             && /You have started to edit this note in another window/.test(dialog.text)),
         'The Y-only shared-note list readback failed or raised an unexpected dialog');
         await page.waitForFunction(id => document.forms.caseManagementEntryForm?.elements.noteId?.value === id, revision);
-        h.assert(await editor().inputValue() === text, 'The Y-only note disappeared or changed on native Edit readback');
+        await page.waitForFunction(() => window.issueUpdatesPending === 0);
+        try {
+          await waitUntil(async () => await editor().inputValue() === presentedText, 'the exact Y-only native Edit presentation', 5000);
+        } catch (error) {
+          const actual = await editor().inputValue();
+          console.error('Y-only readback evidence:', JSON.stringify({ ...readbackEvidence,
+            actual: fingerprint(actual), equalsExpectedPlusLF: actual === `${text}\n`,
+            equalAfterTrimming: actual.trim() === text.trim(), failedPings }));
+          throw error;
+        }
+        h.assert(await editor().inputValue() === presentedText,
+          'The Y-only note disappeared or changed on native Edit readback');
+        h.assert(sql.value(`SELECT HEX(note) FROM casemgmt_note WHERE note_id=${revision}`)
+          === Buffer.from(text, 'utf8').toString('hex').toUpperCase(),
+        'The Y-only readback changed the exact stored note bytes');
+        h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${revision}`)) === storedRevision,
+          'The Y-only readback changed the stored revision history or metadata');
         await page.evaluate(() => clearAutoSaveTimer());
         h.assert(otherDrafts() === draftsBefore && providerAndPatients() === identitiesBefore,
           'The Y-only readback changed other drafts, provider or patient rows');
+        h.assert(failedPingRequests.length <= 1, 'More than one ping failed during the owned window departures');
+        for (const { request, ping } of failedPingRequests) {
+          // The layout calls onClosing from beforeunload and pagehide. Both native
+          // calls must be the same owned release; only its one known abort is consumed.
+          h.assert(ping.originPage === page && ping.phase === 'owned-Y-reload'
+            && request.failure()?.errorText === 'net::ERR_ABORTED' && ping.verb === 'POST' && ping.chart === 1
+            && nativeBeacons.length >= 1 && nativeBeacons.length <= 2 && reloadPings.includes(request)
+            && reloadPings.length <= nativeBeacons.length && nativeBeacons.every(beacon => beacon.bodyKnown
+              && beacon.path === ping.path && beacon.method === 'releaseNoteLock'
+              && beacon.provider === login.providerNo && beacon.patient === patient
+              && beacon.noteId === revision && beacon.chartMatches && beacon.csrfPresent && beacon.accepted),
+          `The failed ping is not the exact owned reload lock-release beacon: ${JSON.stringify({
+            failedPings, nativeBeacons, reloadPings: reloadPings.length })}`);
+          const recorded = s.recorder.requestFailures.filter(entry => entry.label === 'rx-program-isolation'
+            && entry.url === request.url() && entry.resourceType === 'ping' && entry.errorText === 'net::ERR_ABORTED');
+          h.assert(recorded.length === 1, 'The proved reload beacon does not match exactly one recorder failure');
+          s.recorder.requestFailures.splice(s.recorder.requestFailures.indexOf(recorded[0]), 1);
+          console.log('  CHECK rx-print-profile: acknowledged only the proved owned reload lock-release beacon abort');
+        }
       } finally {
+        context.off('request', observePing);
+        context.off('requestfailed', observePingFailure);
+        page.off('console', observeNativeBeacon);
         const remaining = sql.rows(`SELECT * FROM program_provider WHERE id=${membershipId}`);
         if (!remaining.length) {
           sql.execute(`INSERT INTO program_provider (id,program_id,provider_no,role_id,team_id)
