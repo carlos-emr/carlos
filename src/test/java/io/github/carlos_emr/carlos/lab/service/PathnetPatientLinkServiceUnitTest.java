@@ -1,0 +1,86 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+package io.github.carlos_emr.carlos.lab.service;
+
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7PidDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import jakarta.persistence.PersistenceException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
+
+@Tag("unit")
+@Tag("lab")
+class PathnetPatientLinkServiceUnitTest extends CarlosUnitTestBase {
+    private Hl7PidDao pids;
+    private Hl7LinkDao links;
+    private MrpRoutingService routing;
+    private Hl7Pid pid;
+    private PathnetPatientLinkService service;
+
+    @BeforeEach
+    void prepareService() {
+        pids = mock(Hl7PidDao.class);
+        links = mock(Hl7LinkDao.class);
+        routing = mock(MrpRoutingService.class);
+        pid = new Hl7Pid();
+        pid.setId(3);
+        pid.setMessageId(7);
+        when(pids.find(3)).thenReturn(pid);
+        service = new PathnetPatientLinkService(pids, links, routing);
+    }
+
+    @Test
+    void shouldMatchMessageRatherThanPid_whenPatientExplicitlySelected() {
+        service.link(3, 42, "actor");
+        verify(routing).matchPatientLab("7", "BCP", 42, "actor");
+        verifyNoInteractions(links);
+    }
+
+    @Test
+    void shouldConfirmPersistedPatient_whenNoReplacementSelected() {
+        Hl7Link link = new Hl7Link();
+        link.setDemographicNo(42);
+        when(links.find(3)).thenReturn(link);
+        service.link(3, null, "actor");
+        verify(routing).matchPatientLab("7", "BCP", 42, "actor");
+    }
+
+    @Test
+    void shouldRefuseConfirmation_whenNoLegacyLinkExists() {
+        assertThatThrownBy(() -> service.link(3, null, "actor")).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(routing);
+    }
+
+    @Test
+    void shouldRefuseConfirmation_whenPatientIsStillUnmatched() {
+        when(links.find(3)).thenReturn(new Hl7Link());
+        assertThatThrownBy(() -> service.link(3, null, "actor")).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(routing);
+    }
+
+    @Test
+    void shouldRejectUnknownLab_whenPidDoesNotExist() {
+        when(pids.find(3)).thenReturn(null);
+        assertThatThrownBy(() -> service.link(3, 42, "actor")).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(links, routing);
+    }
+
+    @Test
+    void shouldRejectDisconnectedLab_whenMessageKeyIsMissing() {
+        pid.setMessageId(0);
+        assertThatThrownBy(() -> service.link(3, 42, "actor")).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(links, routing);
+    }
+
+    @Test
+    void shouldPropagateDatabaseFailure_whenTransactionalMatchingFails() {
+        doThrow(new PersistenceException("injected routing failure")).when(routing)
+                .matchPatientLab("7", "BCP", 42, "actor");
+        assertThatThrownBy(() -> service.link(3, 42, "actor")).isInstanceOf(PersistenceException.class);
+    }
+}

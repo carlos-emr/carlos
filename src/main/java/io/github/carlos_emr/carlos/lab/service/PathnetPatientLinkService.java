@@ -26,8 +26,9 @@ public class PathnetPatientLinkService {
     public void link(int pidId, Integer demographicNo, String actor) {
         Hl7Pid pid = pids.find(pidId);
         if (pid == null || pid.getMessageId() <= 0) throw new IllegalArgumentException("Lab does not exist");
-        Hl7Link link = links.find(pidId);
+        // Explicit matches let the shared routing service read/update links after acquiring its locks.
         if (demographicNo == null) {
+            Hl7Link link = links.find(pidId);
             if (link == null || link.getDemographicNo() <= 0) {
                 throw new IllegalArgumentException("Select a patient before confirming the lab");
             }
