@@ -32,7 +32,7 @@ async function workflow(s) {
   const cardFavourite = `${marker}-card-fav`;
   const legacyDrug = `${marker}-legacy`;
   const legacyFavourite = `${marker}-legacy-fav`;
-    const favouriteRows = name => sql.rows(`SELECT favoriteid, favoritename, customName, special, quantity, \`repeat\`
+  const favouriteRows = name => sql.rows(`SELECT favoriteid, favoritename, customName, special, quantity, \`repeat\`
     FROM favorites WHERE provider_no=${q(provider)} AND favoritename=${q(name)}`);
   s.cleanup(() => {
     sql.execute(`DELETE FROM favorites WHERE provider_no=${q(provider)} AND favoritename LIKE ${q(`${marker}%`)}`);
@@ -77,19 +77,31 @@ async function workflow(s) {
     h.assert(row[5] === '2', 'The favourite lost the repeats typed on the card');
   });
 
-  await s.step('the reloaded Rx page lists the favourite and choosing it stages a card with the same drug and instruction', async () => {
-    await rx.waitForURL(/\/rx\/searchDrug\?/, { timeout: 30000 });
+  await s.step('the prescribing page lists the favourite and choosing it stages a new card with the same drug and dosing', async () => {
+    await rx.waitForURL(url => url.pathname.endsWith('/rx/choosePatient')
+      && url.searchParams.get('demographicNo') === String(patient), { timeout: 30000 });
     await rx.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
+    // The initial stash is also loaded asynchronously. It must be present before counting new
+    // cards, or that initial response could be mistaken for the favourite we are about to stage.
+    await rx.locator(`#drugName_${key}`).waitFor({ state: 'attached', timeout: 30000 });
     const link = rx.locator(`a[title="${cardFavourite}"]`).first();
     await link.waitFor({ state: 'attached', timeout: 20000 });
-    h.assert(/usefav|goSD3|useFav2/.test(await link.getAttribute('onclick')), 'The favourites entry is not a link that stages the favourite');
-    await Promise.all([rx.waitForURL(/usefav=true|\/rx\/searchDrug\?/, { timeout: 30000 }), link.click()]);
-    await rx.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await rx.locator("[id^='drugName_']").first().waitFor({ state: 'attached', timeout: 30000 });
-    const names = await rx.locator("[id^='drugName_']").evaluateAll(els => els.map(el => el.value));
-    h.assert(names.includes(cardDrug), 'Choosing the favourite did not stage its drug');
-    const instructions = await rx.locator("[id^='instructions_']").evaluateAll(els => els.map(el => el.value));
-    h.assert(instructions.includes('Take one tablet twice daily'), 'The re-staged card lost the favourite instruction');
+    const before = await rx.locator("[id^='drugName_']").evaluateAll(els => els.map(el => el.id));
+    const [staged] = await Promise.all([
+      rx.waitForResponse(r => new URL(r.url()).pathname.endsWith('/rx/useFavorite') && r.request().method() === 'POST'),
+      link.click(),
+    ]);
+    h.assert(staged.status() === 200, `rx/useFavorite answered HTTP ${staged.status()}`);
+    await rx.waitForFunction(ids => [...document.querySelectorAll("[id^='drugName_']")]
+      .some(el => !ids.includes(el.id)), before, { timeout: 30000 });
+    const added = await rx.locator("[id^='drugName_']").evaluateAll((els, ids) => els.map(el => el.id)
+      .filter(id => !ids.includes(id)), before);
+    h.assert(added.length === 1, `Choosing the favourite staged ${added.length} new cards`);
+    const newKey = added[0].slice('drugName_'.length);
+    h.assert(await rx.locator(`#drugName_${newKey}`).inputValue() === cardDrug, 'The new card lost the favourite drug');
+    h.assert(await rx.locator(`#instructions_${newKey}`).inputValue() === 'Take one tablet twice daily',
+      'The new card lost the favourite instruction');
+    h.assert(await rx.locator(`#repeats_${newKey}`).inputValue() === '2', 'The new card lost the favourite repeats');
   });
 
   // The write-script page lists every staged card of the patient, each with its own "Add to Favorites".
@@ -134,8 +146,7 @@ async function workflow(s) {
     h.assert(row2[2] === cardDrug && row2[3] === 'Take one tablet twice daily', 'The write-script favourite is not the chosen card');
   });
 
-  // Last: a drug with no instruction text is an ordinary favourite, but the insert violates the NOT NULL
-  // `special` column (RxPrescriptionData.Favorite.Save) and the page answers HTTP 500.
+  // A custom drug with no instructions must still save with an empty (not NULL) special value.
   await s.step('write-script page ▸ Add to Favorites on a custom drug with no instructions stores the favourite', async () => {
     const empty = `${marker}-noinstr-fav`;
     const response = await favouriteByLink(writeScript.locator('button[onclick^="addFavorite("]').last(), empty);

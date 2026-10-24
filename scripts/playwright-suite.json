@@ -9637,7 +9637,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The owned synthetic patient and marker-named favourites of the signed-in provider; the staged custom drugs are session-only (nothing is saved to the chart). Cleanup deletes the favourites by marker and asserts them gone.",
-      "notes": "Fails at its last step on 2026.08: Add to Favorites on the write-script page for a custom drug staged by rx/chooseDrug (no instructions) answers HTTP 500 'Column special cannot be null' (RxPrescriptionData.Favorite.Save). Every earlier step passes."
+      "notes": "Adds and cancels favourites from a prescription card, returns to the same patient's prescribing page, stages a new card with the saved dosing through AJAX, and saves legacy write-script favourites with and without instructions (#5248)."
     },
     {
       "name": "gap-encounter-rx-script-notes",
