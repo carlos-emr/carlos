@@ -62,6 +62,13 @@
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%!
+    private static String pathnetIdentifierLabel(String value) {
+        if (value == null) return "";
+        int separator = value.indexOf(' ');
+        return separator < 0 ? value : value.substring(separator + 1);
+    }
+%>
 
 <%
     String pid = request.getParameter("pid"),
@@ -199,6 +206,9 @@
 
             Hl7ObrDao obrDao = SpringUtils.getBean(Hl7ObrDao.class);
             for (Hl7Obr hl7obr : obrDao.findByPid(ConversionUtils.fromIntString(pid))) {
+                String fillerOrderNumber = Misc.check(hl7obr.getFillerOrderNumber(), "");
+                int labSeparator = fillerOrderNumber.indexOf('-', 3);
+                String labLabel = labSeparator < 0 ? fillerOrderNumber : fillerOrderNumber.substring(0, labSeparator);
         %>
         <tr>
             <td colspan="4">&nbsp;</td>
@@ -206,7 +216,7 @@
         <tr>
             <td class="Text">Lab:</td>
             <td class="Text"
-                colspan="3"><carlos:encode value='<%= hl7obr.getFillerOrderNumber().substring(0, hl7obr.getFillerOrderNumber().indexOf("-", 3)) %>' context="html"/>
+                colspan="3"><carlos:encode value='<%= labLabel %>' context="html"/>
             </td>
         </tr>
         <tr>
@@ -258,7 +268,7 @@
         </tr>
         <tr>
             <td class="Text" colspan="3"><b>Service
-                Id:</b><carlos:encode value='<%= hl7_obr.getUniversalServiceId().substring(hl7_obr.getUniversalServiceId().indexOf(" ")) %>' context="html"/>
+                Id:</b><carlos:encode value='<%= pathnetIdentifierLabel(hl7_obr.getUniversalServiceId()) %>' context="html"/>
             </td>
             <td class="Text" nowrap><b>Last Modified:</b><carlos:encode value='<%= String.valueOf(hl7_obr.getResultsReportStatusChange()) %>' context="html"/>
             </td>
@@ -292,7 +302,7 @@
         <tr>
             <td>&nbsp;</td>
             <td class="Text" nowrap
-                class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= hl7_obx.getObservationIdentifier().substring(hl7_obx.getObservationIdentifier().indexOf(" ")) %>' context="html"/>
+                class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= pathnetIdentifierLabel(hl7_obx.getObservationIdentifier()) %>' context="html"/>
             </td>
             <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>">
                 <b><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? "&nbsp;" : SafeEncode.forHtml(Misc.check(hl7_obx.getAbnormalFlags(), "", "&nbsp;")))%>
