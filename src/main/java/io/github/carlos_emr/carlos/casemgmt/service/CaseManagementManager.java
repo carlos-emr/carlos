@@ -423,6 +423,17 @@ public interface CaseManagementManager {
                                                      Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString) throws Exception;
 
+    /**
+     * Saves a revision and clears only the draft belonging to the originating chart program.
+     * The note retains its own program when an authorized chart edits a shared note.
+     * A null draft program leaves drafts intact. The original overload retains its
+     * note-program cleanup for integrations that do not supply a separate chart context.
+     */
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram) throws Exception;
+
     public void setCPPMedicalHistory(CaseManagementCPP cpp, String providerNo, List accessRight);
 
     public String listNotes(String code, String providerNo, String demoNo);

@@ -143,13 +143,13 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
     private CaseManagementNote savedFullFormNote() throws Exception {
         ArgumentCaptor<CaseManagementNote> saved = ArgumentCaptor.forClass(CaseManagementNote.class);
         verify(manager).saveCaseManagementNote(any(), saved.capture(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any());
         return saved.getValue();
     }
 
     private void stubFullFormSave() throws Exception {
         when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+                any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
             CaseManagementNote revision = ((CaseManagementNote) call.getArgument(1)).copyForRevision();
             revision.setId(600L);
             return revision;
@@ -161,7 +161,7 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("observationDateRejected")).isEqualTo(Boolean.TRUE);
         assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(rawDraft);
         verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any());
         verify(manager, never()).deleteTmpSave(any(), any(), any());
         verify(locks, never()).merge(any());
         verify(locks, never()).removeForSession(any(), any(), any(), any());
@@ -204,7 +204,7 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.save()).isEqualTo("windowCloseError");
         verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any());
         assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);
     }
 

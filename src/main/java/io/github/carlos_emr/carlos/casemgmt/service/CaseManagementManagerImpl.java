@@ -2573,6 +2573,22 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString) throws Exception {
+        // Preserve the historical contract for REST and other integrations whose
+        // originating program is the note's program.
+        return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
+                now, userName, user, remoteAddr, lastSavedNoteString, note.getProgram_no());
+    }
+
+    @Override
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram) throws Exception {
+        // A failed transaction leaves the editor's submitted object available for retry.
+        // Do not retain a failed attempt's added signature or revision counter on it.
+        CaseManagementNote submitted = note;
+        note = submitted.copyForRevision();
+        note.setId(submitted.getId());
         ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
         AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
 
@@ -2732,10 +2748,12 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             appointmentDao.merge(appointment);
         }
 
-        try {
-            this.deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), note.getProgram_no());
-        } catch (Exception e) {
-            logger.warn("warn", e);
+        if (draftProgram != null) {
+            // A shared note keeps its original program, while the draft belongs
+            // to the chart that submitted it. Both writes share this transaction.
+            // A cleanup failure must roll back the revision, rather than report a
+            // successful save while a stale draft is still available to restore.
+            this.deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), draftProgram);
         }
 
         if (old_note_id != null) {

@@ -1861,7 +1861,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             note = caseManagementMgr.saveCaseManagementNote(
                     loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
-                    userName, providerNo, request.getRemoteAddr(), lastSavedNoteString);
+                    userName, providerNo, request.getRemoteAddr(), lastSavedNoteString,
+                    ChartProgramContext.resolve(request));
         } catch (RuntimeException e) {
             if (!StaleNoteRevisionException.isConflict(e)) throw e;
             response.setStatus(HttpServletResponse.SC_CONFLICT);
@@ -1879,8 +1880,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             casemgmtNoteLockDao.merge(casemgmtNoteLockSession);
             session.setAttribute("casemgmtNoteLock" + demo, casemgmtNoteLockSession); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         }
-
-        deleteSavedChartDraft(providerNo, note.getDemographic_no());
 
         return note.getId();
     }

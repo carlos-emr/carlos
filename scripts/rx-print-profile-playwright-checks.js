@@ -629,6 +629,24 @@ async function workflow(s) {
 
     await s.step('saving an explicitly shared note clears its chart program draft and preserves the other program window', async () => {
       const editor = page => page.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
+      const protectedDraftRows = () => sql.rows(`SELECT * FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+        AND provider_no=${owner} AND program_id=${capturedProgram} ORDER BY id`);
+      const protectedDraftEvidence = () => sql.rows(`SELECT id,program_id,note_id,update_date,
+        SHA2(note,256),CHAR_LENGTH(note) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+        AND provider_no=${owner} AND program_id=${capturedProgram} ORDER BY id`);
+      const checkpoints = {};
+      const chartRequests = [];
+      const observeChartRequest = request => {
+        const target = new URL(request.url());
+        if (!target.pathname.endsWith('/CaseManagementEntry')) return;
+        const body = new URLSearchParams(request.postData() || '');
+        const contextToken = target.searchParams.get('chartContext') || body.get('chartContext');
+        chartRequests.push({ method: body.get('method') || target.searchParams.get('method'),
+          program: body.get('programId'), chart: tokens.indexOf(contextToken),
+          noteId: body.get('note_id') || body.get('noteId'),
+          noteLength: (body.get('note') || body.get('caseNote_note') || '').length });
+      };
+      context.on('request', observeChartRequest);
       const autosave = async (page, text, token, program) => {
         await page.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation
           && window.issueUpdatesPending === 0);
@@ -652,8 +670,8 @@ async function workflow(s) {
       h.assert(/^[1-9]\d*$/.test(source), 'The original program window has no saved note to share');
       const protectedText = `${await editor(opened).inputValue()}\n${marker}-keep-this-other-program-draft`;
       await autosave(opened, protectedText, tokens[0], capturedProgram);
-      const protectedDraft = JSON.stringify(sql.rows(`SELECT * FROM casemgmt_tmpsave WHERE demographic_no=${patient}
-        AND provider_no=${owner} AND program_id=${capturedProgram} ORDER BY id`));
+      const protectedDraft = JSON.stringify(protectedDraftRows());
+      checkpoints.beforeEdit = protectedDraftEvidence();
       const editLink = defaultChartAfterPaste.locator(`#edit${source}`);
       await editLink.waitFor({ state: 'visible' });
       const [edited, dialogs] = await Promise.all([
@@ -663,6 +681,7 @@ async function workflow(s) {
         h.withExpectedDialogs(defaultChartAfterPaste, () => editLink.click(), { accept: true }),
       ]);
       await edited.finished();
+      checkpoints.afterEdit = protectedDraftEvidence();
       h.assert(edited.status() === 200 && hasChartContext(edited.request(), tokens[1]),
         'The explicitly selected shared note did not open in its originating chart context');
       h.assert(dialogs.length <= 1 && dialogs.every(dialog => dialog.type === 'confirm'
@@ -672,6 +691,7 @@ async function workflow(s) {
         document.forms.caseManagementEntryForm?.elements.noteId?.value === id, source);
       const sharedText = `${await editor(defaultChartAfterPaste).inputValue()}\n${marker}-shared-program-edit`;
       await autosave(defaultChartAfterPaste, sharedText, tokens[1], defaultProgram);
+      checkpoints.afterSharedAutosave = protectedDraftEvidence();
       h.assert(sql.value(`SELECT note_id FROM casemgmt_tmpsave WHERE demographic_no=${patient}
         AND provider_no=${owner} AND program_id=${defaultProgram}`) === source,
       'The shared-note draft lost its explicitly selected source note');
@@ -695,8 +715,13 @@ async function workflow(s) {
       h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
         AND provider_no=${owner} AND program_id=${defaultProgram}`) === '0',
       'Saving the shared note retained its originating chart program draft');
-      h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_tmpsave WHERE demographic_no=${patient}
-        AND provider_no=${owner} AND program_id=${capturedProgram} ORDER BY id`)) === protectedDraft,
+      checkpoints.afterSharedSave = protectedDraftEvidence();
+      const afterProtectedDraft = JSON.stringify(protectedDraftRows());
+      context.off('request', observeChartRequest);
+      if (afterProtectedDraft !== protectedDraft) {
+        console.error('Shared-note draft evidence:', JSON.stringify({ checkpoints, chartRequests }));
+      }
+      h.assert(afterProtectedDraft === protectedDraft,
       'Saving the shared note consumed or changed the other program window draft');
       h.assert(await editor(opened).inputValue() === protectedText,
         'Saving the shared note replaced the unsaved text in the other program window');

@@ -6,6 +6,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
@@ -166,7 +167,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
             submitted.setNote(processedDraft);
             throw snapshotConflict();
         }).when(manager).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any());
         assertThat("save".equals(operation) ? action.save() : action.saveAndExit()).isEqualTo("windowCloseError");
         assertThat(request.getAttribute("noteRevisionConflict")).isEqualTo(Boolean.TRUE);
         assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(rawDraft);
@@ -179,7 +180,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         String rawDraft = "  Original untrimmed draft\n  ";
         doReturn(rawDraft, "Unsaved draft").when(action).getCaseNote_note();
         when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any())).thenThrow(snapshotConflict());
+                any(), any(), any(), any(), any(), any(), any())).thenThrow(snapshotConflict());
         assertThat(exit ? action.saveAndExit() : action.save()).isEqualTo("windowCloseError");
         assertThat(request.getAttribute("noteRevisionConflict")).isEqualTo(Boolean.TRUE);
         assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(rawDraft);
@@ -197,7 +198,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("unsavedNoteText")).isNull();
         verify(action, never()).addActionMessage(anyString());
         verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any());
         assertThat(request.getSession().getAttribute("casemgmtNoteLock101")).isSameAs(lock);
     }
 
@@ -208,7 +209,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         CaseManagementNote saved = note.copyForRevision();
         saved.setId(600L);
         when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any())).thenReturn(saved);
+                any(), any(), any(), any(), any(), any(), any())).thenReturn(saved);
 
         assertThat(action.save()).isEqualTo(chain.isEmpty() ? "view" : chain);
 
@@ -219,27 +220,69 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("noteRevisionConflict")).isNull();
     }
 
-    @Test
-    void shouldClearOnlyOriginatingChartDraft_whenSavingAnExplicitCrossProgramNote() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldClearOnlyOriginatingChartDraft_whenSavingAnExplicitCrossProgramNote(boolean legacy) throws Exception {
         // This chart's context is program7. It explicitly edits a visible note belonging
         // to program8, while another window still holds program8's independent draft.
+        prepareOriginatingChart(legacy);
         note.setProgram_no("8");
         CaseManagementNote saved = note.copyForRevision();
         saved.setId(600L);
-        Map<String, String> drafts = new java.util.HashMap<>(Map.of(
-                "7", "Originating chart draft", "8", "Other program's unsaved text"));
         when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any())).thenReturn(saved);
-        doAnswer(call -> drafts.remove((String) call.getArgument(2))).when(manager)
-                .deleteTmpSave(eq("999998"), eq("101"), anyString());
+                any(), any(), any(), any(), any(), any(), any())).thenReturn(saved);
 
         assertThat(action.save()).isEqualTo("view");
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(saved.getProgram_no()).isEqualTo("8");
-        assertThat(drafts).containsExactlyEntriesOf(Map.of("8", "Other program's unsaved text"));
+        verify(manager).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), eq("7"));
+        // The manager owns revision persistence and draft cleanup in one transaction.
+        verify(manager, never()).deleteTmpSave(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"compact,false", "compact,true", "cancel,false", "cancel,true"})
+    void shouldKeepTheOtherWindowDraft_whenUsingCompactSaveOrCancel(String route, boolean legacy) throws Exception {
+        prepareOriginatingChart(legacy);
+        note.setProgram_no("8");
+        Map<String, String> drafts = new java.util.HashMap<>(Map.of(
+                "7", "Originating draft", "8", "Independent other program draft"));
+        doAnswer(call -> drafts.remove((String) call.getArgument(2))).when(manager)
+                .deleteTmpSave(eq("999998"), eq("101"), anyString());
+        when(manager.saveNoteRevisionSimple(any())).thenAnswer(call -> {
+            CaseManagementNote saved = ((CaseManagementNote) call.getArgument(0)).copyForRevision();
+            saved.setId(600L);
+            return saved;
+        });
+
+        if ("compact".equals(route)) {
+            assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+            assertThat(form.getCaseNote().getId()).isEqualTo(600L);
+        } else {
+            action.setDemographicNo("101");
+            assertThat(action.cancel()).isEqualTo("windowClose");
+            verify(manager, never()).saveNoteRevisionSimple(any());
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(drafts).containsExactlyEntriesOf(Map.of("8", "Independent other program draft"));
         verify(manager).deleteTmpSave("999998", "101", "7");
         verify(manager, never()).deleteTmpSave("999998", "101", "8");
+    }
+
+    private void prepareOriginatingChart(boolean legacy) {
+        if (legacy) {
+            request.removeAttribute(ChartProgramContext.class.getName() + ".requestContext");
+            request.getSession().setAttribute(ChartProgramContext.formKey(request, "101"), form);
+        } else {
+            request.setParameter(ChartProgramContext.PARAMETER, ChartProgramContext.token(request));
+            MockHttpServletRequest otherWindow = new MockHttpServletRequest();
+            otherWindow.setSession(request.getSession());
+            otherWindow.setParameter("demographicNo", "101");
+            ChartProgramContext.remember(otherWindow, "8");
+        }
     }
 
     @Test
@@ -617,7 +660,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
             assertThat(submitted.getNote()).contains(issue.getDescription());
             throw snapshotConflict();
         }).when(manager).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any());
 
         assertThat(action.saveAndExit()).isEqualTo("windowCloseError");
         assertThat(response.getStatus()).isEqualTo(409);

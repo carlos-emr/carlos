@@ -173,7 +173,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         assertThat(fixture.form.getIssueCheckList()).isEmpty();
         assertThat(note.getNote()).isEqualTo("Unsaved editor text");
         verify(fixture.manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
-                any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any());
     }
 
     record Fixture(CaseManagementEntry2Action action,CaseManagementManager manager,CaseManagementEntryFormBean form) {}
