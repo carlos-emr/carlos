@@ -569,6 +569,9 @@ async function transferredItems(s, A, B, messenger, chartOf) {
     await settle(transfer, 'the patient document-transfer chooser');
     h.assert(await transfer.locator('form[action$="/messenger/Transfer/PostItems"]').count() === 1,
       'The packaged document-transfer definition did not render a chooser');
+    await transfer.getByRole('link', {name: 'Expand All', exact: true}).click();
+    await transfer.getByRole('cell', {name: `${marker}, ${A_FIRST_NAME}`, exact: true})
+      .waitFor({state: 'visible', timeout: TIMEOUT});
     h.assert((await transfer.locator('body').innerText()).includes(A_FIRST_NAME),
       'The transfer chooser does not display its named patient');
     const content = `${marker} ${A_FIRST_NAME} transferred eDoc`;
@@ -858,14 +861,15 @@ async function composeFromView(view, label, button) {
 
 async function forwardedItems(s, A, messenger) {
   const { sql, marker } = s;
-  const received = { first: receiveMessageWithItem(s, 'first'), second: receiveMessageWithItem(s, 'second') };
+  const received = { first: receiveMessageWithItem(s, 'first'), second: receiveMessageWithItem(s, 'second'),
+    third: receiveMessageWithItem(s, 'third') };
 
   const viewOf = {};
   let inbox;
   /** The inbox sets up the login's messenger; each message then opens in a window of its own. */
   async function openViews() {
     inbox = await openPage(s, '/messenger/DisplayMessages', 'messenger inbox');
-    for (const label of ['first', 'second']) {
+    for (const label of ['first', 'second', 'third']) {
       viewOf[label] = await openPage(s, await messageViewPath(inbox, received[label], label), `${label} message view`);
     }
   }
@@ -895,22 +899,28 @@ async function forwardedItems(s, A, messenger) {
       AND demographic_no=${patient}`, '1', `Link to Patient did not link the ${label} message`);
   }
 
-  await step(s, 'each message view forwards only its own message\'s chart items, by Forward or Reply', async () => {
+  await step(s, 'Forward, Reply and Reply All retain their own quote and chart items after reload', async () => {
     await openViews();
     await saveViewAttachments(s, viewOf.first, 'first');
     // The second view saves its items after the first one did.
     await saveViewAttachments(s, viewOf.second, 'second');
+    await saveViewAttachments(s, viewOf.third, 'third');
     // The first view is shown again for its linked patient before it forwards.
     await linkPatient('first', A);
-    for (const [label, other, button] of [['first', 'second', 'forward'], ['second', 'first', 'reply']]) {
+    for (const [label, other, button] of [
+      ['first', 'second', 'forward'], ['second', 'first', 'reply'], ['third', 'first', 'replyAll']]) {
       const view = viewOf[label];
       await composeFromView(view, label, button);
       h.assert(/Attachments/i.test(await view.locator('#scrollNumber1').innerText()),
         `${button} from the ${label} message view does not show the items saved in it`);
       const composeKey = new URL(view.url()).searchParams.get('attachmentKey');
       h.assert(composeKey, `${button} has no stable compose key in its address`);
+      const originalSubject = await view.locator('#subject').inputValue();
       await view.reload({ waitUntil: 'domcontentloaded' });
       await settle(view, `${button} after reload`);
+      h.assert(await view.locator('#subject').inputValue() === originalSubject
+          && (await view.locator('#messagediv').innerText()).includes('FAKE-PW received'),
+        `${button} reload lost its original subject or quoted message`);
       h.assert(new URL(view.url()).searchParams.get('attachmentKey') === composeKey,
         `${button} reload replaced its compose workspace`);
       h.assert(/Attachments/i.test(await view.locator('#scrollNumber1').innerText()),

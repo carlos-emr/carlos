@@ -153,6 +153,29 @@ class MsgHandleMessages2ActionUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("<root>FAKE chart item</root>");
     }
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"reply", "replyAll", "forward"})
+    @DisplayName("should reconstruct a reply or forward on GET while retaining its compose attachments")
+    void shouldRetainComposeAttachments_whenReloadingReplyOrForward(String operation) throws Exception {
+        String composeKey = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stageItems(session, composeKey, "<root>FAKE own item</root>");
+        MsgAttachmentStaging.stagePdfs(session, composeKey, 900001, "FAKE own PDF");
+        request.setMethod("GET");
+        request.addParameter(operation, "1");
+        request.addParameter(MsgAttachmentStaging.KEY_PARAMETER, composeKey);
+
+        assertThat(execute()).isEqualTo("reply");
+
+        assertThat(request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(composeKey);
+        assertThat(request.getAttribute("ReSubject")).isEqualTo(
+                "forward".equals(operation) ? "Fwd:FAKE subject" : "Re:FAKE subject");
+        assertThat((String) request.getAttribute("ReText")).contains("FAKE body");
+        assertThat(MsgAttachmentStaging.peek(session, composeKey).itemAttachment())
+                .isEqualTo("<root>FAKE own item</root>");
+        assertThat(MsgAttachmentStaging.peek(session, composeKey).pdfAttachment())
+                .isEqualTo("FAKE own PDF");
+    }
+
     @Test
     @DisplayName("should open the compose page with nothing staged when nothing was saved for this message")
     void shouldHandOverEmptyKey_whenNothingWasSavedForThisMessage() throws Exception {

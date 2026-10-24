@@ -184,6 +184,19 @@
     if (!MsgAttachmentStaging.isKey(attachmentKey)) attachmentKey = MsgAttachmentStaging.newKey();
     MsgAttachmentStaging.Staged stagedAttachments = MsgAttachmentStaging.peek(session, attachmentKey);
 
+    // Reply/forward first arrive by POST. Reload must name the source and read-only
+    // operation as well as the compose key, so the action can reconstruct the quote.
+    String reloadMessageNo = request.getParameter("messageNo");
+    String reloadOperation = null;
+    if (reloadMessageNo != null && reloadMessageNo.matches("[1-9][0-9]{0,8}")) {
+        for (String operation : new String[]{"reply", "replyAll", "forward"}) {
+            if (request.getParameter(operation) != null) {
+                reloadOperation = operation;
+                break;
+            }
+        }
+    }
+
     // Handle patient demographic association if message is patient-related
     String demographic_no = (String) request.getAttribute("demographic_no");
     DemographicData demoData = new DemographicData();
@@ -216,6 +229,10 @@
         // A reload belongs to this compose window and must keep its staged attachments.
         var composeUrl = new URL(window.location.href);
         composeUrl.searchParams.set('attachmentKey', '<%= SafeEncode.forJavaScript(attachmentKey) %>');
+        <% if (reloadOperation != null) { %>
+        composeUrl.searchParams.set('messageNo', '<%= SafeEncode.forJavaScript(reloadMessageNo) %>');
+        composeUrl.searchParams.set('<%= SafeEncode.forJavaScript(reloadOperation) %>', '1');
+        <% } %>
         window.history.replaceState(window.history.state, '', composeUrl);
     </script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>

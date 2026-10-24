@@ -593,7 +593,7 @@
 
                                     </td>
                                     <td>
-                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>">
+                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>">
                                         <carlos:encode value='<%= dm.getThesubject() %>' context="html"/>
                                     </a>
                                     <%

@@ -148,6 +148,12 @@
     <% } %>
 <%
 String boxType = request.getParameter("boxType");
+String mailboxSearch = request.getParameter("searchString");
+if (mailboxSearch == null) mailboxSearch = "";
+String mailboxOrder = request.getParameter("orderby");
+if (mailboxOrder == null) mailboxOrder = "!date";
+String mailboxQuerySuffix = "&amp;searchString=" + SafeEncode.forUriComponent(mailboxSearch)
+        + "&amp;orderby=" + SafeEncode.forUriComponent(mailboxOrder);
 %>
 
 <script>
@@ -329,6 +335,9 @@ function fmtOscarMsg() {
     <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
 <% } %>
 <form action="<%=request.getContextPath()%>/messenger/HandleMessages" method="post">
+    <input type="hidden" name="searchString" value="<%=SafeEncode.forHtmlAttribute(mailboxSearch)%>">
+    <input type="hidden" name="orderby" value="<%=SafeEncode.forHtmlAttribute(mailboxOrder)%>">
+    <input type="hidden" name="boxType" value="<%=SafeEncode.forHtmlAttribute(boxType)%>">
     <% if (showScheduleNav) { %>
     <input type="hidden" name="scheduleNav" value="1">
     <% } %>
@@ -358,7 +367,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA >
 									<tr>
 										<td class="messengerButtonsA">
-									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages<%=scheduleNavFirstQuerySuffix%>"
+									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=0<%=scheduleNavQuerySuffix%><%=mailboxQuerySuffix%>"
 									            class="btn btn-primary">
 									            <fmt:message key="messenger.ViewMessage.btnInbox"/>
 									        </a>
@@ -374,7 +383,7 @@ function fmtOscarMsg() {
 							<table class=messButtonsA >
 								<tr>
 									<td class="messengerButtonsA">
-									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>"
+									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%><%=mailboxQuerySuffix%>"
 									        class="btn btn-primary">
 									        <fmt:message key="messenger.ViewMessage.btnSent"/>
 									    </a>

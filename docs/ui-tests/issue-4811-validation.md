@@ -10,9 +10,9 @@ name their patient; opening another chart cannot supply that identity.
 | 2 | Stop writing the login-wide encounter bean; chart notes use the named patient's immutable entry metadata. |
 | 3 | Capture the selected CAISI program for each patient at chart entry. Subsequent chart operations use that captured program. |
 | 4–7 | Remove unused session writes and move message navigation and note-editor flags into the request. |
-| 8 | Make inbox filtering request-scoped and carry the filter through navigation links. |
+| 8 | Make mailbox search and sort request-scoped; carry both through pagination, message detail, Inbox/Sent return links, and message actions. |
 | 9, 21, 22 | Retain at most 100 patients' disposable appointment, encounter and saved-note metadata per category. Unsaved clinical drafts are not evicted. |
-| 10, 32 | Keep each compose window's attachment key in its URL, including reply/forward reloads. |
+| 10, 32 | Keep each compose window's attachment key in its URL. Reply, Reply All and Forward reloads also retain their source message and read-only operation, reconstructing the quote without placing message text in the URL. |
 | 11 | Retain the intentional provider-wide appointment cut/copy clipboard. |
 | 12 | The transfer chooser no longer changes the authenticated messenger identity from `val1`. |
 | 13 | Add per-patient module privilege and patient-record access checks to registry and note-list entry points. |
@@ -23,8 +23,8 @@ name their patient; opening another chart cannot supply that identity.
 | 19 | Bind provider/group values in report queries. |
 | 20 | Require POST in both immunization configuration mutators themselves. |
 | 23 | Require POST and patient write access for CPP saves; derive the saved CPP identity from the authorized patient. |
-| 25 | Run PMM initialization after authentication and before Struts action execution. |
-| 26 | Bundle the historical transfer definition as a classpath resource. Check access to its clinical sections before rendering and encode displayed data. |
+| 25 | Run PMM initialization after authentication and before Struts action execution. Use the core role DAO so note attachment also works without the optional CAISI context. |
+| 26 | Bundle the transfer definition as a classpath resource, excluding the retired `formAR` table. Check access to its clinical sections before rendering, encode displayed data, and load the packaged stylesheet. |
 | 27 | Carry the resolved message ID through the position-navigation redirect; return 404 when no result exists. |
 | 28 | Restore the dynamically included legacy chart fragments under `WEB-INF`, with current routes and encoding. |
 | 29 | Return an empty issue search for an absent/invalid program selection. |
@@ -39,13 +39,33 @@ Java coverage exercises explicit Rx identity, per-patient chart programs and enc
 metadata, bounded metadata retention, CPP request/access/identity guards, registry
 access, sender/recipient attachment access, and direct POST contracts.
 
-`chart-message-followups` drives the legacy chart owner, independent inbox searches,
-and attachment denial for a provider who is neither sender nor recipient.
-`session-state-two-window-isolation` also checks reply/forward reloads and the
-packaged document-transfer chooser. `echart-two-patient-isolation` checks that the
+`chart-message-followups` drives the legacy chart owner, history/reminder saves without
+losing fields from other tabs, orphan appointments, independent mailbox searches and
+sorting, Inbox/Sent return navigation, message-position redirects, and attachment denial
+for a provider who is neither sender nor recipient.
+`session-state-two-window-isolation` also checks Reply, Reply All and Forward reloads
+(subject, quoted text, patient and attachments) and the packaged document-transfer
+chooser. `echart-two-patient-isolation` checks that the
 retired direct-render routes return 404 without changing either chart.
 
 Package validation uses an Ubuntu 26.04 systemd container, the pinned DrugRef revision
 and checksum-verified Chromium snapshot. The unreleased `carlos-ctl` 1.2.0 pin is
 built from the repository's documented fallback revision and given a local test
 version satisfying the package dependency. No CLI release is published by this work.
+
+## Validation results (Ubuntu 26.04)
+
+- Full Java unit/integration run: 25,516 tests, zero failures/errors, seven skips.
+  The subsequent reply/forward reload and mailbox-navigation checks passed all 33
+  focused tests, including three new reload cases. All 992 JSPs compile.
+- Full script regression run: 4,472 passed, zero failures, four skipped and one TODO.
+- Pinned DrugRef build: 74 tests passed. The documented `carlos-ctl` fallback build:
+  1,597 passed and 78 skipped.
+- CARLOS and DrugRef debs were built, installed and upgraded in a disposable Ubuntu
+  26.04 systemd container. `carlos-ctl check` passed, including live application and
+  DrugRef requests, database migrations, TLS, WAF and least-privilege reporting.
+  The final local package version is `2026.08.0~beta1+issue4811test7` with
+  `carlos-ctl` `1.2.0+issue4811test1`.
+- CAISI legacy-editor isolation and multi-site Rx previews both passed with their
+  optional modules enabled temporarily. Both settings were restored afterwards;
+  fixture residue audits passed. Browser validation uses Chromium 154.0.8025.0.

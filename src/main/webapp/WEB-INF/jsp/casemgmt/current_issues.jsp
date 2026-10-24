@@ -123,9 +123,9 @@
                         if (dxMap.get(issue.code) != null) {
                 %>Dx<%
             } else {
-            %><span
-                    style="text-decoration: underline; cursor: pointer; color: blue"
-                    onclick="document.caseManagementViewForm.hideActiveIssue.value='false';document.caseManagementViewForm.elements.namedItem('method').value='addToDx';document.caseManagementViewForm.issue_code.value='<%=SafeEncode.forJavaScriptAttribute(issue.code)%>';document.caseManagementViewForm.submit(); return false;">+Dx</span>
+            %><button type="button"
+                    style="border: 0; padding: 0; background: transparent; font: inherit; text-decoration: underline; cursor: pointer; color: blue"
+                    onclick="document.caseManagementViewForm.hideActiveIssue.value='false';document.caseManagementViewForm.elements.namedItem('method').value='addToDx';document.caseManagementViewForm.issue_code.value='<%=SafeEncode.forJavaScriptAttribute(issue.code)%>';document.caseManagementViewForm.submit(); return false;">+Dx</button>
                 <%
                         }
                     }

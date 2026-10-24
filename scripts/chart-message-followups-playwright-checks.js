@@ -68,19 +68,19 @@ async function workflow(s) {
         `${tab} lost its patient context`);
     }
     const history = `${marker} patient history`;
-    await page.locator('textarea[name="cpp.socialHistory"]').fill(history);
-    await page.locator('textarea[name="cpp.otherSupportSystems"]').fill(`${marker} support`);
+    await page.getByLabel('Social History', {exact: true}).fill(history);
+    await page.getByLabel('Other Support Systems', {exact: true}).fill(`${marker} support`);
     await Promise.all([page.waitForNavigation(), page.locator('input[type="submit"][value="Save"]').click()]);
     h.assert(sql.value(`SELECT socialHistory FROM casemgmt_cpp WHERE demographic_no=${patient}`) === history,
       'The legacy CPP form did not save the named patient history');
-    h.assert(await page.locator('textarea[name="cpp.socialHistory"]').inputValue() === history,
+    h.assert(await page.getByLabel('Social History', {exact: true}).inputValue() === history,
       'The saved history was lost on redisplay');
     h.assert(sql.value(`SELECT reminders FROM casemgmt_cpp WHERE demographic_no=${patient}`) === originalReminder,
       'Saving history erased the reminder from another tab');
     await Promise.all([page.waitForNavigation(), page.getByText('Reminders', {exact: true}).first().click()]);
-    h.assert(await page.locator('textarea[name="cpp.reminders"]').inputValue() === originalReminder,
+    h.assert(await page.getByLabel('Reminders', {exact: true}).inputValue() === originalReminder,
       'The reminder tab lost its saved text');
-    await page.locator('textarea[name="cpp.reminders"]').fill(`${marker} updated reminder`);
+    await page.getByLabel('Reminders', {exact: true}).fill(`${marker} updated reminder`);
     await Promise.all([page.waitForNavigation(), page.locator('input[type="submit"][value="Save"]').click()]);
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_cpp WHERE demographic_no=${patient}
       AND socialHistory=${q(history)} AND otherSupportSystems=${q(marker + ' support')}
@@ -99,7 +99,8 @@ async function workflow(s) {
         ${q(provider)},${location},0,'<root/>')`, 'follow-up message');
     ids.push(id);
     sql.execute(`INSERT INTO messagelisttbl(message,provider_no,status,remoteLocation,destinationFacilityId,sourceFacilityId)
-      VALUES(${id},${q(provider)},'new',${location},0,0)`);
+      VALUES(${id},${q(provider)},'new',${location},0,0);
+      INSERT INTO msgDemoMap(messageID,demographic_no) VALUES(${id},${patient})`);
   }
 
   await s.step('two inbox windows retain their own searches after the other window changes its filter', async () => {
@@ -121,6 +122,46 @@ async function workflow(s) {
     'The first inbox did not show only its own search results');
     await first.close();
     await second.close();
+  });
+
+  await s.step('Inbox and Sent return links retain their mailbox search and sort', async () => {
+    for (const [box, button] of [['0', 'Back To Inbox'], ['1', 'Back to Sent']]) {
+      const page = await context.newPage();
+      await page.goto(url(`/messenger/DisplayMessages?boxType=${box}&orderby=subject&searchString=`
+        + encodeURIComponent(marker + ' bravo')));
+      await Promise.all([page.waitForNavigation(),
+        page.locator(`a[href*="/messenger/ViewMessage?messageID=${ids[1]}&"]`).first().click()]);
+      await h.assertNotErrorPage(page, `${button} message`);
+      await Promise.all([page.waitForNavigation(), page.getByRole('link', {name: button, exact: true}).click()]);
+      h.assert(await page.locator('.page-header-search-form input[name="searchString"]').inputValue() === marker + ' bravo',
+        `${button} return lost the mailbox search`);
+      h.assert(await page.locator('input[name="orderby"]').inputValue() === 'subject',
+        `${button} return lost the mailbox sort`);
+      h.assert(new URL(page.url()).searchParams.get('boxType') === box,
+        `${button} return selected a different mailbox`);
+      const body = await page.locator('body').innerText();
+      h.assert(body.includes(marker + ' bravo') && !body.includes(marker + ' alpha'),
+        `${button} return did not preserve the filtered results`);
+      await page.close();
+    }
+  });
+
+  await s.step('position navigation redirects to its resolved message and refuses a missing position', async () => {
+    const route = `/messenger/ViewMessageByPosition?demographic_no=${patient}&orderBy=subject`;
+    const found = await context.request.get(url(`${route}&messagePosition=0`), {maxRedirects: 0});
+    try {
+      h.assert(found.status() === 302, `Position navigation returned HTTP ${found.status()}`);
+      const destination = new URL(found.headers().location, config.baseUrl);
+      h.assert(destination.pathname.endsWith('/messenger/ViewMessage')
+        && destination.searchParams.get('messageID') === ids[0]
+        && destination.searchParams.get('demographic_no') === patient,
+      'Position navigation lost its resolved message or patient on redirect');
+    } finally { await found.dispose(); }
+    const missing = await context.request.get(url(`${route}&messagePosition=99&messageID=${ids[1]}`),
+      {maxRedirects: 0});
+    try {
+      h.assert(missing.status() === 404, 'A missing position accepted a caller-supplied message ID');
+    } finally { await missing.dispose(); }
   });
 
   await s.step('unrelated providers cannot view or download a saved message attachment', async () => {

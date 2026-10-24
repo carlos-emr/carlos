@@ -339,9 +339,9 @@ async function workflow(s) {
       h.assert(response.status() === 405, `A GET attach answered HTTP ${response.status()}, not 405`);
     } finally { await response.dispose(); }
     h.assert(copies() === before, 'A GET attach copied the note into C\'s chart');
-    for (const page of Object.values(charts)) {
-      if (!page.isClosed()) await page.close().catch(() => {});
-    }
+    // The workflow harness closes these chart windows after the assertions, before fixture
+    // cleanup. Closing them inside the step aborts their background autosave requests and
+    // incorrectly reports that expected teardown as a clinical-workflow failure.
   });
 }
 
