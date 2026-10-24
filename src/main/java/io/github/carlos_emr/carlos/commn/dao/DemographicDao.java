@@ -503,6 +503,9 @@ public interface DemographicDao {
 
     public List<Demographic> findByHin(String hin, String start, int numToReturn);
 
+    /** Exact PHN lookup for lab matching; wildcard search is unsafe for patient linkage. */
+    List<Demographic> findActiveByExactHin(String hin);
+
     // --- DTO projection methods ---
 
     /**

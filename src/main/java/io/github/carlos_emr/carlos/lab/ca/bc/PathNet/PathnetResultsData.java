@@ -220,14 +220,20 @@ public class PathnetResultsData {
         return false;
     }
 
+    /**
+     * Extracts the accession from known legacy version suffixes; preserves ordinary identifiers.
+     * @param s String the filler identifier, possibly null or empty
+     * @return String the accession, or an empty string when no identifier is supplied
+     */
     public String justGetAccessionNumber(String s) {
-        String[] nums = s.split("-");
+        if (s == null || s.isBlank()) return "";
+        String[] nums = s.split("-", -1);
         if (nums.length == 3) {
             return nums[0];
         } else if (nums.length == 5) {
             return nums[0] + "-" + nums[1] + "-" + nums[2];
         } else {
-            return nums[1];
+            return s;
         }
     }
 
@@ -235,7 +241,7 @@ public class PathnetResultsData {
      * Finds the accession's report versions within the legacy four-month date window.
      * @param labId reviewed PathNet message identifier
      * @return comma-separated matching message identifiers, or labId when no accession/date
-     *         is available or lookup fails; may be empty when no candidate matches
+     *         is available or lookup fails
      */
     public String getMatchingLabs(String labId) {
         return getMatchingLabs(labId, false);
@@ -248,18 +254,12 @@ public class PathnetResultsData {
      * @return versions in clinical order
      */
     public String getMatchingLabs(String labId, boolean failOnLookupError) {
-        String ret = "";
-        String accessionNum = "";
-        Date labDate = null;
-        int monthsBetween = 0;
-
         try {
-            // find the accession number
-            for (Object[] o : hl7OrcDao.findFillerAndStatusChageByMessageId(ConversionUtils.fromIntString(labId))) {
-                String fillerOrderNumber = String.valueOf(o[0]);
-                accessionNum = justGetAccessionNumber(fillerOrderNumber);
-                labDate = (Date) o[1];
-            }
+            List<Object[]> source = hl7OrcDao.findFillerAndStatusChageByMessageId(ConversionUtils.fromIntString(labId));
+            // Multiple distinct fillers do not establish one unambiguous version accession.
+            if (source.size() != 1) return labId;
+            String accessionNum = justGetAccessionNumber((String) source.get(0)[0]);
+            Date labDate = (Date) source.get(0)[1];
 
             // No matching lab/accession means no version chain, not a wildcard search.
             if (accessionNum.isBlank() || labDate == null) {
@@ -267,32 +267,28 @@ public class PathnetResultsData {
             }
 
             Hl7PidDao pidDao = SpringUtils.getBean(Hl7PidDao.class);
-
+            Set<String> versions = new LinkedHashSet<>();
             for (Object[] o : pidDao.findByFillerOrderNumber("%" + accessionNum + "%")) {
-                String messageId = String.valueOf(o[0]);
-                Date resultsReportStatusChange = (Date) o[1];
-
-                Date dateA = resultsReportStatusChange;
-                Date dateB = labDate;
-                if (dateA.before(dateB)) {
-                    monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
-                } else {
-                    monthsBetween = UtilDateUtilities.getNumMonths(dateB, dateA);
-                }
-
-                if (monthsBetween < 4) {
-
-                    if (ret.equals("")) ret = messageId;
-                    else ret = ret + "," + messageId;
-
+                // LIKE is only a prefilter: substring and wildcard hits are never version identity.
+                if (accessionNum.equals(justGetAccessionNumber((String) o[2]))
+                        && withinVersionWindow((Date) o[1], labDate)) {
+                    versions.add(String.valueOf(o[0]));
                 }
             }
+            versions.add(labId);
+            return String.join(",", versions);
         } catch (Exception e) {
             if (failOnLookupError) throw new IllegalStateException("Lab version lookup failed", e);
             logger.error("exception in PathnetResultsData ({})", e.getClass().getSimpleName());
             return labId;
         }
-        return ret;
+    }
+
+    private static boolean withinVersionWindow(Date candidate, Date reviewed) {
+        if (candidate == null) return false;
+        return candidate.before(reviewed)
+                ? UtilDateUtilities.getNumMonths(candidate, reviewed) < 4
+                : UtilDateUtilities.getNumMonths(reviewed, candidate) < 4;
     }
 
     public String justGetDocName(String s) {
