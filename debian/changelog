@@ -26,6 +26,19 @@ carlos-emr (2026.09.0~snapshot26) resolute; urgency=medium
     open, although the page went on to its name search. A DIN shared by two
     products, and a database failure, are still errors. This upload moves
     debian/drugref.pin to the DrugRef revision that carries the fix.
+  * On BC databases, migration V1.0.59.3 restores the WorkSafeBC body part,
+    nature of injury and side lists the retired BC seed carried (#5062), so
+    the WCB form's Side list and its two code lookups are no longer empty on
+    an install built by Flyway. It adds only codes that are missing and
+    keeps a clinic's own rows.
+  * On BC databases, migration V1.0.59.4 makes Select Forms offer BC-AR 2020
+    in place of BC-AR and BC-AR 2007 (#5051), on new and upgraded databases
+    alike, but only while those antenatal rows still hold the values the
+    baseline seeded; a clinic that changed them keeps its choice. Records
+    saved on the older forms still open from the chart.
+  * The BC private bill's receipt button reads "Save and Print Receipt"
+    (#4439): the packaged WAF (CRS rule 932115) refused every "Save & Print
+    Receipt" with 403, so no private-bill receipt could be saved.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 28 Sep 2026 23:06:10 +0000
 

@@ -56,6 +56,29 @@ test('shouldAcceptRefusal_whenBothVerbs403CarryTheApplicationHeader', async () =
   assert.equal(ledger.assertAllRefused(), 1);
 });
 
+for (const [getStatus, headStatus] of [[403, 403], [403, 405], [405, 403]]) {
+  test(`shouldRejectPrivilegeRefusal_when405IsRequiredAndVerbsAnswer${getStatus}And${headStatus}`, async () => {
+    // A billing role failure must not hide a missing GET or HEAD method guard.
+    const ledger = await run([{ status: getStatus, headers: APP }, { status: headStatus, headers: APP }],
+      { expect405: true });
+    assert.equal(ledger.entries[0].open, true);
+    assert.throws(() => ledger.assertAllRefused(), /state-changing route\(s\) did not refuse GET\/HEAD/);
+  });
+}
+
+test('shouldAcceptMethodRefusal_when405IsRequiredAndBothVerbsHaveApplicationEvidence', async () => {
+  const ledger = await run([{ status: 405, body: APP_ERROR_PAGE }, { status: 405, headers: APP }],
+    { expect405: true });
+  assert.equal(ledger.assertAllRefused(), 1);
+});
+
+test('shouldRejectChangedRows_evenWhenBothVerbsAnswerTheRequired405', async () => {
+  let reads = 0;
+  const ledger = await run([{ status: 405, headers: APP }, { status: 405, headers: APP }],
+    { expect405: true, snapshot: () => (++reads > 1 ? 'changed' : 'same') });
+  assert.throws(() => ledger.assertAllRefused(), /CHANGED the owned rows/);
+});
+
 test('shouldReject_whenA403HasNoApplicationHeader', async () => {
   const ledger = await run([{ status: 403, body: '' }, { status: 403 }]);
   assert.throws(() => ledger.assertAllRefused(), /could not be attributed to the application/);

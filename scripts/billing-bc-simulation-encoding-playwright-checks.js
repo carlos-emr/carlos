@@ -77,8 +77,12 @@ async function workflow(s) {
     if (billingNo) s.sql.execute(`DELETE FROM billing WHERE billing_no=${billingNo} AND provider_ohip_no=${h.sqlString(ohipNo)}`);
     // Matched by the unique marker/name stamp, so an app-assigned provider_no is still found.
     const owned = `provider_no IN (SELECT provider_no FROM provider WHERE ${ownedProvider})`;
-    s.sql.execute(['program_provider', 'provider_facility', 'secUserRole', 'providersite']
-      .map(table => `DELETE FROM ${table} WHERE ${owned}`).join(';'));
+    // Add Provider also writes the provider's bill centre, an archive copy and its official-name properties.
+    const providerRows = ['program_provider', 'provider_facility', 'secUserRole', 'providersite', 'providerbillcenter', 'property'];
+    s.sql.execute([...providerRows.map(table => `DELETE FROM ${table} WHERE ${owned}`),
+      `DELETE FROM providerArchive WHERE ${owned} AND last_name=${h.sqlString(s.marker)}`].join(';'));
+    h.assert(s.sql.value(`SELECT ${[...providerRows, 'providerArchive'].map(table => `(SELECT COUNT(*) FROM ${table} WHERE ${owned})`).join(' + ')}`)
+      === '0', 'The owned billing providers\' program, facility, role, site, bill centre, archive or property rows were not removed');
     s.sql.execute(`DELETE FROM provider WHERE ${ownedProvider}`);
     h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE ${ownedProvider})
       + (SELECT COUNT(*) FROM billing WHERE provider_ohip_no=${h.sqlString(ohipNo)})
