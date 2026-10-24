@@ -60,15 +60,16 @@ async function pause(chart) {
   await chart.evaluate(() => clearAutoSaveTimer());
 }
 
-async function autosave(chart, text, status = 200) {
+async function autosave(chart, text, status = 200, periodic = false) {
   await pause(chart);
   await chart.locator(NOTE).fill(text);
   const answer = chart.waitForResponse(response => isAutosave(response.request()));
-  await chart.evaluate(() => autoSave());
+  await chart.evaluate(timerPath => timerPath ? backup() : autoSave(), periodic);
   const response = await answer;
   await response.finished();
   h.assert(response.status() === status, `Autosave answered HTTP ${response.status()}, expected ${status}`);
   await chart.waitForFunction(() => !window.autoSaveXhr);
+  await chart.evaluate(() => clearAutoSaveTimer());
   return response;
 }
 
@@ -259,7 +260,13 @@ async function workflow(s) {
     assertPatientStateUnchanged(stableB, readPatientState(sql, B), 'A retry');
   });
   await s.step('deleting all draft text clears the old persisted draft', async () => {
-    await autosave(chartA, '');
+    // Returning to the original text used to skip backup() and revive the older draft.
+    const original = await chartA.evaluate(() => origCaseNote);
+    await autosave(chartA, original, 200, true);
+    await expectValue(sql, `SELECT note FROM casemgmt_tmpsave WHERE demographic_no=${A}
+      AND provider_no=${q(provider)} ORDER BY id DESC LIMIT 1`, original,
+    'Returning to the original editor text retained a stale autosaved draft');
+    if (original !== '') await autosave(chartA, '', 200, true);
     await chartA.locator('#autosaveTime[data-autosave-state="saved"]').waitFor();
     await expectValue(sql, `SELECT note FROM casemgmt_tmpsave WHERE demographic_no=${A}
       AND provider_no=${q(provider)} ORDER BY id DESC LIMIT 1`, '', 'Clearing the editor retained the previous draft');

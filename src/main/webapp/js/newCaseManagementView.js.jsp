@@ -3568,6 +3568,10 @@ var msgDraftSaved;
 var lostNoteLock = false;
 var autoSaveXhr = null;
 var autoSaveOperation = null;
+// A successful draft may differ from origCaseNote, which still represents the last
+// explicit save. Keep each actual editor's acknowledged draft separately so reverting
+// to its original (including empty) text also replaces an earlier nonempty draft.
+var acknowledgedDrafts = new WeakMap();
 var draftSavingMessage = "${carlos:forJavaScriptBlock(draftSavingLabel)}";
 var draftSaveFailedMessage = "${carlos:forJavaScriptBlock(draftSaveFailedLabel)}";
 var draftSaveConflictMessage = "${carlos:forJavaScriptBlock(draftSaveConflictLabel)}";
@@ -3587,13 +3591,15 @@ function autoSave() {
     var demoNo = demographicNo;
     var cmeFrm = document.forms["caseManagementEntryForm"];
     var nId = cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value;
-    var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + encodeURIComponent($F(caseNote));
+    var submittedText = $F(caseNote);
+    var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + encodeURIComponent(submittedText);
     var editor = document.getElementById(caseNote);
     var operation = { cancelled: false };
     autoSaveOperation = operation;
     function currentEditor() {
         return !operation.cancelled && autoSaveOperation === operation
-            && editor === document.getElementById(caseNote) && cmeFrm === document.forms["caseManagementEntryForm"];
+            && editor === document.getElementById(caseNote) && cmeFrm === document.forms["caseManagementEntryForm"]
+            && String(cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value) === String(nId);
     }
     showAutosaveStatus("pending", draftSavingMessage);
 
@@ -3602,6 +3608,7 @@ function autoSave() {
                 postBody: params,
                 onSuccess: function (req) {
                     if (!currentEditor()) return;
+                    acknowledgedDrafts.set(editor, { noteId: String(nId), text: submittedText, needsRetry: false });
                     var d = new Date();
                     var min = d.getMinutes();
                     min = min < 10 ? "0" + min : min;
@@ -3621,6 +3628,12 @@ function autoSave() {
                     }
                     // A network failure also has status zero. Only an explicit cancellation
                     // may be ignored; a previous success timestamp must not hide a failed save.
+                    var previous = acknowledgedDrafts.get(editor);
+                    if (!previous || previous.noteId !== String(nId)) previous = { noteId: String(nId) };
+                    // A failed response can follow a committed request. Retry even if the
+                    // clinician has meanwhile reverted to the original empty note.
+                    previous.needsRetry = true;
+                    acknowledgedDrafts.set(editor, previous);
                     showAutosaveStatus("failed", draftSaveFailedMessage);
                     if (typeof console !== "undefined" && console.error) {
                         console.error("CaseManagement autoSave failed", req.status, req.statusText);
@@ -3639,8 +3652,14 @@ function autoSave() {
 
 
     function backup() {
-
-        if (origCaseNote != $(caseNote).value || origObservationDate != $("observationDate").value) {
+        var editor = $(caseNote);
+        if (!editor) return;
+        var form = document.forms["caseManagementEntryForm"];
+        var nId = form.noteId.value < 0 ? 0 : form.noteId.value;
+        var acknowledged = acknowledgedDrafts.get(editor);
+        var draftChanged = acknowledged && acknowledged.noteId === String(nId)
+            && (acknowledged.needsRetry || acknowledged.text !== editor.value);
+        if (draftChanged || origCaseNote != editor.value || origObservationDate != $("observationDate").value) {
             autoSave();
         }
 

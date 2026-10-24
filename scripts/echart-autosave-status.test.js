@@ -121,6 +121,84 @@ test('modern cleared text is submitted and saved is announced only after acknowl
   assert.equal(h.status.attributes['data-autosave-state'], 'saved');
 });
 
+test('periodic backup replaces an acknowledged nonempty draft when the clinician reverts a new note to empty', () => {
+  const h = modern(); h.context.origCaseNote = ''; h.editor.value = '';
+  h.context.backup();
+  assert.equal(h.requests.length, 0, 'a pristine new editor needs no draft write');
+  h.editor.value = 'Typed clinical text'; h.context.backup();
+  h.requests[0].options.onSuccess({ status: 200 }); h.requests[0].options.onComplete();
+  h.editor.value = ''; h.context.backup();
+  assert.equal(h.requests.length, 2, 'the periodic path must write the cleared draft');
+  assert.equal(new URLSearchParams(h.requests[1].options.postBody).get('note'), '');
+  assert.equal(h.context.origCaseNote, '', 'draft acknowledgments must not alter explicit-save tracking');
+});
+
+test('periodic backup remembers the submitted text when the editor changes before the response arrives', () => {
+  const h = modern(); h.context.origCaseNote = '';
+  h.editor.value = 'In-flight text'; h.context.backup();
+  h.editor.value = '';
+  h.requests[0].options.onSuccess({ status: 200 }); h.requests[0].options.onComplete();
+  h.context.backup();
+  assert.equal(h.requests.length, 2, 'acknowledging the old request must not claim the current empty editor was saved');
+  assert.equal(new URLSearchParams(h.requests[1].options.postBody).get('note'), '');
+});
+
+test('periodic backup retries a failed clear even though it matches the original empty note', () => {
+  const h = modern(); h.context.origCaseNote = '';
+  h.context.backup(); h.requests[0].options.onSuccess({ status: 200 }); h.requests[0].options.onComplete();
+  h.editor.value = ''; h.context.backup();
+  h.requests[1].options.onFailure({ status: 500 }); h.requests[1].options.onComplete();
+  h.context.backup();
+  assert.equal(h.requests.length, 3);
+  assert.equal(new URLSearchParams(h.requests[2].options.postBody).get('note'), '');
+  h.requests[2].options.onSuccess({ status: 200 }); h.requests[2].options.onComplete();
+  h.context.backup();
+  assert.equal(h.requests.length, 3, 'an acknowledged empty draft needs no further write');
+});
+
+test('a failed initial request remains retryable after the clinician reverts its possibly committed text', () => {
+  const h = modern(); h.context.origCaseNote = '';
+  h.editor.value = 'Unacknowledged text'; h.context.backup();
+  h.editor.value = ''; h.requests[0].options.onFailure({ status: 0 }); h.requests[0].options.onComplete();
+  h.context.backup();
+  assert.equal(h.requests.length, 2);
+  assert.equal(new URLSearchParams(h.requests[1].options.postBody).get('note'), '');
+});
+
+test('cancelled and replaced editor requests cannot create a draft baseline for a new pristine editor', () => {
+  const h = modern(); h.context.origCaseNote = '';
+  h.context.backup(); const cancelled = h.requests[0]; h.context.clearAutoSaveTimer();
+  h.editor.value = ''; cancelled.options.onSuccess({ status: 200 }); cancelled.options.onComplete();
+  h.context.backup();
+  assert.equal(h.requests.length, 1, 'an explicitly cancelled response is not an acknowledgment');
+  h.editor.value = 'Previous editor text'; h.context.backup();
+  const previous = h.requests[1];
+  h.elements.editor = { value: '' };
+  previous.options.onSuccess({ status: 200 }); previous.options.onComplete(); h.context.backup();
+  assert.equal(h.requests.length, 2, 'a stale editor completion must not dirty its replacement');
+});
+
+test('a successful draft for an earlier note ID cannot dirty a newly selected note in a reused textarea', () => {
+  const h = modern(); h.context.origCaseNote = '';
+  h.context.backup(); h.requests[0].options.onSuccess({ status: 200 }); h.requests[0].options.onComplete();
+  h.editor.value = '';
+  h.context.document.forms.caseManagementEntryForm.noteId.value = '502';
+  h.context.backup();
+  assert.equal(h.requests.length, 1);
+});
+
+test('a note ID switched during a request cannot receive the previous note acknowledgment or failure', () => {
+  const h = modern(); h.context.origCaseNote = '';
+  h.context.backup();
+  h.editor.value = '';
+  h.context.document.forms.caseManagementEntryForm.noteId.value = '502';
+  h.requests[0].options.onSuccess({ status: 200 });
+  h.requests[0].options.onFailure({ status: 500 }); h.requests[0].options.onComplete();
+  assert.notEqual(h.status.attributes['data-autosave-state'], 'saved');
+  assert.notEqual(h.status.attributes['data-autosave-state'], 'failed');
+  h.context.backup(); assert.equal(h.requests.length, 1);
+});
+
 function legacy() {
   const status = statusElement();
   const editor = { value: 'Legacy H&P + clinical text' };

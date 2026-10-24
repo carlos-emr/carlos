@@ -444,6 +444,7 @@ async function workflow(s) {
     const expectedWriteUrl = new URL(h.appUrl(s.config.baseUrl, '/rx/WriteToEncounter'));
     const writePath = url => url.origin === expectedWriteUrl.origin && url.pathname === expectedWriteUrl.pathname;
     await isolatedRx.route(writePath, intercept);
+    let interceptionRegistered = true;
     let write;
     try {
       await Promise.all([
@@ -453,6 +454,10 @@ async function workflow(s) {
       await s.step('invalid Rx paste identities refuse without changing either program draft or saved prescriptions',
         () => verifyEncounterWriteRefusals(s, context, held.request(), tokens,
           { patient: referencePatient, note: referenceNote, draft: capturedDraftId }));
+      // Acknowledged Print & Paste closes this Rx window. Remove the interceptor while
+      // the real request is still held, before that normal lifecycle can close the page.
+      await isolatedRx.unroute(writePath, intercept);
+      interceptionRegistered = false;
       const response = isolatedRx.waitForResponse(isEncounterWrite);
       encounter = context.waitForEvent('page', { timeout: 20000 }).catch(() => null);
       await held.continue();
@@ -461,7 +466,7 @@ async function workflow(s) {
       if (held) await held.abort().catch(() => {});
       throw error;
     } finally {
-      await isolatedRx.unroute(writePath, intercept);
+      if (interceptionRegistered && !isolatedRx.isClosed()) await isolatedRx.unroute(writePath, intercept);
     }
     const posted = new URLSearchParams(write.request().postData() || '');
     h.assert(write.status() === 200 && write.headers()['x-carlos-encounter-write'] === 'written'
