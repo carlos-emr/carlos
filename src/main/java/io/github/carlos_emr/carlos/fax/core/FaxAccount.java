@@ -41,12 +41,14 @@ public class FaxAccount {
     private String fax;
     private String phone;
     private String address;
+    private FaxConfig.ProviderType providerType = FaxConfig.ProviderType.MIDDLEWARE;
 
     public FaxAccount() {
         // default constructor
     }
 
     public FaxAccount(FaxConfig faxConfig) {
+        providerType = faxConfig.getProviderType();
         fax = faxConfig.getFaxNumber();
         faxNumberOwner = faxConfig.getAccountName();
 
@@ -54,6 +56,11 @@ public class FaxAccount {
 
     public String getFacilityName() {
         return facilityName;
+    }
+
+    /** Provider rules used when building the unpersisted recipient batch. */
+    public FaxConfig.ProviderType getProviderType() {
+        return providerType;
     }
 
     public void setFacilityName(String facilityName) {

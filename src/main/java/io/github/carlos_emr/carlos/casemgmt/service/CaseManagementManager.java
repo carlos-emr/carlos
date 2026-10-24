@@ -120,6 +120,14 @@ public interface CaseManagementManager {
 
     public List<CaseManagementNote> getNotesWithLimit(String demographic_no, Integer offset, Integer numToReturn);
 
+    /**
+     * Finds latest note versions observed at or after startDate and strictly before endDate.
+     *
+     * @param demographic_no patient identifier
+     * @param startDate inclusive observation timestamp
+     * @param endDate exclusive observation timestamp
+     * @return matching note versions
+     */
     public List<CaseManagementNote> getNotesInDateRange(String demographic_no, Date startDate, Date endDate);
 
     public List<CaseManagementNote> getActiveNotes(String demographic_no, String[] issues);
@@ -310,6 +318,8 @@ public interface CaseManagementManager {
     public boolean isClientInProgramDomain(List<ProgramProvider> providerPrograms, List<Admission> allAdmissions);
 
     public boolean isClientReferredInProgramDomain(String providerNo, String demographicNo);
+
+    public boolean isClientReferredInProgramDomain(List<ProgramProvider> providerPrograms, String demographicNo);
 
     public void updateIssue(String demographicNo, Long originalIssueId, Long newIssueId);
 

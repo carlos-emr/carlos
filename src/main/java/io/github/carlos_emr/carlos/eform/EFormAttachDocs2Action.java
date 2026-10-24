@@ -29,9 +29,12 @@
 
 package io.github.carlos_emr.carlos.eform;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+
 import java.io.IOException;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 import jakarta.servlet.ServletException;
@@ -71,6 +74,13 @@ public class EFormAttachDocs2Action extends ActionSupport {
      */
     @Override
     public String execute() throws ServletException, IOException {
+        // HTTP method tokens are case-sensitive (RFC 9110 §9.1), so a plain equals is the
+        // correct guard and keeps FindSecBugs IMPROPER_UNICODE out of the request path.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "u", null)) {
             throw new SecurityException("missing required sec object (_eform)");
@@ -96,11 +106,26 @@ public class EFormAttachDocs2Action extends ActionSupport {
             return NONE;
         }
 
-        attachSelections(loggedInInfo, DocumentType.DOC, collectDocIds(), "_edoc", effectiveProviderNo, requestIdInt, demographicNoInt);
-        attachSelections(loggedInInfo, DocumentType.LAB, collectTypedIds("labNo", 'L'), "_lab", effectiveProviderNo, requestIdInt, demographicNoInt);
-        attachSelections(loggedInInfo, DocumentType.HRM, collectTypedIds("hrmNo", 'H'), "_hrm", effectiveProviderNo, requestIdInt, demographicNoInt);
-        attachSelections(loggedInInfo, DocumentType.EFORM, collectTypedIds("eFormNo", 'E'), "_eform", effectiveProviderNo, requestIdInt, demographicNoInt);
-        attachSelections(loggedInInfo, DocumentType.FORM, collectTypedIds("formNo", 'F'), "_form", effectiveProviderNo, requestIdInt, demographicNoInt);
+        try {
+            String[] documents = collectDocIds();
+            String[] labs = collectTypedIds("labNo", 'L');
+            String[] reports = collectTypedIds("hrmNo", 'H');
+            String[] eforms = collectTypedIds("eFormNo", 'E');
+            String[] forms = collectTypedIds("formNo", 'F');
+            // All five families are one clinical selection. A later failure must roll back earlier changes.
+            new TransactionTemplate(
+                    SpringUtils.getBean(PlatformTransactionManager.class))
+                    .executeWithoutResult(status -> {
+                        attachSelections(loggedInInfo, DocumentType.DOC, documents, "_edoc", effectiveProviderNo, requestIdInt, demographicNoInt);
+                        attachSelections(loggedInInfo, DocumentType.LAB, labs, "_lab", effectiveProviderNo, requestIdInt, demographicNoInt);
+                        attachSelections(loggedInInfo, DocumentType.HRM, reports, "_hrm", effectiveProviderNo, requestIdInt, demographicNoInt);
+                        attachSelections(loggedInInfo, DocumentType.EFORM, eforms, "_eform", effectiveProviderNo, requestIdInt, demographicNoInt);
+                        attachSelections(loggedInInfo, DocumentType.FORM, forms, "_form", effectiveProviderNo, requestIdInt, demographicNoInt);
+                    });
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid attachment selection; reload and select the attachments again");
+            return NONE;
+        }
 
         writeOkResponse();
         return NONE;
@@ -108,15 +133,10 @@ public class EFormAttachDocs2Action extends ActionSupport {
 
     private void attachSelections(LoggedInInfo loggedInInfo, DocumentType documentType, String[] submittedIds,
             String requiredReadPrivilege, String effectiveProviderNo, Integer requestIdInt, Integer demographicNoInt) {
-        String[] effectiveSelections = securityInfoManager.hasPrivilege(loggedInInfo, requiredReadPrivilege, "r", null)
-                ? submittedIds
-                : getExistingAttachmentIds(loggedInInfo, documentType, requestIdInt, demographicNoInt);
-        documentAttachmentManager.attachToEForm(loggedInInfo, documentType, effectiveSelections, effectiveProviderNo, requestIdInt, demographicNoInt);
-    }
-
-    private String[] getExistingAttachmentIds(LoggedInInfo loggedInInfo, DocumentType documentType, Integer requestIdInt, Integer demographicNoInt) {
-        List<String> existingAttachmentIds = documentAttachmentManager.getEFormAttachments(loggedInInfo, requestIdInt, documentType, demographicNoInt);
-        return existingAttachmentIds.toArray(new String[0]);
+        if (securityInfoManager.hasPrivilege(loggedInInfo, requiredReadPrivilege, "r", null)) {
+            documentAttachmentManager.attachToEForm(loggedInInfo, documentType, submittedIds,
+                    effectiveProviderNo, requestIdInt, demographicNoInt);
+        }
     }
 
     private String[] collectDocIds() {
@@ -145,7 +165,17 @@ public class EFormAttachDocs2Action extends ActionSupport {
 
     private String[] collectTypedIds(String parameterName, char legacyPrefix) {
         Set<String> values = new LinkedHashSet<>();
-        addTypedValues(values, request.getParameterValues(parameterName));
+        if ("labNo".equals(parameterName)) {
+            String[] submitted = request.getParameterValues(parameterName);
+            if (submitted != null) {
+                for (String value : submitted) {
+                    if (StringUtils.isNumeric(value)) values.add(value);
+                    else values.add(LabAttachmentReference.parse(value).key());
+                }
+            }
+        } else {
+            addTypedValues(values, request.getParameterValues(parameterName));
+        }
         if (attachedDocs != null) {
             for (String value : attachedDocs) {
                 if (StringUtils.isBlank(value) || value.length() < 2) {

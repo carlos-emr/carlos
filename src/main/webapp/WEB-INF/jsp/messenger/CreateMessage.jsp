@@ -93,6 +93,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MessengerSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MessengerGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="java.util.Map" %>
@@ -159,6 +160,12 @@
 
     // Retrieve the message session bean for maintaining state
     MsgSessionBean bean = (MsgSessionBean) pageContext.findAttribute("bean");
+    String submission = (String) request.getAttribute(MessengerSubmissionGuard.PARAMETER);
+    if (submission == null) {
+        submission = MessengerSubmissionGuard.issue(session,
+                LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+    }
+    request.setAttribute(MessengerSubmissionGuard.PARAMETER, submission);
 
     // Handle patient demographic association if message is patient-related
     String demographic_no = (String) request.getAttribute("demographic_no");
@@ -211,6 +218,8 @@
     <!-- js -->
     <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
+    <script src="<%=request.getContextPath() %>/messenger/messenger-markdown.js"></script>
+    <script src="<%=request.getContextPath() %>/messenger/messenger-submission.js"></script>
     <script src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
     <c:set var="langCode"><fmt:message key="global.i18nLanguagecode"/></c:set>
     <c:if test="${langCode != 'en-GB'}">
@@ -327,6 +336,7 @@ function validateFields() {
 		if (!validateFields()) {
 			return;
 		}
+		if (!window.carlosMessengerSubmission.begin()) return;
 		var theLink = document.referrer;
 		if (!theLink || theLink.indexOf('?') === -1) {
 			document.forms[0].submit();
@@ -412,7 +422,7 @@ function validateFields() {
 
         document.getElementsByName("message")[0].setAttribute("style", "display:none;");
         if (typeof editor !== 'undefined') {
-            editor.setMarkdown("<br>" + document.getElementsByName("message")[0].value);
+            editor.setMarkdown((submissionerror ? "" : "<br>") + document.getElementsByName("message")[0].value);
             editor.moveCursorToStart();
         }
 
@@ -483,7 +493,8 @@ function validateFields() {
 
 			<tr>
 				<td><!-- colspan -->
-				<form action="${pageContext.request.contextPath}/messenger/CreateMessage" method="post" onsubmit="return validateFields()">
+				<form id="composeMessage" action="${pageContext.request.contextPath}/messenger/CreateMessage" method="post" onsubmit="return validateFields()">
+                    <input type="hidden" name="carlosMessageSubmission" value="${carlos:forHtmlAttribute(requestScope.carlosMessageSubmission)}">
                     <% if (showScheduleNav) { %>
                     <input type="hidden" name="scheduleNav" value="1">
                     <% } %>
@@ -525,7 +536,7 @@ function validateFields() {
 												<c:forEach items="${ group.value }" var="member">
 													<div class="group_member_contact" style="white-space: nowrap;">
 														<input type="checkbox" name="provider" class="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }"
-															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" >
+															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" ${not empty rejectedRecipientIds and rejectedRecipientIds.contains(member.id.compositeId) ? 'checked' : ''} >
 
 														<label for="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
 															${carlos:forHtml(member.lastName)}, ${carlos:forHtml(member.firstName)}
@@ -549,7 +560,7 @@ function validateFields() {
 											<c:forEach items="${ localMembers }" var="member">
 
 												<%-- Nested forEach checks replyList to pre-select recipients for replies --%>
-												<c:set var="providerChecked" value="false" />
+												<c:set var="providerChecked" value="${not empty rejectedRecipientIds and rejectedRecipientIds.contains(member.id.compositeId)}" />
 												<c:forEach var="replyId" items="${ replyList }">
 													<c:if test="${ replyId.compositeId eq member.id.compositeId }">
 														<c:set var="providerChecked" value="true" />
@@ -598,8 +609,10 @@ function validateFields() {
 							<br>
 							<fmt:message key="messenger.CreateMessage.msgAttachments" />
 							<%
-							bean.setSubject(null);
-							bean.setMessage(null);
+							if (request.getAttribute("createMessageError") == null) {
+								bean.setSubject(null);
+								bean.setMessage(null);
+							}
 						}%>
 					<%-- Client-side indicator shown when attachment popup closes (onAttachmentAdded callback).
 					     Separate from the server-side block above so it can appear even when
@@ -679,6 +692,7 @@ function validateFields() {
             el: document.getElementById('messagediv'),
             initialEditType: 'wysiwyg',
             usageStatistics: false,
+            plugins: [carlosMessengerMarkdown],
             height: '500px',
             language: '<fmt:message key="global.language.code" />',
             customHTMLSanitizer: function(html) {

@@ -51,6 +51,8 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "providerupdatepreference.jsp");
     private static final Path DOCUMENT_REPORT_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager", "documentReport.jsp");
+    private static final Path ADD_DOCUMENT_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager", "addDocument.jsp");
     private static final Path DISPLAY_MESSAGES_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "DisplayMessages.jsp");
     private static final Path VIEW_MESSAGE_JSP =
@@ -317,16 +319,18 @@ class ScheduleNavigationAssetRegressionTest {
         String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
 
         assertThat(appointmentProviderDay)
-                .contains("appendTooltipLine(appointmentTooltipSummaryBuilder, \"Reason\", reasonCodeName);")
-                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Appointment notes\", notes);")
-                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Ticklers\", tickler_note);")
-                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Demographic alerts\", demographicAlert);")
-                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Demographic notes\", demographicNotes);")
-                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Prevention alerts\", preventionWarning);")
+                .contains("appointmentTooltipSummaryBuilder.append(SafeEncode.forHtmlAttribute(timeRange))")
+                .contains(".append(SafeEncode.forHtmlAttribute(reasonCodeName));")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-regular fa-circle-question' aria-hidden='true'></i>\", reasonCodeName);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-regular fa-note-sticky' aria-hidden='true'></i>\", notes);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-solid fa-triangle-exclamation' aria-hidden='true'></i>\", tickler_note);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-solid fa-circle-exclamation me-2' aria-hidden='true'></i>\", demographicAlert);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-regular fa-comment' aria-hidden='true'></i>\", demographicNotes);")
+                .contains("appointmentTooltipFullBuilder.append(\"<i class='fa-regular fa-bell' aria-hidden='true'></i> \")")
                 .contains("class=\"appt<%= isCancelled ? \" Cancelled\" : \"\" %><%= showTooltip ?"
                         + " \" appt-reason-tooltip appt-tooltip-provider-\" + curProvider_no[nProvider] : \"\" %>\"")
-                .contains("data-title-full=\\\"\" + appointmentTooltipFull + \"\\\"")
-                .contains("data-title-short=\\\"\" + appointmentTooltipSummary + \"\\\"");
+                .contains("data-title-full=\\\"\" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + \"\\\"\"")
+                .contains("data-title-short=\\\"\" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + \"\\\"\"");
         assertThat(scheduleScript)
                 .contains("updateTooltipsForProvider(providerNo, showReason);")
                 .contains("const titleAttr = showReason ? el.dataset.titleFull : el.dataset.titleShort;");
@@ -338,5 +342,46 @@ class ScheduleNavigationAssetRegressionTest {
      */
     private static String normalizeWhitespace(String content) {
         return content.replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * The eDoc add-document and add-link forms leave the current request on every outcome — a
+     * forward on a validation failure, a redirect on success — so the schedule-shell flag has to
+     * be posted with them. Without the hidden inputs below, adding a document dropped the provider
+     * back onto the document list with the navigation header tabs gone (the header is rendered
+     * only while {@code scheduleNav=1} is on the request).
+     */
+    @Test
+    @DisplayName("should carry the schedule navigation flag through the eDoc add forms")
+    void shouldCarryScheduleNav_throughEdocAddForms() throws IOException {
+        String addDocument = Files.readString(ADD_DOCUMENT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(addDocument)
+                .contains("boolean showScheduleNav = ScheduleNav.isActive(request);")
+                .contains("String scheduleNavQuerySuffix = showScheduleNav ? \"&\" + ScheduleNav.PARAM"
+                        + " + \"=\" + ScheduleNav.ENABLED : \"\";");
+
+        // One hidden input per form: the upload form and the Add Link form.
+        assertThat(countOccurrences(addDocument, "<input type=\"hidden\" name=\"scheduleNav\" value=\"1\">"))
+                .as("both eDoc add forms must post scheduleNav")
+                .isEqualTo(2);
+
+        // Both Cancel buttons navigate away, so they need the flag on the query string instead.
+        assertThat(countOccurrences(addDocument,
+                "/documentManager/ViewDocumentReport?function=<carlos:encode value='<%= module %>'"))
+                .isEqualTo(2);
+        assertThat(countOccurrences(addDocument, "<%=scheduleNavQuerySuffix%>'\">"))
+                .as("both Cancel buttons must keep the schedule shell")
+                .isEqualTo(2);
+    }
+
+    private static int countOccurrences(String haystack, String needle) {
+        int count = 0;
+        int index = haystack.indexOf(needle);
+        while (index >= 0) {
+            count++;
+            index = haystack.indexOf(needle, index + needle.length());
+        }
+        return count;
     }
 }

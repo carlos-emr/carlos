@@ -84,6 +84,11 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
                     && !securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
                 throw new SecurityException("missing required sec object (_admin.measurements)");
             }
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
             // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin privilege verified above
             session.setAttribute("groupName", groupName);
             deleteGroup(groupName);

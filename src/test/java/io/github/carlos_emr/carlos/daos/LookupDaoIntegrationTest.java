@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -191,6 +191,23 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
      */
     private void insertFieldFull(String tableId, String fieldName, int fieldIndex, int genericIdx,
                                   String fieldType, boolean autoIncrement, String lookupTable) {
+        insertFieldFull(tableId, fieldName, fieldName, fieldIndex, genericIdx, fieldType, autoIncrement, lookupTable);
+    }
+
+    /**
+     * Inserts a field definition whose stored SQL expression differs from its display field name.
+     *
+     * @param tableId       String the parent table identifier
+     * @param fieldName     String the display name used in result metadata (for example, {@code code})
+     * @param fieldSql      String the query expression stored in {@code fieldsql} (for example, {@code s.code})
+     * @param fieldIndex    int the display order index
+     * @param genericIdx    int the generic index for column mapping
+     * @param fieldType     String the field data type ("S"=String, "D"=Date, "I"=Integer)
+     * @param autoIncrement boolean whether the field auto-increments
+     * @param lookupTable   String the reference lookup table name, or empty string if none
+     */
+    private void insertFieldFull(String tableId, String fieldName, String fieldSql, int fieldIndex, int genericIdx,
+                                  String fieldType, boolean autoIncrement, String lookupTable) {
         hibernateTemplate.execute(session -> {
             session.createNativeQuery(INSERT_FIELD)
                 .setParameter("tid", tableId)
@@ -199,7 +216,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
                 .setParameter("ftype", fieldType)
                 .setParameter("edit", true)
                 .setParameter("lt", lookupTable)
-                .setParameter("fsql", fieldName)
+                .setParameter("fsql", fieldSql)
                 .setParameter("fidx", fieldIndex)
                 .setParameter("auto", autoIncrement)
                 .setParameter("uniq", false)
@@ -629,6 +646,144 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
                 .as("NULL orderByIndex column should coerce to 0 (not NFE)")
                 .isZero();
         }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should load rows when field SQL is qualified with the lookup table alias")
+        void shouldLoadRows_whenFieldSqlUsesLookupTableAlias() {
+            // Given - legacy lookup field metadata may already qualify columns with
+            // the LoadCodeList table alias. The SQL builder must not validate that
+            // qualified column as an output alias or prefix it a second time.
+            String tableId = nextTableId("QF");
+            String deleteQualifiedFieldRowsSql = "DELETE FROM qualified_field_lookup_test";
+
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_QUALIFIED_FIELD_TABLE).executeUpdate();
+                session.createNativeQuery(deleteQualifiedFieldRowsSql).executeUpdate();
+                session.createNativeQuery(INSERT_QUALIFIED_FIELD_ROW).executeUpdate();
+                return null;
+            });
+
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "s.code", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "", "", "");
+
+            // Then
+            assertThat(result).hasSize(1);
+            LookupCodeValue row = result.get(0);
+            assertThat(row.getCode()).isEqualTo("Q1");
+            assertThat(row.getDescription()).isEqualTo("Qualified");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should load rows when field SQL has surrounding whitespace")
+        void shouldLoadRows_whenFieldSqlHasSurroundingWhitespace() {
+            // Given - legacy field metadata may carry stray leading/trailing whitespace.
+            // The validator tolerates it, so the SQL builder must too rather than throwing.
+            String tableId = nextTableId("QW");
+            String deleteQualifiedFieldRowsSql = "DELETE FROM qualified_field_lookup_test";
+
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_QUALIFIED_FIELD_TABLE).executeUpdate();
+                session.createNativeQuery(deleteQualifiedFieldRowsSql).executeUpdate();
+                session.createNativeQuery(INSERT_QUALIFIED_FIELD_ROW).executeUpdate();
+                return null;
+            });
+
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "  code  ", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "", "", "");
+
+            // Then
+            assertThat(result).hasSize(1);
+            LookupCodeValue row = result.get(0);
+            assertThat(row.getCode()).isEqualTo("Q1");
+            assertThat(row.getDescription()).isEqualTo("Qualified");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should load rows when table name has surrounding whitespace")
+        void shouldLoadRows_whenTableNameHasSurroundingWhitespace() {
+            // Given - legacy lookup table metadata may carry stray whitespace around
+            // the backing table name; validateSqlIdentifier trims it before building SQL.
+            String tableId = nextTableId("QT");
+            String deleteQualifiedFieldRowsSql = "DELETE FROM qualified_field_lookup_test";
+
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_QUALIFIED_FIELD_TABLE).executeUpdate();
+                session.createNativeQuery(deleteQualifiedFieldRowsSql).executeUpdate();
+                session.createNativeQuery(INSERT_QUALIFIED_FIELD_ROW).executeUpdate();
+                return null;
+            });
+
+            insertLookupTableDef(tableId, "  " + QUALIFIED_FIELD_TABLE_NAME + "  ");
+            insertFieldFull(tableId, "code", "code", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "", "", "");
+
+            // Then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getCode()).isEqualTo("Q1");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should reject qualified field SQL when qualifier is not lookup table alias")
+        void shouldRejectQualifiedFieldSql_whenQualifierIsNotLookupTableAlias() {
+            // Given
+            String tableId = nextTableId("QX");
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "t.code", 1, 1, "S", false, "");
+            hibernateTemplate.flush();
+
+            // When / Then
+            assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "", "", ""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Only s qualifier allowed in lookup field SQL");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should reject qualified field SQL when nested path is configured")
+        void shouldRejectQualifiedFieldSql_whenNestedPathIsConfigured() {
+            // Given
+            String tableId = nextTableId("QN");
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "s.lookup.code", 1, 1, "S", false, "");
+            hibernateTemplate.flush();
+
+            // When / Then
+            assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "", "", ""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Nested path not allowed in lookup field SQL");
+        }
     }
 
     /** Literal backing-table name for the NULL-row regression fixture. */
@@ -647,6 +802,23 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     private static final String INSERT_NULL_ROW = """
             INSERT INTO nr_null_row_test (code, description, active_col, orderby_col)
             VALUES ('A', 'Alpha', NULL, NULL)""";
+
+    /** Literal backing-table name for qualified lookup field SQL regression coverage. */
+    private static final String QUALIFIED_FIELD_TABLE_NAME = "qualified_field_lookup_test";
+
+    /** Literal DDL for qualified lookup field SQL regression coverage. */
+    private static final String CREATE_QUALIFIED_FIELD_TABLE = """
+            CREATE TABLE IF NOT EXISTS qualified_field_lookup_test (
+                code VARCHAR(10),
+                description VARCHAR(100),
+                active_col INT,
+                orderby_col INT
+            )""";
+
+    /** Literal INSERT for qualified lookup field SQL regression coverage. */
+    private static final String INSERT_QUALIFIED_FIELD_ROW = """
+            INSERT INTO qualified_field_lookup_test (code, description, active_col, orderby_col)
+            VALUES ('Q1', 'Qualified', 1, 7)""";
 
     /** Literal backing-table name for the all-codes distinct-row regression fixture. */
     private static final String ALL_CODES_TABLE_NAME = "cfv_all_codes_test";
@@ -674,6 +846,58 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
                 active_col INT,
                 orderby_col INT
             )""";
+
+    @Nested
+    @DisplayName("Hibernate 7 native scalar types")
+    class NativeScalarTypes {
+        private LookupTableDefValue definition;
+
+        @BeforeEach
+        void createNativeFixtures() {
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery("CREATE TABLE IF NOT EXISTS lookup_native_types_test "
+                        + "(code VARCHAR(10), recorded_at TIMESTAMP, active BOOLEAN)").executeUpdate();
+                session.createNativeQuery("DELETE FROM lookup_native_types_test").executeUpdate();
+                session.createNativeQuery("INSERT INTO lookup_native_types_test VALUES "
+                        + "('A', TIMESTAMP '2026-03-04 12:34:56', TRUE), "
+                        + "('B', TIMESTAMP '2026-03-05 01:02:03', FALSE), ('C', NULL, NULL)").executeUpdate();
+                return null;
+            });
+            String tableId = nextTableId("NT");
+            insertLookupTableDef(tableId, "lookup_native_types_test");
+            insertField(tableId, "code", 1, 1);
+            insertFieldFull(tableId, "recorded_at", 2, 9, "D", false, "");
+            insertField(tableId, "active", 3, 3);
+            hibernateTemplate.flush();
+            definition = lookupDao.GetLookupTableDef(tableId);
+        }
+
+        @Test
+        void shouldPreserveEditableDate_whenReadingOneCode() {
+            List<FieldDefValue> fields = lookupDao.GetCodeFieldValues(definition, "A");
+            assertThat(fields.get(1).getVal()).isEqualTo("2026/03/04");
+        }
+
+        @Test
+        void shouldPreserveDateTimeAndNull_whenReadingAllCodes() {
+            List<List> rows = lookupDao.GetCodeFieldValues(definition);
+            assertThat(rows).hasSize(3);
+            java.util.Map<String, String> values = new java.util.HashMap<>();
+            for (List row : rows) values.put(((FieldDefValue) row.get(0)).getVal(), ((FieldDefValue) row.get(1)).getVal());
+            assertThat(values).containsEntry("A", "2026/03/04 12:34:56")
+                    .containsEntry("B", "2026/03/05 01:02:03").containsEntry("C", "");
+        }
+
+        @Test
+        void shouldPreserveBooleanFlagsAndNullDefaults_whenLoadingCodeList() {
+            List<LookupCodeValue> rows = lookupDao.LoadCodeList(definition.getTableId(), false, "", "");
+            assertThat(rows).hasSize(3);
+            for (LookupCodeValue row : rows) {
+                assertThat(row.isActive()).isEqualTo("A".equals(row.getCode()));
+                assertThat(row.getOrderByIndex()).isZero();
+            }
+        }
+    }
 
     // =========================================================================
     // GetCodeFieldValues tests
@@ -1185,55 +1409,68 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     // runProcedure tests
     // =========================================================================
 
-    /**
-     * Tests for {@link LookupDao#runProcedure(String, String[])}.
-     *
-     * <p>This method calls stored procedures via {@code DBPreparedHandler.procExecute()}.
-     * H2 does not support MySQL-style stored procedures, so the test is disabled
-     * with documentation for the limitation.</p>
-     */
+    /** H2 aliases exercise actual JDBC CallableStatement execution and parameter binding. */
     @Nested
     @DisplayName("runProcedure")
     class RunProcedureTests {
+        @Autowired
+        @org.springframework.beans.factory.annotation.Qualifier("dataSource")
+        private javax.sql.DataSource procedureDataSource;
+
+        @BeforeEach
+        void createProcedureFixtures() throws SQLException {
+            procedureCalls.clear();
+            try (var connection = procedureDataSource.getConnection(); var statement = connection.createStatement()) {
+                statement.execute("CREATE ALIAS IF NOT EXISTS promotion_proc_params FOR "
+                        + "'io.github.carlos_emr.carlos.daos.LookupDaoIntegrationTest.recordProcedureParameters'");
+                statement.execute("CREATE ALIAS IF NOT EXISTS promotion_proc_empty FOR "
+                        + "'io.github.carlos_emr.carlos.daos.LookupDaoIntegrationTest.recordProcedureWithoutParameters'");
+            }
+        }
+
+        @AfterEach
+        void dropProcedureFixtures() throws SQLException {
+            try (var connection = procedureDataSource.getConnection(); var statement = connection.createStatement()) {
+                statement.execute("DROP ALIAS IF EXISTS promotion_proc_params");
+                statement.execute("DROP ALIAS IF EXISTS promotion_proc_empty");
+            }
+            procedureCalls.clear();
+        }
 
         @Test
         @Tag("query")
-        @Disabled("Two blockers: (1) Requires MySQL stored procedures — H2 does not support "
-                + "MySQL-style CALL syntax. DBPreparedHandler.procExecute() builds a JDBC "
-                + "CallableStatement '{call procName(?,?)}' which requires a real MySQL/MariaDB "
-                + "backend. (2) procExecute() obtains its connection from "
-                + "DbConnectionFilter.getThreadLocalDbConnection(), a servlet-filter thread-local "
-                + "that is not populated in the Spring test context — the same limitation that "
-                + "disables the PopulationReportDao JDBC methods.")
-        @DisplayName("should call stored procedure via DBPreparedHandler")
+        @DisplayName("should execute stored routine with bound string parameters")
         void shouldCallStoredProcedure_viaDbPreparedHandler() throws SQLException {
-            // This test documents that runProcedure delegates to DBPreparedHandler.procExecute()
-            // which builds: "{call <procName>(<params>)}"
-            // This is MySQL-specific and cannot be tested with H2.
-            lookupDao.runProcedure("test_proc", new String[]{"param1", "param2"});
+            lookupDao.runProcedure("promotion_proc_params", new String[]{"O'Brien", "?, 'quoted'"});
+            assertThat(procedureCalls).containsExactly("O'Brien", "?, 'quoted'");
         }
 
         @Test
         @Tag("query")
-        @Disabled("Two blockers: (1) H2 does not support MySQL stored procedures. "
-                + "(2) procExecute() uses DbConnectionFilter.getThreadLocalDbConnection(), "
-                + "a servlet-filter thread-local unavailable in the Spring test context.")
-        @DisplayName("should handle null params array in stored procedure call")
         void shouldHandleNullParams_inStoredProcedureCall() throws SQLException {
-            // DBPreparedHandler.procExecute() handles null params by not adding parameter placeholders
-            lookupDao.runProcedure("test_proc_no_params", null);
+            lookupDao.runProcedure("promotion_proc_empty", null);
+            assertThat(procedureCalls).containsExactly("called");
         }
 
         @Test
         @Tag("query")
-        @Disabled("Two blockers: (1) H2 does not support MySQL stored procedures. "
-                + "(2) procExecute() uses DbConnectionFilter.getThreadLocalDbConnection(), "
-                + "a servlet-filter thread-local unavailable in the Spring test context.")
-        @DisplayName("should handle empty params array in stored procedure call")
         void shouldHandleEmptyParams_inStoredProcedureCall() throws SQLException {
-            // Empty array: procExecute builds "{call test_proc}" with no params
-            lookupDao.runProcedure("test_proc_empty", new String[]{});
+            lookupDao.runProcedure("promotion_proc_empty", new String[]{});
+            assertThat(procedureCalls).containsExactly("called");
         }
+    }
+
+    private static final List<String> procedureCalls = new java.util.ArrayList<>();
+
+    /** SQL alias target, invoked by the real H2 JDBC driver. */
+    public static void recordProcedureParameters(String first, String second) {
+        procedureCalls.add(first);
+        procedureCalls.add(second);
+    }
+
+    /** SQL alias target for the no-argument JDBC call form. */
+    public static void recordProcedureWithoutParameters() {
+        procedureCalls.add("called");
     }
 
     // =========================================================================

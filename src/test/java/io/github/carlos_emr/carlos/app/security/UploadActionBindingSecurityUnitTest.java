@@ -112,7 +112,9 @@ class UploadActionBindingSecurityUnitTest {
                 // View gates that render upload forms but do not receive multipart files.
                 "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ViewBenefitScheduleUpload2Action.java",
                 "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingOnUpload2Action.java",
-                "src/main/java/io/github/carlos_emr/carlos/lab/gate/ViewInsideLabUpload2Action.java"
+                "src/main/java/io/github/carlos_emr/carlos/lab/gate/ViewInsideLabUpload2Action.java",
+                // Form XML import page gate; the sibling FrmXmlUpload2Action receives multipart data.
+                "src/main/java/io/github/carlos_emr/carlos/form/gate/ViewFormXmlUpload2Action.java"
         );
     }
 
@@ -129,6 +131,9 @@ class UploadActionBindingSecurityUnitTest {
                 binding("io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action", "setImageFileName", String.class),
                 binding("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action", "setFile", File.class),
                 binding("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action", "setFileFileName", String.class),
+                // Letter template upload (issue #3963): bound through withUploadedFiles only.
+                binding("io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action", "setReportFile", File.class),
+                binding("io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action", "setReportFileFileName", String.class),
                 binding("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action", "setFile1", File.class),
                 binding("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action", "setFile1ContentType", String.class),
                 binding("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action", "setFile1FileName", String.class),

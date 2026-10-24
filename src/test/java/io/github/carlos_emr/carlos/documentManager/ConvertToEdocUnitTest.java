@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.documentManager;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -127,4 +128,70 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         assertThat(document.select("link[href], img[src], script[src]")).isEmpty();
     }
+    @Test
+    @DisplayName("should preserve oscar image path resources when backing files exist")
+    void shouldPreserveOscarImagePathResources_whenBackingFilesExist(@TempDir Path tempDir) throws Exception {
+        // Point the eform image root at this test's @TempDir so the ${oscar_image_path} backing
+        // files are created and resolved in an isolated, auto-cleaned location rather than the real
+        // configured image store. ConvertToEdoc resolves the directory live, so this override takes
+        // effect for the getDocument() call below; restored in the finally block.
+        String originalEformImagesDir = CarlosProperties.getInstance().getProperty("EFORM_IMAGES_DIR");
+        Path imageDirectory = tempDir.resolve("eform-images");
+        Files.createDirectories(imageDirectory);
+        CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", imageDirectory.toString());
+        Path image = imageDirectory.resolve("convert-to-edoc-oscar-image-path-test.png");
+        Path script = imageDirectory.resolve("convert-to-edoc-oscar-image-path-test.js");
+        Files.writeString(image, "png-placeholder");
+        Files.writeString(script, "console.log('ok');");
+
+        try {
+            String html = "<html><head><script src=\"${oscar_image_path}convert-to-edoc-oscar-image-path-test.js\"></script></head>"
+                    + "<body><img src=\"${oscar_image_path}convert-to-edoc-oscar-image-path-test.png\"></body></html>";
+
+            Document document = ConvertToEdoc.getDocument(html, tempDir.toString());
+
+            assertThat(document.select("img[src], script[src]")).hasSize(2);
+            assertThat(document.outerHtml())
+                    .contains("${oscar_image_path}convert-to-edoc-oscar-image-path-test.png")
+                    .contains("${oscar_image_path}convert-to-edoc-oscar-image-path-test.js");
+        } finally {
+            // Properties.setProperty rejects null, so a previously-unset value is cleared from the map.
+            if (originalEformImagesDir == null) {
+                CarlosProperties.getInstance().remove("EFORM_IMAGES_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", originalEformImagesDir);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve percent-encoded oscar image path resources when backing files exist")
+    void shouldPreserveEncodedOscarImagePathResources_whenBackingFilesExist(@TempDir Path tempDir) throws Exception {
+        String originalEformImagesDir = CarlosProperties.getInstance().getProperty("EFORM_IMAGES_DIR");
+        Path imageDirectory = tempDir.resolve("eform-images");
+        Files.createDirectories(imageDirectory);
+        CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", imageDirectory.toString());
+        Path image = imageDirectory.resolve("convert-to-edoc-encoded-token-test.png");
+        Files.writeString(image, "png-placeholder");
+
+        try {
+            // The token (and filename) arrive percent-encoded in stored markup; the resolver must
+            // still find the backing file and preserve the resource instead of dropping it.
+            String html = "<html><body>"
+                    + "<img src=\"%24%7Boscar_image_path%7Dconvert-to-edoc-encoded-token-test.png\">"
+                    + "</body></html>";
+
+            Document document = ConvertToEdoc.getDocument(html, tempDir.toString());
+
+            assertThat(document.select("img[src]")).hasSize(1);
+            assertThat(document.outerHtml()).contains("%24%7Boscar_image_path%7Dconvert-to-edoc-encoded-token-test.png");
+        } finally {
+            if (originalEformImagesDir == null) {
+                CarlosProperties.getInstance().remove("EFORM_IMAGES_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", originalEformImagesDir);
+            }
+        }
+    }
+
 }

@@ -97,7 +97,7 @@
         <title><fmt:message key='form.bcnewborn.title2008Page3'/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
-        <link rel="stylesheet" type="text/css" href="bcArStyle.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/bcArStyle.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -1074,7 +1074,7 @@
                         <td>
                             <b>16. <fmt:message key='form.bcnewborn.statusAtDischarge'/></b><br>
                             <textarea name="Section16TextPg3" @oscar.formDB
-                                      dbType="varchar(255)"/> <%= props.getProperty("Section16TextPg3", "") %></textarea>
+                                      dbType="text"/> <%= props.getProperty("Section16TextPg3", "") %></textarea>
                             <br>
                             <input type="checkbox"
                                    name="Section16ExclusivePg3" <%= props.getProperty("Section16ExclusivePg3", "") %>

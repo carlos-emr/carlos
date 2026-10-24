@@ -31,7 +31,7 @@
 package io.github.carlos_emr.carlos.encounter.immunization.data;
 
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Comparator;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -45,13 +45,13 @@ public class EctImmImmunizationData {
     private static ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
     public String getImmunizations(String demographicNo) {
-        String sRet = null;
-        List<Immunizations> is = dao.findCurrentByDemographicNo(Integer.parseInt(demographicNo));
-        for (Immunizations i : is) {
-            sRet = i.getImmunizations();
-        }
+        Immunizations current = getCurrentSchedule(demographicNo);
+        return current == null ? null : current.getImmunizations();
+    }
 
-        return sRet;
+    public Immunizations getCurrentSchedule(String demographicNo) {
+        return dao.findCurrentByDemographicNo(Integer.parseInt(demographicNo)).stream()
+                .max(Comparator.comparing(Immunizations::getId)).orElse(null);
     }
 
     public static boolean hasImmunizations(String demographicNo) {
@@ -63,22 +63,8 @@ public class EctImmImmunizationData {
         return retval;
     }
 
-    public void saveImmunizations(String demographicNo, String providerNo, String immunizations) {
-        Immunizations i = new Immunizations();
-        i.setDemographicNo(Integer.parseInt(demographicNo));
-        i.setProviderNo(providerNo);
-        i.setImmunizations(immunizations);
-        i.setSaveDate(new Date());
-        i.setArchived(0);
-        dao.persist(i);
-
-        List<Immunizations> is = dao.findCurrentByDemographicNo(Integer.parseInt(demographicNo));
-        for (Immunizations t : is) {
-            if (!t.getId().equals(i.getId())) {
-                t.setArchived(1);
-                dao.merge(t);
-            }
-        }
+    public boolean saveImmunizations(String demographicNo, String providerNo, String immunizations, int expectedVersion) {
+        return dao.replaceCurrent(Integer.parseInt(demographicNo), providerNo, immunizations, expectedVersion);
     }
 
     public String[] getProviders() {

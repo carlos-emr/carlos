@@ -5,7 +5,14 @@ Comprehensive UI testing for CARLOS EMR using Playwright MCP (Model Context Prot
 ## 📚 Quick Start
 
 - **New to UI testing?** Start with [UI-TEST-PROCESS.md](UI-TEST-PROCESS.md) - Complete testing procedures
+- **Validating the .deb packages?** Use [deb-install-validation.md](deb-install-validation.md) - Build, install into a VM, and run the whole Playwright suite through the nginx + ModSecurity front door
+- **Release workflow validation record and reproduction:** Read [release-2026.08-workflow-validation.md](release-2026.08-workflow-validation.md) — packaged VM results, new lifecycle checks, and the aggregate findings ticket
+- **Planning what to cover next?** Read [playwright-coverage-plan-2026.08.md](playwright-coverage-plan-2026.08.md) - measured route coverage on `release/2026.08`, harness changes to make first, and the prioritised list of checks to add
+- **Found a bug in CARLOS while testing?** Add it to [app-findings-log.md](app-findings-log.md) - verified application defects and dead routes found while building the coverage, kept separate from suite gaps
+- **Writing a new scripted browser check?** Read [clinical-workflow-browser-checks.md](clinical-workflow-browser-checks.md) - the shared harness, what the clinical checks assert and why, and the rules for adding another
 - **Testing eForm PDF fidelity?** Use [eform-pdf-render-smoke-test.md](eform-pdf-render-smoke-test.md) - Branch-focused smoke test runbook
+- **Query By Example, template editing or Messenger chart PDFs answering 403 behind the WAF?** Read [issue-4133-resolution-validation.md](issue-4133-resolution-validation.md) - WAF exclusions 1400-1402, the save-time template SQL check, server-rendered Messenger PDFs, and their packaged-install validation
+- **Checking incoming-PDF extract/rotate/delete integrity?** Read [incoming-pdf-extraction-integrity.md](incoming-pdf-extraction-integrity.md) - Guarantees for source/output preservation and the focused tests that pin them
 - **Running Test 1?** See [test-1/test-1-EXECUTION.md](test-1/test-1-EXECUTION.md) - Step-by-step execution guide
 - **Test results?** Check [test-1/test-1-results.md](test-1/test-1-results.md) - Latest test results with screenshots
 - **Implementation details?** Read [SUMMARY.md](SUMMARY.md) - Technical implementation and troubleshooting
@@ -268,7 +275,7 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 
 ### Database Connection
 - **Host**: db (Docker service name)
-- **Database**: oscar
+- **Database**: carlos
 - **Username**: root
 - **Password**: password
 - **Port**: 3306
@@ -279,7 +286,7 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 
 ```bash
 # Connect to database
-mysql -h db -uroot -ppassword oscar
+mariadb -h db -uroot -ppassword carlos
 
 # Reset specific test user password
 UPDATE security
@@ -304,7 +311,7 @@ To reload:
 server stop
 
 # Reload database
-mysql -h db -uroot -ppassword oscar < .devcontainer/db/scripts/development.sql
+mariadb -h db -uroot -ppassword carlos < .devcontainer/db/scripts/development.sql
 
 # Start application
 server start
@@ -373,18 +380,18 @@ server restart
 docker ps | grep mariadb
 
 # Test connection
-mysql -h db -uroot -ppassword -e "SHOW DATABASES;"
+mariadb -h db -uroot -ppassword -e "SHOW DATABASES;"
 ```
 
 ### Login Fails
 
 ```bash
 # Check if user exists
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword carlos -e \
   "SELECT user_name, pin, forcePasswordReset FROM security WHERE user_name='carlosdoc';"
 
 # Reset password
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword carlos -e \
   "UPDATE security SET password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO', forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
@@ -469,7 +476,7 @@ make install && server start
 curl http://localhost:8080/oscar/index.jsp
 
 # 3. Check test user
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword carlos -e \
   "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
 
 # 4. Run UI tests (via Playwright MCP)

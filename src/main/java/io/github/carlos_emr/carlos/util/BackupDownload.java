@@ -44,6 +44,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 
 public class BackupDownload extends GenericDownload {
+
+    private static final long serialVersionUID = 1L;
     private static final String BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED = "Backup download privilege required.";
     private static final String DEFAULT_BACKUP_DIRECTORY = "/home/mysql/";
 
@@ -81,7 +83,7 @@ public class BackupDownload extends GenericDownload {
                 dir = DEFAULT_BACKUP_DIRECTORY;
             }
 
-            download(true, res, dir, filename, null);
+            download(true, res, dir, filename);
         } catch (FileValidationException e) {
             log.warn("BackupDownload rejected invalid filename from {}", req.getRemoteAddr());
             sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");

@@ -88,27 +88,48 @@ public class BillingThirdPartyService {
         return retval;
     }
 
+    /**
+     * Inactive-status counterpart of {@link #get3rdPartBillProp(String)}, read by
+     * the bill-correction screen.
+     *
+     * <p>{@code billing_on_ext.key_val} and {@code value} are both nullable, and
+     * {@link Properties} is a {@code Hashtable} that rejects a null key or value —
+     * so a single null column here took the correction screen down with an
+     * unhandled NPE ("CARLOS Error: 500"). Coalesced the same way the active
+     * variant above already does.</p>
+     */
     public Properties get3rdPartBillPropInactive(String invNo) {
         Properties retval = new Properties();
         for (BillingONExt b : extDao.getInactiveBillingExtItems(invNo)) {
-            retval.setProperty(b.getKeyVal(), b.getValue());
+            retval.setProperty(StringUtils.trimToEmpty(b.getKeyVal()), StringUtils.trimToEmpty(b.getValue()));
         }
         return retval;
     }
 
+    /**
+     * Clinic letterhead fields for the third-party invoice.
+     *
+     * <p>Every {@code clinic} column read here is nullable — {@code clinic_name},
+     * {@code clinic_phone} and {@code clinic_province} are {@code DEFAULT NULL},
+     * so an install that never filled in the clinic details stores nulls. Passing
+     * one to {@code Properties.setProperty} throws, and this method runs
+     * unconditionally when the invoice view model is assembled, so a single blank
+     * clinic field made the whole "Settle &amp; Print" invoice answer
+     * "CARLOS Error: 500". Coalesce to empty; the consumer already substitutes ""
+     * via {@code getProperty(key, "")}, so a blank field simply renders blank.</p>
+     */
     public Properties getLocalClinicAddr() {
         Properties retval = new Properties();
 
         Clinic clinic = clinicDao.getClinic();
         if (clinic != null) {
-            retval.setProperty("clinic_name", clinic.getClinicName());
-            retval.setProperty("clinic_address", clinic.getClinicAddress());
-            retval.setProperty("clinic_city", clinic.getClinicCity());
-            retval.setProperty("clinic_province", clinic.getClinicProvince());
-            retval.setProperty("clinic_postal", clinic.getClinicPostal());
-            retval.setProperty("clinic_fax", clinic.getClinicFax());
-            retval.setProperty("clinic_phone", clinic.getClinicPhone());
-            retval.setProperty("clinic_fax", clinic.getClinicFax());
+            retval.setProperty("clinic_name", StringUtils.trimToEmpty(clinic.getClinicName()));
+            retval.setProperty("clinic_address", StringUtils.trimToEmpty(clinic.getClinicAddress()));
+            retval.setProperty("clinic_city", StringUtils.trimToEmpty(clinic.getClinicCity()));
+            retval.setProperty("clinic_province", StringUtils.trimToEmpty(clinic.getClinicProvince()));
+            retval.setProperty("clinic_postal", StringUtils.trimToEmpty(clinic.getClinicPostal()));
+            retval.setProperty("clinic_phone", StringUtils.trimToEmpty(clinic.getClinicPhone()));
+            retval.setProperty("clinic_fax", StringUtils.trimToEmpty(clinic.getClinicFax()));
         }
 
         return retval;

@@ -1,0 +1,57 @@
+# The package ships a complete Java web application: the WAR that Maven built
+# from this source tree, exploded. Everything flagged below is content of that
+# artefact, not a packaging decision, and none of it can be replaced with a
+# distribution-packaged copy without rebuilding CARLOS against versions it was
+# never tested with. The full component inventory is published as a CycloneDX
+# SBOM with each CARLOS release.
+
+# Bundled fonts. The eForm renderer and the print stylesheets reference these by
+# path inside the webapp; repointing them at /usr/share/fonts would change how
+# printed clinical documents lay out, which is a validation question, not a
+# packaging one.
+duplicate-font-file
+truetype-font-prohibits-installable-embedding
+
+# Third-party jars that ship .java alongside .class, and jars carrying
+# multi-release entries for a JDK newer than the one this runs on (the JVM
+# simply ignores the versions/ directories above its own).
+jar-contains-source
+unknown-java-class-version
+
+# Bundled JavaScript, and jars whose payload is resources or a service
+# manifest rather than classes. Same reasoning: it is the built artefact.
+embedded-javascript-library
+codeless-jar
+
+# Legacy files inside the upstream application tree: a thumbnail cache
+# directory committed years ago, and a Brazilian-Portuguese copy of the GPL in
+# a non-UTF-8 encoding. Both are inert; removing them from the WAR is an
+# upstream change, not something to patch in at package time.
+package-contains-xvpics-dir
+national-encoding
+
+# This guarded call is only `systemctl reset-failed`, for clearing the
+# application unit's package-driven restart counter. It does not start, stop,
+# enable or disable a service; those lifecycle operations use
+# deb-systemd-invoke so policy-rc.d remains authoritative.
+maintainer-script-calls-systemctl [postinst:221]
+
+# The eForm renderer (folded in from the former carlos-emr-eform-renderer
+# package): an upstream Chromium build, unpacked under
+# /usr/lib/carlos-emr/chromium. Both tags below are properties of that binary,
+# not packaging decisions, and neither can be resolved without building Chromium
+# from source -- which is not a thing this project can carry. Ubuntu 26.04 offers
+# no Chromium .deb to depend on instead (the archive's chromium-* packages are
+# transitional shims for the snap, and a confined snap cannot read the
+# renderer's working directories under /var/lib/carlos-emr). See debian/copyright
+# for the licensing, and debian/chromium.pin for the exact revision and checksums.
+#
+# Chromium statically links its own copies of several libraries. That is
+# upstream's build configuration; the distribution copies are not
+# interchangeable with the versions Chromium was tested and shipped against.
+embedded-library
+# Deliberately not stripped. debian/rules skips dh_strip because the binary is
+# vendored rather than built here: stripping a prebuilt Chromium discards the
+# symbols its own crash handler needs, and would make any renderer crash report
+# unusable. The size cost is accepted for that reason.
+unstripped-binary-or-object

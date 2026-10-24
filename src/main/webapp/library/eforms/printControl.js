@@ -45,32 +45,52 @@ var printControl = {
     }
 };
 
+/*
+ * Posts the form with print=true. On the server (AddEForm2Action) that flag is the legacy alias of
+ * the toolbar's saveAndDownloadEForm workflow: the eForm is saved, rendered to PDF, and the PDF is
+ * handed back as a download. skipSave is advisory only — every render works from a saved eForm,
+ * so "PDF" and "Submit & PDF" both persist the form before rendering it.
+ */
 function submitPrintButton(save) {
 
-    // Setting this form to print.
-    var printHolder = jQuery('#printHolder');
-    if (printHolder == null || !printHolder) {
+    // Setting this form to print. jQuery('#x') is never null or falsy, so the previous
+    // `if (printHolder == null || !printHolder)` guard never appended the hidden inputs: the print
+    // flag never reached the server and both buttons were a plain Save with no PDF. The length
+    // check is what actually tells us whether the input already exists.
+    if (jQuery('#printHolder').length === 0) {
         jQuery("form").append("<input id='printHolder' type='hidden' name='print' value='true' >");
     }
-    printHolder = jQuery('#printHolder');
+    var printHolder = jQuery('#printHolder');
     printHolder.val("true");
 
-    var saveHolder = jQuery("#saveHolder");
-    if (saveHolder == null || !saveHolder) {
+    if (jQuery("#saveHolder").length === 0) {
         jQuery("form").append("<input id='saveHolder' type='hidden' name='skipSave' value='" + !save + "' >");
     }
-    saveHolder = jQuery("#saveHolder");
+    var saveHolder = jQuery("#saveHolder");
     saveHolder.val(!save);
     needToConfirm = false;
 
     if (document.getElementById('Letter') != null) {
-        document.getElementById('Letter').value = editControlContents('edit');
+        if (typeof saveRTL === "function") {
+            // The Rich Text Letter's own serializer: it entity-escapes the editor HTML before it is
+            // stored, and both readers of the stored value (editControl2.js on reopen and the PDF
+            // composer) unconditionally decode. Writing the raw editor HTML here instead — as this
+            // used to — stored the letter in a different encoding than the Save button did, so a
+            // letter containing literal "&lt;" text came back mangled.
+            saveRTL();
+        } else {
+            document.getElementById('Letter').value = editControlContents('edit');
+        }
     }
 
     jQuery("form")[0].submit();
-    if (save) {
-        setTimeout("window.close()", 3000);
-    }
+    // No fixed close timer after "Submit & PDF": the response IS the PDF download (rendered
+    // server-side, which can take longer than the 3 s the legacy string timer allowed), so closing
+    // the window on a clock could tear the page down before the download page ran and lose the
+    // PDF. The download result page owns the auto-close instead: for "Submit & PDF" the server
+    // sets isSuccess_Autoclose and the floating toolbar closes the window after the download has
+    // started and the saved alert has shown, as it does after a plain Submit. "PDF" (preview)
+    // leaves the window open.
     printHolder.val("false");
     saveHolder.val("false");
 

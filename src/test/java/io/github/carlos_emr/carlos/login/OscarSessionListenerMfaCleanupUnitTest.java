@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.web.OscarSessionListener;
@@ -16,12 +17,11 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 
-import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 /**
  * Session-listener coverage for pending MFA cache cleanup on timeout or container teardown.
@@ -31,12 +31,15 @@ import static org.mockito.Mockito.when;
 @DisplayName("OscarSessionListener pending MFA cleanup")
 class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
     private CasemgmtNoteLockDao casemgmtNoteLockDao;
+    private EFormRenderApprovalService eFormRenderApprovalService;
 
     @BeforeEach
     void setUp() {
         casemgmtNoteLockDao = mock(CasemgmtNoteLockDao.class);
         registerMock(CasemgmtNoteLockDao.class, casemgmtNoteLockDao);
         registerMock(UserSessionManager.class, mock(UserSessionManager.class));
+        eFormRenderApprovalService = mock(EFormRenderApprovalService.class);
+        registerMock(EFormRenderApprovalService.class, eFormRenderApprovalService);
     }
 
     @Test
@@ -47,12 +50,12 @@ class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
         session.setAttribute(PendingMfaChallenges.AUTH_ATTR, Boolean.TRUE);
         session.setAttribute(PendingMfaChallenges.PROVIDER_NO_ATTR, "999998");
         session.setAttribute(PendingMfaChallenges.TOKEN_ATTR, token);
-        when(casemgmtNoteLockDao.findBySession(session.getId())).thenReturn(Collections.emptyList());
 
         try {
             new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
 
             assertThat(PendingMfaChallengeCache.getInstance().peek(token)).isNull();
+            verify(eFormRenderApprovalService).invalidateStagedFaxPreviewsForSession(session.getId());
         } finally {
             PendingMfaChallengeCache.getInstance().invalidate(token);
         }
@@ -62,10 +65,29 @@ class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
     @DisplayName("should not throw when session has no pending MFA token")
     void shouldNotThrow_whenSessionHasNoToken() {
         MockHttpSession session = new MockHttpSession();
-        when(casemgmtNoteLockDao.findBySession(session.getId())).thenReturn(Collections.emptyList());
 
         assertThatCode(() -> new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session)))
                 .doesNotThrowAnyException();
+        verify(eFormRenderApprovalService).invalidateStagedFaxPreviewsForSession(session.getId());
+    }
+
+    @Test
+    @DisplayName("should clear Fax2Action's per-session claimed-fax-file-paths lock when session is destroyed")
+    void shouldClearFax2ActionSessionLock_whenSessionIsDestroyed() {
+        MockHttpSession session = new MockHttpSession();
+        // Populate the per-session lock registry the same way a real fax preview/queue request
+        // would.
+        io.github.carlos_emr.carlos.fax.action.Fax2Action.registerClaimedFaxFilePathsLockForTest(session.getId());
+        try {
+            new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
+
+            // Cleared, not left to accumulate for the life of the JVM once the session that owned
+            // it is gone.
+            assertThat(io.github.carlos_emr.carlos.fax.action.Fax2Action
+                    .hasClaimedFaxFilePathsLockForTest(session.getId())).isFalse();
+        } finally {
+            io.github.carlos_emr.carlos.fax.action.Fax2Action.clearClaimedFaxFilePathsLockForSession(session.getId());
+        }
     }
 
     private static PendingMfaChallengeCache.PendingMfaChallenge challenge() {

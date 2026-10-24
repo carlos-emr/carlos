@@ -29,7 +29,17 @@
  * from the admin library, and verifies that:
  *   1. the eForm still renders in the popup without an error page
  *   2. the background image resolves through displayImage
- *   3. /previewDocs?method=renderEFormPDF returns a real PDF for the imported form
+ *   3. the downloaded PDF retains both authored pages and right-edge content
+ *   4. pagination preserves percentage-positioned field coordinates
+ *
+ * Requires pdftotext from poppler-utils to inspect the actual PDF content and positions.
+ *
+ * FIXTURE. The eForm is opened for, and downloads as, a FAKE patient this check creates (lib/owned-patient.js: last name = a
+ * FAKE-PW run marker) and removes. It used to open demo patient 1: the download stores an eForm instance for the patient the
+ * form was opened for, and the admin library's Delete only marks the TEMPLATE removed (status 0), so every run left an
+ * eform_data row with its eform_values for demo patient 1 and a soft-deleted eform row. Cleanup now deletes, by the patient's key
+ * and by the run's unique form name, the instances and their values, the template row and the patient, and asserts each gone.
+ * The database is reached with MYSQL_*.
  *
  * Defaults are for the local devcontainer:
  *   node scripts/eform-render-playwright-checks.js
@@ -47,8 +57,11 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -72,13 +85,20 @@ function assert(condition, message) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -137,10 +157,16 @@ function formPrint() {
 <body onload="">
 <form method="post" action="" name="FormName" id="FormName">
 <!-- malformed -- comment-->
-<div id="page1" style="page-break-after:always;position:relative;">
+<div id="page1" style="page-break-after:always;position:relative;width:650px;">
 <img id="BGImage1" src="\${oscar_image_path}${bgImageName}" style="position:relative;left:0;top:0;width:750px;height:140px;">
 <input name="patient_nameL" id="patient_nameL" type="text" value="TemplateSeed" class="noborder" style="position:absolute;left:40px;top:32px;width:220px;height:22px;" oscarDB="patient_nameL">
 <input name="subject" id="subject" type="text" class="noborder" style="position:absolute;left:40px;top:72px;width:220px;height:22px;">
+<span style="position:absolute;left:50%;top:108px;font:12px Arial;">PERCENTFIELD</span>
+<span style="position:absolute;left:680px;top:108px;font:12px Arial;">RIGHTEDGE</span>
+</div>
+<div id="page2" style="page-break-after:always;position:relative;width:500px;">
+<img id="BGImage2" src="\${oscar_image_path}${bgImageName}" style="width:500px;height:160px;">
+<span style="position:absolute;left:20px;top:30px;font:12px Arial;">SECONDPAGE</span>
 </div>
 <div class="DoNotPrint" id="BottomButtons" style="position:absolute;top:180px;left:0;">
   <input value="Submit" name="SubmitButton" id="SubmitButton" type="submit" onclick="releaseDirtyFlag();">
@@ -210,10 +236,16 @@ async function login(context) {
   const page = await context.newPage();
   wirePage(page, 'login');
   await gotoApp(page, '/');
+  await page.waitForLoadState('load', { timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   if (await page.locator('#pin').count()) {
     await page.locator('#pin').fill(testPin);
+  }
+  assert(await page.locator('#username').inputValue() === testUser, 'login username field changed before submit');
+  assert(await page.locator('#password').inputValue() === testPassword, 'login password field changed before submit');
+  if (await page.locator('#pin').count()) {
+    assert(await page.locator('#pin').inputValue() === testPin, 'login PIN field changed before submit');
   }
   await Promise.all([
     page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
@@ -351,6 +383,10 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   const screenshotPath = buildArtifactPath(screenshotDir, artifactBaseName);
   let importedFid = null;
   let managerPage = null;
+  // The owned patient the eForm is opened for (never a demo patient), created before anything else is written.
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  let patient = null;
 
   const launchOptions = {
     headless: true,
@@ -360,8 +396,12 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  let browser = null;
   try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    patient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: true, viewport: { width: 1100, height: 1600 } });
     const landingPage = await login(context);
     await landingPage.close();
@@ -381,7 +421,7 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     assert(managerPreviewState.patientLast === 'TemplateSeed', `Manager preview did not render template-stored field data: ${managerPreviewState.patientLast}`);
     await managerPreview.close();
 
-    const popup = await openImportedEform(context, importedFid, '1');
+    const popup = await openImportedEform(context, importedFid, patient);
     await assertNotErrorPage(popup, 'render-pipeline eForm popup');
 
     await popup.fill('#patient_nameL', 'Playwright');
@@ -405,6 +445,17 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     assert(pdfBytes.subarray(0, 5).toString('utf8') === '%PDF-', 'Downloaded payload was not a PDF');
     assert(pdfBytes.length > 500, `Downloaded PDF payload was unexpectedly small (${pdfBytes.length} bytes)`);
 
+    // Requires poppler-utils. Inspect the produced PDF, not just the DOM or generated CSS:
+    // clipping a narrow page div used to silently remove the right edge of a wider background.
+    const bbox = execFileSync('pdftotext', ['-bbox', renderedPdfPath, '-'], { encoding: 'utf8' });
+    const pages = [...bbox.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map(match => match[1]);
+    assert(pages.length === 2, `Expected two authored pages without blank spill pages, got ${pages.length}`);
+    assert(pages[0].includes('>RIGHTEDGE<'), 'The first PDF page silently clipped its right-edge content');
+    assert(pages[1].includes('>SECONDPAGE<'), 'The second authored page was omitted or shifted');
+    const percentField = pages[0].match(/<word\b[^>]*xMin="([0-9.]+)"[^>]*>PERCENTFIELD<\/word>/);
+    assert(percentField && Math.abs(Number(percentField[1]) - 243.75) < 0.1,
+      'PDF pagination changed the authored container width and moved its percentage-positioned field');
+
     await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     const postDownloadState = await popup.evaluate(() => ({
       warningMessage: document.getElementById('warningMessage') ? document.getElementById('warningMessage').value : '',
@@ -418,6 +469,12 @@ function assertDisplayImageFetchesSucceeded(imageName) {
 
     const fatalBadResponses = badResponses.filter((response) => !(response.label === 'eform-popup' && response.url.includes('/oscar/eform/displayImage?imagefile=')));
     const fatalConsoleIssues = consoleIssues.filter((issue) => issue.type !== 'dialog' &&
+      // Chromium requests the ORIGIN-ROOT /favicon.ico for any page with no <link rel="icon">, and
+      // eForm pages are raw stored HTML that never declares one. The 404 comes from the Tomcat ROOT
+      // context, not the application. Already whitelisted for HTTP responses in
+      // isExpectedMissingAsset(); the console leg was missed, which failed this check on a run whose
+      // every substantive assertion — including a real PDF download — had passed.
+      !/\/favicon\.ico$/.test(issue.location && issue.location.url ? issue.location.url : '') &&
       !(issue.label && issue.label.startsWith('image:') && /\$ is not defined/.test(issue.text)) &&
       !(issue.label === 'eform-upload' && /checkFormAndDisable is not defined/.test(issue.text)) &&
       !(issue.label === 'eform-popup' && /Failed to load resource/.test(issue.text) && /\/oscar\/eform\/displayImage\?imagefile=/.test(issue.location && issue.location.url ? issue.location.url : '')));
@@ -445,7 +502,29 @@ function assertDisplayImageFetchesSucceeded(imageName) {
       await managerPage.close().catch(() => {});
     }
     fs.rmSync(fixture.tempDir, { recursive: true, force: true });
-    await browser.close();
+    if (browser) await browser.close();
+    try {
+      removeFixtureRows();
+    } finally {
+      sql.dispose();
+    }
+  }
+
+  /**
+   * The rows the run wrote, by key. The instance the download stored carries the patient's key; the template carries the run's
+   * unique form name (the admin Delete soft-deletes it, so the row stays until it is removed here). Every one is asserted gone.
+   */
+  function removeFixtureRows() {
+    if (patient === null) return;
+    const q = h.sqlString;
+    sql.execute(`DELETE FROM eform_values WHERE fdid IN (SELECT fdid FROM eform_data WHERE demographic_no=${patient});
+      DELETE FROM eform_data WHERE demographic_no=${patient};
+      DELETE FROM eform WHERE form_name=${q(importedFormName)}`);
+    assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM eform WHERE form_name=${q(importedFormName)})
+      + (SELECT COUNT(*) FROM eform_data WHERE form_name=${q(importedFormName)})`) === '0',
+    'The eForm instances or the template this run created were not removed');
+    removeOwnedPatient(sql, patient, ownedMarker);
   }
 })().catch((error) => {
   console.error('FAIL app-backed eForm render pipeline Playwright check');

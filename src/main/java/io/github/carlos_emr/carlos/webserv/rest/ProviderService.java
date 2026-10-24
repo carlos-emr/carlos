@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.core.MediaType;
@@ -73,7 +74,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 
 /**
  * REST service for provider-related operations using OAuth 1.0a authentication.
@@ -293,7 +293,10 @@ public class ProviderService extends AbstractServiceImpl {
                 if (activeNode.isBoolean()) {
                     active = activeNode.asBoolean();
                 } else if (activeNode.isTextual()) {
-                    String s = activeNode.asText().trim().toLowerCase();
+                    // ASCII-strict on purpose: equalsIgnoreCase() folds Unicode lookalikes,
+                    // so "fal\u017Fe" (LATIN SMALL LETTER LONG S) would be accepted as "false"
+                    // and silently select inactive providers instead of returning 400.
+                    String s = activeNode.asText().trim().toLowerCase(Locale.ROOT);
                     if ("true".equals(s))      active = true;
                     else if ("false".equals(s)) active = false;
                     else throw new WebApplicationException(
@@ -410,8 +413,16 @@ public class ProviderService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public RestResponse<String> saveProviderSettings(ProviderSettings json, @PathParam("providerNo") String providerNo) {
-        MiscUtils.getLogger().warn(json.toString());
-
+        // Prevent horizontal privilege escalation: a provider may only save their OWN settings. Without
+        // this check any authenticated provider could rewrite another provider's preferences by passing
+        // an arbitrary providerNo in the path. The GET sibling (/settings/get) is likewise scoped to the
+        // session provider; cross-provider editing, if ever needed, belongs behind an explicit admin
+        // endpoint. The full settings payload is no longer logged.
+        String sessionProviderNo = getLoggedInInfo().getLoggedInProviderNo();
+        if (providerNo == null || !providerNo.equals(sessionProviderNo)) {
+            throw new WebApplicationException("provider settings may only be saved for the authenticated provider",
+                    Response.Status.FORBIDDEN);
+        }
         providerManager.updateProviderSettings(getLoggedInInfo(), providerNo, json);
         return RestResponse.successResponse(null);
     }

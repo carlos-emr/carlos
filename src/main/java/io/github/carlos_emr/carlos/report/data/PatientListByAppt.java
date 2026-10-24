@@ -29,12 +29,17 @@
 
 package io.github.carlos_emr.carlos.report.data;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
+import java.util.Objects;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -42,16 +47,24 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
-import io.github.carlos_emr.carlos.commn.model.Appointment;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.util.ConversionUtils;
-
 public class PatientListByAppt extends HttpServlet {
+    private static final Pattern PROVIDER_FILTER_PATTERN =
+            Pattern.compile("[A-Za-z0-9_-]{1,6}");
+    private static final ExportScope EMPTY_EXPORT_SCOPE =
+            new ExportScope(null, null, null);
 
     private static final Logger log = MiscUtils.getLogger();
 
@@ -63,51 +76,9 @@ public class PatientListByAppt extends HttpServlet {
      * @param request  servlet request
      * @param response servlet response
      */
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
         try {
-            response.setContentType("text/plain; charset=UTF-8");
-            response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
-
-            String drNo = request.getParameter("provider_no");
-            // clear dr no value for all doc's
-            if (drNo != null && drNo.equals("all")) {
-                drNo = null;
-            }
-            String datefrom = request.getParameter("date_from");
-            String dateto = request.getParameter("date_to");
-
-            Date from = datefrom != null ? ConversionUtils.fromDateString(datefrom) : null;
-            Date to = dateto != null ? ConversionUtils.fromDateString(dateto) : null;
-
-            OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
-
-            try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(
-                    response.getOutputStream(), StandardCharsets.UTF_8), true)) {
-
-                for (Object[] o : dao.findPatientAppointments(drNo, from, to)) {
-                    Demographic d = (Demographic) o[0];
-                    Appointment a = (Appointment) o[1];
-                    Provider p = (Provider) o[2];
-
-                    // CSV export rows — each pw.print() carries a full-id nosemgrep because
-                    // Semgrep Cloud does not honor preceding-line suppressions for this rule.
-                    // Content-Type is set to text/plain with Content-Disposition: attachment,
-                    // values pass through escapeCsv(), not an HTML context.
-                    pw.print(escapeCsv(d.getLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(escapeCsv(d.getFirstName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(escapeCsv(d.getPhone()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(escapeCsv(d.getPhone2()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(ConversionUtils.toTimeString(a.getStartTime()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted time
-                    pw.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted date
-                    pw.print(escapeCsv(a.getType().replaceAll("\r\n", "")) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(escapeCsv(p.getFirstName() + " " + p.getLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(escapeCsv(a.getLocation())); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print("\n"); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download literal newline
-                }
-                pw.println("");
-            }
+            processExportRequest(request, response);
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
@@ -120,12 +91,262 @@ public class PatientListByAppt extends HttpServlet {
     }
 
     /**
+     * Validates and processes one export request. Rows are streamed from the DAO
+     * into an owner-only spool file before the response is committed, preventing a
+     * database failure from returning a successful but truncated export. The
+     * container-owned response stream deliberately remains open.
+     */
+    private void processExportRequest(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+            // The shared resolver emits a sanitized rejection event. Do not add a
+            // synchronous database insert here: this public route would otherwise
+            // let anonymous traffic amplify writes to the clinical audit database.
+            return;
+        }
+
+        if (!hasReportPrivilege(loggedInInfo)) {
+            rejectExport(response, loggedInInfo, HttpServletResponse.SC_FORBIDDEN,
+                    "Report read privilege is required", "Forbidden", EMPTY_EXPORT_SCOPE);
+            return;
+        }
+
+        String providerFilter = request.getParameter("provider_no");
+        if (providerFilter == null || providerFilter.isBlank()) {
+            rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
+                    "provider_no is required", "MissingProvider", EMPTY_EXPORT_SCOPE);
+            return;
+        }
+        if (!providerFilter.equals("all")
+                && !PROVIDER_FILTER_PATTERN.matcher(providerFilter).matches()) {
+            rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
+                    "provider_no is invalid", "InvalidProvider", EMPTY_EXPORT_SCOPE);
+            return;
+        }
+        // clear dr no value for all doc's
+        String providerNo = providerFilter.equals("all") ? null : providerFilter;
+        String datefrom = request.getParameter("date_from");
+        String dateto = request.getParameter("date_to");
+
+        Date from = parseRequiredDate(datefrom);
+        Date to = parseRequiredDate(dateto);
+        ExportScope validatedScope = new ExportScope(
+                providerFilter, canonicalDate(from), canonicalDate(to));
+        if (from == null || to == null) {
+            rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
+                    "date_from and date_to must use YYYY-MM-DD", "InvalidDate",
+                    validatedScope);
+            return;
+        }
+        if (from.after(to)) {
+            rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
+                    "date_from must not be after date_to", "ReversedDateRange",
+                    validatedScope);
+            return;
+        }
+
+        int[] rowCount = {0};
+        String outcome = "error";
+        String errorType = null;
+        Path spoolFile = null;
+
+        try {
+            spoolFile = createExportSpoolFile();
+            OscarAppointmentDao dao = getAppointmentDao();
+            try (BufferedWriter writer = Files.newBufferedWriter(
+                    spoolFile, StandardCharsets.UTF_8)) {
+                dao.streamPatientAppointments(providerNo, from, to, row -> {
+                    try {
+                        writer.write(formatCsvRow(row));
+                        rowCount[0]++;
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                });
+            }
+
+            // Commit the response only after the DAO cursor and spool write have
+            // completed, so a database failure cannot look like a valid truncated
+            // HTTP 200 export to the caller.
+            response.setContentType("text/plain; charset=UTF-8");
+            response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
+            Files.copy(spoolFile, response.getOutputStream());
+            outcome = "success";
+        } catch (IOException | RuntimeException e) {
+            errorType = e.getClass().getSimpleName();
+            throw e;
+        } finally {
+            deleteExportSpoolFile(spoolFile);
+            auditExportSafely(loggedInInfo, validatedScope.providerFilter(),
+                    validatedScope.dateFrom(), validatedScope.dateTo(),
+                    rowCount[0], outcome, errorType);
+        }
+    }
+
+    /** Test seam for exercising infrastructure failures during DAO resolution. */
+    protected OscarAppointmentDao getAppointmentDao() {
+        return SpringUtils.getBean(OscarAppointmentDao.class);
+    }
+
+    /** Test seam for exercising authorization infrastructure failures. */
+    protected SecurityInfoManager getSecurityInfoManager() {
+        return SpringUtils.getBean(SecurityInfoManager.class);
+    }
+
+    private boolean hasReportPrivilege(LoggedInInfo loggedInInfo) {
+        try {
+            return getSecurityInfoManager().hasPrivilege(
+                    loggedInInfo, "_report,_admin.reporting", "r", null);
+        } catch (RuntimeException e) {
+            auditExportSafely(loggedInInfo, null, null, null,
+                    0, "error", e.getClass().getSimpleName());
+            throw e;
+        }
+    }
+
+    private static String formatCsvRow(PatientAppointmentExportRow row) {
+        StringBuilder csv = new StringBuilder();
+        csv.append(escapeCsv(row.patientLastName())).append(',');
+        csv.append(escapeCsv(row.patientFirstName())).append(',');
+        csv.append(escapeCsv(row.phone())).append(',');
+        csv.append(escapeCsv(row.alternatePhone())).append(',');
+        csv.append(ConversionUtils.toTimeString(row.startTime())).append(',');
+        csv.append(ConversionUtils.toDateString(row.appointmentDate())).append(',');
+        // Appointment type is free text and optional. Strip CR and LF
+        // individually — the legacy replaceAll("\r\n", "") only matched
+        // CRLF pairs, so a lone newline survived, escapeCsv quoted the
+        // field, and one appointment spilled across two output lines.
+        // Objects.toString keeps this null-safe independently of the
+        // entity getter's own null coalescing.
+        String appointmentType = Objects.toString(row.appointmentType(), "")
+                .replace("\r", "")
+                .replace("\n", "");
+        csv.append(escapeCsv(appointmentType)).append(',');
+        csv.append(escapeCsv(formatProviderName(
+                row.providerFirstName(), row.providerLastName()))).append(',');
+        csv.append(escapeCsv(row.location())).append('\n');
+        return csv.toString();
+    }
+
+    private static String formatProviderName(String firstName, String lastName) {
+        if (firstName == null || firstName.isEmpty()) {
+            return Objects.toString(lastName, "");
+        }
+        if (lastName == null || lastName.isEmpty()) {
+            return firstName;
+        }
+        return firstName + " " + lastName;
+    }
+
+    private void rejectExport(HttpServletResponse response, LoggedInInfo loggedInInfo,
+                              int status, String message, String reason,
+                              ExportScope validatedScope) throws IOException {
+        response.sendError(status, message);
+        auditExportSafely(loggedInInfo, validatedScope.providerFilter(),
+                validatedScope.dateFrom(), validatedScope.dateTo(),
+                0, "rejected", reason);
+    }
+
+    private void auditExportSafely(LoggedInInfo loggedInInfo, String providerFilter,
+                                   String dateFrom, String dateTo, int rowCount,
+                                   String outcome, String errorType) {
+        try {
+            auditExport(loggedInInfo, providerFilter, dateFrom, dateTo,
+                    rowCount, outcome, errorType);
+        } catch (RuntimeException e) {
+            // Auditing is best-effort at this boundary: an audit-store outage must
+            // not mask the original export, authorization, or response failure.
+            log.error("Unable to persist patient export audit", e);
+        }
+    }
+
+    private void auditExport(LoggedInInfo loggedInInfo, String providerFilter,
+                             String dateFrom, String dateTo, int rowCount,
+                             String outcome, String errorType) {
+        OscarLog auditLog = createExportAuditLog(
+                loggedInInfo, loggedInInfo.getIp(), providerFilter);
+        persistExportAuditResult(
+                auditLog, dateFrom, dateTo, rowCount, outcome, errorType);
+    }
+
+    private OscarLog createExportAuditLog(LoggedInInfo loggedInInfo,
+                                          String remoteAddress,
+                                          String providerFilter) {
+        OscarLog auditLog = new OscarLog();
+        if (loggedInInfo != null && loggedInInfo.getLoggedInSecurity() != null) {
+            auditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        }
+        if (loggedInInfo != null && loggedInInfo.getLoggedInProvider() != null) {
+            auditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        }
+        auditLog.setAction(LogConst.EXPORT);
+        auditLog.setContent("patient_list_by_appointment");
+        auditLog.setContentId(providerFilter);
+        auditLog.setIp(remoteAddress);
+        return auditLog;
+    }
+
+    private void persistExportAuditResult(OscarLog auditLog, String dateFrom,
+                                          String dateTo, int rowCount,
+                                          String outcome, String errorType) {
+        String data = "dateFrom=" + dateFrom + "; dateTo=" + dateTo
+                + "; rows=" + rowCount + "; outcome=" + outcome;
+        if (errorType != null) {
+            data += "; error=" + errorType;
+        }
+        auditLog.setData(data);
+        persistExportAudit(auditLog);
+    }
+
+    /** Test seam for verifying audit contents without persisting them. */
+    protected void persistExportAudit(OscarLog auditLog) {
+        LogAction.addLogSynchronous(auditLog);
+    }
+
+    private static Date parseRequiredDate(String value) {
+        if (value == null || !value.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            return null;
+        }
+        try {
+            return java.sql.Date.valueOf(LocalDate.parse(value));
+        } catch (DateTimeParseException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static String canonicalDate(Date value) {
+        return value == null ? null : ConversionUtils.toDateString(value);
+    }
+
+    private static Path createExportSpoolFile() throws IOException {
+        return PathValidationUtils.createSecureTempFile(
+                "carlos-patient-export-", ".csv").toPath();
+    }
+
+    private static void deleteExportSpoolFile(Path spoolFile) {
+        if (spoolFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(spoolFile);
+        } catch (IOException e) {
+            log.error("Unable to delete patient export spool file", e);
+        }
+    }
+
+    private record ExportScope(String providerFilter, String dateFrom, String dateTo) {
+    }
+
+    /**
      * Escapes a value for RFC 4180 CSV output. Wraps the value in double-quotes
      * if it contains commas, double-quotes, or newlines, and escapes embedded
      * double-quotes by doubling them. Also prevents spreadsheet formula injection
      * by prefixing values that start with formula trigger characters (=, +, -, @,
-     * tab, carriage return) with a single quote so spreadsheet applications treat
-     * them as literal text rather than formulas.
+     * tab, carriage return, line feed, NUL, or their full-width variants) with a
+     * single quote so spreadsheet applications treat them as literal text rather
+     * than formulas.
      *
      * @param value the raw field value; null is treated as an empty string
      * @return the RFC 4180 escaped field value, safe from formula injection
@@ -140,7 +361,9 @@ public class PatientListByAppt extends HttpServlet {
         if (!value.isEmpty()) {
             char first = value.charAt(0);
             if (first == '=' || first == '+' || first == '-' || first == '@'
-                    || first == '\t' || first == '\r') {
+                    || first == '\t' || first == '\r' || first == '\n' || first == '\0'
+                    || first == '\uFF1D' || first == '\uFF0B'
+                    || first == '\uFF0D' || first == '\uFF20') {
                 value = "'" + value;
             }
         }

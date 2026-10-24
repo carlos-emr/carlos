@@ -42,6 +42,7 @@ import org.jsoup.select.Elements;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -56,6 +57,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -81,7 +84,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>Fallback conversion via Flying Saucer {@code ITextRenderer} with OpenPDF backend</li>
  * </ol>
  *
- * <p>Thread safety: The {@code from()} and {@code saveAsTempPDF()} methods are synchronized
+ * <p>Thread safety: The {@code from()} and {@code saveAsTempPDF()} methods hold one private lock
  * to prevent concurrent modification of the shared {@link #realPath} field.
  *
  * @see EDoc
@@ -100,7 +103,9 @@ public final class ConvertToEdoc {
     private enum FileType {pdf, css, jpeg, png, gif, js, jpg}
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
-    private static final String DEFAULT_IMAGE_DIRECTORY = String.format("%1$s", CarlosProperties.getInstance().getEformImageDirectory());
+    private static final String OSCAR_IMAGE_PATH_TOKEN = "${oscar_image_path}";
+    /** Percent-encoded form of {@link #OSCAR_IMAGE_PATH_TOKEN} as it can appear in stored src/href markup. */
+    private static final String OSCAR_IMAGE_PATH_TOKEN_ENCODED = "%24%7Boscar_image_path%7D";
     private static final String DEFAULT_FILENAME = "temporaryPDF";
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_CONTENT_TYPE = "application/pdf";
@@ -110,7 +115,9 @@ public final class ConvertToEdoc {
     private static final String BACKGROUND_ATTRIBUTE = "background";
     private static final String STYLE_ATTRIBUTE = "style";
     private static String realPath;
-    private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
+    // Private, unlike the class monitor that `static synchronized` used, so no other code can take
+    // it; from() and saveAsTempPDF() still exclude one another on it (see the class Javadoc).
+    private static final Object RENDER_LOCK = new Object();
 
     /**
      * Converts an EForm into a PDF and returns an EDoc wrapping the result.
@@ -120,28 +127,29 @@ public final class ConvertToEdoc {
      * @param eform EFormData the electronic form data to convert
      * @return EDoc the document object referencing the generated PDF, or null if conversion fails
      */
-    public synchronized static EDoc from(EFormData eform) {
+    public static EDoc from(EFormData eform) {
+        synchronized (RENDER_LOCK) {
+            String eformString = eform.getFormData();
+            String demographicNo = eform.getDemographicId() + "";
+            String filename = buildFilename(eform.getFormName(), demographicNo);
+            String eDocDescription = (eform.getSubject() == null || eform.getSubject().trim().isEmpty()) ? eform.getFormName() : eform.getSubject();
+            EDoc edoc = null;
+            Path path = execute(eformString, filename);
 
-        String eformString = eform.getFormData();
-        String demographicNo = eform.getDemographicId() + "";
-        String filename = buildFilename(eform.getFormName(), demographicNo);
-        String eDocDescription = eform.getSubject().trim().isEmpty() ? eform.getFormName() : eform.getSubject();
-        EDoc edoc = null;
-        Path path = execute(eformString, filename);
+            if (path != null && Files.isReadable(path)) {
+                edoc = buildEDoc(path.getFileName().toString(),
+                        eDocDescription,
+                        null,
+                        eform.getProviderNo(),
+                        demographicNo,
+                        DocumentType.eForm,
+                        path.getParent().toString());
+            } else {
+                logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
+            }
 
-        if (path != null && Files.isReadable(path)) {
-            edoc = buildEDoc(path.getFileName().toString(),
-                    eDocDescription,
-                    null,
-                    eform.getProviderNo(),
-                    demographicNo,
-                    DocumentType.eForm,
-                    path.getParent().toString());
-        } else {
-            logger.error("Could not read temporary PDF file " + filename);
+            return edoc;
         }
-
-        return edoc;
     }
 
     /**
@@ -152,25 +160,27 @@ public final class ConvertToEdoc {
      * @return EDoc the document object referencing the PDF
      * @throws PDFGenerationException if the PDF file at the given path is not readable
      */
-    public synchronized static EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
-        String demographicNo = eForm.getDemographicId() + "";
-        String filename = buildFilename(eForm.getFormName(), demographicNo);
-        String eDocDescription = eForm.getSubject().trim().isEmpty() ? eForm.getFormName() : eForm.getSubject();
-        EDoc edoc = null;
+    public static EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
+        synchronized (RENDER_LOCK) {
+            String demographicNo = eForm.getDemographicId() + "";
+            String filename = buildFilename(eForm.getFormName(), demographicNo);
+            String eDocDescription = (eForm.getSubject() == null || eForm.getSubject().trim().isEmpty()) ? eForm.getFormName() : eForm.getSubject();
+            EDoc edoc = null;
 
-        if (Files.isReadable(eFormPDFPath)) {
-            edoc = buildEDoc(eFormPDFPath.getFileName().toString(),
-                    eDocDescription,
-                    null,
-                    eForm.getProviderNo(),
-                    demographicNo,
-                    DocumentType.eForm,
-                    eFormPDFPath.getParent().toString());
-        } else {
-            throw new PDFGenerationException("Could not read temporary PDF file " + filename);
+            if (Files.isReadable(eFormPDFPath)) {
+                edoc = buildEDoc(eFormPDFPath.getFileName().toString(),
+                        eDocDescription,
+                        null,
+                        eForm.getProviderNo(),
+                        demographicNo,
+                        DocumentType.eForm,
+                        eFormPDFPath.getParent().toString());
+            } else {
+                throw new PDFGenerationException("Could not read temporary PDF file " + filename);
+            }
+
+            return edoc;
         }
-
-        return edoc;
     }
 
     /**
@@ -192,35 +202,36 @@ public final class ConvertToEdoc {
      * @param formTransportContainer FormTransportContainer containing form HTML, metadata, and real path
      * @return EDoc the document object referencing the generated PDF, or null if conversion fails
      */
-    public synchronized static EDoc from(FormTransportContainer formTransportContainer) {
+    public static EDoc from(FormTransportContainer formTransportContainer) {
+        synchronized (RENDER_LOCK) {
+            String htmlString = formTransportContainer.getHTML();
+            String demographicNo = formTransportContainer.getDemographicNo();
+            String filename = buildFilename(formTransportContainer.getFormName(), demographicNo);
+            String subject = formTransportContainer.getSubject();
+            String providerNo = formTransportContainer.getProviderNo();
+            if (providerNo == null) {
+                providerNo = formTransportContainer.getLoggedInInfo().getLoggedInProviderNo();
+            }
+            // this should be the same for every thread.
+            ConvertToEdoc.realPath = formTransportContainer.getRealPath();
 
-        String htmlString = formTransportContainer.getHTML();
-        String demographicNo = formTransportContainer.getDemographicNo();
-        String filename = buildFilename(formTransportContainer.getFormName(), demographicNo);
-        String subject = formTransportContainer.getSubject();
-        String providerNo = formTransportContainer.getProviderNo();
-        if (providerNo == null) {
-            providerNo = formTransportContainer.getLoggedInInfo().getLoggedInProviderNo();
+            EDoc edoc = null;
+            Path path = execute(htmlString, filename);
+
+            if (path != null && Files.isReadable(path)) {
+                edoc = buildEDoc(filename,
+                        subject,
+                        null,
+                        providerNo,
+                        demographicNo,
+                        formTransportContainer.getDocumentType(),
+                        path.toString());
+            } else {
+                logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
+            }
+
+            return edoc;
         }
-        // this should be the same for every thread.
-        ConvertToEdoc.realPath = formTransportContainer.getRealPath();
-
-        EDoc edoc = null;
-        Path path = execute(htmlString, filename);
-
-        if (path != null && Files.isReadable(path)) {
-            edoc = buildEDoc(filename,
-                    subject,
-                    null,
-                    providerNo,
-                    demographicNo,
-                    formTransportContainer.getDocumentType(),
-                    path.toString());
-        } else {
-            logger.error("Could not read temporary PDF file " + filename);
-        }
-
-        return edoc;
     }
 
     /**
@@ -230,10 +241,26 @@ public final class ConvertToEdoc {
      * @param eform EFormData the electronic form data to convert
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(EFormData eform) {
-        String eformString = eform.getFormData();
-        String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
-        return execute(eformString, filename);
+    public static Path saveAsTempPDF(EFormData eform) {
+        synchronized (RENDER_LOCK) {
+            String eformString = eform.getFormData();
+            String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
+            return execute(eformString, filename);
+        }
+    }
+
+    /**
+     * Converts an arbitrary HTML string to a temporary PDF file.
+     * The caller is responsible for deleting the temporary file after use.
+     *
+     * @param htmlString String the HTML markup to convert
+     * @param filename String the base filename (without directory) used for the temporary PDF
+     * @return Path the temporary file path to the produced PDF, or null if conversion fails
+     */
+    public static Path saveAsTempPDF(String htmlString, String filename) {
+        synchronized (RENDER_LOCK) {
+            return execute(htmlString, filename);
+        }
     }
 
     /**
@@ -243,11 +270,13 @@ public final class ConvertToEdoc {
      * @param formTransportContainer FormTransportContainer containing form HTML, metadata, and real path
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
-        String htmlString = formTransportContainer.getHTML();
-        ConvertToEdoc.realPath = formTransportContainer.getRealPath();
-        String filename = buildFilename(formTransportContainer.getFormName(), formTransportContainer.getDemographicNo());
-        return execute(htmlString, filename);
+    public static Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
+        synchronized (RENDER_LOCK) {
+            String htmlString = formTransportContainer.getHTML();
+            ConvertToEdoc.realPath = formTransportContainer.getRealPath();
+            String filename = buildFilename(formTransportContainer.getFormName(), formTransportContainer.getDemographicNo());
+            return execute(htmlString, filename);
+        }
     }
 
     /**
@@ -257,10 +286,12 @@ public final class ConvertToEdoc {
      * @param emailData EmailData containing the encrypted/HTML email message body
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(EmailData emailData) {
-        String htmlString = emailData.getEncryptedMessage();
-        String filename = buildFilename("emailbody_", "");
-        return execute(htmlString, filename);
+    public static Path saveAsTempPDF(EmailData emailData) {
+        synchronized (RENDER_LOCK) {
+            String htmlString = emailData.getEncryptedMessage();
+            String filename = buildFilename("emailbody_", "");
+            return execute(htmlString, filename);
+        }
     }
 
     /**
@@ -271,15 +302,27 @@ public final class ConvertToEdoc {
      * @return Path the path to the saved temporary PDF, or null if conversion fails
      */
     private static Path execute(final String eformString, final String filename) {
+        if (eformString == null) {
+            // No source HTML to render. Return null per this method's documented failure contract
+            // instead of NPE-ing deep in the Jsoup/Flying Saucer pipeline; callers treat null as a
+            // conversion failure and surface it.
+            logger.error("Cannot render PDF: source HTML was null for {}", LogSafe.sanitize(filename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        }
         Path path = null;
         String document = tidyDocument(eformString);
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             renderPDF(document, os);
-            path = nioFileManager.saveTempFile(filename, os);
+            // Resolve against the current context; do not retain a bean across context reloads.
+            path = SpringUtils.getBean(NioFileManager.class).saveTempFile(filename, os);
+            if (logger.isDebugEnabled()) {
+                // Filename embeds demographic_no (buildFilename), so it is sanitized before logging.
+                logger.debug("Rendered temporary PDF ({} bytes) for {}", os.size(), LogSafe.sanitize(filename));
+            }
         } catch (DocumentException e1) {
             logger.error("Exception parsing file to PDF. File not saved. ", e1);
         } catch (IOException e) {
-            logger.error("Problem while writing PDF file to filesystem. " + filename, e);
+            logger.error("Problem while writing PDF file to filesystem. {}", LogSafe.sanitize(filename), e);
         }
 
         return path;
@@ -422,7 +465,9 @@ public final class ConvertToEdoc {
      * Prepare document for Flying Saucer which requires strict XHTML
      */
     static Document prepareDocumentForFlyingSaucer(String document) {
-        Document doc = Jsoup.parse(document);
+        // Defensive: execute() already returns early on null HTML, but keep the sink null-safe so a
+        // future caller of this package-visible helper cannot NPE Jsoup.parse.
+        Document doc = Jsoup.parse(document == null ? "" : document);
         normalizeHtmlCommentsForXml(doc);
         
         // Flying Saucer requires XML/XHTML syntax
@@ -794,9 +839,37 @@ public final class ConvertToEdoc {
             collectImageDirectoryCandidates(path, potentialFilePaths);
         } else {
             collectRealPathCandidates(path, potentialFilePaths);
+            collectOscarImagePathCandidate(path, potentialFilePaths);
         }
 
         return potentialFilePaths;
+    }
+
+    private static void collectOscarImagePathCandidate(String path, List<String> potentialFilePaths) {
+        String filename;
+        if (path.startsWith(OSCAR_IMAGE_PATH_TOKEN)) {
+            filename = path.substring(OSCAR_IMAGE_PATH_TOKEN.length());
+        } else if (path.regionMatches(true, 0, OSCAR_IMAGE_PATH_TOKEN_ENCODED, 0, OSCAR_IMAGE_PATH_TOKEN_ENCODED.length())) {
+            // A percent-encoded token implies a percent-encoded filename too; decode the remainder so
+            // encoded eForm background images still resolve into the PDF instead of being dropped
+            // Fall back to the raw remainder if it is not validly encoded.
+            String encodedRemainder = path.substring(OSCAR_IMAGE_PATH_TOKEN_ENCODED.length());
+            try {
+                // Protect a literal '+' (percent-encode it) before decoding: URLDecoder applies form
+                // semantics and would otherwise turn '+' into a space, dropping a valid filename that
+                // legitimately contains '+'. '%20' still decodes to a real space.
+                filename = URLDecoder.decode(encodedRemainder.replace("+", "%2B"), StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {
+                filename = encodedRemainder;
+            }
+        } else {
+            return;
+        }
+
+        String candidate = buildImageDirectoryPath(filename);
+        if (!candidate.isEmpty()) {
+            potentialFilePaths.add(candidate);
+        }
     }
 
     private static boolean isTranslatableResourcePath(String path) {
@@ -1091,12 +1164,16 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * fetch the default EForm image directory in the host file system
+     * Fetches the configured EForm image directory in the host file system.
+     *
+     * <p>Resolved live on each call (via {@link CarlosProperties#getEformImageDirectory()}) rather
+     * than captured in a load-time {@code static final}, so a reconfigured image root is picked up
+     * without a redeploy and a test can point it at an isolated temporary directory.</p>
      *
      * @return String directory path
      */
     private static String getImageDirectory() {
-        return DEFAULT_IMAGE_DIRECTORY;
+        return CarlosProperties.getInstance().getEformImageDirectory();
     }
 
     /**

@@ -48,11 +48,11 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="org.springframework.web.util.JavaScriptUtils" %>
 <%@ page
         import="java.lang.*,io.github.carlos_emr.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%!
     CarlosProperties op = CarlosProperties.getInstance();
@@ -109,10 +109,10 @@
 
                 var password_min_length = <%=passwordMinLength%>;
                 var password_min_groups = <%=passwordMinGroups%>;
-                var password_group_lower_chars = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_lower_chars"))%>";
-                var password_group_upper_chars = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_upper_chars"))%>";
-                var password_group_digits = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_digits"))%>";
-                var password_group_special = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_special"))%>";
+                var password_group_lower_chars = "<%=SafeEncode.forJavaScript(op.getProperty("password_group_lower_chars"))%>";
+                var password_group_upper_chars = "<%=SafeEncode.forJavaScript(op.getProperty("password_group_upper_chars"))%>";
+                var password_group_digits = "<%=SafeEncode.forJavaScript(op.getProperty("password_group_digits"))%>";
+                var password_group_special = "<%=SafeEncode.forJavaScript(op.getProperty("password_group_special"))%>";
 
                 <%
                 if (!Boolean.parseBoolean(op.getProperty("IGNORE_PASSWORD_REQUIREMENTS")))
@@ -165,7 +165,7 @@
             function validatePin(pin) {
 
                 var password_pin_min_length = <%=op.getProperty("password_pin_min_length")%>;
-                var password_group_digits = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_digits"))%>";
+                var password_group_digits = "<%=SafeEncode.forJavaScript(op.getProperty("password_group_digits"))%>";
 
                 if (pin.length < password_pin_min_length) {
                     alert('<fmt:message key="password.policy.violation.msgPinLengthError"/> ' +

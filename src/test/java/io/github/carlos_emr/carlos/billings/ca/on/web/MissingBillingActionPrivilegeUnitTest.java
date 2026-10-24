@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaSummaryViewModel
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService;
+import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaSettlementService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaSummaryTotalsService;
@@ -268,10 +269,11 @@ class MissingBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
                             return harness(() -> new ViewOnGenRa2Action(security, assembler).execute(),
                                     assembler);
                         }),
-                Arguments.of("ImportOnRa2Action", "_billing",
+                Arguments.of("ViewGenRa2Action upload", "_billing",
                         (ActionHarnessFactory) security -> {
                             OnRaImportService service = mock(OnRaImportService.class);
-                            return harness(() -> new ImportOnRa2Action(security, service).execute(), service);
+                            ServletActionContext.getRequest().setAttribute("documentBean", new DocumentBean());
+                            return harness(() -> new ViewGenRa2Action(security, service).execute(), service);
                         }),
                 Arguments.of("ViewOnGenRaError2Action", "_billing",
                         (ActionHarnessFactory) security -> {
@@ -321,7 +323,7 @@ class MissingBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
     @org.junit.jupiter.api.Test
     void shouldIncludeBenefitScheduleViewAction_inPrivilegeCoverage() {
         assertThat(actionFactories().map(arguments -> (String) arguments.get()[0]))
-                .contains("ViewBenefitScheduleUpload2Action", "ImportOnRa2Action");
+                .contains("ViewBenefitScheduleUpload2Action", "ViewGenRa2Action upload");
     }
 
     @ParameterizedTest(name = "{0} rejects denied {1} privilege")

@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -32,7 +31,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingGroupNumber;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.ClaimFileValidationException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -58,6 +60,9 @@ import org.springframework.beans.factory.ObjectFactory;
  */
 @org.springframework.stereotype.Service
 public class BillingOnDiskService {
+
+    /** Request attribute carrying non-fatal generation warnings to the MRI page. */
+    public static final String GENERATION_WARNINGS_ATTRIBUTE = "ohipGenerationWarnings";
 
     private static final String[] BILLING_STATUS_NEW = new String[]{"O", "W", "I"};
     private static final String[] BILLING_STATUS_REGEN = new String[]{"B"};
@@ -87,6 +92,10 @@ public class BillingOnDiskService {
      */
     @SuppressWarnings("unchecked")
     public void generateNewDisk(HttpServletRequest request) {
+        BillingOutputLock.run(() -> generateNewDiskLocked(request));
+    }
+
+    private void generateNewDiskLocked(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String provider = request.getParameter("providers");
         String mohOffice = request.getParameter("billcenter");
@@ -101,15 +110,38 @@ public class BillingOnDiskService {
         boolean groupReport = isGroupProvider(provider);
 
         if ("all".equals(provider) || groupReport) {
+            // The lookup already normalized each member's group number (a short
+            // all-digit value is zero-padded). What is left to check, before even
+            // the first solo disk is allocated, is a value that cannot be made
+            // into an OHIP group number at all; that is reported per provider
+            // instead of letting "All Providers" commit other disks first.
+            // Reuse this snapshot for generation so validation and writing see the same configuration.
+            List<BillingProviderDto> groupProviders = prep.getCurGrpProvider();
+            if (groupReport && groupProviders.stream().noneMatch(member -> provider.equals(member.getProviderNo()))) {
+                throw new BillingValidationException("Selected provider is not available for group billing.");
+            }
+            List<String> invalidProviders = groupProviders.stream()
+                    .filter(member -> !groupReport || provider.equals(member.getProviderNo()))
+                    .filter(member -> !BillingGroupNumber.isWellFormed(member.getBillingGroupNo()))
+                    .map(BillingProviderDto::getProviderNo)
+                    .distinct()
+                    .toList();
+            if (!invalidProviders.isEmpty()) {
+                throw new InvalidBillingGroupException(invalidProviders);
+            }
             if (!groupReport) {
                 writeSoloDisks(prep, prep.getCurSoloProvider(), loggedInInfo, request,
                         dateRange, mohOffice, useProviderMOH, currentUser);
             }
-            writeGroupDisks(prep, prep.getCurGrpProvider(), loggedInInfo, request,
+            writeGroupDisks(prep, groupProviders, loggedInInfo, request,
                     dateRange, mohOffice, useProviderMOH, currentUser, groupReport, provider);
         } else {
             BillingProviderDto soloProvider = prep.getProviderObj(provider);
-            if (soloProvider != null && isSoloGroupNo(soloProvider.getBillingGroupNo())) {
+            if (soloProvider == null) {
+                // Used to be a silent no-op that still logged a successful generation.
+                throw new BillingValidationException("Selected provider is not billable (inactive or without an OHIP number).");
+            }
+            if (isSoloGroupNo(soloProvider.getBillingGroupNo())) {
                 writeSingleSoloDisk(prep, soloProvider, loggedInInfo, request,
                         dateRange, mohOffice, useProviderMOH, currentUser);
             }
@@ -122,6 +154,10 @@ public class BillingOnDiskService {
      */
     @SuppressWarnings("unchecked")
     public void regenerateDisk(HttpServletRequest request) {
+        BillingOutputLock.run(() -> regenerateDiskLocked(request));
+    }
+
+    private void regenerateDiskLocked(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String diskId = request.getParameter("diskId");
         String mohOffice = request.getParameter("billcenter");
@@ -133,20 +169,22 @@ public class BillingOnDiskService {
         DateRange dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
 
         List<BillingProviderDto> lProvider = prep.getProvider(diskId);
+        reportOmittedMembers(diskId, lProvider, request);
 
         if (lProvider != null && lProvider.size() == 1
                 && isSoloGroupNo(lProvider.get(0).getBillingGroupNo())) {
             BillingProviderDto dataProvider = lProvider.get(0);
             String resolvedMoh = resolveMohForRegen(useProviderMOH, dataProvider.getProviderNo(),
                     defaultMOH);
-            int headerId = prep.updateBatchHeader(dataProvider, diskId, resolvedMoh, "1",
-                    currentUser);
+            var prepared = prep.prepareBatchHeader(dataProvider, diskId, resolvedMoh, "1", currentUser);
+            String headerId = prepared.replacement().getId();
             OhipClaimFileService objFile = newFileWriter(request, dateRange,
                     dataProvider.getProviderNo(),
                     prep.getOhipfilename(Integer.parseInt(diskId)),
                     prep.getHtmlfilename(Integer.parseInt(diskId), dataProvider.getProviderNo()));
-            regenerateSoloDiskFilesAndFinalize(objFile, loggedInInfo, "" + headerId,
-                    resolvedMoh, Integer.parseInt(diskId));
+            objFile.stageRegeneratedBatchHeader(prepared.replacement(), () -> prep.finalizeBatchHeader(prepared));
+            regenerateSoloDiskFilesAndFinalize(objFile, loggedInInfo, headerId,
+                    resolvedMoh, Integer.parseInt(diskId), dataProvider.getProviderNo(), request);
         } else if (lProvider != null && !lProvider.isEmpty()) {
             regenerateGroupDisk(prep, lProvider, loggedInInfo, request, dateRange, mohOffice,
                     diskId, currentUser);
@@ -157,18 +195,44 @@ public class BillingOnDiskService {
         if (provider == null || "all".equals(provider)) return false;
         Provider p = providerDao.getProvider(provider);
         if (p == null) return false;
-        String groupNo = SxmlMisc.getXmlContent(p.getComments(),
-                "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>");
-        return groupNo != null && !groupNo.isEmpty() && !"0000".equals(groupNo);
+        // Same normalization as BillingOnLookupService, so "0", "000" and a
+        // blank all mean solo while "123" is the group 0123.
+        return !BillingGroupNumber.isSolo(SxmlMisc.getXmlContent(p.getComments(),
+                "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>"));
     }
 
-    private static DateRange parseDateRange(String dateBegin, String dateEnd, String curDate) {
+    static DateRange parseDateRange(String dateBegin, String dateEnd, String curDate) {
         if (dateEnd == null || dateEnd.isEmpty()) dateEnd = curDate;
+        java.util.Date end = strictDate(dateEnd, "end");
         if (dateBegin == null || dateBegin.isEmpty()) {
-            return new DateRange(null, ConversionUtils.fromDateString(dateEnd));
+            return new DateRange(null, end);
         }
-        return new DateRange(ConversionUtils.fromDateString(dateBegin),
-                ConversionUtils.fromDateString(dateEnd));
+        java.util.Date begin = strictDate(dateBegin, "start");
+        if (begin.after(end)) {
+            throw new BillingValidationException("The start date is after the end date.");
+        }
+        return new DateRange(begin, end);
+    }
+
+    /**
+     * Strict {@code yyyy-MM-dd} (or {@code yyyy-MM-dd HH:mm:ss}): a lenient parse
+     * turned 2026-02-31 into 3 March and an unparseable end date into no upper
+     * bound at all, which billed every outstanding claim.
+     */
+    private static java.util.Date strictDate(String value, String field) {
+        String text = value == null ? "" : value.trim();
+        String pattern = text.matches("\\d{4}-\\d{2}-\\d{2}") ? "yyyy-MM-dd"
+                : text.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}") ? "yyyy-MM-dd HH:mm:ss" : null;
+        if (pattern == null) {
+            throw new BillingValidationException("The " + field + " date must be a valid yyyy-MM-dd date.");
+        }
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat(pattern);
+        format.setLenient(false);
+        try {
+            return format.parse(text);
+        } catch (java.text.ParseException invalid) {
+            throw new BillingValidationException("The " + field + " date must be a valid yyyy-MM-dd date.");
+        }
     }
 
     private void writeSoloDisks(BillingDiskCreationService prep, List<BillingProviderDto> soloProviders,
@@ -187,6 +251,7 @@ public class BillingOnDiskService {
                     prep.getHtmlfilename(diskId, dataProvider.getProviderNo()));
             objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_NEW, false,
                     mohOffice, false, "on".equals(useProviderMOH));
+            requireValidClaimFile(objFile, dataProvider.getProviderNo(), request);
             writeNewDiskFilesAndFinalize(objFile, diskId);
         }
     }
@@ -211,28 +276,60 @@ public class BillingOnDiskService {
             // — pass ArrayList to preserve legacy behavior.
             ArrayList<String> providerNoCopy = new ArrayList<>();
             ArrayList<String> ohipNoCopy = new ArrayList<>();
+            List<BillingProviderDto> selectedMembers = new ArrayList<>();
             for (int copyi = 0; copyi < providerNos.size(); copyi++) {
                 BillingProviderDto bpd = findByProviderNo(grpProviders, providerNos.get(copyi));
                 if (groupNo.equals(bpd.getBillingGroupNo())) {
                     providerNoCopy.add(providerNos.get(copyi));
                     ohipNoCopy.add(bpd.getOhipNo());
+                    selectedMembers.add(bpd);
                 }
             }
             MiscUtils.getLogger().info("creating group disk for =" + groupNo);
             int diskId = prep.createNewGrpDiskName(providerNoCopy, ohipNoCopy, groupNo,
                     currentUser);
-            GroupDiskGeneration generation = writeGroupMembers(prep, grpProviders, groupNo, diskId,
+            GroupDiskGeneration generation = writeGroupMembers(prep, selectedMembers, groupNo, diskId,
                     loggedInInfo, request, dateRange, mohOffice, useProviderMOH, currentUser,
                     oriBillCenter);
+            OhipClaimFileService finalize = ohipClaimFileFactory.getObject();
+            finalize.setContextPath(request.getContextPath());
+            finalize.setOhipFilename(prep.getOhipfilename(diskId));
             if (generation != null) {
-                OhipClaimFileService finalize = ohipClaimFileFactory.getObject();
-                finalize.setContextPath(request.getContextPath());
-                finalize.setOhipFilename(prep.getOhipfilename(diskId));
                 writeNewGroupDiskFileAndFinalize(generation, finalize, diskId);
+            } else {
+                // OSCAR 19 contract: the disk row and its headers already exist, so the
+                // listed download must exist too; an empty claim file is what it wrote.
+                // Nothing is billed on it, so a write failure does not abort the remaining
+                // groups of an All Providers run: it is logged and reported on the MRI page,
+                // and regenerating the disk there recreates the missing file.
+                try {
+                    finalize.writeFile("");
+                } catch (BillingFileWriteException failure) {
+                    MiscUtils.getLogger().warn("Could not write the empty OHIP file for claimless group disk {} ({})",
+                            diskId, failure.getClass().getSimpleName());
+                    addGenerationWarning(request, "Group " + groupNo + " has no claims; its empty OHIP file (disk "
+                            + diskId + ") could not be written. Regenerate the disk from this page.");
+                }
             }
         }
     }
 
+    /**
+     * Builds the claim batches for every provider of one billing group on a new
+     * group disk before publishing any member's HTML preview.
+     *
+     * <p>A member is included when its generated batch contains at least one
+     * claim item, regardless of the batch total, so {@code $0}-value claims are
+     * submitted rather than silently dropped. A member with no claim items is
+     * skipped: its batch text (header and trailer) is not appended to the OHIP
+     * file and its writer is not finalized. The member's
+     * {@code billing_on_header} row is still created up front because the
+     * writer resolves the batch header by id, and disk regeneration later
+     * resolves one header per provider filename row on the disk.</p>
+     *
+     * @return the concatenated claim body and included writers, or {@code null}
+     *         when no member of the group has any claim item
+     */
     private GroupDiskGeneration writeGroupMembers(BillingDiskCreationService prep,
                                                    List<BillingProviderDto> grpProviders,
                                                    String groupNo, int diskId,
@@ -256,9 +353,14 @@ public class BillingOnDiskService {
                     currentUser, "" + (i + 1));
             objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_NEW, false,
                     mohOffice, false, "on".equals(useProviderMOH));
-            if (objFile.getBigTotal().compareTo(BigDecimal.ZERO) == 0) continue;
+            requireValidClaimFile(objFile, dataProvider.getProviderNo(), request);
+            // Membership in the group disk is decided by claim items, not by the
+            // dollar total: $0 tracking codes and items that net to $0 are still
+            // claims OHIP must receive, and skipping them left those claims
+            // unsubmitted and unbilled. Members with no items contribute no batch
+            // (header + trailer) to the OHIP file and are not finalized.
+            if (!hasClaimRecords(objFile)) continue;
             value.append(objFile.getValue());
-            objFile.writeHtml(objFile.getHtmlCode());
             writers.add(objFile);
             wroteAny = true;
         }
@@ -278,6 +380,7 @@ public class BillingOnDiskService {
                 prep.getHtmlfilename(diskId, dataProvider.getProviderNo()));
         objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_NEW, false,
                 mohOffice, false, "on".equals(useProviderMOH));
+        requireValidClaimFile(objFile, dataProvider.getProviderNo(), request);
         writeNewDiskFilesAndFinalize(objFile, diskId);
     }
 
@@ -288,6 +391,7 @@ public class BillingOnDiskService {
                                       String currentUser) {
         StringBuilder value = new StringBuilder();
         OhipClaimFileService lastWriter = null;
+        OhipClaimFileService firstWriter = null;
         List<OhipClaimFileService> writers = new ArrayList<>();
         for (int i = 0; i < lProvider.size(); i++) {
             BillingProviderDto dataProvider = lProvider.get(i);
@@ -295,41 +399,97 @@ public class BillingOnDiskService {
                     dataProvider.getProviderNo(),
                     prep.getOhipfilename(Integer.parseInt(diskId)),
                     prep.getHtmlfilename(Integer.parseInt(diskId), dataProvider.getProviderNo()));
-            int headerId = prep.updateBatchHeader(dataProvider, diskId, mohOffice, "" + (i + 1),
-                    currentUser);
+            if (firstWriter == null) firstWriter = objFile;
+            var prepared = prep.prepareBatchHeader(dataProvider, diskId, mohOffice, "" + (i + 1), currentUser);
+            objFile.stageRegeneratedBatchHeader(prepared.replacement(), () -> prep.finalizeBatchHeader(prepared));
             objFile.readInBillingNo();
-            objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_REGEN, false,
+            objFile.createBillingFileStr(loggedInInfo, prepared.replacement().getId(), BILLING_STATUS_REGEN, false,
                     mohOffice, false, false);
+            requireValidClaimFile(objFile, dataProvider.getProviderNo(), request);
+            if (!hasClaimRecords(objFile)) continue;
             value.append(objFile.getValue()).append('\n');
-            objFile.writeHtml(objFile.getHtmlCode());
             writers.add(objFile);
             lastWriter = objFile;
         }
         if (lastWriter != null) {
             writeRegeneratedGroupDiskFileAndFinalize(writers, lastWriter, value.toString(),
                     Integer.parseInt(diskId));
+        } else if (firstWriter != null && !firstWriter.outputFileExists()) {
+            // No member has claim records: an existing file is preserved (above), but a
+            // claimless disk whose empty file was never written gets it now so the listed
+            // download exists (OSCAR 19 contract for a claimless group disk).
+            firstWriter.writeFile("");
         }
+    }
+
+    /**
+     * The writer only records layout problems in two message strings that the
+     * simulation page used to be the sole reader of; generation published the
+     * file anyway and marked the claims billed. A batch-breaking problem now
+     * stops this provider before anything is written; claim-level problems the
+     * ministry would reject individually are reported as warnings and written.
+     */
+    static void requireValidClaimFile(OhipClaimFileService writer, String providerNo, HttpServletRequest request) {
+        String fatal = plainText(writer.getErrorFatalMsg());
+        if (!fatal.isEmpty()) {
+            throw new ClaimFileValidationException(providerNo, fatal);
+        }
+        String claimLevel = plainText(writer.getErrorMsg());
+        if (!claimLevel.isEmpty()) {
+            addGenerationWarning(request, "Provider " + providerNo + ": " + claimLevel
+                    + " The file was written; the ministry is likely to reject these claims.");
+        }
+    }
+
+    /** The writer's messages are HTML fragments separated by {@code <br>}. */
+    static String plainText(String html) {
+        if (html == null) return "";
+        return html.replaceAll("(?i)<br\\s*/?>", " ").replaceAll("<[^>]+>", "").replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * A member who is no longer billable (inactive or without an OHIP number) is
+     * left out of a regenerated group file while their claims stay marked billed
+     * on this disk; say so instead of regenerating silently, and refuse when no
+     * member is left.
+     */
+    private void reportOmittedMembers(String diskId, List<BillingProviderDto> billable, HttpServletRequest request) {
+        List<String> all = prep.getDiskProviderNos(diskId);
+        if (all.isEmpty()) return;
+        Set<String> kept = new HashSet<>();
+        if (billable != null) for (BillingProviderDto p : billable) kept.add(p.getProviderNo());
+        List<String> omitted = all.stream().filter(no -> !kept.contains(no)).distinct().toList();
+        if (kept.isEmpty()) {
+            throw new BillingValidationException("No billable provider remains on disk " + diskId
+                    + " (provider(s) " + String.join(", ", omitted) + " inactive or without an OHIP number); nothing was regenerated.");
+        }
+        if (!omitted.isEmpty()) {
+            addGenerationWarning(request, "Disk " + diskId + ": provider(s) " + String.join(", ", omitted)
+                    + " are no longer billable and were left out of the regenerated file; their claims remain marked billed on this disk.");
+        }
+    }
+
+    /** Collects non-fatal generation problems for the MRI page (request attribute {@code ohipGenerationWarnings}). */
+    @SuppressWarnings("unchecked")
+    private static void addGenerationWarning(HttpServletRequest request, String message) {
+        List<String> warnings = (List<String>) request.getAttribute(GENERATION_WARNINGS_ATTRIBUTE);
+        if (warnings == null) {
+            warnings = new ArrayList<>();
+            request.setAttribute(GENERATION_WARNINGS_ATTRIBUTE, warnings);
+        }
+        warnings.add(message);
     }
 
     private void writeNewDiskFilesAndFinalize(OhipClaimFileService writer, int diskId) {
+        var outcome = new BillingOnDiskTransactionService.Outcome();
         try {
             writer.writeFile(writer.getValue());
             writer.writeHtml(writer.getHtmlCode());
-            transactionService.finalizeGeneratedDisk(writer, diskId);
-        } catch (RuntimeException e) {
-            cleanupWrittenFiles(List.of(writer), writer, false);
-            throw e;
-        }
-    }
-
-    private void writeRegeneratedDiskFilesAndFinalize(OhipClaimFileService writer, int diskId) {
-        try {
-            writer.writeFile(writer.getValue());
-            writer.writeHtml(writer.getHtmlCode());
-            transactionService.finalizeGeneratedDisk(writer, diskId);
-        } catch (RuntimeException e) {
-            cleanupWrittenFiles(List.of(writer), writer, true);
-            throw e;
+            transactionService.finalizeGeneratedDisk(writer, diskId, outcome);
+        } catch (RuntimeException failure) {
+            if (outcome.mayHaveCommitted()) throw uncertainCommit(failure);
+            cleanupNewFiles(List.of(writer), writer);
+            throw failure;
         }
     }
 
@@ -337,34 +497,45 @@ public class BillingOnDiskService {
                                                      LoggedInInfo loggedInInfo,
                                                      String headerId,
                                                      String mohOffice,
-                                                     int diskId) {
+                                                     int diskId,
+                                                     String providerNo,
+                                                     HttpServletRequest request) {
         writer.readInBillingNo();
+        // Rendering is read-only; preserve the existing files until a complete replacement exists.
+        writer.createBillingFileStr(loggedInInfo, headerId, BILLING_STATUS_REGEN, false,
+                mohOffice, false, false);
+        requireValidClaimFile(writer, providerNo, request);
+        var outcome = new BillingOnDiskTransactionService.Outcome();
         boolean renamed = false;
         try {
-            writer.renameFile();
+            writer.backupHtmlForRollback();
+            writer.backupFileForRollback();
             renamed = true;
-            writer.createBillingFileStr(loggedInInfo, headerId, BILLING_STATUS_REGEN, false,
-                    mohOffice, false, false);
             writer.writeFile(writer.getValue());
             writer.writeHtml(writer.getHtmlCode());
-            transactionService.finalizeGeneratedDisk(writer, diskId);
-        } catch (RuntimeException e) {
-            if (renamed) {
-                cleanupWrittenFiles(List.of(writer), writer, true);
-            }
-            throw e;
+            transactionService.finalizeGeneratedDisk(writer, diskId, outcome);
+            writer.discardHtmlBackup();
+            writer.retainFileBackup();
+        } catch (RuntimeException failure) {
+            if (outcome.mayHaveCommitted()) throw uncertainCommit(failure);
+            if (renamed) restoreRegeneratedFiles(List.of(writer), writer, failure);
+            else writer.discardHtmlBackup();
+            throw failure;
         }
     }
 
     private void writeNewGroupDiskFileAndFinalize(GroupDiskGeneration generation,
                                                    OhipClaimFileService ohipWriter,
                                                    int diskId) {
+        var outcome = new BillingOnDiskTransactionService.Outcome();
         try {
+            for (OhipClaimFileService writer : generation.writers()) writer.writeHtml(writer.getHtmlCode());
             ohipWriter.writeFile(generation.claimBody());
-            transactionService.finalizeGeneratedDisks(generation.writers(), diskId);
-        } catch (RuntimeException e) {
-            cleanupWrittenFiles(generation.writers(), ohipWriter, false);
-            throw e;
+            transactionService.finalizeGeneratedDisks(generation.writers(), diskId, outcome);
+        } catch (RuntimeException failure) {
+            if (outcome.mayHaveCommitted()) throw uncertainCommit(failure);
+            cleanupNewFiles(generation.writers(), ohipWriter);
+            throw failure;
         }
     }
 
@@ -372,28 +543,53 @@ public class BillingOnDiskService {
                                                            OhipClaimFileService ohipWriter,
                                                            String claimBody,
                                                            int diskId) {
+        var outcome = new BillingOnDiskTransactionService.Outcome();
+        boolean renamed = false;
         try {
-            ohipWriter.renameFile();
+            for (OhipClaimFileService writer : writers) writer.backupHtmlForRollback();
+            ohipWriter.backupFileForRollback();
+            renamed = true;
+            for (OhipClaimFileService writer : writers) writer.writeHtml(writer.getHtmlCode());
             ohipWriter.writeFile(claimBody);
-            transactionService.finalizeGeneratedDisks(writers, diskId);
-        } catch (RuntimeException e) {
-            cleanupWrittenFiles(writers, ohipWriter, true);
-            throw e;
+            transactionService.finalizeGeneratedDisks(writers, diskId, outcome);
+            for (OhipClaimFileService writer : writers) writer.discardHtmlBackup();
+            ohipWriter.retainFileBackup();
+        } catch (RuntimeException failure) {
+            if (outcome.mayHaveCommitted()) throw uncertainCommit(failure);
+            if (renamed) restoreRegeneratedFiles(writers, ohipWriter, failure);
+            else for (OhipClaimFileService writer : writers) writer.discardHtmlBackup();
+            throw failure;
         }
     }
 
-    private static void cleanupWrittenFiles(List<OhipClaimFileService> htmlWriters,
-                                             OhipClaimFileService ohipWriter,
-                                             boolean restoreRenamedOriginal) {
-        if (ohipWriter != null) {
-            ohipWriter.deleteOhipFileQuietly();
+    private static BillingFileWriteException uncertainCommit(RuntimeException cause) {
+        return BillingFileWriteException.forReason(BillingFileWriteException.Reason.UNCERTAIN_COMMIT, cause);
+    }
+
+    private static void cleanupNewFiles(List<OhipClaimFileService> htmlWriters,
+                                       OhipClaimFileService ohipWriter) {
+        if (ohipWriter != null) ohipWriter.deleteOhipFileQuietly();
+        for (OhipClaimFileService writer : htmlWriters) writer.deleteHtmlFileQuietly();
+    }
+
+    private static void restoreRegeneratedFiles(List<OhipClaimFileService> htmlWriters,
+                                                OhipClaimFileService ohipWriter,
+                                                RuntimeException originalFailure) {
+        boolean incomplete = false;
+        try { ohipWriter.restoreRenamedFile(); }
+        catch (RuntimeException restoreFailure) {
+            incomplete = true;
+            originalFailure.addSuppressed(restoreFailure);
         }
         for (OhipClaimFileService writer : htmlWriters) {
-            writer.deleteHtmlFileQuietly();
+            try { writer.restoreHtmlForRollback(); }
+            catch (RuntimeException restoreFailure) {
+                incomplete = true;
+                originalFailure.addSuppressed(restoreFailure);
+            }
         }
-        if (restoreRenamedOriginal && ohipWriter != null) {
-            ohipWriter.restoreLastRenameQuietly();
-        }
+        if (incomplete) throw BillingFileWriteException.forReason(
+                BillingFileWriteException.Reason.RESTORE_FAILED, originalFailure);
     }
 
     private record GroupDiskGeneration(String claimBody, List<OhipClaimFileService> writers) {
@@ -449,7 +645,16 @@ public class BillingOnDiskService {
                         + LogSafe.sanitizeForDisplay(providerNo) + "]");
     }
 
+    /**
+     * Whether a generated claim batch contains at least one claim item.
+     * Originally reported and fixed for {@code ongenreport.jsp} by Sebastian
+     * Ibanez in openo-beta/Open-O PR #2510.
+     */
+    static boolean hasClaimRecords(OhipClaimFileService objFile) {
+        return objFile.getRecordCount() > 0;
+    }
+
     private static boolean isSoloGroupNo(String groupNo) {
-        return groupNo == null || groupNo.isEmpty() || "0000".equals(groupNo);
+        return BillingGroupNumber.isSolo(groupNo);
     }
 }

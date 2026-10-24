@@ -105,7 +105,9 @@
 <span class="doc">Doc #<carlos:encode value='<%= id %>' context="html"/></span><br>
 <% } } %>
 <% if (labIds != null) { for (String id : labIds) { %>
-<span class="lab">Lab #<carlos:encode value='<%= id %>' context="html"/></span><br>
+<span class="lab">Lab #<carlos:encode value='<%= id %>' context="html"/>
+<% if (id.startsWith("UNRESOLVED:")) { %> — source confirmation required before printing<% } %>
+</span><br>
 <% } } %>
 <% if (hrmIds != null) { for (String id : hrmIds) { %>
 <span class="hrm">HRM #<carlos:encode value='<%= id %>' context="html"/></span><br>

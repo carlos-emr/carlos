@@ -6,6 +6,13 @@
   <display-name>CARLOS</display-name>
   <absolute-ordering />
 
+  <!-- Not read. OscarSpringContextLoader (registered as a listener below) refreshes the root
+       Spring context itself, so Spring never applies this parameter, and the wildcard below does
+       not load every applicationContext*.xml. JavaMelody's monitoring-spring.xml is not loaded
+       either, and nothing here uses @MonitoredWithSpring; its MonitoringFilter is wired separately.
+       The loader reads applicationContext.xml, applicationContextREST.xml and each
+       applicationContext<Name>.xml named in the ModuleNames property. Change that list in
+       OscarSpringContextLoader (issue #3446). -->
   <context-param>
     <param-name>contextConfigLocation</param-name>
     <param-value>
@@ -33,13 +40,30 @@
         <dispatcher>ERROR</dispatcher>
     </filter-mapping>
 
+    <!-- One COOP policy for static pages, redirects, forwards and early filter errors.
+         Keep the response sanitizer outermost; this header-only filter must precede
+         monitoring, WAF, login and Struts so short-circuit responses carry the policy. -->
+    <filter>
+        <filter-name>CrossOriginOpenerPolicyFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.utility.CrossOriginOpenerPolicyFilter</filter-class>
+        <async-supported>true</async-supported>
+    </filter>
+    <filter-mapping>
+        <filter-name>CrossOriginOpenerPolicyFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>ERROR</dispatcher>
+        <dispatcher>ASYNC</dispatcher>
+    </filter-mapping>
+
         <filter>
 		   <filter-name>monitoring</filter-name>
 		   <filter-class>net.bull.javamelody.MonitoringFilter</filter-class>
 		   <async-supported>true</async-supported>
 		   <init-param>
 				<param-name>system-actions-enabled</param-name>
-				<param-value>true</param-value>
+				<param-value>false</param-value>
 			</init-param>
 			<init-param>
 				<param-name>disabled</param-name>
@@ -254,10 +278,14 @@
 		     heartbeat script would otherwise become editable letter content. See issue #3099.
 		     The .jsp alias is listed explicitly: the exclusion matcher treats it as a sibling
 		     of the extensionless route, not a child, so the bare path does not cover it.
+		     /eform/displayImage (+ its legacy .do alias) is an ASSET-serving route — it streams
+		     library files and the WAR-shipped editor assets (blank.rtl, editor_help.html), which the
+		     editor loads as template content; injecting the heartbeat script there made the script
+		     text part of every new Rich Text Letter. Asset responses must be byte-exact.
 		-->
 		<init-param>
 			<param-name>exclusions</param-name>
-			<param-value>/logoutPage,/status/SessionHeartbeat,/eform/efmformadd_data,/eform/efmshowform_data,/eform/efmformrtl_templates,/eform/efmformrtl_templates.jsp</param-value>
+			<param-value>/logoutPage,/status/SessionHeartbeat,/eform/efmformadd_data,/eform/efmshowform_data,/eform/efmformrtl_templates,/eform/efmformrtl_templates.jsp,/eform/displayImage,/eform/displayImage.do</param-value>
 		</init-param>
 	</filter>
 
@@ -315,6 +343,10 @@
     <url-pattern>/*</url-pattern>
     <dispatcher>REQUEST</dispatcher>
   </filter-mapping>
+
+    <listener>
+        <listener-class>io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanRequestListener</listener-class>
+    </listener>
 
 	<listener>
        	<listener-class>net.bull.javamelody.SessionListener</listener-class>
@@ -380,6 +412,21 @@
 	<servlet>
 		<servlet-name>CXFServlet</servlet-name>
 		<servlet-class>org.apache.cxf.transport.servlet.CXFServlet</servlet-class>
+		<!-- Do not serve CXF's HTML service-list catalog. /ws/** is exempt from
+		     the login filter (each service authenticates itself via OAuth 1.0a /
+		     WS-Security), so without this an unauthenticated client could GET
+		     /carlos/ws/ and enumerate every SOAP/REST endpoint in one request.
+		     This removes the INDEX only. It does NOT close per-service metadata:
+		     WSDLGetInterceptor runs at Phase.READ and WSS4JInInterceptor returns
+		     early for every GET, so `GET /carlos/ws/<Service>?wsdl` is still
+		     answered without authentication for anyone who knows (or guesses) a
+		     service name. Closing that needs the WSDL GET support itself to be
+		     removed or gated per endpoint, which would break clients that fetch
+		     their contract at runtime — deliberately not done here. -->
+		<init-param>
+			<param-name>hide-service-list-page</param-name>
+			<param-value>true</param-value>
+		</init-param>
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>CXFServlet</servlet-name>
@@ -478,7 +525,7 @@
 
 	<servlet>
 		<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>
-		<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormViewForPdfGenerationServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormBrowserRenderPageServlet</servlet-class>
 	</servlet>
 
 	<servlet>
@@ -521,6 +568,16 @@
 	<servlet-mapping>
 		<servlet-name>EFormImageViewForPdfGenerationServlet</servlet-name>
 		<url-pattern>/EFormImageViewForPdfGenerationServlet</url-pattern>
+	</servlet-mapping>
+
+	<servlet>
+		<servlet-name>EFormApCacheForPdfGenerationServlet</servlet-name>
+		<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormApCacheForPdfGenerationServlet</servlet-class>
+	</servlet>
+
+	<servlet-mapping>
+		<servlet-name>EFormApCacheForPdfGenerationServlet</servlet-name>
+		<url-pattern>/EFormApCacheForPdfGenerationServlet</url-pattern>
 	</servlet-mapping>
 
 
@@ -592,6 +649,14 @@
 
   <session-config>
     <session-timeout>120</session-timeout>
+    <!-- Browser sessions require HTTPS, including local development at
+         https://localhost:8443/carlos. TLS-terminating proxies must expose only
+         HTTPS to clients and configure Tomcat's trusted proxy handling. -->
+    <cookie-config>
+      <http-only>true</http-only>
+      <secure>true</secure>
+    </cookie-config>
+    <tracking-mode>COOKIE</tracking-mode>
   </session-config>
 
   <login-config>

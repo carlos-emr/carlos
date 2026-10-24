@@ -215,4 +215,34 @@ public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
             assertThat(result).isTrue();
         }
     }
+
+    @Nested
+    @DisplayName("Active link creation")
+    class ActiveLinkCreation {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should create a new active link when only an inactive link exists for the pair")
+        void shouldCreateActiveLink_whenOnlyInactiveLinkExists() throws Exception {
+            int docId = 5001;
+            int queueId = 6001;
+
+            // Seed an INACTIVE ("I") link left by a previous routing of this document out of the queue.
+            QueueDocumentLink inactive = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(inactive);
+            inactive.setDocId(docId);
+            inactive.setQueueId(queueId);
+            inactive.setStatus("I");
+            dao.persist(inactive);
+
+            // The active-only guard must not treat the inactive link as blocking, so re-linking the
+            // document back to this queue creates a fresh ACTIVE ("A") link.
+            dao.addActiveQueueDocumentLink(queueId, docId);
+
+            List<QueueDocumentLink> links = dao.getQueueFromDocument(docId);
+            assertThat(links).hasSize(2);
+            assertThat(links).filteredOn(link -> "A".equals(link.getStatus())).hasSize(1);
+            assertThat(links).filteredOn(link -> "I".equals(link.getStatus())).hasSize(1);
+        }
+    }
 }

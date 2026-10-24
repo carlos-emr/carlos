@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Facility;
@@ -99,7 +100,8 @@ class ConsultationSignatureServiceIntegrationTest extends CarlosTestBase {
         Files.write(tempDir.resolve("consult_sig_999998.png"), stampBytes);
 
         DigitalSignatureManagerImpl digitalSignatureManager = new DigitalSignatureManagerImpl(digitalSignatureDao);
-        ConsultationSignatureService service = new ConsultationSignatureService(digitalSignatureManager, mock(SecurityInfoManager.class));
+        ConsultationSignatureService service = new ConsultationSignatureService(
+                digitalSignatureManager, mock(SecurityInfoManager.class), mock(ConsultationRequestDao.class));
 
         ConsultationStampOutcome outcome = service.saveConsultationStamp(loggedInInfo("999998"), "999998", 123);
         digitalSignatureDao.flush();

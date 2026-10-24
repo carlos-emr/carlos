@@ -130,6 +130,23 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should skip injection for the server-side eForm PDF renderer route")
+    void shouldSkipInjection_forEformPdfRendererRoute() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/EFormViewForPdfGenerationServlet");
+        request.setServletPath("/EFormViewForPdfGenerationServlet");
+        request.setDispatcherType(DispatcherType.REQUEST);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        // The renderer output must be captured byte-for-byte; the filter must pass through without
+        // wrapping/injecting even while CsrfGuard is enabled.
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        verify(chain).doFilter(request, response);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
     @DisplayName("should fail closed when CsrfGuard cannot initialize")
     void shouldFailClosed_whenCsrfGuardCannotInitialize() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");

@@ -92,6 +92,23 @@ public interface ProviderDao {
 
     public List<Provider> search(String name);
 
+    /**
+     * Searches active providers with a nonblank {@code faxnumber} user property.
+     *
+     * <p>The {@code property} table has no unique key on (provider_no, name), and the existing
+     * write paths update different rows when a provider has duplicates. A provider is therefore
+     * offered only when every one of their {@code faxnumber} rows holds the same nonblank number
+     * (compared trimmed); a cleared or conflicting row excludes them, so a fax is never routed to
+     * a number the provider removed or replaced. Each provider is returned once, so
+     * {@code limit} counts providers rather than property rows.
+     *
+     * @param term case-insensitive literal substring matched against first or last name
+     * @param limit maximum number of rows
+     * @return rows of {@code [Provider, String faxNumber]}, ordered by last name, first name,
+     *         then provider number
+     */
+    public List<Object[]> searchFaxRecipients(String term, int limit);
+
     public List<Provider> getProvidersByTypeWithNonEmptyOhipNo(String type);
 
     public List<Provider> getProvidersByType(String type);

@@ -239,11 +239,13 @@ public class BillingCorrectionService {
                     "Bill change rejected: invalid bill identifier ("
                     + LogSafe.sanitizeForDisplay(rawBillingNo) + ")", e);
         }
-        // findWithItems eagerly fetches the items collection — applyCorrection
-        // walks them below to apply edits and recompute the total. The class
-        // is @Transactional, so the items are also reachable lazily; the
-        // eager fetch keeps this read path independent of fetch-mode drift.
-        BillingONCHeader1 bCh1 = bCh1Dao.findWithItems(billingNo);
+        // Serialize status transitions with other payment writers so repeated
+        // settlement submissions cannot collect the same balance twice. Fetch
+        // items after taking the lock: the entity rejects unloaded collections.
+        BillingONCHeader1 bCh1 = bCh1Dao.findForUpdate(billingNo);
+        if (bCh1 != null) {
+            bCh1 = bCh1Dao.findWithItems(billingNo);
+        }
         if (bCh1 == null) {
             MiscUtils.getLogger().error("updateInvoice: bill {} not found", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(rawBillingNo));
@@ -252,6 +254,7 @@ public class BillingCorrectionService {
                     + LogSafe.sanitizeForDisplay(rawBillingNo) + ") not found");
         }
 
+        String oldStatus = bCh1.getStatus();
         if (!updateBillingONCHeader1(bCh1, loggedInInfo, request)) {
             // Throw rather than return "failure": the class is @Transactional
             // and Spring only rolls back on exceptions. A return string would
@@ -281,15 +284,12 @@ public class BillingCorrectionService {
 
         bCh1Dao.merge(bCh1);
 
-        String newStatus = requireParam(request, "status").substring(0, 1);
-        String oldStatus = bCh1.getStatus();
-
-        // Add payment audit if bill has just been settled.
-        if (newStatus.equals(BillingONCHeader1.SETTLED) && !oldStatus.equals(newStatus)) {
-            BillingONPayment billPayment = new BillingONPayment();
-            billPayment.setBillingOnCheader1(bCh1);
-            billPayment.setPaymentDate(new java.util.Date());
-            bPaymentDao.persist(billPayment);
+        // Third-party settlement is handled by the header-update flow. Ministry
+        // invoices need their own payment record, after edited fees are totaled.
+        String payProgram = bCh1.getPayProgram();
+        if (bCh1.isSettled() && !BillingONCHeader1.SETTLED.equals(oldStatus)
+                && ("HCP".equals(payProgram) || "RMB".equals(payProgram) || "WCB".equals(payProgram))) {
+            recordMinistrySettlement(bCh1, loggedInInfo.getLoggedInProviderNo());
         }
 
         // Update Bill To if changed.
@@ -517,6 +517,32 @@ public class BillingCorrectionService {
         }
 
         return true;
+    }
+
+    private void recordMinistrySettlement(BillingONCHeader1 bill, String providerNo) {
+        if (bill.getTotal() == null || bill.getPaid() == null) {
+            throw new BillingValidationException("Bill could not be settled: missing invoice balance; refresh and retry.");
+        }
+        BigDecimal outstanding = bill.getTotal().subtract(bill.getPaid());
+        if (outstanding.signum() < 0) {
+            throw new BillingValidationException("Bill could not be settled: payments exceed the invoice total; refresh and retry.");
+        }
+        if (outstanding.signum() == 0) {
+            return;
+        }
+        BillingONPayment payment = new BillingONPayment();
+        payment.setBillingNo(bill.getId());
+        payment.setBillingOnCheader1(bill);
+        payment.setPaymentDate(new Date());
+        payment.setCreator(providerNo);
+        // The status shortcut does not specify a cash/debit/other payment method.
+        payment.setPaymentTypeId(0);
+        payment.setTotal_payment(outstanding);
+        bPaymentDao.persist(payment);
+        bill.setPaid(bill.getPaid().add(outstanding));
+        // Reprint reads the invoice payment extension rather than header.paid.
+        billExtDao.setExtItem(bill.getId(), bill.getDemographicNo(), BillingONExtDao.KEY_PAYMENT,
+                bill.getPaid().toPlainString(), payment.getPaymentDate(), '1');
     }
 
     private void createPaymentAndMergeHeader(BillingONCHeader1 bCh1, Locale locale, String payType,

@@ -40,10 +40,11 @@ import org.junit.jupiter.api.Test;
  * {@link SRFaxProviderClient}.
  *
  * <p>The {@code ensureSuccess} method validates the SRFax API response envelope by inspecting
- * the {@code Status} field. It accepts success indicators ("Success", "1") and rejects failure
- * indicators ("Failed", "0", or any status containing "fail"/"error"). When the Status field
- * is missing entirely, it throws regardless of whether Result data is present, following a
- * fail-closed security strategy.</p>
+ * the {@code Status} field. It is fully fail-closed: only the trimmed, case-insensitive success
+ * indicators ("Success", "1") are accepted. Explicit failure indicators ("Failed", "0", or any
+ * status containing "fail"/"error") throw, and any other unrecognized status also throws rather
+ * than being treated as success. When the Status field is missing entirely, it throws regardless
+ * of whether Result data is present.</p>
  *
  * <p><strong>Note on method signature:</strong> The actual method signature is
  * {@code private void ensureSuccess(JsonNode root, String errorMessage)}. It takes an
@@ -214,15 +215,18 @@ class SRFaxProviderClientEnsureSuccessTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not throw for unrecognized non-failure status (treated as success)")
-    void shouldNotThrow_whenStatusIsUnrecognizedButNotFailure() throws Exception {
-        // Given - status like "Pending" is unrecognized but does not contain fail/error/0
-        // ensureSuccess logs a warning but treats it as success
+    @DisplayName("should throw FaxProviderException for unrecognized non-failure status (fail-closed)")
+    void shouldThrowFaxProviderException_whenStatusIsUnrecognized() throws Exception {
+        // Given - status like "Pending" is neither a recognized success ("success"/"1") nor an
+        // explicit failure. ensureSuccess is fail-closed: treating an unknown status as success
+        // previously let an API shape change silently corrupt the fax pipeline.
         JsonNode root = parseJson("{\"Status\":\"Pending\",\"Result\":\"some data\"}");
 
-        // Then - no exception expected (logs a warning internally)
-        assertThatCode(() -> invokeEnsureSuccess(root, "TestOperation"))
-                .doesNotThrowAnyException();
+        // Then - the unrecognized status is named in the exception message
+        assertThatThrownBy(() -> invokeEnsureSuccess(root, "TestOperation"))
+                .isInstanceOf(FaxProviderException.class)
+                .hasMessageContaining("unrecognized status")
+                .hasMessageContaining("Pending");
     }
 
     @Test

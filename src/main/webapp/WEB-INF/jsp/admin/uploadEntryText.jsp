@@ -67,6 +67,7 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib prefix="s" uri="/struts-tags" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
@@ -98,6 +99,19 @@
     </script>
 
 <body>
+<%-- Multipart rejections (an empty part, a file over the 50MB cap, too many
+     files, a field over struts.multipart.maxStringLength, a parse failure) are
+     produced by the interceptor stack BEFORE this page's action runs, and reach
+     this page through its "input" result. The action never executed, so any
+     error channel keyed off an attribute the action sets is empty here -- and
+     without this block the rejection renders the ordinary form again with no
+     explanation, which is indistinguishable from a page refresh. --%>
+<s:if test="hasActionErrors()">
+    <div class="alert alert-danger" role="alert">
+        <s:actionerror/>
+    </div>
+</s:if>
+
 <table class="MainTable">
     <tr class="MainTableTopRow">
         <td class="MainTableTopRowLeftColumn" width="175">&nbsp;</td>
@@ -107,8 +121,8 @@
                     <td><fmt:message key="admin.admin.uploadEntryTxt"/></td>
                     <td>&nbsp;</td>
                     <td style="text-align: right"><a
-                            href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                            href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                            href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                            href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                 </tr>
             </table>
         </td>

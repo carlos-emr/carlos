@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -52,10 +53,18 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/upload.jsp");
     private static final Path IMPORT_PARTIAL_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
+    private static final Path EFM_FORM_MANAGER_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformmanager.jsp");
     private static final Path EFM_TOP_NAV_JSPF =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf");
     private static final Path EFM_FORM_MANAGER_EDIT_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformmanageredit.jsp");
+    private static final Path UPLOAD_IMAGE_PARTIAL_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/upload_image.jsp");
+    private static final Path EFM_IMAGE_MANAGER_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmimagemanager.jsp");
+    private static final Path ADMIN_LEFT_NAV_JSPF =
+            Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
     private static final Path STRUTS_EFORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-eform.xml");
     private static final Path STRUTS_FORM_XML =
@@ -64,8 +73,49 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
     private static final Path RTL_ATTACHMENT_ROUTE_FIX_SQL =
             Path.of("database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql");
+    private static final Path RTL_MODERNIZE_MIGRATION =
+            Path.of("database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql");
+    private static final Path WEB_XML =
+            Path.of("src/main/webapp/WEB-INF/web.xml");
+    private static final Path EFORM_FAX_MISSING_CONTENT_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/fax/EFormMissingContent.jsp");
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
+
+    @Test
+    @DisplayName("should keep the legacy render URL mapped to the renamed browser render page servlet")
+    void shouldKeepLegacyRenderUrl_mappedToBrowserRenderPageServlet() throws IOException {
+        // The retained /EFormViewForPdfGenerationServlet URL is what the loopback render
+        // navigation, the LoginFilter/CSRF exclusions, and the Struts exclude pattern all key on;
+        // each of those is tested individually, but only this pin closes the loop on the
+        // servlet-name -> renamed-class mapping itself.
+        String webXml = Files.readString(WEB_XML, StandardCharsets.UTF_8);
+
+        assertThat(webXml).containsSubsequence(
+                "<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>",
+                "<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormBrowserRenderPageServlet</servlet-class>");
+        assertThat(webXml).containsSubsequence(
+                "<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>",
+                "<url-pattern>/EFormViewForPdfGenerationServlet</url-pattern>");
+    }
+
+    @Test
+    @DisplayName("incomplete eForm fax approval should show progress and prevent duplicate submission")
+    void shouldPreventDuplicateSubmission_whenApprovingIncompleteEFormFax() throws IOException {
+        String jsp = Files.readString(EFORM_FAX_MISSING_CONTENT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("id=\"approve-incomplete-eform-fax\"")
+                .contains("form.dataset.submitting === \"true\"")
+                .contains("submit.disabled = true")
+                .contains("spinner-border-sm")
+                .contains("<output id=\"approve-incomplete-eform-fax-status\"")
+                .contains("fax.eformMissingContent.btnPreparingFax")
+                .contains("aria-live=\"polite\"")
+                .contains("id=\"cancel-incomplete-eform-fax\"")
+                .contains("name=\"method\" value=\"cancelStagedEFormFax\"")
+                .doesNotContainPattern("(?s)\\b(?:window\\s*\\.\\s*)?history\\s*\\.\\s*back\\s*\\(");
+    }
 
     @Test
     @DisplayName("patient eForm list should not reference the missing PHR action and should keep live view/delete actions")
@@ -159,12 +209,85 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("eForm uploads and imports should preserve explicit schedule navigation")
+    void shouldPreserveScheduleNavigation_throughEFormUploadAndImport() throws IOException {
+        String manager = Files.readString(EFM_FORM_MANAGER_JSP, StandardCharsets.UTF_8);
+        String upload = Files.readString(UPLOAD_PARTIAL_JSP, StandardCharsets.UTF_8);
+        String importJsp = Files.readString(IMPORT_PARTIAL_JSP, StandardCharsets.UTF_8);
+
+        assertThat(manager)
+                .contains("/eform/partials/upload${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}")
+                .contains("/eform/partials/import${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}");
+
+        for (String partial : List.of(upload, importJsp)) {
+            assertThat(partial)
+                    .contains("<c:if test=\"${param.scheduleNav eq '1'}\">")
+                    .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\"")
+                    .contains("/administration?show=Forms${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}")
+                    .doesNotContain("/administration?show=Forms&scheduleNav=1\"");
+        }
+    }
+
+    @Test
+    @DisplayName("eForm image upload should preserve explicit schedule navigation")
+    void shouldPreserveScheduleNavigation_throughEFormImageUpload() throws IOException {
+        String imageManager = Files.readString(EFM_IMAGE_MANAGER_JSP, StandardCharsets.UTF_8);
+        String uploadImage = Files.readString(UPLOAD_IMAGE_PARTIAL_JSP, StandardCharsets.UTF_8);
+        String topNav = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
+
+        // scheduleNav=1 is what makes the administration shell render its top nav bar. Uploading
+        // an eForm image ends in a top-level navigation, so every hop from the shell to the Image
+        // Library to the upload panel and back has to carry the flag, or the operator lands on an
+        // administration page with no way back to the schedule. upload.jsp/import.jsp already did;
+        // this path did not.
+        assertThat(topNav)
+                .contains("String efmScheduleNavSuffix = \"1\".equals(request.getParameter(\"scheduleNav\"))")
+                .contains("/eform/efmimagemanager<%= efmScheduleNavSuffix %>");
+        assertThat(imageManager)
+                .contains("/eform/partials/upload_image<%= \"1\".equals(request.getParameter(\"scheduleNav\"))");
+        assertThat(uploadImage)
+                .contains("<c:if test=\"${param.scheduleNav eq '1'}\">")
+                .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\"")
+                .contains("/administration?show=ImageUpload${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}")
+                .doesNotContain("/administration?show=ImageUpload\"");
+    }
+
+    @Test
+    @DisplayName("administration deep links should survive an entry whose panel is named differently")
+    void shouldSurviveMismatchedPanelName_whenDeepLinkingIntoAdministration() throws IOException {
+        String leftNav = Files.readString(ADMIN_LEFT_NAV_JSPF, StandardCharsets.UTF_8);
+
+        // ?show=X selects an ANCHOR by its .defaultX class, but expanded #collapseX -- and
+        // .defaultImageUpload lives inside #collapseForms, so #collapseImageUpload does not exist.
+        // getOrCreateInstance(null) threw BEFORE the content load below it, and the whole deep link
+        // died in the catch: an empty content pane with no explanation. That is what every eForm
+        // image upload landed on.
+        assertThat(leftNav)
+                .contains("$target.closest('.accordion-collapse').get(0)")
+                .contains("if (panel) {")
+                .doesNotContain("bootstrap.Collapse.getOrCreateInstance(document.getElementById('collapse'+show)).show();");
+    }
+
+    @Test
     @DisplayName("struts eForm config should keep both extensionless and legacy displayImage routes")
     void shouldKeepDisplayImageCompatibilityRoutes_whenReadingStrutsEFormConfig() throws IOException {
         String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
 
         assertThat(struts).contains("<action name=\"eform/displayImage\"");
         assertThat(struts).contains("<action name=\"eform/displayImage.do\"");
+    }
+
+    @Test
+    @DisplayName("struts eForm config should keep the rtlPreventions.do alias the shipped letter calls")
+    void shouldKeepRtlPreventionsCompatibilityRoute_whenReadingStrutsEFormConfig() throws IOException {
+        String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
+        String letterMigration = Files.readString(RTL_MODERNIZE_MIGRATION, StandardCharsets.UTF_8);
+
+        // The stored form_html hardcodes the .do spelling; the alias must exist as long as it does.
+        // The relative URL form appears only in the stored form_html, not in the file's SQL comment.
+        assertThat(letterMigration).contains("../eform/rtlPreventions.do");
+        assertThat(struts).contains("<action name=\"eform/rtlPreventions\"");
+        assertThat(struts).contains("<action name=\"eform/rtlPreventions.do\"");
     }
 
     @Test
@@ -200,6 +323,13 @@ class EFormJspMigrationRegressionTest {
         assertThat(excludePattern.matcher("/carlos/EFormSignatureViewForPdfGenerationServlet").matches()).isTrue();
         assertThat(excludePattern.matcher("/contentRenderingServlet/document/1").matches()).isTrue();
         assertThat(excludePattern.matcher("/carlos/contentRenderingServlet/document/1").matches()).isTrue();
+
+        // The signature-control library page must reach Struts (its compatibility-alias action),
+        // not be excluded as a static .jsp — otherwise legacy eForms 404 loading the signature pad.
+        assertThat(excludePattern.matcher("/library/eforms/signatureControl.jsp").matches()).isFalse();
+        assertThat(excludePattern.matcher("/carlos/library/eforms/signatureControl.jsp").matches()).isFalse();
+        // A different library .jsp stays excluded.
+        assertThat(excludePattern.matcher("/library/eforms/other.jsp").matches()).isTrue();
     }
 
     @Test
@@ -305,7 +435,7 @@ class EFormJspMigrationRegressionTest {
 
     @Test
     @DisplayName("eForm editor should navigate current window to eForm library after save, not the opener window")
-    void shouldNavigateCurrentWindow_notOpener_afterSave() throws IOException {
+    void shouldNavigateCurrentWindow_afterSave() throws IOException {
         String jsp = Files.readString(EFM_FORM_MANAGER_EDIT_JSP, StandardCharsets.UTF_8);
 
         // window.opener.location navigates the main CARLOS window (opener of the admin popup),
@@ -322,8 +452,14 @@ class EFormJspMigrationRegressionTest {
         String jsp = Files.readString(IMPORT_PARTIAL_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
-        assertThat(jsp).contains("<carlos:encode value='<%= error %>' context=\"html\"/>");
+        // The multipart-rejection loop was renamed from `error` to `uploadError` when it moved
+        // OUT of the importErrors guard: reaching this page through the action's "input" result
+        // means the action never ran, so importErrors is never set and a block nested inside its
+        // guard could not report the rejection. The encoding requirement is what this test is
+        // for, and it still holds on both loops.
+        assertThat(jsp).contains("<carlos:encode value='<%= uploadError %>' context=\"html\"/>");
         assertThat(jsp).contains("<carlos:encode value='<%= importError %>' context=\"html\"/>");
+        assertThat(jsp).doesNotContain("<li><%= uploadError %></li>");
         assertThat(jsp).doesNotContain("<li><%= error %></li>");
         assertThat(jsp).doesNotContain("<%=importError%>");
     }
@@ -347,5 +483,31 @@ class EFormJspMigrationRegressionTest {
             .contains("<fmt:message key=\"eform.uploadimages.processing\" var=")
             .containsPattern("alert\\(\"\\$\\{carlos:forJavaScript\\([^)]+\\)\\}\"\\)")
             .containsPattern("\\.subm\\.value = \"\\$\\{carlos:forJavaScript\\([^)]+\\)\\}\"");
+    }
+
+    @Test
+    @DisplayName("eForm host pages should load DOMPurify ahead of jQuery so the editor's sanitize gate works")
+    void shouldLoadDomPurifyBeforeJquery_onEformHostPages() throws IOException {
+        // editControl2.js routes every innerHTML write through sanitizeHtml(), which returns null
+        // when DOMPurify is absent and falls back to textContent. The clinician then sees their
+        // saved letter as escaped markup, and the NEXT save stores it double-encoded — silent
+        // corruption of stored clinical content.
+        //
+        // Position is load-bearing and counter-intuitive: addHeadJavascript PREPENDS ("For
+        // Javascript: First is last"), so the call listed AFTER jQuery is emitted BEFORE it.
+        // Sorting this block alphabetically would reintroduce the corruption, so pin the order.
+        for (Path hostPage : List.of(
+                Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"),
+                Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformadd_data.jsp"))) {
+            String jsp = Files.readString(hostPage, StandardCharsets.UTF_8);
+
+            assertThat(jsp)
+                    .as("%s must load DOMPurify", hostPage)
+                    .contains("/library/dompurify/purify.min.js");
+            assertThat(jsp.indexOf("/library/jquery/jquery-3.7.1.min.js"))
+                    .as("%s: DOMPurify must be registered after jQuery, so it is emitted before it",
+                            hostPage)
+                    .isLessThan(jsp.indexOf("/library/dompurify/purify.min.js"));
+        }
     }
 }

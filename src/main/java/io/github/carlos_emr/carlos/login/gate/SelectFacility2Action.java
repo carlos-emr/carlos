@@ -111,7 +111,7 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
                 String safeProviderNo = LogSafe.sanitize(providerNo);
                 String safeNextResult = LogSafe.sanitize(nextResult);
                 String safeRemoteAddr = LogSafe.sanitize(request.getRemoteAddr());
-                LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}",
+                LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}", // NOSONAR javasecurity:S5145 (SonarCloud alert #26206) — all user-controlled args sanitized with LogSafe
                         safeProviderNo, safeNextResult, safeRemoteAddr);
             }
             return redirectToFacilitySelection(request, response);
@@ -120,6 +120,8 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         int facilityId = Integer.parseInt(facilityIdString);
         List<Integer> allowedFacilityIds = providerDao.getFacilityIds(providerNo);
         if (allowedFacilityIds == null || !allowedFacilityIds.contains(facilityId)) {
+            // provider and remote address use LogSafe.sanitize; facilityId is a parsed int.
+            // nosemgrep: carlos.crlf-injection-logs
             LOGGER.warn("Rejected /select_facility: unauthorized facility provider={}, facilityId={}, remote={}",
                     LogSafe.sanitize(providerNo), facilityId, LogSafe.sanitize(request.getRemoteAddr()));
             return redirectToLogoutAfterInvalidating(session, request, response);
@@ -127,6 +129,8 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
 
         Facility facility = facilityDao.find(facilityId);
         if (facility == null) {
+            // provider and remote address use LogSafe.sanitize; facilityId is a parsed int.
+            // nosemgrep: carlos.crlf-injection-logs
             LOGGER.warn("Rejected /select_facility: missing facility provider={}, facilityId={}, remote={}",
                     LogSafe.sanitize(providerNo), facilityId, LogSafe.sanitize(request.getRemoteAddr()));
             return redirectToLogoutAfterInvalidating(session, request, response);

@@ -33,20 +33,20 @@
   When bootstrap is already loaded (window.bootstrap defined), skip the second copy.
 
   Otherwise load it, but choose the method by document.readyState: during initial parse of a
-  standalone page (readyState "loading") document.write emits the tag synchronously so it is
-  ready before the page's own Bootstrap-dependent scripts run. If the fragment ever runs after
-  parsing has finished (e.g. injected via AJAX into a shell that has not provided Bootstrap),
-  document.write would implicitly call document.open() and wipe the page, so fall back to
-  appending a <script> element instead.
+  standalone page (readyState "loading") document.write emits the tag synchronously so Bootstrap is
+  ready before the page's own Bootstrap-dependent scripts run. If the fragment runs after parsing
+  has finished (for example, injected via AJAX into an admin shell), document.write would wipe the
+  page, so fall back to appending a script element instead.
 --%>
 <script type="text/javascript">
     if (typeof window.bootstrap === "undefined") {
-        var carlosBootstrapSrc = "<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js";
+        var carlosBootstrapSrc = "<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(request.getContextPath()) %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js";
         if (document.readyState === "loading") {
             document.write('<script type="text/javascript" src="' + carlosBootstrapSrc + '"><\/script>');
         } else {
             var carlosBootstrapScript = document.createElement("script");
             carlosBootstrapScript.type = "text/javascript";
+            carlosBootstrapScript.async = false;
             carlosBootstrapScript.src = carlosBootstrapSrc;
             document.head.appendChild(carlosBootstrapScript);
         }

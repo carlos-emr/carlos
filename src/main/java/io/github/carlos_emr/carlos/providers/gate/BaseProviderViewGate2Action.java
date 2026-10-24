@@ -92,6 +92,8 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         if (requirePost() && !"POST".equalsIgnoreCase(request.getMethod())) {
+            request.setAttribute(ProviderWriteGuard.STATUS_ATTRIBUTE, HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

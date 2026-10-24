@@ -247,6 +247,67 @@ class BillingDiskCreationServiceUnitTest {
                 .containsExactly("1", "2");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"123, 0123", "12a4, 12A4", "' 1234 ', 1234"})
+    void shouldNormalizeGroupNumber_forFilenameBatchCounterAndStoredGroup(String groupNo, String normalized) {
+        // Issue #4277: the legacy fallback stored "" and named the file H<month>.001
+        // while looking the batch counter up by the raw value, so every disk of a
+        // malformed group was batch 1 and the second one collided on the unique
+        // filename. One normalized key must drive all three.
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestGrpMonthCodeBatchNum(normalized))
+                .thenReturn(new String[]{monthCode, "1"});
+        when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
+                .thenReturn(46);
+
+        int diskId = service.createNewGrpDiskName(
+                List.of("999998"), List.of("054321"), groupNo, "creator");
+
+        assertThat(diskId).isEqualTo(46);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        BillingDiskNameDto disk = captor.getValue();
+        assertThat(disk.getGroupno()).isEqualTo(normalized);
+        assertThat(disk.getBatchcount()).isEqualTo("2");
+        assertThat(disk.getOhipfilename()).isEqualTo("H" + monthCode + normalized + ".002");
+        assertThat(disk.getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + normalized + "_054321_002.html");
+        verify(diskLoader, org.mockito.Mockito.never()).getLatestGrpMonthCodeBatchNum(groupNo.equals(normalized) ? "-" : groupNo);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0000", "000", "12345", "12A", "１２３４", "12-34"})
+    void shouldRejectGroup_whenItCannotBeNormalizedToAnOhipGroupNumber(String groupNo) {
+        assertThatThrownBy(() -> service.createNewGrpDiskName(
+                List.of("999998"), List.of("054321"), groupNo, "creator"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException.class)
+                .hasMessageContaining("group")
+                .extracting(e -> ((io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException) e)
+                        .getProviderNumbers())
+                .isEqualTo(List.of("999998"));
+
+        org.mockito.Mockito.verifyNoInteractions(claimPersister, diskLoader);
+    }
+
+    @Test
+    void shouldWriteNormalizedGroup_intoBatchHeader() {
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setProviderNo("999998");
+        provider.setOhipNo("054321");
+        provider.setSpecialtyCode("00");
+        provider.setBillingGroupNo("123");
+        when(claimPersister.addOneBatchHeaderRecord(org.mockito.ArgumentMatchers.any(BillingBatchHeaderDto.class)))
+                .thenReturn(7);
+
+        service.createBatchHeader(provider, "12", "4", "1", "creator");
+
+        ArgumentCaptor<BillingBatchHeaderDto> captor = ArgumentCaptor.forClass(BillingBatchHeaderDto.class);
+        verify(claimPersister).addOneBatchHeaderRecord(captor.capture());
+        assertThat(captor.getValue().getGroupNum()).isEqualTo("0123");
+    }
+
     @Test
     void shouldPropagateRuntimeException_whenMessageOnlyLooksUnique() {
         Properties refreshed = new Properties();
@@ -261,6 +322,54 @@ class BillingDiskCreationServiceUnitTest {
                 .isSameAs(failure);
 
         verify(claimPersister).addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class));
+    }
+
+    @Test
+    void shouldPrepareRegenerationWithoutWriting_untilFinalization() {
+        var provider = new BillingProviderDto();
+        provider.setBillingGroupNo("1234");
+        provider.setOhipNo("012345");
+        provider.setSpecialtyCode("00");
+        var original = new BillingBatchHeaderDto();
+        original.setId("42");
+        original.setDiskId("12");
+        original.setMohOffice("1");
+        original.setBatchId("200302030001");
+        original.setComment("prior audit");
+        original.setGroupNum("5678");
+        original.setBatchDate("2003-02-03");
+        when(diskLoader.getBatchHeaderObj(provider, "12")).thenReturn(original);
+        var prepared = service.prepareBatchHeader(provider, "12", "4", "2", "999998");
+        org.mockito.Mockito.verifyNoInteractions(claimPersister);
+        assertThat(original.getMohOffice()).isEqualTo("1");
+        assertThat(original.getBatchId()).isEqualTo("200302030001");
+        assertThat(prepared.replacement().getMohOffice()).isEqualTo("4");
+        assertThat(prepared.replacement().getGroupNum()).isEqualTo("5678");
+        assertThat(prepared.replacement().getBatchDate()).isEqualTo("2003-02-03");
+        assertThat(prepared.replacement().getBatchId()).endsWith("0002");
+        when(claimPersister.updateBatchHeaderRecord(prepared.replacement())).thenReturn(true);
+        service.finalizeBatchHeader(prepared);
+        verify(claimPersister).addRepoBatchHeader(original);
+        verify(claimPersister).updateBatchHeaderRecord(prepared.replacement());
+        assertThat(original.getComment()).isEqualTo("prior audit");
+    }
+
+    @Test
+    void shouldRejectMissingBatch_beforePreparingRegeneration() {
+        var provider = new BillingProviderDto();
+        when(diskLoader.getBatchHeaderObj(provider, "12")).thenReturn(new BillingBatchHeaderDto());
+        assertThatThrownBy(() -> service.prepareBatchHeader(provider, "12", "4", "1", "999998"))
+                .isInstanceOf(BillingValidationException.class);
+        org.mockito.Mockito.verifyNoInteractions(claimPersister);
+    }
+
+    @Test
+    void shouldRejectFailedMetadataWrite_insteadOfReportingSuccess() {
+        var dto = new BillingBatchHeaderDto();
+        var prepared = new BillingDiskCreationService.PreparedBatchHeader(dto, dto);
+        when(claimPersister.updateBatchHeaderRecord(dto)).thenReturn(false);
+        assertThatThrownBy(() -> service.finalizeBatchHeader(prepared))
+                .isInstanceOf(BillingValidationException.class);
     }
 
     // ---- createBatchHeader: assembles the BillingBatchHeaderDto ---------

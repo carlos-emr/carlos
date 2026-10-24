@@ -36,8 +36,11 @@ public record ConsultationPreviewSignatureOutcome(Status status, String signatur
             throw new IllegalArgumentException("status is required");
         }
         signatureId = StringUtils.trimToEmpty(signatureId);
-        if ((status == Status.SAVED) != StringUtils.isNotBlank(signatureId)) {
-            throw new IllegalArgumentException("signatureId must be present iff status is SAVED");
+        if (status == Status.SAVED && StringUtils.isBlank(signatureId)) {
+            throw new IllegalArgumentException("signatureId is required when status is SAVED");
+        }
+        if (status != Status.SAVED && StringUtils.isNotBlank(signatureId)) {
+            throw new IllegalArgumentException("signatureId is only allowed when status is SAVED");
         }
     }
 
@@ -49,10 +52,22 @@ public record ConsultationPreviewSignatureOutcome(Status status, String signatur
         DEMOGRAPHIC_MISMATCH
     }
 
+    /**
+     * Creates a saved outcome for a newly persisted manual preview signature.
+     *
+     * @param signatureId the persisted {@code DigitalSignature.id}; must not be blank
+     * @return an outcome whose {@link #isSaved()} contract is true
+     */
     static ConsultationPreviewSignatureOutcome saved(String signatureId) {
         return new ConsultationPreviewSignatureOutcome(Status.SAVED, signatureId);
     }
 
+    /**
+     * Creates a non-saved outcome for cases where no persisted signature id should be exposed.
+     *
+     * @param status any status other than {@link Status#SAVED}
+     * @return an outcome with an empty signature id
+     */
     static ConsultationPreviewSignatureOutcome of(Status status) {
         return new ConsultationPreviewSignatureOutcome(status, "");
     }

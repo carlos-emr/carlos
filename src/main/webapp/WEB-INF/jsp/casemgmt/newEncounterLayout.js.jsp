@@ -1,3 +1,4 @@
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%--
 
 
@@ -29,7 +30,16 @@
 --%>
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@ taglib uri="jakarta.tags.core" prefix="c"%>
+    <%@ taglib uri="jakarta.tags.fmt" prefix="fmt"%>
+    <%@ taglib uri="carlos" prefix="carlos"%>
+    <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
+<fmt:setBundle basename="oscarResources"/>
     <c:set var="ctx" value="${pageContext.request.contextPath}"	scope="request" />
+    <%-- This file is served as text/javascript, but it is still a JSP, so its user-facing
+         strings resolve from the browser locale through <fmt:message> like any other page.
+         Each one is captured into a var and written through carlos:forJavaScript, because a
+         translation lands inside a JS string literal here, not in markup. --%>
+    <fmt:message key="encounter.templateSearch.overlayPlaceholder" var="templateSearchPlaceholder"/>
 
 // global message
     var msg;
@@ -519,7 +529,8 @@
 
             var searchInput = document.createElement('input');
             searchInput.type = 'text';
-            searchInput.placeholder = 'Search templates\u2026';
+            searchInput.placeholder = '${carlos:forJavaScript(templateSearchPlaceholder)}';
+            searchInput.setAttribute('aria-label', searchInput.placeholder);
             searchInput.style.cssText = 'padding:10px 14px;border:none;border-bottom:1px solid #dee2e6;font-size:14px;outline:none;border-radius:8px 8px 0 0;width:100%;box-sizing:border-box;';
 
             var listEl = document.createElement('div');
@@ -663,16 +674,26 @@
             return;
         }
 
-        // Let any scrollable overlay/popup handle its own scrolling
-        for (var el = event.target instanceof Element ? event.target : event.target.parentElement; el && el !== document.body; el = el.parentElement) {
+        var navLayout = document.getElementById('navigation-layout');
+
+        // Let any scrollable overlay/popup NESTED INSIDE navigation-layout handle its own
+        // scrolling; stop the walk before navigation-layout itself. Sidebar rows are commonly
+        // rendered with an inline overflow:hidden (e.g. LeftNavBarDisplay.jsp's nowrap text
+        // clipping), which silently blocks the browser's native wheel scroll-chaining before
+        // it ever reaches navigation-layout even though the row has nothing to scroll. If we
+        // stopped at navigation-layout and deferred to "native scroll" here, hovering a row
+        // (rather than its section title, which has no such style) would scroll nothing.
+        for (var el = event.target instanceof Element ? event.target : event.target.parentElement;
+             el && el !== document.body && el !== navLayout;
+             el = el.parentElement) {
             var style = window.getComputedStyle(el);
             if (/(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight) {
                 return;
             }
         }
 
-        // Sidebar/CPP areas: route scroll to navigation-layout
-        var navLayout = document.getElementById('navigation-layout');
+        // Sidebar/CPP areas: route scroll to navigation-layout directly rather than relying on
+        // native scroll-chaining, which intervening overflow:hidden row markup can silently block.
         if (navLayout) {
             event.preventDefault();
             navLayout.scrollTop += event.deltaY;

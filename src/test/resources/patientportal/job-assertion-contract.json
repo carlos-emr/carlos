@@ -1,0 +1,36 @@
+{
+  "assertion_header": "X-CARLOS-Job-Assertion",
+  "audience": "carlos-patient-portal-job-api",
+  "clinic_id": "clinic-a",
+  "description": "Shared CARLOS/portal test vectors for the job assertion. Signed with the RFC 8032 section 7.1 TEST 1 Ed25519 key (a published test key, never a real one). request_hash is SHA-256 over four length-framed parts: the uppercase method, the raw path, the raw query without '?', and the body as UTF-8 bytes; each part is its 8-byte big-endian length followed by its bytes. payload is the compact, key-sorted JSON that was signed; assertion is base64url(payload) '.' base64url(signature), unpadded. Verify at issued_at. The POST body's 'note' member exists only to put multi-byte UTF-8 in the hashed bytes; the portal route itself refuses unknown members.",
+  "expires_at": 1792454460,
+  "issued_at": 1792454400,
+  "issuer": "carlos",
+  "job": "booking-sync",
+  "kid": "booking-sync-rfc8032-test-1",
+  "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+  "vectors": [
+    {
+      "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtam9iLWFwaSIsImNsaW5pY19pZCI6ImNsaW5pYy1hIiwiZXhwIjoxNzkyNDU0NDYwLCJpYXQiOjE3OTI0NTQ0MDAsImlzcyI6ImNhcmxvcyIsImpvYiI6ImJvb2tpbmctc3luYyIsImp0aSI6IjBiMWY4YTUyLTNjNmUtNGQ3YS05ZTIxLTVmNGM4YjJkNmExMCIsImtpZCI6ImJvb2tpbmctc3luYy1yZmM4MDMyLXRlc3QtMSIsInBlcm1pc3Npb24iOiJwb3J0YWwuYm9va2luZ19wcm9tcHQuc3luYyIsInJlcXVlc3RfaGFzaCI6IjA0OGVhZjRkNzkzNzQ4YzE4ZTZkMTBkZjA1YTdmNTI5MzdiM2U2NzBmZjY0YmJiMTJlODcyOWFlZjRhNTNjYmMifQ.g8L-uCvMBPoKHj3-HHJ9evcRTvAPiFT7mMqzdnk5H2uQub6JlN3ZfZ2K6mn2U1Grg_g-jdTc7HggNREnMVobCg",
+      "body": "",
+      "jti": "0b1f8a52-3c6e-4d7a-9e21-5f4c8b2d6a10",
+      "method": "GET",
+      "name": "list pending choices",
+      "payload": "{\"aud\":\"carlos-patient-portal-job-api\",\"clinic_id\":\"clinic-a\",\"exp\":1792454460,\"iat\":1792454400,\"iss\":\"carlos\",\"job\":\"booking-sync\",\"jti\":\"0b1f8a52-3c6e-4d7a-9e21-5f4c8b2d6a10\",\"kid\":\"booking-sync-rfc8032-test-1\",\"permission\":\"portal.booking_prompt.sync\",\"request_hash\":\"048eaf4d793748c18e6d10df05a7f52937b3e670ff64bbb12e8729aef4a53cbc\"}",
+      "permission": "portal.booking_prompt.sync",
+      "request_hash": "048eaf4d793748c18e6d10df05a7f52937b3e670ff64bbb12e8729aef4a53cbc",
+      "uri": "/internal/carlos/booking-prompts/choices?state=pending&limit=50"
+    },
+    {
+      "assertion": "eyJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtam9iLWFwaSIsImNsaW5pY19pZCI6ImNsaW5pYy1hIiwiZXhwIjoxNzkyNDU0NDYwLCJpYXQiOjE3OTI0NTQ0MDAsImlzcyI6ImNhcmxvcyIsImpvYiI6ImJvb2tpbmctc3luYyIsImp0aSI6IjdkM2U5YzQxLWEyYjUtNGY2OC04YzA3LTFlNmQ0YTliM2YyNSIsImtpZCI6ImJvb2tpbmctc3luYy1yZmM4MDMyLXRlc3QtMSIsInBlcm1pc3Npb24iOiJwb3J0YWwuYm9va2luZ19wcm9tcHQuc3luYyIsInJlcXVlc3RfaGFzaCI6ImRjZDk3NmY3ZDQzOTE3MDY4OTE3MTczNTJlMzY0NmI3YjliYjdlZWE0MmRhOTAxNTZhZDU2YmM4MGI2ZGZkMjUifQ.C2fJgzA0Wd-W19xcgzewgQmHWRlk6aRPRyTwsjAjG0MAT9KLt1469Jb77I2asbB0wEe7pPAcUmT56yd2VHATAQ",
+      "body": "{\"choice_id\":34,\"note\":\"Rendez-vous d\u00e9plac\u00e9 \u00b7 \u4e88\u7d04\u306e\u5909\u66f4 \u00b7 Z\u00fcrich \u2713\",\"result\":\"slot_unavailable\"}",
+      "jti": "7d3e9c41-a2b5-4f68-8c07-1e6d4a9b3f25",
+      "method": "POST",
+      "name": "report a choice result with non-ASCII body text",
+      "payload": "{\"aud\":\"carlos-patient-portal-job-api\",\"clinic_id\":\"clinic-a\",\"exp\":1792454460,\"iat\":1792454400,\"iss\":\"carlos\",\"job\":\"booking-sync\",\"jti\":\"7d3e9c41-a2b5-4f68-8c07-1e6d4a9b3f25\",\"kid\":\"booking-sync-rfc8032-test-1\",\"permission\":\"portal.booking_prompt.sync\",\"request_hash\":\"dcd976f7d4391706891717352e3646b7b9bb7eea42da90156ad56bc80b6dfd25\"}",
+      "permission": "portal.booking_prompt.sync",
+      "request_hash": "dcd976f7d4391706891717352e3646b7b9bb7eea42da90156ad56bc80b6dfd25",
+      "uri": "/internal/carlos/booking-prompts/12/choice-result"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+Maintainer notes for the carlos-emr Debian packaging
+=====================================================
+
+Pre-release version ladder (READ BEFORE CUTTING ANY PRE-RELEASE)
+----------------------------------------------------------------
+
+dpkg orders `~` pre-release suffixes by plain ASCII comparison, so the
+conventional identifiers sort:
+
+    ~alphaN  <  ~betaN  <  ~rcN  <  ~snapshotN  <  (final, no suffix)
+
+`docs/release-process.md` allows a train's Maven snapshot to advance through
+alpha, beta, or release-candidate identifiers. The deb version MUST NOT
+mechanically follow that ladder once a `~snapshotN` deb has shipped: because
+`s` sorts after `a`, `b` and `r`, a later `2026.09.0~beta1` or `2026.09.0~rc1`
+package would compare LOWER than the `~snapshot2` already installed on tester
+machines — apt would treat the newer build as a downgrade and hold it back
+(or unattended-upgrades would silently never apply it).
+
+The rule for this packaging:
+
+  * Once a `~snapshotN` deb has shipped on a release train, every later
+    pre-release deb on that train is `~snapshotN+1`, and the release itself
+    is the bare final version (`2026.09.0`), which sorts above every `~`
+    suffix. Never emit `~alpha`, `~beta` or `~rc` after a `~snapshot`.
+
+  * If a future train wants a labeled alpha/beta/rc ladder in the deb
+    version, use it from the train's FIRST deb and never mix `~snapshot`
+    into it (alpha < beta < rc < final already sort correctly on their own).
+
+Check any two candidate versions before publishing:
+
+    dpkg --compare-versions '2026.09.0~snapshot2' lt '2026.09.0~rc1' \
+        && echo ok || echo "DOWNGRADE - do not ship"
+
+Other conventions
+-----------------
+
+  * Source format is `3.0 (native)`: this repository packages itself; there
+    is no upstream tarball.
+  * debhelper compat is pinned at 13 on purpose — at 14, dh_installtmpfiles
+    would emit a `systemd-tmpfiles --purge` postrm snippet that could remove
+    the patient document store. See the comment in debian/control before
+    bumping it.
+  * Maintainer scripts follow the rule documented at the top of
+    debian/carlos-emr.postrm: no lifecycle transition ever destroys clinical
+    data or the material needed to read it.

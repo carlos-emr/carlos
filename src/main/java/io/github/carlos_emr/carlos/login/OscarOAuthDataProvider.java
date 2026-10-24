@@ -173,6 +173,19 @@ public class OscarOAuthDataProvider {
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestToken.getTokenKey());
         if (srt == null) throw new OAuth1Exception(401, "Invalid request token");
 
+        // Consume the request token atomically BEFORE minting: the bulk DELETE takes a DB row lock, so
+        // two concurrent /token exchanges serialize on it — the winner removes exactly one row
+        // (rowcount 1) and proceeds; the loser sees rowcount 0 and is rejected. OAuth1 request tokens
+        // are single-use, and this is race-free across the cluster (single DB), regardless of
+        // transaction commit timing. A JVM-only synchronized/striped lock could NOT guarantee this:
+        // this class is @Transactional, so a subsequent remove(srt) would not commit until after the
+        // lock's scope had ended, leaving a window where a second caller reads the row as still live
+        // and mints a second access token from the same request token.
+        int consumed = serviceRequestTokenDao.deleteByTokenId(requestToken.getTokenKey());
+        if (consumed == 0) {
+            throw new OAuth1Exception(401, "Invalid request token");
+        }
+
         String accessTokenId = UUID.randomUUID().toString();
         String tokenSecret = UUID.randomUUID().toString();
         long issuedAt = System.currentTimeMillis() / 1000;
@@ -194,7 +207,6 @@ public class OscarOAuthDataProvider {
             .map(OAuth1Permission::getPermission).toArray(String[]::new)));
 
         serviceAccessTokenDao.persist(sat);
-        serviceRequestTokenDao.remove(srt);
 
         return at;
     }

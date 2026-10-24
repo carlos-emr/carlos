@@ -105,8 +105,10 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
 
     public BillingONItem findBillingONItemByServiceCode(BillingONCHeader1 ch1, String serviceCode);
 
+    /** Invoices with payments from start through the whole calendar end date for one provider. */
     public List<BillingONCHeader1> get3rdPartyInvoiceByProvider(Provider p, Date start, Date end, Locale locale);
 
+    /** Invoices with payments from start through the whole calendar end date for all providers. */
     public List<BillingONCHeader1> get3rdPartyInvoiceByDate(Date start, Date end, Locale locale);
 
     public BillingONCHeader1 getLastOHIPBillingDateForServiceCode(Integer demographicNo, String serviceCode);
@@ -151,6 +153,7 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
 
     public List<BillingONCHeader1> findByDemoNoAndDates(Integer demoNo, DateRange dateRange, int iOffSet, int pageSize);
 
+    /** Statement invoices in the inclusive date range; excludes deleted headers and retains settled/legacy-null statuses. */
     public List<Object[]> findBillingsAndDemographicsByDemoIdAndDates(Integer demoNo, String payProgram, Date fromDate,
                                                                       Date toDate);
 
