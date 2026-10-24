@@ -26,6 +26,7 @@ import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.*;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.*;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -120,14 +121,15 @@ class AppointmentTextBoundsUnitTest extends CarlosUnitTestBase {
   assertThat(request.getAttribute("appointmentTextMessageKey")).isEqualTo("Appointment.textInvalidUnicode");
  }
  @Test void preservesLegacyUnchangedOverCapacityFieldsAndRawCrLfBytes()throws Exception{
-  existing.setName("L".repeat(300));existing.setReason("R".repeat(88)+"\r\nZ");existing.setNotes("N".repeat(300)+"\r\nZ");existing.setResources("S".repeat(280));
+  existing.setName("L".repeat(300));ReflectionTestUtils.setField(existing,"reason","R".repeat(88)+"\r\nZ");ReflectionTestUtils.setField(existing,"notes","N".repeat(300)+"\r\nZ");existing.setResources("S".repeat(280));
   request.setParameter("keyword",existing.getName());request.setParameter("reason",existing.getReason().replace("\r\n","\n"));request.setParameter("notes",existing.getNotes());request.setParameter("resources",existing.getResources());
   String reason=existing.getReason(),notes=existing.getNotes();assertThat(execute(true)).isEqualTo(ActionSupport.SUCCESS);
   assertThat(written.get().getName()).isEqualTo("L".repeat(300));assertThat(written.get().getReason()).isEqualTo(reason);assertThat(written.get().getNotes()).isEqualTo(notes);assertThat(written.get().getResources()).isEqualTo("S".repeat(280));
   var order=inOrder(archives,appointments);order.verify(archives).archiveAppointment(existing);order.verify(appointments).merge(existing);
  }
  @Test void preservesUnchangedStoredCrLfWithoutReencodingTheRecord()throws Exception{
-  existing.setReason("first\r\nlast");existing.setNotes("line\rnext");request.setParameter("reason","first\r\nlast");request.setParameter("notes","line\r\nnext");
+  // JPA uses field access; model setters now normalize new writes, so seed the stored legacy bytes directly.
+  ReflectionTestUtils.setField(existing,"reason","first\r\nlast");ReflectionTestUtils.setField(existing,"notes","line\rnext");request.setParameter("reason","first\r\nlast");request.setParameter("notes","line\r\nnext");
   execute(true);assertThat(written.get().getReason()).isEqualTo("first\r\nlast");assertThat(written.get().getNotes()).isEqualTo("line\rnext");
  }
  @Test void normalizesNewLogicalLineEndingsOnBothNativePathsWithoutDroppingTheLastCharacter()throws Exception{

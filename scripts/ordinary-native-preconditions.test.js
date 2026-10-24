@@ -15,7 +15,7 @@ const jsp = name => fs.readFileSync(path.join(BASE, 'src/main/webapp/WEB-INF/jsp
 // Execute the native validators rather than reproducing their conditions.
 function nativePostal(form) {
   const source = jsp('demographic/demographiceditdemographic.js.jsp');
-  const postal = source.slice(source.indexOf('function isPostalCode()'), source.indexOf('function isPostalCode2()'));
+  const postal = source.slice(source.indexOf('function isPostalCode('), source.indexOf('function isPostalCode2()'));
   const canadian = source.slice(source.indexOf('function isCanadian()'), source.indexOf('function updateProvinces('));
   const context = { document: { updatedelete: form }, alert() {} };
   vm.runInNewContext(`${postal}\n${canadian}\nresult = isPostalCode();`, context);

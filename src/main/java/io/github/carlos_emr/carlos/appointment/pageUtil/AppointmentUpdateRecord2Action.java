@@ -127,8 +127,10 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             appt.setEndTime(ConversionUtils.fromTimeString(
                     MyDateFormat.getTimeXX_XX_XX(request.getParameter("end_time"))));
             appt.setName(text.name());
-            appt.setNotes(text.notes());
-            appt.setReason(text.reason());
+            // Hibernate loads legacy CR/CRLF directly into fields. Leave logically unchanged
+            // text there: the setters normalize new writes and would rewrite those stored bytes.
+            if (!StringUtils.equals(appt.getNotes(), text.notes())) appt.setNotes(text.notes());
+            if (!StringUtils.equals(appt.getReason(), text.reason())) appt.setReason(text.reason());
             appt.setLocation(request.getParameter("location"));
             appt.setResources(text.resources());
             appt.setType(request.getParameter("type"));

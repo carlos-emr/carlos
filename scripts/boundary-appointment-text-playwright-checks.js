@@ -551,6 +551,23 @@ async function workflow(s) {
       await reopened.locator('form [name="notes"]').first().inputValue() === multilineNotes,
     'Reopening after Update changed the full multiline values');
     await reopened.close();
+
+    // Older rows can contain CR/CRLF loaded by Hibernate through field access.
+    // An unchanged native edit must leave those stored bytes intact too.
+    const legacyReason = 'first\r\nlast', legacyNotes = 'line\rnext';
+    sql.execute(`UPDATE appointment SET reason=CONVERT(0x${b.hex(legacyReason)} USING utf8mb4),
+      notes=CONVERT(0x${b.hex(legacyNotes)} USING utf8mb4) WHERE ${where}`);
+    const archiveMark = Number(sql.value(`SELECT COALESCE(MAX(id),0) FROM appointmentArchive WHERE appointment_no=${multilineApptNo}`));
+    const legacyEdit = await openEdit(multilineApptNo);
+    h.assert(await legacyEdit.locator('form [name="reason"]').first().inputValue() === 'first\nlast'
+      && await legacyEdit.locator('form [name="notes"]').first().inputValue() === 'line\nnext',
+    'The native editor did not display the legacy line endings as logical breaks');
+    await legacyEdit.locator('#updateButton').click();
+    await legacyEdit.waitForEvent('close', { timeout: 15000 }).catch(() => {});
+    await pollFor(sql, `SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${multilineApptNo} AND id>${archiveMark}`,
+      v => Number(v) === 1, 'The legacy-text Update was not recorded');
+    b.assertStored(sql, 'appointment', 'reason', where, legacyReason, 'Unchanged legacy reason');
+    b.assertStored(sql, 'appointment', 'notes', where, legacyNotes, 'Unchanged legacy notes');
   });
 }
 
