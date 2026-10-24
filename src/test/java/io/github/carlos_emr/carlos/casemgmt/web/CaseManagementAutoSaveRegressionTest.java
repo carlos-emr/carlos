@@ -96,6 +96,7 @@ class CaseManagementAutoSaveRegressionTest {
         int clearStart = js.indexOf("function clearAutoSaveTimer()");
         assertThat(clearStart).isGreaterThan(0);
         int clearEnd = js.indexOf("\n    }", clearStart);
+        assertThat(clearEnd).isGreaterThan(clearStart);
         String clearBody = js.substring(clearStart, clearEnd);
 
         assertThat(clearBody)
@@ -116,14 +117,38 @@ class CaseManagementAutoSaveRegressionTest {
         int autoSaveEnd = js.indexOf("\n    function backup()", autoSaveStart);
         assertThat(autoSaveEnd).isGreaterThan(autoSaveStart);
         String autoSaveBody = js.substring(autoSaveStart, autoSaveEnd);
+        int currentEditorStart = autoSaveBody.indexOf("function currentEditor()");
+        int failureStart = autoSaveBody.indexOf("function autosaveFailed(");
+        int completionStart = autoSaveBody.indexOf("function autosaveComplete()");
+        assertThat(currentEditorStart).isGreaterThan(0);
+        assertThat(failureStart).isGreaterThan(currentEditorStart);
+        assertThat(completionStart).isGreaterThan(failureStart);
+        String currentEditorBody = autoSaveBody.substring(currentEditorStart, failureStart);
+        String failureBody = autoSaveBody.substring(failureStart, completionStart);
 
-        assertThat(autoSaveBody)
+        assertThat(failureBody)
                 .as("non-409 failures must surface via console.error instead of being silently dropped")
-                .contains("console.error");
-        assertThat(autoSaveBody)
+                .contains("console.error", "showAutosaveStatus(\"failed\"");
+        assertThat(currentEditorBody)
                 .as("explicitly cancelled operations must be ignored while real status-zero failures remain visible")
-                .contains("!operation.cancelled", "currentEditor()", "showAutosaveStatus(\"failed\"")
+                .contains("!operation.cancelled");
+        assertThat(failureBody)
+                .contains("if (!currentEditor()) return;", "req.status == 409", "showAutosaveStatus(\"conflict\"")
                 .doesNotContain("req.status === 0");
+        int failureCallbackStart = autoSaveBody.indexOf("onFailure: function (req)");
+        int completionCallbackStart = autoSaveBody.indexOf("onComplete: autosaveComplete", failureCallbackStart);
+        assertThat(failureCallbackStart).isGreaterThan(completionStart);
+        assertThat(completionCallbackStart).isGreaterThan(failureCallbackStart);
+        assertThat(autoSaveBody.substring(failureCallbackStart, completionCallbackStart))
+                .as("the actual AJAX failure callback must route to the checked handler")
+                .contains("autosaveFailed(req, false)");
+        int timeoutStart = autoSaveBody.indexOf("autoSaveXhr.timeout = 45000");
+        int timeoutCallbackStart = autoSaveBody.indexOf("autoSaveXhr.ontimeout = function", timeoutStart);
+        assertThat(timeoutStart).isGreaterThan(completionCallbackStart);
+        assertThat(timeoutCallbackStart).isGreaterThan(timeoutStart);
+        assertThat(autoSaveBody.substring(timeoutCallbackStart))
+                .as("a real XHR timeout must report failure and release the active autosave for retry")
+                .contains("autosaveFailed({ status: 0, statusText: \"Request timed out\" }, false)", "autosaveComplete()");
         int statusStart = js.indexOf("function showAutosaveStatus(");
         assertThat(statusStart)
                 .as("showAutosaveStatus must exist and be declared before autoSave")
@@ -145,6 +170,7 @@ class CaseManagementAutoSaveRegressionTest {
                 .as("requestAsync function must exist")
                 .isGreaterThan(0);
         int asyncEnd = js.indexOf("\n    }", asyncStart);
+        assertThat(asyncEnd).isGreaterThan(asyncStart);
         String asyncBody = js.substring(asyncStart, asyncEnd);
 
         assertThat(asyncBody)

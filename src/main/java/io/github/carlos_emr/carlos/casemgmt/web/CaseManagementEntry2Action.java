@@ -2964,6 +2964,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String demono = getDemographicNo(request);
         String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
+        // Removing an issue from an existing note also saves that note below. Authorize
+        // both writes before either the issue, CPP or selected editor model is changed.
+        if (sessionFrm != null && sessionFrm.getCaseNote() != null
+                && sessionFrm.getCaseNote().getId() != null && !requireNoteWriteAccess()) return NONE;
 
         request.setAttribute("change_flag", "true");
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));

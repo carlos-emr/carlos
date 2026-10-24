@@ -82,6 +82,78 @@ function modern() {
   return { context, status, editor, requests, timers, elements, diagnostics };
 }
 
+/** Execute the real CarlosAjax request path and dispatch native XHR callbacks. */
+function modernNativeAjax() {
+  const h = modern();
+  const nativeRequests = [];
+  class NativeXhr {
+    constructor() { this.timeout = 0; this.headers = {}; nativeRequests.push(this); }
+    open(method, url, asynchronous) { this.method = method; this.url = url; this.asynchronous = asynchronous; }
+    setRequestHeader(name, value) { this.headers[name] = value; }
+    send(body) { this.body = body; }
+    abort() { this.aborted = true; }
+    finish() { Object.assign(this, ack()); this.onload(); }
+  }
+  h.context.XMLHttpRequest = NativeXhr;
+  h.context.document.querySelector = selector => selector === 'input[name="CSRF-TOKEN"]' ? { value: 'owned-csrf' } : null;
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/main/webapp/share/javascript/carlos-ajax.js'), 'utf8'), h.context);
+  return { ...h, nativeRequests };
+}
+
+test('real CarlosAjax autosave XHR times out after 45 seconds, reports failure and releases the next backup retry', () => {
+  const h = modernNativeAjax(); h.context.backup();
+  const first = h.nativeRequests[0];
+  assert.equal(first.timeout, 45000);
+  assert.equal(first.method, 'POST'); assert.equal(first.asynchronous, true);
+  assert.equal(new URLSearchParams(first.body).get('CSRF-TOKEN'), 'owned-csrf');
+  assert.equal(new URLSearchParams(first.body).get('note'), h.editor.value);
+  first.ontimeout();
+  assert.equal(h.status.attributes['data-autosave-state'], 'failed');
+  assert.equal(h.context.autoSaveOperation, null); assert.equal(h.context.autoSaveXhr, null);
+  assert.deepEqual(h.diagnostics, [['CaseManagement autoSave failed', 0, 'Request timed out']]);
+  assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
+  h.context.backup(); assert.equal(h.nativeRequests.length, 2);
+  assert.equal(h.nativeRequests[1].timeout, 45000);
+  h.nativeRequests[1].finish();
+  assert.equal(h.status.attributes['data-autosave-state'], 'saved');
+});
+
+test('late native timeout and completion callbacks cannot clear or overwrite another active autosave', () => {
+  const h = modernNativeAjax(); h.context.autoSave();
+  const first = h.nativeRequests[0]; first.ontimeout();
+  h.context.autoSave(); const retry = h.nativeRequests[1];
+  first.ontimeout(); first.finish();
+  assert.equal(h.context.autoSaveXhr, retry);
+  assert.equal(h.status.attributes['data-autosave-state'], 'pending');
+  assert.equal(h.diagnostics.length, 1);
+  retry.finish(); assert.equal(h.status.attributes['data-autosave-state'], 'saved');
+});
+
+test('a native timeout releases serialization even if updating the failure status throws', () => {
+  const h = modernNativeAjax(); h.context.backup();
+  const updateStatus = h.status.setAttribute;
+  h.status.setAttribute = function (name, value) {
+    if (value === 'failed') throw new Error('synthetic status update failure');
+    updateStatus.call(this, name, value);
+  };
+  assert.throws(() => h.nativeRequests[0].ontimeout(), /synthetic status update failure/);
+  assert.equal(h.context.autoSaveOperation, null); assert.equal(h.context.autoSaveXhr, null);
+  h.status.setAttribute = updateStatus;
+  h.context.backup(); assert.equal(h.nativeRequests.length, 2);
+  h.nativeRequests[1].finish();
+  assert.equal(h.status.attributes['data-autosave-state'], 'saved');
+});
+
+test('explicit native XHR cancellation stays silent and a stale timeout does not establish a retry baseline', () => {
+  const h = modernNativeAjax(); h.context.origCaseNote = '';
+  h.context.backup(); const first = h.nativeRequests[0]; h.context.clearAutoSaveTimer();
+  assert.equal(first.aborted, true); first.ontimeout();
+  assert.notEqual(h.status.attributes['data-autosave-state'], 'failed');
+  assert.equal(h.context.acknowledgedDrafts.get(h.editor), undefined);
+  h.editor.value = ''; h.context.backup();
+  assert.equal(h.nativeRequests.length, 1); assert.equal(h.diagnostics.length, 0);
+});
+
 for (const code of [0, 400, 403, 500]) {
   test(`modern HTTP ${code} failure replaces the prior saved claim and retains clinical text, then retry succeeds`, () => {
     const h = modern(); h.context.autoSave();

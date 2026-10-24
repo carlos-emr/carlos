@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 /** Checks the real dispatch path before the clinical issue write is reached. */
@@ -116,6 +118,62 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         org.assertj.core.api.Assertions.assertThat(fixture.action.issueChange()).isEqualTo("none");
         org.assertj.core.api.Assertions.assertThat(fixture.action.response.getStatus()).isEqualTo(405);
         verifyNoInteractions(fixture.manager);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"_eChart", "_casemgmt.notes"})
+    void shouldRefuseIssueDeletionBeforeAnyMutation_whenAnExistingNoteCannotBeSaved(String deniedObject) throws Exception {
+        var fixture = issueFixture(true);
+        var permissions = (SecurityInfoManager) org.springframework.test.util.ReflectionTestUtils
+                .getField(fixture.action, "securityInfoManager");
+        var user = LoggedInInfo.getLoggedInInfoFromSession(fixture.action.request);
+        when(permissions.hasPrivilege(user, "_eChart", "w", "101")).thenReturn(true);
+        when(permissions.hasPrivilege(user, "_casemgmt.notes", "w", "101")).thenReturn(true);
+        when(permissions.hasPrivilege(user, deniedObject, "w", "101")).thenReturn(false);
+        CaseManagementNote note = new CaseManagementNote();
+        note.setId(501L);
+        note.setDemographic_no("101");
+        note.setNote("Existing clinical text");
+        fixture.form.setCaseNote(note);
+        fixture.action.setDeleteId("0");
+        var existingIssues = fixture.form.getIssueCheckList();
+
+        assertThat(fixture.action.issueDelete()).isEqualTo("none");
+
+        assertThat(fixture.action.response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(fixture.manager);
+        assertThat(fixture.form.getIssueCheckList()).isSameAs(existingIssues).hasSize(1);
+        assertThat(note.getNote()).isEqualTo("Existing clinical text");
+        assertThat(fixture.action.request.getAttribute("change_flag")).isNull();
+    }
+
+    @Test
+    void shouldKeepIssueOnlyDeletionAvailable_whenTheEditorHasNoPersistedNote() throws Exception {
+        var fixture = issueFixture(true);
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no("101");
+        note.setNote("Unsaved editor text");
+        fixture.form.setCaseNote(note);
+        fixture.action.setDeleteId("0");
+        doReturn("").when(fixture.action).getDemoName(anyString());
+        doReturn("").when(fixture.action).getDemoAge(anyString());
+        doReturn("").when(fixture.action).getDemoDOB(anyString());
+        var issue = fixture.form.getIssueCheckList().getFirst().getIssue();
+        var properties = mock(io.github.carlos_emr.CarlosProperties.class);
+        when(properties.isCaisiLoaded()).thenReturn(true);
+        try (var config = mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
+            config.when(io.github.carlos_emr.CarlosProperties::getInstance).thenReturn(properties);
+
+            assertThat(fixture.action.issueDelete()).isEqualTo("view");
+        }
+
+        assertThat(fixture.action.response.getStatus()).isEqualTo(200);
+        verify(fixture.manager).deleteIssueById(issue);
+        verify(fixture.manager).removeIssueFromCPP("101", issue);
+        assertThat(fixture.form.getIssueCheckList()).isEmpty();
+        assertThat(note.getNote()).isEqualTo("Unsaved editor text");
+        verify(fixture.manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any());
     }
 
     record Fixture(CaseManagementEntry2Action action,CaseManagementManager manager,CaseManagementEntryFormBean form) {}

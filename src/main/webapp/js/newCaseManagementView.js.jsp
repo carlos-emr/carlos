@@ -3635,6 +3635,12 @@ function autoSave() {
                 unexpectedResponse ? "Unexpected autosave response" : req.statusText);
         }
     }
+    function autosaveComplete() {
+        if (autoSaveOperation === operation) {
+            autoSaveXhr = null;
+            autoSaveOperation = null;
+        }
+    }
     showAutosaveStatus("pending", draftSavingMessage);
 
         autoSaveXhr = CarlosAjax.request(url, {
@@ -3662,15 +3668,22 @@ function autoSave() {
                 onFailure: function (req) {
                     autosaveFailed(req, false);
                 },
-                onComplete: function () {
-                    if (autoSaveOperation === operation) {
-                        autoSaveXhr = null;
-                        autoSaveOperation = null;
-                    }
-                }
+                onComplete: autosaveComplete
             }
         );
-
+        // CarlosAjax returns the real asynchronous XHR. Bound this one clinical
+        // request directly: a stalled POST must release the serialization guard
+        // and allow the next backup to retry without changing other AJAX callers.
+        if (autoSaveOperation === operation && autoSaveXhr) {
+            autoSaveXhr.timeout = 45000;
+            autoSaveXhr.ontimeout = function () {
+                try {
+                    autosaveFailed({ status: 0, statusText: "Request timed out" }, false);
+                } finally {
+                    autosaveComplete();
+                }
+            };
+        }
     }
 
 
