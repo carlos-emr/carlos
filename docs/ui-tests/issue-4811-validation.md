@@ -8,7 +8,7 @@ name their patient; opening another chart cannot supply that identity.
 | --- | --- |
 | 1 | Remove the unnamed Rx read fallback. Read and write requests require an explicit patient. |
 | 2 | Stop writing the login-wide encounter bean; chart notes use the named patient's immutable entry metadata. |
-| 3 | Capture the selected CAISI program for each patient at chart entry. Subsequent chart operations use that captured program. |
+| 3 | Capture the selected CAISI program for each patient at chart entry. Subsequent chart operations use that captured program. The chart context supports the full non-negative Integer range used by its DAOs. |
 | 4–7 | Remove unused session writes and move message navigation and note-editor flags into the request. |
 | 8 | Make mailbox search and sort request-scoped; carry both through pagination, message detail, Inbox/Sent return links, and message actions. |
 | 9, 21, 22 | Retain at most 100 patients' disposable appointment, encounter and saved-note metadata per category. Unsaved clinical drafts are not evicted. |
@@ -27,7 +27,7 @@ name their patient; opening another chart cannot supply that identity.
 | 26 | Bundle the transfer definition as a classpath resource, excluding the retired `formAR` table. Check access to its clinical sections before rendering, encode displayed data, and load the packaged stylesheet. |
 | 27 | Carry the resolved message ID through the position-navigation redirect; return 404 when no result exists. |
 | 28 | Restore the dynamically included legacy chart fragments under `WEB-INF`, with current routes and encoding. |
-| 29 | Return an empty issue search for an absent/invalid program selection. Dated draft restoration also returns no draft when patient/program context is missing or invalid. |
+| 29 | Return an empty issue search for an absent/invalid program selection. Dated draft restoration also returns no draft when patient/program context is missing or invalid. Issue searches accept the full positive Long range used by the program access DAOs, without an arbitrary nine-digit limit. |
 | 30 | Guard chart-close lock release until the editor and note field exist. |
 | 31 | The release already removes the incorrect custom-drug charset conversion; retain and rerun `rx-drug-name-quotes`. |
 | 33 | Already addressed by #4954: billing refusals survive the redirect on the bill's own bean. |
@@ -56,11 +56,12 @@ version satisfying the package dependency. No CLI release is published by this w
 
 ## Validation results (Ubuntu 26.04)
 
-- Full Java unit/integration run after review fixes: 25,532 tests, zero failures/errors, seven skips.
+- Full Java unit/integration run after review fixes: 25,547 tests, zero failures/errors, seven skips.
   The reply/forward reload and mailbox-navigation checks passed all 33
   focused tests, including three new reload cases. The CodeRabbit follow-up suite
-  passed 31 tests covering empty report parameters, missing draft context, first-use
-  transfer identity, canonical JSP patient keys and the authorized missing-PDF path.
+  passed 48 tests covering program identifier boundaries, empty report parameters,
+  missing draft context, first-use transfer identity, canonical JSP patient keys
+  and the authorized missing-PDF path.
   All 992 JSPs compile.
 - Full script regression run: 4,475 passed, zero failures, four skipped and one TODO.
 - Pinned DrugRef build: 74 tests passed. The documented `carlos-ctl` fallback build:
@@ -68,7 +69,7 @@ version satisfying the package dependency. No CLI release is published by this w
 - CARLOS and DrugRef debs were built, installed and upgraded in a disposable Ubuntu
   26.04 systemd container. `carlos-ctl check` passed, including live application and
   DrugRef requests, database migrations, TLS, WAF and least-privilege reporting.
-  The final local package version is `2026.08.0~beta1+issue4811test8` with
+  The final local package version is `2026.08.0~beta1+issue4811test9` with
   `carlos-ctl` `1.2.0+issue4811test1`.
 - CAISI legacy-editor isolation and multi-site Rx previews both passed with their
   optional modules enabled temporarily. Both settings were restored afterwards;
@@ -79,7 +80,10 @@ version satisfying the package dependency. No CLI release is published by this w
 CodeRabbit's full review identified seven inline findings and one missing-PDF fixture
 outside the diff. All were validated and addressed, with regressions for the behavior
 changes. The unused retired-navigation message fixtures were removed and the new
-attachment-access helper received its creation-date `@since` tag.
+attachment-access helper received its creation-date `@since` tag. The incremental
+review also led to explicit query/draft contracts and program identifier range fixes.
+Boundary regressions cover ten-digit IDs, Integer/Long maxima, zero sentinels,
+negative IDs, missing IDs and overflow.
 
 Six broader authorization workflows did not pass. Five reproduced failures documented
 in the existing suite manifest: chart-note writes through GET/HEAD, patient-lock read

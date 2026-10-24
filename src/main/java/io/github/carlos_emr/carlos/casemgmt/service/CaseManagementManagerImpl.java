@@ -1524,14 +1524,39 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return map;
     }
 
+    /**
+     * Parses the positive Long identifiers accepted by the program access DAOs.
+     *
+     * @param programId String containing the program identifier
+     * @return Long identifier, or null for missing, non-positive or out-of-range values
+     */
+    private static Long positiveProgramId(String programId) {
+        if (programId == null) return null;
+        try {
+            long value = Long.parseLong(programId);
+            return value > 0 ? value : null;
+        } catch (NumberFormatException invalidProgram) {
+            return null;
+        }
+    }
+
+    /**
+     * Counts matching issues visible through the provider's program role.
+     *
+     * @param providerNo String identifying the provider
+     * @param programId String containing a positive Long program identifier
+     * @param search String containing the issue search text
+     * @return Integer match count, or zero for invalid program context or absent membership
+     */
     @Override
     public Integer searchIssuesCount(String providerNo, String programId, String search) {
         // No selected program is an empty issue search, not an invalid numeric query.
-        if (programId == null || !programId.matches("[1-9][0-9]{0,8}")) return 0;
+        Long programKey = positiveProgramId(programId);
+        if (programKey == null) return 0;
 
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(programId));
+                programKey);
         if (ppList == null || ppList.isEmpty()) {
             return 0;
         }
@@ -1540,7 +1565,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // get program accesses... program allows either all roles or not all roles
         // (does this mean no roles?)
-        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
+        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(programKey);
         Map<String, ProgramAccess> paMap = convertProgramAccessListToMap(paList);
 
         // get all roles
@@ -1569,15 +1594,29 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return issueDAO.searchCount(search, allowableSearchRoles);
     }
 
+    /**
+     * Searches the first page of issues visible through the provider's program role.
+     *
+     * @param providerNo String identifying the provider
+     * @param programId String containing a positive Long program identifier
+     * @param search String containing the issue search text
+     * @return {@code List<Issue>} results, empty for invalid program context or absent membership
+     */
     @Override
     public List<Issue> searchIssues(String providerNo, String programId, String search) {
         return searchIssues(providerNo, programId, search, 0, AbstractDao.MAX_LIST_RETURN_SIZE);
     }
 
     /**
-     * @param providerNo
-     * @param programId
-     * @param search
+     * Searches a page of issues visible through the provider's program role.
+     *
+     * @param providerNo String identifying the provider
+     * @param programId String containing a positive Long program identifier
+     * @param search String containing the issue search text
+     * @param startIndex int offset into the matching results
+     * @param numToReturn int maximum number of matching issues to return
+     * @return {@code List<Issue>} results, empty for invalid program context or absent membership
+     * @throws IllegalArgumentException if numToReturn exceeds the DAO result limit
      */
     @Override
     public List<Issue> searchIssues(String providerNo, String programId, String search, int startIndex,
@@ -1589,11 +1628,12 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         // No selected program is an empty issue search, not an invalid numeric query.
-        if (programId == null || !programId.matches("[1-9][0-9]{0,8}")) return new ArrayList<>();
+        Long programKey = positiveProgramId(programId);
+        if (programKey == null) return new ArrayList<>();
 
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(programId));
+                programKey);
         if (ppList == null || ppList.isEmpty()) {
             return new ArrayList<Issue>();
         }
@@ -1602,7 +1642,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // get program accesses... program allows either all roles or not all roles
         // (does this mean no roles?)
-        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
+        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(programKey);
         Map<String, ProgramAccess> paMap = convertProgramAccessListToMap(paList);
 
         // get all roles
@@ -1642,7 +1682,14 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /**
-     * Filters a list of CaseManagementIssue objects based on role.
+     * Filters a list of CaseManagementIssue objects based on the provider's program role.
+     *
+     * @param loggedInInfo LoggedInInfo containing the caller's authenticated context
+     * @param providerNo String identifying the provider
+     * @param issues {@code List<CaseManagementIssue>} objects to filter
+     * @param programId String containing a positive Long program identifier
+     * @return {@code List<CaseManagementIssue>} objects visible to the role, empty for invalid
+     *         program context or absent membership
      */
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
@@ -1657,11 +1704,12 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         // No selected program is an empty issue search, not an invalid numeric query.
-        if (programId == null || !programId.matches("[1-9][0-9]{0,8}")) return new ArrayList<>();
+        Long programKey = positiveProgramId(programId);
+        if (programKey == null) return new ArrayList<>();
 
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(programId));
+                programKey);
         if (ppList == null || ppList.isEmpty()) {
             return new ArrayList<CaseManagementIssue>();
         }
@@ -1670,7 +1718,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         Secrole role = pp.getRole();
 
         // Load up access list from program
-        List<ProgramAccess> programAccessList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
+        List<ProgramAccess> programAccessList = programAccessDAO.getAccessListByProgramId(programKey);
         Map<String, ProgramAccess> programAccessMap = convertProgramAccessListToMap(programAccessList);
 
         // iterate through the issue list
