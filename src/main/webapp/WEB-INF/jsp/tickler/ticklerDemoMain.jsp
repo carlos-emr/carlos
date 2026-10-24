@@ -28,7 +28,16 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
+<%--
+    Purpose: Displays a patient's ticklers within the chart workflow.
+    Features: Pages and filters ticklers, opens attachments, and edits linked
+    clinical notes. Note saves POST to CaseManagementEntry; failed saves retain
+    the editor and display the localized failure message.
+    Parameters: demoview selects the patient; limit1/limit2 control paging;
+    ticklerview and the date fields filter results. parentAjaxId/updateParent
+    identify an optional owning chart panel to refresh.
+    @since 2026-10-24 (POST note-save recovery)
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

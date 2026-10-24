@@ -5,8 +5,9 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { chartActionUrlSource } = require('./lib/chart-action-url-source');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
-const chartHelper = source.slice(source.indexOf('    function chartActionUrl('), source.indexOf('    var caisiEnabled'));
+const chartHelper = chartActionUrlSource(source);
 function block(from, to) {
   const start = source.indexOf(from);
   const end = source.indexOf(to, start);

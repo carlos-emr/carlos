@@ -27,8 +27,10 @@ import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
+import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.log.LogAction;
 import org.hibernate.exception.SnapshotIsolationException;
 import org.junit.jupiter.api.BeforeEach;
@@ -564,6 +566,70 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
                 .satisfies(checkbox -> assertThat(checkbox.getIssue()).isSameAs(persistedIssue));
         assertThat(request.getSession().getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("Committed chart text");
         assertThat(note.getNote()).isEqualTo("Original");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldUseTheAuthorizedDefaultForNewCppIssues_whenLegacyProgramContextIsAbsent(boolean readOnly) throws Exception {
+        prepareCppSave();
+        request.removeAttribute(ChartProgramContext.class.getName() + ".requestContext");
+        request.getSession().removeAttribute(ChartProgramContext.class.getName() + ".101");
+        String legacyFormKey = ChartProgramContext.formKey(request, "101");
+        request.getSession().setAttribute(legacyFormKey, form);
+        request.setParameter("noteId", "0");
+        request.setParameter("programId", "22");
+        request.setParameter("providerNo", "another-provider");
+        request.setParameter("forward", "none");
+        EctProgramManager programs = mock(EctProgramManager.class);
+        when(programs.getProgramBeans("999998", null)).thenReturn(List.of(
+                new LabelValueBean("Authenticated default", "11"), new LabelValueBean("Other program", "22")));
+        when(programs.getDefaultProgramId("999998")).thenReturn(11);
+        WebApplicationContext context = action.getSpringContext();
+        when(context.getBean("ectProgramManager")).thenReturn(programs);
+        request.getServletContext().setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, context);
+        when(manager.hasAccessRight("note-read-only", "access", "999998", "101", "11")).thenReturn(readOnly);
+        CaseManagementIssue persistedIssue = new CaseManagementIssue();
+        persistedIssue.setId(74L);
+        persistedIssue.setIssue_id(73L);
+        persistedIssue.setIssue(manager.getIssue("73"));
+        persistedIssue.setProgram_id(11);
+        when(manager.saveCppNoteRevision(any(), any(), any(), any(), any())).thenAnswer(call -> {
+            CaseManagementNote submitted = call.getArgument(0);
+            assertThat(submitted.getId()).isNull();
+            assertThat(submitted.getProgram_no()).isEqualTo("11");
+            assertThat(submitted.getIssues()).singleElement().satisfies(issue -> {
+                assertThat(issue.getId()).isNull();
+                assertThat(issue.getIssue_id()).isEqualTo(73L);
+                assertThat(issue.getProgram_id()).isEqualTo(11);
+            });
+            CaseManagementNote saved = submitted.copyForRevision();
+            saved.setId(600L);
+            saved.setIssues(Set.of(persistedIssue));
+            return new CaseManagementNoteSaveResult(saved, "Committed chart text");
+        });
+        clearInvocations(manager, locks);
+
+        assertThat(action.issueNoteSave()).isEqualTo(readOnly ? "none" : null);
+
+        assertThat(response.getStatus()).isEqualTo(readOnly ? 403 : 200);
+        verify(manager).hasAccessRight("note-read-only", "access", "999998", "101", "11");
+        assertThat(ChartProgramContext.resolve(request)).isNull();
+        assertThat(ChartProgramContext.formKey(request, "101")).isEqualTo(legacyFormKey);
+        assertThat(request.getSession().getAttribute(legacyFormKey)).isSameAs(form);
+        assertThat(form.getCaseNote()).isSameAs(note);
+        assertThat(note.getNote()).isEqualTo("Original");
+        if (readOnly) {
+            verifyNoMoreInteractions(manager);
+            verifyNoInteractions(locks);
+            assertThat(form.getIssueCheckList()).isEmpty();
+            assertThat(request.getSession().getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("Previous chart text");
+        } else {
+            verify(manager).saveCppNoteRevision(any(), any(), eq("Previous chart text"), any(), any());
+            assertThat(response.getContentAsString().trim()).isEqualTo("600");
+            assertThat(form.getIssueCheckList()).singleElement()
+                    .satisfies(checkbox -> assertThat(checkbox.getIssue()).isSameAs(persistedIssue));
+            assertThat(request.getSession().getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("Committed chart text");
+        }
     }
 
     @Test

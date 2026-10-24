@@ -42,7 +42,7 @@ class CaseManagementNoteRevisionIntegrationTest extends CaseManagementNoteDaoBas
     private PlatformTransactionManager transactionManager;
 
     @Test
-    void shouldCountRevisionsOnlyWithinEachIndependentUuidChain() {
+    void shouldCountRevisions_withinEachIndependentUuidChain() {
         CaseManagementNote first = createNote("1", "Independent chain A original", new Date(2000));
         CaseManagementNote second = first.copyForRevision();
         second.setNote("Independent chain A revision");
@@ -65,7 +65,7 @@ class CaseManagementNoteRevisionIntegrationTest extends CaseManagementNoteDaoBas
     }
 
     @Test
-    void shouldCountZeroRevisionsForLegacyNullUuidDespiteUnrelatedChains() {
+    void shouldCountZeroRevisions_forLegacyNullUuidDespiteUnrelatedChains() {
         CaseManagementNote legacy = createNote("1", "Legacy note with no revision UUID");
         Long legacyId = legacy.getId();
         // The save DAO generates UUIDs for new notes; reproduce a pre-existing legacy
@@ -83,7 +83,7 @@ class CaseManagementNoteRevisionIntegrationTest extends CaseManagementNoteDaoBas
     }
 
     @Test
-    void shouldDeriveCreationDateOnlyFromTheNotesOwnUuidChain() {
+    void shouldDeriveCreationDate_fromTheNotesOwnUuidChain() {
         CaseManagementNote first = createNote("1", "Creation date chain A original", new Date(2000));
         CaseManagementNote second = first.copyForRevision();
         second.setNote("Creation date chain A revision");

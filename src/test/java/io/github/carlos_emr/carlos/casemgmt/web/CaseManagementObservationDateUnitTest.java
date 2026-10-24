@@ -290,7 +290,7 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
     @org.junit.jupiter.params.provider.CsvSource({"issueAdd,hourOfEncounterTime,not-a-duration", "makeIssue,minuteOfEncounterTime,not-a-duration",
             "issueAdd,hourOfEncTransportationTime,not-a-duration", "makeIssue,minuteOfEncTransportationTime,not-a-duration",
             "issueAdd,hourOfEncounterTime,' '", "makeIssue,minuteOfEncounterTime,' 2'"})
-    void shouldRefuseBadInlineDurationsBeforeDateTypeOrPendingIssuesChange(String operation, String field, String value) throws Exception {
+    void shouldRefuseBadInlineDurations_beforeDateTypeOrPendingIssuesChange(String operation, String field, String value) throws Exception {
         seedDurationFields();
         note.setEncounter_type("office");
         var posted = new CaseManagementNote();

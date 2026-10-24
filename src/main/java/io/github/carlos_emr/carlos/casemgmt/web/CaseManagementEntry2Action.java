@@ -154,6 +154,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final Set<String> ALLOWED_CHAIN_RESULT_NAMES = Set.of("list", "view", ISSUE_LIST_AJAX_RESULT);
     private static final Set<String> NOTE_WRITE_METHODS = Set.of(
             "issueNoteSave", "issueNoteSaveJson", "ajaxsave", "save", "saveAndExit", "ticklerSaveNote");
+    private static final String AUTHORIZED_NOTE_PROGRAM = CaseManagementEntry2Action.class.getName() + ".authorizedNoteProgram";
 
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -212,6 +213,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             program = new EctProgram(request.getSession()).getProgram(login.getLoggedInProviderNo());
         }
         if (!requireProgramNoteWriteAccess(login, patient, program)) return false;
+        request.setAttribute(AUTHORIZED_NOTE_PROGRAM, program);
         request.setAttribute("casemgmt_DemoNo", patient);
         return true;
     }
@@ -1293,7 +1295,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         logger.debug("Note archived {}", LogSafe.sanitize(String.valueOf(note.isArchived())));
-        String programId = ChartProgramContext.resolve(request);
+        // Reuse the program whose permission was checked, including a legacy default.
+        // Capturing a token here would move the existing legacy form to a different key.
+        String programId = (String) request.getAttribute(AUTHORIZED_NOTE_PROGRAM);
         note.setProgram_no(programId);
 
         WebApplicationContext ctx = this.getSpringContext();
@@ -1893,17 +1897,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         return note.getId();
-    }
-
-    /** The chart owns its draft even when it explicitly edits a visible note from another program. */
-    private void deleteSavedChartDraft(String providerNo, String patient) {
-        String program = ChartProgramContext.resolve(request);
-        if (program == null) return;
-        try {
-            caseManagementMgr.deleteTmpSave(providerNo, patient, program);
-        } catch (Exception e) {
-            logger.warn("Warning ({})", e.getClass().getSimpleName());
-        }
     }
 
     private boolean containsIssue(List<CaseManagementIssue> issuelist, CaseManagementIssue issue) {

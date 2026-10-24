@@ -66,7 +66,7 @@
         <td><label for="cpp.reminders">Reminders</label></td>
     </tr>
     <tr>
-        <td bgcolor="white"><textarea id="cpp.reminders" name="cpp.reminders" rows="4" cols="85"><c:out value="${requestScope.cpp.reminders}"/></textarea></td>
+        <td bgcolor="white"><textarea id="cpp.reminders" name="cpp.reminders" rows="4" cols="85"><carlos:encode value="${requestScope.cpp.reminders}"/></textarea></td>
     </tr>
 </table>
 <input type="submit" value="Save" onclick="this.form.elements.namedItem('method').value='patientCPPSave'"/>

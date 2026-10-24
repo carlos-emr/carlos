@@ -6,7 +6,11 @@ import java.util.ArrayList;
 import java.util.List;
 import org.springframework.web.util.WebUtils;
 
-/** Bounds disposable per-patient entry metadata; never use this for unsaved clinical drafts. */
+/**
+ * Bounds disposable per-patient entry metadata; never use this for unsaved clinical drafts.
+ *
+ * @since 2026-10-24
+ */
 public final class BoundedSessionAttributes {
     /** Entry metadata for the most recently opened hundred patients is retained per category. */
     public static final int MAX_ENTRIES = 100;

@@ -31,6 +31,7 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { chartActionUrlSource } = require('./lib/chart-action-url-source');
 
 const SOURCE = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'main', 'webapp', 'js', 'newCaseManagementView.js.jsp'),
@@ -47,7 +48,7 @@ function sliceFunctions(from, to) {
   return code;
 }
 
-const CODE = SOURCE.slice(SOURCE.indexOf('    function chartActionUrl('), SOURCE.indexOf('    var caisiEnabled'))
+const CODE = chartActionUrlSource(SOURCE)
   + sliceFunctions('notesCaptureScrollAnchor', 'notesIncrementAndLoadMore')
   + sliceFunctions('notesLoader', 'navBarLoader');
 

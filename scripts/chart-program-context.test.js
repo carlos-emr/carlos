@@ -6,16 +6,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const { chartActionUrlSource } = require('./lib/chart-action-url-source');
 
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
-const start = source.indexOf('    var ctx;');
-const end = source.indexOf('    var caisiEnabled', start);
-assert.ok(start >= 0 && end > start, 'chart context initialization and URL helper exist');
+const chartSource = chartActionUrlSource(source, { includeInitialization: true });
 
 function chart(token) {
     const sandbox = {window: {carlosChartContext: token}, encodeURIComponent};
     vm.createContext(sandbox);
-    vm.runInContext(source.slice(start, end), sandbox);
+    vm.runInContext(chartSource, sandbox);
     sandbox.ctx = '/carlos';
     return sandbox;
 }
@@ -63,4 +62,20 @@ test('standalone chart notes initialize the captured program before loading edit
     const fragment = {window: {carlosChartContext: 'patient101.program22.signature'}};
     vm.runInNewContext(code, fragment);
     assert.equal(fragment.window.carlosChartContext, 'patient101.program22.signature');
+});
+
+for (const [description, brokenSource, expectedMarker] of [
+    ['missing URL helper', '    var caisiEnabled', 'function chartActionUrl('],
+    ['missing helper boundary', '    function chartActionUrl() {}', 'var caisiEnabled'],
+    ['boundary before the URL helper', '    var caisiEnabled\n    function chartActionUrl() {}', 'var caisiEnabled'],
+]) {
+    test(`chart helper extraction reports its source marker when ${description}`, () => {
+        assert.throws(() => chartActionUrlSource(brokenSource), error =>
+            error instanceof assert.AssertionError && error.message.includes(expectedMarker));
+    });
+}
+
+test('chart initialization extraction reports a missing initialization marker', () => {
+    assert.throws(() => chartActionUrlSource(source.replace('    var ctx;', ''), { includeInitialization: true }),
+        /var ctx;/);
 });

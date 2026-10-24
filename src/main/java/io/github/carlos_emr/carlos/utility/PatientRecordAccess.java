@@ -3,7 +3,11 @@ package io.github.carlos_emr.carlos.utility;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
-/** Patient-specific privilege and record-access boundary for chart and registry actions. */
+/**
+ * Patient-specific privilege and record-access boundary for chart and registry actions.
+ *
+ * @since 2026-10-24
+ */
 public final class PatientRecordAccess {
     private PatientRecordAccess() { }
 

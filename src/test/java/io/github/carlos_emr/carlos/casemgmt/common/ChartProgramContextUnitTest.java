@@ -29,11 +29,17 @@ class ChartProgramContextUnitTest extends CarlosUnitTestBase {
     void shouldKeepEachChartsProgram_whenAnotherWindowChangesPmmSelection() {
         MockHttpSession session = new MockHttpSession();
         MockHttpServletRequest first = chart(session, "101");
+        EctProgram programs = mock(EctProgram.class);
+        EctProgramManager manager = mock(EctProgramManager.class);
+        when(programs.getProgram("999998")).thenReturn("11", "22");
+        when(programs.getEctProgramManager()).thenReturn(manager);
+        when(manager.getProgramBeans("999998", null)).thenReturn(List.of(
+                new LabelValueBean("First program", "11"), new LabelValueBean("Second program", "22")));
         session.setAttribute("case_program_id", "11");
-        ChartProgramContext.capture(first);
+        ChartProgramContext.initialize(first, programs, "999998");
         MockHttpServletRequest second = chart(session, "202");
         session.setAttribute("case_program_id", "22");
-        ChartProgramContext.capture(second);
+        ChartProgramContext.initialize(second, programs, "999998");
         session.setAttribute("case_program_id", "33");
         assertThat(ChartProgramContext.resolve(first)).isEqualTo("11");
         assertThat(ChartProgramContext.resolve(second)).isEqualTo("22");
@@ -44,8 +50,7 @@ class ChartProgramContextUnitTest extends CarlosUnitTestBase {
     void shouldResolveNoProgram_whenPatientIsMissingOrSelectionInvalid() {
         MockHttpSession session = new MockHttpSession();
         MockHttpServletRequest request = chart(session, "101");
-        session.setAttribute("case_program_id", "");
-        ChartProgramContext.capture(request);
+        ChartProgramContext.remember(request, "");
         assertThat(ChartProgramContext.resolve(request)).isNull();
         MockHttpServletRequest legacy = new MockHttpServletRequest();
         legacy.setSession(session);
@@ -123,8 +128,10 @@ class ChartProgramContextUnitTest extends CarlosUnitTestBase {
         session.setAttribute("case_program_id", "22");
         MockHttpServletRequest reload = reload(session, "101", token);
 
-        ChartProgramContext.capture(reload);
+        EctProgram programs = mock(EctProgram.class);
+        ChartProgramContext.initialize(reload, programs, "999998");
 
+        verifyNoInteractions(programs);
         assertThat(ChartProgramContext.token(reload)).isEqualTo(token);
         assertThat(ChartProgramContext.resolve(reload)).isEqualTo("11");
         assertThat(session.getAttribute("case_program_id")).isEqualTo("22");

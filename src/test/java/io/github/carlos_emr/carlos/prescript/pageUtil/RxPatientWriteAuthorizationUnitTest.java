@@ -33,6 +33,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -467,18 +468,18 @@ class RxPatientWriteAuthorizationUnitTest {
         }
     }
 
-    @ParameterizedTest(name = "{0} denied")
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"patient read", "record access"})
-    @DisplayName("should authorise the active Rx patient a patient-less view falls back to")
-    void shouldRefusePatientlessGate_whenActivePatientDenied(String denied) {
+    @Test
+    @DisplayName("should refuse an unnamed Rx patient before patient authorization lookups")
+    void shouldRefusePatientlessGate_whenRequestNamesNoPatient() {
         request.setMethod("GET");
         request.removeParameter("demographicNo");
-        denyPatient(denied, DEMOGRAPHIC_NO, "_rx");
 
         assertThatThrownBy(() -> io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess
                 .require(securityInfoManager, loggedInInfo, request, "_rx", "r"))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
+        verify(securityInfoManager, Mockito.never()).hasPrivilege(any(), anyString(), anyString(), anyInt());
+        verify(securityInfoManager, Mockito.never()).isAllowedAccessToPatientRecord(any(), anyInt());
     }
 
     private void denyPatient(String denied, int patient, String object) {

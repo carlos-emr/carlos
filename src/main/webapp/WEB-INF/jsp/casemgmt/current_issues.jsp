@@ -28,10 +28,18 @@
     Modifications by CARLOS Contributors, 2026.
 
 --%>
-
+<%--
+    Purpose: Renders the patient chart's issue filter and diagnosis handoff.
+    Features: Selects issue filters, shows resolved issues on request, and offers
+    diagnosis actions using the owning case-management form.
+    Parameters: check_issue contains selected code-type/code pairs. The owner
+    supplies Issues, dxMap and caseManagementViewForm in the request.
+    @since 2026-10-24 (restored chart fragment)
+--%>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -110,14 +118,14 @@
                 <input type="checkbox" name="check_issue" aria-label="<%=SafeEncode.forHtmlAttribute("Select issue " + issue.code + ": " + issue.description)%>" value="<%=SafeEncode.forHtmlAttribute(issueCompositeId)%>" <%=checked%>
                        onclick="document.caseManagementViewForm.submit();"/>
             </td>
-            <td><c:out value="${issue.issueDisplay.code}"/></td>
-            <td bgcolor="<%=priority%>"><c:out value="${issue.issueDisplay.description }"/></td>
-            <td><c:out value="${issue.issueDisplay.location}"/></td>
-            <td><c:out value="${issue.issueDisplay.acute}"/></td>
-            <td><c:out value="${issue.issueDisplay.certain}"/></td>
-            <td><c:out value="${issue.issueDisplay.major}"/></td>
-            <td><c:out value="${issue.issueDisplay.resolved}"/></td>
-            <td><c:out value="${issue.issueDisplay.role}"/></td>
+            <td><carlos:encode value="${issue.issueDisplay.code}"/></td>
+            <td bgcolor="<%=priority%>"><carlos:encode value="${issue.issueDisplay.description}"/></td>
+            <td><carlos:encode value="${issue.issueDisplay.location}"/></td>
+            <td><carlos:encode value="${issue.issueDisplay.acute}"/></td>
+            <td><carlos:encode value="${issue.issueDisplay.certain}"/></td>
+            <td><carlos:encode value="${issue.issueDisplay.major}"/></td>
+            <td><carlos:encode value="${issue.issueDisplay.resolved}"/></td>
+            <td><carlos:encode value="${issue.issueDisplay.role}"/></td>
             <td>
                 <%
                     if ("major".equals(issue.major)) {

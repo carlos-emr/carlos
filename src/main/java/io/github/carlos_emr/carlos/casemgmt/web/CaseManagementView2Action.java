@@ -271,7 +271,6 @@ public class CaseManagementView2Action extends ActionSupport {
 
     public String viewNotes() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         logger.debug("Starting VIEW");
         // Whitelist tab against known tab identifiers to prevent trust boundary violation (CWE-501)
@@ -279,7 +278,11 @@ public class CaseManagementView2Action extends ActionSupport {
         HttpSession se = request.getSession();
         if (se.getAttribute("userrole") == null) return "expired";
 
-        String demoNo = getDemographicNo();
+        String demoNo = requestPatientOrBadRequest();
+        if (demoNo == null) return NONE;
+        PatientRecordAccess.require(securityInfoManager(), loggedInInfo, demoNo, "_eChart", "r");
+        PatientRecordAccess.require(securityInfoManager(), loggedInInfo, demoNo, "_casemgmt.notes", "r");
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         logger.debug("is client in program");
         // need to check to see if the client is in our program domain
@@ -329,6 +332,8 @@ public class CaseManagementView2Action extends ActionSupport {
 
         String demoNo = requestPatientOrBadRequest();
         if (demoNo == null) return NONE;
+        PatientRecordAccess.require(securityInfoManager(), loggedInInfo, demoNo, "_eChart", "r");
+        PatientRecordAccess.require(securityInfoManager(), loggedInInfo, demoNo, "_casemgmt.notes", "r");
 
         logger.debug("is client in program");
         // need to check to see if the client is in our program domain

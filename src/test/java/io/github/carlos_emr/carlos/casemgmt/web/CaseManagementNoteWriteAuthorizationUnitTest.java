@@ -273,7 +273,7 @@ class CaseManagementNoteWriteAuthorizationUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"", "0", "bad", "2147483648"})
-    void shouldRefuseMalformedTicklerIdentityBeforeLookup(String raw) throws Exception {
+    void shouldRefuseTicklerReadBeforeLookup_whenTicklerIdentityIsMalformed(String raw) throws Exception {
         request.setParameter("ticklerNo", raw);
         assertThat(action.ticklerGetNote()).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(400);
@@ -283,7 +283,7 @@ class CaseManagementNoteWriteAuthorizationUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @NullSource
     @ValueSource(ints = {0, -1})
-    void shouldKeepMissingTicklerStatusWithoutLoadingClinicalRows(Integer patient) throws Exception {
+    void shouldKeepMissingTicklerStatus_whenNoPatientIsStored(Integer patient) throws Exception {
         request.setParameter("ticklerNo", "17");
         when(ticklers.getTicklerDemographicNo(login, 17)).thenReturn(patient);
         assertThat(action.ticklerGetNote()).isEqualTo("none");

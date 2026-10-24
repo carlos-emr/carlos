@@ -324,7 +324,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     @ParameterizedTest
     @CsvSource({"true,false,false", "true,false,true", "true,true,false", "true,true,true",
             "false,false,false", "false,false,true", "false,true,false", "false,true,true"})
-    void shouldCommitSharedCompactRevisionWithoutMovingItsProgramOrTeam(boolean memberOfStoredProgram, boolean signed, boolean legacy) throws Exception {
+    void shouldCommitSharedCompactRevision_withoutMovingItsProgramOrTeam(boolean memberOfStoredProgram, boolean signed, boolean legacy) throws Exception {
         if (!memberOfStoredProgram) when(programs.getProgramProvider("999998", "8")).thenReturn(null);
         setSigned(signed);
         useOrigin(legacy);
@@ -567,7 +567,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
 
     @ParameterizedTest
     @CsvSource({"save,true", "save,false", "saveAndExit,true", "saveAndExit,false"})
-    void shouldClearExplicitlyBlankFullSaveDurationsAndPreserveAbsentFields(String operation, boolean blank) throws Exception {
+    void shouldClearExplicitlyBlankFullSaveDurations_andPreserveAbsentFields(String operation, boolean blank) throws Exception {
         prepareFullSave(submittedText);
         seedFullSaveDurations();
         for (String field : List.of("hourOfEncounterTime", "minuteOfEncounterTime",
@@ -627,7 +627,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
             "true,true,checked,false", "true,false,checked,false", "false,true,checked,false", "false,false,checked,false",
             "true,false,success,true", "false,false,success,true", "true,false,stale,true", "false,false,stale,true",
             "true,false,checked,true", "false,false,checked,true"})
-    void shouldCommitFullIssueChangesWithTheRevisionOrRollThemBackBeforeRetry(
+    void shouldCommitFullIssueChanges_withTheRevisionOrRollThemBackBeforeRetry(
             boolean modern, boolean freshIssue, String scenario, boolean readOnly) throws Exception {
         CheckBoxBean input = prepareFullIssueSave(modern, freshIssue);
         if (readOnly) {
@@ -711,7 +711,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void shouldPreserveLegacyNullIssueProgramForANewGlobalChartIssue(boolean modern) throws Exception {
+    void shouldPreserveLegacyNullIssueProgram_forANewGlobalChartIssue(boolean modern) throws Exception {
         prepareFullIssueSave(modern, true);
         ChartProgramContext.remember(request, "0");
         request.getSession().setAttribute(ChartProgramContext.formKey(request, "1"), form);
@@ -727,7 +727,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     }
 
     @Test
-    void shouldDeselectAWritableModernIssueWithoutRemovingItsHistoricalAssociation() throws Exception {
+    void shouldDeselectAWritableModernIssue_withoutRemovingItsHistoricalAssociation() throws Exception {
         CheckBoxBean checkbox = prepareFullIssueSave(true, false);
         checkbox.getIssueDisplay().setAcute("chronic");
         checkbox.getIssueDisplay().setCertain("uncertain");

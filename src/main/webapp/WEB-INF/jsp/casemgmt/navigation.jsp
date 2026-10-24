@@ -297,7 +297,7 @@
 
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/rx/choosePatient?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%><%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) == null ? "" : "&chartContext=" + org.owasp.encoder.Encode.forJavaScriptAttribute(org.owasp.encoder.Encode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request))) %>');return false;">Prescriptions</a>
+                               onClick="popupPage('<%=bsurl%>/rx/choosePatient?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%><%= navigationChartContext == null ? "" : "&chartContext=" + SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(navigationChartContext)) %>');return false;">Prescriptions</a>
                         </td>
                     </tr>
 

@@ -1,6 +1,14 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.ObjectStreamClass;
+import java.io.ObjectStreamField;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -162,6 +170,68 @@ class EncounterPatientContextUnitTest {
         assertThat(restored.templateNames).isEmpty();
         restored.templateNames.add("Request-only template");
         assertThat(EncounterPatientContext.findEncounter(request, "101").templateNames).isEmpty();
+    }
+
+    @Test
+    void shouldRestoreLegacySerializedEncounter_whenTemplateComponentWasNotPresent() throws Exception {
+        // Generated with the exact twelve-String SavedEncounter record at 53ba0564a62^.
+        // Unlike a current round trip, these bytes contain neither source nor templateNames.
+        Object restored;
+        try (InputStream fixture = getClass().getResourceAsStream("/encounter/saved-encounter-before-templates.ser")) {
+            assertThat(fixture).as("pre-upgrade encounter session fixture").isNotNull();
+            try (ObjectInputStream input = new ObjectInputStream(fixture) {
+                @Override
+                protected ObjectStreamClass readClassDescriptor() throws IOException, ClassNotFoundException {
+                    ObjectStreamClass descriptor = super.readClassDescriptor();
+                    if (descriptor.getName().endsWith("EncounterPatientContext$SavedEncounter")) {
+                        assertThat(descriptor.getFields()).extracting(ObjectStreamField::getName)
+                                .hasSize(12).doesNotContain("source", "templateNames");
+                    }
+                    return descriptor;
+                }
+            }) {
+                restored = input.readObject();
+            }
+        }
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.getSession().setAttribute(EncounterPatientContext.class.getName() + ".101", restored);
+
+        EctSessionBean first = EncounterPatientContext.findEncounter(request, "101");
+        assertMetadata(first, "101", "A", "9001");
+        assertThat(first.source).isNull();
+        assertThat(first.templateNames).isEmpty();
+        first.templateNames.add("Request-only template");
+        EctSessionBean next = EncounterPatientContext.findEncounter(request, "101");
+        assertMetadata(next, "101", "A", "9001");
+        assertThat(next.templateNames).isEmpty();
+        assertThat(next.templateNames).isNotSameAs(first.templateNames);
+    }
+
+    @Test
+    void shouldKeepIndependentTemplateCopies_afterCurrentSessionSnapshotSerialization() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean entry = metadata("101", "A", "9001");
+        entry.source = "messenger";
+        entry.templateNames = new java.util.ArrayList<>(java.util.List.of("A template", "Shared template"));
+        EncounterPatientContext.rememberEncounter(request, entry);
+        String key = EncounterPatientContext.class.getName() + ".101";
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(request.getSession().getAttribute(key));
+        }
+        try (ObjectInputStream input = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            request.getSession().setAttribute(key, input.readObject());
+        }
+        entry.templateNames.clear();
+        EctSessionBean first = EncounterPatientContext.findEncounter(request, "101");
+        assertMetadata(first, "101", "A", "9001");
+        assertThat(first.source).isEqualTo("messenger");
+        assertThat(first.templateNames).containsExactly("A template", "Shared template");
+        first.templateNames.clear();
+
+        EctSessionBean next = EncounterPatientContext.findEncounter(request, "101");
+        assertThat(next.templateNames).containsExactly("A template", "Shared template")
+                .isNotSameAs(first.templateNames);
     }
 
     @Test

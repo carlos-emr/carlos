@@ -112,7 +112,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
     @DisplayName("Scalar note authorization lookup")
     class ScalarNoteAuthorizationLookup {
         @Test
-        void shouldAuditScalarPatientLookupWithoutLoadingTicklerDetails() {
+        void shouldAuditScalarPatientLookup_withoutLoadingTicklerDetails() {
             when(mockTicklerDao.findDemographicNos(17)).thenReturn(List.of(TEST_DEMO_NO));
             assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isEqualTo(TEST_DEMO_NO);
             logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
@@ -123,7 +123,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         }
 
         @Test
-        void shouldAuditMissingScalarPatientWithoutLoadingAnyEntity() {
+        void shouldAuditMissingScalarPatient_withoutLoadingAnyEntity() {
             assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isNull();
             logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
                     "TicklerManager.getTickler", ""));
@@ -144,7 +144,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         }
 
         @Test
-        void shouldRejectMissingReadPrivilegeBeforeScalarLookupOrAudit() {
+        void shouldRejectMissingReadPrivilege_beforeScalarLookupOrAudit() {
             when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", "r", null)).thenReturn(false);
             assertThatThrownBy(() -> ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17))
                     .isInstanceOf(RuntimeException.class).hasMessageContaining("_tickler");

@@ -21,9 +21,14 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `ticklerMain.jsp` for the CARLOS EMR workflow.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
+  Purpose: Displays the filtered provider or patient tickler queue.
+  Features: Filters and updates ticklers, opens attachments, and edits linked
+  clinical notes. Note saves POST to CaseManagementEntry; a failed save keeps
+  the editor open and displays the localized failure message.
+  Parameters: demoview selects a patient; providerview, assignedTo, mrpview,
+  ticklerview, xml_vdate and xml_appointment_date filter the queue.
+  scheduleNav preserves navigation from the appointment schedule.
+  @since 2026-10-24 (POST note-save recovery)
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

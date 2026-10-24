@@ -55,8 +55,7 @@ public final class EncounterPatientContext {
         BoundedSessionAttributes.put(request.getSession(), "encounters", ENCOUNTER_PREFIX + patient, new SavedEncounter(
                 patient, bean.providerNo, bean.curProviderNo, bean.userName, bean.appointmentNo,
                 bean.appointmentDate, bean.startTime, bean.encType, bean.reason,
-                bean.patientFirstName, bean.patientLastName, bean.status, bean.source,
-                bean.templateNames == null ? List.of() : List.copyOf(bean.templateNames)));
+                bean.patientFirstName, bean.patientLastName, bean.status, bean.source, bean.templateNames));
         request.setAttribute("EctSessionBean", bean);
     }
 
@@ -164,6 +163,12 @@ public final class EncounterPatientContext {
                                   String startTime, String encType, String reason,
                                   String patientFirstName, String patientLastName,
                                   String status, String source, List<String> templateNames) implements Serializable {
+        private SavedEncounter {
+            // Session snapshots from before templates were retained deserialize the new
+            // component as null. The canonical constructor also protects restored lists.
+            templateNames = templateNames == null ? List.of() : List.copyOf(templateNames);
+        }
+
         private EctSessionBean toBean() {
             EctSessionBean bean = new EctSessionBean();
             bean.demographicNo = demographicNo;

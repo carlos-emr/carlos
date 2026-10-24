@@ -33,23 +33,6 @@ public final class ChartProgramContext {
     private ChartProgramContext() { }
 
     /**
-     * Creates an independent context at chart entry, or retains the supplied window context.
-     * The encounter view subsequently initializes new contexts from the provider's programs.
-     *
-     * @param request HttpServletRequest naming the chart patient
-     * @throws IllegalArgumentException if the request does not identify a valid patient
-     * @throws SecurityException if a supplied context is invalid or belongs to another patient
-     */
-    public static void capture(HttpServletRequest request) {
-        if (request.getParameterValues(PARAMETER) != null) {
-            token(request);
-            return;
-        }
-        request.removeAttribute(REQUEST_CONTEXT);
-        remember(request, (String) request.getSession().getAttribute("case_program_id"));
-    }
-
-    /**
      * Selects a new chart's program before either the CAISI or ordinary chart redirect.
      * An explicit PMM program must be among the authenticated provider's available programs;
      * an ordinary entry uses the provider's default instead of the last PMM window's selection.

@@ -80,12 +80,11 @@ class MsgDisplayDemographicMessages2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession(true).setAttribute("user", "999998\r\nforged-provider");
         request.addParameter("userName", "Unit Test");
         request.addParameter("demographic_no", "123");
-        var login = mock(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
+        LoggedInInfo login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("999998");
-        request.getSession().setAttribute(io.github.carlos_emr.carlos.utility.LoggedInInfo.class.getName()
-                + ".LOGGED_IN_INFO_KEY", login);
-        when(securityInfoManager.hasPrivilege(eq(login), eq("_msg"), eq("r"), eq("123"))).thenReturn(true);
-        when(securityInfoManager.hasPrivilege(eq(login), eq("_demographic"), eq("r"), eq("123"))).thenReturn(true);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        when(securityInfoManager.hasPrivilege(login, "_msg", "r", "123")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(login, "_demographic", "r", "123")).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(login, 123)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), eq("_msg"), eq("r"), isNull())).thenReturn(true);
 
