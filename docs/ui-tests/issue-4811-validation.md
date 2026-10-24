@@ -78,9 +78,13 @@ The final cross-part review also covers the retained behavior from #4775:
 - `rx-print-profile` tests refused paste identities and foreign/missing draft references,
   automatic note selection when no draft exists, and an explicitly selected shared note.
   Saving that shared note preserves its program and the other program window's draft;
-  successful cleanup removes only the originating chart's draft.
+  successful cleanup removes only the originating chart's draft. A second native save
+  removes only an owned membership temporarily, proving a writer belonging solely to
+  the originating program receives a valid reporter role and can reopen the revision.
 - `get-reject-chart-notes` drives native chart and tickler writes, refuses GET/HEAD,
   validates tickler/note/link ownership and retains the tickler editor on a failed save.
+  Refused requests preserve complete demographic rows, including null and padded fields;
+  scalar tickler authorization avoids loading and flushing the other patient's entity.
   `authz-read-chart-note-history` covers both history routes, missing module access,
   patient mismatch and record locks with successful reader controls.
 - The message follow-up checks participant-only mutations, all-or-nothing unlink and
@@ -89,7 +93,15 @@ The final cross-part review also covers the retained behavior from #4775:
 - `billing-on-year-end-statement` uses a real second patient and invoice, independent
   statement windows, edited-but-unsubmitted dates and an empty-result replacement.
   `echart-print` includes a delayed PDF, checks that printing retains the editor's exact
-  note lock and subsequent autosave, and checks release on real navigation.
+  note lock and subsequent autosave, and checks release on real navigation. Downloads
+  are observed on both the chart and native print popup; `pdftotext` verifies the owned
+  patient's identity in the actual PDF bytes.
+
+Real manager/JPA regression tests cover draft cleanup in the note transaction,
+rollback after a real draft deletion, signed and unsigned retries, unrelated providers
+and patients, legacy/global-program compatibility, and shared-note role attribution
+with actual filter/readback checks. Scalar tickler DAO tests force an audit flush and
+verify that demographic values remain exact without loading a demographic entity.
 
 The adjacent sweep includes waiting-list editing/removal, Health Tracker, registry
 status/quick lists, appointment copying and server-rendered message PDFs. BC billing

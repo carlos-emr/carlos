@@ -25,6 +25,9 @@
  * through the native controls: the note keeps its program, only the second program draft clears,
  * and the first window retains both its persisted draft and unsaved editor text.
  * Replaying Rx from that older revision refuses without consuming the protected draft.
+ * With the owned first-program membership temporarily absent, a further native Save from
+ * the second program retains the note's original program/team and the writer's valid role;
+ * a chart reload and native Edit prove the revision remains visible and readable there.
  *
  * Fixtures: one owned `prescription` row and two `drugs` rows (customName/special carry the run
  * marker) for the owned synthetic patient; native Save And Print operations add owned rows.
@@ -754,6 +757,140 @@ async function workflow(s) {
       await stale.dispose();
       h.assert(await editor(opened).inputValue() === protectedText,
         'The stale-revision refusal changed the other window unsaved text');
+    });
+
+    await s.step('a writer belonging only to the originating chart program can save and reread its shared note', async () => {
+      const page = defaultChartAfterPaste;
+      const editor = () => page.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
+      // Close only this owned context's first-program windows before removing its membership.
+      for (const chart of new Set([charts[0], opened, launchedRx, isolatedRx])) {
+        h.assert(chart.context() === context, 'A first-program window belongs to another browser context');
+        if (!chart.isClosed()) {
+          await chart.evaluate(() => { if (typeof clearAutoSaveTimer === 'function') clearAutoSaveTimer(); });
+          await chart.close();
+        }
+      }
+      const membershipWhere = `provider_no=${owner} AND program_id=${capturedProgram}`;
+      const memberships = sql.rows(`SELECT id,program_id,provider_no,role_id,team_id
+        FROM program_provider WHERE ${membershipWhere} ORDER BY id`);
+      h.assert(memberships.length === 1, 'The first-program membership is not one owned fixture row');
+      const membership = memberships[0];
+      h.assert(/^[1-9]\d*$/.test(membership[0])
+        && JSON.stringify(membership.slice(1)) === JSON.stringify([capturedProgram, login.providerNo, role, '0']),
+      'The membership to remove does not match the owned first-program fixture');
+      const membershipId = membership[0];
+      const membershipBefore = JSON.stringify(sql.rows(`SELECT * FROM program_provider WHERE id=${membershipId}`));
+      h.assert(sql.value(`SELECT COUNT(*) FROM program_provider_team WHERE id=${membershipId}`) === '0',
+        'The owned membership has unexpected team relationships');
+      const writerRole = sql.value(`SELECT role_id FROM program_provider
+        WHERE provider_no=${owner} AND program_id=${defaultProgram}`);
+      h.assert(/^[1-9]\d*$/.test(writerRole)
+        && sql.value(`SELECT COUNT(*) FROM caisi_role WHERE role_id=${writerRole}`) === '1',
+      'The originating chart does not have a valid writer role');
+      const source = await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue();
+      h.assert(/^[1-9]\d*$/.test(source)
+        && sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${source}
+          AND demographic_no=${patient} AND provider_no=${owner} AND program_no=${q(capturedProgram)}`) === '1',
+      'The Y-only edit does not start from the owned first-program note');
+      const originalNote = JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${source}`));
+      const originalLocation = JSON.stringify(sql.rows(`SELECT program_no,reporter_program_team
+        FROM casemgmt_note WHERE note_id=${source}`));
+      const originalUuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${source}`);
+      const otherDrafts = () => JSON.stringify(sql.rows(`SELECT * FROM casemgmt_tmpsave
+        WHERE provider_no=${owner} AND demographic_no IN (${patient},${referencePatient})
+        AND NOT (demographic_no=${patient} AND program_id=${defaultProgram}) ORDER BY id`));
+      const providerAndPatients = () => JSON.stringify([
+        sql.rows(`SELECT * FROM provider WHERE provider_no=${owner}`),
+        sql.rows(`SELECT * FROM demographic WHERE demographic_no IN (${patient},${referencePatient}) ORDER BY demographic_no`),
+        sql.rows(`SELECT * FROM program_provider WHERE provider_no=${owner} AND program_id=${defaultProgram} ORDER BY id`),
+      ]);
+      const draftsBefore = otherDrafts();
+      const identitiesBefore = providerAndPatients();
+      try {
+        sql.execute(`DELETE FROM program_provider WHERE id=${membershipId} AND ${membershipWhere}`);
+        h.assert(sql.value(`SELECT COUNT(*) FROM program_provider WHERE ${membershipWhere}`) === '0',
+          'The first-program membership was not removed before the native Save');
+        // ProgramManager queries this membership through fresh, uncached JPQL on every request.
+        // Its absence here makes the native Save exercise the originating-program role fallback.
+        await page.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation
+          && window.issueUpdatesPending === 0);
+        await page.evaluate(() => clearAutoSaveTimer());
+        const text = `${await editor().inputValue()}\n${marker}-originating-program-only-edit`;
+        await editor().fill(text);
+        const pendingDraft = page.waitForResponse(response => response.request().method() === 'POST'
+          && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
+          && new URLSearchParams(response.request().postData() || '').get('method') === 'autosave');
+        await page.evaluate(() => autoSave());
+        const draft = await pendingDraft;
+        await draft.finished();
+        h.assert(draft.status() === 200 && hasChartContext(draft.request(), tokens[1]),
+          'The Y-only draft was not acknowledged in its originating chart');
+        await page.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation);
+        await page.evaluate(() => clearAutoSaveTimer());
+        await expectValue(sql, `SELECT note FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+          AND provider_no=${owner} AND program_id=${defaultProgram} AND note_id=${source}`, text,
+        'The Y-only draft did not retain its selected shared note');
+        const [saved] = await Promise.all([
+          page.waitForResponse(response => response.request().method() === 'POST'
+            && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
+            && new URLSearchParams(response.request().postData() || '').get('method') === 'save'),
+          page.locator('#saveImg').first().click(),
+        ]);
+        await saved.finished();
+        h.assert(saved.status() === 200 && hasChartContext(saved.request(), tokens[1]),
+          'The Y-only native Save failed or changed its chart context');
+        await page.waitForFunction(previous => {
+          const current = document.forms.caseManagementEntryForm?.elements.noteId?.value;
+          return /^[1-9]\d*$/.test(current || '') && current !== previous && !window.autoSaveXhr;
+        }, source);
+        const revision = await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue();
+        h.assert(sql.value(`SELECT COUNT(*) FROM program_provider WHERE ${membershipWhere}`) === '0',
+          'The Save did not execute while the writer lacked first-program membership');
+        h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${revision}
+          AND demographic_no=${patient} AND provider_no=${owner} AND uuid=${q(originalUuid)}
+          AND reporter_caisi_role=${q(writerRole)} AND note=${q(text)}`) === '1',
+        'The shared revision lost its text, UUID, ownership, or valid originating-program writer role');
+        h.assert(JSON.stringify(sql.rows(`SELECT program_no,reporter_program_team FROM casemgmt_note
+          WHERE note_id=${revision}`)) === originalLocation,
+        'The Y-only Save changed the shared note program or team');
+        h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${source}`)) === originalNote,
+          'The Y-only Save changed the historical source row');
+        h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+          AND provider_no=${owner} AND program_id=${defaultProgram}`) === '0'
+          && otherDrafts() === draftsBefore && providerAndPatients() === identitiesBefore,
+        'The Y-only Save changed another draft, provider, patient, or the originating membership');
+        h.assert(await editor().inputValue() === text, 'The native Save did not retain the shared editor text');
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await waitForNavbars(page, 30000);
+        h.assert(await page.locator('#caseManagementEntryForm input[name="chartContext"]').inputValue() === tokens[1],
+          'The Y-only chart reload changed its originating program');
+        const edit = page.locator(`#edit${revision}`);
+        await edit.waitFor({ state: 'visible' });
+        const [readback, dialogs] = await Promise.all([
+          page.waitForResponse(response => response.request().method() === 'POST'
+            && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
+            && new URLSearchParams(response.request().postData() || '').get('method') === 'edit'),
+          h.withExpectedDialogs(page, () => edit.click(), { accept: true }),
+        ]);
+        await readback.finished();
+        h.assert(readback.status() === 200 && hasChartContext(readback.request(), tokens[1])
+          && dialogs.length <= 1 && dialogs.every(dialog => dialog.type === 'confirm'
+            && /You have started to edit this note in another window/.test(dialog.text)),
+        'The Y-only shared-note list readback failed or raised an unexpected dialog');
+        await page.waitForFunction(id => document.forms.caseManagementEntryForm?.elements.noteId?.value === id, revision);
+        h.assert(await editor().inputValue() === text, 'The Y-only note disappeared or changed on native Edit readback');
+        await page.evaluate(() => clearAutoSaveTimer());
+        h.assert(otherDrafts() === draftsBefore && providerAndPatients() === identitiesBefore,
+          'The Y-only readback changed other drafts, provider or patient rows');
+      } finally {
+        const remaining = sql.rows(`SELECT * FROM program_provider WHERE id=${membershipId}`);
+        if (!remaining.length) {
+          sql.execute(`INSERT INTO program_provider (id,program_id,provider_no,role_id,team_id)
+            VALUES (${membership.map(q).join(',')})`);
+        }
+        h.assert(JSON.stringify(sql.rows(`SELECT * FROM program_provider WHERE id=${membershipId}`)) === membershipBefore,
+          'The exact owned first-program membership was not restored');
+      }
     });
   });
 }

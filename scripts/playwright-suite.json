@@ -1182,7 +1182,7 @@
         "EXPECT_FRONT_DOOR"
       ],
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the encounter-note draft the chart's autosave stores while the prints run (discarded through the page's own cancel path), the chart's note lock and eChart row and the patient are removed by the patient's key and asserted gone. It no longer types into demo patient 1's chart, whose own stored draft it deleted. No clinic-wide state is changed.",
-      "notes": "Sixteen real PDF cases, including an actual four-second print delay; native print submission retains the editor, its exact note lock and post-print autosave, while later real navigation releases the lock."
+      "notes": "Needs pdftotext. Sixteen native PDF downloads are captured from either the chart or its print popup and checked for the owned patient's text, including an actual four-second print delay; printing retains the editor, its exact note lock and post-print autosave, while later real navigation releases the lock."
     },
     {
       "name": "echart-vitals-bmi",
@@ -4764,8 +4764,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owned prescription and drugs rows for the synthetic patient, a throwaway provider, two owned programs with memberships/admissions and independent drafts; cleanup removes owned clinical rows, programs, relationships and provider. Shared provider defaults are unchanged.",
-      "notes": "Needs pdftotext; the drug profile is HTML + window.print(), so the PDF asserted is the browser print rendering. Also verifies same-patient chart windows retain independent programs through Rx launch, Save And Print, Print & Paste and chart reopening; the other program's draft stays unchanged. Signed-context/patient replay and foreign/missing draft references refuse without clinical mutations; a no-draft paste selects its own program, and explicit cross-program editing preserves the source note program and the other window draft."
+      "fixtures": "Owned prescription and drugs rows for the synthetic patient, a throwaway provider, two owned programs with memberships/admissions and independent drafts; one exact owned membership is temporarily removed and restored to verify a writer belonging only to the originating program. Cleanup removes owned clinical rows, programs, relationships and provider. Shared provider defaults are unchanged.",
+      "notes": "Needs pdftotext; the drug profile is HTML + window.print(), so the PDF asserted is the browser print rendering. Also verifies same-patient chart windows retain independent programs through Rx launch, Save And Print, Print & Paste and chart reopening; the other program's draft stays unchanged. Signed-context/patient replay and foreign/missing draft references refuse without clinical mutations; a no-draft paste selects its own program, and explicit cross-program editing preserves the source note program and the other window draft. A writer belonging only to the originating program saves a real shared-note revision with a valid reporter role and can read it back through the native Edit link; the stored program and team are preserved."
     },
     {
       "name": "tickler-forward-filters",

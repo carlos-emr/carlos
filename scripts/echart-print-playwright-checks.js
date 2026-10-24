@@ -65,8 +65,10 @@ const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const h = require('./lib/playwright-harness');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const fs = require('fs');
+const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { watchChartPrintDownload } = require('./lib/chart-print-download');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -75,6 +77,7 @@ const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
 // The owned patient whose chart is printed, created in main (never a demo patient).
 let demographicNo = null;
+let patientMarker = null;
 const providerNo = requireDigits(process.env.ECHART_PROVIDER_NO || '999998', 'ECHART_PROVIDER_NO');
 
 // Name prefixes that mark a patient as test data: FAKE- is what the demo dataset's
@@ -421,27 +424,41 @@ async function printChart(page, noteText, flags, expectAutosave) {
       && /(?:^|&)method=print(?:&|$)/.test(response.request().postData() || ''),
     timeout: 40000,
   });
-  // Armed before the click. Left dangling on purpose when no download comes (a
-  // 403, or an HTML error page): the catch keeps the timeout from surfacing as an
-  // unhandled rejection, and the result below records that nothing was received.
-  const downloadPromise = page.waitForEvent('download', { timeout: 40000 }).catch(() => null);
-  await page.locator('#printOp').click();
-  const response = await printResponse;
-  const pdf = { signature: false, bytes: 0 };
-  if (response.status() === 200 && /application\/pdf/i.test(response.headers()['content-type'] || '')) {
-    const download = await downloadPromise;
-    if (download) {
-      const bytes = fs.readFileSync(await download.path());
-      pdf.signature = bytes.subarray(0, 5).toString('latin1') === '%PDF-';
-      pdf.bytes = bytes.length;
+  // Chromium can assign the native download to either this chart or the
+  // transient print page. Observe both before the click and retain the bytes
+  // from the actual download; never substitute an API replay of the POST.
+  const downloaded = watchChartPrintDownload(page.context(), appUrl('/CaseManagementEntry'));
+  try {
+    await page.locator('#printOp').click();
+    const response = await printResponse;
+    const pdf = { signature: false, bytes: 0 };
+    if (response.status() === 200 && /application\/pdf/i.test(response.headers()['content-type'] || '')) {
+      const download = await downloaded.promise;
+      if (download) {
+        assert(download.url() === response.url(), 'The downloaded PDF belongs to another print request');
+        assert(new URLSearchParams(response.request().postData() || '').get('demographicNo') === demographicNo,
+          'The print POST named another patient');
+        assert(await download.failure() === null, 'The native chart PDF download failed');
+        const bytes = fs.readFileSync(await download.path());
+        pdf.signature = bytes.subarray(0, 5).toString('latin1') === '%PDF-';
+        pdf.bytes = bytes.length;
+        // Preserve content-stream order: layout mode interleaves the clinic's
+        // left column between wrapped lines of the patient's right-column name.
+        const text = execFileSync('pdftotext', ['-raw', '-', '-'],
+          { input: bytes, encoding: 'utf8', timeout: 15000 });
+        assert(text.replace(/\s+/g, '').includes(patientMarker), 'The downloaded PDF does not identify the owned patient');
+      }
     }
+    return { response, pdf, autosaveStatus: autosaveResponse ? autosaveResponse.status() : null };
+  } finally {
+    downloaded.cancel();
   }
-  return { response, pdf, autosaveStatus: autosaveResponse ? autosaveResponse.status() : null };
 }
 
 (async () => {
   const sql = h.createSqlRunner(h.readConfig().mysql);
   const ownedMarker = newOwnedMarker();
+  patientMarker = ownedMarker;
   let browser = null;
 
   // Patient creation, browser launch and context setup are all inside the try whose finally removes the patient and disposes the
