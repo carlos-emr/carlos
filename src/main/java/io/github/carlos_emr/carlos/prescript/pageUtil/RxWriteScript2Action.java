@@ -1158,25 +1158,23 @@ public final class RxWriteScript2Action extends ActionSupport {
                     }
 
                     String frequency = rx.getFrequencyCode();
-                    String takeMin = rx.getTakeMinString();
-                    String takeMax = rx.getTakeMaxString();
                     String durationUnit = rx.getDurationUnit();
-                    double nPerDay = 0d;
-                    double nDays = 0d;
-                    if (rx.getUnitName() != null || takeMin.equals("0") || takeMax.equals("0") || frequency.equals("")) {
-                    } else {
+                    // The duration is derived only for a plain numeric quantity with a positive dose and
+                    // a frequency. The stored dose is compared and divided as a number: its three-decimal
+                    // text ("0.667" for two thirds of a tablet) would shorten the derived duration.
+                    if (rx.getUnitName() == null && rx.getTakeMin() > 0f && rx.getTakeMax() > 0f && !frequency.isEmpty()) {
                         if (durationUnit == null || durationUnit.isEmpty()) {
                             durationUnit = "D";
                         }
 
-                        nPerDay = RxUtil.findNPerDay(frequency);
-                        nDays = RxUtil.findNDays(durationUnit);
                         if (RxUtil.isStringToNumber(quantity) && !rx.isDurationSpecifiedByUser()) {// don't not caculate duration if it's already specified by the user
-                            double qtyD = Double.parseDouble(quantity);
-                            // quantity=takeMax * nDays * duration * nPerDay
-                            double durD = qtyD / ((Double.parseDouble(takeMax)) * nPerDay * nDays);
-                            int durI = (int) durD;
-                            rx.setDuration(Integer.toString(durI));
+                            // quantity = takeMax * nDays * duration * nPerDay; a weekly or monthly
+                            // frequency divides by its exact interval (RxUtil.wholeDurationUnits).
+                            String derived = RxUtil.wholeDurationUnits(Double.parseDouble(quantity),
+                                    rx.getTakeMax(), frequency, durationUnit);
+                            if (derived != null) {
+                                rx.setDuration(derived);
+                            }
                         } else {
                             // don't calculate duration if quantity can't be parsed to string
                         }

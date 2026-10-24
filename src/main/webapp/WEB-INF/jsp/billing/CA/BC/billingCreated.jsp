@@ -578,7 +578,7 @@
                 <div class="float-end button-bar">
                     <%if ("pri".equalsIgnoreCase(bean.getBillingType())) {%>
                     <button class="btn btn-primary" type="submit" name="submit" value="saveAndPrintReceipt">
-                        Save &amp; Print Receipt
+                        Save and Print Receipt
                     </button>
                     <%}%>
                     <% if (request.getAttribute("GOBACKWCB") != null && request.getAttribute("GOBACKWCB").equals("true")) {%>

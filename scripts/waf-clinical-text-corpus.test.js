@@ -26,6 +26,17 @@ const BEFORE_CRS = path.join(WAF_DIR, 'REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.co
 const AFTER_CRS = path.join(WAF_DIR, 'RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf');
 const characters = (text) => Array.from(text).length;
 
+test('pregnancy prose exclusion covers only notes on the exact POST route', () => {
+  const rule = exemptArguments(BEFORE_CRS).get('1098');
+  assert.equal(rule.route, 'Pregnancy');
+  assert.equal(rule.shape, 'exact');
+  assert.deepEqual([...rule.methods], ['POST']);
+  assert.deepEqual([...rule.args], ['notes']);
+  assert.deepEqual([...rule.removals.get('notes')].sort(), [
+    'attack-xss', 'attack-sqli', 'attack-rce', 'attack-injection-php', 'attack-protocol', 'attack-lfi', 'attack-rfi',
+  ].sort());
+});
+
 test('filing on behalf allows clinical prose only in its exact POST comment field', () => {
   const rules = exemptArguments(BEFORE_CRS);
   const filing = rules.get('1145');

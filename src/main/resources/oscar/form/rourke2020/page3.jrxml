@@ -295,55 +295,55 @@
 			<element kind="image" uuid="3c989d58-abfc-4ebd-8711-8137041cd7b4" x="0" y="0" width="1700" height="2200">
 				<expression><![CDATA[$P{background_image}]]></expression>
 			</element>
-			<element kind="textField" uuid="1a5f0621-0b2d-46f6-85e6-8bbab3032b8c" x="175" y="155" width="452" height="22">
+			<element kind="textField" uuid="1a5f0621-0b2d-46f6-85e6-8bbab3032b8c" x="175" y="155" width="403" height="22" blankWhenNull="true" textAdjust="ScaleFont">
 				<expression><![CDATA[$P{c_pName}]]></expression>
 			</element>
-			<element kind="textField" uuid="1b730795-e3e8-47f1-b6b3-72e328201b12" x="750" y="155" width="200" height="22">
+			<element kind="textField" uuid="1b730795-e3e8-47f1-b6b3-72e328201b12" x="750" y="155" width="200" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{c_birthDate}]]></expression>
 			</element>
-			<element kind="textField" uuid="ee3ad726-9317-449b-b1be-fc606f3720ce" x="210" y="335" width="160" height="22" blankWhenNull="true">
+			<element kind="textField" uuid="ee3ad726-9317-449b-b1be-fc606f3720ce" x="210" y="324" width="160" height="20" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_date9m}]]></expression>
 			</element>
-			<element kind="textField" uuid="c3d29a64-8c02-48d7-93c2-0e7b90fbd76f" x="740" y="335" width="160" height="22" blankWhenNull="true">
+			<element kind="textField" uuid="c3d29a64-8c02-48d7-93c2-0e7b90fbd76f" x="740" y="324" width="160" height="20" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_date12m}]]></expression>
 			</element>
-			<element kind="textField" uuid="649a2451-2f4c-4014-8d4e-f46cf75d3ab1" x="1270" y="335" width="160" height="22" blankWhenNull="true">
+			<element kind="textField" uuid="649a2451-2f4c-4014-8d4e-f46cf75d3ab1" x="1270" y="324" width="160" height="20" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_date15m}]]></expression>
 			</element>
-			<element kind="textField" uuid="3b612a08-7159-4322-b448-bab50a82e7b6" x="78" y="435" width="100" height="22">
+			<element kind="textField" uuid="3b612a08-7159-4322-b448-bab50a82e7b6" x="78" y="446" width="100" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_ht9m}]]></expression>
 			</element>
-			<element kind="textField" uuid="8b766465-49d5-4af8-8f17-869fafe88954" x="258" y="435" width="100" height="22">
+			<element kind="textField" uuid="8b766465-49d5-4af8-8f17-869fafe88954" x="258" y="446" width="100" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_wt9m}]]></expression>
 			</element>
-			<element kind="textField" uuid="69f33c5b-ee16-4f98-bed0-da6cdcf6aed5" x="438" y="435" width="100" height="22">
+			<element kind="textField" uuid="69f33c5b-ee16-4f98-bed0-da6cdcf6aed5" x="438" y="446" width="100" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_hc9m}]]></expression>
 			</element>
-			<element kind="textField" uuid="6b088f65-c635-4156-b6e6-4bbd267373d4" x="660" y="435" width="100" height="22">
+			<element kind="textField" uuid="6b088f65-c635-4156-b6e6-4bbd267373d4" x="660" y="446" width="100" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_ht12m}]]></expression>
 			</element>
-			<element kind="textField" uuid="0fd2ceb5-5ea3-43e4-b4fc-3e99f828a1b3" x="790" y="435" width="100" height="22">
+			<element kind="textField" uuid="0fd2ceb5-5ea3-43e4-b4fc-3e99f828a1b3" x="790" y="446" width="100" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_wt12m}]]></expression>
 			</element>
-			<element kind="textField" uuid="d9864b20-7446-42af-a52e-e26aa181a826" x="995" y="450" width="100" height="22">
+			<element kind="textField" uuid="d9864b20-7446-42af-a52e-e26aa181a826" x="1034" y="446" width="82" height="22" blankWhenNull="true" textAdjust="ScaleFont">
 				<expression><![CDATA[$P{p3_hc12m}]]></expression>
 			</element>
-			<element kind="textField" uuid="02ebc11b-2d3b-4fac-9865-675131d2710f" x="1158" y="435" width="100" height="22">
+			<element kind="textField" uuid="02ebc11b-2d3b-4fac-9865-675131d2710f" x="1158" y="446" width="100" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_ht15m}]]></expression>
 			</element>
-			<element kind="textField" uuid="fdad33af-4dde-4ed0-9c89-7e341627d9af" x="1328" y="435" width="100" height="22">
+			<element kind="textField" uuid="fdad33af-4dde-4ed0-9c89-7e341627d9af" x="1328" y="446" width="100" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_wt15m}]]></expression>
 			</element>
-			<element kind="textField" uuid="f240f986-5bdd-42ea-bf8f-92c89102bfd0" x="1498" y="435" width="100" height="22">
+			<element kind="textField" uuid="f240f986-5bdd-42ea-bf8f-92c89102bfd0" x="1498" y="446" width="100" height="22" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_hc15m}]]></expression>
 			</element>
-			<element kind="textField" uuid="3aceee28-836d-4546-8bb8-417cedc92bee" x="64" y="544" width="516" height="112" hTextAlign="Left" vTextAlign="Top" fontSize="14.0">
+			<element kind="textField" uuid="3aceee28-836d-4546-8bb8-417cedc92bee" x="64" y="513" width="516" height="112" hTextAlign="Left" vTextAlign="Top" fontSize="14.0" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_pConcern9m}]]></expression>
 			</element>
-			<element kind="textField" uuid="44c61e9d-fc0f-432f-bf49-b0195d603abe" x="596" y="544" width="516" height="112" hTextAlign="Left" vTextAlign="Top" fontSize="14.0">
+			<element kind="textField" uuid="44c61e9d-fc0f-432f-bf49-b0195d603abe" x="596" y="513" width="516" height="112" hTextAlign="Left" vTextAlign="Top" fontSize="14.0" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_pConcern12m}]]></expression>
 			</element>
-			<element kind="textField" uuid="9057cca0-be04-43c0-9dd4-010634cbabf7" x="1125" y="544" width="516" height="112" hTextAlign="Left" vTextAlign="Top" fontSize="14.0">
+			<element kind="textField" uuid="9057cca0-be04-43c0-9dd4-010634cbabf7" x="1125" y="513" width="516" height="112" hTextAlign="Left" vTextAlign="Top" fontSize="14.0" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_pConcern15m}]]></expression>
 			</element>
 			<element kind="image" uuid="d0765abe-d693-4fa1-aa55-6a82eacc78f2" x="73" y="670" width="20" height="24">
@@ -685,13 +685,13 @@
 			<element kind="image" uuid="3c933ceb-6f9f-4c96-af82-e1f23ae95c0d" x="1361" y="1640" width="20" height="24">
 				<expression><![CDATA[$P{p3_hips15mOk} != null ? $P{check_image} : ($P{p3_hips15mOkConcerns} != null ? $P{cross_image} : null)]]></expression>
 			</element>
-			<element kind="textField" uuid="d576f040-5f96-4ae0-8c26-c9c3bcb923f8" x="65" y="1735" width="516" height="106" hTextAlign="Left" vTextAlign="Top" fontSize="14.0">
+			<element kind="textField" uuid="d576f040-5f96-4ae0-8c26-c9c3bcb923f8" x="65" y="1735" width="516" height="106" hTextAlign="Left" vTextAlign="Top" fontSize="14.0" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_problems9m}]]></expression>
 			</element>
-			<element kind="textField" uuid="773ee49a-bb9e-4843-b5cc-31cccc1c6a82" x="596" y="1735" width="516" height="106" hTextAlign="Left" vTextAlign="Top" fontSize="14.0">
+			<element kind="textField" uuid="773ee49a-bb9e-4843-b5cc-31cccc1c6a82" x="596" y="1735" width="516" height="106" hTextAlign="Left" vTextAlign="Top" fontSize="14.0" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_problems12m}]]></expression>
 			</element>
-			<element kind="textField" uuid="105450d0-f2db-4a44-86b8-4264f46d1579" x="1126" y="1735" width="516" height="106" hTextAlign="Left" vTextAlign="Top" fontSize="14.0">
+			<element kind="textField" uuid="105450d0-f2db-4a44-86b8-4264f46d1579" x="1126" y="1735" width="516" height="106" hTextAlign="Left" vTextAlign="Top" fontSize="14.0" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_problems15m}]]></expression>
 			</element>
 			<element kind="image" uuid="6bd035ca-d730-4e31-8fac-1e6d5cda2254" x="73" y="1898" width="20" height="24">
@@ -703,13 +703,13 @@
 			<element kind="image" uuid="1afe8f4f-234f-4d62-8504-aa6ff4fdfb9a" x="1218" y="1898" width="20" height="24">
 				<expression><![CDATA[$P{p3_BloodLeadOk} != null ? $P{check_image} : ($P{p3_BloodLeadOkConcerns} != null ? $P{cross_image} : null)]]></expression>
 			</element>
-			<element kind="textField" uuid="90ba61d6-06c4-43a9-b7bf-fe18d25abeda" x="90" y="1987" width="515" height="30">
+			<element kind="textField" uuid="90ba61d6-06c4-43a9-b7bf-fe18d25abeda" x="90" y="1987" width="486" height="30" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_signature9m}]]></expression>
 			</element>
-			<element kind="textField" uuid="55b1fa50-e0c9-45e4-bdac-1148cee8d2b6" x="612" y="1987" width="515" height="30">
+			<element kind="textField" uuid="55b1fa50-e0c9-45e4-bdac-1148cee8d2b6" x="612" y="1987" width="497" height="30" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_signature12m}]]></expression>
 			</element>
-			<element kind="textField" uuid="9af358b8-26df-4ead-8de6-1a2fa81755f7" x="1170" y="1987" width="509" height="30">
+			<element kind="textField" uuid="9af358b8-26df-4ead-8de6-1a2fa81755f7" x="1170" y="1987" width="459" height="30" blankWhenNull="true">
 				<expression><![CDATA[$P{p3_signature15m}]]></expression>
 			</element>
 		</band>

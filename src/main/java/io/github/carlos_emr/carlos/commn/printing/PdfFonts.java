@@ -7,8 +7,11 @@ import java.util.Objects;
 import org.openpdf.text.Chunk;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.Font;
+import org.openpdf.text.Paragraph;
 import org.openpdf.text.Phrase;
 import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
 
 /**
  * Embedded fonts for clinical PDF text. The standard PDF Latin font families are
@@ -105,6 +108,68 @@ public final class PdfFonts {
         Runs runs = new Runs(phrase, font);
         text.codePoints().forEach(runs::add);
         runs.flush();
+    }
+
+    /**
+     * Returns a phrase in the given font holding text added through {@link #addText}, as a
+     * drop-in for {@code new Phrase(text, font)}, which draws only the characters that font has.
+     *
+     * @param text String the text, or {@code null} for an empty phrase
+     * @param font Font the phrase font, which later {@code Phrase.add(String)} calls also use
+     * @return Phrase the new phrase
+     */
+    public static Phrase phrase(String text, Font font) {
+        return phrase(Float.NaN, text, font);
+    }
+
+    /**
+     * Returns a phrase with the given leading, as a drop-in for {@code new Phrase(leading, text, font)}.
+     *
+     * @param leading float the line leading, or {@code Float.NaN} for the font's default
+     * @param text String the text, or {@code null} for an empty phrase
+     * @param font Font the phrase font
+     * @return Phrase the new phrase
+     */
+    public static Phrase phrase(float leading, String text, Font font) {
+        Phrase phrase = new Phrase(leading, "", font);
+        addText(phrase, text, font);
+        return phrase;
+    }
+
+    /**
+     * Returns a paragraph holding text added through {@link #addText}, as a drop-in for
+     * {@code new Paragraph(text, font)}.
+     *
+     * @param text String the text, or {@code null} for an empty paragraph
+     * @param font Font the paragraph font
+     * @return Paragraph the new paragraph
+     */
+    public static Paragraph paragraph(String text, Font font) {
+        Paragraph paragraph = new Paragraph("", font);
+        addText(paragraph, text, font);
+        return paragraph;
+    }
+
+    /**
+     * Draws one line of text at a point, as {@code PdfContentByte.showTextAligned} does, but with
+     * the fallback faces of {@link #addText}. The baseline sits at {@code y}; call it outside
+     * {@code beginText()}/{@code endText()}.
+     *
+     * @param canvas PdfContentByte the content to draw on
+     * @param alignment int {@code Element.ALIGN_LEFT}, {@code ALIGN_CENTER} or {@code ALIGN_RIGHT}
+     *                  (the {@code PdfContentByte} constants share these values)
+     * @param text String the text, or {@code null}/empty to draw nothing
+     * @param font Font the font for the characters it can draw
+     * @param x float the reference point's horizontal position
+     * @param y float the baseline
+     * @param rotation float the rotation in degrees
+     */
+    public static void showTextAligned(PdfContentByte canvas, int alignment, String text, Font font,
+            float x, float y, float rotation) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        ColumnText.showTextAligned(canvas, alignment, phrase(text, font), x, y, rotation);
     }
 
     /** Groups consecutive characters drawn by the same face into one chunk. */

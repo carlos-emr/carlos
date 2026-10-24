@@ -35,13 +35,11 @@ async function workflow(s) {
   const { sql, patient, master, config } = s;
   s.cleanup(() => {
     sql.execute(`DELETE FROM Consent WHERE demographic_no=${patient};
-      DELETE FROM demographicExtArchive WHERE archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient})
-        OR demographic_no=${patient};
+      DELETE FROM demographicExtArchive WHERE demographic_no=${patient};
       DELETE FROM demographiccust WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM Consent WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${patient})
-      + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient}
-        OR archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient}))`) === '0',
+      + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient})`) === '0',
     'The owned patient\'s consent, custom-field or extension archive rows were not removed');
   });
   const [typeId, typeName, typeDescription] = sql.rows(`SELECT id, name, IFNULL(description,'') FROM consentType
