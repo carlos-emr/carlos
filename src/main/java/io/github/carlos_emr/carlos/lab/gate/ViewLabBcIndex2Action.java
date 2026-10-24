@@ -47,17 +47,7 @@ public final class ViewLabBcIndex2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
-        // Require POST when mutation-trigger params are present. index.jsp
-        // writes Hl7Link rows when chk[] is submitted or when the demo_id/pid
-        // pair is supplied (post-back from demo_select popup), so those are
-        // the real CSRF-relevant triggers in addition to conventional names.
-        boolean hasMutationTrigger = request.getParameter("submit") != null
-                || request.getParameter("action") != null
-                || request.getParameter("method") != null
-                || request.getParameter("linkChoice") != null
-                || request.getParameter("buttonAction") != null
-                || request.getParameterValues("chk") != null
-                || (request.getParameter("demo_id") != null && request.getParameter("pid") != null);
+        boolean hasMutationTrigger = hasMutationTrigger(request);
         if (hasMutationTrigger && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -65,21 +55,36 @@ public final class ViewLabBcIndex2Action extends ActionSupport {
 
         if (hasMutationTrigger) {
             try {
-                var service = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.PathnetPatientLinkService.class);
-                String pid = request.getParameter("pid");
-                String demographic = request.getParameter("demo_id");
-                if (pid != null && !pid.isBlank() && demographic != null && !demographic.isBlank()) {
-                    service.link(Integer.parseInt(pid), Integer.valueOf(demographic), loggedInInfo.getLoggedInProviderNo());
-                }
-                String[] checked = request.getParameterValues("chk");
-                if (checked != null) {
-                    for (String id : checked) service.link(Integer.parseInt(id), null, loggedInInfo.getLoggedInProviderNo());
-                }
-            } catch (IllegalArgumentException ex) {
+                linkSelectedPatients(request, loggedInInfo.getLoggedInProviderNo());
+            } catch (IllegalArgumentException _) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Select a valid lab and patient");
                 return NONE;
             }
         }
         return SUCCESS;
+    }
+
+    /** Recognizes both explicit picker submissions and checkbox confirmations. */
+    private static boolean hasMutationTrigger(HttpServletRequest request) {
+        return request.getParameter("submit") != null
+                || request.getParameter("action") != null
+                || request.getParameter("method") != null
+                || request.getParameter("linkChoice") != null
+                || request.getParameter("buttonAction") != null
+                || request.getParameterValues("chk") != null
+                || (request.getParameter("demo_id") != null && request.getParameter("pid") != null);
+    }
+
+    private static void linkSelectedPatients(HttpServletRequest request, String providerNo) {
+        var service = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.PathnetPatientLinkService.class);
+        String pid = request.getParameter("pid");
+        String demographic = request.getParameter("demo_id");
+        if (pid != null && !pid.isBlank() && demographic != null && !demographic.isBlank()) {
+            service.link(Integer.parseInt(pid), Integer.valueOf(demographic), providerNo);
+        }
+        String[] checked = request.getParameterValues("chk");
+        if (checked != null) {
+            for (String id : checked) service.link(Integer.parseInt(id), null, providerNo);
+        }
     }
 }

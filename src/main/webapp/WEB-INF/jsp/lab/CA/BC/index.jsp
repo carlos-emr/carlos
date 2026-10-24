@@ -161,9 +161,9 @@
                     <%=SafeEncode.forHtml(obr == null ? "" : Misc.check(obr.getResultCopiesTo(), ""))%>
                 </td>
                 <td class="Text" style="border-left: #464646 1px solid;">
-                    <a href="#" onclick="return PopupDemo('<%=pid.getId()%>');">
+                    <button type="button" onclick="return PopupDemo('<%=pid.getId()%>');">
                         <%=demo == null ? "Select patient" : demo.getDemographicNo()%>
-                    </a>
+                    </button>
                 </td>
                 <td class="Text">
                     <%= demo == null ? "" : SafeEncode.forHtml(demo.getFullName())%>

@@ -76,7 +76,7 @@ public class PID extends Node {
         if (value == null || value.isBlank()) return null;
         try {
             return java.sql.Date.valueOf(LocalDate.parse(value, BIRTH_DATE_FORMAT));
-        } catch (DateTimeException ex) {
+        } catch (DateTimeException _) {
             return null;
         }
     }

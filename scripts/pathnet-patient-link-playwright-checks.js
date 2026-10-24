@@ -124,15 +124,15 @@ async function workflow(s) {
     h.assert((await noDobReport.locator('body').innerText()).includes('5.2'), 'A missing DOB prevented displaying the observation');
     await noDobReport.close();
     let row = frame.locator('tr').filter({ hasText: `${marker}^mismatch` });
-    await row.getByText('Select patient', { exact: true }).waitFor();
+    await row.getByRole('button', { name: 'Select patient', exact: true }).waitFor();
     const report = await s.popup(admin, row.getByRole('link', { name: `${marker}^mismatch`, exact: true }), 'pathnet-result');
     h.assert((await report.locator('body').innerText()).includes('5.2'), 'The stored observation is missing from the report');
     await report.close();
     frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
     row = frame.locator('tr').filter({ hasText: `${marker}^mismatch` });
     h.assert(sql.value(`SELECT demographic_no FROM hl7_link WHERE pid_id=${unlinked}`) === '0', 'Opening page auto-linked a lab');
-    const popup = await s.popup(admin, row.getByText('Select patient', { exact: true }), 'pathnet-patient-picker');
-    await popup.locator('input[name=keyword]').fill(marker);
+    const popup = await s.popup(admin, row.getByRole('button', { name: 'Select patient', exact: true }), 'pathnet-patient-picker');
+    await popup.getByLabel('Patient Search', { exact: true }).fill(marker);
     await Promise.all([popup.waitForNavigation(), popup.locator('input[type=submit]').click()]);
     const post = admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/lab/CA/BC/ViewIndex'));
     await popup.getByRole('link', { name: patient, exact: true }).click();

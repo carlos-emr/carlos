@@ -113,6 +113,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     private static final String PARAM_KEYWORD = "keyword";
     private static final String PARAM_ADDRESS = "address";
     private static final String PARAM_CHART_NO = "chartNo";
+    private static final String PARAM_DEMOGRAPHIC_NO = "demographicNo";
 
     /** Parameter keys whose values contain PHI and must not appear in logs. */
     private static final Set<String> PHI_PARAM_KEYS = Set.of(
@@ -609,7 +610,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             }
             case "search_demographic_no" -> {
                 try {
-                    parameters.put("demographicNo", Integer.valueOf(keyword));
+                    parameters.put(PARAM_DEMOGRAPHIC_NO, Integer.valueOf(keyword));
                     yield "d.demographicNo=:demographicNo";
                 } catch (NumberFormatException _) {
                     yield null;
@@ -1694,7 +1695,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             q.setMaxResults(limit);
 
             if (val != null) {
-                q.setParameter("demographicNo", val);
+                q.setParameter(PARAM_DEMOGRAPHIC_NO, val);
             }
             if (statuses != null) {
                 q.setParameter("statuses", statuses);
@@ -2659,8 +2660,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
     /** Allowlisted HQL field names for {@link #findByField}. */
     private static final java.util.Map<String, String> FIND_BY_FIELDS = java.util.Map.of(
-        "DemographicNo", "demographicNo", "LastName", "lastName", "FirstName", "firstName",
-        "ChartNo", "chartNo", "Sex", "sex", "YearOfBirth", "yearOfBirth", "PatientStatus", "patientStatus"
+        "DemographicNo", PARAM_DEMOGRAPHIC_NO, "LastName", "lastName", "FirstName", "firstName",
+        "ChartNo", PARAM_CHART_NO, "Sex", "sex", "YearOfBirth", "yearOfBirth", "PatientStatus", "patientStatus"
     );
 
     @SuppressWarnings("unchecked")
@@ -2670,7 +2671,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         // The legacy picker sends display names; HQL requires the actual case-sensitive properties.
         String property = fieldName == null ? "lastName" : FIND_BY_FIELDS.getOrDefault(fieldName, "lastName");
-        boolean byNumber = "demographicNo".equals(property);
+        boolean byNumber = PARAM_DEMOGRAPHIC_NO.equals(property);
         String sql = "FROM Demographic d";
         if (!isFieldValueEmpty) {
             sql += " WHERE d." + property + (byNumber ? " = :fieldValue" : " LIKE :fieldValue");

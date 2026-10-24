@@ -120,8 +120,9 @@
     </table>
     <table>
         <tr>
-            <td><input type="hidden" name="pid" value="<%=pid%>"/> <input
-                    type="text" name="keyword" value="<carlos:encode value='<%= String.valueOf(keyword) %>' context="htmlAttribute"/>"/> <input
+            <td><input type="hidden" name="pid" value="<%=pid%>"/>
+                <label for="patientKeyword"><fmt:message key="demographic.search.msgSearchPatient"/></label> <input
+                    type="text" id="patientKeyword" name="keyword" value="<carlos:encode value='<%= String.valueOf(keyword) %>' context="htmlAttribute"/>"/> <input
                     type="submit" value="<fmt:message key='demographic.search.btnSearch'/>"/></td>
         </tr>
     </table>
@@ -161,7 +162,7 @@
             for (Demographic d : demographics) {
         %>
         <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
-            <td class="Text" align="center"><a
+            <td class="Text" style="text-align:center"><a
                     href="javascript:PopupReturn('<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScript"/>')">
                 <carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="html"/>
             </a></td>

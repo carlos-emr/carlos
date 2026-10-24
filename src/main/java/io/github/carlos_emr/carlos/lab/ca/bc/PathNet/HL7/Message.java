@@ -242,7 +242,7 @@ public class Message {
             return Integer.parseInt(demo.getYearOfBirth()) == Integer.parseInt(new SimpleDateFormat("yyyy").format(dob))
                     && Integer.parseInt(demo.getMonthOfBirth()) == Integer.parseInt(new SimpleDateFormat("MM").format(dob))
                     && Integer.parseInt(demo.getDateOfBirth()) == Integer.parseInt(new SimpleDateFormat("dd").format(dob));
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }
