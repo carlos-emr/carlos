@@ -163,7 +163,12 @@ item 8 in #4678. The Vascular Tracker's remaining unencoded output of stored tex
    only by a hand-built request (its one URL builder, `getAnotherEncounter()` in
    `encounter.js`, has no callers and sends no patient). It prepares the named
    appointment's patient, with that patient's read privilege enforced, before the
-   rendered page rejects the mismatch. The branch and its builder should be removed.
+   rendered page rejects the mismatch. **Fixed in #4676:** the branch, its builder,
+   `EctSessionBean`'s appointment-number setup overload and the never-rendered
+   appointment list are removed, and every entry's `appointmentNo` must now be an
+   existing appointment of the request's own patient (or `0`/absent for none) before
+   the chart is loaded or remembered. See
+   [issue-4676-appointment-entry.md](issue-4676-appointment-entry.md).
 5. **Patient-record restrictions in measurements:** history, setup, write, and
    graph routes check measurement privileges but do not call
    `isAllowedAccessToPatientRecord`, which additionally enforces patient-specific
@@ -180,8 +185,11 @@ item 8 in #4678. The Vascular Tracker's remaining unencoded output of stored tex
    `/carlos/carlos/billing`. This existing base-URL composition needs separate
    validation for local and external legacy deployments; it was not live-tested here.
 8. **Started-form item link:** `EctDisplayForm2Action` shows one started item per
-   form, dated from the most recently *created* row, but links it to `formId=latest`,
-   which resolves by edit time. For a form updated in place, the item can show one
-   row's date and open another. This source finding needs separate selection
-   coverage; the isolation workflow deliberately verifies the currently advertised
-   latest link.
+   form (not a list of historical rows), dated from the most recently *created* row,
+   but links it to `formId=latest`, which resolves by edit time. For a form updated in
+   place, the item could show one row's date and open another. **Fixed in #4678:** the
+   item keeps its `formId=latest` link and is now dated from the row that link opens
+   (`EctFormData.getShortcutLatestPatientForm`, ordered as the shortcut orders,
+   `formEdited DESC, ID DESC`). Pinned by `EctFormDataShortcutLatestIntegrationTest`,
+   `EctDisplayForm2ActionUnitTest` and the `echart-forms-latest-item` browser check,
+   which clicks patient A's item with patient B's chart open.

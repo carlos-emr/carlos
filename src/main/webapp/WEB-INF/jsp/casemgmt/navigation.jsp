@@ -129,6 +129,7 @@
     if (pgId == null) pgId = "";
 %>
 
+<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlosCsrfForm.js"></script>
 <script type="text/javascript" language=javascript>
     function popupPage(varpage) {
         var page = "" + varpage;
@@ -137,9 +138,15 @@
         window.open(page, "", windowprops);
     }
 
+    // The unbill (-B) link: billing deletes take only form posts, so post the link's parameters into
+    // the popup (opened in the click so popup blockers allow it); carlosPostForm adds the CSRF token.
     function onUnbilled(url) {
         if (confirm("You are about to delete the previous billing, are you sure?")) {
-            popupPage(url);
+            var parts = String(url).split('?');
+            var fields = {};
+            new URLSearchParams(parts[1] || '').forEach(function (value, key) { fields[key] = value; });
+            var popup = window.open('', 'unbilled', 'height=600,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0');
+            carlosPostForm(parts[0], fields, {target: 'unbilled', popup: popup});
         }
     }
 

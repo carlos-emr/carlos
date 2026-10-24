@@ -9,6 +9,8 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.dao.EncounterWindowDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
@@ -18,6 +20,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,6 +51,7 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
     private CaseManagementManager manager;
     private CaseManagementNoteDAO notes;
     private EChartDao charts;
+    private OscarAppointmentDao appointments;
     private EctSessionBean stale;
 
     @BeforeEach
@@ -56,6 +60,10 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
         manager = createAndRegisterMock(CaseManagementManager.class);
         notes = createAndRegisterMock(CaseManagementNoteDAO.class);
         charts = createAndRegisterMock(EChartDao.class);
+        appointments = createAndRegisterMock(OscarAppointmentDao.class);
+        // Each test patient's own visit; any other number is an appointment that does not exist.
+        when(appointments.find(9001)).thenReturn(appointment(9001, 101));
+        when(appointments.find(9002)).thenReturn(appointment(9002, 202));
         createAndRegisterMock(EncounterWindowDao.class);
         createAndRegisterMock(DrugDao.class);
         login = new LoggedInInfo();
@@ -165,7 +173,7 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
             assertThat(session.getAttribute("eChartID")).isEqualTo("old-global-chart");
             verify(security).hasPrivilege(login, "_demographic", "r", null);
             verifyNoMoreInteractions(security);
-            verifyNoInteractions(manager, notes, charts);
+            verifyNoInteractions(manager, notes, charts, appointments);
         }
     }
 
@@ -192,7 +200,7 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
             assertThatThrownBy(() -> execute(request, new MockHttpServletResponse()))
                     .isInstanceOf(SecurityException.class);
             verify(security).hasPrivilege(login, "_demographic", "r", "101");
-            verifyNoInteractions(manager, notes, charts);
+            verifyNoInteractions(manager, notes, charts, appointments);
             assertThat(beans.constructed()).isEmpty();
             assertThat(request.getAttribute("EctSessionBean")).isNull();
             assertThat(session.getAttribute("EctSessionBean")).isSameAs(stale);
@@ -281,6 +289,161 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
         assertThat(copy.getNote()).isEqualTo("FAKE current text");
         assertThat(copy.getHistory()).as("not the source note's earlier text").isEqualTo("FAKE current text");
         assertThat(response.getRedirectedUrl()).isEqualTo("/encounter/IncomingEncounter?demographicNo=101&appointmentNo=0");
+    }
+
+    /**
+     * Issue #4676: the entry remembers only the request's own patient's appointment.
+     *
+     * <p>The removed {@code appointmentList} branch loaded the named appointment's patient into the
+     * bean and overwrote that patient's remembered entry before Index2.jsp refused the mismatch; the
+     * ordinary entry remembered any appointment number it was given. The remembered appointment is
+     * what the chart's later notes, forms and eForms are linked to.</p>
+     */
+    @Nested
+    @DisplayName("appointment ownership (#4676)")
+    class AppointmentOwnership {
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"another patient's appointment", "another patient's appointment through appointmentList",
+                "an appointment that does not exist", "an appointment that does not exist through appointmentList",
+                "an appointment booked without a patient"})
+        @DisplayName("should refuse before loading or remembering either chart")
+        void shouldRefuseBeforeLoadingOrRemembering_whenTheAppointmentIsNotThePatientsOwn(String scenario) throws Exception {
+            when(appointments.find(9505)).thenReturn(appointment(9505, 0));
+            try (var props = mockStatic(CarlosProperties.class);
+                 var patients = mockStatic(RxPatientData.class);
+                 var beans = clinicalBeans()) {
+                props.when(CarlosProperties::getInstance).thenReturn(properties);
+                MockHttpServletRequest aEntry = request("101", "9001");
+                aEntry.setParameter("reason", "FAKE reason A");
+                assertThat(execute(aEntry, new MockHttpServletResponse())).isEqualTo("success2");
+                MockHttpServletRequest bEntry = request("202", "9002");
+                bEntry.setParameter("reason", "FAKE reason B");
+                bEntry.setParameter("encType", "phone");
+                assertThat(execute(bEntry, new MockHttpServletResponse())).isEqualTo("success2");
+                Object sessionBean = session.getAttribute("EctSessionBean");
+                int built = beans.constructed().size();
+                clearInvocations(notes, charts, manager, appointments);
+                patients.clearInvocations();
+
+                String appointment = scenario.startsWith("another") ? "9002"
+                        : scenario.contains("without a patient") ? "9505" : "9404";
+                MockHttpServletRequest hostile = request("101", appointment);
+                if (scenario.endsWith("appointmentList")) hostile.setParameter("appointmentList", "true");
+                hostile.setParameter("reason", "FAKE hostile reason");
+                hostile.setParameter("encType", "hostile");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+
+                assertThat(execute(hostile, response)).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(400);
+                verify(appointments).find(Integer.parseInt(appointment));
+                beans.constructed().subList(built, beans.constructed().size())
+                        .forEach(bean -> verify(bean, never()).setUpEncounterPage(any(LoggedInInfo.class)));
+                verifyNoInteractions(notes, charts);
+                patients.verifyNoInteractions();
+                assertThat(hostile.getAttribute("EctSessionBean")).isNull();
+                assertThat(session.getAttribute("EctSessionBean")).isSameAs(sessionBean);
+                EctSessionBean a = EncounterPatientContext.findEncounter(hostile, "101");
+                assertEncounter(a, "101", "9001");
+                assertThat(a.reason).isEqualTo("FAKE reason A");
+                assertThat(a.encType).isEqualTo("telephone");
+                EctSessionBean b = EncounterPatientContext.findEncounter(hostile, "202");
+                assertEncounter(b, "202", "9002");
+                assertThat(b.reason).isEqualTo("FAKE reason B");
+                assertThat(b.encType).isEqualTo("phone");
+            }
+        }
+
+        @Test
+        @DisplayName("should open the patient's own appointment as an ordinary entry when appointmentList is sent")
+        void shouldOpenAsOrdinaryEntry_whenAppointmentListNamesThePatientsOwnAppointment() throws Exception {
+            try (var props = mockStatic(CarlosProperties.class);
+                 var _ = mockStatic(RxPatientData.class);
+                 var _ = clinicalBeans()) {
+                props.when(CarlosProperties::getInstance).thenReturn(properties);
+                MockHttpServletRequest request = request("101", "9001");
+                request.setParameter("appointmentList", "true");
+                request.setParameter("reason", "FAKE reason A");
+                assertThat(execute(request, new MockHttpServletResponse())).isEqualTo("success2");
+                EctSessionBean bean = (EctSessionBean) request.getAttribute("EctSessionBean");
+                assertEncounter(bean, "101", "9001");
+                assertThat(bean.reason).as("the request's own entry metadata, not the appointment row's").isEqualTo("FAKE reason A");
+                verify(bean).setUpEncounterPage(login);
+                assertEncounter(EncounterPatientContext.findEncounter(request, "101"), "101", "9001");
+                assertThat(EncounterPatientContext.findEncounter(request, "202")).isNull();
+            }
+        }
+
+        @ParameterizedTest(name = "appointmentNo={0}")
+        @ValueSource(strings = {"0", "000"})
+        @DisplayName("should open without an appointment and without looking one up when none is named")
+        void shouldOpenWithoutLookup_whenTheAppointmentIsZero(String zero) throws Exception {
+            try (var props = mockStatic(CarlosProperties.class);
+                 var _ = mockStatic(RxPatientData.class);
+                 var _ = clinicalBeans()) {
+                props.when(CarlosProperties::getInstance).thenReturn(properties);
+                MockHttpServletRequest request = request("101", zero);
+                assertThat(execute(request, new MockHttpServletResponse())).isEqualTo("success2");
+                assertEncounter((EctSessionBean) request.getAttribute("EctSessionBean"), "101", "0");
+                assertEncounter(EncounterPatientContext.findEncounter(request, "101"), "101", "0");
+                verifyNoInteractions(appointments);
+            }
+        }
+
+        @Test
+        @DisplayName("should remember the appointment's own number, not the request's spelling of it")
+        void shouldRememberTheRowsNumber_whenTheRequestPadsTheAppointment() throws Exception {
+            try (var props = mockStatic(CarlosProperties.class);
+                 var _ = mockStatic(RxPatientData.class);
+                 var _ = clinicalBeans()) {
+                props.when(CarlosProperties::getInstance).thenReturn(properties);
+                MockHttpServletRequest request = request("101", "0009001");
+                assertThat(execute(request, new MockHttpServletResponse())).isEqualTo("success2");
+                assertEncounter(EncounterPatientContext.findEncounter(request, "101"), "101", "9001");
+            }
+        }
+
+        @ParameterizedTest(name = "appointmentNo={0}")
+        @ValueSource(strings = {"9001x", "-9001", "1234567890", " 9001"})
+        @DisplayName("should refuse a malformed appointment number without looking it up")
+        void shouldRefuseWithoutLookup_whenTheAppointmentIsMalformed(String malformed) throws Exception {
+            try (var props = mockStatic(CarlosProperties.class);
+                 var _ = mockStatic(RxPatientData.class);
+                 var beans = clinicalBeans()) {
+                props.when(CarlosProperties::getInstance).thenReturn(properties);
+                MockHttpServletRequest request = request("101", malformed);
+                request.setParameter("appointmentList", "true");
+                assertThat(execute(request, new MockHttpServletResponse())).isEqualTo("failure");
+                beans.constructed().forEach(bean -> verify(bean, never()).setUpEncounterPage(any(LoggedInInfo.class)));
+                assertThat(EncounterPatientContext.findEncounter(request, "101")).isNull();
+                verifyNoInteractions(appointments, notes, charts);
+            }
+        }
+
+        @Test
+        @DisplayName("should still refuse an unreadable patient before looking up the appointment")
+        void shouldDenyBeforeLookup_whenThePatientIsNotReadable() {
+            when(security.hasPrivilege(login, "_demographic", "r", "101")).thenReturn(false);
+            MockHttpServletRequest request = request("101", "9002");
+            request.setParameter("appointmentList", "true");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            try (var beans = clinicalBeans()) {
+                assertThatThrownBy(() -> execute(request, response))
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessage("missing required sec object (_demographic)");
+                assertThat(beans.constructed()).isEmpty();
+                verifyNoInteractions(appointments, manager, notes, charts);
+                assertThat(EncounterPatientContext.findEncounter(request, "101")).isNull();
+                assertThat(EncounterPatientContext.findEncounter(request, "202")).isNull();
+            }
+        }
+    }
+
+    private static Appointment appointment(int id, int patient) {
+        Appointment appointment = new Appointment();
+        appointment.setId(id);
+        appointment.setDemographicNo(patient);
+        return appointment;
     }
 
     private void allowAttach() {

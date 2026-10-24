@@ -39,10 +39,15 @@ function unusedNumber(prefix, digits, taken) {
 /**
  * A billing physician the BC billing pages list: the test login's provider row with FAKE BC numbers
  * (practitioner 9xxxx, payee 8xxxx) and last name = the run marker. Removed, and asserted gone, in cleanup.
+ * With `status: '0'` it is a physician who has left: inactive from the start, so the application's
+ * cached active-provider list never holds it.
  *
+ * @param {Object} s the workflow session
+ * @param {{status?: '0'|'1'}} [options]
  * @returns {{providerNo: string, ohipNo: string, payeeNo: string}}
  */
-function createBillingPhysician(s) {
+function createBillingPhysician(s, { status = '1' } = {}) {
+  h.assert(status === '0' || status === '1', 'A billing physician is active (1) or inactive (0)');
   const { sql, marker, provider } = s;
   const q = h.sqlString;
   const owned = {};
@@ -59,7 +64,7 @@ function createBillingPhysician(s) {
   const columns = sql.value(`SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION) FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='provider'`).split(',');
   const overrides = { provider_no: q(owned.providerNo), ohip_no: q(owned.ohipNo), billing_no: q(owned.payeeNo),
-    last_name: q(marker), first_name: "'Billing'", status: "'1'" };
+    last_name: q(marker), first_name: "'Billing'", status: q(status) };
   sql.execute(`INSERT INTO provider (${columns.map(c => `\`${c}\``).join(',')})
     SELECT ${columns.map(c => overrides[c] || `\`${c}\``).join(',')} FROM provider WHERE provider_no=${q(provider)}`);
   h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(owned.providerNo)} AND ohip_no=${q(owned.ohipNo)}`) === '1',
@@ -261,6 +266,9 @@ async function reportClinicBillStatus({ admin, frame }, { demographicNo, status,
       && new URL(response.url()).pathname.endsWith('/billing/CA/BC/reprocessBill')
       && new URL(response.url()).searchParams.get('billTypes') === status
       && new URL(response.url()).searchParams.get('demographicNo') === String(demographicNo), { timeout }),
+    // Response headers can arrive before the frame commits its new document.
+    // Wait for that commit before asking for the new document's load state.
+    admin.waitForEvent('framenavigated', { predicate: navigated => navigated === frame, timeout }),
     form.locator('input[type="submit"][value="Create Report"]').click(),
   ]);
   await frame.waitForLoadState('domcontentloaded');

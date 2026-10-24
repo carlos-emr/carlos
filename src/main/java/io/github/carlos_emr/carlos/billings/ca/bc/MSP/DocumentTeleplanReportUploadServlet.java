@@ -43,8 +43,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Part;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.CarlosProperties;
@@ -56,6 +59,22 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        // The upload form posts, and only a billing administrator may place files in the document
+        // directory, so both checks run before any part is read.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+        if (!hasUploadPrivilege(loggedInInfo)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
 
         String foldername = "", fileheader = "", forwardTo = "";
 
@@ -96,4 +115,10 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
         dispatch.forward(request, response);
     }
 
+    /** The same rights the forward target, {@code billing/CA/BC/ViewGenTA}, requires. */
+    private boolean hasUploadPrivilege(LoggedInInfo loggedInInfo) {
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null);
+    }
 }

@@ -259,10 +259,7 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate the draft's fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            if (logger.isWarnEnabled()) {
-                String sanitizedFid = LogSafe.sanitize(fid);
-                logger.warn("Invalid fid parameter received: {}", sanitizedFid);
-            }
+            logger.warn("Invalid (non-numeric) fid parameter received; ignoring it");
             fid = null;
         }
 

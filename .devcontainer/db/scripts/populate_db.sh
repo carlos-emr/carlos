@@ -178,4 +178,23 @@ $SQL carlos -e "UPDATE clinic SET clinic_name = 'CARLOS Demo Clinic' WHERE TRIM(
 echo 'Loading Administration test fixtures...'
 $SQL carlos < /scripts/admin_test_data.sql
 $SQL carlos < /scripts/admin_test_account.sql
+# Query by Example runs as a separate read-only account that MariaDB grants SELECT on the
+# reportable tables only (issue #3372). Last, so every table it may read already exists. The
+# same file grants it on packaged installs (carlos-ctl db-users / db-migrate); re-run it with
+# the qbe-reporting-account helper from the app container after a schema change. '%' because
+# the app connects from another container. Dev-only password, matching db_reporting_password
+# in .devcontainer/development/config/shared/volumes/carlos.properties.
+echo 'Provisioning the read-only Query by Example reporting account...'
+REPORT_PASSWORD="${CARLOS_REPORT_DB_PASSWORD:-carlos-report-dev}"
+# The password goes into SQL string literals below; refuse what would end the literal, as the
+# qbe-reporting-account helper does.
+case "$REPORT_PASSWORD" in
+    *"'"*|*'\'*) echo "CARLOS_REPORT_DB_PASSWORD: quotes and backslashes are not supported" >&2; exit 1 ;;
+esac
+# On stdin, not argv, like the root password above.
+$SQL <<EOSQL
+CREATE USER IF NOT EXISTS 'carlos_report'@'%' IDENTIFIED BY '${REPORT_PASSWORD}';
+ALTER USER 'carlos_report'@'%' IDENTIFIED BY '${REPORT_PASSWORD}';
+EOSQL
+$SQL carlos < /scripts/carlos_report_grants.sql
 echo 'Database initialization complete!'

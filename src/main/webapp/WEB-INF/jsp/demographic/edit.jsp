@@ -748,12 +748,19 @@
             var workPhoneHistory = "";
             var cellPhoneHistory = "";
 
+            // The history values are the patient's own text: the popup shows them as text, not as markup.
+            function historyText(value) {
+                return String(value).replace(/[&<>"']/g, function (c) {
+                    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+                });
+            }
+
             function generateMarkup(addresses, type, header) {
                 var markup = '<table border="0" cellpadding="2" cellspacing="2" width="200px">';
                 markup += '<tr><th><b>Date Entered</b></th><th><b>' + header + '</b></th></tr>';
                 for (var x = 0; x < addresses.length; x++) {
                     if (addresses[x].type == type) {
-                        markup += '<tr><td>' + addresses[x].dateSeen + '</td><td>' + addresses[x].name + '</td></tr>';
+                        markup += '<tr><td>' + historyText(addresses[x].dateSeen) + '</td><td>' + historyText(addresses[x].name) + '</td></tr>';
                     }
                 }
                 markup += "</table>";
@@ -1146,6 +1153,31 @@
                             <%
                                 if ("ON".equals(prov)) {
                             %>
+                            <%-- Ontario hospital (shortcut) billing. This sidebar link is the
+                                 page's only opener: #654 dropped it with the rest of the
+                                 sidebar billing links, which left billingShortcutPg1View
+                                 unreachable (#5055). billForm prefers hospital_view, as
+                                 BillingShortcutPg2Service does when it reopens page 1. --%>
+                            <tr>
+                                <td><c:url var="masterRecordHospitalBilling" value="/billing/CA/ON/billingShortcutPg1View">
+                                        <c:param name="billRegion" value='<%= prov %>'/>
+                                        <c:param name="billForm" value='<%= oscarProps.getProperty("hospital_view", oscarProps.getProperty("default_view")) %>'/>
+                                        <c:param name="hotclick" value=""/>
+                                        <c:param name="appointment_no" value="0"/>
+                                        <c:param name="demographic_name" value='<%= demographic.getLastName() + "," + demographic.getFirstName() %>'/>
+                                        <c:param name="demographic_no" value='<%= String.valueOf(demographic.getDemographicNo()) %>'/>
+                                        <c:param name="providerview" value='<%= demographic.getProviderNo() %>'/>
+                                        <c:param name="user_no" value='<%= curProvider_no %>'/>
+                                        <c:param name="apptProvider_no" value="none"/>
+                                        <c:param name="appointment_date" value='<%= dateString %>'/>
+                                        <c:param name="start_time" value="00:00:00"/>
+                                        <c:param name="bNewForm" value="1"/>
+                                        <c:param name="status" value="t"/>
+                                    </c:url>
+                                    <a id="hospitalBillingLink" href="${carlos:forHtmlAttribute(masterRecordHospitalBilling)}"
+                                        onClick="popupPage(700,1000,this.href);return false;"
+                                        title="<fmt:message key="demographic.demographiceditdemographic.msgBillPatient"/>"><fmt:message key="demographic.demographiceditdemographic.msgHospitalBilling"/></a></td>
+                            </tr>
                             <%
                                 }
                             %>

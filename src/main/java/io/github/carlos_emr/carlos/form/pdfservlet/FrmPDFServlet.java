@@ -67,7 +67,6 @@ import io.github.carlos_emr.carlos.util.ConcatPDF;
 import java.awt.Color;
 import org.openpdf.text.Document;
 import org.openpdf.text.DocumentException;
-import org.openpdf.text.Element;
 import org.openpdf.text.Font;
 import org.openpdf.text.PageSize;
 import org.openpdf.text.Phrase;
@@ -116,10 +115,52 @@ public class FrmPDFServlet extends HttpServlet {
     Logger log = MiscUtils.getLogger();
 
     /**
+     * The smallest size a {@code fit} field is set in, the size of the printed forms' own captions. A value still
+     * too long at this size is printed at it and overruns its blank.
+     */
+    static final float MIN_FIT_FONT_SIZE = 6f;
+
+    /**
      * Default constructor required by the servlet container.
      */
     public FrmPDFServlet() {
         super();
+    }
+
+    /**
+     * The font size at which {@code text} fits in {@code width} points: {@code size} when it already fits, otherwise
+     * the size that makes it exactly as wide as {@code width}, but never below {@link #MIN_FIT_FONT_SIZE}.
+     *
+     * @param font the font the text is set in
+     * @param text the value to print; {@code null} or empty prints nothing, so it keeps {@code size}
+     * @param size the size the print configuration asks for
+     * @param width the width of the value's blank on the printed form, in points
+     * @return the size to set the text in
+     */
+    static float fittedFontSize(BaseFont font, String text, float size, float width) {
+        if (text == null || text.isEmpty()) {
+            return size;
+        }
+        float natural = font.getWidthPoint(text, size);
+        if (natural <= width) {
+            return size;
+        }
+        // A string's width is proportional to its size, so one division finds the size that fills the blank.
+        return Math.max(MIN_FIT_FONT_SIZE, size * width / natural);
+    }
+
+    /**
+     * The text alignment a print-config line names in its first column: left, right, or anything else centred.
+     *
+     * <p>The column branch passes the result to {@code ColumnText}, which takes {@code Element}'s alignment constants;
+     * they have the same values as {@link PdfContentByte}'s.</p>
+     */
+    static int alignmentOf(String configured) {
+        String alignment = configured.trim();
+        if ("left".equals(alignment)) {
+            return PdfContentByte.ALIGN_LEFT;
+        }
+        return "right".equals(alignment) ? PdfContentByte.ALIGN_RIGHT : PdfContentByte.ALIGN_CENTER;
     }
 
     /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
@@ -628,9 +669,7 @@ public class FrmPDFServlet extends HttpServlet {
                             // xxxx", font));
                             ct.setSimpleColumn(Integer.parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2]
                                     .trim())), Integer.parseInt(cfgVal[7].trim()), (height - Integer.parseInt(cfgVal[8]
-                                    .trim())), Integer.parseInt(cfgVal[9].trim()), (cfgVal[0].trim().equals("left") ?
-                                    Element.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? Element.ALIGN_RIGHT :
-                                    Element.ALIGN_CENTER)));
+                                    .trim())), Float.parseFloat(cfgVal[9].trim()), alignmentOf(cfgVal[0]));
 
                             //ct.addText(new Phrase(12, props.getProperty(tempName.toString(), ""), font)); // page
                             ct.setText(new Phrase(12, propValue, font));
@@ -665,9 +704,7 @@ public class FrmPDFServlet extends HttpServlet {
                         } else if (tempName.toString().startsWith("__")) {
                             cb.beginText();
                             cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
-                                    : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
-                                    : PdfContentByte.ALIGN_CENTER)), (cfgVal.length >= 7 ? (cfgVal[6]
+                            cb.showTextAligned(alignmentOf(cfgVal[0]), (cfgVal.length >= 7 ? (cfgVal[6]
                                     .trim()) : propValue), Integer
                                     .parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
                             cb.endText();
@@ -684,14 +721,27 @@ public class FrmPDFServlet extends HttpServlet {
 //
 //	                            cb.endText();
 //	                        }
+                        } else if (cfgVal.length == 8 && "fit".equals(cfgVal[6].trim())) {
+                            // "fit, <far edge>" in the seventh and eighth columns: the value's blank on the printed
+                            // form ends at <far edge>, so a value too long for it is set in a smaller font instead of
+                            // running past the blank (and, at the right of the page, off the paper). Opt-in per line.
+                            float x = Float.parseFloat(cfgVal[1].trim());
+                            float width = Math.abs(Float.parseFloat(cfgVal[7].trim()) - x);
+                            cb.beginText();
+                            cb.setFontAndSize(bf, fittedFontSize(bf, propValue, Float.parseFloat(cfgVal[5].trim()), width));
+                            cb.showTextAligned(alignmentOf(cfgVal[0]), propValue, x,
+                                    (height - Integer.parseInt(cfgVal[2].trim())), 0);
+                            cb.endText();
                         } else { // write prop text
+                            // A seventh column is fixed text (a checkbox's "X"), printed only when the field has a value.
+                            String text = propValue;
+                            if (cfgVal.length >= 7) {
+                                text = propValue.isEmpty() ? "" : cfgVal[6].trim();
+                            }
                             cb.beginText();
                             cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
-                                    : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
-                                    : PdfContentByte.ALIGN_CENTER)), (cfgVal.length >= 7 ? ((propValue.equals("") ? "" : cfgVal[6].trim()))
-                                    : propValue), Integer.parseInt(cfgVal[1]
-                                    .trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
+                            cb.showTextAligned(alignmentOf(cfgVal[0]), text, Float.parseFloat(cfgVal[1].trim()),
+                                    height - Integer.parseInt(cfgVal[2].trim()), 0);
 
                             cb.endText();
                         }

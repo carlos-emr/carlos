@@ -21,10 +21,11 @@
  * directory, which must exist when set; unset, the step says it did not look) gained no file, and that the browser
  * opened no Teleplan page and wrote to no other host.
  *
+ * Also verifies the private-bill PAID and OWED columns before and after another payment and adjustment (#3967).
  * Fixtures: three MSP bills (billing + billingmaster) for the workflow's own FAKE patient, made a BC patient: two
  * paid with explanation (E) and one rejected (R), all dated today, holding the creation date, name check and
  * provider billing numbers a bill-form save stores (a reprocess writes those again). Cleanup deletes every BC billing
- * row of that patient, with the history and notes the saves wrote, and asserts none is left. BC installs only
+ * row of that patient (plus one private bill with payment/adjustment history), with the history and notes the saves wrote, and asserts none is left. BC installs only
  * (billregion=BC).
  */
 const fs = require('node:fs');
@@ -39,6 +40,8 @@ const TIMEOUT = 60000;
 /** The step labels; one place, so the script and the manifest agree. */
 const STEP = {
   list: 'the Invoice List lists the owned bills, with Settle and Reprocess And Resubmit disabled until one is ticked',
+  paid: 'Invoice List excludes internal adjustments from PAID and includes them in OWED',
+  refreshed: 'reloading Invoice List picks up a later payment and internal adjustment',
   settle: 'Settle settles exactly the two ticked bills and leaves the unticked bill unchanged',
   resubmit: 'Reprocess And Resubmit puts exactly the ticked rejected bill back to Not Submitted and sends nothing',
 };
@@ -64,6 +67,7 @@ async function workflow(s) {
     first: bc.seedOwnedBcBill(s, { billingtype: 'MSP', status: 'E', amount: '23.00' }),
     second: bc.seedOwnedBcBill(s, { billingtype: 'MSP', status: 'E', amount: '31.62' }),
     rejected: bc.seedOwnedBcBill(s, { billingtype: 'MSP', status: 'R', amount: '45.00' }),
+    private: bc.seedOwnedBcBill(s, { billingtype: 'Pri', status: 'P', amount: '100.00' }),
   };
   // As a bill saved through the bill form holds them (BillingSaveBilling2Action), since a reprocess writes them again
   // from the patient and provider: the creation date without a time, the name check, and the provider's billing and
@@ -85,6 +89,11 @@ async function workflow(s) {
       .map(column => `${part === 'master' ? 'billingmaster' : 'billing'}.${column} ${before[name][part][column]} -> ${after[name][part][column]}`));
     h.assert(unexpected.length === 0, `The ${name} bill also changed: ${unexpected.join('; ')}`);
   };
+  const payment = (amount, type) => sql.execute(`INSERT INTO billing_history
+      (billingmaster_no,amount_received,payment_type_id,creation_date)
+    VALUES (${bills.private.billingmasterNo},${q(amount)},${type},NOW())`);
+  payment('20.00', 1);
+  payment('5.00', 10);
   const boxOf = name => `input[name="billCheck"][value="${bills[name].billingNo}_${bills[name].billingmasterNo}"]`;
 
   let invoices;
@@ -117,6 +126,28 @@ async function workflow(s) {
     await invoices.locator(boxOf('first')).uncheck();
   });
 
+  const expectPrivateBalance = async (paid, owed) => {
+    const headers = (await invoices.locator('#resultsTable thead th').allTextContents()).map(text => text.trim());
+    const row = invoices.locator(boxOf('private')).locator('xpath=ancestor::tr');
+    const cells = await row.locator('td').allTextContents();
+    for (const [title, expected] of [['PAID', paid], ['OWED', owed]]) {
+      const index = headers.indexOf(title);
+      h.assert(index >= 0, `The Invoice List has no ${title} column`);
+      const actual = Number(cells[index].replace(/[^0-9.-]/g, ''));
+      h.assert(actual === expected, `The private bill's ${title} is ${actual}, expected ${expected}`);
+    }
+  };
+  await s.step(STEP.paid, async () => {
+    await expectPrivateBalance(20, 75);
+  });
+  await s.step(STEP.refreshed, async () => {
+    payment('-3.00', 2);
+    payment('2.00', 10);
+    await invoices.reload({ waitUntil: 'networkidle' });
+    await h.assertNotErrorPage(invoices, 'BC Bill Status after payment');
+    await expectPrivateBalance(17, 76);
+  });
+
   await s.step(STEP.settle, async () => {
     const before = snapshot();
     await tick(['first', 'second']);
@@ -127,6 +158,7 @@ async function workflow(s) {
       expectOnly(before, after, name, { master: ['billingstatus'], bill: ['status'] });
     }
     expectOnly(before, after, 'rejected', {});
+    expectOnly(before, after, 'private', {});
   });
 
   await s.step(STEP.resubmit, async () => {
@@ -156,7 +188,7 @@ async function workflow(s) {
     h.assert(after.rejected.master.billingstatus === 'O',
       `The ticked rejected bill is ${after.rejected.master.billingstatus}, not back to Not Submitted`);
     expectOnly(before, after, 'rejected', { master: ['billingstatus'], bill: ['status'] });
-    for (const name of ['first', 'second']) expectOnly(before, after, name, {});
+    for (const name of ['first', 'second', 'private']) expectOnly(before, after, name, {});
     h.assert(teleplan() === teleplanBefore, 'Reprocess And Resubmit wrote a Teleplan batch, log line or link, or moved the sequence');
     h.assert(JSON.stringify(homeFiles()) === JSON.stringify(homeBefore), 'Reprocess And Resubmit wrote a file into HOME_DIR');
     // A page may fetch its static assets from elsewhere; a send would be a Teleplan page or a write to another host.

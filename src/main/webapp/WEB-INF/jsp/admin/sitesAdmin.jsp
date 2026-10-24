@@ -92,17 +92,18 @@
                     <%-- A GET link, so it opens the site with the read-only method=edit (the GET guard refuses method=update). --%>
                     <display-el:column title="<fmt:message key='admin.sitesAdmin.col.siteName'/>">
                         <a href="<%= request.getContextPath() %>/admin/ManageSites?method=edit&siteId=${carlos:forHtmlAttribute(site.siteId)}">${carlos:forHtml(site.name)}</a></display-el:column>
-                    <display-el:column property="shortName" title="<fmt:message key='admin.sitesAdmin.col.shortName'/>"/>
-                    <display-el:column property="bgColor" title="<fmt:message key='admin.sitesAdmin.col.color'/>" style="background-color:${site.bgColor}"/>
-                    <display-el:column property="phone" title="<fmt:message key='admin.sitesAdmin.col.telephone'/>"/>
-                    <display-el:column property="fax" title="<fmt:message key='admin.sitesAdmin.col.fax'/>"/>
-                    <display-el:column property="address" title="<fmt:message key='admin.sitesAdmin.col.address'/>" style="width: 200px;"/>
-                    <display-el:column property="city" title="<fmt:message key='admin.sitesAdmin.col.city'/>"/>
-                    <display-el:column property="province" title="<fmt:message key='admin.sitesAdmin.col.province'/>"/>
-                    <display-el:column property="postal" title="<fmt:message key='admin.sitesAdmin.col.postalCode'/>"/>
+                    <%-- displaytag prints property= columns unescaped, so each value is written as encoded text. --%>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.shortName'/>">${carlos:forHtml(site.shortName)}</display-el:column>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.color'/>" style="background-color:${site.cssBgColor}">${carlos:forHtml(site.bgColor)}</display-el:column>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.telephone'/>">${carlos:forHtml(site.phone)}</display-el:column>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.fax'/>">${carlos:forHtml(site.fax)}</display-el:column>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.address'/>" style="width: 200px;">${carlos:forHtml(site.address)}</display-el:column>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.city'/>">${carlos:forHtml(site.city)}</display-el:column>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.province'/>">${carlos:forHtml(site.province)}</display-el:column>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.postalCode'/>">${carlos:forHtml(site.postal)}</display-el:column>
                     <% if (IsPropertiesOn.isProviderFormalizeEnable()) { %>
-                    <display-el:column property="providerIdFrom" title="<fmt:message key='admin.sitesAdmin.col.providerIdFrom'/>"/>
-                    <display-el:column property="providerIdTo" title="<fmt:message key='admin.sitesAdmin.col.providerIdTo'/>"/>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.providerIdFrom'/>">${carlos:forHtml(site.providerIdFrom)}</display-el:column>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.providerIdTo'/>">${carlos:forHtml(site.providerIdTo)}</display-el:column>
                     <% } %>
                 </display-el:table>
 

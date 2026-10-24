@@ -162,6 +162,10 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <style>
+            /* The injection panel's Delete acts rather than navigates, so it is a button drawn as the former link. */
+            .rh-injection-delete { background: none; border: 0; padding: 0; color: blue; text-decoration: underline; cursor: pointer; font: inherit; }
+        </style>
     </head>
 
 
@@ -236,9 +240,25 @@
 
                 ArrayList currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
 
+                // A WorkFlow queue row (and the RH save's redisplay) names its pregnancy (issue #4992): show and
+                // save that one, or none when it is no longer one of this patient's active workflows, never
+                // another pregnancy. Without a named workflow (the chart's form list) the first active one is
+                // used, as before.
+                String requestedWorkflowId = request.getParameter("workflowId");
                 if (currentWorkFlows != null && currentWorkFlows.size() > 0) {
-                    request.setAttribute("currentWorkFlow", currentWorkFlows.get(0));
-                    h = (Hashtable) currentWorkFlows.get(0);
+                    if (requestedWorkflowId == null) {
+                        h = (Hashtable) currentWorkFlows.get(0);
+                    } else {
+                        for (Object candidate : currentWorkFlows) {
+                            if (requestedWorkflowId.trim().equals(((Hashtable) candidate).get("ID"))) {
+                                h = (Hashtable) candidate;
+                                break;
+                            }
+                        }
+                    }
+                    if (h != null) {
+                        request.setAttribute("currentWorkFlow", h);
+                    }
                 }
 
                 if (h != null) {
@@ -281,6 +301,10 @@
                 <%}%>
 
             </select>
+            <%} else if (requestedWorkflowId != null) {%>
+            <%-- The named workflow is no longer active. It is still posted, so form/RHPrevention refuses the save
+                 instead of filing this pregnancy's form under another active one or a new one. --%>
+            <input type="hidden" name="workflowId" value="<carlos:encode value='<%= requestedWorkflowId.trim() %>' context="htmlAttribute"/>"/>
             <%}%>
         </fieldset>
 
@@ -577,7 +601,7 @@
         <input type="submit" value="<fmt:message key='global.save'/>"/> <%
                 if ( h != null && h.get("ID") != null){ %> <input
             type="button"
-            onClick="javascript: popup(700,600,'addRhInjection?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&amp;workflowId=<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="javaScriptAttribute"/>&amp;formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="javaScriptAttribute"/>','addInjection');"
+            onClick="javascript: popup(700,600,'form/addRhInjection?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&amp;workflowId=<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="javaScriptAttribute"/>&amp;formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="javaScriptAttribute"/>','addInjection');"
             value="Add Injection"/> <%-- a style="color:blue; " href="javascript: function myFunction() {return false; }" onClick="popup(700,600,'addRhInjection?demographic_no=<%=demographicNo%>&amp;workflowId=<%=h.get("ID")%>&amp;formId=<%=formId%>','addInjection')">Add Injection</a --%>
                 <%}%>
         </form>
@@ -589,6 +613,10 @@
 
         <input type="hidden" name="id" id="deleteId"/>
         <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
+        <%-- prevention/AddPrevention refuses any post without the prevention type and date, a delete included;
+             a delete uses only the id and patient, so the injection's own date is sent (#4992). --%>
+        <input type="hidden" name="prevention" value="RH"/>
+        <input type="hidden" name="prevDate" id="deletePrevDate"/>
 
         <input type="hidden" name="delete" value="delete"/>
         </form>
@@ -641,7 +669,6 @@
             function deleteCall() {
                 var url = "<%=request.getContextPath()%>/prevention/AddPrevention";
                 var data = new URLSearchParams(new FormData(document.getElementById('deleteForm'))).toString();
-                console.log("deleteCall " + data);
                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                 var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {
@@ -652,9 +679,10 @@
                 }).then(function() { getInjectionInformation(); });
             }
 
-            function deleteInjection(idval) {
+            function deleteInjection(idval, prevDate) {
                 var delId = document.getElementById('deleteId');
                 delId.value = idval;
+                document.getElementById('deletePrevDate').value = prevDate;
                 //console.log("calling deleteInjection "+idval);
 
                 deleteCall();

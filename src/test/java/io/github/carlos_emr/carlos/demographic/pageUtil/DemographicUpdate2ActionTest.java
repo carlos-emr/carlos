@@ -209,6 +209,94 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     }
 
     /**
+     * Issue #5128: Name Used is kept whole in the alias (70) and pref_name (30) holds only what
+     * fits. A longer pref_name failed the whole save under a strict sql_mode.
+     */
+    @Nested
+    @DisplayName("Name Used on save")
+    class NameUsed {
+
+        private Demographic demographic;
+
+        @BeforeEach
+        void setUpPatient() {
+            allowPrivilege("_demographic", "w");
+            replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+            mockRequest.setMethod("POST");
+            addRequestParameter("demographic_no", "123");
+            demographic = new Demographic(123);
+            when(mockDemographicDao.getDemographic("123")).thenReturn(demographic);
+        }
+
+        /** Applies the form, then stops at validation on a too-long province, before any write. */
+        private String saveStoppingAtValidation(String nameUsed) throws Exception {
+            if (nameUsed != null) {
+                addRequestParameter("nameUsed", nameUsed);
+            }
+            addRequestParameter("province", "X".repeat(Demographic.PROVINCE_MAX_LENGTH + 1));
+            return executeAction(action);
+        }
+
+        // getPrefName() answers the alias first, so read the value pref_name would be written from.
+        private String storedPrefName() throws Exception {
+            java.lang.reflect.Field field = Demographic.class.getDeclaredField("prefName");
+            field.setAccessible(true);
+            return (String) field.get(demographic);
+        }
+
+        @Test
+        @DisplayName("should keep a 31-character Name Used whole in the alias and its first 30 in pref_name")
+        void shouldKeepNameUsedWholeInAlias_whenItIsThirtyOneCharacters() throws Exception {
+            String nameUsed = "A".repeat(30) + "B";
+
+            assertThat(saveStoppingAtValidation(nameUsed)).isEqualTo("validationError");
+
+            assertThat(demographic.getAlias()).isEqualTo(nameUsed);
+            assertThat(storedPrefName()).isEqualTo("A".repeat(30));
+            @SuppressWarnings("unchecked")
+            List<String> errors = (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+            assertThat(errors).containsExactly("Province exceeds maximum length of 20 characters.");
+        }
+
+        @Test
+        @DisplayName("should keep a 70-character Name Used whole in the alias and its first 30 in pref_name")
+        void shouldKeepNameUsedWholeInAlias_whenItIsSeventyCharacters() throws Exception {
+            String nameUsed = "C".repeat(Demographic.ALIAS_MAX_LENGTH);
+
+            assertThat(saveStoppingAtValidation(nameUsed)).isEqualTo("validationError");
+
+            assertThat(demographic.getAlias()).isEqualTo(nameUsed);
+            assertThat(storedPrefName()).isEqualTo("C".repeat(Demographic.PREF_NAME_MAX_LENGTH));
+            @SuppressWarnings("unchecked")
+            List<String> errors = (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+            assertThat(errors).containsExactly("Province exceeds maximum length of 20 characters.");
+        }
+
+        @Test
+        @DisplayName("should store an empty pref_name when the form sends no Name Used")
+        void shouldStoreEmptyPrefName_whenNoNameUsedIsSent() throws Exception {
+            assertThat(saveStoppingAtValidation(null)).isEqualTo("validationError");
+
+            assertThat(storedPrefName()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should refuse a 71-character Name Used with the form's error and save nothing")
+        void shouldReturnValidationError_whenNameUsedExceedsSeventyCharacters() throws Exception {
+            addRequestParameter("nameUsed", "D".repeat(Demographic.ALIAS_MAX_LENGTH + 1));
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo("validationError");
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            @SuppressWarnings("unchecked")
+            List<String> errors = (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+            assertThat(errors).containsExactly("Preferred name exceeds maximum length of 70 characters.");
+            verify(mockDemographicDao, never()).save(any(Demographic.class));
+        }
+    }
+
+    /**
      * Issue #4229: once the Master Record offers waiting lists again, a submitted list
      * must still be one the provider may use, and a refusal must come before any write.
      */
