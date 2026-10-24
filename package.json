@@ -46,6 +46,7 @@
     "test:rx-preview-visit-site-isolation-playwright": "node scripts/rx-preview-visit-site-isolation-playwright-checks.js",
     "test:multisite-schedule-visibility-playwright": "node scripts/multisite-schedule-visibility-playwright-checks.js",
     "test:rx-favorites-choose-drug-playwright": "node scripts/rx-favorites-choose-drug-playwright-checks.js",
+    "test:rx-strength-quantity-playwright": "node scripts/rx-strength-quantity-playwright-checks.js",
     "test:deb-login-playwright": "node scripts/deb-login-playwright-checks.js",
     "test:omd-flowsheet-conformance-playwright": "node scripts/omd-flowsheet-conformance-playwright-checks.js",
     "test:cdm-measurement-report-playwright": "node scripts/cdm-measurement-report-playwright-checks.js",
