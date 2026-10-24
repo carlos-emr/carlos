@@ -214,6 +214,7 @@ public class Message {
             Hl7Link link = new Hl7Link();
             link.setId(patient.getId());
             link.setDemographicNo(demographicNo == null ? 0 : demographicNo);
+            if (demographicNo != null) link.setStatus("N");
             SpringUtils.getBean(Hl7LinkDao.class).persist(link);
         }
 

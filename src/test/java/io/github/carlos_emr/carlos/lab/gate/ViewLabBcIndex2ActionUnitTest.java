@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.lab.gate;
 
 import io.github.carlos_emr.carlos.lab.service.PathnetPatientLinkService;
+import io.github.carlos_emr.carlos.lab.service.PathnetPatientLinkService.Selection;
+import java.util.List;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -87,7 +89,7 @@ class ViewLabBcIndex2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("pid", "3");
         request.setParameter("demo_id", "42");
         assertThat(execute()).isEqualTo("success");
-        verify(service).link(3, 42, "999998");
+        verify(service).linkAll(List.of(new Selection(3, 42)), "999998");
     }
 
     @Test
@@ -95,7 +97,27 @@ class ViewLabBcIndex2ActionUnitTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         request.setParameter("chk", "3");
         assertThat(execute()).isEqualTo("success");
-        verify(service).link(3, null, "999998");
+        verify(service).linkAll(List.of(new Selection(3, null)), "999998");
+    }
+
+    @Test
+    void shouldRejectEntireRequest_whenLaterCheckboxIdentifierIsMalformed() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("pid", "3");
+        request.setParameter("demo_id", "42");
+        request.setParameter("chk", "4", "invalid");
+        assertThat(execute()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectEntireRequest_whenCheckboxIdentifierIsNotPositive() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("chk", "3", "0");
+        assertThat(execute()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(service);
     }
 
     @Test

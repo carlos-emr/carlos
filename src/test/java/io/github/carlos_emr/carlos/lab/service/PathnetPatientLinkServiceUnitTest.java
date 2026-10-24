@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
+import java.util.List;
 
 @Tag("unit")
 @Tag("lab")
@@ -52,6 +53,16 @@ class PathnetPatientLinkServiceUnitTest extends CarlosUnitTestBase {
         pid.setMessageId(7);
         when(pids.find(3)).thenReturn(pid);
         service = new PathnetPatientLinkService(pids, links, routing);
+    }
+
+    @Test
+    void shouldApplySelectionsInOneBatch_whenExplicitAndConfirmedPatientsAreSubmitted() {
+        Hl7Link link = new Hl7Link();
+        link.setDemographicNo(42);
+        when(links.find(3)).thenReturn(link);
+        service.linkAll(List.of(new PathnetPatientLinkService.Selection(3, 42),
+                new PathnetPatientLinkService.Selection(3, null)), "actor");
+        verify(routing, times(2)).matchPatientLab("7", "BCP", 42, "actor");
     }
 
     @Test

@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.lab.gate;
 
+import io.github.carlos_emr.carlos.lab.service.PathnetPatientLinkService;
+import io.github.carlos_emr.carlos.lab.service.PathnetPatientLinkService.Selection;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -76,15 +78,25 @@ public final class ViewLabBcIndex2Action extends ActionSupport {
     }
 
     private static void linkSelectedPatients(HttpServletRequest request, String providerNo) {
-        var service = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.PathnetPatientLinkService.class);
+        var service = SpringUtils.getBean(PathnetPatientLinkService.class);
+        var selections = new java.util.ArrayList<Selection>();
         String pid = request.getParameter("pid");
         String demographic = request.getParameter("demo_id");
         if (pid != null && !pid.isBlank() && demographic != null && !demographic.isBlank()) {
-            service.link(Integer.parseInt(pid), Integer.valueOf(demographic), providerNo);
+            selections.add(new Selection(
+                    parseIdentifier(pid), parseIdentifier(demographic)));
         }
         String[] checked = request.getParameterValues("chk");
         if (checked != null) {
-            for (String id : checked) service.link(Integer.parseInt(id), null, providerNo);
+            for (String id : checked) selections.add(new Selection(
+                    parseIdentifier(id), null));
         }
+        service.linkAll(selections, providerNo);
+    }
+
+    private static int parseIdentifier(String value) {
+        int id = Integer.parseInt(value);
+        if (id <= 0) throw new IllegalArgumentException("Identifier must be positive");
+        return id;
     }
 }

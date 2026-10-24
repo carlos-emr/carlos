@@ -90,6 +90,8 @@ class PathnetImportIntegrationTest extends CarlosTestBase {
         assertThat(em.createQuery("FROM Hl7Orc o WHERE o.pidId = :pid", Hl7Orc.class)
                 .setParameter("pid", pid.getId()).getResultList()).hasSize(1);
         assertThat(links.find(pid.getId()).getDemographicNo()).isEqualTo(demo.getDemographicNo());
+        assertThat(links.find(pid.getId()).getStatus()).isEqualTo("N");
+        assertThat(links.findLabs()).noneSatisfy(row -> assertThat(((Hl7Pid) row[0]).getId()).isEqualTo(pid.getId()));
         assertThat(routing.findByLabNoAndLabType(pid.getMessageId(), "BCP")).singleElement()
                 .satisfies(route -> assertThat(route.getDemographicNo()).isEqualTo(demo.getDemographicNo()));
     }
@@ -100,7 +102,20 @@ class PathnetImportIntegrationTest extends CarlosTestBase {
         patient("5052000002", "AC");
         Hl7Pid pid = upload("5052000002", dob);
         assertThat(links.find(pid.getId()).getDemographicNo()).isZero();
+        assertThat(links.find(pid.getId()).getStatus()).isEqualTo("P");
         assertThat(links.findLabs()).anySatisfy(row -> assertThat(((Hl7Pid) row[0]).getId()).isEqualTo(pid.getId()));
+    }
+
+    @Test
+    void shouldMatchUniquePhnAndDobCombination_whenOnlyOneSharedPhnPatientHasMatchingDob() throws Exception {
+        Demographic matching = patient("5052000012", "AC");
+        Demographic other = patient("5052000012", "AC");
+        other.setYearOfBirth("1981");
+        demographics.save(other);
+        hibernateTemplate.flush();
+        Hl7Pid pid = upload("5052000012", "19800115");
+        assertThat(links.find(pid.getId()).getDemographicNo()).isEqualTo(matching.getDemographicNo());
+        assertThat(links.find(pid.getId()).getStatus()).isEqualTo("N");
     }
 
     @Test

@@ -98,17 +98,19 @@ async function workflow(s) {
     ({ frame } = await submitInFrame(admin, frame.locator('input[type=submit]'), 'lab/labUpload'));
     const resultText = await frame.locator('body').innerText();
     h.assert(resultText.includes('Lab File Successfully Uploaded'), `${kind}: upload failed: ${resultText.slice(-700)}`);
-    const row = sql.rows(`SELECT p.pid_id,p.message_id,l.demographic_no,r.demographic_no,x.observation_results
+    const row = sql.rows(`SELECT p.pid_id,p.message_id,l.demographic_no,r.demographic_no,x.observation_results,l.status
       FROM hl7_pid p JOIN hl7_link l ON l.pid_id=p.pid_id JOIN hl7_orc c ON c.pid_id=p.pid_id
       JOIN hl7_obr o ON o.pid_id=p.pid_id JOIN hl7_obx x ON x.obr_id=o.obr_id
       JOIN patientLabRouting r ON r.lab_no=p.message_id AND r.lab_type='BCP'
       WHERE p.patient_name=${h.sqlString(name)}`);
     h.assert(row.length === 1 && row[0][2] === expected && row[0][3] === expected && row[0][4] === '5.2',
       `${kind}: segment chain or patient linkage is wrong`);
+    h.assert(row[0][5] === (expected === '0' ? 'P' : 'N'), `${kind}: legacy link status is wrong`);
     return row[0][0];
   };
   await s.step('upload links a unique PHN and date-only birth date', () => upload('match', '19800102', patient));
-  await s.step('upload links a unique PHN when DOB is absent', () => upload('nodob', '', patient));
+  let noDob;
+  await s.step('upload links a unique PHN when DOB is absent', async () => { noDob = await upload('nodob', '', patient); });
   let unlinked;
   await s.step('a conflicting DOB stays visible and unlinked', async () => { unlinked = await upload('mismatch', '19810102', '0'); });
   await s.step('malformed DOB stays unlinked despite an exact PHN', () => upload('malformed', '19800102junk', '0'));
@@ -119,8 +121,12 @@ async function workflow(s) {
   });
   await s.step('opening linking page makes no patient changes; selection posts the match', async () => {
     let frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
-    const noDobRow = frame.locator('tr').filter({ hasText: `${marker}^nodob` });
-    const noDobReport = await s.popup(admin, noDobRow.getByRole('link', { name: `${marker}^nodob`, exact: true }), 'pathnet-no-dob-result');
+    h.assert(await frame.getByText(`${marker}^nodob`, { exact: true }).count() === 0,
+      'An automatically matched lab is still listed as unlinked');
+    const noDobReport = await s.context.newPage();
+    await noDobReport.goto(h.appUrl(s.config.baseUrl, `/lab/CA/BC/ViewSearchReports?cmd_search=search&provider_no=${s.provider}`));
+    await noDobReport.getByText(`${marker}^nodob`, { exact: true }).waitFor();
+    await noDobReport.goto(h.appUrl(s.config.baseUrl, `/lab/CA/BC/ViewReport?pid=${noDob}`));
     h.assert((await noDobReport.locator('body').innerText()).includes('5.2'), 'A missing DOB prevented displaying the observation');
     await noDobReport.close();
     let row = frame.locator('tr').filter({ hasText: `${marker}^mismatch` });
@@ -128,6 +134,26 @@ async function workflow(s) {
     const report = await s.popup(admin, row.getByRole('link', { name: `${marker}^mismatch`, exact: true }), 'pathnet-result');
     h.assert((await report.locator('body').innerText()).includes('5.2'), 'The stored observation is missing from the report');
     await report.close();
+    // A bad later checkbox must never leave the earlier explicit match committed,
+    // including a numerically valid identifier rejected inside the transaction.
+    for (const invalid of ['invalid', '2147483647']) {
+      frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
+      const rejectedPost = admin.waitForResponse(r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/lab/CA/BC/ViewIndex'));
+      await frame.locator('#patientLinkForm').evaluate((form, selection) => {
+        form.elements.pid.value = selection.pid;
+        form.elements.demo_id.value = selection.patient;
+        const checkbox = document.createElement('input');
+        checkbox.type = 'hidden'; checkbox.name = 'chk'; checkbox.value = selection.invalid;
+        form.appendChild(checkbox);
+        form.requestSubmit();
+      }, { pid: unlinked, patient, invalid });
+      h.assert((await rejectedPost).status() === 400, 'Invalid later selection was accepted');
+      h.assert(sql.value(`SELECT COUNT(*) FROM hl7_link l JOIN hl7_pid p ON p.pid_id=l.pid_id
+        JOIN patientLabRouting r ON r.lab_no=p.message_id AND r.lab_type='BCP'
+        WHERE l.pid_id=${unlinked} AND l.demographic_no=0 AND l.status='P' AND r.demographic_no=0`) === '1',
+      'A rejected batch left the earlier patient match committed');
+    }
     frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
     row = frame.locator('tr').filter({ hasText: `${marker}^mismatch` });
     h.assert(sql.value(`SELECT demographic_no FROM hl7_link WHERE pid_id=${unlinked}`) === '0', 'Opening page auto-linked a lab');
