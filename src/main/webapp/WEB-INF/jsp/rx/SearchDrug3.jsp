@@ -2251,8 +2251,8 @@ function addFav(randomId,brandName){
         var url= ctx + "/rx/addFavorite2";
         var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
         CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
-              // Return to this patient's prescribing page. searchDrug renders the legacy
-              // search results, so the saved favourite could not be reused on the card (#5248).
+              // Return to this patient's prescribing cards; searchDrug renders the legacy
+              // search results instead (#5248).
               window.location.href = RxPatientContext.withPatient(ctx + "/rx/choosePatient");
    }
 					})

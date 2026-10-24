@@ -64,9 +64,16 @@ async function workflow(s) {
 
   await s.step('card ▸ Add to Favorites stores the favourite with the typed dosing text', async () => {
     const saved = rx.waitForResponse(r => new URL(r.url()).pathname.endsWith('/rx/addFavorite2') && r.request().method() === 'POST');
+    // Observe the navigation caused by THIS save. Waiting for a URL afterwards can match the
+    // prescribing page already open before the save, before its redirect has even arrived.
+    const returned = rx.waitForResponse(r => r.request().isNavigationRequest() && r.frame() === rx.mainFrame()
+      && new URL(r.url()).pathname.endsWith('/rx/choosePatient')
+      && new URL(r.url()).searchParams.get('demographicNo') === String(patient), { timeout: 30000 });
+    returned.catch(() => {});
     const dialogs = await h.withExpectedDialogs(rx, async () => {
       await rx.locator(`#set_${key} a[onclick^="addFav("]:visible`).first().click();
       h.assert((await saved).ok(), 'rx/addFavorite2 was refused');
+      h.assert((await returned).status() === 200, 'The favourite save did not return the prescribing page');
     }, { accept: true, promptText: cardFavourite });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'prompt', 'Add to Favorites did not ask for a name');
     await expectValue(sql, `SELECT COUNT(*) FROM favorites WHERE provider_no=${q(provider)} AND favoritename=${q(cardFavourite)}`, '1',
