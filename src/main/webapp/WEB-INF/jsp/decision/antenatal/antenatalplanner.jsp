@@ -43,6 +43,7 @@
 <jsp:useBean id="checklist" class="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerChecklist_99_12" scope="page"/>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.decision.AntenatalConfigLocation" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Desaprisk" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesapriskDao" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
@@ -100,6 +101,10 @@
 
         // formONAR table removed (deprecated 2026-03-25); risk data from ONAR form no longer available
         String finalEDB = null, wt = null, ht = null;
+        String riskFileLocation = AntenatalConfigLocation.readableResourceLocation(
+                AntenatalConfigLocation.RISK_FILE_NAME,
+                application.getResource(
+                        "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME));
 
         //get the risk data from table desaprisk for other risk factors
         Desaprisk darp = desapriskDao.search(Integer.parseInt(form_no), Integer.parseInt(demographic_no));
@@ -113,15 +118,8 @@
         xmlText = "<xml><planner><%=risk_content%><%=checklist_content%></planner></xml>";
     </script>
     <%
-            String riskFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerrisks_99_12.xml");
-
-            File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
-            if (file.isFile() || file.canRead()) {
-                riskFilePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml";
-            }
-
             //set the riskdata bean from xml file
-            Properties savedar1risk1 = risks.getRiskName(riskFilePath); //risk_55
+            Properties savedar1risk1 = risks.getRiskName(riskFileLocation); //risk_55
             StringBuffer tt;
 
             for (Enumeration e = savedar1risk1.propertyNames(); e.hasMoreElements(); ) {
@@ -153,14 +151,7 @@
         <tr>
             <td width="10%" valign='top'>
                 <%
-                    String riskFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerrisks_99_12.xml");
-
-                    File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/desantenatalplannerrisks_99_12.xml");
-                    if (file.isFile() || file.canRead()) {
-                        riskFilePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/desantenatalplannerrisks_99_12.xml";
-                    }
-
-                    out.println(risks.doStuff(new String(riskFilePath)));
+                    out.println(risks.doStuff(riskFileLocation));
                 %>
             </td>
             <td>
@@ -196,7 +187,7 @@ else {
 
     String checkListFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerchecklist_99_12.xml");
 
-    file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")+"/desantenatalplannerchecklist_99_12.xml");
+    File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")+"/desantenatalplannerchecklist_99_12.xml");
     if(file.isFile() || file.canRead()) {
         checkListFilePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")+"/desantenatalplannerchecklist_99_12.xml";
     }

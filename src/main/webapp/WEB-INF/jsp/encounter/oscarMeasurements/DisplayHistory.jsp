@@ -194,19 +194,21 @@
                                 <tr class="data">
                                     <!-- Type -->
                                     <td>
-                                        <a title="${data.typeDescription}">${data.type}</a>
+                                        <a title="${carlos:forHtmlAttribute(data.typeDescription)}">${carlos:forHtml(data.type)}</a>
                                     </td>
 
                                     <!-- Provider -->
                                     <td>
-                                        ${data.providerFirstName} ${data.providerLastName}
+                                        ${carlos:forHtml(data.providerFirstName)} ${carlos:forHtml(data.providerLastName)}
                                     </td>
 
                                     <!-- Measuring Instruction -->
                                     <td>
                                         <c:choose>
                                             <c:when test="${data.measuringInstrc == 'NULL'}">&nbsp;</c:when>
-                                            <c:otherwise>${data.measuringInstrc}</c:otherwise>
+                                            <%-- The instruction is stored per reading from the entry form's inputMInstrc-* field,
+                                                 so it is user-controlled text and must be encoded. --%>
+                                            <c:otherwise>${carlos:forHtml(data.measuringInstrc)}</c:otherwise>
                                         </c:choose>
                                     </td>
 
@@ -273,12 +275,13 @@
                                 </c:if>
                             </security:oscarSec>
 
-                            <!-- Plot button (same as before) -->
-                            <c:if test="${not empty data.canPlot}">
+                            <%-- The loop-scoped 'data' variable no longer exists here. All rows
+                                 describe this measurement type; use its first row's plot capability. --%>
+                            <c:if test="${not empty measurementsData.measurementsDataVector and not empty measurementsData.measurementsDataVector[0].canPlot}">
                                 <td>
                                     <input type="button" name="Button" class="btn DoNotPrint"
                                         value="<fmt:message key="encounter.oscarMeasurements.displayHistory.plot"/>"
-                                        onclick="javascript: popupPage(600,1000,'<%=request.getContextPath()%>/encounter/GraphMeasurements?demographic_no=<%=demo%>&type=${type}')">
+                                        onclick="javascript: popupPage(600,1000,'<%=request.getContextPath()%>/encounter/GraphMeasurements?demographic_no=<%=demo%>&type=${carlos:forJavaScriptAttribute(carlos:forUriComponent(type))}')">
                                 </td>
                             </c:if>
                         </tr>

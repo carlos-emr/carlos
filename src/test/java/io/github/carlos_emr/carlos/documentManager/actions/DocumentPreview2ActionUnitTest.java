@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
@@ -53,6 +54,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -61,6 +63,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.mockito.Mockito.mock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -150,6 +154,9 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         registerMock(EFormRenderApprovalService.class, mockEFormRenderApprovalService);
         registerMock(PdfPreviewCapabilityService.class, mockPdfPreviewCapabilityService);
+        // The preview route now refuses archive artifacts, so it resolves the archive DAO.
+        // Unstubbed it answers false, which is what these preview tests expect.
+        registerMock(OutboundEmailArchiveDao.class, Mockito.mock(OutboundEmailArchiveDao.class));
         registerMock(FormsManager.class, mockFormsManager);
         registerMock(EFormDataDao.class, mockEFormDataDao);
         registerMock(PatientLabRoutingDao.class, mockPatientLabRoutingDao);
@@ -262,6 +269,73 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         hrmUtilMock.verifyNoInteractions();
         verify(mockDocumentAttachmentManager, never()).getAllLabsSortedByVersions(any(LoggedInInfo.class), any(String.class));
         verify(mockFormsManager, never()).getEncounterFormsbyDemographicNumber(any(LoggedInInfo.class), any(Integer.class), anyBoolean(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("should gate the tickler picker on tickler read and enable selection on tickler write")
+    void shouldGateTicklerPicker_onTicklerPrivileges() {
+        request.setParameter("method", "fetchTicklerDocuments");
+        request.setParameter("demographicNo", "123");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", SecurityInfoManager.READ, "123")).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", SecurityInfoManager.WRITE, "123")).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, "123")).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_hrm", SecurityInfoManager.READ, "123")).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, "123")).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ, "123")).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, "123")).thenReturn(false);
+
+        eDocUtilMock = mockStatic(EDocUtil.class);
+        eFormUtilMock = mockStatic(EFormUtil.class);
+        hrmUtilMock = mockStatic(HRMUtil.class);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fetchDocuments");
+        assertThat(request.getAttribute("attachmentSecurityObject")).isEqualTo("_tickler");
+        assertThat(request.getAttribute("canManageAttachments")).isEqualTo(false);
+        assertThat(request.getAttribute("demographicNo")).isEqualTo("123");
+        // The consultation object is never consulted: a tickler user without _con can use the picker.
+        verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_con", SecurityInfoManager.READ, "123");
+        // Per-type read gates still apply to every section of the picker.
+        eDocUtilMock.verifyNoInteractions();
+        eFormUtilMock.verifyNoInteractions();
+        hrmUtilMock.verifyNoInteractions();
+        verify(mockDocumentAttachmentManager, never()).getAllLabsSortedByVersions(any(LoggedInInfo.class), any(String.class));
+        verify(mockFormsManager, never()).getEncounterFormsbyDemographicNumber(any(LoggedInInfo.class), any(Integer.class), anyBoolean(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("should throw security exception when tickler read is denied for the picker")
+    void shouldThrowSecurityException_whenTicklerReadDeniedForPicker() {
+        request.setParameter("method", "fetchTicklerDocuments");
+        request.setParameter("demographicNo", "123");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", SecurityInfoManager.READ, "123")).thenReturn(false);
+
+        eDocUtilMock = mockStatic(EDocUtil.class);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_tickler)");
+        eDocUtilMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a non-numeric or non-positive demographic for the tickler picker")
+    void shouldReturnBadRequest_whenTicklerPickerDemographicInvalid() {
+        request.setParameter("method", "fetchTicklerDocuments");
+        request.setParameter("demographicNo", "not-a-number");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockSecurityInfoManager);
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("demographicNo", "0");
+
+        assertThat(spy(new DocumentPreview2Action()).execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockSecurityInfoManager);
     }
 
     @Test
@@ -591,7 +665,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("missing required sec object (_lab)");
 
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, "123");
-        verify(mockPatientLabRoutingDao, never()).findDemographicByLabId(44);
+        verifyNoInteractions(mockPatientLabRoutingDao);
         verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.LAB), any());
     }
 
@@ -644,6 +718,87 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
                 .contains("\"signatureMissing\":true")
                 .contains("\"timerCompatibilityFailure\":true")
                 .doesNotContain("\"errorMessage\":\"incomplete\"");
+    }
+
+    @Test
+    void capacityResponseIsTypedRetryable503WithoutExposingRendererDetails() throws Exception {
+        prepareCapacityRequest();
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, null))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("private renderer details", true));
+        action.execute();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getHeader("Retry-After")).isEqualTo("2");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(json.path("errorCode").asText()).isEqualTo("eform_render_busy");
+        assertThat(json.path("retryable").asBoolean()).isTrue();
+        assertThat(json.path("retryAfterSeconds").asInt()).isEqualTo(2);
+        assertThat(json.path("renderApproval").isNull()).isTrue();
+        assertThat(response.getContentAsString()).doesNotContain("private renderer details", "base64Data");
+    }
+
+    @Test
+    void capacityResponseRotatesConsumedApprovalForSameScope() throws Exception {
+        prepareCapacityRequest();
+        request.setParameter("renderApproval", "spent");
+        EFormRenderApproval consumed = org.mockito.Mockito.mock(EFormRenderApproval.class);
+        when(mockEFormRenderApprovalService.consume(request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, "spent")).thenReturn(consumed);
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, consumed))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("busy", true));
+        when(mockEFormRenderApprovalService.reissueAfterCapacity(request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, consumed)).thenReturn("replacement");
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).contains("\"renderApproval\":\"replacement\"").doesNotContain("spent");
+        verify(mockEFormRenderApprovalService).reissueAfterCapacity(request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, consumed);
+    }
+
+    @Test
+    void capacityResponseDropsConsentThatExpiredWhileAwaitingAdmission() throws Exception {
+        prepareCapacityRequest();
+        request.setParameter("renderApproval", "spent");
+        EFormRenderApproval consumed = org.mockito.Mockito.mock(EFormRenderApproval.class);
+        when(mockEFormRenderApprovalService.consume(request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, "spent")).thenReturn(consumed);
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, consumed))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("busy", true));
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).contains("\"renderApproval\":null").doesNotContain("spent");
+    }
+
+    @Test
+    void permanentFailureDoesNotReissueConsumedConsentOrInviteRetry() throws Exception {
+        prepareCapacityRequest();
+        request.setParameter("renderApproval", "spent");
+        EFormRenderApproval consumed = org.mockito.Mockito.mock(EFormRenderApproval.class);
+        when(mockEFormRenderApprovalService.consume(request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, "spent")).thenReturn(consumed);
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, consumed))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("bad PDF"));
+        action.execute();
+        assertThat(response.getContentAsString()).contains("eform_render_failed").doesNotContain("retryable", "renderApproval");
+        verify(mockEFormRenderApprovalService, never()).reissueAfterCapacity(any(), any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any());
+    }
+
+    @Test
+    void invalidConsentRemainsForbiddenWithoutRenderingOrRetry() throws Exception {
+        prepareCapacityRequest();
+        request.setParameter("renderApproval", "invalid");
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).contains("eform_approval_invalid").doesNotContain("retryable");
+        verifyNoInteractions(mockDocumentAttachmentManager);
+        verify(mockEFormRenderApprovalService, never()).reissueAfterCapacity(any(), any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any());
+    }
+
+    private void prepareCapacityRequest() {
+        request.setParameter("method", "renderEFormPDF");
+        request.setParameter("eFormId", "42");
+        request.setParameter("demographicNo", "123");
+        when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
     }
 
     @Test
@@ -743,7 +898,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("method", "renderLabPDF");
         request.setParameter("segmentId", "44");
         request.setParameter("demographicNo", "123");
-        when(mockPatientLabRoutingDao.findDemographicByLabId(44)).thenReturn(new PatientLabRouting(44, "HL7", 123));
+        when(mockPatientLabRoutingDao.findByLabNoAndLabType(44, "HL7")).thenReturn(List.of(new PatientLabRouting(44, "HL7", 123)));
 
         when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.LAB, 44))
                 .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("lab failed"));
@@ -837,7 +992,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("method", "renderLabPDF");
         request.setParameter("segmentId", "44");
         request.setParameter("demographicNo", "123");
-        when(mockPatientLabRoutingDao.findDemographicByLabId(44)).thenReturn(new PatientLabRouting(44, "HL7", 456));
+        when(mockPatientLabRoutingDao.findByLabNoAndLabType(44, "HL7")).thenReturn(List.of(new PatientLabRouting(44, "HL7", 456)));
 
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
@@ -845,6 +1000,33 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
 
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, "123");
         verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.LAB), any());
+    }
+
+    @Test
+    @DisplayName("should reject other lab sources before the HL7 PDF renderer")
+    void shouldRejectPreview_whenLabSourceIsNotHl7() throws Exception {
+        request.setParameter("method", "renderLabPDF");
+        request.setParameter("segmentId", "44");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("labType", "MDS");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("lab_source_unsupported");
+        verifyNoInteractions(mockPatientLabRoutingDao, mockDocumentAttachmentManager);
+    }
+
+    @Test
+    @DisplayName("should not authorize an HL7 preview through a colliding MDS route")
+    void shouldRejectHl7Preview_withoutOwnPatientRoute() {
+        request.setParameter("method", "renderLabPDF");
+        request.setParameter("segmentId", "44");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("labType", "HL7");
+        when(mockPatientLabRoutingDao.findByLabNoAndLabType(44, "HL7")).thenReturn(List.of());
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockDocumentAttachmentManager);
     }
 
     @Test

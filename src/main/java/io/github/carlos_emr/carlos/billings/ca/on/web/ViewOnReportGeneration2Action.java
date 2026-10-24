@@ -31,6 +31,11 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreationService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -76,7 +81,32 @@ public class ViewOnReportGeneration2Action extends ActionSupport {
             return NONE;
         }
 
-        onBillingDiskService.generateNewDisk(request);
+        try {
+            onBillingDiskService.generateNewDisk(request);
+        } catch (InvalidBillingGroupException invalidGroup) {
+            request.setAttribute("ohipInvalidGroupProviders", invalidGroup.getProviderNumbers());
+            return INPUT;
+        } catch (BillingValidationException rejected) {
+            // Other validation (a selected provider that is not billable, a bad date
+            // range, a claim file that cannot be built) is reported on the MRI page,
+            // not as an error page. Disks completed earlier in an All Providers run
+            // stay committed, so the run is audited as stopped rather than omitted.
+            request.setAttribute("ohipGenerationError", rejected.getMessage());
+            LogAction.addLog(loggedInInfo, LogConst.GENERATE, LogConst.CON_OHIP, null, null,
+                    "provider_no=" + LogSafe.sanitize(request.getParameter("providers"))
+                            + "; billCenter=" + LogSafe.sanitize(request.getParameter("billcenter"))
+                            + "; dateBegin=" + LogSafe.sanitize(request.getParameter("xml_vdate"))
+                            + "; dateEnd=" + LogSafe.sanitize(request.getParameter("xml_appointment_date"))
+                            + "; outcome=stopped: " + LogSafe.sanitize(rejected.getClass().getSimpleName()));
+            return INPUT;
+        }
+        // Audit the generation as OSCAR 19's ongenreport.jsp did: the selected
+        // provider, MOH office and date window, no claim or patient data.
+        LogAction.addLog(loggedInInfo, LogConst.GENERATE, LogConst.CON_OHIP, null, null,
+                "provider_no=" + LogSafe.sanitize(request.getParameter("providers"))
+                        + "; billCenter=" + LogSafe.sanitize(request.getParameter("billcenter"))
+                        + "; dateBegin=" + LogSafe.sanitize(request.getParameter("xml_vdate"))
+                        + "; dateEnd=" + LogSafe.sanitize(request.getParameter("xml_appointment_date")));
         return SUCCESS;
     }
 }

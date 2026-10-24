@@ -40,8 +40,9 @@ import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
-import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -70,6 +71,7 @@ public final class EFormRenderPdfHtmlComposer {
     private static final String SIGNATURE_VIEW_SERVLET_NAME = "EFormSignatureViewForPdfGenerationServlet";
     private static final String PDF_SIGNATURE_SERVLET_PATH = "/" + SIGNATURE_VIEW_SERVLET_NAME;
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId";
+    private static final String IMAGE_FILE_PARAM = "imagefile";
     private static final String IMAGE_VIEW_SERVLET_NAME = "EFormImageViewForPdfGenerationServlet";
     private static final Pattern IMAGE_ASSET_URL_PATTERN = Pattern.compile(
             Pattern.quote(IMAGE_VIEW_SERVLET_NAME) + "\\?([^\\s\\\"'<>)]*)");
@@ -95,6 +97,7 @@ public final class EFormRenderPdfHtmlComposer {
             "imagecontrol.js", "signaturecontrol.js", "signaturecontrol.jsp", "signaturecontrol",
             "eform_floating_toolbar.js", "eform_floating_toolbar");
     private static final String EDITOR_BOOTSTRAP_CALL = "insertEditControl()";
+    private static final String SCRIPT_TAG = "script";
     /**
      * Case-insensitive matchers for {@link #hardenLetterHtml}, deliberately ASCII-only.
      *
@@ -144,9 +147,7 @@ public final class EFormRenderPdfHtmlComposer {
         try {
             return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, renderToken);
         } catch (IllegalStateException e) {
-            // fdid is a PHI-correlating identifier (joins back to the patient's saved eForm data);
-            // sanitize it before logging alongside the (already PHI-free) failure reason.
-            logger.error("eForm PDF composition failed: fdid={} reason={}", LogSafe.sanitize(String.valueOf(formDataId)), e.getMessage());
+            logger.error("EFORM_PDF_COMPOSITION_FAILED");
             throw e;
         }
     }
@@ -237,6 +238,17 @@ public final class EFormRenderPdfHtmlComposer {
         return eForm.getFormHtml();
     }
 
+    /** Page margin the bundled {@code .rtl} templates declare in their {@code @media print} block. */
+    static final String DEFAULT_LETTER_PAGE_MARGIN = "2cm";
+    /**
+     * One to four CSS lengths (or a bare {@code 0}), the shapes the {@code @page margin} shorthand
+     * accepts. Deliberately narrow: this value is written into a stylesheet, so nothing that could
+     * close the declaration or open a new rule may pass.
+     */
+    private static final Pattern LETTER_PAGE_MARGIN_PATTERN = Pattern.compile(
+            "(?:0|\\d{1,3}(?:\\.\\d{1,3})?(?:cm|mm|in|pt|pc|px|em|rem|%))"
+            + "(?: (?:0|\\d{1,3}(?:\\.\\d{1,3})?(?:cm|mm|in|pt|pc|px|em|rem|%))){0,3}");
+
     /** Prefix legacy signature-stamp scripts concatenate a provider number onto. */
     private static final String SIGNATURE_STAMP_PREFIX = "consult_sig_";
 
@@ -268,6 +280,22 @@ public final class EFormRenderPdfHtmlComposer {
             String html, EForm eForm, List<EFormValue> eFormValues) {
         if (html == null || !html.contains(SIGNATURE_STAMP_PREFIX)) {
             return Set.of();
+        }
+        // A document that already references a consult_sig_*.png as a literal image URL needs no
+        // synthesis: referencedImageFiles() has that exact filename, so it is granted and its
+        // existence is judged on the file the page will actually request.
+        //
+        // Synthesizing anyway is wrong, not merely redundant. This method derives the filename from
+        // the SUBMITTING provider, and the Rich Text Letter can legitimately carry another
+        // provider's stamp: a non-billing user (resident, nurse, clerical) signs with the patient's
+        // MRP signature, so the letter stores consult_sig_<mrp>.png while the submitter is someone
+        // else. The existence check would then test the submitter's file, find it absent, and mark
+        // the render as missing its provider stamp -- blocking or warning on a letter whose stamp is
+        // present and correctly referenced.
+        for (String referenced : referencedImageFiles(html)) {
+            if (referenced.startsWith(SIGNATURE_STAMP_PREFIX)) {
+                return Set.of();
+            }
         }
         String providerNumber = null;
         if (eFormValues != null) {
@@ -358,9 +386,15 @@ public final class EFormRenderPdfHtmlComposer {
             String query = matcher.group(1).replace("&amp;", "&");
             for (String parameter : query.split("&")) {
                 int separator = parameter.indexOf('=');
-                if (separator > 0 && "imagefile".equals(parameter.substring(0, separator))) {
-                    files.add(URLDecoder.decode(
-                            parameter.substring(separator + 1), StandardCharsets.UTF_8));
+                if (separator > 0 && IMAGE_FILE_PARAM.equals(parameter.substring(0, separator))) {
+                    try {
+                        String decoded = URLDecoder.decode(
+                                parameter.substring(separator + 1), StandardCharsets.UTF_8);
+                        files.add(PathValidationUtils.validatePathComponent(decoded, IMAGE_FILE_PARAM));
+                    } catch (IllegalArgumentException | FileValidationException ignored) {
+                        // Stored forms can outlive malformed asset references. Do not abort the
+                        // document, and never grant a render capability for an unsafe value.
+                    }
                 }
             }
         }
@@ -465,7 +499,7 @@ public final class EFormRenderPdfHtmlComposer {
             }
             for (String parameter : query.split("&")) {
                 String[] parts = parameter.split("=", 2);
-                if (parts.length == 2 && "imagefile".equals(parts[0])) {
+                if (parts.length == 2 && IMAGE_FILE_PARAM.equals(parts[0])) {
                     return URLDecoder.decode(parts[1], StandardCharsets.UTF_8);
                 }
             }
@@ -483,9 +517,62 @@ public final class EFormRenderPdfHtmlComposer {
             }
             String html = hardenLetterHtml(decodeStoredLetter(value.getVarValue()));
             html = html.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
-            eForm.setFormHtml("<html><body style='width:640px;'>" + html + "</body></html>");
+            eForm.setFormHtml(wrapLetterHtmlForPrint(html));
             return;
         }
+    }
+
+    /**
+     * Wraps a decoded Rich Text Letter body in the print document the renderer captures.
+     *
+     * <p>The editor stores {@code body.innerHTML} only (see {@code editControlContents} in
+     * {@code editControl2.js}), so the {@code .rtl} template's {@code <head>} — and with it the
+     * {@code @media print} block every bundled template carries — is gone by the time the letter
+     * reaches the PDF. Before this wrapper the letter was spliced into a bare
+     * {@code <html><body style='width:640px;'>}, which is why a letter authored against a template
+     * declaring {@code @page &#123; margin: 2cm; &#125;} printed flush to the paper edge with a wide
+     * blank gutter on the right: nothing in the render surface ever asked for a page margin, and the
+     * renderer's own baseline stylesheet zeroes it.</p>
+     *
+     * <p>Re-declaring the template's print rules here restores the authored geometry without
+     * changing what is stored. {@code data-carlos-page-margin} is the marker
+     * {@code EFormBrowserPdfService}'s print preparation reads to keep its zero-margin baseline from
+     * overriding this rule — the baseline is appended to {@code <head>} at print time and would
+     * otherwise win the cascade on specificity ties.</p>
+     *
+     * @param letterHtml decoded, hardened letter body markup
+     * @return a complete HTML document carrying the letter and the Rich Text Letter print rules
+     */
+    static String wrapLetterHtmlForPrint(String letterHtml) {
+        String margin = letterPageMargin();
+        return "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">"
+                + "<style type=\"text/css\" media=\"print\">"
+                + "* { color: #000000; }"
+                + ".DoNotPrint { display: none; }"
+                + "@page { margin: " + margin + "; }"
+                + "</style></head>"
+                + "<body data-carlos-page-margin=\"" + margin + "\" style='width:640px;'>"
+                + letterHtml
+                + "</body></html>";
+    }
+
+    /**
+     * Page margin applied to a rendered Rich Text Letter, as a CSS length.
+     *
+     * <p>Defaults to {@value #DEFAULT_LETTER_PAGE_MARGIN}, matching the {@code @page} rule in the
+     * bundled {@code .rtl} templates. A deployment that wants different paper geometry overrides
+     * {@code eform_rtl_letter_page_margin}. The value is interpolated into a stylesheet, so an
+     * unparseable or over-long override is discarded rather than emitted: a property file is
+     * administrator-controlled, but a malformed value here would silently corrupt every letter PDF
+     * rather than fail loudly.</p>
+     */
+    static String letterPageMargin() {
+        String configured = CarlosProperties.getInstance()
+                .getProperty("eform_rtl_letter_page_margin", DEFAULT_LETTER_PAGE_MARGIN);
+        if (configured == null || !LETTER_PAGE_MARGIN_PATTERN.matcher(configured.trim()).matches()) {
+            return DEFAULT_LETTER_PAGE_MARGIN;
+        }
+        return configured.trim();
     }
 
     /**
@@ -580,11 +667,21 @@ public final class EFormRenderPdfHtmlComposer {
             dependencies.add(script(contextPath + "/library/jquery/jquery-ui-1.14.2.min.js"));
             dependencies.add(script(contextPath + "/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"));
         }
+        Element rendererMarker = new Element(Tag.valueOf(SCRIPT_TAG), "");
+        // The compatibility shim is also loaded by the interactive viewer. This marker is set
+        // before it runs so the shim can make the one render-only exception for the legacy delayed
+        // auto-submit callback without changing clinician-facing eForm behaviour.
+        rendererMarker.append("window.__carlosEformPdfRender=true;");
+        dependencies.add(rendererMarker);
         dependencies.add(script(contextPath + "/eform/eform-runtime-compat.js"));
-        Element signatureCompatibility = new Element(Tag.valueOf("script"), "");
+        Element signatureCompatibility = new Element(Tag.valueOf(SCRIPT_TAG), "");
         signatureCompatibility.append(
                 "window.signatureControl=window.signatureControl||{};"
-                + "window.signatureControl.initialize=function initialize(){};");
+                + "window.signatureControl.initialize=function initialize(){};"
+                // The interactive toolbar already defines this as a no-op after removing the
+                // legacy fax control. It has no print content, but forms still call it from
+                // delayed setFaxNo() callbacks after the toolbar is removed for PDF rendering.
+                + "window.AddOtherFax=window.AddOtherFax||function AddOtherFax(){return false;};");
         dependencies.add(signatureCompatibility);
 
         int insertionIndex = 0;
@@ -600,6 +697,16 @@ public final class EFormRenderPdfHtmlComposer {
         addHiddenRendererValue(body, "demographicNo", eForm.getDemographicNo());
         addHiddenRendererValue(body, "fid", eForm.getFid());
         addHiddenRendererValue(body, "fdid", formDataId);
+        // The interactive toolbar creates this hidden fax control before the form's delayed
+        // setFaxNo() callback runs. The PDF profile removes that toolbar, but generated and
+        // clinic-authored forms still schedule the callback from body.onload. Preserve its
+        // target so the timer completes without printing or submitting a fax control.
+        if (document.getElementById("otherFaxInput") == null) {
+            Element form = body.selectFirst("form");
+            Element faxInput = (form == null ? body : form).appendElement("input");
+            faxInput.attr("type", "hidden");
+            faxInput.attr("id", "otherFaxInput");
+        }
         if (isSavedViewProfileEnabled()) {
             addHiddenRendererValue(
                     body,
@@ -678,7 +785,7 @@ public final class EFormRenderPdfHtmlComposer {
      * ships its own implementation keeps it.</p>
      */
     private static void installStrippedEditorShim(Document document) {
-        Element shim = new Element(Tag.valueOf("script"), "");
+        Element shim = new Element(Tag.valueOf(SCRIPT_TAG), "");
         shim.append(
                 "(function(){\n"
                 + "  var w = window;\n"
@@ -730,7 +837,7 @@ public final class EFormRenderPdfHtmlComposer {
     }
 
     private static Element script(String source) {
-        Element element = new Element(Tag.valueOf("script"), "");
+        Element element = new Element(Tag.valueOf(SCRIPT_TAG), "");
         element.attr("type", "text/javascript");
         element.attr("src", source);
         return element;

@@ -98,11 +98,11 @@ Using UMPIRE framework (adapted):
 
 ### Unit Tests
 
-I have not added unit tests in this phase.
+The original submission had no unit tests. The 24 October review follow-up adds executable coverage in `ScatterPlotAuthorizationUnitTest`:
 
-- [ ] Test case 1: mock `SecurityInfoManager.hasPrivilege()` to return `false` for `_measurement` and/or `_demographic`; assert `403` is returned and no chart is generated.
-- [ ] Test case 2: mock both checks to return `true`; assert the chart still renders for both `BP` and standard scatter plot `type` values.
-- [ ] Test case 3: assert `demographicNo` is passed correctly as the scoping argument to `hasPrivilege()`, not `null`.
+- [x] Test case 1: mock `SecurityInfoManager.hasPrivilege()` to return `false` for `_measurement` and/or `_demographic`; assert `403` is returned and no clinical DAO is called.
+- [x] Test case 2: authorize both privileges and patient access; assert JPEG output for both `BP` and standard scatter plot `type` values.
+- [x] Test case 3: assert the canonical patient number is passed as the scoping argument to `hasPrivilege()`, not `null` or a leading-zero spelling.
 
 ### Integration Tests
 
@@ -179,4 +179,20 @@ Set up the `.devcontainer` environment first, before writing any code, so I'm no
 
 ## Resources Used
 
-- Claude (AI assistant) 
+- Claude (AI assistant)
+
+## Review follow-up — 24 October 2026
+
+Merged current develop and added a missing-login `401` guard before Spring lookup.
+Authorization and measurement lookup now use the same positive, canonical patient
+identifier, so `00123` cannot bypass an override stored for patient `123`.
+The gate retains both read-privilege checks and the explicit patient-record lock
+check. General role privileges remain the documented default when no matching
+patient-specific override exists; this is not an explicit per-patient allowlist.
+
+Validation: 13 servlet authorization tests and 53 shared security-manager tests
+pass (66 total, zero failures, errors, or skips). Coverage includes missing and
+invalid context, missing login, each denial path before any clinical lookup,
+authorized BP and scatter-plot JPEG output, and the leading-zero denial case
+using the real `SecurityInfoManagerImpl`. No new live-application/manual test is
+claimed. Earlier phase notes above describe the original submission.

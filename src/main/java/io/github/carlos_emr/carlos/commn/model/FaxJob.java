@@ -37,6 +37,8 @@ import io.github.carlos_emr.carlos.commn.model.converter.FaxJobStatusConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -94,6 +96,7 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
     @Column(name = "faxline")
     private String fax_line;
 
+    @Column(length = 32)
     private String destination;
 
     private String recipient;
@@ -120,7 +123,10 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
     @Transient
     private String senderEmail;
 
-    @Transient
+    // Persisted so the queue view can distinguish inbound from outbound faxes reliably instead
+    // of guessing the transaction type from filename substrings (see manageFaxes.jsp / faxStatusResults.jspf).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "direction", length = 3)
     private Direction direction;
 
     @Transient

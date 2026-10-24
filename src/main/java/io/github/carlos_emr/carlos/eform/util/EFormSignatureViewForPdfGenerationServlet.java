@@ -54,19 +54,22 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 
     /** Matches a {@code digitalSignatureId=<n>} reference in a stored eForm value's query string. */
     // Accept the reference as a first query parameter ("?digitalSignatureId="), a raw subsequent
-    // parameter ("&digitalSignatureId="), or its HTML-escaped form ("&amp;digitalSignatureId=").
-    // The "amp;" is scoped to the "&" branch only, so a malformed "?amp;digitalSignatureId=" (neither
-    // a raw parameter nor a valid escape) is NOT accepted.
-    private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("(?:\\?|&(?:amp;)?)digitalSignatureId=(\\d+)");
+    // parameter ("&digitalSignatureId="), its HTML-escaped form ("&amp;digitalSignatureId="), or the
+    // form the Rich Text Letter stores ("&amp;amp;digitalSignatureId="): the editor serializes the
+    // signature image's src with "&amp;", and saveRTL() escapes the serialized letter once more
+    // before it is submitted, so without that form no signed letter could be printed with its
+    // signature. The "amp;" is scoped to the "&" branch only, so a malformed
+    // "?amp;digitalSignatureId=" (neither a raw parameter nor a valid escape) is NOT accepted.
+    private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("(?:\\?|&(?:amp;){0,2})digitalSignatureId=(\\d+)");
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // ensure it's a local machine request... no one else should be calling this servlet.
         String remoteAddress = request.getRemoteAddr();
-        logger.debug("EFormSignatureViewForPdfGenerationServlet request from : {}", remoteAddress);
+        logger.debug("EFormSignatureViewForPdfGenerationServlet request from : {}", LogSafe.sanitize(remoteAddress));
 
         if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
-            logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : {}", remoteAddress);
+            logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : {}", LogSafe.sanitize(remoteAddress));
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
@@ -100,7 +103,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             final int digitalSignatureId;
             try {
                 digitalSignatureId = Integer.parseInt(signatureIdParam);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 // \d+ admits digit strings beyond Integer range; an over-range id is a bad request,
                 // not a server error.
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid digitalSignatureId");
@@ -170,6 +173,8 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 bos.write(image); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- image/jpeg binary write
                 bos.flush();
 
+                // only image.length is logged, not image content or request text.
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("Streamed eForm signature image to render browser ({} bytes)", image.length);
                 return;
             }

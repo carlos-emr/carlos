@@ -144,7 +144,7 @@
                 <tr align="center" bgcolor="${bgColor}"
                     onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
                     onMouseout="this.style.backgroundColor='<carlos:encode value="${bgColor}" context="javaScriptAttribute"/>';"
-                    onClick="<carlos:encode value='${addr.onClickHandler}' context='javaScriptAttribute'/>">
+                    onClick="<carlos:encode value='${addr.onClickHandler}' context='htmlAttribute'/>">
                     <td><carlos:encode value='${addr.attention}' context='html'/>
                     </td>
                     <td><carlos:encode value='${addr.companyNameDisplay}' context='html'/>

@@ -1,14 +1,17 @@
 /*
  * Runtime compatibility for stored eForms written against pre-migration CARLOS.
  *
- * Two adaptations live here:
+ * Compatibility paths here:
  *
- *  - String timer callbacks. Modern CSP blocks native setTimeout("code", delay) and
- *    setInterval("code", delay). The browser remains the JavaScript parser: stored source is never
- *    scanned or rewritten on the server.
+ *  - Timer callbacks. Modern CSP blocks native string callbacks such as setTimeout("code", delay),
+ *    so those are executed through an injected script while every one-shot timeout is tracked for the
+ *    PDF renderer. The browser remains the JavaScript parser: stored source is never scanned or
+ *    rewritten on the server.
  *  - Obsolete clinical-data fetches. Some forms XHR a route that has since been renamed and that the
  *    render surface could not use even under its new name; those are answered from data the server
  *    embedded in the page. See installCarlosEformLegacyFetchCompatibility below.
+ *  - Legacy jQuery shortcuts on the PDF surface, including forms that load another jQuery copy.
+ *  - Empty jSignature base30 exports, which the bundled decoder cannot read back.
  */
 (function installCarlosEformTimerCompatibility(window, document) {
     "use strict";
@@ -18,46 +21,108 @@
     }
 
     var nativeSetTimeout = window.setTimeout;
+    var nativeClearTimeout = window.clearTimeout;
     var nativeSetInterval = window.setInterval;
+    var nativeClearInterval = window.clearInterval;
+    var countedTimeouts = new Set();
+    // How many consecutive same-reference self-reschedules (a function's setTimeout callback
+    // calling setTimeout(itself, ...) again while it is still running) stay counted before the
+    // guard in schedule() below treats further reschedules as a repeating heartbeat/UI loop
+    // rather than legitimate chained deferred work. See the comment at that guard for why a
+    // single currently-running check cannot tell the two apart on its own.
+    var SELF_RESCHEDULE_COUNT_LIMIT = 3;
+    // Per-handler count of CONSECUTIVE self-reschedules within the CURRENT chain. Reset to zero
+    // (by deleting the entry) once an invocation completes without rescheduling itself again, or
+    // once a still-pending reschedule of that handler is cancelled -- see the reset sites below.
+    // Without a reset, a function reference reused later for an unrelated, independent short
+    // chain would inherit the previous chain's leftover count and could have its own first
+    // reschedule wrongly excluded from the start.
+    var selfRescheduleCounts = new Map();
+    // Tracks which scheduled handle belongs to which function handler, solely so a cancellation
+    // (clearTimeout/clearInterval) can reset that handler's selfRescheduleCounts entry too.
+    var handleToHandler = new Map();
+    // Once a self-reschedule is excluded from status.pending for exceeding
+    // SELF_RESCHEDULE_COUNT_LIMIT, it becomes invisible to whenIdle()'s pending<=0 check --
+    // otherwise a still-actively-rescheduling excluded chain could let whenIdle resolve true
+    // (and the PDF be captured) before a later pass populates a field, even though the intent was
+    // for a genuinely long-running loop to still be bounded by the render budget, not to
+    // disappear from tracking entirely. Holds the handle of every excluded self-reschedule that is
+    // still scheduled (not yet fired or cancelled); whenIdle() below waits while this is non-empty.
+    // Tracked per HANDLE, not as a single deadline shared by the whole page: an earlier version
+    // recorded one global "next fire time," which a cancelled excluded reschedule left stale --
+    // whenIdle then waited out that now-irrelevant future time (or the render budget cap) for a
+    // callback that would never run. Removing the handle here when it fires or is cancelled (see
+    // the two removal sites below) means the set holds exactly the excluded work still genuinely
+    // outstanding, nothing more. A chain that stops rescheduling empties the set as soon as its
+    // last invocation completes; a repeating heartbeat keeps re-adding a fresh handle before the
+    // old one is removed, so the set never stays empty and whenIdle correctly falls through to its
+    // own maxWaitMillis deadline instead of waiting on it forever. See the whenIdle comment below.
+    var excludedSelfReschedulePending = new Set();
     var status = {
         installed: false,
         failed: false,
         // Set by the sentinel appended to each injected string-timer script; see
         // executeStringCallback. Declared here so the shape is visible in one place.
         completed: false,
-        // Scheduled-but-not-yet-run string timeouts. The renderer awaits this reaching zero (see
+        // Scheduled-but-not-yet-run one-shot timeouts. The renderer awaits this reaching zero (see
         // whenIdle) so a capture cannot outrun the form's own deferred work.
         pending: 0,
         errorMessage: null
     };
     window.__carlosEformTimerCompat = status;
 
+    function isPdfRenderAutoSubmit(handler) {
+        // This is intentionally an exact allowlist, not source rewriting or a general attempt to
+        // understand stored eForm JavaScript. Across the shared corpus this delayed callback is the
+        // dominant timer (25/50): it clicks the form's submit button after printing. A passive PDF
+        // render neither needs nor may perform that state-changing action, so waiting 1.8 seconds
+        // for it only delays capture. The marker is injected solely by the PDF HTML composer; the
+        // interactive eForm viewer retains the original callback unchanged.
+        return window.__carlosEformPdfRender === true
+                && typeof handler === "string"
+                && /^\s*SubmitButton\s*\.\s*click\s*\(\s*\)\s*;?\s*$/.test(handler);
+    }
+
     /**
-     * Programmatic equivalent of the capture-phase submit guard below, for callers that submit via
-     * HTMLFormElement.submit(). That API deliberately fires no submit event, so the listener never
-     * runs for the floating toolbar's save paths (remoteSave -> RichTextLetter.submit()) -- only the
-     * legacy SubmitButton.click() path is covered by the listener alone.
+     * Surfaces the advisory timer-failure banner for callers that submit via HTMLFormElement.submit().
+     * That API deliberately fires no submit event, so the capture-phase listener below never runs for
+     * the floating toolbar's save paths (remoteSave -> HTMLFormElement.submit()) -- only the legacy
+     * SubmitButton.click() path is covered by the listener alone.
      *
-     * @return {boolean} true when the caller must abort (a legacy timer failed); the banner is shown.
+     * <p>A failed legacy timer is ADVISORY, not blocking. The server render already treats
+     * timerCompatibilityFailure as an advisory condition and DELIVERS the document (it is counted in
+     * EFormRenderCompletenessReport.advisoryIssueCount, never withheld), so the print/save/fax paths
+     * must reach that server gate rather than dead-ending here -- otherwise the clinician can never
+     * produce a document the server would have delivered with a warning. This shows the notice so the
+     * clinician is informed; it never aborts the submission.</p>
+     *
+     * Returns nothing on purpose: a failed timer must never gate a caller's submission, so there is
+     * no block signal to hand back (an earlier version returned status.failed and every caller
+     * discarded it, which invited a future caller to re-read it as the old "should block").
      */
-    status.shouldBlockSubmission = function shouldBlockSubmission() {
-        if (!status.failed) {
-            return false;
+    status.warnBeforeSubmission = function warnBeforeSubmission() {
+        if (status.failed) {
+            showFailureNotice();
         }
-        showFailureNotice();
-        return true;
     };
 
     function showFailureNotice() {
         if (!document.body || document.getElementById("carlos-eform-timer-compat-error")) {
             return;
         }
+        // Advisory, not an error: a failed legacy timer no longer blocks saving or printing (the
+        // server delivers the document with its own advisory banner), so this warns rather than
+        // alarms -- amber/role="status" to match the toolbar's post-render advisory notice, not the
+        // red/role="alert" of a hard failure. The id stays stable: the PDF render surface hides this
+        // element by that id so the banner never prints (EFormBrowserPdfService render CSS).
         var notice = document.createElement("div");
         notice.id = "carlos-eform-timer-compat-error";
-        notice.setAttribute("role", "alert");
-        notice.style.cssText = "position:fixed;z-index:2147483647;top:0;left:0;right:0;"
-                + "padding:12px;background:#8b0000;color:#fff;font:16px sans-serif;text-align:center";
-        notice.textContent = "This eForm could not run a legacy timer. Review the form before saving or printing.";
+        notice.setAttribute("role", "status");
+        notice.style.cssText = "position:fixed;z-index:2147483647;top:0;left:0;right:0;padding:10px;"
+                + "background:#fff3cd;color:#664d03;border-bottom:1px solid #ffc107;"
+                + "font:14px sans-serif;text-align:center";
+        notice.textContent = "This eForm could not run a legacy timer, so some fields may be missing"
+                + " content. Review it before saving or printing.";
         document.body.insertBefore(notice, document.body.firstChild);
     }
 
@@ -116,30 +181,109 @@
     }
 
     function schedule(nativeTimer, receiver, handler, delay, callbackArguments) {
-        if (typeof handler !== "string") {
-            return nativeTimer.apply(receiver, [handler, delay].concat(callbackArguments));
+        if (nativeTimer === nativeSetTimeout && isPdfRenderAutoSubmit(handler)) {
+            status.suppressedAutoSubmits = (status.suppressedAutoSubmits || 0) + 1;
+            // Preserve the timer-handle shape for form code that clears it, but do not enqueue a
+            // callback that would submit or mutate state on the render-only surface.
+            return nativeSetTimeout.call(window, function suppressedPdfAutoSubmit() {}, 0);
         }
         // Only one-shot timers are counted. A repeating setInterval would never drain, so waiting on
-        // it would stall every render that uses one.
-        var counted = nativeTimer === nativeSetTimeout;
+        // it would stall every render that uses one. Legacy string timers stay tracked at every delay
+        // so a late one reports an incomplete render. Function callbacks are tracked only through the
+        // existing four-second render budget: pages also schedule long-lived UI/heartbeat callbacks
+        // that cannot affect this capture and would otherwise make every render wait until the cap.
+        var delayMillis = delay == null ? 0 : Number(delay);
+        var runningFunctionHandlers = status.runningFunctionHandlers || (status.runningFunctionHandlers = []);
+        // A same-reference self-reschedule (handler calls setTimeout(handler, ...) again while it
+        // is still on the stack) is ambiguous on its own: it is exactly how BOTH a repeating
+        // heartbeat/UI loop AND a short chained-completion sequence (e.g. "poll until data is
+        // ready, then populate the field and stop") reschedule themselves. Excluding every such
+        // reschedule unconditionally (as this guard once did) stopped counting a chain after its
+        // very first pass, so whenIdle could resolve -- and the PDF could be captured -- before a
+        // still-pending later pass populated a field: the same blank-field race this tracking
+        // exists to prevent, just moved one step later. Counting the first
+        // SELF_RESCHEDULE_COUNT_LIMIT self-reschedules keeps a short chain fully covered while
+        // still letting a loop that keeps rescheduling past that bound fall back to being governed
+        // by the render budget cap, same as before.
+        var isSelfReschedule = typeof handler === "function" && runningFunctionHandlers.indexOf(handler) >= 0;
+        var selfRescheduleCount = 0;
+        if (isSelfReschedule) {
+            selfRescheduleCount = (selfRescheduleCounts.get(handler) || 0) + 1;
+            selfRescheduleCounts.set(handler, selfRescheduleCount);
+        }
+        var selfRescheduleExcluded = isSelfReschedule && selfRescheduleCount > SELF_RESCHEDULE_COUNT_LIMIT;
+        var counted = nativeTimer === nativeSetTimeout
+                && (typeof handler === "string"
+                        || (typeof handler === "function"
+                                && isFinite(delayMillis) && delayMillis <= 4000
+                                && !selfRescheduleExcluded));
         if (counted) {
             status.pending += 1;
         }
-        return nativeTimer.call(receiver, function runStoredTimerSource() {
-            try {
-                executeStringCallback(handler);
-            } finally {
-                // finally, not after the call: executeStringCallback rethrows a failed timer, and
-                // leaking the count would leave the renderer waiting for a timer that already ran.
-                if (counted) {
-                    status.pending -= 1;
+        if (typeof handler !== "string" && typeof handler !== "function") {
+            return nativeTimer.apply(receiver, [handler, delay].concat(callbackArguments));
+        }
+        var handle;
+        try {
+            handle = nativeTimer.call(receiver, function runScheduledTimer() {
+                try {
+                    if (typeof handler === "string") {
+                        return executeStringCallback(handler);
+                    }
+                    // Captured before invocation so the finally below can tell whether THIS
+                    // invocation triggered a further self-reschedule (the count changed) or the
+                    // chain ended here (the count is unchanged) -- see selfRescheduleCounts above.
+                    var selfRescheduleCountBeforeInvocation = selfRescheduleCounts.get(handler);
+                    runningFunctionHandlers.push(handler);
+                    try {
+                        return handler.apply(receiver, callbackArguments);
+                    } finally {
+                        runningFunctionHandlers.pop();
+                        if (selfRescheduleCounts.get(handler) === selfRescheduleCountBeforeInvocation) {
+                            selfRescheduleCounts.delete(handler);
+                        }
+                    }
+                } finally {
+                    handleToHandler.delete(handle);
+                    // This handle's excluded reschedule (if it was one) fired: it is no longer
+                    // outstanding, whether or not it rescheduled itself again -- a further
+                    // reschedule adds its OWN new handle to the set during handler.apply() above,
+                    // before this delete() for the old handle runs.
+                    excludedSelfReschedulePending.delete(handle);
+                    // delete() makes completion and cancellation mutually exclusive: whichever
+                    // happens first owns the one matching decrement.
+                    if (counted && countedTimeouts.delete(handle)) {
+                        status.pending -= 1;
+                    }
                 }
+            }, delay);
+        } catch (error) {
+            if (counted) {
+                status.pending -= 1;
             }
-        }, delay);
+            throw error;
+        }
+        if (counted) {
+            countedTimeouts.add(handle);
+        }
+        if (typeof handler === "function") {
+            handleToHandler.set(handle, handler);
+        }
+        // Matches the nativeTimer === nativeSetTimeout gate already in the counted condition
+        // above: a repeating setInterval is never one-shot, so it must never enter pending
+        // tracking of any kind (counted or excluded-but-pending). Without this guard, a
+        // self-rescheduling setInterval registration could still be added here, and its handle
+        // is only ever removed on its FIRST tick (see the finally block below) -- until then,
+        // whenIdle() would refuse to resolve early for a timer that was supposed to be entirely
+        // excluded, hitting the render's own cap instead.
+        if (selfRescheduleExcluded && nativeTimer === nativeSetTimeout) {
+            excludedSelfReschedulePending.add(handle);
+        }
+        return handle;
     }
 
     /**
-     * Resolves once every scheduled string timer has run, or once maxWaitMillis has elapsed.
+     * Resolves once every scheduled one-shot timer has run, or once maxWaitMillis has elapsed.
      *
      * <p>The PDF renderer awaits this before capturing. Without it the capture raced the form: page
      * stabilization settles after a short quiet window, while stored timers are typically scheduled
@@ -151,16 +295,26 @@
      * <p>Polls with the native timer so the wait neither recurses through the wrapper above nor
      * inflates the count it is waiting on.</p>
      *
+     * <p>A self-reschedule excluded from {@code status.pending} for exceeding
+     * {@code SELF_RESCHEDULE_COUNT_LIMIT} is invisible to the {@code pending <= 0} check below, so
+     * this also requires {@code excludedSelfReschedulePending} to be empty before resolving early.
+     * That set holds exactly the excluded handles still genuinely scheduled (not yet fired or
+     * cancelled), so a chain that stops rescheduling empties it as soon as its last invocation
+     * completes, while a repeating heartbeat/UI loop keeps a handle in it continuously and so
+     * correctly falls through to {@code deadline} instead of silently letting the capture race
+     * ahead of it.</p>
+     *
      * @return {Promise<boolean>} true when the queue drained, false when the wait was capped
      */
     status.whenIdle = function whenIdle(maxWaitMillis) {
         var deadline = Date.now() + (maxWaitMillis > 0 ? maxWaitMillis : 3000);
         return new Promise(function settleWhenDrained(resolve) {
             (function poll() {
-                if (status.pending <= 0) {
-                    resolve(true);
-                } else if (Date.now() >= deadline) {
+                var now = Date.now();
+                if (now >= deadline) {
                     resolve(false);
+                } else if (status.pending <= 0 && excludedSelfReschedulePending.size === 0) {
+                    resolve(true);
                 } else {
                     nativeSetTimeout.call(window, poll, 50);
                 }
@@ -176,6 +330,29 @@
                 delay,
                 Array.prototype.slice.call(arguments, 2));
     };
+    window.clearTimeout = function clearTimeoutCompatible(handle) {
+        return cancelTrackedTimer(nativeClearTimeout, handle);
+    };
+    window.clearInterval = function clearIntervalCompatible(handle) {
+        return cancelTrackedTimer(nativeClearInterval, handle);
+    };
+    function cancelTrackedTimer(nativeClear, handle) {
+        if (countedTimeouts.delete(handle)) {
+            status.pending -= 1;
+        }
+        // This handle will never fire now, so it can no longer be outstanding excluded work --
+        // without this, whenIdle() would wait on a cancelled callback that will never run.
+        excludedSelfReschedulePending.delete(handle);
+        var cancelledHandler = handleToHandler.get(handle);
+        if (cancelledHandler) {
+            // The chain this handler was rescheduling ends here too: clear its count so a later,
+            // unrelated scheduling of the same function reference starts counting from zero
+            // instead of inheriting this cancelled chain's leftover count.
+            handleToHandler.delete(handle);
+            selfRescheduleCounts.delete(cancelledHandler);
+        }
+        return nativeClear.call(window, handle);
+    }
     window.setInterval = function setIntervalCompatible(handler, delay) {
         return schedule(
                 nativeSetInterval,
@@ -184,10 +361,11 @@
                 delay,
                 Array.prototype.slice.call(arguments, 2));
     };
-    document.addEventListener("submit", function blockSubmitAfterTimerFailure(event) {
+    document.addEventListener("submit", function warnOnSubmitAfterTimerFailure() {
+        // A failed legacy timer is advisory, not blocking (see warnBeforeSubmission): the server
+        // render delivers the document with a warning rather than withholding it, so a native
+        // SubmitButton.click() submit must proceed to that gate. Surface the notice; do not cancel.
         if (status.failed) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
             showFailureNotice();
         }
     }, true);
@@ -208,6 +386,61 @@
         });
     }
     status.installed = true;
+}(window, document));
+
+/*
+ * Saved-PDF renderer aliases for forms written against older jQuery. Clinic forms can load their
+ * own jQuery after this shim and call .size() or .error() in the very next inline script. Ready and
+ * load listeners are too late for that caller, so patch each replacement as it is assigned.
+ */
+(function installCarlosLegacyJqueryAliases(window, document) {
+    "use strict";
+
+    if (!window.__carlosEformPdfRender) {
+        return;
+    }
+
+    function patch(jq) {
+        if (!jq || !jq.fn) {
+            return;
+        }
+        if (!jq.fn.size) {
+            jq.fn.size = function size() { return this.length; };
+        }
+        if (!jq.fn.error) {
+            jq.fn.error = function error(handler) {
+                return arguments.length ? this.on("error", handler) : this.trigger("error");
+            };
+        }
+    }
+
+    function watch(name) {
+        var descriptor = Object.getOwnPropertyDescriptor(window, name);
+        if (descriptor && !descriptor.configurable) {
+            patch(window[name]);
+            return;
+        }
+        var current = window[name];
+        Object.defineProperty(window, name, {
+            configurable: true,
+            enumerable: descriptor ? descriptor.enumerable : true,
+            get: function () { return current; },
+            set: function (next) {
+                current = next;
+                patch(next);
+            }
+        });
+        patch(current);
+    }
+
+    watch("jQuery");
+    watch("$");
+    window.__carlosInstallLegacyJqueryAliases = function () {
+        patch(window.jQuery);
+        patch(window.$);
+    };
+    document.addEventListener("DOMContentLoaded", window.__carlosInstallLegacyJqueryAliases);
+    window.addEventListener("load", window.__carlosInstallLegacyJqueryAliases);
 }(window, document));
 
 /*
@@ -354,4 +587,128 @@
     };
 
     status.installed = true;
+}(window, document));
+
+/*
+ * Signature round-trip for UNSIGNED forms.
+ *
+ * jSignature's base30 export of an EMPTY canvas is the media type with no payload:
+ *
+ *     $sig.jSignature("getData", "base30")   ->   "image/jsignature;base30,"
+ *
+ * Stored eForms persist exactly that string, and the signature boilerplate almost every
+ * third-party form carries feeds it straight back on load:
+ *
+ *     data = document.getElementById("StoreSignature1").value;   // "image/jsignature;base30,"
+ *     $sig.jSignature("setData", "data:" + data);                // from <body onload="...loadSig()">
+ *
+ * The bundled decoder cannot read its own export back. Its base30 importer splits the payload
+ * on "_" and then walks half the resulting length:
+ *
+ *     u = function (e) { var h = [], e = e.split("_"), a = e.length / 2, f = 0;
+ *                        for (; f < a; f++) h.push({x: v(e[2 * f]), y: v(e[2 * f + 1])}); ... }
+ *
+ * On an empty payload "".split("_") is [""], so a is 0.5 — the loop still runs once, e[1] is
+ * undefined, and v(undefined) does undefined.split("") and throws
+ * "Cannot read properties of undefined (reading 'split')".
+ *
+ * That throw is an UNCAUGHT page error on every open of an unsigned form, which the PDF render
+ * completeness gate counts as a severe page script error and refuses to print over — so an
+ * unsigned form could not be rendered, faxed or archived at all. Measured against a 179-package
+ * corpus of real published eForms: 79 carry this boilerplate and 75 of them failed to render.
+ *
+ * Fixing it here rather than in the vendored minified plugin keeps the third-party bundle
+ * byte-identical and upgradable, and the callers cannot be fixed — loadSig() is authored inside
+ * each clinic's own form HTML, not shipped by CARLOS.
+ *
+ * Scope is deliberately one shape: a data: URI whose media type is jSignature base30 AND
+ * whose payload is empty. A populated signature, any other media type, and every other jSignature
+ * verb go to the plugin untouched, so a real decode failure still surfaces as a real error.
+ */
+(function installCarlosEformSignatureCompatibility(window, document) {
+    "use strict";
+
+    if (window.__carlosEformSignatureCompat && window.__carlosEformSignatureCompat.installed) {
+        return;
+    }
+
+    var signatureStatus = {installed: false, skippedEmptyLoads: 0};
+    window.__carlosEformSignatureCompat = signatureStatus;
+
+    // "data:image/jsignature;base30," only, with nothing after the comma. A bare "data:" (no comma)
+    // is NOT matched: the plugin handles that
+    // one itself, and claiming it here would hide a genuine malformed-input path.
+    function isEmptySignatureDataUri(value) {
+        if (typeof value !== "string" || value.lastIndexOf("data:", 0) !== 0) {
+            return false;
+        }
+        var comma = value.indexOf(",");
+        if (comma === -1) {
+            return false;
+        }
+        if (!/^image\/jsignature;base30$/i.test(value.slice("data:".length, comma))) {
+            return false;
+        }
+        return value.slice(comma + 1) === "";
+    }
+
+    function installSignatureGuard() {
+        var $ = window.jQuery || window.$;
+        if (!$ || !$.fn || typeof $.fn.jSignature !== "function" || $.fn.jSignature.__carlosEmptyDataGuard) {
+            return;
+        }
+        var original = $.fn.jSignature;
+
+        function guarded(verb) {
+            if (verb === "setData" && isEmptySignatureDataUri(arguments[1])) {
+                signatureStatus.skippedEmptyLoads += 1;
+                // On the fast loopback render, a form's body onload can call loadSig() before
+                // jQuery runs its document-ready pad initialiser. There is nothing to reset yet:
+                // the later initialiser creates an empty canvas. Calling the plugin's reset on
+                // the absent canvas throws resetCanvas and withholds an otherwise complete PDF.
+                // Reset every pad that IS already initialised, and let a real reset failure still
+                // reach the page-error gate. A missing pad can only be skipped for this exact
+                // empty signature payload; populated signature data follows the plugin unchanged.
+                var readyCanvases = this.find("canvas.jSignature").add(this.filter("canvas.jSignature"));
+                if (readyCanvases.length > 0) {
+                    original.call(readyCanvases, "reset");
+                }
+                return this;
+            }
+            return original.apply(this, arguments);
+        }
+
+        // Plugins hang their own properties off the function; carry them over so the wrapper is
+        // indistinguishable from the original to anything that reads them.
+        Object.keys(original).forEach(function (key) {
+            guarded[key] = original[key];
+        });
+        guarded.__carlosEmptyDataGuard = true;
+
+        $.fn.jSignature = guarded;
+        signatureStatus.installed = true;
+    }
+
+    // An async plugin may arrive after DOMContentLoaded. Capture its script-load event after
+    // assignment but before body onload restores the signature. Retry only after the normal
+    // ready-time attempt misses, preserving the parsing-time setup of synchronous plugins.
+    function retrySignatureGuard() {
+        installSignatureGuard();
+        if (signatureStatus.installed) {
+            document.removeEventListener("load", retrySignatureGuard, true);
+            window.removeEventListener("load", retrySignatureGuard);
+        }
+    }
+    function installOrRetrySignatureGuard() {
+        installSignatureGuard();
+        if (!signatureStatus.installed) {
+            document.addEventListener("load", retrySignatureGuard, true);
+            window.addEventListener("load", retrySignatureGuard);
+        }
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", installOrRetrySignatureGuard);
+    } else {
+        installOrRetrySignatureGuard();
+    }
 }(window, document));

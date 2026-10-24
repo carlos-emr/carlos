@@ -50,20 +50,22 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
+/** Request-local report state; never share an instance between requests. */
 public class FieldNoteManager {
 
-    static TreeSet<Integer> fieldNoteEforms = new TreeSet<Integer>();
-    static TreeSet<Integer> fieldNoteNameEforms = new TreeSet<Integer>();
-    static HashMap<String, TreeSet<Integer>> residentFieldNotes = new HashMap<String, TreeSet<Integer>>();
-    static HashMap<String, HashMap<String, Integer>> supervisorFieldNotes = new HashMap<String, HashMap<String, Integer>>();
+    private final TreeSet<Integer> fieldNoteEforms = new TreeSet<Integer>();
+    private final TreeSet<Integer> fieldNoteNameEforms = new TreeSet<Integer>();
+    private final HashMap<String, TreeSet<Integer>> residentFieldNotes = new HashMap<String, TreeSet<Integer>>();
+    private final HashMap<String, HashMap<String, Integer>> supervisorFieldNotes = new HashMap<String, HashMap<String, Integer>>();
 
-    private static PropertyDao propertyDao = (PropertyDao) SpringUtils.getBean(PropertyDao.class);
-    private static EFormDao eformDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
-    private static EFormDataDao eformDataDao = (EFormDataDao) SpringUtils.getBean(EFormDataDao.class);
-    private static EFormValueDao eformValueDao = (EFormValueDao) SpringUtils.getBean(EFormValueDao.class);
-    private static ProviderDataDao providerDataDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
+    private final PropertyDao propertyDao = (PropertyDao) SpringUtils.getBean(PropertyDao.class);
+    private final EFormDao eformDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
+    private final EFormDataDao eformDataDao = (EFormDataDao) SpringUtils.getBean(EFormDataDao.class);
+    private final EFormValueDao eformValueDao = (EFormValueDao) SpringUtils.getBean(EFormValueDao.class);
+    private final ProviderDataDao providerDataDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
 
-    public static TreeSet<Integer> getFieldNoteEforms() {
+    public TreeSet<Integer> getFieldNoteEforms() {
+        fieldNoteEforms.clear();
         Property property = propertyDao.checkByName("fieldNoteEform");
         if (property == null) {
             fieldNoteEforms.clear();
@@ -79,9 +81,11 @@ public class FieldNoteManager {
         return fieldNoteEforms;
     }
 
-    public static TreeSet<Integer> getFieldNoteNameEforms(String customName) {
-        List<EForm> efList = eformDao.findByNameSimilar("field note");
-        efList.addAll(eformDao.findByNameSimilar(customName));
+    public TreeSet<Integer> getFieldNoteNameEforms(String customName) {
+        List<EForm> efList = new ArrayList<>(eformDao.findByNameSimilar("field note"));
+        if (!StringUtils.empty(customName)) {
+            efList.addAll(eformDao.findByNameSimilar(customName));
+        }
         fieldNoteNameEforms.clear();
 
         for (EForm eform : efList) {
@@ -91,12 +95,12 @@ public class FieldNoteManager {
         }
 
         //remove eforms already selected as field notes
-        fieldNoteNameEforms.removeAll(fieldNoteEforms);
+        fieldNoteNameEforms.removeAll(getFieldNoteEforms());
 
         return fieldNoteNameEforms;
     }
 
-    public static void unSelectFieldNoteEform(String fidUnselect) {
+    public void unSelectFieldNoteEform(String fidUnselect) {
         if (!StringUtils.isInteger(fidUnselect)) return;
 
         TreeSet<Integer> fieldNoteEformSet = getFieldNoteEforms();
@@ -104,7 +108,7 @@ public class FieldNoteManager {
         saveFieldNoteEformProperty(fieldNoteEformSet);
     }
 
-    public static void selectFieldNoteEforms(String[] fids) {
+    public void selectFieldNoteEforms(String[] fids) {
         if (fids == null || fids.length == 0) return;
 
         TreeSet<Integer> fieldNoteEformSet = getFieldNoteEforms();
@@ -114,7 +118,7 @@ public class FieldNoteManager {
         saveFieldNoteEformProperty(fieldNoteEformSet);
     }
 
-    public static TreeMap<String, String> getResidentNameList(TreeSet<Integer> fids, Date dateStart, Date dateEnd) {
+    public TreeMap<String, String> getResidentNameList(TreeSet<Integer> fids, Date dateStart, Date dateEnd) {
         resetResidentList(fids, dateStart, dateEnd);
         TreeMap<String, String> residentNameList = new TreeMap<String, String>();
 
@@ -125,7 +129,7 @@ public class FieldNoteManager {
         return residentNameList;
     }
 
-    public static TreeMap<String, TreeMap<String, Integer>> getSupervisorResidentCountList() {
+    public TreeMap<String, TreeMap<String, Integer>> getSupervisorResidentCountList() {
         TreeMap<String, TreeMap<String, Integer>> supervisorResidentCountList = new TreeMap<String, TreeMap<String, Integer>>();
         for (String supervisorId : supervisorFieldNotes.keySet()) {
             TreeMap<String, Integer> residentCountList = new TreeMap<String, Integer>();
@@ -143,7 +147,22 @@ public class FieldNoteManager {
         return supervisorResidentCountList;
     }
 
-    public static HashMap<Integer, List<EFormValue>> getResidentFieldNoteValues(String residentId) {
+    /**
+     * Replaces this instance's resident and supervisor report state with only the requested
+     * resident's current notes, using the clinic's selected field-note templates.
+     *
+     * @param residentId resident whose detail view or download is being prepared
+     * @param start inclusive start of the report interval
+     * @param endExclusive exclusive end of the report interval
+     */
+    public void loadResidentReport(String residentId, Date start, Date endExclusive) {
+        residentFieldNotes.clear();
+        supervisorFieldNotes.clear();
+        List<Integer> ids = eformDataDao.findFieldNoteIdsForResident(getFieldNoteEforms(), start, endExclusive, residentId);
+        residentFieldNotes.put(residentId, new TreeSet<>(ids));
+    }
+
+    public HashMap<Integer, List<EFormValue>> getResidentFieldNoteValues(String residentId) {
         HashMap<Integer, List<EFormValue>> fieldNoteValues = new HashMap<Integer, List<EFormValue>>();
         TreeSet<Integer> fdids = residentFieldNotes.get(residentId);
         if (fdids != null) {
@@ -157,11 +176,11 @@ public class FieldNoteManager {
         return fieldNoteValues;
     }
 
-    public static HashMap<Integer, List<EFormValue>> filterResidentFieldNoteValues(HashMap<Integer, List<EFormValue>> fieldNoteValues, String varName) {
+    public HashMap<Integer, List<EFormValue>> filterResidentFieldNoteValues(HashMap<Integer, List<EFormValue>> fieldNoteValues, String varName) {
         return filterResidentFieldNoteValues(fieldNoteValues, varName, "\b"); //"\b" is used as indicator for "match whatever value"
     }
 
-    public static HashMap<Integer, List<EFormValue>> filterResidentFieldNoteValues(HashMap<Integer, List<EFormValue>> fieldNoteValues, String varName, String varValue) {
+    public HashMap<Integer, List<EFormValue>> filterResidentFieldNoteValues(HashMap<Integer, List<EFormValue>> fieldNoteValues, String varName, String varValue) {
         if (fieldNoteValues == null) return fieldNoteValues;
         if (StringUtils.empty(varName)) return fieldNoteValues;
 
@@ -184,7 +203,7 @@ public class FieldNoteManager {
         return newValues;
     }
 
-    public static int countItem(HashMap<Integer, List<EFormValue>> fieldNoteValues, String varName) {
+    public int countItem(HashMap<Integer, List<EFormValue>> fieldNoteValues, String varName) {
         if (fieldNoteValues == null) return 0;
         if (StringUtils.empty(varName)) return 0;
 
@@ -197,7 +216,7 @@ public class FieldNoteManager {
         return counter;
     }
 
-    public static int countItem(HashMap<Integer, List<EFormValue>> fieldNoteValues, String varName, String varValue) {
+    public int countItem(HashMap<Integer, List<EFormValue>> fieldNoteValues, String varName, String varValue) {
         if (fieldNoteValues == null) return 0;
         if (StringUtils.empty(varName)) return 0;
         if (StringUtils.empty(varValue)) return 0;
@@ -212,7 +231,7 @@ public class FieldNoteManager {
         return counter;
     }
 
-    public static String getValue(List<EFormValue> valuesOf1FieldNote, String varName) {
+    public String getValue(List<EFormValue> valuesOf1FieldNote, String varName) {
         if (valuesOf1FieldNote == null) return null;
         if (StringUtils.empty(varName)) return null;
 
@@ -222,7 +241,7 @@ public class FieldNoteManager {
         return null;
     }
 
-    public static String getValues(List<EFormValue> valuesOf1FieldNote, String... varNames) {
+    public String getValues(List<EFormValue> valuesOf1FieldNote, String... varNames) {
         String values = null;
         for (String varName : varNames) {
             String value = getValue(valuesOf1FieldNote, varName);
@@ -234,14 +253,14 @@ public class FieldNoteManager {
         return values;
     }
 
-    public static int getTotalNumberOfFieldNotes(String residentId) {
+    public int getTotalNumberOfFieldNotes(String residentId) {
         TreeSet<Integer> fdids = residentFieldNotes.get(residentId);
         return fdids != null ? fdids.size() : 0;
     }
 
 //*** Private methods ***
 
-    private static void saveFieldNoteEformProperty(TreeSet<Integer> fieldNoteSet) {
+    private void saveFieldNoteEformProperty(TreeSet<Integer> fieldNoteSet) {
         if (fieldNoteSet == null) return;
 
         String newList = null;
@@ -259,7 +278,7 @@ public class FieldNoteManager {
         propertyDao.merge(property);
     }
 
-    private static void resetResidentList(TreeSet<Integer> fids, Date dateStart, Date dateEnd) {
+    private void resetResidentList(TreeSet<Integer> fids, Date dateStart, Date dateEnd) {
         residentFieldNotes.clear();
         supervisorFieldNotes.clear();
         List<EFormData> efDatas = eformDataDao.findByFidsAndDates(fids, dateStart, dateEnd);
@@ -290,7 +309,7 @@ public class FieldNoteManager {
         }
     }
 
-    private static HashMap<Integer, String> getFdidProviderIdHash(List<EFormData> eformDatas) {
+    private HashMap<Integer, String> getFdidProviderIdHash(List<EFormData> eformDatas) {
         HashMap<Integer, String> fdidProviderIdHash = new HashMap<Integer, String>();
         if (eformDatas != null) {
             for (EFormData eformData : eformDatas) {
@@ -300,7 +319,7 @@ public class FieldNoteManager {
         return fdidProviderIdHash;
     }
 
-    private static String getProviderName(String providerId) {
+    private String getProviderName(String providerId) {
         ProviderData pd = providerDataDao.find(providerId);
         if (pd != null) return pd.getLastName() + ", " + pd.getFirstName();
         else return null;

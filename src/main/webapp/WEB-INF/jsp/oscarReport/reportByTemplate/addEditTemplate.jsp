@@ -41,6 +41,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
+<%@ taglib prefix="s" uri="/struts-tags" %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
@@ -60,6 +61,19 @@
     </head>
 
     <body>
+<%-- Multipart rejections (an empty part, a file over the 50MB cap, too many
+     files, a field over struts.multipart.maxStringLength, a parse failure) are
+     produced by the interceptor stack BEFORE this page's action runs, and reach
+     this page through its "input" result. The action never executed, so any
+     error channel keyed off an attribute the action sets is empty here -- and
+     without this block the rejection renders the ordinary form again with no
+     explanation, which is indistinguishable from a page refresh. --%>
+<s:if test="hasActionErrors()">
+    <div class="alert alert-danger" role="alert">
+        <s:actionerror/>
+    </div>
+</s:if>
+
 
     <%@ include file="rbtTopNav.jspf" %>
 
@@ -87,6 +101,12 @@
             ReportObject curreport = rm.getReportTemplateNoParam(templateid);
             pageContext.setAttribute("curreport", curreport);
             pageContext.setAttribute("templatexml", templatexml);
+        }
+        // After a refused save (for example a non-SELECT statement), ManageTemplates2Action
+        // hands back what the author submitted so it can be corrected instead of retyped.
+        Object submittedXml = request.getAttribute("submittedXml");
+        if (submittedXml instanceof String) {
+            pageContext.setAttribute("templatexml", submittedXml);
         }
         pageContext.setAttribute("action", action);
         pageContext.setAttribute("templateid", templateid);
@@ -131,10 +151,10 @@
         <input type="file" id="uploadReportXml" class="input-file" name="templateFile" title="Upload a formatted template file. The extension is usually xml or txt">
         </div>
         </div>
-        <input type="hidden" name="action" value="${ action }">
-        <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
-        <input type="hidden" name="templateid" value="${ templateid }">
-        <input type="hidden" name="uuid" value="${ curreport.uuid }">
+        <input type="hidden" name="action" value="${carlos:forHtmlAttribute(action)}">
+        <input type="hidden" name="opentext" value="${carlos:forHtmlAttribute(empty opentext ? param.opentext : opentext)}">
+        <input type="hidden" name="templateid" value="${carlos:forHtmlAttribute(templateid)}">
+        <input type="hidden" name="uuid" value="${carlos:forHtmlAttribute(curreport.uuid)}">
         <div class="mb-3">
         <div>
         <input type="submit" class="btn btn-primary float-end" value="Upload & <%=StringUtils.capitalize(action)%>">
@@ -154,10 +174,10 @@
                                    title="Upload a formatted template file. The extension is usually xml or txt">
                         </div>
                     </div>
-                    <input type="hidden" name="action" value="${ action }">
-                    <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
-                    <input type="hidden" name="templateid" value="${ templateid }">
-                    <input type="hidden" name="uuid" value="${ curreport.uuid }">
+                    <input type="hidden" name="action" value="${carlos:forHtmlAttribute(action)}">
+                    <input type="hidden" name="opentext" value="${carlos:forHtmlAttribute(empty opentext ? param.opentext : opentext)}">
+                    <input type="hidden" name="templateid" value="${carlos:forHtmlAttribute(templateid)}">
+                    <input type="hidden" name="uuid" value="${carlos:forHtmlAttribute(curreport.uuid)}">
                     <div class="mb-3">
                         <div>
                             <input type="submit" class="btn btn-primary float-end"
@@ -174,11 +194,11 @@
             <div class="row">
                 <div class="card card-body bg-body-tertiary">
                     <textarea id="xmltext" name="xmltext"
-                              style="width:99%;height:300px;overflow-y:scroll;">${ templatexml }</textarea>
-                    <input type="hidden" name="action" value="${ action }">
-                    <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
-                    <input type="hidden" name="templateid" value="${ templateid }">
-                    <input type="hidden" name="uuid" value="${ curreport.uuid }">
+                              style="width:99%;height:300px;overflow-y:scroll;">${carlos:forHtmlContent(templatexml)}</textarea>
+                    <input type="hidden" name="action" value="${carlos:forHtmlAttribute(action)}">
+                    <input type="hidden" name="opentext" value="${carlos:forHtmlAttribute(empty opentext ? param.opentext : opentext)}">
+                    <input type="hidden" name="templateid" value="${carlos:forHtmlAttribute(templateid)}">
+                    <input type="hidden" name="uuid" value="${carlos:forHtmlAttribute(curreport.uuid)}">
                 </div>
 
                 <div class="form-actions">

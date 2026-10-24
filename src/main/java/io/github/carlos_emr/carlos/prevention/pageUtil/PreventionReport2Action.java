@@ -47,6 +47,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -86,6 +87,21 @@ public class PreventionReport2Action extends ActionSupport {
         if (patientSet == null) patientSet = request.getParameter("patientSet");
         if (prevention == null) prevention = request.getParameter("prevention");
         if (asofDate == null) asofDate = request.getParameter("asofDate");
+
+        // This action is both the GET view for the Ontario prevention-report page and the
+        // report runner. The initial navigation has no selections, and the form uses "-1"
+        // for its two placeholder options. Do not send either case through the saved-query
+        // loader, which requires a numeric database id and otherwise turns the page load into
+        // the generic HTTP-200 "CARLOS Error: 0" response.
+        if (!hasValidPatientSet(patientSet) || prevention == null || "-1".equals(prevention)) {
+            return SUCCESS;
+        }
+
+        PreventionReport report = PreventionReportFactory.getPreventionReport(prevention);
+        if (report == null) {
+            return SUCCESS;
+        }
+
         Date asDate = UtilDateUtilities.getDateFromString(asofDate, "yyyy-MM-dd");
 
         RptDemographicReport2Form frm = new RptDemographicReport2Form();
@@ -101,6 +117,8 @@ public class PreventionReport2Action extends ActionSupport {
         // least one provider filter is specified.
         ArrayList<ArrayList<String>> list = demoQ.buildQuery(loggedInInfo, frm);
 
+        // only a collection size is logged; it cannot contain control characters.
+        // nosemgrep: carlos.crlf-injection-logs
         log.debug("set size " + list.size());
 
         if (asDate == null) {
@@ -109,16 +127,11 @@ public class PreventionReport2Action extends ActionSupport {
         }
         request.setAttribute("asDate", asDate);
 
-        PreventionReport report = PreventionReportFactory.getPreventionReport(prevention);
-        if (report == null) {
-            return SUCCESS; // will stay on the same page if no report is found
-        }
-
         if ("ChildImmunizations".equals(prevention)) {
             request.setAttribute("ReportType", prevention);
         }
 
-        Hashtable h = report.runReport(loggedInInfo, list, asDate);
+        Hashtable<String, Object> h = report.runReport(loggedInInfo, list, asDate);
         request.setAttribute("up2date", h.get("up2date"));
         request.setAttribute("percent", h.get("percent"));
         request.setAttribute("percentWithGrace", h.get("percentWithGrace"));
@@ -132,9 +145,17 @@ public class PreventionReport2Action extends ActionSupport {
         request.setAttribute("patientSet", patientSet);
         request.setAttribute("prevention", prevention);
 
-        log.debug("setting prevention type to " + prevention);
+        log.debug("setting prevention type to {}", LogSafe.sanitize(prevention));
 
         return SUCCESS;
+    }
+
+    private static boolean hasValidPatientSet(String patientSet) {
+        try {
+            return Integer.parseInt(patientSet) > 0;
+        } catch (NumberFormatException _) {
+            return false;
+        }
     }
 
     private String patientSet;

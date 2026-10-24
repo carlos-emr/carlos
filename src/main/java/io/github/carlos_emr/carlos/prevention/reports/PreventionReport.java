@@ -40,5 +40,5 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * @author jay
  */
 public interface PreventionReport {
-    public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate);
+    public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate);
 }

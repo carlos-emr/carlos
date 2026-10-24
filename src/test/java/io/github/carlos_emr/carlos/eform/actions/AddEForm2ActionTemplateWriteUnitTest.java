@@ -63,6 +63,11 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -121,6 +126,8 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
+        var transactions = spy(new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager());
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactions);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         // AddEForm2Action's constructor resolves this via SpringUtils regardless of the path taken.
         registerMock(EmailManager.class, mockEmailManager);
@@ -180,6 +187,9 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
 
         mockRequest.setParameter("efmfid", "1");
         mockRequest.setParameter("efmdemographic_no", "123");
+        mockRequest.setParameter(io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER,
+                io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.issue(mockRequest.getSession(),
+                        mockRequest.getParameter("efmfid"), "123"));
     }
 
     @AfterEach
@@ -192,10 +202,24 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
         if (mockitoMocks != null) mockitoMocks.close();
     }
 
+    @Test
+    void shouldWriteChartTemplateOnlyOnce_whenSubmissionIsReplayed() throws Exception {
+        mockRequest.setParameter("saveAsEdoc", "true");
+        doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("synthetic render failure"))
+                .when(mockDocumentAttachmentManager).saveEFormAsEDoc(any(), any());
+        AddEForm2Action action = spy(new AddEForm2Action());
+        doReturn("Check the patient eForms before reopening")
+                .when(action).getText("eform.submitUnavailable");
+        assertThat(action.execute()).isEqualTo("error");
+        assertThat(action.execute()).isEqualTo("none");
+        verifyTemplateWritten(true);
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+    }
+
     private void verifyTemplateWritten(boolean expected) {
         eFormUtilMock.verify(
                 () -> EFormUtil.writeEformTemplate(any(), any(), any(), any(), anyString(), anyString(), anyString()),
-                expected ? org.mockito.Mockito.times(1) : org.mockito.Mockito.never());
+                expected ? times(1) : never());
     }
 
     @Test
@@ -215,23 +239,112 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
         verifyTemplateWritten(true);
     }
 
+    @Test
+    void busyArchivePreservesSavedFormAndTemplateAndContinuesOnlyArchive() throws Exception {
+        mockRequest.setParameter("saveAsEdoc", "true");
+        mockRequest.setParameter("clinicalNote", "must not be replayed");
+        doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("capacity", true))
+                .when(mockDocumentAttachmentManager).saveEFormAsEDoc(any(), any());
+        when(mockRenderApprovalService.issueCapacityContinuation(any(), any(), eq(42), eq("123"),
+                eq(EFormRenderApprovalService.Operation.EDOC))).thenReturn("continuation-ticket");
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo("renderBusy");
+        assertThat(mockResponse.getStatus()).isEqualTo(503);
+        assertThat(mockRequest.getAttribute("renderCapacityAction")).isEqualTo("/eform/saveEFormAsEDoc");
+        assertThat(mockRequest.getAttribute("renderCapacityFields")).isEqualTo(java.util.Map.of(
+                "fdid", "42", "demographicNo", "123", "renderApproval", "continuation-ticket", "autoClose", "true"));
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        verifyTemplateWritten(true);
+    }
+
+    @Test
+    void busySubmitAndPdfPreservesSavedFormAndTemplateAndDownloadIntent() throws Exception {
+        mockRequest.setParameter("print", "true");
+        mockRequest.setParameter("skipSave", "false");
+        when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("capacity", true));
+        when(mockRenderApprovalService.issueCapacityContinuation(any(), any(), eq(42), eq("123"),
+                eq(EFormRenderApprovalService.Operation.DOWNLOAD))).thenReturn("continuation-ticket");
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo("renderBusy");
+        assertThat(mockResponse.getStatus()).isEqualTo(503);
+        assertThat(mockRequest.getAttribute("renderCapacityAction")).isEqualTo("/eform/downloadEFormPdf");
+        assertThat(mockRequest.getAttribute("renderCapacityFields")).isEqualTo(java.util.Map.of(
+                "fdid", "42", "demographicNo", "123", "renderApproval", "continuation-ticket", "autoClose", "true"));
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        verifyTemplateWritten(true);
+    }
+
+    @Test
+    @DisplayName("should carry the Submit & PDF auto-close intent into the download approval page")
+    void shouldCarryAutoCloseIntoApproval_whenSubmitAndPdfRefused() throws Exception {
+        // The approval page posts to eform/downloadEFormPdf, not back to this action, so the only
+        // way the approved download can still close the window is for the intent to ride along.
+        mockRequest.setParameter("print", "true");
+        mockRequest.setParameter("skipSave", "false");
+        when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))
+                .thenThrow(new EformContentUnavailableException("incomplete", 42,
+                        new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false, false)));
+        when(mockRenderApprovalService.issue(any(), any(), anyInt(), anyString(), any(), any(), any(), anyInt()))
+                .thenReturn("ticket");
+
+        String result = new AddEForm2Action().execute();
+
+        assertThat(result).isEqualTo("missingContent");
+        assertThat(mockRequest.getAttribute("approvalAutoClose")).isEqualTo("true");
+        // Refused or not, the flag that closes THIS response's window is never set on the approval page.
+        assertThat(mockRequest.getAttribute("isSuccess_Autoclose")).isNull();
+        verifyTemplateWritten(true);
+    }
+
     // There is deliberately no separate "plain save writes the template" test. execute() continues
     // past the write into MatchManager's client matching, which needs real matcher data and NPEs
     // without it — mocking that chain would test PMmodule, not this contract. The eDoc test above
     // already covers the positive case: if the write never ran at all, it would fail.
 
     @Test
-    @DisplayName("should not write the eForm template on the print path")
-    void shouldNotWriteTemplate_onPrintPath() {
+    @DisplayName("should not write the eForm template on the PDF preview path (print with skipSave)")
+    void shouldNotWriteTemplate_onPrintPreviewPath() throws Exception {
         // Guards the hoist: the write moved above the eDoc block, and it must still be skipped for
         // the workflow paths that never performed it. writeEformTemplate is not idempotent, so
         // running it here would duplicate every CPP note, tickler and consult request.
+        // print=true is the legacy printControl.js alias of the save-and-download workflow, so the
+        // path now renders and returns the mapped "download" result instead of an unmapped "print".
+        // printControl.js's "PDF" button sends skipSave=true: a preview, not a submission.
         mockRequest.setParameter("print", "true");
+        mockRequest.setParameter("skipSave", "true");
+        stubPrintRender();
 
         AddEForm2Action action = new AddEForm2Action();
         String result = action.execute();
 
-        assertThat(result).isEqualTo("print");
+        assertThat(result).isEqualTo("download");
         verifyTemplateWritten(false);
+    }
+
+    @Test
+    @DisplayName("should still write the eForm template on Submit & PDF (print without skipSave)")
+    void shouldWriteTemplate_onSubmitAndPdfPath() throws Exception {
+        // Before the print alias these buttons reached the server as a plain save (their print flag
+        // never arrived), so a generated eForm's configured notes, ticklers and consults were
+        // created. "Submit & PDF" is still a submission and must keep those side effects.
+        mockRequest.setParameter("print", "true");
+        mockRequest.setParameter("skipSave", "false");
+        stubPrintRender();
+
+        AddEForm2Action action = new AddEForm2Action();
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("download");
+        // ...and, like every other submission, the result page closes the window afterwards.
+        assertThat(mockRequest.getAttribute("isSuccess_Autoclose")).isEqualTo("true");
+        verifyTemplateWritten(true);
+    }
+
+    private void stubPrintRender() throws Exception {
+        when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))
+                .thenReturn(new EformDataManager.EformPdfRender(java.nio.file.Path.of("letter.pdf"),
+                        new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false, false)));
+        when(mockDocumentAttachmentManager.convertPDFToBase64(any())).thenReturn("JVBERi0=");
     }
 }

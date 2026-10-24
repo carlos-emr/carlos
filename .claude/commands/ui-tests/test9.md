@@ -24,9 +24,9 @@ allowed-tools:
   - Bash(ls /workspace/.playwright-mcp/*)
   - Bash(wc *)
   - Bash(curl * http://localhost:8080/*)
-  - Bash(mariadb -h db -uroot -ppassword oscar *)
-  - Bash(mariadb -h db -uroot -ppassword oscar -e *)
-  - Bash(mariadb * oscar * 2>&1 | tail -1)
+  - Bash(mariadb -h db -uroot -ppassword carlos *)
+  - Bash(mariadb -h db -uroot -ppassword carlos -e *)
+  - Bash(mariadb * carlos * 2>&1 | tail -1)
   - Bash(date *)
   - Bash(TIMESTAMP=*)
   - Write(path:ui-test-runs/**)
@@ -65,7 +65,7 @@ Before starting, verify application and database are ready:
 1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
    - Expected: `HTTP/1.1 200`
 
-2. **Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no FROM demographic WHERE demographic_no = 1;"`
+2. **Database Check**: Run `mariadb -h db -uroot -ppassword carlos -e "SELECT demographic_no FROM demographic WHERE demographic_no = 1;"`
    - Expected: Patient ID 1 exists
 
 **If checks fail**: Run `server start` to start Tomcat, or check `server log` for errors.
@@ -185,7 +185,7 @@ After completing all 12 steps:
 3. **Save Prevention PDF**: Copy `Prevention.pdf` from `.playwright-mcp/` to `ui-test-runs/$TIMESTAMP/test-9/reports/` directory
 4. **Database Verification**:
    ```bash
-   mariadb -h db -uroot -ppassword oscar -e "
+   mariadb -h db -uroot -ppassword carlos -e "
    SELECT id, prevention_type, prevention_date, provider_name FROM preventions
    WHERE demographic_no = 1 AND prevention_type = 'Flu'
    ORDER BY id DESC LIMIT 2;"

@@ -150,14 +150,23 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
     ////Start
     MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
-    MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(temp, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), Integer.parseInt(demographic_no));
+    String customizationProvider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+    Integer customizationPatient = Integer.valueOf(demographic_no);
+    List<FlowSheetCustomization> customizations = flowSheetCustomizationDao.getFlowSheetCustomizations(
+            temp, customizationProvider, customizationPatient);
+    MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(
+            temp, customizationProvider, customizationPatient, customizations);
 
     MeasurementInfo mi = new MeasurementInfo(demographic_no);
-    List<String> measurementLs = mFlowsheet.getMeasurementList();
+    List<String> measurementLs = mFlowsheet.getVisibleMeasurementList();
     ArrayList<String> measurements = new ArrayList(measurementLs);
     long startTimeToGetM = System.currentTimeMillis();
 
-    mi.getMeasurements(measurements);
+    // Decision support reads every item, hidden ones included: a ds_rules file and the item
+    // recommendations still cover an item a customization hides, and without its readings an
+    // up-to-date hidden item would be reported as never recorded (#4433). Display uses the
+    // visible list.
+    mi.getMeasurements(new ArrayList<String>(mFlowsheet.getMeasurementList()));
 
     try {
         mFlowsheet.getMessages(mi);
@@ -191,11 +200,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
         <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
 
         <!-- Fav and touch icons -->
-        <link rel="apple-touch-icon-precomposed" sizes="144x144" href="ico/apple-touch-icon-144-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" sizes="114x114" href="ico/apple-touch-icon-114-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" sizes="72x72" href="ico/apple-touch-icon-72-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" href="ico/apple-touch-icon-57-precomposed.png">
-        <link rel="shortcut icon" href="ico/favicon.png">
+        <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
 
         <style type="text/css">
             div.ImmSet {
@@ -486,7 +491,12 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
-                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&template=<carlos:encode value='<%= temp %>' context="uriComponent"/>"
+                <%-- The Health Tracker opens this page with &htracker so "back" returns to the
+                     tracker rather than dropping the clinician on the plain flowsheet view. --%>
+                <%String backRoute = request.getParameter("htracker") != null
+                        ? "/encounter/oscarMeasurements/ViewHealthTracker"
+                        : "/encounter/oscarMeasurements/ViewTemplateFlowSheet";%>
+                <a href="<%= request.getContextPath() %><%= backRoute %>?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&template=<carlos:encode value='<%= temp %>' context="uriComponent"/>"
                    title="go back to <carlos:encode value='<%= temp %>' context="htmlAttribute"/>">&lt;&lt; <carlos:encode value='<%= flowSheet %>' context="html"/>
                 </a> <br/>
                 <a href="JavaScript:void(0);" class="back" title="go back to <carlos:encode value='<%= flowSheet %>' context="htmlAttribute"/>"></a>
@@ -718,7 +728,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                         %>
                         <div class="preventionProcedure" <%=hider%>
-                             onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(measure))%>&amp;id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(demographic_no))%>&amp;template=<%= SafeEncode.forJavaScriptAttribute(URLEncoder.encode(temp,"UTF-8")) %>','addMeasurementData')">
+                             onclick="javascript:openMeasurementPopup(465,635,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(measure))%>&amp;id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(demographic_no))%>&amp;template=<%= SafeEncode.forJavaScriptAttribute(URLEncoder.encode(temp,"UTF-8")) %>','addMeasurementData')">
 
                             <p <%=indColour%>
                                     title="Entered By: <carlos:encode value='<%= mdb.getProviderFirstName() %>' context="htmlAttribute"/> <carlos:encode value='<%= mdb.getProviderLastName() %>' context="htmlAttribute"/>">
@@ -812,7 +822,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <div class="preventionProcedure" <%=hider%>
                          onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/prevention/ViewAddPreventionData?id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(demographic_no)) %>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
-                                title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= com %>' context="htmlAttribute"/>]">
+                                title="fade=[on] header=[<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("age"))) %> -- Date:<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= SafeEncode.forTooltipText(com) %>]">
                             Age: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
                             <!--<%=refused(hdata.get("refused"))%>-->Date: <carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="html"/>
                             <%if (comb) {%>
@@ -1008,6 +1018,15 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
     <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     <script type="text/javascript">
+
+        function openMeasurementPopup(height, width, url, windowName) {
+            var measurementPopup = popup(height, width, url, windowName);
+            if (measurementPopup != null && window.opener != null && !window.opener.closed
+                    && typeof window.opener.registerNestedMeasurementWindow === "function") {
+                window.opener.registerNestedMeasurementWindow(window, measurementPopup);
+            }
+            return measurementPopup;
+        }
 
         $(".preview").on("click", function () {
 

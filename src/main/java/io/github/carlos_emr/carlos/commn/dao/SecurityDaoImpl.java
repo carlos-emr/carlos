@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Date;
 import java.util.List;
 import jakarta.persistence.Query;
 
@@ -42,6 +43,17 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
 
     public SecurityDaoImpl() {
         super(Security.class);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Security findForUpdate(Integer id) {
+        Security security = entityManager.find(Security.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (security != null) {
+            entityManager.refresh(security, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        }
+        return security;
     }
 
     @Override
@@ -102,6 +114,17 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
     }
 
     @Override
+    public int updatePinHashIfUnchanged(Integer securityNo, String expectedPin, String newPinHash, Date pinUpdateDate) {
+        Query query = entityManager.createQuery(
+                "update Security x set x.pin = ?1, x.pinUpdateDate = ?2 where x.id = ?3 and x.pin = ?4");
+        query.setParameter(1, newPinHash);
+        query.setParameter(2, pinUpdateDate);
+        query.setParameter(3, securityNo);
+        query.setParameter(4, expectedPin);
+        return query.executeUpdate();
+    }
+
+    @Override
     public List<Security> findByLikeUserName(String userName) {
         Query query = entityManager.createQuery("select x from Security x where x.userName like ?1");
         query.setParameter(1, userName);
@@ -128,8 +151,10 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
 
     @Override
     public List<Security> findByProviderSite(String providerNo) {
-        String queryStr = "select * from security s inner join providersite p on s.provider_no = p.provider_no " +
-                "where p.site_id in(select site_id from providersite where provider_no=?1)";
+        // Select only security columns and return each account once, even across shared sites.
+        String queryStr = "select s.* from security s where s.provider_no in " +
+                "(select p.provider_no from providersite p where p.site_id in " +
+                "(select site_id from providersite where provider_no=?1))";
         Query query = entityManager.createNativeQuery(queryStr, modelClass);
         query.setParameter(1, providerNo);
         @SuppressWarnings("unchecked")

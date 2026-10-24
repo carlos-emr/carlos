@@ -848,14 +848,6 @@
         }
 
 
-        function ResearchScriptAttach() {
-            var t0 = encodeURIComponent(document.serviceform.xml_referral1.value);
-            var t1 = encodeURIComponent(document.serviceform.xml_referral2.value);
-
-            awnd = rs('att', '<rewrite:reWrite jspPage="billingReferralCodeSearch.jsp" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&search=', 600, 600, 1);
-            awnd.focus();
-        }
-
         function POP(n, h, v) {
             window.open(n, 'OSCAR', 'toolbar=no,location=no,directories=no,status=yes,menubar=no,resizable=yes,copyhistory=no,scrollbars=yes,width=' + h + ',height=' + v + ',top=100,left=200');
         }

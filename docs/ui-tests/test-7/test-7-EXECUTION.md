@@ -12,19 +12,19 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/oscar/index.jsp
 
 ### 2. Database Connectivity
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword carlos -e "SELECT 1;"
 ```
 
 ### 3. Test Patient Exists with HIN
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT demographic_no, last_name, first_name, hin
 FROM demographic WHERE demographic_no = 1;"
 ```
 
 ### 4. Ontario Billing Codes Available
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT COUNT(*) as code_count FROM billingservice WHERE region = 'ON' LIMIT 1;"
 ```
 
@@ -167,7 +167,7 @@ ls -1 ui-test-runs/$TIMESTAMP/test-7/screenshots/test-7-*.png | wc -l
 ### 2. Database Verification
 ```bash
 # Verify billing entry was created
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT billing_no, demographic_no, billing_date, total
 FROM billing
 WHERE demographic_no = 1

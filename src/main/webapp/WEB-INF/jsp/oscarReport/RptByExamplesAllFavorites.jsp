@@ -47,7 +47,7 @@
                      (items expose: id, queryName, query)
 
     Security:
-    - Requires _report or _admin.reporting read privilege
+    - Requires _report or _admin read privilege
     - CSRF token auto-injected by CsrfGuardScriptInjectionFilter
 
     @since 2001-2002
@@ -61,9 +61,9 @@
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -104,9 +104,11 @@
          * @param {string} text1 - The raw SQL query text (JS-attribute-encoded by JSP)
          * @param {string} text2 - The display name of the favourite (JS-attribute-encoded by JSP)
          */
-        function set(text1, text2) {
-            document.getElementById('favoritesForm').newQuery.value = text1;
-            document.getElementById('favoritesForm').newName.value = text2;
+        function set(text1, text2, id) {
+            const form = document.getElementById('favoritesForm');
+            form.elements['newQuery'].value = text1;
+            form.elements['newName'].value = text2;
+            form.elements['id'].value = id;
         }
 
         /**
@@ -117,9 +119,10 @@
          */
         function confirmDelete(id) {
             if (confirm(msgConfirmDelete)) {
-                document.getElementById('favoritesForm').toDelete.value = 'true';
-                document.getElementById('favoritesForm').id.value = id;
-                document.getElementById('favoritesForm').submit();
+                const form = document.getElementById('favoritesForm');
+                form.elements['toDelete'].value = 'true';
+                form.elements['id'].value = id;
+                form.submit();
             }
         }
 
@@ -189,7 +192,7 @@
                             <input type="button"
                                    class="btn btn-outline-secondary btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgEdit'/>"
-                                   onclick="set('${carlos:forJavaScript(favorite.query)}', '${carlos:forJavaScript(favorite.queryName)}'); document.getElementById('favoritesForm').submit(); return false;"/>
+                                   onclick="set('${carlos:forJavaScript(favorite.query)}', '${carlos:forJavaScript(favorite.queryName)}', '${carlos:forJavaScript(favorite.id)}'); document.getElementById('favoritesForm').submit(); return false;"/>
                             <input type="button"
                                    class="btn btn-danger btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgDelete'/>"

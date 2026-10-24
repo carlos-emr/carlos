@@ -56,8 +56,12 @@ public class LogConst {
     public static final String UNLINK = "unlink";
     public static final String SENT = "sent";
     public static final String EXPORT = "export";
+    // OHIP file generation and simulation (Ontario billing), as OSCAR 19 audited them.
+    public static final String SIMULATE = "simulate";
+    public static final String GENERATE = "generate";
 
     public static final String CON_LOGIN_AGREEMENT = "login agreement";
+    public static final String CON_OHIP = "ohip file";
     public static final String CON_LOGIN = "login";
     public static final String CON_APPT = "appointment";
     public static final String CON_ECHART = "eChart";
@@ -66,6 +70,7 @@ public class LogConst {
     public static final String CON_ROLE = "role";
     public static final String CON_PRIVILEGE = "privilege";
     public static final String CON_FORM = "form";
+    public static final String CON_ANTENATAL_RISK_CONFIG = "antenatal risk configuration";
     public static final String CON_PRESCRIPTION = "prescription";
     public static final String CON_MEDICATION = "medication";
     public static final String CON_DRUGS = "drugs";

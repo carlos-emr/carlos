@@ -8,6 +8,7 @@ package io.github.carlos_emr.carlos.eform.util;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Server-issued capability accepting one exact incomplete eForm render.
@@ -22,6 +23,10 @@ public final class EFormRenderApproval {
     private final EFormRenderApprovalService.Operation operation;
     private final Map<Integer, String> issueDigests;
     private final Instant expiresAt;
+    private final boolean stagedPreview;
+    private final String consumedSessionId;
+    private final int consumedRequestFdid;
+    private final AtomicBoolean retryIssued = new AtomicBoolean();
 
     /**
      * @param demographicNo the patient the ticket was consumed for
@@ -31,12 +36,55 @@ public final class EFormRenderApproval {
     EFormRenderApproval(String providerNo, String demographicNo,
             EFormRenderApprovalService.Operation operation,
             Map<Integer, String> issueDigests, Instant expiresAt) {
+        this(providerNo, demographicNo, operation, issueDigests, expiresAt, null, -1);
+    }
+
+    EFormRenderApproval(String providerNo, String demographicNo,
+            EFormRenderApprovalService.Operation operation,
+            Map<Integer, String> issueDigests, Instant expiresAt,
+            String consumedSessionId, int consumedRequestFdid) {
         this.providerNo = Objects.requireNonNull(providerNo, "providerNo must not be null");
         this.demographicNo = Objects.requireNonNull(demographicNo, "demographicNo must not be null");
         this.operation = Objects.requireNonNull(operation, "operation must not be null");
         this.issueDigests = Map.copyOf(
                 Objects.requireNonNull(issueDigests, "issueDigests must not be null"));
         this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt must not be null");
+        this.stagedPreview = false;
+        this.consumedSessionId = consumedSessionId;
+        this.consumedRequestFdid = consumedRequestFdid;
+    }
+
+    private EFormRenderApproval() {
+        providerNo = "";
+        demographicNo = "";
+        operation = EFormRenderApprovalService.Operation.FAX;
+        issueDigests = Map.of();
+        expiresAt = Instant.EPOCH;
+        stagedPreview = true;
+        consumedSessionId = null;
+        consumedRequestFdid = -1;
+    }
+
+    /** Claims one replacement ticket only for the original consumed scope and lifetime. */
+    boolean claimCapacityRetry(String sessionId, String expectedProviderNo, int requestFdid,
+            String expectedDemographicNo, EFormRenderApprovalService.Operation expectedOperation,
+            Instant now) {
+        return !stagedPreview
+                && consumedSessionId != null && consumedSessionId.equals(sessionId)
+                && consumedRequestFdid == requestFdid
+                && belongsTo(expectedProviderNo)
+                && coversSameScope(expectedDemographicNo, expectedOperation)
+                && now.isBefore(expiresAt)
+                && retryIssued.compareAndSet(false, true);
+    }
+
+    Instant expiresAt() {
+        return expiresAt;
+    }
+
+    /** Internal capability for generating a non-deliverable, short-lived fax preview artifact. */
+    static EFormRenderApproval forStagedFaxPreview() {
+        return new EFormRenderApproval();
     }
 
     /**
@@ -44,6 +92,9 @@ public final class EFormRenderApproval {
      */
     public boolean permits(int renderedFdid, String renderedProviderNo,
             EFormRenderCompletenessReport report) {
+        if (stagedPreview) {
+            return true;
+        }
         return providerNo.equals(renderedProviderNo)
                 && Instant.now().isBefore(expiresAt)
                 && report != null

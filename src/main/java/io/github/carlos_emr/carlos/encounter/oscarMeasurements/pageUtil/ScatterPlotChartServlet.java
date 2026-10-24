@@ -102,25 +102,28 @@ public class ScatterPlotChartServlet extends HttpServlet {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (loggedInInfo == null) {
+            httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
 
-        // isAllowedAccessToPatientRecord() is checked in addition to
-        // hasPrivilege() as defense-in-depth: it enforces explicit
-        // patient-level access locks (e.g. chart restrictions) independently
-        // of role-based privilege. Note this does not fully close the
-        // deeper limitation that hasPrivilege() can fall back to a general
-        // role check when no patient-specific role mapping exists for this
-        // demographicNo -- that is existing, shared behavior used across
-        // many other files in this codebase and is out of scope for this
-        // narrowly-scoped fix; flagged separately to the maintainer.
         Integer demographicNoInt;
         try {
             demographicNoInt = Integer.valueOf(demographicNo);
+            if (demographicNoInt <= 0) {
+                httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
         } catch (NumberFormatException e) {
             httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
+        // Authorization and DAO lookups must name the same patient, including for
+        // inputs such as 00123. Patient-specific overrides take precedence over
+        // general privileges; explicit chart restrictions are checked separately.
+        demographicNo = demographicNoInt.toString();
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", demographicNo)
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)
                 || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {

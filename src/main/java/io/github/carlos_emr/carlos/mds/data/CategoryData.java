@@ -50,6 +50,10 @@ import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Builds inbox category counts and patient summaries for the selected filters.
+ * HRM sign-off filtering is independent of viewing and matches HRM result queries.
+ */
 public class CategoryData {
     private static final String COUNT_COLUMN = "count";
     private static final String SQL_EQUALS_PARAM = " = ? ";
@@ -138,13 +142,27 @@ public class CategoryData {
     private String labAbnormalSql = "";
     private String hrmDateSql = "";
     private String hrmProviderSql = "";
-	private String hrmViewed = "";
 	private String hrmSignedOff = "";
 
     private final List<String> labDateParams = new ArrayList<>();
     private final List<String> documentDateParams = new ArrayList<>();
-    private final java.util.Map<String, String> hrmParams = new java.util.LinkedHashMap<>();
+    private final java.util.Map<String, Object> hrmParams = new java.util.LinkedHashMap<>();
 
+    /**
+     * Prepares inbox count filters without executing the count queries.
+     *
+     * @param patientLastName optional patient surname search
+     * @param patientFirstName optional patient given-name search
+     * @param patientHealthNumber optional patient health-number search
+     * @param patientSearch whether patient search restrictions apply
+     * @param providerSearch whether to restrict results to the selected provider
+     * @param searchProviderNo provider identifier; "0" selects unassigned HRM reports
+     * @param status HRM: empty selects all, null/N unsigned, A/F signed off;
+     *               document and lab status semantics are retained
+     * @param abnormalStatus optional normal/abnormal result restriction
+     * @param startDate optional inclusive start date
+     * @param endDate optional inclusive end date
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public CategoryData(String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
@@ -227,16 +245,14 @@ public class CategoryData {
             }
         }
 
-		hrmViewed = " AND hp.viewed = 1 ";
-		hrmSignedOff = " AND hp.signedOff = 0 ";
-		if (matchesAnyStatus()) {
-			hrmViewed = "";
-			hrmSignedOff = "";
-		} else if (status.equalsIgnoreCase("N")) {
-			hrmViewed = "";
-		} else if (status.equalsIgnoreCase("A") || status.equalsIgnoreCase("F")) {
-			hrmSignedOff = " AND hp.signedOff = 1 ";
-		}
+        // Match HRMResultsData: only an empty status selects all HRM rows;
+        // null defaults to unsigned, and viewing is independent of sign-off.
+        if (status != null && status.isEmpty()) {
+            hrmSignedOff = "";
+        } else {
+            hrmSignedOff = " AND hp.signedOff = :hrmSignedOff ";
+            hrmParams.put("hrmSignedOff", "A".equalsIgnoreCase(status) || "F".equalsIgnoreCase(status) ? 1 : 0);
+        }
 
         totalDocs = 0;
         totalLabs = 0;
@@ -343,7 +359,7 @@ public class CategoryData {
                     + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
                     + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
                     + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                    + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? SQL_IS_NOT_NULL : " like ? ")
+                    + hinFilter()
                     + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
                     + (providerSearch ? "AND plr.provider_no = ? " : "")
                     + " AND plr.lab_type = 'HL7' "
@@ -406,7 +422,7 @@ public class CategoryData {
                 + (dateSearchType.equals("receivedCreated") ? " LEFT JOIN hl7TextMessage message ON cd.lab_no = message.lab_id" : "")
                 + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : "  like ? ")
                 + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? SQL_IS_NOT_NULL : " like ? ")
+                + hinFilter()
                 + " AND plr.lab_type = 'HL7' "
                 + " AND cd.lab_type = 'HL7' "
                 + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
@@ -414,7 +430,10 @@ public class CategoryData {
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
                 + labAbnormalSql
                 + labDateSql
-                + " GROUP BY demographic_no, info.accessionNum ";
+                // Qualified: both patientLabRouting (cd) and demographic (d) carry demographic_no.
+                // MariaDB resolves the bare name to the select-list d.demographic_no, but H2 and
+                // stricter SQL engines reject it as ambiguous; d. states the intended column.
+                + " GROUP BY d.demographic_no, info.accessionNum ";
 
         List<Object> params = new ArrayList<>();
         addPatientSearchParams(params);
@@ -470,7 +489,8 @@ public class CategoryData {
             sql.append(" AND plr.provider_no = ? ");
         }
         
-        sql.append(" GROUP BY demographic_no ");
+        // Qualified for the same reason as getLabCountForPatientSearch: cd and d both have demographic_no.
+        sql.append(" GROUP BY d.demographic_no ");
         
         List<Object> params = new ArrayList<>();
         params.add(demographicNo);
@@ -498,7 +518,7 @@ public class CategoryData {
                 + "LEFT JOIN providerLabRouting plr ON cd.document_no = plr.lab_no "
                 + documentJoinSql
                 + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
-                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? SQL_IS_NOT_NULL : " like ? ")
+                + hinFilter()
                 + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
                 + " AND plr.lab_type = 'DOC' "
                 + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
@@ -539,12 +559,33 @@ public class CategoryData {
         return rs.next() ? rs.getInt(COUNT_COLUMN) : 0;
     }
 
+    /**
+     * The HIN condition of a patient search. A blank HIN field adds none: {@code d.hin} is nullable
+     * (uninsured, newborn, out-of-province or imported patients), and {@code d.hin IS NOT NULL}
+     * would leave those patients out of the Inbox counts and patient list while the result rows,
+     * which treat a NULL HIN as empty, still show their labs and documents.
+     */
+    private String hinFilter() {
+        return hinFilter("like ?");
+    }
+
+    /** As {@link #hinFilter()}, with the given condition (a named parameter for JPA queries). */
+    private String hinFilter(String condition) {
+        return StringUtils.isEmpty(patientHealthNumber) ? "" : " AND d.hin " + condition + " ";
+    }
+
     private void addPatientSearchParams(List<Object> params) {
         if (!StringUtils.isEmpty(patientLastName)) params.add("%" + patientLastName + "%");
         if (!StringUtils.isEmpty(patientFirstName)) params.add("%" + patientFirstName + "%");
         if (!StringUtils.isEmpty(patientHealthNumber)) params.add("%" + patientHealthNumber + "%");
     }
 
+    /**
+     * Counts matching HRM documents and updates the patient summaries.
+     *
+     * @return total matching documents across the grouped patient rows
+     * @throws SQLException if a database count operation fails
+     */
     public int getHRMDocumentCountForPatient() throws SQLException {
         int count = 0;
         PatientInfo info;
@@ -557,9 +598,9 @@ public class CategoryData {
            .append(" JOIN demographic d ON hd.demographicNo = d.demographic_no ")
            .append(" WHERE 1=1 ")
            .append(" AND d.last_name ").append(StringUtils.isNotEmpty(patientLastName) ? "LIKE :patientLastName " : SQL_IS_NOT_NULL_NO_PREFIX)
-           .append(" AND d.hin ").append(StringUtils.isNotEmpty(patientHealthNumber) ? "LIKE :patientHealthNumber " : SQL_IS_NOT_NULL_NO_PREFIX)
+           .append(hinFilter("LIKE :patientHealthNumber"))
            .append(" AND d.first_name ").append(StringUtils.isNotEmpty(patientFirstName) ? "LIKE :patientFirstName " : SQL_IS_NOT_NULL_NO_PREFIX)
-           .append(hrmViewed).append(hrmSignedOff).append(hrmDateSql).append(hrmProviderSql)
+           .append(hrmSignedOff).append(hrmDateSql).append(hrmProviderSql)
            .append(" GROUP BY d.demographic_no ");
 
         Query query = entityManager.createNativeQuery(sql.toString(), Tuple.class);
@@ -602,6 +643,12 @@ public class CategoryData {
         return count;
     }
 
+    /**
+     * Counts HRM documents without a patient match using the same sign-off filter.
+     *
+     * @return number of matching unassigned documents
+     * @throws SQLException if a database count operation fails
+     */
     public int getHRMDocumentCountForUnmatched() throws SQLException {
         int count = 0;
 
@@ -611,7 +658,6 @@ public class CategoryData {
 			.append(" LEFT JOIN HRMDocument h ON h.id = hp.hrmDocumentId ")
 			.append(" LEFT JOIN HRMDocumentToDemographic hd ON hd.hrmDocumentId = hp.hrmDocumentId ")
 			.append(" WHERE hd.hrmDocumentId IS NULL ")
-			.append(hrmViewed)
 			.append(hrmSignedOff)
 			.append(hrmDateSql)
 			.append(hrmProviderSql);

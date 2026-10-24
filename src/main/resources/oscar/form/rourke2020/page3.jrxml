@@ -287,9 +287,9 @@
 	<parameter name="p3_MuscleTone12mOk" />
 	<parameter name="p3_MuscleTone9mOkConcerns" />
 	<parameter name="p3_MuscleTone12mOkConcerns" />
-	<queryString>
+	<query>
         <![CDATA[]]>
-    </queryString>
+    </query>
 	<detail>
 		<band height="2200" splitType="Stretch">
 			<element kind="image" uuid="3c989d58-abfc-4ebd-8711-8137041cd7b4" x="0" y="0" width="1700" height="2200">
