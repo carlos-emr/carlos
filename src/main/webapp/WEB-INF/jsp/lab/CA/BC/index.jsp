@@ -54,7 +54,7 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
 
@@ -146,19 +146,19 @@
                 <td class="Text"><input type="checkbox" name="chk"
                                         value="<%=pid.getId()%>" <%=demo == null ? "disabled" : ""%>/></td>
                 <td class="Text"><a href="#"
-                                    onclick="return PopupLab('<%=pid.getId()%>');"><%=Encode.forHtml(Misc.check(pid.getPatientName(), ""))%>
+                                    onclick="return PopupLab('<%=pid.getId()%>');"><%=SafeEncode.forHtml(Misc.check(pid.getPatientName(), ""))%>
                 </a></td>
                 <td class="Text">
                     <%=ConversionUtils.toDateString(pid.getDateOfBirth())%>
                 </td>
                 <td class="Text" align="center">
-                    <%=Encode.forHtml(Misc.check(pid.getSex(), ""))%>
+                    <%=SafeEncode.forHtml(Misc.check(pid.getSex(), ""))%>
                 </td>
                 <td class="Text">
-                    <%=Encode.forHtml(obr == null ? "" : Misc.check(obr.getOrderingProvider(), ""))%>
+                    <%=SafeEncode.forHtml(obr == null ? "" : Misc.check(obr.getOrderingProvider(), ""))%>
                 </td>
                 <td class="Text" style="border-right: #464646 1px solid;">
-                    <%=Encode.forHtml(obr == null ? "" : Misc.check(obr.getResultCopiesTo(), ""))%>
+                    <%=SafeEncode.forHtml(obr == null ? "" : Misc.check(obr.getResultCopiesTo(), ""))%>
                 </td>
                 <td class="Text" style="border-left: #464646 1px solid;">
                     <a href="#" onclick="return PopupDemo('<%=pid.getId()%>');">
@@ -166,10 +166,10 @@
                     </a>
                 </td>
                 <td class="Text">
-                    <%= demo == null ? "" : Encode.forHtml(demo.getFullName())%>
+                    <%= demo == null ? "" : SafeEncode.forHtml(demo.getFullName())%>
                 </td>
                 <td class="Text">
-                    <%=    demo == null ? "" : Encode.forHtml(demo.getBirthDayAsString()) %>
+                    <%=    demo == null ? "" : SafeEncode.forHtml(demo.getBirthDayAsString()) %>
                 </td>
             </tr>
             <%
