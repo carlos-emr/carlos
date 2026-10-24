@@ -322,7 +322,8 @@ async function workflow(s) {
   });
 
   await s.step(STEP.clinicDenied, async () => {
-    const where = `id=${keptId} AND provider_no IS NULL AND description=${q(kept.description)}`;
+    const where = `id=${keptId} AND provider_no IS NULL AND description=${q(kept.description)}
+      AND doctype=${q(type)} AND descriptionShortcut=${q(kept.shortcut)}`;
     const token = await own.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     h.assert(token, 'The personal-template page has no CSRF token');
     const pageResponse = await context.request.get(h.appUrl(config.baseUrl, `${PAGE}?setDefault=true`));
