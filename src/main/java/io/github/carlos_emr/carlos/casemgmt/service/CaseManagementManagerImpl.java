@@ -1276,7 +1276,16 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
     }
 
-    // we want to load a temp saved note only if it's more recent than date
+    /**
+     * Restores a temporary note saved more recently than the supplied date.
+     *
+     * @param providerNo String identifying the provider who saved the draft
+     * @param demographicNo String containing the numeric patient identifier
+     * @param programId String containing the numeric program identifier
+     * @param date Date used as the lower bound for the saved draft
+     * @return CaseManagementTmpSave matching the context and date, or null when
+     *         patient or program context is missing or nonnumeric, or no draft matches
+     */
     @Override
     public CaseManagementTmpSave restoreTmpSave(String providerNo, String demographicNo, String programId, Date date) {
         if (demographicNo == null || demographicNo.isEmpty() || !StringUtils.isNumeric(demographicNo)
