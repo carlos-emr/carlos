@@ -140,8 +140,11 @@ async function workflow(s) {
     const opened = s.context.waitForEvent('page', { timeout: TIMEOUT });
     await link.click();
     centre = await opened;
-    await centre.waitForLoadState('domcontentloaded');
-    h.assert(h.pathOnly(centre.url()).endsWith(CENTRE_ROUTE), `The link opened ${h.pathOnly(centre.url())}`);
+    // A target=_blank tab reports an empty address until its first navigation commits, and a load-state wait on
+    // that empty document returns at once: wait for the centre's own address instead.
+    await centre.waitForURL(url => url.pathname.endsWith(CENTRE_ROUTE), { waitUntil: 'domcontentloaded', timeout: TIMEOUT })
+      .catch(() => {});
+    h.assert(h.pathOnly(centre.url()).endsWith(CENTRE_ROUTE), `The link opened ${h.pathOnly(centre.url()) || 'a page with no address'}`);
     await centre.locator('input[name="reportAction"][value="billed"]').waitFor({ timeout: TIMEOUT });
     h.assert(await centre.locator(`select[name="providerview"] option[value="${provider}"]`).count() === 1,
       'The report centre does not offer the test provider');

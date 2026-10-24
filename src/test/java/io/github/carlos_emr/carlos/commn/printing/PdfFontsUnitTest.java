@@ -106,4 +106,57 @@ class PdfFontsUnitTest {
         assertThatThrownBy(() -> PdfFonts.createFont("missing-clinical-font.ttf", BaseFont.IDENTITY_H, true))
                 .isInstanceOf(java.io.IOException.class);
     }
+
+    @Test
+    void shouldKeepPhraseFontAndFallback_whenBuildingPhrasesAndParagraphs() throws Exception {
+        Font font = PdfFonts.getFont(BaseFont.HELVETICA, 10);
+        Phrase phrase = PdfFonts.phrase(12f, "FAKE-陈 ", font);
+        phrase.add("added later");
+        Paragraph paragraph = PdfFonts.paragraph("さくら 김민준", font);
+        assertThat(phrase.getFont()).isSameAs(font);
+        assertThat(phrase.getLeading()).isEqualTo(12f);
+        assertThat(paragraph.getFont()).isSameAs(font);
+        assertThat(PdfFonts.phrase(null, font).getChunks()).isEmpty();
+
+        var output = new ByteArrayOutputStream();
+        var document = new Document();
+        PdfWriter.getInstance(document, output);
+        document.open();
+        document.add(phrase);
+        document.add(paragraph);
+        document.close();
+        try (var pdf = Loader.loadPDF(output.toByteArray())) {
+            assertThat(new PDFTextStripper().getText(pdf)).contains("FAKE-陈 added later", "さくら 김민준");
+        }
+    }
+
+    @Test
+    void shouldDrawFallbackText_atTheRequestedBaseline() throws Exception {
+        var output = new ByteArrayOutputStream();
+        var document = new Document(org.openpdf.text.PageSize.LETTER);
+        var writer = PdfWriter.getInstance(document, output);
+        document.open();
+        writer.setPageEmpty(false);
+        var canvas = writer.getDirectContent();
+        Font font = PdfFonts.getFont(BaseFont.HELVETICA, 10);
+        PdfFonts.showTextAligned(canvas, org.openpdf.text.Element.ALIGN_RIGHT, "FAKE-陈 小明", font, 500, 700, 0);
+        PdfFonts.showTextAligned(canvas, org.openpdf.text.Element.ALIGN_LEFT, null, font, 50, 650, 0);
+        PdfFonts.showTextAligned(canvas, org.openpdf.text.Element.ALIGN_LEFT, "", font, 50, 600, 0);
+        document.close();
+        try (var pdf = Loader.loadPDF(output.toByteArray())) {
+            var positions = new java.util.ArrayList<org.apache.pdfbox.text.TextPosition>();
+            String text = new PDFTextStripper() {
+                @Override
+                protected void processTextPosition(org.apache.pdfbox.text.TextPosition position) {
+                    positions.add(position);
+                    super.processTextPosition(position);
+                }
+            }.getText(pdf);
+            assertThat(text.strip()).isEqualTo("FAKE-陈 小明");
+            var last = positions.get(positions.size() - 1);
+            // Right-aligned at x=500 on the baseline 700pt above the bottom of a Letter page.
+            assertThat(last.getXDirAdj() + last.getWidthDirAdj()).isCloseTo(500f, org.assertj.core.data.Offset.offset(0.5f));
+            assertThat(last.getYDirAdj()).isCloseTo(792f - 700f, org.assertj.core.data.Offset.offset(0.5f));
+        }
+    }
 }

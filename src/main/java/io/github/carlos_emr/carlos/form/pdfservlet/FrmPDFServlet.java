@@ -69,7 +69,6 @@ import org.openpdf.text.Document;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.Font;
 import org.openpdf.text.PageSize;
-import org.openpdf.text.Phrase;
 import org.openpdf.text.Rectangle;
 import org.openpdf.text.pdf.BaseFont;
 import org.openpdf.text.pdf.ColumnText;
@@ -141,7 +140,9 @@ public class FrmPDFServlet extends HttpServlet {
         if (text == null || text.isEmpty()) {
             return size;
         }
-        float natural = font.getWidthPoint(text, size);
+        // Measure what is drawn: characters the face lacks are set in a fallback face, which
+        // BaseFont.getWidthPoint would count as zero width (#5046).
+        float natural = ColumnText.getWidth(PdfFonts.phrase(text, new Font(font, size)));
         if (natural <= width) {
             return size;
         }
@@ -672,7 +673,7 @@ public class FrmPDFServlet extends HttpServlet {
                                     .trim())), Float.parseFloat(cfgVal[9].trim()), alignmentOf(cfgVal[0]));
 
                             //ct.addText(new Phrase(12, props.getProperty(tempName.toString(), ""), font)); // page
-                            ct.setText(new Phrase(12, propValue, font));
+                            ct.setText(PdfFonts.phrase(12, propValue, font));
                             // size
                             // leading
                             // space between two
@@ -702,12 +703,12 @@ public class FrmPDFServlet extends HttpServlet {
                             cb.stroke();
 
                         } else if (tempName.toString().startsWith("__")) {
-                            cb.beginText();
-                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                            cb.showTextAligned(alignmentOf(cfgVal[0]), (cfgVal.length >= 7 ? (cfgVal[6]
-                                    .trim()) : propValue), Integer
-                                    .parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
-                            cb.endText();
+                            // Form values can be in any script: PdfFonts draws characters the configured
+                            // face lacks in the bundled fallback faces instead of dropping them (#5046).
+                            PdfFonts.showTextAligned(cb, alignmentOf(cfgVal[0]),
+                                    (cfgVal.length >= 7 ? (cfgVal[6].trim()) : propValue),
+                                    new Font(bf, Float.parseFloat(cfgVal[5].trim())),
+                                    Float.parseFloat(cfgVal[1].trim()), height - Float.parseFloat(cfgVal[2].trim()), 0);
                         } else if (tempName.toString().equals("forms_promotext")) {
 //	                        if ( CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
 //	                            log.info("adding user placed forms_promotext");
@@ -727,23 +728,18 @@ public class FrmPDFServlet extends HttpServlet {
                             // running past the blank (and, at the right of the page, off the paper). Opt-in per line.
                             float x = Float.parseFloat(cfgVal[1].trim());
                             float width = Math.abs(Float.parseFloat(cfgVal[7].trim()) - x);
-                            cb.beginText();
-                            cb.setFontAndSize(bf, fittedFontSize(bf, propValue, Float.parseFloat(cfgVal[5].trim()), width));
-                            cb.showTextAligned(alignmentOf(cfgVal[0]), propValue, x,
-                                    (height - Integer.parseInt(cfgVal[2].trim())), 0);
-                            cb.endText();
+                            PdfFonts.showTextAligned(cb, alignmentOf(cfgVal[0]), propValue,
+                                    new Font(bf, fittedFontSize(bf, propValue, Float.parseFloat(cfgVal[5].trim()), width)),
+                                    x, (height - Integer.parseInt(cfgVal[2].trim())), 0);
                         } else { // write prop text
                             // A seventh column is fixed text (a checkbox's "X"), printed only when the field has a value.
                             String text = propValue;
                             if (cfgVal.length >= 7) {
                                 text = propValue.isEmpty() ? "" : cfgVal[6].trim();
                             }
-                            cb.beginText();
-                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                            cb.showTextAligned(alignmentOf(cfgVal[0]), text, Float.parseFloat(cfgVal[1].trim()),
-                                    height - Integer.parseInt(cfgVal[2].trim()), 0);
-
-                            cb.endText();
+                            PdfFonts.showTextAligned(cb, alignmentOf(cfgVal[0]), text,
+                                    new Font(bf, Float.parseFloat(cfgVal[5].trim())),
+                                    Float.parseFloat(cfgVal[1].trim()), height - Float.parseFloat(cfgVal[2].trim()), 0);
                         }
 
                     }

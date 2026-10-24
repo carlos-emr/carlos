@@ -15,15 +15,16 @@ import unittest
 import uuid
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / 'database/mysql/migration/bc'
-MIGRATION = (MIGRATIONS / 'V1.0.59.3__restore_wcb_reference_data.sql').read_text()
+MIGRATION = (MIGRATIONS / 'V1.0.59.3__restore_wcb_reference_codes.sql').read_text()
 # Independent oracle: hashes of the retired oscardata_bc.sql at
 # 80ce799ee564fcbe80e6dec9805f70cb789019ac^, imported into its original schema.
+# Normalize the legacy padding tabs that the published migration intentionally trims.
 # Hash the HEX/NULL fields (no surrogate IDs), tab/newline separated, ordered by
 # code/sidetype. This catches lost leading zeroes, notes, tabs and NULLs as well
 # as missing rows, without shipping a second reference catalog as a test fixture.
 CATALOG = {
     'wcb_bp_code': (85, 'b083a761e89396dee22da782df7dfb66519d1369bd4395e57ace460b566f2698'),
-    'wcb_noi_code': (82, '4fc98f39be0c52f479d431811ec6e0d9cac62e5b885c4dabdbbff5373ef1637a'),
+    'wcb_noi_code': (82, '0d75509ac9e79f6506cba47df76b18baa77658d804aede5dde60a2205ea051ad'),
     'wcb_side': (4, 'a7e44d4697e5a26e60c311b30075017d61207670ecc1ebc676c2d64b966a1d73'),
 }
 

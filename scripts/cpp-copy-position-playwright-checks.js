@@ -91,13 +91,19 @@ async function workflow(s) {
     await dialog.waitFor({ state: 'visible', timeout: TIMEOUT });
     h.assert((await chart.locator('#noteEditTxt').inputValue()).trim() === text(name), `The editor did not open item ${name}`);
   }
-  async function press(title, label) {
+  async function press(title, label, name) {
     const [response] = await Promise.all([
       chart.waitForResponse(isEntry('issueNoteSave'), { timeout: TIMEOUT }),
       button(title).click(),
     ]);
     h.assert(response.status() < 400, `${label} answered HTTP ${response.status()}`);
     await dialog.waitFor({ state: 'hidden', timeout: TIMEOUT });
+    // A saved CPP edit creates a revision; subsequent clicks and row checks must use its ID.
+    if (name) {
+      const savedId = sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient} AND note=${q(text(name))}`);
+      h.assert(/^[1-9]\d*$/.test(savedId), `${label} did not store item ${name}`);
+      return savedId;
+    }
   }
 
   await s.step('Medical History "+" offers one place per item plus one, starting on 1, and each new item goes first', async () => {
@@ -124,7 +130,7 @@ async function workflow(s) {
     h.assert(options.find(o => o.selected)?.value === '2', `Item A (third) opened on position ${JSON.stringify(options.find(o => o.selected))}`);
     // By value: the list shows 1..n+1 for values 0..n, so a bare '2' would also match the label "2" (value 1).
     await chart.locator('#position').selectOption({ value: '0' });
-    await press('Sign & Save', 'Moving item A up');
+    ids.A = await press('Sign & Save', 'Moving item A up', 'A');
     await expectOrder(['A', 'C', 'B'], 'After moving A to Position 1');
   });
 
@@ -132,13 +138,24 @@ async function workflow(s) {
     await openItem('A');
     h.assert((await positionOptions()).find(o => o.selected)?.value === '0', 'Item A (now first) did not open on Position 1');
     await chart.locator('#position').selectOption({ value: '2' });
-    await press('Sign & Save', 'Moving item A down');
+    ids.A = await press('Sign & Save', 'Moving item A down', 'A');
     await expectOrder(['C', 'B', 'A'], 'After moving A to Position 3');
+  });
+
+  await s.step('moving the last item to the middle shifts only the following item', async () => {
+    await openItem('A');
+    await chart.locator('#position').selectOption({ value: '1' });
+    ids.A = await press('Sign & Save', 'Moving item A to the middle', 'A');
+    await expectOrder(['C', 'A', 'B'], 'After moving A to Position 2');
+    await openItem('A');
+    await chart.locator('#position').selectOption({ value: '2' });
+    ids.A = await press('Sign & Save', 'Returning item A to the last place', 'A');
+    await expectOrder(['C', 'B', 'A'], 'After returning A to Position 3');
   });
 
   await s.step('Archive takes an item out of the box and closes the gap in the positions', async () => {
     await openItem('C');
-    await press('Archive', 'Archiving item C');
+    ids.C = await press('Archive', 'Archiving item C', 'C');
     h.assert(sql.value(`SELECT archived FROM casemgmt_note WHERE note_id=${ids.C}`) === '1', 'Item C was not archived');
     await expectOrder(['B', 'A'], 'After archiving C');
   });

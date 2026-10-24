@@ -272,7 +272,7 @@ class RxPatientLinkJspRegressionUnitTest {
                     .contains("/rx/choosePatient?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true");
         }
         assertThat(read("rx/SearchDrug3.jsp"))
-                .contains("window.location.href = RxPatientContext.withPatient(ctx + \"/rx/searchDrug\");")
+                .contains("window.location.href = RxPatientContext.withPatient(ctx + \"/rx/choosePatient\");")
                 .contains("onFailure: reportRefusedSave");
     }
 
