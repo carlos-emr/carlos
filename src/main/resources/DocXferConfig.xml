@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <config>
     <!-- Restored from the pre-Maven document-transfer definition; SQL is trusted application configuration. -->
-    <table name="Demographic Info" 
+    <table name="Demographic Info"
     sqlFrom="demographic LEFT JOIN provider ON demographic.provider_no = provider.provider_no"
     sqlLink="demographic.demographic_no">
         <item name="Patient" sql="demographic.demographic_no" removable="false">

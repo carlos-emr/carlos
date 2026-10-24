@@ -56,8 +56,8 @@ version satisfying the package dependency. No CLI release is published by this w
 
 ## Validation results (Ubuntu 26.04)
 
-- Initial full Java unit/integration run: 25,516 tests, zero failures/errors, seven skips.
-  The subsequent reply/forward reload and mailbox-navigation checks passed all 33
+- Full Java unit/integration run after review fixes: 25,532 tests, zero failures/errors, seven skips.
+  The reply/forward reload and mailbox-navigation checks passed all 33
   focused tests, including three new reload cases. The CodeRabbit follow-up suite
   passed 31 tests covering empty report parameters, missing draft context, first-use
   transfer identity, canonical JSP patient keys and the authorized missing-PDF path.

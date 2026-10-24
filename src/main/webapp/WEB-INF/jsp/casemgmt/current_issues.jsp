@@ -146,4 +146,3 @@
 	resolved issues</span>
     </c:when>
 </c:choose>
-
