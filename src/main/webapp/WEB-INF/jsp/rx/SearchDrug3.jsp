@@ -2264,8 +2264,9 @@ function addFav(randomId,brandName){
         var url= ctx + "/rx/addFavorite2";
         var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
         CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
-              // Reload this window's patient, not the most recently opened Rx patient (#3875).
-              window.location.href = RxPatientContext.withPatient(ctx + "/rx/searchDrug");
+              // Return to this patient's prescribing cards; searchDrug renders the legacy
+              // search results instead (#5248).
+              window.location.href = RxPatientContext.withPatient(ctx + "/rx/choosePatient");
    }
 					})
 }

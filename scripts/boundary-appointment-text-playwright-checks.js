@@ -7,7 +7,7 @@
  * Asserts: a reason and notes that fill their boxes exactly (80 and 255 UTF-16 units) and carry an
  * apostrophe, accents, CJK, an emoji, "&amp;", quotes, backslash, "%41", "+" and ";" are stored byte for
  * byte, redisplayed identically by the edit popup, and an unchanged Update leaves every column as it was.
- * Last (the defects): a reason and notes that fill their box with a line break inside are stored whole
+ * A reason and notes that fill their box with a line break inside are stored whole
  * (the browser counts a break as one character, submits two); a free-text appointment name and a resources
  * entry past their columns are refused or visibly limited, never silently cut.
  * Fixtures: the throwaway login (lib/throwaway-login-fixture.js) and the owned FAKE- patient; cleanup deletes
@@ -511,6 +511,46 @@ async function workflow(s) {
     await probeOverlong('name', '#keyword', longName, null);
     await probeOverlong('resources', 'form#addappt [name="resources"]', longResources, `N${marker.slice(-6)}`);
     h.assert(problems.length === 0, problems.join(' || '));
+  });
+
+  await s.step('booking and an unchanged Update preserve full multiline reason and notes through reopening', async () => {
+    const multilineReason = `${'r'.repeat(reasonColumn - 4)}\n\nxZ`;
+    const multilineNotes = `${'n'.repeat(notesColumn - 4)}\n\nxZ`;
+    const highWater = Number(sql.value(`SELECT COALESCE(MAX(appointment_no),0) FROM appointment WHERE provider_no=${owner}`));
+    const popup = await openBooking();
+    await pickPatient(popup);
+    await field(popup, 'reason').fill(multilineReason);
+    await field(popup, 'notes').fill(multilineNotes);
+    h.assert(await field(popup, 'reason').inputValue() === multilineReason && await field(popup, 'notes').inputValue() === multilineNotes,
+      'The booking form dropped text from a full multiline field');
+    await ui.clickAndAwaitReload(popup, popup.locator('#addButton'), { required: false });
+    const multilineApptNo = await pollFor(sql,
+      `SELECT appointment_no FROM appointment WHERE provider_no=${owner} AND appointment_no>${highWater} ORDER BY appointment_no DESC LIMIT 1`,
+      v => /^\d+$/.test(v), 'The multiline booking was not saved');
+    const where = `${byApptNo()}${multilineApptNo}`;
+    for (const [column, value] of [['reason', multilineReason], ['notes', multilineNotes]]) {
+      b.assertStored(sql, 'appointment', column, where, value, `Multiline booking ${column} (LF storage)`);
+    }
+    await popup.close().catch(() => {});
+    await reloadDaySheet();
+    const edit = await openEdit(multilineApptNo);
+    for (const [name, value] of [['reason', multilineReason], ['notes', multilineNotes]]) {
+      h.assert(await edit.locator(`form [name="${name}"]`).first().inputValue() === value,
+        `The edit popup changed multiline ${name}`);
+    }
+    const before = sql.rows(`SELECT HEX(reason), HEX(notes) FROM appointment WHERE ${where}`)[0].join('|');
+    await edit.locator('#updateButton').click();
+    await edit.waitForEvent('close', { timeout: 15000 }).catch(() => {});
+    await pollFor(sql, `SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${multilineApptNo}`,
+      v => Number(v) >= 1, 'The multiline Update was not recorded');
+    h.assert(sql.rows(`SELECT HEX(reason), HEX(notes) FROM appointment WHERE ${where}`)[0].join('|') === before,
+      'An unchanged Update altered the full multiline reason or notes');
+    await reloadDaySheet();
+    const reopened = await openEdit(multilineApptNo);
+    h.assert(await reopened.locator('form [name="reason"]').first().inputValue() === multilineReason &&
+      await reopened.locator('form [name="notes"]').first().inputValue() === multilineNotes,
+    'Reopening after Update changed the full multiline values');
+    await reopened.close();
   });
 }
 

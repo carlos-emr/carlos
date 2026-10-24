@@ -7,7 +7,7 @@ const { openChart, waitForNavbars } = require('../echart-navbar-modules-playwrig
 
 // Each scenario owns its patient and child rows. No reset of a shared demo chart.
 // REST workflows may retain the patient fixture without opening its master record.
-async function runWorkflow(name, workflow, { openPatient = true, openMaster = true, preflight, patientFixtureFactory, contextOptions = {} } = {}) {
+async function runWorkflow(name, workflow, { openPatient = true, openMaster = true, preflightConfig, preflight, patientFixtureFactory, contextOptions = {} } = {}) {
   let browser;
   let sql;
   let patient;
@@ -19,6 +19,9 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
     name,
     async run({ cancellation }) {
       const config = h.readConfig();
+      // Environment-only prerequisites must be able to SKIP without database
+      // credentials. Keep provider/schema-dependent preflight after SQL setup.
+      if (preflightConfig) await preflightConfig({config});
       sql = h.createSqlRunner(config.mysql);
       const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
       h.assert(provider, 'The configured test login has no provider');

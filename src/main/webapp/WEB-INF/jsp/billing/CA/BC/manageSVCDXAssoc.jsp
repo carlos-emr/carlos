@@ -97,7 +97,8 @@
                     <%} %>
                     <tr bgcolor="CCCCFF">
                         <td colspan="3">
-                            <div align="center"><a href="<%= request.getContextPath() %>/billing/CA/BC/editServiceCodeAssocAction?mode=create">Create
+                            <%-- No svcCode: the editor opens empty, in create mode (#4439 D14). --%>
+                            <div align="center"><a href="<%= request.getContextPath() %>/billing/CA/BC/editServiceCodeAssocAction">Create
                                 New Association</a></div>
                         </td>
                     </tr>

@@ -43,7 +43,8 @@ async function paperChartSection(master) {
 async function workflow(s) {
   const { sql, patient, master } = s;
   // The parent cleanup removes the patient's demographicExt and demographicArchive rows; an update also writes
-  // demographicExtArchive (keyed by archive id) and demographiccust, so those go first.
+  // demographicExtArchive and demographiccust, so those go first. Imported history can reuse archive IDs;
+  // only demographic_no identifies this fixture's children safely.
   s.cleanup(() => {
     sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${patient};
       DELETE FROM demographiccust WHERE demographic_no=${patient}`);

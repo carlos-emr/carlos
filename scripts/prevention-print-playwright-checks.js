@@ -97,6 +97,20 @@ async function waitForVaccineEditor(editor, config, patient) {
   `Enter opened ${url.pathname}${url.search}`);
 }
 
+/** The popup event can precede its first navigation (its URL is still empty). */
+async function openVaccineEditor(index, box, recorder, config, patient) {
+  const popup = index.waitForEvent('popup', { timeout: 20000 });
+  popup.catch(() => {});
+  await box.press('Enter');
+  const editor = await popup;
+  h.wireStrictPage(editor, 'prevention-editor', recorder);
+  // A load-state wait alone can resolve for the initial, empty document.
+  if (config) await waitForVaccineEditor(editor, config, patient);
+  else await editor.waitForURL(/\/prevention\/ViewAddPreventionData(?:\?|$)/,
+    { timeout: 20000, waitUntil: 'domcontentloaded' });
+  return editor;
+}
+
 async function workflow(s) {
   const { sql, patient, marker, provider, context, config } = s;
   s.cleanup(() => {
@@ -236,11 +250,7 @@ async function workflow(s) {
     await box.evaluate(el => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true })));
     await index.waitForTimeout(1000);
     h.assert(context.pages().length === pagesBefore && !watch.posts.length, 'An IME composition Enter picked a vaccine or printed');
-    const popup = context.waitForEvent('page', { timeout: 20000 });
-    await box.press('Enter');
-    editor = await popup;
-    h.wireStrictPage(editor, 'prevention-editor', s.recorder);
-    await waitForVaccineEditor(editor, config, patient);
+    editor = await openVaccineEditor(index, box, s.recorder, config, patient);
     await index.waitForTimeout(1000);
     h.assert(!watch.posts.length && !watch.downloads.length, 'Enter in the vaccine box printed');
     // Left open: the saved form's close page refreshes this opener and then closes itself.
@@ -282,4 +292,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('prevention-print', workflow, { openPatient: true });
-module.exports = { workflow, assertSelectionOnly };
+module.exports = { workflow, assertSelectionOnly, openVaccineEditor };

@@ -1106,6 +1106,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("SAVING NOTE {}", LogSafe.sanitize(noteId));
         String issueChange = request.getParameter("issueChange");
         String archived = request.getParameter("archived");
+        int newPos = Integer.parseInt(request.getParameter("position"));
 
         CaseManagementNote note;
         boolean newNote = false;
@@ -1176,7 +1177,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (note == null || !Objects.equals(demo, note.getDemographic_no())) {
                 throw new SecurityException("CPP note save references a note outside this patient chart");
             }
-            if (strNote.equals(note.getNote()) && !issueChange.equals("true") && !extChanged && (archived == null || archived.equalsIgnoreCase("false")))
+            // A position-only edit must reach the transactional reorder below even when the
+            // authored text, issues and extensions are unchanged (issue #5186).
+            if (strNote.equals(note.getNote()) && !issueChange.equals("true") && !extChanged
+                    && newPos == note.getPosition() && (archived == null || archived.equalsIgnoreCase("false")))
                 return null;
             // Keep submitted edits off a potentially managed historical row until the service
             // validates the revision and commits every part of the CPP save together.
@@ -1325,7 +1329,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // if the note has been removed or archived we move notes up in the order
         // else we check if position has changed and move the note down
         int position = -1;
-        int newPos = Integer.parseInt(request.getParameter("position"));
 
         List<Issue> cppIssue = caseManagementMgr.getIssueInfoByCode(providerNo, cppStrIssue);
         List<CaseManagementNote> curCPPNotes = new ArrayList<CaseManagementNote>();

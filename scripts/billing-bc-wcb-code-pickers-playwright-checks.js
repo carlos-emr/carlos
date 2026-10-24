@@ -14,8 +14,8 @@
  *   - Body Part and Nature of Injury: the lookup lists the owned code for the box's text, and a pick fills exactly
  *     that box and closes the popup; the other boxes keep what they held;
  *   - LAST: the install lists WorkSafeBC codes of its own: the Side list has options and both lookups list codes other
- *     than the owned ones. Notes only: on a Flyway-built BC install wcb_side, wcb_bp_code and wcb_noi_code are empty
- *     (#5062, findings log 444), so it fails until the reference rows are restored.
+ *     than the owned ones. On a Flyway-built BC install wcb_side, wcb_bp_code and wcb_noi_code were empty until
+ *     bc/V1.0.59.3 restored their reference rows (#5062).
  * Fixtures: one billing physician (bc.createBillingPhysician) and the owned FAKE patient made a BC patient; one
  * wcb_bp_code and one wcb_noi_code row carrying the run marker, with a non-numeric code ("Q" and 4 hex) no WorkSafeBC
  * code uses. The two code tables are clinic-wide (every login's lookups list the rows while the run lasts), so the check

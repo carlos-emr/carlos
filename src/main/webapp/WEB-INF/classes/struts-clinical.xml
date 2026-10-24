@@ -42,6 +42,7 @@
         <action name="Pregnancy" class="io.github.carlos_emr.carlos.commn.web.Pregnancy2Action" method="execute">
             <result name="list">/WEB-INF/jsp/pregnancy/list.jsp</result>
             <result name="form">/WEB-INF/jsp/pregnancy/form.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
             <result name="saved" type="redirectAction">
                 <param name="actionName">Pregnancy</param>
                 <param name="demographicNo">${demographicNo}</param>

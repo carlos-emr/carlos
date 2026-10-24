@@ -115,7 +115,7 @@ function createLedger(name) {
   const entries = [];
   return {
     entries,
-    async probe(s, { label, path, params, snapshot, methods = ['GET', 'HEAD'], requireStatus = true }) {
+    async probe(s, { label, path, params, snapshot, methods = ['GET', 'HEAD'], requireStatus = true, expect405 = false }) {
       const url = new URL(`${path}?${params.toString()}`, s.config.baseUrl.origin).toString();
       const entry = { label, path: path.replace(/^\/[^/]+/, ''), answers: [], changed: false, changedBy: [],
         blocked: false, errored: false, unverified: false };
@@ -136,7 +136,9 @@ function createLedger(name) {
         const fromApplication = Object.prototype.hasOwnProperty.call(response.headers(), APPLICATION_HEADER);
         const unverified403 = status === 403 && !waf && !fromApplication;
         const unverified405 = status === 405 && !fromApplication && !(body && h.isApplicationErrorPage(body));
-        const refused = (status === 405 && !unverified405) || (status === 403 && !waf && fromApplication);
+        // expect405: the route's GET guard answers 405 (HttpMethodGuardFilter or the action's own requirePost), so a
+        // 403 there is a privilege refusal that would hide a missing method guard.
+        const refused = (status === 405 && !unverified405) || (!expect405 && status === 403 && !waf && fromApplication);
         entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${unverified403 || unverified405 ? ' (unverified origin)' : ''}`);
         if (before !== after) { entry.changed = true; entry.changedBy.push(method); }
         // Whatever the include rules allow, a WAF block or a 5xx means the application never

@@ -74,6 +74,10 @@ async function workflow(s) {
   let contactId;
   let specialistId;
   s.cleanup(() => {
+    // Archive IDs in the imported demo history can overlap new archive IDs;
+    // child cleanup must be scoped to the owned patient, never that ID alone.
+    sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${s.patient};
+      DELETE FROM demographiccust WHERE demographic_no=${s.patient}`);
     if (second) {
       sql.execute(`DELETE FROM DemographicContact WHERE demographicNo IN (${ownedPatients()})
         OR (type=1 AND contactId IN (${ownedPatients().split(',').map(q).join(',')}))`);
@@ -89,8 +93,10 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM DemographicContact WHERE demographicNo IN (${ownedPatients()}))
       + (SELECT COUNT(*) FROM Contact WHERE lastName=${q(marker)})
       + (SELECT COUNT(*) FROM professionalSpecialists WHERE lName=${q(marker)})
-      + (SELECT COUNT(*) FROM demographic WHERE last_name=${q(marker)} AND demographic_no<>${s.patient})`) === '0',
-    'Owned contact, specialist or second-patient rows were not removed');
+      + (SELECT COUNT(*) FROM demographic WHERE last_name=${q(marker)} AND demographic_no<>${s.patient})
+      + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${s.patient})
+      + (SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${s.patient})`) === '0',
+    'Owned contact, specialist, patient or update rows were not removed');
   });
   h.assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${s.patient}`) === '0',
     'The owned patient unexpectedly has contact associations');

@@ -129,10 +129,12 @@ async function workflow(s) {
     s.sql.execute(`DELETE FROM formBCAR2020Data WHERE form_id IN (${owned2020});
       DELETE FROM formBCAR2020Text WHERE form_id IN (${owned2020});
       DELETE FROM formBCAR2020 WHERE demographic_no=${s.patient};
-      DELETE FROM formBCAR2012 WHERE demographic_no=${s.patient}`);
+      DELETE FROM formBCAR2012 WHERE demographic_no=${s.patient};
+      DELETE FROM PrintResourceLog WHERE resourceName='BCAR2020' AND resourceId=${h.sqlString(s.patient)}`);
     h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM formBCAR2020 WHERE demographic_no=${s.patient})
-      + (SELECT COUNT(*) FROM formBCAR2012 WHERE demographic_no=${s.patient})`) === '0',
-    'BC-AR rows remain on the owned patient');
+      + (SELECT COUNT(*) FROM formBCAR2012 WHERE demographic_no=${s.patient})
+      + (SELECT COUNT(*) FROM PrintResourceLog WHERE resourceName='BCAR2020' AND resourceId=${h.sqlString(s.patient)})`) === '0',
+    'BC-AR rows or its print record remain on the owned patient');
   });
   const latest2020 = () => s.sql.value(`SELECT MAX(id) FROM formBCAR2020 WHERE demographic_no=${s.patient}`);
   const value2020 = (formId, pageNo, field) => s.sql.value(`SELECT val FROM formBCAR2020Data

@@ -46,7 +46,7 @@
 const h = require('./lib/playwright-harness');
 const { randomBytes } = require('node:crypto');
 const { runWorkflow } = require('./lib/workflow-session');
-const { stageCustomDrug, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
+const { stageCustomDrug, stageCustomDrugSettled, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
 const { waitUntil } = require('./lib/concurrency-support');
 
 /** A provider number no real login owns: the favourites table takes six characters. */
@@ -515,7 +515,8 @@ async function workflow(session) {
       // so relying on them to leave one behind masks whether this handoff preserves the draft.
       const page = await openRx(session, patient);
       const priorName = `${name}-pending`;
-      const priorKey = await stageCustomDrug(page, priorName);
+      // Staging's asynchronous requests must finish before the navigation below cancels them.
+      const priorKey = await stageCustomDrugSettled(page, priorName);
       await h.gotoApp(page, config.baseUrl, url);
       await h.assertNotErrorPage(page, `${label} sidebar`);
       let releaseStash;

@@ -29,10 +29,10 @@ function session({ initialUrl = '', targetUrl = destination(), base = DEFAULT_BA
   let input = '';
   let armed = false;
   context.pages = () => [...pages];
-  context.waitForEvent = (event, options) => {
-    assert.equal(event, 'page'); assert.deepEqual(options, { timeout: 20000 });
+  index.waitForEvent = (event, options) => {
+    assert.equal(event, 'popup'); assert.deepEqual(options, { timeout: 20000 });
     armed = true; calls.push(['popup-armed']);
-    return new Promise(resolve => context.once(event, resolve));
+    return new Promise(resolve => index.once(event, resolve));
   };
   editor.url = () => { calls.push(['editor-url', currentUrl]); return currentUrl; };
   editor.waitForLoadState = async state => { calls.push(['load-state', state]); };
@@ -58,7 +58,7 @@ function session({ initialUrl = '', targetUrl = destination(), base = DEFAULT_BA
       assert.equal(key, 'Enter'); calls.push(['native-key', key, input]);
       if (input === 'adac') {
         assert.equal(armed, true, 'The popup listener must precede native Enter');
-        pages.push(editor); context.emit('page', editor);
+        pages.push(editor); index.emit('popup', editor);
       }
     },
   };

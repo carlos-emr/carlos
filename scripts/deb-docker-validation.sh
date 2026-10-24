@@ -39,6 +39,9 @@
 #   CARLOS_DISPOSABLE_HOST=true DEBS_DIR=/path/to/debs scripts/deb-docker-validation.sh up
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh suite --tier smoke
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh audit
+#   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh profile legacy-teleplan
+#   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh suite --profile legacy-teleplan
+#   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh profile default
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh down
 #
 # Commands:
@@ -50,10 +53,16 @@
 #                 (default: --tier smoke); fails if carlos-emr restarted
 #                 during the run; the JUnit report is copied to LOG_DIR
 #   audit [ARGS]  run scripts/deb-server-log-audit.sh ARGS in the container
+#   profile NAME  switch the install to a configuration some checks need and
+#                 restart it: legacy-teleplan (BC, NEW_BC_TELEPLAN=no, for
+#                 `suite --profile legacy-teleplan`) or default (put back the
+#                 setting the profile replaced)
 #   shell         interactive shell in the container
 #   down          remove the container (the image is kept)
 #   print-preseed print the debconf preseed this run would use
 #   print-suite-province  print the --province the suite would filter on
+#   print-profile-edit NAME  print the carlos.properties edit `profile NAME` makes
+#                 (shell text that edits the file named by $P)
 #   cgroup-mode   print how the host's cgroup hierarchy would be mounted
 #
 # Environment:
@@ -292,7 +301,8 @@ initialize_vascular_dictionary() {
 }
 
 # Runbook section 4 fixtures b, c, d and the CDS export PGP recipient, plus
-# rx_fax_enabled for the Rx fax checks and login_lock=true. Each is test-only
+# rx_fax_enabled for the Rx fax checks, CONSULTATION_AUTO_INCLUDE_MEDICATIONS
+# for the unique-medication-list check, and login_lock=true. Each is test-only
 # state on a disposable install; none relaxes a security default. login_lock
 # keys the failed-login lockout to the username instead of the address: every
 # check logs in from 127.0.0.1, so with the default address lockout one
@@ -337,6 +347,9 @@ stage_fixtures() {
     else echo 'rx_fax_enabled=true' >> \"\$P\"; fi
     if grep -qE '^login_lock' \"\$P\"; then sed -i -E 's#^login_lock.*#login_lock=true#' \"\$P\";
     else echo 'login_lock=true' >> \"\$P\"; fi
+    if grep -qE '^CONSULTATION_AUTO_INCLUDE_MEDICATIONS[[:space:]]*[=:]' \"\$P\"; then
+      sed -i -E 's#^CONSULTATION_AUTO_INCLUDE_MEDICATIONS[[:space:]]*[=:].*#CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true#' \"\$P\"
+    else echo 'CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true' >> \"\$P\"; fi
     carlos-ctl restart" >"$LOG_DIR/fixtures.log" 2>&1 || die "fixture staging failed; see $LOG_DIR/fixtures.log"
   wait_front_door
 }
@@ -428,6 +441,8 @@ export SCREENSHOT_DIR=/tmp/carlos-shots ARTIFACT_DIR=/tmp/carlos-artifacts
 export STORED_DOCUMENT_EXPECT_CONTENT_UPDATES=true
 # This container is disposable: checks that change clinic-wide settings may run.
 export CARLOS_DISPOSABLE_VM=true CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service
+# stage_fixtures enabled this in the disposable install and restarted CARLOS.
+export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true
 # The installed province: 'suite' passes it as --province unless one is given.
 export CARLOS_SUITE_PROVINCE=$suite_province
 export RX_FAX_DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
@@ -456,6 +471,13 @@ cmd_suite() {
   require_disposable
   mkdir -p "$LOG_DIR"
   [ "$#" -gt 0 ] || set -- --tier smoke
+  # The run must match the configuration the install is in: an install left in a
+  # profile skips the checks that profile cannot run, and a skip passes.
+  local active requested='' prev='' arg
+  active=$(active_profile)
+  for arg in "$@"; do [ "$prev" = --profile ] && requested=$arg; prev=$arg; done
+  [ "${active:-default}" = "${requested:-default}" ] \
+    || die "the install is in profile '${active:-default}' but the run asks for '${requested:-default}': run 'suite --profile ${active:-default}' or 'profile ${requested:-default}' first"
   # Select only checks for the installed province (and province-neutral ones),
   # unless the caller chose a province.
   local province
@@ -490,6 +512,65 @@ cmd_audit() {
   in_container ". /root/suite-env.sh; scripts/deb-server-log-audit.sh $quoted"
 }
 
+# The install configurations of run-playwright-suite.js PROFILES. A profile's setting goes into the
+# install's own override file, after a marker line, and any line it replaces is kept commented out with
+# a prefix, so `profile default` puts the file back as it was. Switching always resets first, so two
+# switches in a row never keep the first profile's line as if it were the install's own.
+PROFILE_MARK='# carlos-validation-profile:'
+PROFILE_WAS='#carlos-validation-profile-was: '
+# Sets PROFILE_KEY and PROFILE_VALUE to the one carlos.properties setting profile $1
+# replaces (none for default). Not in a subshell, so an unknown name stops the script.
+select_profile() {
+  PROFILE_KEY='' PROFILE_VALUE=''
+  case "$1" in
+    legacy-teleplan) PROFILE_KEY=NEW_BC_TELEPLAN; PROFILE_VALUE=no ;;
+    default) ;;
+    *) die "profile must be legacy-teleplan or default (got '$1')" ;;
+  esac
+}
+
+# The edit `profile NAME` makes to the properties file named by $P, as shell text:
+# undo any earlier profile byte for byte, then (for a non-default profile) comment out
+# the setting and append the marker and the replacement.
+profile_edit() {
+  select_profile "$1"
+  cat <<PROFILE_EDIT
+sed -i -E '/^$PROFILE_MARK /{N;d}' "\$P"
+sed -i -E 's/^$PROFILE_WAS//' "\$P"
+if [ -n '$PROFILE_KEY' ]; then
+  sed -i -E 's/^(${PROFILE_KEY}[[:space:]]*[=:].*)\$/${PROFILE_WAS}\1/' "\$P"
+  # Without a final newline the marker would join the file's last line, and the
+  # next 'profile default' would not find it to remove.
+  [ -z "\$(tail -c 1 "\$P")" ] || echo >> "\$P"
+  printf '%s\n' '$PROFILE_MARK $1' '$PROFILE_KEY=$PROFILE_VALUE' >> "\$P"
+fi
+PROFILE_EDIT
+}
+
+# The profile the install was last switched to ('' when it runs the default configuration).
+active_profile() {
+  in_container "sed -n -E 's/^$PROFILE_MARK //p' /etc/carlos-emr/carlos.properties | tail -n 1" 2>/dev/null || true
+}
+
+cmd_profile() {
+  local name="${1:-}"
+  select_profile "$name"
+  require_disposable
+  mkdir -p "$LOG_DIR"
+  if [ "$name" = legacy-teleplan ]; then
+    local province
+    province=$(in_container '. /root/suite-env.sh; printf %s "${CARLOS_SUITE_PROVINCE:-}"' 2>/dev/null || true)
+    [ "$province" = BC ] || die "the legacy-teleplan profile is for a BC install (this one is '${province:-unknown}')"
+  fi
+  in_container "
+    set -e
+    P=/etc/carlos-emr/carlos.properties
+    $(profile_edit "$name")
+    carlos-ctl restart" >"$LOG_DIR/profile-$name.log" 2>&1 || die "switching to profile $name failed; see $LOG_DIR/profile-$name.log"
+  wait_front_door
+  say "profile $name: ${PROFILE_KEY:+$PROFILE_KEY=$PROFILE_VALUE, }the application was restarted"
+}
+
 main() {
   local cmd="${1:-}"
   [ "$#" -gt 0 ] && shift
@@ -497,10 +578,12 @@ main() {
     up) cmd_up ;;
     suite) cmd_suite "$@" ;;
     audit) cmd_audit "$@" ;;
+    profile) cmd_profile "$@" ;;
     shell) require_disposable; docker exec -it "$CONTAINER" bash ;;
     down) require_disposable; docker rm -f "$CONTAINER" >/dev/null && say "removed $CONTAINER" ;;
     print-preseed) preseed ;;
     print-suite-province) suite_province; echo ;;
+    print-profile-edit) profile_edit "${1:-}" ;;
     cgroup-mode) cgroup_mode ;;
     -h|--help|help|'') usage ;;
     *) usage >&2; exit 2 ;;

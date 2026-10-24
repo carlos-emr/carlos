@@ -339,7 +339,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable datelineborder = new PdfPTable(1);
         datelineborder.setWidthPercentage(100f);
         PdfPCell datecell = new PdfPCell();
-        datecell.setPhrase(new Phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate), heading));
+        datecell.setPhrase(PdfFonts.phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate), heading));
         datecell.setBorder(0);
         datecell.setColspan(1);
         datecell.setPaddingTop(5f);
@@ -365,7 +365,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable headerborder = new PdfPTable(1);
         headerborder.setWidthPercentage(100f);
         PdfPCell headercell = new PdfPCell();
-        headercell.setPhrase(new Phrase(getResource("consultationRequestHeader"), boldFontHeading));
+        headercell.setPhrase(PdfFonts.phrase(getResource("consultationRequestHeader"), boldFontHeading));
         headercell.setBorder(0);
         headercell.setColspan(1);
         headercell.setPaddingTop(5f);
@@ -460,19 +460,19 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
         cell.setHorizontalAlignment(alignment);
 
-        cell.setPhrase(new Phrase(getResource("msgConsReq"), boldFontHeading));
+        cell.setPhrase(PdfFonts.phrase(getResource("msgConsReq"), boldFontHeading));
 
         if ("1".equals(reqFrm.pwb)) {
-            cell.setPhrase(new Phrase(getResource("msgPleaseReplyPatient"), boldFontHeading));
+            cell.setPhrase(PdfFonts.phrase(getResource("msgPleaseReplyPatient"), boldFontHeading));
         }
 
         // If not set to Patient Will Book then maybe a Custom Appointment Instruction is used.
         else if (CarlosProperties.getInstance().getBooleanProperty("CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP", "true")) {
-            cell.setPhrase(new Phrase(reqFrm.getAppointmentInstructionsLabel(), boldFontHeading));
+            cell.setPhrase(PdfFonts.phrase(reqFrm.getAppointmentInstructionsLabel(), boldFontHeading));
         } else if (IsPropertiesOn.isMultisitesEnable()) {
-            cell.setPhrase(new Phrase("Please reply", boldFontHeading));
+            cell.setPhrase(PdfFonts.phrase("Please reply", boldFontHeading));
         } else {
-            cell.setPhrase(new Phrase(
+            cell.setPhrase(PdfFonts.phrase(
                     String.format("%s %s %s", getResource("msgPleaseReplyPart1"),
                             clinic.getClinicName(),
                             getResource("msgPleaseReplyPart2")), boldFontHeading));
@@ -527,7 +527,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
 
         PdfPTable infoTable = new PdfPTable(1);
-        PdfPCell cell = new PdfPCell(new Phrase(letterheadName, heading));
+        PdfPCell cell = new PdfPCell(PdfFonts.phrase(letterheadName, heading));
         cell.setBorder(0);
         cell.setPadding(0);
         infoTable.addCell(cell);
@@ -535,13 +535,13 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         // add the address details
         Phrase addressPhrase = new Phrase("", heading);
         if (reqFrm.letterheadAddress != null && reqFrm.letterheadAddress.trim().length() > 0) {
-            addressPhrase.add(reqFrm.getLetterheadAddress());
+            PdfFonts.addText(addressPhrase, reqFrm.getLetterheadAddress(), heading);
         } else {
-            addressPhrase.add(clinic.getClinicAddress());
+            PdfFonts.addText(addressPhrase, clinic.getClinicAddress(), heading);
 
-            addressPhrase.add(String.format("%s, %s. %s", clinic.getClinicCity(),
+            PdfFonts.addText(addressPhrase, String.format("%s, %s. %s", clinic.getClinicCity(),
                     clinic.getClinicProvince(),
-                    clinic.getClinicPostal()));
+                    clinic.getClinicPostal()), heading);
         }
 
         cell.setPhrase(addressPhrase);
@@ -550,15 +550,15 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         // add the telecom info
         Phrase telecomPhrase = new Phrase("", heading);
         if (reqFrm.letterheadPhone != null && reqFrm.letterheadPhone.trim().length() > 0) {
-            telecomPhrase.add(String.format("Phone: %s", reqFrm.getLetterheadPhone()));
+            PdfFonts.addText(telecomPhrase, String.format("Phone: %s", reqFrm.getLetterheadPhone()), heading);
         } else {
-            telecomPhrase.add(String.format("Phone: %s", clinic.getClinicPhone()));
+            PdfFonts.addText(telecomPhrase, String.format("Phone: %s", clinic.getClinicPhone()), heading);
         }
 
         if (reqFrm.letterheadFax != null && reqFrm.letterheadFax.trim().length() > 0) {
-            telecomPhrase.add(String.format(" Fax: %s", reqFrm.getLetterheadFax()));
+            PdfFonts.addText(telecomPhrase, String.format(" Fax: %s", reqFrm.getLetterheadFax()), heading);
         } else {
-            telecomPhrase.add(String.format(" Fax: %s", clinic.getClinicFax()));
+            PdfFonts.addText(telecomPhrase, String.format(" Fax: %s", clinic.getClinicFax()), heading);
         }
 
         cell.setPhrase(telecomPhrase);
@@ -793,7 +793,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable signatureBlock = new PdfPTable(1);
         signatureBlock.setWidthPercentage(100f);
 
-        PdfPCell labelCell = new PdfPCell(new Phrase(signatureLabel, signatureFont));
+        PdfPCell labelCell = new PdfPCell(PdfFonts.phrase(signatureLabel, signatureFont));
         labelCell.setBorder(0);
         labelCell.setPadding(0);
         labelCell.setPaddingBottom(SIGNATURE_LABEL_BOTTOM_PADDING);
@@ -1002,8 +1002,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             phrase = "";
         }
 
-        Phrase phraseObj = new Phrase(phrase, font != null ? font : this.font);
-        cell.setPhrase(phraseObj);
+        // Record values can be in any script; addText draws characters DejaVu lacks (Chinese,
+        // Japanese, Korean, emoji) in the bundled fallback faces instead of dropping them (#5046).
+        cell.setPhrase(PdfFonts.phrase(phrase, font != null ? font : this.font));
         cell.setBorder(0);
         return cell;
     }

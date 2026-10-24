@@ -88,6 +88,7 @@ const ui = require('./lib/playwright-ui');
 const {createNativeQuickListPreferenceFixture} = require('./lib/quick-list-preference-fixture');
 const {appointmentMonitorCleanup} = require('./lib/appointment-page-monitor-cleanup');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { statementInvoiceRows } = require('./lib/end-year-statement-pdf');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { seedOwnedBill } = require('./billing-on-invoice-third-party-playwright-checks');
@@ -1042,7 +1043,7 @@ async function yearEndStatements(s, A, B) {
       `${label}'s Print PDF answered HTTP ${response.status()} instead of a PDF`);
     const file = await download.path();
     h.assert(file, `${label}'s year-end PDF was not saved`);
-    return pdfTextBuffer(fs.readFileSync(file));
+    return pdfTextBuffer(fs.readFileSync(file), { layout: true });
   }
 
   await step(s, 'each year-end statement window prints its own statement on screen after the other window searched', async () => {
@@ -1054,12 +1055,13 @@ async function yearEndStatements(s, A, B) {
     await pageOf.A.locator('#fromDateParam').fill('2025-06-01');
     await pageOf.A.locator('h3').first().click();
     for (const [label, own, other] of [['A', A_FIRST_NAME, B_FIRST_NAME], ['B', B_FIRST_NAME, A_FIRST_NAME]]) {
-      const otherLabel = label === 'A' ? 'B' : 'A';
-      const words = (await printPdf(label, pageOf[label])).split(/\s+/);
-      const text = words.join(' ');
+      const pdfText = await printPdf(label, pageOf[label]);
+      const text = pdfText.split(/\s+/).join(' ');
       h.assert(text.includes(own) && !text.includes(other),
         `${label}'s year-end PDF names ${text.includes(other) ? 'the other window\'s patient' : 'no patient'}`);
-      h.assert(words.includes(billOf[label].headerId) && !words.includes(billOf[otherLabel].headerId),
+      const expectedRows = [{ id: billOf[label].headerId, date: label === 'A' ? '2025-03-04' : '2025-05-06',
+        invoiced: label === 'A' ? '34.70' : '45.25', paid: '0.00' }];
+      h.assert(JSON.stringify(statementInvoiceRows(pdfText)) === JSON.stringify(expectedRows),
         `${label}'s year-end PDF does not list exactly ${label}'s own invoice`);
       await pageOf[label].close();
     }
