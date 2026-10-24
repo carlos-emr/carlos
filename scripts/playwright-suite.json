@@ -2041,7 +2041,7 @@
       "timeoutSec": 120,
       "env": [],
       "fixtures": "Owned synthetic patient and four medications; cleanup verifies their removal.",
-      "notes": "Delay real responses to check section order, rapid selections, long-term-status refresh, failed-section refusal and retry."
+      "notes": "Delay real responses to check section order, rapid selections, long-term-status refresh (whose replacement keeps the Non-Authoritative tick and comment, #5056), failed-section refusal and retry."
     },
     {
       "name": "rx-stash-deletion",
@@ -13642,7 +13642,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned synthetic patient and marker-named custom drugs saved through the UI; cleanup removes the patient's drugs, prescription, partial_date, drugReason and DigitalSignature rows and asserts none remain. No DrugRef data needed.",
-      "notes": "Checks option save/renewal restoration and correct 24-hour noon pickup storage; #4799 is fixed by #4800."
+      "notes": "Checks option save/renewal restoration, that a ReRx renewal starts with the Non-Authoritative tick clear and no Comment while its source keeps both (#5056), and correct 24-hour noon pickup storage; #4799 is fixed by #4800."
     },
     {
       "name": "rx-prescription-lifecycle",
@@ -15372,7 +15372,7 @@
         "RX_RENEWAL_FIELD": "authoritative"
       },
       "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
-      "notes": "ReRx an owned medication, set Non Authoritative on the replacement, save and inspect the actual saved record; preserve source and untouched control."
+      "notes": "ReRx an owned medication, set Non Authoritative on the replacement, save and inspect the actual saved record, then ReRx it again and expect the tick clear (a renewal is an original, #5056); preserve source and untouched control."
     },
     {
       "name": "rx-renewal-outside-provider",
@@ -15532,7 +15532,7 @@
         "RX_RENEWAL_FIELD": "comment"
       },
       "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
-      "notes": "ReRx an owned medication, add a new prescribing-event comment, save and inspect the actual saved record; preserve source and untouched control."
+      "notes": "ReRx an owned medication, add a new prescribing-event comment, save and inspect the actual saved record, then ReRx it again and expect an empty Comment (#5056); preserve source and untouched control."
     },
     {
       "name": "rx-renewal-pickup",
