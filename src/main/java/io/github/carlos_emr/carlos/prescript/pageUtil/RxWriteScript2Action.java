@@ -1088,20 +1088,25 @@ public final class RxWriteScript2Action extends ActionSupport {
     private String updateDrugLocked(RxSessionBean bean) throws IOException {
         String action = request.getParameter("action");
         response.setContentType("application/json");
+        if (!"parseInstructions".equals(action) && !"updateQty".equals(action)) {
+            return null;
+        }
+        RxPrescriptionData.Prescription rx = stagedCard(bean, request.getParameter("randomId"));
+        if (rx == null) {
+            // Another Rx window may discard this card while its blur calculation is in flight.
+            // Nothing remains to calculate; report the conflict without logging clinical input.
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+        int randomId = (int) rx.getRandomId();
 
         if ("parseInstructions".equals(action)) {
 
             try {
-                String randomId = request.getParameter("randomId");
-                RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
-                if (rx == null) {
-                    logger.error("prescript is null", new NullPointerException());
-                }
-
                 String instructions = request.getParameter("instruction");
                 rx.setSpecial(instructions);
                 RxUtil.instrucParser(rx);
-                bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
+                bean.setStashItem(bean.getIndexFromRx(randomId), rx);
 
                 HashMap<String, Object> hm = new HashMap<String, Object>();
 
@@ -1130,8 +1135,6 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             try {
                 String quantity = request.getParameter("quantity");
-                String randomId = request.getParameter("randomId");
-                RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
                 // get prescript from randomId
                 if (quantity == null || quantity.equalsIgnoreCase("null")) {
                     quantity = "";
@@ -1184,7 +1187,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                     // if not, recalculate duration based on frequency if frequency is not empty
                     // if there is already a duration uni present, use that duration unit. if not, set duration unit to days, and output duration in days
                 }
-                bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
+                bean.setStashItem(bean.getIndexFromRx(randomId), rx);
 
                 if (rx.getRoute() == null) {
                     rx.setRoute("");
@@ -1487,6 +1490,16 @@ public final class RxWriteScript2Action extends ActionSupport {
                         return reportInvalidDate();
                     }
                 }
+                // Browser checks are feedback only. Direct submissions must not normalize an impossible
+                // day/time, or silently drop a malformed pick-up value while saving the prescription.
+                String pickupDate = request.getParameter("pickupDate_" + key);
+                String pickupTime = request.getParameter("pickupTime_" + key);
+                if (pickupDate != null && !pickupDate.isBlank() && RxUtil.parsePickupDate(pickupDate) == null) {
+                    return reportInvalidPickup("DATE");
+                }
+                if (pickupTime != null && !pickupTime.isBlank() && RxUtil.parsePickupTime(pickupTime) == null) {
+                    return reportInvalidPickup("TIME");
+                }
                 String reason = request.getParameter("reasonCode_" + key);
                 String codingSystem = request.getParameter("codingSystem_" + key);
                 reason = reason == null ? card.getDrugReasonCode() : reason.trim();
@@ -1625,7 +1638,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                             }
                         } else if (elem.equals("pickupDate_" + num)) {
                             if ((val != null) && (!val.equals(""))) {
-                                pickupDate = RxUtil.StringToDate(val, "yyyy-MM-dd");
+                                pickupDate = RxUtil.parsePickupDate(val);
                             }
                         } else if (elem.equals("pickupTime_" + num)) {
                             if ((val != null) && (!val.equals(""))) {
@@ -1854,6 +1867,15 @@ public final class RxWriteScript2Action extends ActionSupport {
         return NONE;
     }
 
+    // FindSecBugs XSS_SERVLET: an application/json error body; field is only the literal "DATE" or "TIME" from the callers.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "application/json error body; field is a caller literal (DATE or TIME), never request data")
+    private String reportInvalidPickup(String field) throws IOException {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"INVALID_RX_PICKUP_" + field + "\"}");
+        return NONE;
+    }
+
     /**
      * Reads an inline Min/Max dose: a plain non-negative decimal such as {@code 1}, {@code 0.5},
      * {@code .25} or the {@code 0.33333334} a computed dose is displayed as. Text, signs,
@@ -2041,11 +2063,75 @@ public final class RxWriteScript2Action extends ActionSupport {
                 return null;
             }
             try {
+                if (Arrays.stream(bean.getStash()).anyMatch(card -> card.getDrugId() > 0)) {
+                    return persistCorrection(loggedInInfo, bean);
+                }
                 return persistStashLocked(loggedInInfo, bean);
             } catch (RuntimeException e) {
                 logger.error("Prescription save did not complete ({})", e.getClass().getSimpleName());
                 throw new PrescriptionSaveException(e);
             }
+        }
+    }
+
+    /** A corrected save and the rows it replaces must commit together, including the staged identities. */
+    private String persistCorrection(LoggedInInfo loggedInInfo, RxSessionBean bean) {
+        record PreviousIdentity(RxPrescriptionData.Prescription card, int drugId, String scriptNo, String revision) {
+            void restore() {
+                card.restoreSavedIdentity(drugId, scriptNo, revision);
+            }
+        }
+        List<PreviousIdentity> previous = Arrays.stream(bean.getStash())
+                .map(card -> new PreviousIdentity(card, card.getDrugId(), card.getScript_no(), card.getDraftRevision())).toList();
+        HashMap previousPairs = new HashMap(bean.getRandomIdDrugIdPair());
+        var previousReRx = new java.util.concurrent.CopyOnWriteArrayList<>(bean.getReRxDrugIdList());
+        var completion = new java.util.concurrent.atomic.AtomicInteger(
+                org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN);
+        try {
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+            transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            return transaction.execute(status -> {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override
+                            public void afterCompletion(int outcome) {
+                                completion.set(outcome);
+                            }
+                        });
+                return persistStashLocked(loggedInInfo, bean);
+            });
+        } catch (RuntimeException e) {
+            if (completion.get() == org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK) {
+                // Only a confirmed rollback makes the old rendered version safe to retry. JPA does not
+                // restore these session objects, so restore their IDs and revisions along with its rows.
+                previous.forEach(PreviousIdentity::restore);
+                bean.setRandomIdDrugIdPair(previousPairs);
+                bean.setReRxDrugIdList(previousReRx);
+            }
+            // An uncertain commit keeps the consumed revision: the chart must be reviewed before retrying.
+            request.removeAttribute("scriptId");
+            throw e;
+        }
+    }
+
+    /** An audit of a successful save must not survive rollback of the correction it describes. */
+    private static void afterSaveCommit(Runnable audit) {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            try {
+                                audit.run();
+                            } catch (RuntimeException e) {
+                                // The prescription has committed. Do not restore its session IDs as if it rolled back.
+                                logger.error("Committed prescription audit could not be queued ({})", e.getClass().getSimpleName());
+                            }
+                        }
+                    });
+        } else {
+            audit.run();
         }
     }
 
@@ -2106,8 +2192,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (StringUtils.filled(rx.getRxDateFormat()))
                     partialDateDao.setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_STARTDATE, rx.getRxDateFormat());
             } catch (Exception e) {
-                // There is no transaction spanning the legacy DAO calls. Stop immediately and
-                // report an incomplete save; never print or clear a partly written prescription.
+                // Initial legacy saves have no encompassing transaction; corrections roll back.
+                // Stop immediately either way, and never print or clear an unsuccessful prescription.
                 throw new PrescriptionSaveException(e);
             }
 
@@ -2134,7 +2220,8 @@ public final class RxWriteScript2Action extends ActionSupport {
             throw new PrescriptionSaveException(null);
         }
 
-        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
+        afterSaveCommit(() -> LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD,
+                LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString()));
 
         return scriptId;
     }
@@ -2369,8 +2456,8 @@ public final class RxWriteScript2Action extends ActionSupport {
             Drug earlier = drugDao.find(earlierId);
             if (earlier != null && !earlier.isArchived()) {
                 if (archiveReplacedRow(loggedInInfo, bean, earlierId)) {
-                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION,
-                            AUDIT_DRUG_ID + earlierId, ip, "" + bean.getDemographicNo(), auditStr);
+                    afterSaveCommit(() -> LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE,
+                            LogConst.CON_MEDICATION, AUDIT_DRUG_ID + earlierId, ip, "" + bean.getDemographicNo(), auditStr));
                 } else {
                     failed++;
                 }
@@ -2437,9 +2524,11 @@ public final class RxWriteScript2Action extends ActionSupport {
             return ArchiveOutcome.REFUSED;
         }
         //log that this med is being re-prescribed
-        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, AUDIT_DRUG_ID + sourceId, ip, "" + bean.getDemographicNo(), auditStr);
+        afterSaveCommit(() -> LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE,
+                LogConst.CON_MEDICATION, AUDIT_DRUG_ID + sourceId, ip, "" + bean.getDemographicNo(), auditStr));
         //log that the med is being discontinued buy the system
-        LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, AUDIT_DRUG_ID + sourceId, "", "" + bean.getDemographicNo(), auditStr);
+        afterSaveCommit(() -> LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION,
+                AUDIT_DRUG_ID + sourceId, "", "" + bean.getDemographicNo(), auditStr));
         return ArchiveOutcome.ARCHIVED;
     }
 
@@ -2545,10 +2634,13 @@ public final class RxWriteScript2Action extends ActionSupport {
         dr.setArchivedFlag(false);
         dr.setDateCoded(new Date());
 
-        drugReasonDao.addNewDrugReason(dr);
+        if (!drugReasonDao.addNewDrugReason(dr)) {
+            throw new IllegalStateException("Prescription reason write was refused");
+        }
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
+        afterSaveCommit(() -> LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
+                LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString()));
 
     }
 

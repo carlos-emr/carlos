@@ -38,6 +38,7 @@ const crypto = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const {
   directory, ownedPdfDocuments, seedOwnedPdfDocuments, removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
 } = require('./lib/stored-pdf-documents');
@@ -206,6 +207,54 @@ async function workflow(s) {
     h.assert(otherRow(doc) === before.other, 'Comment changed the other provider\'s routing row');
     h.assert(queueOf(doc) === before.queue, 'Comment changed the document\'s queue link');
     // Every document opens in the same named popup window, so close this one before the next opens.
+    await viewer.close();
+  });
+
+  await s.step('a refused Comment shows a failure, preserves the saved comment and can be retried', async () => {
+    const doc = docs.comment;
+    const before = { mine: routing(doc), other: otherRow(doc), queue: queueOf(doc) };
+    const viewer = await openViewer(doc);
+    const commentButton = viewer.locator(`#acknowledgeForm_${doc.id} input[type="button"][onclick^="addDocComment("]`);
+    const status = await viewer.locator(`[id="status_${doc.id}"]`).inputValue();
+    const match = url => url.pathname.endsWith('/oscarMDS/UpdateStatus');
+    const refuse = route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"date":"not saved"}' });
+    await viewer.route(match, refuse);
+    const mark = failureMark(s.recorder);
+    try {
+      const dialogs = await h.withExpectedDialogs(viewer, async () => {
+        await Promise.all([
+          viewer.waitForEvent('dialog', { predicate: dialog => dialog.type() === 'alert', timeout: TIMEOUT }),
+          commentButton.click(),
+        ]);
+      }, { promptText: `${typed} unsaved` });
+      h.assert(dialogs.length === 2 && dialogs[0].type === 'prompt' && dialogs[1].type === 'alert'
+        && /comment could not be saved/i.test(dialogs[1].text), 'A refused Comment did not tell the reviewer it failed');
+      h.assert(await viewer.locator(`[id="comment_${doc.id}"]`).inputValue() === typed
+        && await viewer.locator(`[id="comment_${doc.id}_${provider}"]`).innerText() === typed
+        && await viewer.locator(`[id="status_${doc.id}"]`).inputValue() === status,
+      'The refused Comment replaced saved form state with an unsaved value');
+      h.assert(routing(doc) === before.mine && otherRow(doc) === before.other && queueOf(doc) === before.queue,
+        'A refused Comment changed document routing or its queue link');
+      consumeExpectedFailure(s.recorder, mark, { status: 503, path: /\/oscarMDS\/UpdateStatus$/ });
+    } finally {
+      await viewer.unroute(match, refuse);
+    }
+    const offered = [];
+    const retried = `${typed} retried`;
+    viewer.on('dialog', dialog => offered.push(dialog.defaultValue()));
+    await h.withExpectedDialogs(viewer, async () => {
+      const [response] = await Promise.all([
+        viewer.waitForResponse(isUpdateStatus, { timeout: TIMEOUT }),
+        commentButton.click(),
+      ]);
+      h.assert(response.status() === 200 && new URLSearchParams(response.request().postData() || '').get('comment') === retried,
+        'Retry did not save the comment successfully');
+      await viewer.waitForFunction(({ id, text }) => document.getElementById(id).value === text,
+        { id: `comment_${doc.id}`, text: retried });
+    }, { promptText: retried });
+    h.assert(offered.length === 1 && offered[0] === typed, 'Retry offered the unsaved comment as though it had been saved');
+    await expectValue(sql, routingQuery(doc), `N|${retried}`, 'Retry did not store the new comment');
+    typed = retried;
     await viewer.close();
   });
 

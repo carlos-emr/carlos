@@ -25,14 +25,14 @@ const PROVIDER = '999998';
  * A document viewer for one document: the visible comment (`shown`), the acknowledge form's hidden comment field
  * (`saved`), and a prompt that answers `answer(defaultText)`. Returns the context and what the page did.
  */
-function viewer({ shown, saved, answer }) {
+function viewer({ shown, saved, answer, post = () => Promise.resolve({ ok: true, json: () => Promise.resolve({ date: '2026-10-18 12:00' }) }) }) {
   const elements = {
     [`comment_${DOC}_${PROVIDER}`]: { textContent: shown, value: undefined },
     [`comment_${DOC}`]: { textContent: '', value: saved },
     [`status_${DOC}`]: { value: 'A' },
     [`timestamp_${DOC}_${PROVIDER}`]: { textContent: '' },
   };
-  const seen = { offered: [], acknowledged: [], posted: [] };
+  const seen = { offered: [], acknowledged: [], posted: [], alerts: [] };
   const jQuery = (selector) => {
     const element = elements[selector.replace(/^#/, '')];
     return {
@@ -49,11 +49,13 @@ function viewer({ shown, saved, answer }) {
     jQuery,
     document: { getElementById: (id) => elements[id] || null },
     prompt: (message, offered) => { seen.offered.push(offered); return answer(offered); },
+    alert: (message) => seen.alerts.push(message),
+    URLSearchParams,
     updateStatus: (formId) => seen.acknowledged.push({ formId, comment: elements[`comment_${DOC}`].value }),
     serializeForm: () => `comment=${encodeURIComponent(elements[`comment_${DOC}`].value)}`,
     postForm: (url, data) => {
       seen.posted.push(data);
-      return Promise.resolve({ json: () => Promise.resolve({ date: '2026-10-18 12:00' }) });
+      return post();
     },
     ctx: '',
     console: { log() {}, error() {} },
@@ -87,14 +89,37 @@ test('Cancel on the Acknowledge prompt acknowledges nothing', () => {
 test('Comment on a document with no comment offers no text, and the saved comment is offered next time', async () => {
   const typed = 'Called the patient';
   const page = viewer({ shown: 'No comment', saved: '', answer: (offered) => (offered === '' ? typed : offered) });
-  page.context.addDocComment(DOC, PROVIDER);
+  const saving = page.context.addDocComment(DOC, PROVIDER);
   assert.deepEqual(page.seen.offered, ['']);
   assert.equal(page.seen.posted.length, 1);
-  assert.match(page.seen.posted[0], /comment=Called%20the%20patient/);
-  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(new URLSearchParams(page.seen.posted[0]).get('comment'), typed);
+  assert.equal(new URLSearchParams(page.seen.posted[0]).get('status'), 'N');
+  assert.equal(page.elements[`comment_${DOC}`].value, '', 'unconfirmed text is not the saved comment');
+  await saving;
   assert.equal(page.elements[`comment_${DOC}_${PROVIDER}`].textContent, typed);
   // A later Acknowledge in the same viewer starts from the comment just saved.
   page.context.getDocComment(DOC, PROVIDER, false);
   assert.deepEqual(page.seen.offered, ['', typed]);
   assert.equal(page.seen.acknowledged[0].comment, typed);
 });
+
+for (const [failure, post] of [
+  ['a refused HTTP response with JSON', () => Promise.resolve({ ok: false, json: () => Promise.resolve({ date: 'not saved' }) })],
+  ['a network failure', () => Promise.reject(new Error('offline'))],
+  ['an invalid success response', () => Promise.resolve({ ok: true, json: () => Promise.resolve({ success: false }) })],
+]) {
+  test(`Comment reports ${failure} and preserves the saved comment for retry or Acknowledge`, async () => {
+    const saved = 'Previously saved';
+    const page = viewer({ shown: saved, saved, answer: () => 'Unsaved edit', post });
+    await page.context.addDocComment(DOC, PROVIDER);
+    assert.equal(page.seen.posted.length, 1);
+    assert.equal(new URLSearchParams(page.seen.posted[0]).get('comment'), 'Unsaved edit');
+    assert.equal(page.elements[`comment_${DOC}`].value, saved);
+    assert.equal(page.elements[`comment_${DOC}_${PROVIDER}`].textContent, saved);
+    assert.equal(page.elements[`status_${DOC}`].value, 'A');
+    assert.equal(page.elements[`timestamp_${DOC}_${PROVIDER}`].textContent, '');
+    assert.deepEqual(page.seen.alerts, ['The comment could not be saved. Please try again.']);
+    page.context.getDocComment(DOC, PROVIDER, false);
+    assert.deepEqual(page.seen.offered, [saved, saved]);
+  });
+}

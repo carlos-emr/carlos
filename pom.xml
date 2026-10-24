@@ -1961,8 +1961,14 @@
                                     <goal>compile</goal>
                                 </goals>
                                 <configuration>
-                                    <sourceDirectory>src/main/webapp</sourceDirectory>
-                                    <outputDirectory>src/main/jsp</outputDirectory>
+                                    <webAppSourceDirectory>${project.basedir}/src/main/webapp</webAppSourceDirectory>
+                                    <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+                                    <!-- Validation only: keep generated JSP classes separate from
+                                         application classes and leave the source web.xml untouched.
+                                         sourceDirectory/outputDirectory are not jspc 5 parameters. -->
+                                    <generatedClasses>${project.build.directory}/jspc/classes</generatedClasses>
+                                    <webXmlFragment>${project.build.directory}/jspc/webfrag.xml</webXmlFragment>
+                                    <mergeFragment>false</mergeFragment>
                                     <excludes>
                                         <exclude>**/*.jspf</exclude>
                                         <!-- Exclude the deprecated jsp file, the file is not using now -->

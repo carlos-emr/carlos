@@ -30,3 +30,16 @@ test('layout extraction from downloaded PDF bytes keeps values in their columns'
 test('the clinical PDF embeds every font', () => {
   assert.doesNotThrow(() => assertEmbeddedFonts(lab));
 });
+
+
+test('buffer PDF layout order keeps values and abnormal flags on their rendered rows', () => {
+  const text = pdfTextBuffer(fs.readFileSync(lab), { layout: true });
+  assert.match(text, /Hemoglobin\s+98\s+L\s+120-160\s+g\/L/);
+  assert.match(text, /Platelets\s+450\s+H\s+150-400/);
+});
+
+test('buffer PDF raw order preserves wrapped identifiers across adjacent columns', () => {
+  const text = pdfTextBuffer(fs.readFileSync(lab), { raw: true });
+  assert.ok(squash(text).includes('EXPORT-9f05fb7fae'));
+  assert.ok(squash(text).includes('FAKE-PW8a68869f05fb7fae'));
+});

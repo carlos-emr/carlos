@@ -75,6 +75,10 @@ public class PageMonitoring2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // Struts creates an action per request, so an instance monitor cannot protect the read-then-write
+    // lock acquisition from a second request in this application JVM.
+    private static final Object PAGE_MONITOR_LOCK = new Object();
+
     /** The only per-viewer fields the Add Appointment lock notice uses. */
     private record MonitorView(boolean locked, boolean self, String providerName) {
     }
@@ -131,7 +135,7 @@ public class PageMonitoring2Action extends ActionSupport {
 
         List<PageMonitor> otherMonitors = new ArrayList<PageMonitor>();
 
-        synchronized (this) {
+        synchronized (PAGE_MONITOR_LOCK) {
             //get rid of stale ones
             if (cleanupPriorPageAccess) {
                 //they've already opened another appointment window, meaning they already destroyed the last one

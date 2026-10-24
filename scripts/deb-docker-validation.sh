@@ -286,7 +286,18 @@ cmd_up() {
   stage_fixtures
   first_login_reset
   write_suite_env
+  initialize_vascular_dictionary
   say "ready: https://127.0.0.1/carlos (suite environment in $CONTAINER:/root/suite-env.sh)"
+}
+
+# The Vascular Tracker checks refuse to start until the form's clinic-wide measurement
+# dictionary exists, so that its one-off creation never falls inside a suite run's residue
+# window. Create it the way a clinician's first visit does (scripts/vascular-dictionary-initialize.js).
+initialize_vascular_dictionary() {
+  say "initializing the Vascular Tracker measurement dictionary"
+  in_container ". /root/suite-env.sh; node scripts/vascular-dictionary-initialize.js" \
+    >"$LOG_DIR/vascular-dictionary.log" 2>&1 \
+    || die "the Vascular Tracker dictionary initialization failed; see $LOG_DIR/vascular-dictionary.log"
 }
 
 # Runbook section 4 fixtures b, c, d and the CDS export PGP recipient, plus
@@ -398,6 +409,8 @@ export TEST_PASSWORD_HASH=\"\\\$(mariadb -u root carlos -Nse \"SELECT password F
 export PRESCRIPTION_SIGNATURE_CLEANUP=true
 export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
+# lab-upload-signed-feed requires the server log; lab-upload-rollback reads it when named (runbook section 6).
+export LAB_UPLOAD_JOURNAL_UNIT=carlos-emr
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1 CONSULT_STAMP_PROVIDER_NO=999998
 export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp
@@ -447,6 +460,10 @@ export NEXT_APPT_DEMOGRAPHIC_NO=1 NEXT_APPT_PROVIDER_NO=999998
 export CARLOS_LOG_AUDIT_SINCE='\$(date -u '+%Y-%m-%d %H:%M:%S UTC')'
 cd /root/carlos
 EOF
+    # Derive and quote inside this shell, after the heredoc: embedding an
+    # already-quoted path into an unquoted heredoc would consume its escapes.
+    suite_home=\"\$(node /root/carlos/scripts/packaged-home-dir.js)\"
+    printf 'export HOME_DIR=%q\\n' \"\$suite_home\" >> /root/suite-env.sh
     chmod 0600 /root/suite-env.sh"
 }
 

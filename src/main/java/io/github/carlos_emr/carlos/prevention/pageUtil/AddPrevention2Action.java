@@ -245,7 +245,7 @@ public class AddPrevention2Action extends ActionSupport {
         }
 
         //let's do some validation
-        List<String> valid = validate(preventionType, demographic_no, id);
+        List<String> valid = validate(preventionType, demographic_no, id, delete != null);
         if (valid != null && valid.size() > 0) {
             closeClaim(claim);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -391,8 +391,14 @@ public class AddPrevention2Action extends ActionSupport {
      */
     static final String RH_INJECTION_TYPE = "RH";
 
-    private List<String> validate(String preventionType, String demographic_no, String id) {
+    private List<String> validate(String preventionType, String demographic_no, String id, boolean deleting) {
         List<String> result = new ArrayList<String>();
+
+        // A delete names the record it removes. Without an id the save below would take the
+        // insert branch and create a prevention instead of deleting one.
+        if (deleting && id == null) {
+            result.add("Missing prevention record");
+        }
 
         PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
         HashMap<String, String> prevention = pdc.getPrevention(preventionType);

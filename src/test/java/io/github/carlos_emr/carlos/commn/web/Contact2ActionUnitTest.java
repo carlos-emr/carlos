@@ -79,6 +79,62 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
 
     private static final String DEMOGRAPHIC_NO = "12345";
 
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    void shouldRefuseDirectorySave_beforeAuthorizationIdentifiersOrDao(String method) {
+        registerContactActionBeans(); mockRequest.setMethod(method);
+        addRequestParameter("method", "saveContact"); addRequestParameter("contact.id", "invalid");
+        ContactDao previous = Contact2Action.contactDao; Contact2Action.contactDao = mockContactDao;
+        try {
+            assertThat(new Contact2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(405);
+            assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+            // The method guard runs first (release/2026.08, #4406): no authorization lookup on a refused verb.
+            verifyNoInteractions(mockSecurityInfoManager, mockContactDao, mockDemographicContactDao, mockProfessionalContactDao);
+        } finally { Contact2Action.contactDao = previous; }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRefuseWellFormedDirectorySaveWithoutTouchingContactRows(String method) {
+        registerContactActionBeans(); mockRequest.setMethod(method);
+        addRequestParameter("method", "saveContact"); addRequestParameter("contact.id", "37");
+        ContactDao previous = Contact2Action.contactDao; Contact2Action.contactDao = mockContactDao;
+        try {
+            Contact2Action action = new Contact2Action();
+            action.setContact(new io.github.carlos_emr.carlos.commn.model.Contact());
+            assertThat(action.execute()).isEqualTo("none"); assertThat(mockResponse.getStatus()).isEqualTo(405);
+            verifyNoInteractions(mockContactDao);
+        } finally { Contact2Action.contactDao = previous; }
+    }
+
+    @Test
+    void shouldThrowSecurityException_whenDirectoryWriteIsDeniedOnPost() {
+        registerContactActionBeans(); mockRequest.setMethod("POST");
+        addRequestParameter("method", "saveContact"); addRequestParameter("contact.id", "invalid");
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(null))).thenReturn(false);
+        assertThatThrownBy(() -> new Contact2Action().execute()).isInstanceOf(SecurityException.class);
+        assertThat(mockResponse.getHeader("Allow")).isNull();
+        verifyNoInteractions(mockContactDao, mockDemographicContactDao);
+    }
+
+    @Test
+    void shouldPreserveAuthorizedNativeDirectoryPostAndCopiedContactFields() {
+        registerContactActionBeans(); addRequestParameter("method", "saveContact"); addRequestParameter("contact.id", "37");
+        io.github.carlos_emr.carlos.commn.model.Contact saved = new io.github.carlos_emr.carlos.commn.model.Contact(); saved.setId(37);
+        when(mockContactDao.find(37)).thenReturn(saved);
+        ContactDao previous = Contact2Action.contactDao; Contact2Action.contactDao = mockContactDao;
+        try {
+            Contact2Action action = new Contact2Action();
+            io.github.carlos_emr.carlos.commn.model.Contact posted = new io.github.carlos_emr.carlos.commn.model.Contact();
+            posted.setFirstName("FAKE"); posted.setLastName("Updated"); action.setContact(posted);
+            assertThat(action.execute()).isEqualTo("cForm");
+            assertThat(mockResponse.getStatus()).isEqualTo(200);
+            assertThat(saved.getLastName()).isEqualTo("Updated");
+            verify(mockContactDao).find(37); verify(mockContactDao).merge(saved); verifyNoMoreInteractions(mockContactDao);
+        } finally { Contact2Action.contactDao = previous; }
+    }
+
     @Mock private ContactDao mockContactDao;
     @Mock private ProfessionalContactDao mockProfessionalContactDao;
     @Mock private DemographicContactDao mockDemographicContactDao;

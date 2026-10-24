@@ -78,7 +78,7 @@ class Frm2ActionUnsupportedFormUnitTest extends CarlosUnitTestBase {
         mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
-        mockRequest.setMethod("GET");
+        mockRequest.setMethod("POST");
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);

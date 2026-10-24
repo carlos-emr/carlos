@@ -60,11 +60,10 @@ public class EctConEditSpecialists2Action extends ActionSupport {
     @Override
     public String execute() throws ServletException, IOException {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "u", null)) {
-            throw new SecurityException("missing required sec object (_con)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_admin,_admin.consult", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.consult)");
         }
-
-        ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
 
         String specId = this.getSpecId();
         String delete = this.getDelete();
@@ -72,7 +71,16 @@ public class EctConEditSpecialists2Action extends ActionSupport {
 
         ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
-        if (delete.equals(oscarR.getString("encounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"))) {
+        boolean deleteRequested = delete.equals(oscarR.getString("encounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"));
+        if (deleteRequested && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
+
+        if (deleteRequested) {
             if (specialists.length > 0) {
                 for (int i = 0; i < specialists.length; i++) {
                     try {

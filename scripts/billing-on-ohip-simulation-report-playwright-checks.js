@@ -37,6 +37,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
+const { validateBillingContext } = require('./lib/billing-site-context');
 const { checkedDiskDirectory, removeOwnedFiles } = require('./billing-on-group-disk-zero-total-playwright-checks');
 
 const DEFAULT_DISK_DIR = '/var/lib/carlos-emr/CarlosDocument/carlos/billing/download';
@@ -162,7 +163,10 @@ function createBillingFixture(s, { record = null } = {}) {
     'The owned patient did not take the synthetic HIN');
 
   /** Seed one claim header and its items; returns the header id. */
-  owned.addClaim = ({ tag, date, status, items }) => {
+  owned.addClaim = ({ tag, date, status, items, billingContext = null }) => {
+    const boundContext = billingContext ? validateBillingContext(sql, provider, billingContext) : null;
+    h.assert(!boundContext || (boundContext.providerNo === providerNo && boundContext.ohipNo === owned.ohipNo),
+      'The claim context must name the exact owned OHIP provider');
     const total = items.reduce((sum, item) => sum + Number(item.fee), 0).toFixed(2);
     const id = sql.value(`INSERT INTO billing_on_cheader1 (header_id, transc_id, rec_id, hin, ver, dob, pay_program,
         payee, ref_num, facilty_num, admission_date, ref_lab_num, man_review, location, demographic_no, provider_no,
@@ -171,7 +175,7 @@ function createBillingFixture(s, { record = null } = {}) {
       VALUES (0, 'HE', 'H', ${h.sqlString(owned.hin)}, 'ZZ', '19800102', 'HCP', 'P', '', '', '', '', '', '', ${patient},
         ${h.sqlString(providerNo)}, 0, ${h.sqlString(`${marker},Workflow`)}, '2', 'ON', ${h.sqlString(date)}, '09:00:00',
         ${total}, 0.00, ${h.sqlString(status)}, ${h.sqlString(`${marker} ${tag}`)}, '00', ${h.sqlString(owned.ohipNo)},
-        '', '', '', ${h.sqlString(provider)}, NULL); SELECT LAST_INSERT_ID()`);
+        '', '', '', ${h.sqlString(provider)}, ${boundContext && boundContext.multisites ? h.sqlString(boundContext.clinic) : 'NULL'}); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), `The ${tag} claim was not created`);
     owned.headerIds.push(id);
     sql.execute(items.map(item => `INSERT INTO billing_on_item (ch1_id, transc_id, rec_id, service_code, fee, ser_num,

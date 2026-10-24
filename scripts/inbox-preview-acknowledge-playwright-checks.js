@@ -221,10 +221,11 @@ async function acknowledgeControl(frame) {
  * already acknowledged is a reason to skip, not a failure of the code
  * under test.
  */
-async function findAcknowledgeable(page, identities, timeout, limit = 12) {
+async function findAcknowledgeable(page, identities, timeout, limit = 12, ownedLabs) {
   let examined = 0;
   for (let index = 0; index < identities.length && examined < limit; index += 1) {
     if (!identities[index].startsWith('HL7:')) { continue; }
+    if (ownedLabs && (index === 0 || !ownedLabs.includes(identities[index]))) { continue; }
     examined += 1;
     const iframe = page.locator('#inboxViewItems .document-card').nth(index).locator('iframe').first();
     const handle = await iframe.elementHandle({ timeout: 10000 }).catch(() => null);
@@ -303,20 +304,23 @@ async function readStamps(page, identities) {
   return lost;
 }
 
-async function main({throwIfCancelled = () => {}} = {}) {
-  const config = readConfig();
+async function main({throwIfCancelled = () => {}, session, dataset} = {}) {
+  const config = session?.config || readConfig();
   const timeout = Number(process.env.INBOX_TIMEOUT_MS || '60000');
 
-  const recorder = createRecorder();
-  const browser = await launchBrowser(config);
+  const recorder = session?.recorder || createRecorder();
+  const browser = session ? null : await launchBrowser(config);
   const routingFixture = createInboxAcknowledgementFixture(config);
+  if (session) session.cleanup(() => routingFixture.cleanup());
   try {
-    const context = await newContext(browser, config);
-    const schedulePage = await login(context, config, recorder);
+    const context = session?.context || await newContext(browser, config);
+    const schedulePage = session?.schedule || await login(context, config, recorder);
     const inbox = await openInbox(context, schedulePage, recorder, timeout);
+    if (dataset) await require('./lib/inbox-owned-dataset').narrowToOwnedPatient(inbox, dataset, timeout, settleList);
 
     await settleList(inbox, timeout);
     let cardCount = await enterPreviewMode(inbox, timeout);
+    if (dataset) assert(cardCount >= dataset.new.length, 'Owned Inbox preview results are missing');
     if (cardCount < 2) {
       // Empty for THIS provider is the common case on a demo or imported
       // database, not an empty inbox. Ask the question a clinician would.
@@ -331,6 +335,7 @@ async function main({throwIfCancelled = () => {}} = {}) {
     }
     await loadEveryPreviewPage(inbox, timeout);
     const fullyLoaded = await inbox.evaluate(() => window.hasMoreData === false);
+    if (dataset) assert(fullyLoaded, 'Owned Inbox preview never finished paging');
     if (!fullyLoaded) {
       throw new SkipCheck(
         'the preview list never finished paging, so the Inbox is still in its re-sync state and '
@@ -338,8 +343,10 @@ async function main({throwIfCancelled = () => {}} = {}) {
       );
     }
     const before = await shownCards(inbox);
+    if (dataset) require('./lib/inbox-owned-dataset').assertOwnedRows(before, dataset.new, 'Preview baseline');
 
-    const target = await findAcknowledgeable(inbox, before, timeout);
+    const target = await findAcknowledgeable(inbox, before, timeout, 12, dataset?.labs);
+    if (dataset) assert(target, 'No owned interior lab can be acknowledged in preview mode');
     if (!target) {
       throw new SkipCheck('no preview lab card offers an Acknowledge control; every lab on screen is already acknowledged');
     }
@@ -350,6 +357,7 @@ async function main({throwIfCancelled = () => {}} = {}) {
     // scrolled; and the control has to stay in view, because a click that has
     // to scroll the container to reach it moves the very number being asserted.
     throwIfCancelled();
+    if (dataset) await require('./lib/inbox-owned-dataset').assertOwnedAcknowledgementChain(target.frame, target.identity, dataset.labs);
     await routingFixture.prepare(target.frame, target.identity);
 
     const scrollBefore = await inbox.evaluate((index) => {
@@ -444,13 +452,16 @@ async function main({throwIfCancelled = () => {}} = {}) {
     console.log(`  ${before.length} card(s) -> ${after.length}; no inbox re-fetch, ${stamped.length} surviving document(s) kept, scrollTop held at ${scrollAfter}`);
     return { acknowledged: target.identity, before: before.length, after: after.length, kept: stamped.length, scrollTop: scrollAfter };
   } finally {
-    try { await browser.close(); }
-    finally { routingFixture.cleanup(); }
+    if (browser) {
+      try { await browser.close(); }
+      finally { routingFixture.cleanup(); }
+    } else await session.context.close(); // routing cleanup runs after the workflow confirms full browser drain
   }
 }
 
 if (require.main === module) {
-  runCheck({ name: 'inbox-preview-acknowledge', run: main });
+  if (process.env.INBOX_OWNED_FIXTURE === 'true') require('./lib/inbox-owned-dataset').runOwnedInboxCheck('inbox-preview-acknowledge', 'acknowledgement', main);
+  else runCheck({ name: 'inbox-preview-acknowledge', run: main });
 }
 
 module.exports = { acknowledgeControl, cardFrame, enterPreviewMode, findAcknowledgeable, loadEveryPreviewPage, main, readStamps, settleList, shownCards, stampSurvivors, widenToAnyProvider };

@@ -210,7 +210,10 @@ public class DocumentPreview2Action extends ActionSupport {
             return;
         }
         requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, demographicNo);
-        resolveEDocDemographicNoOrDeny(eDocId, demographicNo);
+        String storedPatient = resolveEDocDemographicNoOrDeny(eDocId, demographicNo);
+        requirePatientRecordAccess(loggedInInfo, Integer.valueOf(storedPatient));
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse
+                .requireStoredDocumentReadAccess(securityInfoManager, loggedInInfo, eDocId);
         try {
             Path docPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, eDocId);
             generateResponse(response, docPDFPath);
@@ -245,7 +248,8 @@ public class DocumentPreview2Action extends ActionSupport {
             return;
         }
         requirePrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo);
-        resolveEFormDemographicNoOrDeny(eFormId, demographicNo);
+        String storedPatient = resolveEFormDemographicNoOrDeny(eFormId, demographicNo);
+        requirePatientRecordAccess(loggedInInfo, Integer.valueOf(storedPatient));
         String approvalToken = request.getParameter("renderApproval");
         EFormRenderApproval approval = renderApprovalService.consume(
                 request, loggedInInfo, eFormId, demographicNo,
@@ -329,7 +333,7 @@ public class DocumentPreview2Action extends ActionSupport {
             return;
         }
         requirePrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, demographicNo);
-        resolveHrmDemographicNoOrDeny(hrmId, demographicNo);
+        resolveHrmDemographicNoOrDeny(loggedInInfo, hrmId, demographicNo);
         try {
             Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, hrmId);
             generateResponse(response, hrmPDFPath);
@@ -371,7 +375,10 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, PreviewError.LAB_SOURCE_UNSUPPORTED);
             return;
         }
-        resolveLabDemographicNoOrDeny(segmentId, demographicNo);
+        String storedPatient = resolveLabDemographicNoOrDeny(segmentId, demographicNo);
+        requirePatientRecordAccess(loggedInInfo, Integer.valueOf(storedPatient));
+        io.github.carlos_emr.carlos.lab.service.LabPatientAccess.requireLab(
+                securityInfoManager, patientLabRoutingDao, loggedInInfo, segmentId, "HL7");
         try {
             Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, segmentId);
             generateResponse(response, labPDFPath);
@@ -410,6 +417,7 @@ public class DocumentPreview2Action extends ActionSupport {
         }
         String demographicNo = String.valueOf(demographicId);
         requirePrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, demographicNo);
+        requirePatientRecordAccess(loggedInInfo, demographicId);
         requireFormBelongsToDemographic(loggedInInfo, formId, formName, demographicId);
         try {
             Path formPDFPath = documentAttachmentManager.renderDocument(request, response, DocumentType.FORM);
@@ -478,10 +486,12 @@ public class DocumentPreview2Action extends ActionSupport {
     public String fetchConsultDocuments() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        String demographicNo = requestDemographicNoOrZero();
-        Integer demographicId = parseIntegerParameterOrDefault(demographicNo, DEMOGRAPHIC_NO_PARAMETER, 0);
+        Integer demographicId = parsePickerPatientOrRespondBadRequest(false);
+        if (demographicId == null) return NONE;
+        if (demographicId == 0) return emptyAttachmentPicker(loggedInInfo, "_con", "0");
         String sanitizedDemographicNo = String.valueOf(demographicId);
 
+        requirePatientRecordAccess(loggedInInfo, demographicId);
         requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, sanitizedDemographicNo);
         request.setAttribute(DEMOGRAPHIC_NO_PARAMETER, sanitizedDemographicNo);
         request.setAttribute("attachmentSecurityObject", "_con");
@@ -519,12 +529,14 @@ public class DocumentPreview2Action extends ActionSupport {
     public String fetchEFormDocuments() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        String demographicNo = requestDemographicNoOrZero();
+        Integer demographicId = parsePickerPatientOrRespondBadRequest(true);
+        if (demographicId == null) return NONE;
+        if (demographicId <= 0) return emptyAttachmentPicker(loggedInInfo, EFORM_SECURITY_OBJECT, demographicId.toString());
         String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? "0" : request.getParameter("fdid");
-        Integer demographicId = parseIntegerParameterOrDefault(demographicNo, DEMOGRAPHIC_NO_PARAMETER, 0);
         String sanitizedDemographicNo = String.valueOf(demographicId);
         Integer fdidInt = parseIntegerParameterOrDefault(fdid, "fdid", 0);
 
+        requirePatientRecordAccess(loggedInInfo, demographicId);
         requirePrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, sanitizedDemographicNo);
         request.setAttribute(DEMOGRAPHIC_NO_PARAMETER, sanitizedDemographicNo);
         request.setAttribute("attachmentSecurityObject", EFORM_SECURITY_OBJECT);
@@ -569,6 +581,7 @@ public class DocumentPreview2Action extends ActionSupport {
         }
         String sanitizedDemographicNo = String.valueOf(demographicId);
 
+        requirePatientRecordAccess(loggedInInfo, demographicId);
         requirePrivilege(loggedInInfo, TICKLER_SECURITY_OBJECT, SecurityInfoManager.READ, sanitizedDemographicNo);
         request.setAttribute(DEMOGRAPHIC_NO_PARAMETER, sanitizedDemographicNo);
         request.setAttribute("attachmentSecurityObject", TICKLER_SECURITY_OBJECT);
@@ -700,7 +713,10 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     private void populateCommonDocs(LoggedInInfo loggedInInfo, String demographicNo, Integer demographicId) {
         List<EDoc> allDocuments = hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, demographicNo)
-                ? EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE)
+                && hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)
+                ? io.github.carlos_emr.carlos.documentManager.DocumentListAccess.readableDocuments(
+                        loggedInInfo, securityInfoManager,
+                        EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE))
                 : new ArrayList<>();
         ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, demographicNo)
                 ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false)
@@ -716,6 +732,13 @@ public class DocumentPreview2Action extends ActionSupport {
         request.setAttribute("allHRMDocuments", allHRMDocuments);
 		request.setAttribute("allLabsSortedByVersions", allLabsSortedByVersions);
 		request.setAttribute("allForms", allForms);
+    }
+
+    private void requirePatientRecordAccess(LoggedInInfo info, Integer patient) {
+        if (info == null || patient == null || patient <= 0
+                || !securityInfoManager.isAllowedAccessToPatientRecord(info, patient)) {
+            throw new SecurityException("Patient record access denied");
+        }
     }
 
     private boolean hasPrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege, String target) {
@@ -737,16 +760,18 @@ public class DocumentPreview2Action extends ActionSupport {
         return requireMatchingDemographicNo(parseIntegerValue(eDoc.getModuleId()), requestedDemographicNo, "document");
     }
 
-    private String resolveHrmDemographicNoOrDeny(Integer hrmId, String requestedDemographicNo) {
+    private String resolveHrmDemographicNoOrDeny(LoggedInInfo info, Integer hrmId, String requestedDemographicNo) {
         List<HRMDocumentToDemographic> linkedDemographics = hrmDocumentToDemographicDao.findByHrmDocumentId(hrmId);
+        boolean matches = false;
         if (linkedDemographics != null) {
             for (HRMDocumentToDemographic linkedDemographic : linkedDemographics) {
-                if (linkedDemographic != null && requestedDemographicNo.equals(String.valueOf(linkedDemographic.getDemographicNo()))) {
-                    return requestedDemographicNo;
-                }
+                if (linkedDemographic == null) throw new SecurityException("HRM document ownership could not be resolved");
+                Integer patient = linkedDemographic.getDemographicNo();
+                if (patient != null && patient > 0) requirePatientRecordAccess(info, patient);
+                if (requestedDemographicNo.equals(String.valueOf(patient))) matches = true;
             }
         }
-
+        if (matches) return requestedDemographicNo;
         throw new SecurityException("HRM document does not match demographic");
     }
 
@@ -795,9 +820,31 @@ public class DocumentPreview2Action extends ActionSupport {
         return demographicId == null ? null : String.valueOf(demographicId);
     }
 
-    private String requestDemographicNoOrZero() {
-        String demographicNo = request.getParameter(DEMOGRAPHIC_NO_PARAMETER);
-        return StringUtils.isNullOrEmpty(demographicNo) ? "0" : demographicNo;
+    /** Unbound consult shells and the eForm manager's -1 preview have no patient data to list. */
+    private String emptyAttachmentPicker(LoggedInInfo info, String containerObject, String patient) {
+        if (info == null) throw new SecurityException("Attachment picker access denied");
+        requirePrivilege(info, containerObject, SecurityInfoManager.READ);
+        request.setAttribute(DEMOGRAPHIC_NO_PARAMETER, patient);
+        request.setAttribute("attachmentSecurityObject", containerObject);
+        request.setAttribute("canManageAttachments", false);
+        request.setAttribute("allDocuments", new ArrayList<>());
+        request.setAttribute("allHRMDocuments", new ArrayList<>());
+        request.setAttribute("allLabsSortedByVersions", new ArrayList<>());
+        request.setAttribute("allForms", new ArrayList<>());
+        request.setAttribute("allEForms", new ArrayList<>());
+        return "fetchDocuments";
+    }
+
+    private Integer parsePickerPatientOrRespondBadRequest(boolean allowAdminPreview) {
+        String value = request.getParameter(DEMOGRAPHIC_NO_PARAMETER);
+        if (StringUtils.isNullOrEmpty(value)) return 0;
+        Integer patient = parseIntegerParameterOrRespondBadRequest(value, DEMOGRAPHIC_NO_PARAMETER);
+        if (patient != null && patient < 0 && !(allowAdminPreview && patient == -1)) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            generateResponse(response, PreviewError.INVALID_REQUEST);
+            return null;
+        }
+        return patient;
     }
 
     private String parseRequiredParameterOrRespondBadRequest(String value, String parameterName) {

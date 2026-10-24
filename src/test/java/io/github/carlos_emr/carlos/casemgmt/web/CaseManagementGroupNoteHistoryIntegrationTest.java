@@ -10,6 +10,7 @@ import io.github.carlos_emr.carlos.commn.dao.GroupNoteDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupNoteDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
@@ -112,11 +113,21 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
 
     @Test
     void shouldLeaveTheOwnerRowNullsAndNoteOwnershipUntouched_whenDisplayingAnActualLinkedNote() {
-        // Explicit IDs advance H2's shared identity even after rollback; leave
-        // headroom for the demographic fixtures that run later in this JVM.
-        int owner = 900001;
-        entityManager.createNativeQuery("INSERT INTO demographic (demographic_no,first_name,last_name,sex,phone,phone2,chart_no,family_doctor,alias,pronoun,gender) "
-                + "VALUES (:owner,'Group','Synthetic','F',NULL,NULL,NULL,NULL,NULL,NULL,NULL)")
+        // Use a generated id: an explicit near-MAX_VALUE id advances H2's identity even after
+        // rollback and exhausts it in later test classes. The regression concerns null fields,
+        // not the numeric boundary. Keep this owner distinct from the linked recipient (202).
+        Demographic ownerPatient;
+        do {
+            ownerPatient = new Demographic();
+            ownerPatient.setFirstName("Group");
+            ownerPatient.setLastName("Synthetic");
+            ownerPatient.setSex("F");
+            entityManager.persist(ownerPatient);
+        } while (ownerPatient.getDemographicNo() == 202);
+        int owner = ownerPatient.getDemographicNo();
+        entityManager.flush();
+        entityManager.createNativeQuery("UPDATE demographic SET phone=NULL,phone2=NULL,chart_no=NULL,family_doctor=NULL,alias=NULL,pronoun=NULL,gender=NULL "
+                + "WHERE demographic_no=:owner")
                 .setParameter("owner", owner).executeUpdate();
         entityManager.createNativeQuery("UPDATE casemgmt_note SET demographic_no=:owner WHERE uuid=:uuid")
                 .setParameter("owner", owner).setParameter("uuid", shared.getUuid()).executeUpdate();

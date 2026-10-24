@@ -15,7 +15,13 @@ function fixture() {
     for (const prefix of ['set', 'instructions', 'quantity', 'method', 'route', 'frequency',
       'minimum', 'maximum', 'duration', 'durationUnit', 'quantityStr', 'unitName', 'prn', 'prnVal']) {
       const id = `${prefix}_${card}`;
-      elements.set(id, { id, value: '', textContent: '' });
+      // The page clears a refused dose's aria-invalid flag when the server recalculates it.
+      const attributes = new Map();
+      elements.set(id, {
+        id, value: '', textContent: '', attributes,
+        setAttribute(name, value) { attributes.set(name, String(value)); },
+        removeAttribute(name) { attributes.delete(name); },
+      });
     }
   }
   const requests = [];
@@ -34,6 +40,7 @@ function fixture() {
 
 test('a delayed staging quantity response cannot erase newer parsed directions (#5183)', () => {
   const f = fixture();
+  f.field('minimum').setAttribute('aria-invalid', 'true');
   f.context.updateQty(f.field('quantity'));
   f.field('instructions').value = '1 tab PO BID x 14 days';
   f.context.parseIntr(f.field('instructions'));
@@ -43,6 +50,7 @@ test('a delayed staging quantity response cannot erase newer parsed directions (
   assert.equal(f.field('duration').textContent, '14');
   assert.equal(f.field('quantityStr').textContent, '28');
   assert.equal(f.field('quantity').value, '28');
+  assert.equal(f.field('minimum').attributes.has('aria-invalid'), false);
 });
 
 test('the latest quantity calculation updates its card and does not invalidate another card', () => {
@@ -61,8 +69,10 @@ test('the latest quantity calculation updates its card and does not invalidate a
 
 test('a response for a discarded card cannot change a replacement with the same id', () => {
   const f = fixture();
+  f.field('minimum').setAttribute('aria-invalid', 'true');
   f.context.updateQty(f.field('quantity'));
   f.elements.set('set_11', {});
   f.reply(f.requests[0]);
   assert.equal(f.field('frequency').textContent, '');
+  assert.equal(f.field('minimum').attributes.get('aria-invalid'), 'true');
 });

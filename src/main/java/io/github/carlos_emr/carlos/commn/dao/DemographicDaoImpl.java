@@ -563,6 +563,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ")";
             parameters.put("providerNo", providerNo);
         }
+        // Exclude inaccessible patients before lookahead/pagination or selecting identifying columns.
+        if (!search.deniedPatients().isEmpty()) {
+            queryString += " AND d.demographicNo NOT IN (:deniedPatients)";
+            parameters.put("deniedPatients", search.deniedPatients());
+        }
         // Preserve database case/accent collation across pages; ID breaks equal-value ties.
         queryString += " ORDER BY " + getOrderField(search.orderBy()) + ", d.demographicNo";
         var query = entityManager().createQuery(queryString, Demographic.class);

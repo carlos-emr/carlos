@@ -1450,7 +1450,8 @@ function renderRxStage() {
              }
              data="elementId="+elementId+"&propertyValue="+encodeURIComponent(value);
              data = data + "&rand="+Math.floor(Math.random()*10001);
-             CarlosAjax.request(url, {method: 'post',parameters:data,
+             // Finish the card update before a Save click can submit the previous staged dose.
+             CarlosAjax.request(url, {method: 'post',parameters:data,synchronous:true,
                  onSuccess: function () {
                      // A corrected value was accepted: the field is no longer invalid.
                      if (el.carlosPropertyVersion === version) el.removeAttribute('aria-invalid');
@@ -1465,6 +1466,7 @@ function renderRxStage() {
                      } else if (error === 'INVALID_RX_REPEATS') {
                          reportInvalidProperty(el, RxInputValidation.format(jsMsg.repeatsInvalid, value));
                      } else {
+                         if (/^(minimum|maximum|repeats)_/.test(elementId)) el.setAttribute('aria-invalid', 'true');
                          reportRefusedRequest(transport);
                      }
                  }});
@@ -1492,6 +1494,17 @@ function renderRxStage() {
         el.className = 'highlight';
         el.setAttribute('aria-invalid', 'true');
         alert(message);
+    }
+
+    /** A refused inline edit must be corrected before saving the older staged value. */
+    function validateCardProperties() {
+        var invalid = document.querySelector('#drugForm [aria-invalid="true"]');
+        if (!invalid) return true;
+        var value = /^repeats_/.test(invalid.id) ? invalid.value : invalid.textContent;
+        reportInvalidProperty(invalid, RxInputValidation.format(
+            /^repeats_/.test(invalid.id) ? jsMsg.repeatsInvalid : jsMsg.doseInvalid, value));
+        invalid.focus();
+        return false;
     }
     function lookNonEdittable(elementId){
         document.getElementById(elementId).className='';
@@ -2715,6 +2728,8 @@ function updateQty(element){
                 document.getElementById(frequencyStr).textContent=json.frequency;
                 document.getElementById(minimumStr).textContent=json.takeMin;
                 document.getElementById(maximumStr).textContent=json.takeMax;
+                document.getElementById(minimumStr).removeAttribute('aria-invalid');
+                document.getElementById(maximumStr).removeAttribute('aria-invalid');
                 if(json.duration==null || json.duration=="null"){
                     document.getElementById(durationStr).textContent='';
                 }else{
@@ -2782,6 +2797,8 @@ function updateQty(element){
                 document.getElementById(frequencyStr).textContent=json.frequency;
                 document.getElementById(minimumStr).textContent=json.takeMin;
                 document.getElementById(maximumStr).textContent=json.takeMax;
+                document.getElementById(minimumStr).removeAttribute('aria-invalid');
+                document.getElementById(maximumStr).removeAttribute('aria-invalid');
                 if(json.duration==null || json.duration=="null"){
                     document.getElementById(durationStr).textContent='';
                 }else{
@@ -3036,6 +3053,7 @@ function updateQty(element){
 
 
     function updateSaveAllDrugsPrintContinue(){
+        if (!validateCardProperties()) return false;
     	if(!validateWrittenDate()) {
     		return false;
     	}
@@ -3076,6 +3094,7 @@ function updateQty(element){
     }
     
     function updateSaveAllDrugsContinue(){
+        if (!validateCardProperties()) return false;
     	if(!validateWrittenDate()) {
     		return false;
     	}
@@ -3128,6 +3147,14 @@ function updateQty(element){
             alert(jsMsg.staleDraft);
         } else if (transport && transport.status === 409) {
             alert(jsMsg.saveRefused);
+        } else if (transport && transport.responseJSON && /^INVALID_RX_PICKUP_(DATE|TIME)$/.test(transport.responseJSON.error)) {
+            var kind = transport.responseJSON.error === 'INVALID_RX_PICKUP_TIME' ? 'time' : 'date';
+            var badPickup = jQuery('input[name^="' + (kind === 'time' ? 'pickupTime_' : 'pickupDate_') + '"]').filter(function () {
+                return !(kind === 'time' ? RxInputValidation.pickupTime(this.value) : RxInputValidation.pickupDate(this.value)).ok;
+            }).first();
+            alert(RxInputValidation.format(kind === 'time' ? jsMsg.pickupTimeInvalid : jsMsg.pickupDateInvalid,
+                badPickup.length ? badPickup.val() : ''));
+            if (badPickup.length) badPickup.focus();
         } else if (transport && transport.responseJSON && transport.responseJSON.error === 'INVALID_RX_DATE') {
             // The server refused a written/start date that is not a real day (#5003); the cards
             // stay staged, so point at the field to correct.
