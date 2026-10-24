@@ -7,7 +7,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -135,6 +138,209 @@ class Rourke2020PdfReportIntegrationTest extends CarlosTestBase {
         return changes;
     }
 
+    /**
+     * Fills every field on the four main pages to capacity and compares the result with the blank
+     * form at the background scan's own resolution (issue #5046). On the blank form a field's box
+     * may hold only paper and the thin ruled lines it is written on; on the filled form every
+     * printed pixel must stay inside its own box and clear of printed text outside it. Together
+     * these keep record text off the form's labels, guidance and section headers. Before this
+     * layout the 12- and 24-month head circumferences overprinted "(avg 47 cm)" and "if prior
+     * abN", growth values touched their labels, full notes ran over the next section header,
+     * visit dates were crossed by the hand-fill slashes and long names ran into "Birth Day".
+     * Text extraction and the changed-pixel count above cannot see any of that.
+     */
+    @Test
+    void shouldKeepFullFields_clearOfPrintedForm() throws Exception {
+        java.awt.Font dejaVu;
+        try (var input = getClass().getResourceAsStream("/net/sf/jasperreports/fonts/dejavu/DejaVuSans.ttf")) {
+            dejaVu = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, input);
+        }
+        List<String> problems = new ArrayList<>();
+        for (int page = 1; page <= 4; page++) {
+            Properties blank = recordProperties("");
+            for (String key : List.of("c_birthDate", "p1_date1w", "c_male", "c_gestationalAge")) blank.setProperty(key, "");
+            Properties filled = (Properties) blank.clone();
+            Map<String, JRTextField> fields = new LinkedHashMap<>();
+            try (var input = getClass().getResourceAsStream("/oscar/form/rourke2020/page" + page + ".jrxml")) {
+                for (var band : JRXmlLoader.load(input).getDetailSection().getBands()) {
+                    for (JRElement element : band.getElements()) {
+                        if (!(element instanceof JRTextField field)) continue;
+                        String expression = field.getExpression().getText();
+                        if (!expression.matches("\\$P\\{\\w+}") || expression.contains("c_male") || expression.contains("c_female")) continue;
+                        String parameter = expression.substring(3, expression.length() - 1);
+                        fields.put(parameter, field);
+                        filled.setProperty(parameter, capacityText(parameter, field, dejaVu));
+                    }
+                }
+            }
+            BufferedImage form = renderPage(blank, page);
+            BufferedImage printed;
+            try (PDDocument pdf = Loader.loadPDF(print(filled, List.of(page)))) {
+                printed = new PDFRenderer(pdf).renderImageWithDPI(0, 108);
+                // Each full value must also be the text of its own box: the layout checks see pixels, not words.
+                for (Map.Entry<String, JRTextField> entry : fields.entrySet()) {
+                    JRTextField field = entry.getValue();
+                    PDFTextStripperByArea text = new PDFTextStripperByArea();
+                    text.addRegion("field", new Rectangle2D.Double(field.getX(), field.getY(), field.getWidth(), field.getHeight()));
+                    text.extractRegions(pdf.getPage(0));
+                    if (!text.getTextForRegion("field").replaceAll("\\s+", "")
+                            .equals(filled.getProperty(entry.getKey()).replaceAll("\\s+", ""))) {
+                        problems.add("page " + page + ": " + entry.getKey() + " box does not hold its full value");
+                    }
+                }
+            }
+            problems.addAll(layoutProblems(page, fields, form, printed));
+        }
+        assertThat(problems).isEmpty();
+    }
+
+    /** The longest value a field takes: five-character growth values, dates, or full lines of text. */
+    private static String capacityText(String parameter, JRTextField field, java.awt.Font dejaVu) {
+        if (parameter.matches("p\\d_(?:ht|wt|hc|bmi)\\w+")) return "888.8"; // the form's five-character limit; DejaVu digits are its widest
+        if (parameter.contains("date") || parameter.equals("c_birthDate")) return "28/12/2026";
+        float size = field.getFontSize();
+        var context = new java.awt.font.FontRenderContext(null, true, true);
+        java.awt.Font font = dejaVu.deriveFont(size);
+        String sample = "Hgy8|".repeat(200);
+        int length = 1;
+        while (font.getStringBounds(sample, 0, length + 1, context).getWidth() < field.getWidth() - 2) length++;
+        int lines = Math.max(1, (int) (field.getHeight() / (size * 1.17f)));
+        return String.join("\n", java.util.Collections.nCopies(lines, sample.substring(0, length)));
+    }
+
+    /** Renders one page at 108 dpi, the background scan's resolution: 1.5 pixels per template point. */
+    private static BufferedImage renderPage(Properties values, int page) throws Exception {
+        try (PDDocument pdf = Loader.loadPDF(print(values, List.of(page)))) {
+            return new PDFRenderer(pdf).renderImageWithDPI(0, 108);
+        }
+    }
+
+    private static List<String> layoutProblems(int page, Map<String, JRTextField> fields, BufferedImage form,
+                                               BufferedImage printed) {
+        int width = form.getWidth();
+        int height = form.getHeight();
+        int[] formPixels = form.getRGB(0, 0, width, height, null, 0, width);
+        int[] printedPixels = printed.getRGB(0, 0, width, height, null, 0, width);
+        boolean[] marked = new boolean[formPixels.length];
+        for (int i = 0; i < formPixels.length; i++) {
+            int rgb = formPixels[i];
+            // Darker than the faint speckle in the scan; the grey cell rules are about 227.
+            marked[i] = (((rgb >> 16) & 0xff) * 299 + ((rgb >> 8) & 0xff) * 587 + (rgb & 0xff) * 114) / 1000 < 240;
+        }
+        List<String> problems = new ArrayList<>();
+        List<Map.Entry<String, int[]>> boxes = new ArrayList<>();
+        fields.forEach((name, field) -> boxes.add(Map.entry(name, new int[]{Math.round(field.getX() * 1.5f),
+                Math.round(field.getY() * 1.5f), Math.round((field.getX() + field.getWidth()) * 1.5f),
+                Math.round((field.getY() + field.getHeight()) * 1.5f)})));
+        int[] owner = new int[formPixels.length];
+        Arrays.fill(owner, -1);
+        for (int b = 0; b < boxes.size(); b++) {
+            int[] r = boxes.get(b).getValue();
+            for (int other = 0; other < b; other++) {
+                int[] o = boxes.get(other).getValue();
+                if (r[0] < o[2] && o[0] < r[2] && r[1] < o[3] && o[1] < r[3]) {
+                    problems.add("page " + page + ": " + boxes.get(other).getKey() + " and " + boxes.get(b).getKey() + " overlap");
+                }
+            }
+            for (int y = r[1]; y < r[3]; y++) Arrays.fill(owner, y * width + r[0], y * width + r[2], b);
+        }
+        for (int b = 0; b < boxes.size(); b++) {
+            String name = boxes.get(b).getKey();
+            int[] r = boxes.get(b).getValue();
+            boolean exempt = name.equals("c_birthDate"); // printed across its d/m/yy guide; there is no blank space for it
+            // Thin rules the field is written on, including ones just past its edges, and their antialiased fringes.
+            int top = Math.max(0, r[1] - 4);
+            int bottom = Math.min(height, r[3] + 4);
+            boolean[] rule = new boolean[bottom - top];
+            int run = 0;
+            for (int y = top; y < bottom; y++) {
+                int count = 0;
+                for (int x = r[0]; x < r[2]; x++) if (marked[y * width + x]) count++;
+                rule[y - top] = count * 2 >= r[2] - r[0];
+                run = rule[y - top] && y >= r[1] && y < r[3] ? run + 1 : 0;
+                if (run == 6 && !exempt) problems.add("page " + page + ": " + name + " box covers a printed band");
+            }
+            boolean[] onRule = new boolean[rule.length];
+            for (int y = 0; y < rule.length; y++) {
+                for (int d = -3; d <= 3; d++) onRule[y] |= y + d >= 0 && y + d < rule.length && rule[y + d];
+            }
+            if (!exempt) {
+                // On the blank form the box may hold those rules, nothing else.
+                int stray = 0;
+                String first = "";
+                for (int y = r[1]; y < r[3]; y++) {
+                    if (onRule[y - top]) continue;
+                    for (int x = r[0]; x < r[2]; x++) {
+                        if (marked[y * width + x] && stray++ == 0) first = " near point " + x * 2 / 3 + "," + y * 2 / 3;
+                    }
+                }
+                if (stray > 0) problems.add("page " + page + ": " + name + " box covers " + stray + " pixels of printed text" + first);
+            }
+            // Printed pixels must stay in their own box, two pixels clear of print outside it.
+            int touching = 0;
+            for (int y = top; y < bottom && !exempt; y++) {
+                for (int x = Math.max(0, r[0] - 3); x < Math.min(width, r[2] + 3); x++) {
+                    int i = y * width + x;
+                    if (printedPixels[i] == formPixels[i] || owner[i] != b) continue;
+                    for (int dy = -2; dy <= 2; dy++) {
+                        for (int dx = -2; dx <= 2; dx++) {
+                            int ny = y + dy;
+                            int nx = x + dx;
+                            if (ny < 0 || nx < 0 || ny >= height || nx >= width) continue;
+                            boolean ruled = ny >= top && ny < bottom && onRule[ny - top];
+                            int n = ny * width + nx;
+                            if (marked[n] && owner[n] != b && !ruled) touching++;
+                        }
+                    }
+                }
+            }
+            if (touching > 0) problems.add("page " + page + ": " + name + " text touches the printed form next to its box");
+        }
+        int outside = 0;
+        for (int i = 0; i < formPixels.length; i++) if (printedPixels[i] != formPixels[i] && owner[i] < 0) outside++;
+        if (outside > 0) problems.add("page " + page + ": " + outside + " printed pixels fall outside every field box");
+        return problems;
+    }
+
+    /** Fields that would overprint the next section shrink a long entry instead (issue #5046). */
+    @Test
+    void shouldShrinkLongEntries_insteadOfOverprintingTheForm() throws Exception {
+        Properties values = recordProperties("FAKE-SHRINK");
+        List<String> concern = new ArrayList<>();
+        for (int line = 1; line <= 6; line++) concern.add("FAKE-CONCERN-" + line + " feeding and sleep reviewed");
+        values.setProperty("p4_pConcern18m", String.join("\n", concern));
+        values.setProperty("p4_problems24m", String.join("\n", concern).replace("CONCERN", "PLAN"));
+        values.setProperty("p4_hc24m", "47.25 cm");
+        try (PDDocument pdf = Loader.loadPDF(print(values, List.of(4)))) {
+            String text = new PDFTextStripper().getText(pdf);
+            for (int line = 1; line <= 6; line++) assertThat(text).contains("FAKE-CONCERN-" + line, "FAKE-PLAN-" + line);
+            PDFTextStripperByArea headCircumference = new PDFTextStripperByArea();
+            headCircumference.addRegion("value", new Rectangle2D.Double(956, 432, 60, 22));
+            headCircumference.extractRegions(pdf.getPage(0));
+            assertThat(headCircumference.getTextForRegion("value").strip()).isEqualTo("47.25 cm");
+        }
+    }
+
+    @Test
+    void shouldRefuseEntries_tooLongToReadAtTheSmallestSize() {
+        Properties values = recordProperties("FAKE-TOO-LONG");
+        values.setProperty("p4_problems18m", "FAKE plan line\n".repeat(60));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        assertThatThrownBy(() -> Rourke2020PdfReport.write(output, values, List.of(4)))
+                .isInstanceOf(Rourke2020PdfReport.RenderingException.class)
+                .hasMessageContaining("does not fit").hasMessageNotContaining("FAKE");
+        assertThat(output.size()).isZero();
+    }
+
+    @Test
+    void shouldLeaveFieldsBlank_whenRecordHasNoValue() throws Exception {
+        Properties values = recordProperties("FAKE-NO-GESTATION");
+        values.remove("c_gestationalAge");
+        try (PDDocument pdf = Loader.loadPDF(print(values, List.of(1, 2, 3, 4)))) {
+            assertThat(new PDFTextStripper().getText(pdf)).contains("FAKE-NO-GESTATION").doesNotContain("null");
+        }
+    }
+
     @Test
     void shouldRefuseUnsupportedCharacters_withoutWritingAnyPdfBytes() {
         Properties values = recordProperties("FAKE-患者");
@@ -222,7 +428,7 @@ class Rourke2020PdfReportIntegrationTest extends CarlosTestBase {
             assertThat(text).contains("FAKE-SECOND", "08/01/2026").doesNotContain("FAKE-FIRST", "null");
             // Inspect each visit's actual printed date box. Whole-document searches
             // cannot distinguish a blank field from a default date or placeholder.
-            int[] dateRows = {340, 335, 335, 320};
+            int[] dateRows = {327, 324, 324, 317};
             for (int page = 0; page < dateRows.length; page++) {
                 PDFTextStripperByArea dates = new PDFTextStripperByArea();
                 for (int visit = 0; visit < 3; visit++) {

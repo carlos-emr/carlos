@@ -553,9 +553,13 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
+    // "Save and Print Receipt" is the button's value; the old "Save & Print Receipt" is still honoured for a review
+    // page rendered before the change (the packaged WAF refuses that value with rule 932115, so only a direct
+    // Tomcat request can still send it).
+    @ParameterizedTest
+    @ValueSource(strings = {"Save and Print Receipt", "Save & Print Receipt"})
     @DisplayName("should save bill update appointment and redirect receipt when session is valid")
-    void shouldSaveBillUpdateAppointmentAndRedirectReceipt_whenSessionIsValid() throws Exception {
+    void shouldSaveBillUpdateAppointmentAndRedirectReceipt_whenSessionIsValid(String submit) throws Exception {
         request.setMethod("POST");
         request.setContextPath("/carlos");
         request.addParameter("dispPrice+00100", "125.50");
@@ -593,7 +597,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
             when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                     .thenReturn(true);
             BillingSaveBilling2Action action = new BillingSaveBilling2Action();
-            action.setSubmit("Save & Print Receipt");
+            action.setSubmit(submit);
 
             String result = action.execute();
 

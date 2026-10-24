@@ -13,6 +13,7 @@ const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
+const { statementInvoiceRows } = require('./lib/end-year-statement-pdf');
 const { openAdminFrame } = require('./billing-on-ohip-simulation-report-playwright-checks');
 const { seedOwnedBill } = require('./billing-on-invoice-third-party-playwright-checks');
 
@@ -85,9 +86,10 @@ async function workflow(s) {
     h.assert(/%%EOF\s*$/.test(bytes.subarray(-64).toString('latin1')), 'The PDF contains trailing response bytes');
     const text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', timeout: 15000 });
     h.assert(text.includes('End Year Statement') && text.includes(s.marker), 'The PDF has the wrong patient or title');
-    const words = text.split(/\s+/);
-    h.assert(selected.every(b => words.includes(b.headerId) && text.includes(b.code)), 'The PDF omitted an eligible invoice or service');
-    h.assert(bills.slice(2).every(b => !words.includes(b.headerId)), 'The PDF contains a deleted, OHIP or out-of-range invoice');
+    const expectedRows = selected.map(b => ({ id: b.headerId, date: b.date, invoiced: b.fee, paid: b.paid }));
+    h.assert(JSON.stringify(statementInvoiceRows(text)) === JSON.stringify(expectedRows),
+      'The PDF invoice rows do not match the PAT/patient/date selection');
+    h.assert(selected.every(b => text.includes(b.code)), 'The PDF omitted an eligible service code');
     h.assert(text.includes(invoiced) && text.includes(paid), 'The PDF totals do not match the eligible invoices');
   });
 
