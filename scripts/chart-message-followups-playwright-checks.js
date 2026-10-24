@@ -165,32 +165,53 @@ async function workflow(s) {
         && JSON.stringify(href.searchParams.getAll('curProviderNo')) === JSON.stringify([provider]),
       'The message E href does not identify the owned patient and provider exactly once');
 
-      // ViewMessage intentionally reuses the named encounter window. Observe its
-      // real navigation when the earlier chart step has already opened that window.
+      // A related opener may reuse the named chart; an unrelated messenger tab
+      // opens a new one. Observe both real outcomes without changing window names.
       const named = [];
       for (const candidate of context.pages()) {
         if (candidate !== page && await candidate.evaluate(() => window.name).catch(() => '') === 'encounter') {
           named.push(candidate);
         }
       }
-      h.assert(named.length <= 1, 'More than one encounter window exists in the workflow context');
+      const listeners = [];
+      let timer;
+      const opened = new Promise((resolve, reject) => {
+        const popup = candidate => resolve(candidate);
+        context.on('page', popup);
+        listeners.push(() => context.off('page', popup));
+        for (const candidate of named) {
+          const navigate = frame => { if (frame === candidate.mainFrame()) resolve(candidate); };
+          candidate.on('framenavigated', navigate);
+          listeners.push(() => candidate.off('framenavigated', navigate));
+        }
+        timer = setTimeout(() => reject(new Error('The message E link opened no chart window')), 20000);
+      });
+      opened.catch(() => {});
       let chart;
-      if (named.length) {
-        [chart] = named;
-        await Promise.all([chart.waitForNavigation({waitUntil: 'domcontentloaded'}), link.click()]);
-      } else {
-        chart = await s.popup(page, link, 'message-linked-patient-chart');
+      try {
+        await link.click();
+        chart = await opened;
+      } finally {
+        clearTimeout(timer);
+        for (const detach of listeners) detach();
       }
+      const entryPath = new URL(url('/CaseManagementEntry'));
+      const viewPath = new URL(url('/CaseManagementView'));
+      const isChartDestination = destination => destination.origin === entryPath.origin
+        && (destination.pathname === viewPath.pathname || (destination.pathname === entryPath.pathname
+          && destination.searchParams.get('method') === 'setUpMainEncounter'
+          && destination.searchParams.get('chain') === 'list'));
+      await chart.waitForURL(isChartDestination, {waitUntil: 'domcontentloaded'});
       await waitForNavbars(chart, 20000);
       const destination = new URL(chart.url());
-      const chartPath = new URL(url('/CaseManagementView'));
-      h.assert(destination.origin === chartPath.origin && destination.pathname === chartPath.pathname
+      h.assert(isChartDestination(destination)
         && JSON.stringify(destination.searchParams.getAll('demographicNo')) === JSON.stringify([patient]),
       'The message E link opened an incorrect application path or patient chart');
       h.assert(destination.searchParams.getAll('chartContext').length === 1
         && Boolean(destination.searchParams.get('chartContext')),
       'The message E link did not establish exactly one signed chart context');
-      h.assert(await chart.evaluate(() => String(globalThis.demographicNo)) === patient,
+      h.assert(await chart.locator('#caseManagementEntryForm input[name="demographicNo"]').inputValue() === patient
+        && await chart.evaluate(() => String(globalThis.demographicNo)) === patient,
         'The message E link rendered another patient in the chart editor');
     } finally { await page.close(); }
   });
