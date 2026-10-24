@@ -490,6 +490,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Message view (#4133): viewing permits GET; linkMsgDemo=true writes a msgDemoMap row and
         // must be a POST. Covered by MsgViewMessage2ActionUnitTest.
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action",
+        // A patient's message list permits GET; a selected messageNo array unlinks messages
+        // and requires POST. Covered by MsgDisplayDemographicMessages2ActionUnitTest.
+        "io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayDemographicMessages2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // Lab display settings (#3977): the view permits GET; dboperation=Save must be a POST.
         // Covered by LabDisplaySettings2ActionUnitTest.

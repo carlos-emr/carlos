@@ -212,7 +212,10 @@ async function workflow(s) {
 
   await s.step('shared chart messages require their linked patient and preserve that patient through quotes and attachments', async () => {
     let otherPatient;
-    const otherName = `${marker} other chart`;
+    // demographic.last_name is VARCHAR(30); retain the full ownership marker and
+    // a short suffix so both the privacy assertion and cleanup compare stored text.
+    const otherName = `${marker} other`;
+    h.assert(otherName.length <= 30, 'The other shared-message patient name exceeds its schema limit');
     s.cleanup(() => {
       if (!otherPatient) return;
       h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${otherPatient}
@@ -227,6 +230,8 @@ async function workflow(s) {
          provider_no,hc_type,province,roster_status,lastUpdateDate)
       VALUES(${q(otherName)},'Workflow','1980','01','02','F','AC',${q(provider)},'ON','ON','NR',NOW())`,
     'other shared-message patient');
+    h.assert(sql.value(`SELECT last_name FROM demographic WHERE demographic_no=${otherPatient}`) === otherName,
+      'The other shared-message patient name was not stored intact');
     const pdf = textPdf(`${marker} shared chart attachment`);
     const pdfXml = `<PDF><FILE_ID>0</FILE_ID><STATUS>OK</STATUS><TITLE>${marker} shared chart attachment</TITLE>`
       + `<CONTENT>${pdf.toString('base64')}</CONTENT></PDF>`;
