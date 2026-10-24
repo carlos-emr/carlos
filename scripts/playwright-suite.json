@@ -1102,9 +1102,10 @@
       ],
       "timeoutSec": 120,
       "env": [
-        "PATHNET_LABS"
+        "PATHNET_LABS",
+        "PATHNET_JOURNAL_UNIT"
       ],
-      "fixtures": "Owned synthetic patient and three legacy BCP reports (final, preliminary and one holding both a final and a preliminary result); requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in.",
+      "fixtures": "Owned synthetic patient and four legacy BCP reports (final, preliminary, mixed F/P and mixed F/I); requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in. Set PATHNET_JOURNAL_UNIT=carlos-emr.service on a packaged install to require a readable journal cursor and reject factory warnings/errors from this check's requests (#5189).",
       "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows. Last, the regression check for app-findings-log.md finding 165 (fixed, #4552): a report with both an F and a P result is listed as Partial, not Final (the report status aggregate used to be the alphabetical MIN of its OBR statuses). BC-only: it ends SKIP on an Ontario install (the hl7_* tables exist only on a schema the BC migrations built) (issue #4439)."
     },
     {
@@ -2067,7 +2068,7 @@
       "timeoutSec": 120,
       "env": [],
       "fixtures": "Owned synthetic patient and four medications; cleanup verifies their removal.",
-      "notes": "Delay real responses to check section order, rapid selections, long-term-status refresh, failed-section refusal and retry."
+      "notes": "Delay real responses to check section order, rapid selections, long-term-status refresh (whose replacement keeps the Non-Authoritative tick and comment, #5056), failed-section refusal and retry."
     },
     {
       "name": "rx-stash-deletion",
@@ -13298,7 +13299,7 @@
         "wcb_bp_code",
         "wcb_noi_code"
       ],
-      "notes": "The BC WCB form's code lookups, which billing-bc-wcb-form fills by typing (billing-bc-adjust-bill-code-search's diagnosis search is Adjust Bill's ViewBillingDigNewSearch, another page): Create Invoice ▸ WCB ▸ New WCB Form ▸ Search beside ICD9, Body Part and Nature of Injury (support/Icd9, support/BodyPart, support/NatureInjury). The ICD9 lookup lists the codes for the typed text and a pick fills exactly the ICD9 box; the Body Part and Nature of Injury lookups list the owned code and a pick fills exactly that box. The last step, the install lists WorkSafeBC side, body part and nature-of-injury codes of its own, failed on a Flyway-built BC install until bc/V1.0.59.3 restored the reference rows (#5062): wcb_side, wcb_bp_code and wcb_noi_code were empty, so the Side list had no options and both lookups listed nothing but the owned codes. It passes on a fresh BC deb install with that migration.",
+      "notes": "The BC WCB form's code lookups, which billing-bc-wcb-form fills by typing (billing-bc-adjust-bill-code-search's diagnosis search is Adjust Bill's ViewBillingDigNewSearch, another page): Create Invoice ▸ WCB ▸ New WCB Form ▸ Search beside ICD9, Body Part and Nature of Injury (support/Icd9, support/BodyPart, support/NatureInjury). The ICD9 lookup lists the codes for the typed text and a pick fills exactly the ICD9 box; the Body Part and Nature of Injury lookups list the owned code and a pick fills exactly that box. The last step verifies all four seeded WorkSafeBC Side choices and real body-part/injury codes for empty and matching-text searches, including leading zeroes (#5062, findings log 444). Each pick fills exactly its intended box.",
       "fixtures": "One billing physician (bc.createBillingPhysician), the owned FAKE patient made a BC patient, and one wcb_bp_code and one wcb_noi_code row carrying the run marker with a non-numeric code no WorkSafeBC code uses. The two code tables are clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup deletes the owned code rows by marker, the patient's BC billing rows and the physician, and asserts each is gone."
     },
     {
@@ -13619,7 +13620,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned synthetic patient and marker-named custom drugs saved through the UI; cleanup removes the patient's drugs, prescription, partial_date, drugReason and DigitalSignature rows and asserts none remain. No DrugRef data needed.",
-      "notes": "Checks option save/renewal restoration and correct 24-hour noon pickup storage; #4799 is fixed by #4800."
+      "notes": "Checks option save/renewal restoration, that a ReRx renewal starts with the Non-Authoritative tick clear and no Comment while its source keeps both (#5056), and correct 24-hour noon pickup storage; #4799 is fixed by #4800."
     },
     {
       "name": "rx-prescription-lifecycle",
@@ -15345,7 +15346,7 @@
         "RX_RENEWAL_FIELD": "authoritative"
       },
       "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
-      "notes": "ReRx an owned medication, set Non Authoritative on the replacement, save and inspect the actual saved record; preserve source and untouched control."
+      "notes": "ReRx an owned medication, set Non Authoritative on the replacement, save and inspect the actual saved record, then ReRx it again and expect the tick clear (a renewal is an original, #5056); preserve source and untouched control."
     },
     {
       "name": "rx-renewal-outside-provider",
@@ -15505,7 +15506,7 @@
         "RX_RENEWAL_FIELD": "comment"
       },
       "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
-      "notes": "ReRx an owned medication, add a new prescribing-event comment, save and inspect the actual saved record; preserve source and untouched control."
+      "notes": "ReRx an owned medication, add a new prescribing-event comment, save and inspect the actual saved record, then ReRx it again and expect an empty Comment (#5056); preserve source and untouched control."
     },
     {
       "name": "rx-renewal-pickup",
@@ -16249,6 +16250,38 @@
         "secUserRole"
       ],
       "notes": "Issue #3585: reprint audit writes require global and patient-scoped write; rejects GET/HEAD and tokenless POST, with browser reprint and persisted audit assertions."
+    },
+    {
+      "name": "pathnet-patient-link",
+      "script": "scripts/pathnet-patient-link-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "manual": true,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "mutates": [
+        "log",
+        "demographic",
+        "hl7_message",
+        "hl7_msh",
+        "hl7_pid",
+        "hl7_orc",
+        "hl7_obr",
+        "hl7_obx",
+        "hl7_link",
+        "patientLabRouting",
+        "providerLabRouting",
+        "providerLabRoutingLock",
+        "fileUploadCheck"
+      ],
+      "fixtures": "Disposable BC package install with OLD_LAB_UPLOAD=yes and PATHNET_LABS=yes; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Uses owned FAKE patients and removes their segment, link, routing and upload rows."
     },
     {
       "name": "rx-strength-quantity",
