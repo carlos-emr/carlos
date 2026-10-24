@@ -50,16 +50,15 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 
 
-<input type="hidden" name="primaryPhysician" id="primaryPhysician"/>
-<input type="hidden" name="primaryCounsellor" id="primaryCounsellor"/>
-<input type="hidden" name="otherFileNumber" id="otherFileNumber"/>
-
-<input type="hidden" name="familyHistory" id="familyHistory"/>
-<input type="hidden" name="medicalHistory" id="medicalHistory"/>
-<input type="hidden" name="socialHistory" id="socialHistory"/>
-
-<input type="hidden" name="pastMedications" id="pastMedications"/>
-<input type="hidden" name="otherSupportSystems" id="otherSupportSystems"/>
+<input type="hidden" name="cpp.primaryPhysician" value="${carlos:forHtmlAttribute(requestScope.cpp.primaryPhysician)}"/>
+<input type="hidden" name="cpp.primaryCounsellor" value="${carlos:forHtmlAttribute(requestScope.cpp.primaryCounsellor)}"/>
+<input type="hidden" name="cpp.otherFileNumber" value="${carlos:forHtmlAttribute(requestScope.cpp.otherFileNumber)}"/>
+<input type="hidden" name="cpp.familyHistory" value="${carlos:forHtmlAttribute(requestScope.cpp.familyHistory)}"/>
+<input type="hidden" name="cpp.medicalHistory" value="${carlos:forHtmlAttribute(requestScope.cpp.medicalHistory)}"/>
+<input type="hidden" name="cpp.socialHistory" value="${carlos:forHtmlAttribute(requestScope.cpp.socialHistory)}"/>
+<input type="hidden" name="cpp.pastMedications" value="${carlos:forHtmlAttribute(requestScope.cpp.pastMedications)}"/>
+<input type="hidden" name="cpp.otherSupportSystems" value="${carlos:forHtmlAttribute(requestScope.cpp.otherSupportSystems)}"/>
+<input type="hidden" name="cpp.ongoingConcerns" value="${carlos:forHtmlAttribute(requestScope.cpp.ongoingConcerns)}"/>
 
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
@@ -67,10 +66,10 @@
         <td>Reminders</td>
     </tr>
     <tr>
-        <td bgcolor="white"><textarea name="reminders" rows="4" cols="85"></textarea></td>
+        <td bgcolor="white"><textarea name="cpp.reminders" rows="4" cols="85"><c:out value="${requestScope.cpp.reminders}"/></textarea></td>
     </tr>
 </table>
-<input type="submit" name="submit" value="save" onclick="this.form.method.value='patientCPPSave'"/>
+<input type="submit" value="Save" onclick="this.form.elements.namedItem('method').value='patientCPPSave'"/>
 <c:if test="${not empty messages}">
     <c:forEach var="message" items="${messages}">
         <div style="color: blue"><I>${carlos:forHtml(message)}</I></div>

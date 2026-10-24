@@ -14,8 +14,11 @@ async function workflow(s) {
   const ids = [];
   s.cleanup(() => {
     sql.execute(`DELETE FROM casemgmt_cpp WHERE demographic_no=${patient}`);
+    sql.execute(`DELETE FROM eChart WHERE demographicNo=${patient}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_cpp WHERE demographic_no=${patient}`) === '0',
       'Owned CPP remains after cleanup');
+    h.assert(sql.value(`SELECT COUNT(*) FROM eChart WHERE demographicNo=${patient}`) === '0',
+      'Owned legacy chart remains after cleanup');
   });
   s.cleanup(() => {
     if (!ids.length) return;
@@ -28,36 +31,62 @@ async function workflow(s) {
 
   await s.step('an orphaned appointment does not prevent the day sheet from rendering', async () => {
     const missingPatient = Number(sql.value('SELECT MAX(demographic_no) FROM demographic')) + 100;
+    const date = sql.value('SELECT CURDATE()');
+    const [year, month, day] = date.split('-');
     const appointment = h.insertId(sql, `INSERT INTO appointment(provider_no,appointment_date,start_time,end_time,
         name,demographic_no,notes,reason,location,resources,type,style,billing,status,createdatetime,creator)
-      VALUES(${q(provider)},CURDATE(),'09:00:00','09:15:00',${q(marker + ' orphan')},${missingPatient},
+      VALUES(${q(provider)},${q(date)},'09:00:00','09:15:00',${q(marker + ' orphan')},${missingPatient},
         '','','','',NULL,'','','t',NOW(),${q(provider)})`, 'orphan appointment');
     s.cleanup(() => {
       sql.execute(`DELETE FROM appointment WHERE appointment_no=${appointment} AND name=${q(marker + ' orphan')}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no=${appointment}`) === '0',
         'Owned orphan appointment remains after cleanup');
     });
-    const response = await s.schedule.reload();
-    h.assert(response.status() === 200 && (await s.schedule.locator('body').innerText()).includes(marker + ' orphan'),
-      'A deleted patient prevented the day sheet from rendering its appointment');
+    const response = await s.schedule.goto(url(`/provider/providercontrol?year=${year}&month=${month}&day=${day}`
+      + `&view=1&curProvider=${encodeURIComponent(provider)}&displaymode=day&dboperation=searchappointmentday`));
+    const appointmentLink = s.schedule.locator(`a[onclick*="/appointment/editappointment?appointment_no=${appointment}&"]`).first();
+    h.assert(response.status() === 200, `The orphan appointment day sheet returned HTTP ${response.status()}`);
+    h.assert(await appointmentLink.count() === 1,
+      'The orphan appointment is absent from its provider and date on the day sheet');
+    h.assert((await appointmentLink.getAttribute('data-title-full') || '').includes(marker + ' orphan'),
+      'The orphan appointment lost its saved name in the full appointment tooltip');
   });
 
   await s.step('the legacy chart owner renders its current issues and populated client history tabs', async () => {
+    const originalReminder = `${marker} original reminder`;
+    sql.execute(`INSERT INTO casemgmt_cpp(demographic_no,provider_no,reminders,ongoingConcerns)
+      VALUES(${patient},${q(provider)},${q(originalReminder)},'FAKE-PW concern')`);
     const page = await context.newPage();
     for (const [tab, text] of [['Current Issues', 'Issue Filter'], ['Client History', 'Social History']]) {
-      const response = await page.goto(url(`/CaseManagementView?method=view&demographicNo=${patient}&tab=${encodeURIComponent(tab)}`));
+      const response = tab === 'Current Issues'
+        ? await page.goto(url(`/CaseManagementView?method=view&demographicNo=${patient}&tab=${encodeURIComponent(tab)}`))
+        : (await Promise.all([page.waitForNavigation(), page.getByText(tab, {exact: true}).click()]))[0];
       h.assert(response.status() === 200, `${tab} returned HTTP ${response.status()}`);
+      await h.assertNotErrorPage(page, tab);
       h.assert((await page.locator('body').innerText()).includes(text), `${tab} failed to render its fragment`);
       h.assert(await page.locator('input[name="demographicNo"]').first().inputValue() === patient,
         `${tab} lost its patient context`);
     }
     const history = `${marker} patient history`;
     await page.locator('textarea[name="cpp.socialHistory"]').fill(history);
+    await page.locator('textarea[name="cpp.otherSupportSystems"]').fill(`${marker} support`);
     await Promise.all([page.waitForNavigation(), page.locator('input[type="submit"][value="Save"]').click()]);
     h.assert(sql.value(`SELECT socialHistory FROM casemgmt_cpp WHERE demographic_no=${patient}`) === history,
       'The legacy CPP form did not save the named patient history');
     h.assert(await page.locator('textarea[name="cpp.socialHistory"]').inputValue() === history,
       'The saved history was lost on redisplay');
+    h.assert(sql.value(`SELECT reminders FROM casemgmt_cpp WHERE demographic_no=${patient}`) === originalReminder,
+      'Saving history erased the reminder from another tab');
+    await Promise.all([page.waitForNavigation(), page.getByText('Reminders', {exact: true}).first().click()]);
+    h.assert(await page.locator('textarea[name="cpp.reminders"]').inputValue() === originalReminder,
+      'The reminder tab lost its saved text');
+    await page.locator('textarea[name="cpp.reminders"]').fill(`${marker} updated reminder`);
+    await Promise.all([page.waitForNavigation(), page.locator('input[type="submit"][value="Save"]').click()]);
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_cpp WHERE demographic_no=${patient}
+      AND socialHistory=${q(history)} AND otherSupportSystems=${q(marker + ' support')}
+      AND reminders=${q(marker + ' updated reminder')}
+      AND ongoingConcerns='FAKE-PW concern'`) === '1',
+    'Saving the reminder lost history or other patient fields');
     await page.close();
   });
 

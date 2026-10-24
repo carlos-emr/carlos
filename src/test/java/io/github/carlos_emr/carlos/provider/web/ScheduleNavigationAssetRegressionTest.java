@@ -82,8 +82,8 @@ class ScheduleNavigationAssetRegressionTest {
      * append the schedule navigation flag after box/demographic parameters.
      */
     private static final String STATUS_SORT_LINK_PATTERN =
-            "DisplayMessages?orderby=status<%=boxTypeQuerySuffix%>"
-                    + "<%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>";
+            "DisplayMessages?orderby=<%= \"status\".equals(orderby) ? \"!status\" : \"status\" %>"
+                    + "<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>";
     /**
      * Verifies message-detail links retain both the selected mailbox and the
      * focused schedule-shell flag when users drill into an individual message.

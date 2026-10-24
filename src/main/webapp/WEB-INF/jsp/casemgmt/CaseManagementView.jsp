@@ -65,10 +65,10 @@
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/oscarClientManagement/profilePicture.js"></script>
 </head>
 <body>
-    <form action="${pageContext.request.contextPath}/CaseManagementView" method="get">
-        <input type="hidden" name="demographicNo" id="demographicNo"/>
-        <input type="hidden" name="providerNo" id="providerNo"/>
-        <input type="hidden" name="tab" id="tab"/>
+    <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
+        <input type="hidden" name="demographicNo" id="demographicNo" value="${carlos:forHtmlAttribute(requestScope.demographicNo)}"/>
+        <input type="hidden" name="providerNo" id="providerNo" value="${carlos:forHtmlAttribute(sessionScope.user)}"/>
+        <input type="hidden" name="tab" id="tab" value="${carlos:forHtmlAttribute(param.tab)}"/>
         <input type="hidden" name="id" id="id"/>
         <input type="hidden" name="hideActiveIssue" id="hideActiveIssue"/>
         <input type="hidden" name="issue_code" value=""/>

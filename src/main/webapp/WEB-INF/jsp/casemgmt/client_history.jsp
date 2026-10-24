@@ -50,7 +50,8 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
-<input type="hidden" name="reminders" id="reminders"/>
+<input type="hidden" name="cpp.reminders" value="${carlos:forHtmlAttribute(requestScope.cpp.reminders)}"/>
+<input type="hidden" name="cpp.ongoingConcerns" value="${carlos:forHtmlAttribute(requestScope.cpp.ongoingConcerns)}"/>
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
     <%if (!CarlosProperties.getInstance().isTorontoRFQ()) { %>
@@ -58,6 +59,8 @@
         <td bgcolor="white">Primary Health Care Provider</td>
         <td bgcolor="white"><input type="text" name="cpp.primaryPhysician" id="cpp.primaryPhysician" value="${carlos:forHtmlAttribute(requestScope.cpp.primaryPhysician)}" /></td>
     </tr>
+    <%} else { %>
+    <input type="hidden" name="cpp.primaryPhysician" value="${carlos:forHtmlAttribute(requestScope.cpp.primaryPhysician)}"/>
     <%} %>
     <tr>
         <td bgcolor="white">Primary Counsellor/Caseworker</td>
@@ -103,11 +106,11 @@
     </tr>
     <tr>
         <td colspan="2" bgcolor="white"><textarea
-                name="otherSupportSystems" rows="2" cols="95"></textarea></td>
+                name="cpp.otherSupportSystems" rows="2" cols="95"><c:out value="${requestScope.cpp.otherSupportSystems}"/></textarea></td>
     </tr>
 </table>
-<input type="submit" name="submit" value="Save" onclick="this.form.method.value='patientCPPSave'"/>
-<input type="submit" name="submit" value="Print Preview" onclick="this.form.method.value='patientCppPrintPreview'" />
+<input type="submit" value="Save" onclick="this.form.elements.namedItem('method').value='patientCPPSave'"/>
+<input type="submit" value="Print Preview" onclick="this.form.elements.namedItem('method').value='patientCppPrintPreview'" />
 <c:if test="${not empty requestScope.messages}">
     <c:forEach var="message" items="${requestScope.messages}">
         <div style="color: blue"><I><c:out value="${message}"/></I></div>

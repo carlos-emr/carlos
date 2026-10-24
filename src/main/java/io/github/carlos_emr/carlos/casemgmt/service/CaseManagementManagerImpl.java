@@ -1031,7 +1031,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         if (progList.isEmpty()) {
-            return null;
+            return Collections.emptyList();
         }
 
         List<AccessType> rt = new ArrayList<AccessType>();

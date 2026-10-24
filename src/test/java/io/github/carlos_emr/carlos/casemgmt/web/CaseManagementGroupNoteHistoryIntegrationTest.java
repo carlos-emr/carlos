@@ -112,10 +112,14 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
 
     @Test
     void shouldLeaveTheOwnerRowNullsAndNoteOwnershipUntouched_whenDisplayingAnActualLinkedNote() {
-        int owner = 2147483000;
-        entityManager.createNativeQuery("INSERT INTO demographic (demographic_no,first_name,last_name,sex,phone,phone2,chart_no,family_doctor,alias,pronoun,gender) "
-                + "VALUES (:owner,'Group','Synthetic','F',NULL,NULL,NULL,NULL,NULL,NULL,NULL)")
-                .setParameter("owner", owner).executeUpdate();
+        // Explicit near-MAX_VALUE IDs advance H2's shared identity sequence even after rollback.
+        // Let the database allocate this fixture so subsequent integration tests retain ID space.
+        String ownerName = java.util.UUID.randomUUID().toString().substring(0, 24);
+        entityManager.createNativeQuery("INSERT INTO demographic (first_name,last_name,sex,phone,phone2,chart_no,family_doctor,alias,pronoun,gender) "
+                + "VALUES (:name,'Synthetic','F',NULL,NULL,NULL,NULL,NULL,NULL,NULL)")
+                .setParameter("name", ownerName).executeUpdate();
+        int owner = ((Number) entityManager.createNativeQuery("SELECT demographic_no FROM demographic WHERE first_name=:name")
+                .setParameter("name", ownerName).getSingleResult()).intValue();
         entityManager.createNativeQuery("UPDATE casemgmt_note SET demographic_no=:owner WHERE uuid=:uuid")
                 .setParameter("owner", owner).setParameter("uuid", shared.getUuid()).executeUpdate();
         entityManager.clear();
