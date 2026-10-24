@@ -60,7 +60,7 @@ public final class dxSetupResearch2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dxresearch", "r", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch)");
         }
 
         String demographicNo = canonicalPatientNo(request.getParameter("demographicNo"));

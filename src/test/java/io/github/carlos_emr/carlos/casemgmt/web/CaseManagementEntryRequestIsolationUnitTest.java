@@ -65,6 +65,8 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         for (String patient : List.of("101", "202")) {
             when(security.hasPrivilege(login, "_demographic", "r", patient)).thenReturn(true);
             when(security.hasPrivilege(login, "_casemgmt.issues", "w", patient)).thenReturn(true);
+            when(security.hasPrivilege(login, "_eChart", "w", patient)).thenReturn(true);
+            when(security.hasPrivilege(login, "_casemgmt.notes", "w", patient)).thenReturn(true);
             when(security.isAllowedAccessToPatientRecord(login, Integer.valueOf(patient))).thenReturn(true);
         }
         session = new MockHttpSession();
@@ -407,6 +409,69 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
 
     private EditedNote edit(String patient, boolean explicitNew, String encounterType) throws Exception {
         return edit(patient, explicitNew, encounterType, null);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"foreign", "missing", "module", "hidden"})
+    void shouldRefuseExplicitNoteBeforeInitializingItsHistory_whenItIsOutsideTheChartReadBoundary(String boundary) throws Exception {
+        MockHttpServletRequest request = request("101");
+        request.setParameter("noteId", "501");
+        request.setParameter("forceNote", "true");
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "11");
+        CaseManagementNote original = new CaseManagementNote();
+        original.setId(501L);
+        original.setDemographic_no("foreign".equals(boundary) ? "202" : "101");
+        original.setProgram_no("22");
+        original.setNote("Original clinical text");
+        when(manager.getNote("501")).thenReturn("missing".equals(boundary) ? null : original);
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "r", "101")).thenReturn(!"module".equals(boundary));
+        when(manager.isClientInProgramDomain("999998", "101")).thenReturn(true);
+        when(manager.filterNotes(login, "999998", List.of(original), "11"))
+                .thenReturn("hidden".equals(boundary) ? List.of() : List.of(original));
+        CaseManagementEntry2Action entry = action(request);
+
+        try (var props = mockStatic(CarlosProperties.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(entry.edit()).isEqualTo("none");
+        }
+
+        assertThat(entry.response.getStatus()).isEqualTo("missing".equals(boundary) ? 404 : 403);
+        assertThat(original.getHistory()).isNull();
+        assertThat(original.getNote()).isEqualTo("Original clinical text");
+        verify(manager, never()).saveNoteSimple(any());
+        verify(manager, never()).addNewNoteLink(anyLong());
+        assertThat(forms).isEmpty();
+    }
+
+    @Test
+    void shouldRetainExplicitCrossProgramEditing_whenTheSourceNoteIsVisibleAndOwnedByThisPatient() throws Exception {
+        MockHttpServletRequest request = request("101");
+        request.setParameter("noteId", "501");
+        request.setParameter("forceNote", "true");
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "11");
+        CaseManagementNote original = new CaseManagementNote();
+        original.setId(501L);
+        original.setDemographic_no("101");
+        original.setProgram_no("22");
+        original.setHistory("Existing clinical history");
+        original.setNote("Existing clinical text");
+        when(manager.getNote("501")).thenReturn(original);
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "r", "101")).thenReturn(true);
+        when(manager.isClientInProgramDomain("999998", "101")).thenReturn(true);
+        when(manager.filterNotes(login, "999998", List.of(original), "11")).thenReturn(List.of(original));
+
+        try (var props = mockStatic(CarlosProperties.class);
+             var views = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+
+        CaseManagementEntryFormBean form = (CaseManagementEntryFormBean) forms.get(
+                io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, "101"));
+        assertThat(form.getCaseNote().getId()).isEqualTo(501L);
+        assertThat(form.getCaseNote().getProgram_no()).isEqualTo("22");
     }
 
     private EditedNote edit(String patient, boolean explicitNew, String encounterType, String appointment) throws Exception {

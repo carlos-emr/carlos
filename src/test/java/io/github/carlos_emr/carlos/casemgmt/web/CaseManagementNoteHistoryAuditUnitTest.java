@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -50,7 +51,13 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
         note.setHistory("earlier revision");
         CaseManagementManager manager = mock(CaseManagementManager.class);
         when(manager.getNote("501")).thenReturn(note);
+        when(manager.getHistory("501")).thenReturn(java.util.List.of(note));
+        when(manager.isClientInProgramDomain("4249", "101")).thenReturn(true);
         action.caseManagementMgr = manager;
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        injectDependency(action, "securityInfoManager", security);
+        when(security.hasPrivilege(eq(user), anyString(), eq("r"), eq("101"))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(true);
     }
 
     @Test
@@ -66,14 +73,12 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAuditAgainstNotesOwnPatient_notTheRequestParameter() {
+    void shouldRefuseHistoryWithoutAuditingClinicalRead_whenRequestNamesAnotherPatient() {
         request.setParameter("demographicNo", "999");
         note.setDemographic_no("101");
-        String audit = note.getAuditString();
-
-        action.history();
-
-        logActionMock.verify(() -> LogAction.addLog("4249", LogConst.READ, LogConst.CON_CME_NOTE, "501",
-                "192.0.2.7", "101", audit));
+        assertThat(action.history()).isEqualTo("none");
+        assertThat(action.response.getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("history")).isNull();
+        logActionMock.verifyNoInteractions();
     }
 }

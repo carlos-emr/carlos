@@ -73,7 +73,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void prepare() {
         action = mock(CaseManagementEntry2Action.class, CALLS_REAL_METHODS);
-        request = new MockHttpServletRequest();
+        request = new MockHttpServletRequest("POST", "/CaseManagementEntry");
         response = new MockHttpServletResponse();
         action.request = request;
         action.response = response;
@@ -86,6 +86,11 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         LoggedInInfo user = mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn("999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
+        var security = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        when(security.hasPrivilege(user, "_eChart", "w", "101")).thenReturn(true);
+        when(security.hasPrivilege(user, "_casemgmt.notes", "w", "101")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(true);
+        injectDependency(action, "securityInfoManager", security);
         manager = mock(CaseManagementManager.class);
         action.caseManagementMgr = manager;
         locks = mock(CasemgmtNoteLockDao.class);
@@ -212,6 +217,29 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(form.getCaseNote()).isSameAs(saved);
         assertThat(lock.getNoteId()).isEqualTo(600L);
         assertThat(request.getAttribute("noteRevisionConflict")).isNull();
+    }
+
+    @Test
+    void shouldClearOnlyOriginatingChartDraft_whenSavingAnExplicitCrossProgramNote() throws Exception {
+        // This chart's context is program7. It explicitly edits a visible note belonging
+        // to program8, while another window still holds program8's independent draft.
+        note.setProgram_no("8");
+        CaseManagementNote saved = note.copyForRevision();
+        saved.setId(600L);
+        Map<String, String> drafts = new java.util.HashMap<>(Map.of(
+                "7", "Originating chart draft", "8", "Other program's unsaved text"));
+        when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any())).thenReturn(saved);
+        doAnswer(call -> drafts.remove((String) call.getArgument(2))).when(manager)
+                .deleteTmpSave(eq("999998"), eq("101"), anyString());
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(saved.getProgram_no()).isEqualTo("8");
+        assertThat(drafts).containsExactlyEntriesOf(Map.of("8", "Other program's unsaved text"));
+        verify(manager).deleteTmpSave("999998", "101", "7");
+        verify(manager, never()).deleteTmpSave("999998", "101", "8");
     }
 
     @Test

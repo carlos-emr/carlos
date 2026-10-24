@@ -1344,6 +1344,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         ProgramProvider pp = (ProgramProvider) ppList.get(0);
         Secrole role = pp.getRole();
+        if (role == null || role.getId() == null) {
+            return filteredNotes;
+        }
 
         Map programAccessMap = ProgramAccessCache.getAccessMap(Long.valueOf(programId));
         // Load up access list from program
@@ -1355,8 +1358,11 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // iterate through the issue list
         for (CaseManagementNote cmNote : notes) {
+            if (cmNote == null) continue;
             String noteRole = cmNote.getReporter_caisi_role();
-            String noteRoleName = RoleCache.getRole(Long.valueOf(noteRole)).getName().toLowerCase();
+            String noteRoleName = safeGetRoleName(noteRole);
+            if (noteRoleName.isEmpty()) continue;
+            long noteRoleId = Long.parseLong(noteRole);
             ProgramAccess pa = null;
             boolean add = false;
 
@@ -1371,7 +1377,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 }
             } else {
                 logger.debug(noteRoleName + " is null");
-                if (Long.parseLong(noteRole) == role.getId().longValue()) {
+                if (noteRoleId == role.getId().longValue()) {
                     // default
                     logger.debug("noteRole " + noteRole + " = Provider Role from secRole " + role.getId());
                     add = true;
@@ -1380,7 +1386,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
             // apply defaults
             if (!add) {
-                if (Long.parseLong(noteRole) == role.getId().longValue()) {
+                if (noteRoleId == role.getId().longValue()) {
                     logger.debug("noteRole " + noteRole + " = Provider Role from secRole " + role.getId());
                     add = true;
                 }
@@ -2416,7 +2422,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     /**
      * Gets all the notes.
      * Caisi - filter notes.
-     * Grab the last one, where I am providers, and it's not signed.
+     * Grab the last unsigned note by this provider in the requested program.
+     * Cross-program read permission does not make another program's note an editor or append target.
      *
      * @param programId the program ID
      * @param demono the demographic number
@@ -2453,12 +2460,16 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         if (programId == null || programId.length() == 0) {
             programId = "0";
         }
+        long requestedProgramId = Long.parseLong(programId);
 
         entries = filterNotes1(providerNo, entries, programId);
 
         Collections.sort(entries, EChartNoteEntry.getDateComparatorDesc());
 
         for (EChartNoteEntry entry : entries) {
+            if (entry.getProgramId() != requestedProgramId) {
+                continue;
+            }
             CaseManagementNote n = getNote(String.valueOf(entry.getId()));
             if (n.getProviderNo().equals(providerNo)) {
                 return n;
@@ -2830,7 +2841,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             Long roleId = Long.valueOf(roleIdStr);
             logger.debug("Looking up role ID: " + roleId);
             Secrole secrole = RoleCache.getRole(roleId);
-            if (secrole != null) {
+            if (secrole != null && StringUtils.isNotBlank(secrole.getName())) {
                 String name = secrole.getName().toLowerCase();
                 logger.debug("Found role: " + name + " for ID: " + roleId);
                 return name;

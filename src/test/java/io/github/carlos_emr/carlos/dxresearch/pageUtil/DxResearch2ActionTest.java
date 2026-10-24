@@ -215,6 +215,16 @@ class DxResearch2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldDenyMutationWithSecurityRefusal_whenRegistryModuleWritePrivilegeIsMissing() {
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_dxresearch", "w", (String) null))
+                .thenReturn(false);
+
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockDxresearchDao, mockIcd9Dao);
+        assertThat(mockRequest.getAttribute("demographicNo")).isNull();
+    }
+
+    @Test
     void shouldDenyMutation_whenPatientRecordIsRestricted() {
         when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 12345)).thenReturn(false);
 

@@ -198,6 +198,7 @@
             function saveNoteDialog() {
                 //alert('not yet implemented');
                 jQuery.ajax({
+                    type: 'POST',
                     url: '<%=request.getContextPath()%>/CaseManagementEntry',
                     data: {
                         method: "ticklerSaveNote",

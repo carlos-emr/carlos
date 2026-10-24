@@ -88,12 +88,12 @@ class DxSetupResearch2ActionTest extends CarlosWebTestBase {
     class SecurityEnforcement {
 
         @Test
-        @DisplayName("should throw RuntimeException when user lacks _dxresearch read privilege")
-        void shouldThrowRuntimeException_whenUserLacksDxresearchReadPrivilege() {
+        @DisplayName("should throw SecurityException when user lacks _dxresearch read privilege")
+        void shouldThrowSecurityException_whenUserLacksDxresearchReadPrivilege() {
             denyPrivilege("_dxresearch", "r");
 
             assertThatThrownBy(() -> executeAction(action))
-                    .isInstanceOf(RuntimeException.class)
+                    .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("missing required sec object (_dxresearch)");
         }
 

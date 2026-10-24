@@ -439,7 +439,8 @@
 </div>
 <!-- end of div noteIssues -->
 
-<div id='autosaveTime' class='sig' style='text-align:center; margin:0px;'></div>
+<div id='autosaveTime' class='sig' style='text-align:center; margin:0px;'
+     role='status' aria-live='polite' aria-atomic='true'></div>
 <script type="text/javascript">
 (function () {
     // AJAX responses re-evaluate this fragment, so keep its declarations isolated.

@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
 import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
@@ -67,8 +68,13 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("casemgmtNoteLock101", lock);
         when(locks.find(10L)).thenReturn(lock);
         note = new CaseManagementNote();
+        note.setId(501L);
+        note.setDemographic_no("101");
+        note.setProgram_no("11");
         note.setNote("Previous persisted text");
         doReturn(note).when(action).getCaseNote();
+        when(manager.getNote("501")).thenReturn(note);
+        when(manager.filterNotes(user, "999998", java.util.List.of(note), "11")).thenReturn(java.util.List.of(note));
     }
 
     @Test
@@ -82,6 +88,8 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(200);
         verify(manager).replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");
+        verify(manager).getNote("501");
+        verify(manager).filterNotes(user, "999998", java.util.List.of(note), "11");
         verifyNoMoreInteractions(manager);
         assertThat(note.getNote()).isEqualTo("Current unsaved text");
     }
@@ -94,6 +102,90 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         action.autosave();
 
         assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+    }
+
+    @Test
+    void shouldReplaceDraftWithEmptyText_whenClinicianClearsTheEditor() {
+        request.setParameter("note", "");
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(manager).replaceTmpSave("999998", "101", "11", "501", "");
+        assertThat(note.getNote()).isEmpty();
+    }
+
+    @Test
+    void shouldRefuseMissingTextWithoutReadingLocks_whenAutosaveBodyIsIncomplete() {
+        request.removeParameter("note");
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(locks, manager);
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+    }
+
+    @Test
+    void shouldRefuseDraftReplacement_whenReferencedNoteBelongsToAnotherPatient() {
+        note.setDemographic_no("202");
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        verify(manager, never()).replaceTmpSave(anyString(), anyString(), anyString(), anyString(), anyString());
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+    }
+
+    @Test
+    void shouldRefuseDraftReplacement_whenCapturedProgramCannotReadReferencedNote() {
+        when(manager.filterNotes(user, "999998", java.util.List.of(note), "11")).thenReturn(java.util.List.of());
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        verify(manager, never()).replaceTmpSave(anyString(), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldRefuseStaleEditorDraft_whenSelectedFormHasAdvancedToAnotherNote() {
+        CaseManagementEntryFormBean form = new CaseManagementEntryFormBean();
+        CaseManagementNote current = new CaseManagementNote();
+        current.setId(502L);
+        current.setProgram_no("11");
+        form.setCaseNote(current);
+        request.getSession().setAttribute(ChartProgramContext.formKey(request, "101"), form);
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        verify(manager, never()).replaceTmpSave(anyString(), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldRetainAuthorizedCrossProgramEditing_whenSelectedNoteIsVisibleInOriginatingChart() {
+        note.setProgram_no("22");
+        CaseManagementEntryFormBean form = new CaseManagementEntryFormBean();
+        form.setCaseNote(note);
+        request.getSession().setAttribute(ChartProgramContext.formKey(request, "101"), form);
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(manager).replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");
+        assertThat(note.getProgram_no()).isEqualTo("22");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"not-a-note", "2147483648", "9999999999999999999999999"})
+    void shouldRefuseMalformedReferenceWithoutReplacingDraft_whenNoteIdentifierIsInvalid(String reference) {
+        request.setParameter("note_id", reference);
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(manager);
         assertThat(note.getNote()).isEqualTo("Previous persisted text");
     }
 

@@ -69,6 +69,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(CaseManagementTmpSaveDao.class, tmpDao);
         note = new CaseManagementNote();
         note.setNote("existing text");
+        note.setDemographic_no("42");
         when(notes.getLastSaved("0", "42", "999998")).thenReturn(note);
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
@@ -248,6 +249,64 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         verify(notes).saveNoteSimple(note);
         verify(tmpDao).remove("999998", 42, 0);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
+    }
+
+    @Test
+    void shouldRejectWithoutConsumingDraft_whenReferencedNoteBelongsToAnotherPatient() throws Exception {
+        CaseManagementTmpSave draft = referencedDraft();
+        note.setDemographic_no("43");
+        note.setUpdate_date(new Date(2));
+        when(notes.getTmpSave("999998", "42", "0")).thenReturn(draft);
+        when(notes.getNote("7")).thenReturn(note);
+
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        assertThat(note.getNote()).isEqualTo("existing text");
+        verify(notes, never()).saveNoteSimple(any());
+        verifyNoInteractions(tmpDao);
+    }
+
+    @Test
+    void shouldRejectWithoutConsumingDraft_whenReferencedNoteNoLongerExists() throws Exception {
+        CaseManagementTmpSave draft = referencedDraft();
+        when(notes.getTmpSave("999998", "42", "0")).thenReturn(draft);
+
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        verify(notes, never()).saveNoteSimple(any());
+        verifyNoInteractions(tmpDao);
+    }
+
+    @Test
+    void shouldRetainExplicitlySelectedSharedNoteProgram_whenDraftPatientMatches() throws Exception {
+        CaseManagementTmpSave draft = referencedDraft();
+        note.setProgram_no("8");
+        note.setUpdate_date(new Date(2));
+        when(notes.getTmpSave("999998", "42", "0")).thenReturn(draft);
+        when(notes.getNote("7")).thenReturn(note);
+
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+
+        assertThat(note.getProgram_no()).isEqualTo("8");
+        assertThat(note.getNote()).isEqualTo("draft text\nexact prescription text");
+        verify(notes).saveNoteSimple(note);
+        verify(tmpDao).remove("999998", 42, 0);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
+    }
+
+    private CaseManagementTmpSave referencedDraft() {
+        CaseManagementTmpSave draft = mock(CaseManagementTmpSave.class);
+        when(draft.getNoteId()).thenReturn(7);
+        when(draft.getUpdateDate()).thenReturn(new Date(1));
+        when(draft.getNote()).thenReturn("draft text");
+        when(draft.getProviderNo()).thenReturn("999998");
+        when(draft.getDemographicNo()).thenReturn(42);
+        when(draft.getProgramId()).thenReturn(0);
+        return draft;
     }
 
     @Test

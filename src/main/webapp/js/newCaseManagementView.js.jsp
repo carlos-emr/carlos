@@ -47,6 +47,9 @@
 <fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
 <fmt:message var="noteEditorLabel" key="encounter.noteBrowser.encounterNote"/>
 <fmt:message var="invalidObservationDateLabel" key="encounter.observationDateInvalid.msg"/>
+<fmt:message var="draftSavingLabel" key="encounter.draftSaving.msg"/>
+<fmt:message var="draftSaveFailedLabel" key="encounter.draftSaveFailed.msg"/>
+<fmt:message var="draftSaveConflictLabel" key="encounter.draftSaveConflict.msg"/>
     var invalidObservationDateError = "${carlos:forJavaScriptBlock(invalidObservationDateLabel)}";
 
     var noteEditorLabel = "${carlos:forJavaScriptBlock(noteEditorLabel)}";
@@ -3564,7 +3567,20 @@ var month=new Array(12);
 var msgDraftSaved;
 var lostNoteLock = false;
 var autoSaveXhr = null;
+var autoSaveOperation = null;
+var draftSavingMessage = "${carlos:forJavaScriptBlock(draftSavingLabel)}";
+var draftSaveFailedMessage = "${carlos:forJavaScriptBlock(draftSaveFailedLabel)}";
+var draftSaveConflictMessage = "${carlos:forJavaScriptBlock(draftSaveConflictLabel)}";
+
+function showAutosaveStatus(state, text) {
+    var statusEl = $("autosaveTime");
+    if (!statusEl) return;
+    statusEl.setAttribute("data-autosave-state", state);
+    statusEl.textContent = text;
+}
+
 function autoSave() {
+    if (autoSaveOperation || lostNoteLock) return;
     sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
     var url = chartActionUrl("/CaseManagementEntry");
     var programId = case_program_id;
@@ -3572,13 +3588,20 @@ function autoSave() {
     var cmeFrm = document.forms["caseManagementEntryForm"];
     var nId = cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value;
     var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + encodeURIComponent($F(caseNote));
+    var editor = document.getElementById(caseNote);
+    var operation = { cancelled: false };
+    autoSaveOperation = operation;
+    function currentEditor() {
+        return !operation.cancelled && autoSaveOperation === operation
+            && editor === document.getElementById(caseNote) && cmeFrm === document.forms["caseManagementEntryForm"];
+    }
+    showAutosaveStatus("pending", draftSavingMessage);
 
         autoSaveXhr = CarlosAjax.request(url, {
                 method: 'post',
                 postBody: params,
                 onSuccess: function (req) {
-                    var statusEl = $("autosaveTime");
-                    if (!statusEl) { return; }
+                    if (!currentEditor()) return;
                     var d = new Date();
                     var min = d.getMinutes();
                     min = min < 10 ? "0" + min : min;
@@ -3586,28 +3609,28 @@ function autoSave() {
                     var seconds = d.getSeconds();
                     seconds = seconds < 10 ? "0" + seconds : seconds;
 
-                    var fmtDate = "<i>" + msgDraftSaved + " " + d.getDate() + "-" + month[d.getMonth()] + "-" + d.getFullYear() + " " + d.getHours() + ":" + min + ":" + seconds + "<\/i>";
-                    statusEl.update(fmtDate);
+                    var fmtDate = msgDraftSaved + " " + d.getDate() + "-" + month[d.getMonth()] + "-" + d.getFullYear() + " " + d.getHours() + ":" + min + ":" + seconds;
+                    showAutosaveStatus("saved", fmtDate);
                 },
                 onFailure: function (req) {
-                    // status 0 = aborted by clearAutoSaveTimer during window close; not an error
-                    if (req.status === 0) { return; }
+                    if (!currentEditor()) return;
                     if (req.status == 409) {
                         lostNoteLock = true;
-                        var lockEl = $("autosaveTime");
-                        if (lockEl) {
-                            lockEl.update("<i>Autosave cancelled due to note being edited in another window</i>");
-                        }
+                        showAutosaveStatus("conflict", draftSaveConflictMessage);
                         return;
                     }
-                    // Non-409 failures were previously silently swallowed. Log so they
-                    // surface in browser consoles and remote logging (Sentry, etc.).
+                    // A network failure also has status zero. Only an explicit cancellation
+                    // may be ignored; a previous success timestamp must not hide a failed save.
+                    showAutosaveStatus("failed", draftSaveFailedMessage);
                     if (typeof console !== "undefined" && console.error) {
                         console.error("CaseManagement autoSave failed", req.status, req.statusText);
                     }
                 },
                 onComplete: function () {
-                    autoSaveXhr = null;
+                    if (autoSaveOperation === operation) {
+                        autoSaveXhr = null;
+                        autoSaveOperation = null;
+                    }
                 }
             }
         );
@@ -3637,8 +3660,10 @@ function autoSave() {
         // the user never consented to (e.g., firing at T=4999ms then window.close()
         // at T=5000ms). See carlos-emr/carlos#1890.
         if (autoSaveXhr && typeof autoSaveXhr.abort === "function") {
+            if (autoSaveOperation) autoSaveOperation.cancelled = true;
             try { autoSaveXhr.abort(); } catch (ignored) { /* already done */ }
             autoSaveXhr = null;
+            autoSaveOperation = null;
         }
     }
 
@@ -4044,17 +4069,21 @@ function autoSave() {
         frm.pEndDate.value = $F("printEndDate");
         frm.pType.value = $F("printopDates");
 
-        // The print is a top-level form submit whose response is a PDF download, and the
-        // browser fires pagehide for that navigation even though this document stays. The
-        // pagehide handler then released this window's note lock, so every draft autosave
-        // after a print answered 409 and the chart reported "edited in another window" for
-        // the rest of the encounter. Hold the lock across the submit; restore the release
-        // once the download has had time to start and this document is still here. If the
-        // response is not a download (an error page), the document is gone by then and the
-        // lock is left for the next open of this note by the same user to reclaim.
-        needToReleaseLock = false;
-        frm.submit();
-        setTimeout(function () { needToReleaseLock = true; }, 3000);
+        // A PDF download must not navigate this editor: its unload handlers release
+        // the note lock. A timed suppression races with later prints and slow
+        // responses. Use a separate browsing context so errors remain visible there
+        // and this editor retains both its lock and its normal close behavior.
+        var previousTarget = frm.getAttribute("target");
+        frm.setAttribute("target", "_blank");
+        try {
+            frm.submit();
+        } finally {
+            if (previousTarget === null) {
+                frm.removeAttribute("target");
+            } else {
+                frm.setAttribute("target", previousTarget);
+            }
+        }
 
         return false;
     }

@@ -111,18 +111,23 @@ class CaseManagementAutoSaveRegressionTest {
 
         int autoSaveStart = js.indexOf("function autoSave()");
         assertThat(autoSaveStart).isGreaterThan(0);
-        int autoSaveEnd = js.indexOf("\n    }", autoSaveStart);
+        // autoSave contains nested callbacks: an indented closing brace can end
+        // currentEditor rather than the autosave operation being checked.
+        int autoSaveEnd = js.indexOf("\n    function backup()", autoSaveStart);
+        assertThat(autoSaveEnd).isGreaterThan(autoSaveStart);
         String autoSaveBody = js.substring(autoSaveStart, autoSaveEnd);
 
         assertThat(autoSaveBody)
                 .as("non-409 failures must surface via console.error instead of being silently dropped")
                 .contains("console.error");
         assertThat(autoSaveBody)
-                .as("aborted requests (status 0) from clearAutoSaveTimer must be treated as non-errors")
-                .contains("req.status === 0");
-        assertThat(autoSaveBody)
-                .as("DOM writes on success must guard against the status element being gone post-close")
-                .containsPattern("var\\s+statusEl\\s*=\\s*\\$\\(\"autosaveTime\"\\)");
+                .as("explicitly cancelled operations must be ignored while real status-zero failures remain visible")
+                .contains("!operation.cancelled", "currentEditor()", "showAutosaveStatus(\"failed\"")
+                .doesNotContain("req.status === 0");
+        String statusHelper = js.substring(js.indexOf("function showAutosaveStatus("), autoSaveStart);
+        assertThat(statusHelper)
+                .as("status updates must guard against the element being gone after chart close")
+                .contains("if (!statusEl) return;");
     }
 
     @Test

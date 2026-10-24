@@ -72,7 +72,8 @@ public class RxWriteToEncounter2Action extends ActionSupport {
      *
      * <p>After the session and prescription-write privilege check, known pre-write
      * rejection returns HTTP 405 (non-POST) or 409 (missing or
-     * changed Rx patient context), with {@code X-Carlos-Encounter-Write: not-written}.
+     * changed Rx patient context, or a missing/mismatched draft note), with
+     * {@code X-Carlos-Encounter-Write: not-written}.
      * Successful completion sets that header to {@code written}. Exceptions after
      * persistence may mean the write committed: absence of the header is never
      * proof that retrying is safe.</p>
@@ -127,6 +128,12 @@ public class RxWriteToEncounter2Action extends ActionSupport {
 
             if (tmpSave.getNoteId() > 0) {
                 note = caseManagementMgr.getNote(String.valueOf(tmpSave.getNoteId()));
+                // A draft is keyed to the requested patient, but a legacy or forged note_id
+                // may reference a different record. Never append to that record or consume
+                // the draft. Explicitly selected shared notes can retain their own program.
+                if (note == null || !demographicNo.equals(note.getDemographic_no())) {
+                    return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+                }
                 if (note.getUpdate_date().after(tmpSave.getUpdateDate())) {
                     note.setNote(tmpSave.getNote() + "\n" + noteBody);
                     note.setUpdate_date(today);

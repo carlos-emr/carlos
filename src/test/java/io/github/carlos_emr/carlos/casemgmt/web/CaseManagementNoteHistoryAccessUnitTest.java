@@ -152,4 +152,27 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
         assertRefused();
         verifyNoInteractions(manager);
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"module", "record lock", "another patient", "missing note", "hidden revision", "empty history"})
+    void shouldRefuseLegacyHistoryBeforeRenderingClinicalText_whenItsReadBoundaryFails(String boundary) {
+        switch (boundary) {
+            case "module" -> when(security.hasPrivilege(user, "_casemgmt.notes", "r", "101")).thenReturn(false);
+            case "record lock" -> when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
+            case "another patient" -> note.setDemographic_no("102");
+            case "missing note" -> when(manager.getNote("501")).thenReturn(null);
+            case "hidden revision" -> {
+                io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "7");
+                when(manager.filterNotes(user, "4249", List.of(note), "7")).thenReturn(List.of());
+            }
+            case "empty history" -> when(manager.getHistory("501")).thenReturn(List.of());
+            default -> throw new IllegalArgumentException("Unknown boundary");
+        }
+
+        assertThat(action.history()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("history")).isNull();
+        assertThat(request.getAttribute("demoName")).isNull();
+        logActionMock.verifyNoInteractions();
+    }
 }

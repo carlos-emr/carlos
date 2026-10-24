@@ -70,7 +70,7 @@ public class dxResearch2Action extends ActionSupport {
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch)");
         }
 
         //dxResearchForm frm = (dxResearchForm) form;

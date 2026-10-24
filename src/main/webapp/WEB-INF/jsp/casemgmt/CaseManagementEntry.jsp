@@ -50,6 +50,10 @@
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message var="draftSavingLabel" key="encounter.draftSaving.msg"/>
+<fmt:message var="draftSaveFailedLabel" key="encounter.draftSaveFailed.msg"/>
+<fmt:message var="draftSaveConflictLabel" key="encounter.draftSaveConflict.msg"/>
+<fmt:message var="draftSavedLabel" key="encounter.draftSaved.msg"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -191,17 +195,49 @@
         }
 
         var XMLHttpRequestObject = false;
+        var legacyAutosaveTimer = null;
+        var legacyAutosavePending = false;
+        var legacyAutosaveStopped = false;
 
-        if (window.XMLHttpRequest) {
-            XMLHttpRequestObject = new XMLHttpRequest();
-        } else if (window.ActiveXObject) {
-            XMLHttpRequestObject = new ActiveXObject("Microsoft.XMLHTTP");
+        function showLegacyAutosaveStatus(state, text) {
+            var status = document.getElementById('legacyAutosaveStatus');
+            if (!status) return;
+            status.setAttribute('data-autosave-state', state);
+            status.textContent = text;
         }
 
         function autoSave() {
+            clearTimeout(legacyAutosaveTimer);
+            if (legacyAutosavePending || legacyAutosaveStopped) return;
+            XMLHttpRequestObject = window.XMLHttpRequest ? new XMLHttpRequest()
+                : window.ActiveXObject ? new ActiveXObject("Microsoft.XMLHTTP") : false;
             if (XMLHttpRequestObject) {
                 var obj = document.getElementById('caseNote_note');
+                var xhr = XMLHttpRequestObject;
+                var completed = false;
+                legacyAutosavePending = true;
+                showLegacyAutosaveStatus('pending', '${carlos:forJavaScriptBlock(draftSavingLabel)}');
+                function finish() {
+                    if (completed) return;
+                    completed = true;
+                    legacyAutosavePending = false;
+                    if (legacyAutosaveStopped) return;
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        showLegacyAutosaveStatus('saved', '${carlos:forJavaScriptBlock(draftSavedLabel)}');
+                    } else if (xhr.status === 409) {
+                        legacyAutosaveStopped = true;
+                        showLegacyAutosaveStatus('conflict', '${carlos:forJavaScriptBlock(draftSaveConflictLabel)}');
+                    } else {
+                        showLegacyAutosaveStatus('failed', '${carlos:forJavaScriptBlock(draftSaveFailedLabel)}');
+                    }
+                    setTimer();
+                }
+                xhr.onreadystatechange = function () { if (xhr.readyState === 4) finish(); };
+                xhr.onerror = finish;
+                xhr.ontimeout = finish;
+                xhr.onabort = finish;
                 XMLHttpRequestObject.open("POST", '<%=request.getContextPath() %>/CaseManagementEntry', true);
+                XMLHttpRequestObject.timeout = 45000;
                 XMLHttpRequestObject.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
                 var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
@@ -209,14 +245,22 @@
                 var programId = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request)) %>';
                 var chartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
                 XMLHttpRequestObject.send((chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "") + "method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + encodeURIComponent(obj.value));
+            } else {
+                showLegacyAutosaveStatus('failed', '${carlos:forJavaScriptBlock(draftSaveFailedLabel)}');
+                setTimer();
             }
-
-            setTimer();
         }
 
         function setTimer() {
-            setTimeout("autoSave()", 60000);
+            clearTimeout(legacyAutosaveTimer);
+            if (!legacyAutosaveStopped) legacyAutosaveTimer = setTimeout(autoSave, 60000);
         }
+
+        window.addEventListener('pagehide', function () {
+            legacyAutosaveStopped = true;
+            clearTimeout(legacyAutosaveTimer);
+            if (legacyAutosavePending && XMLHttpRequestObject) XMLHttpRequestObject.abort();
+        });
 
         function init() {
             setTimer();
@@ -409,6 +453,7 @@
             </c:if>
 	    </span>
         <%} %>
+        <div id="legacyAutosaveStatus" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <p>
         <table>

@@ -79,6 +79,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message key="messenger.ViewMessage.msgAttachments" var="attachmentLabel"/>
 <%
     // Build role string for security check
     String userrole = (String) session.getAttribute("userrole");
@@ -295,7 +296,7 @@
                                             width="75"><input type="checkbox" name="messageNo" value="<carlos:encode value='<%= dm.getMessageId() %>' context="htmlAttribute"/>"/> <%
                                             String atta = dm.getAttach();
                                             if (atta.equals("1")) {
-                                        %><img src="img/clip4.jpg">
+                                        %><img src="${pageContext.request.contextPath}/messenger/img/clip4.jpg" alt="${carlos:forHtmlAttribute(attachmentLabel)}">
                                             <%
                                                 }
                                             %> &nbsp;
