@@ -2658,8 +2658,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     }
 
     /** Allowlisted HQL field names for {@link #findByField}. */
-    private static final java.util.Set<String> VALID_FIND_BY_FIELDS = java.util.Set.of(
-        "DemographicNo", "LastName", "FirstName", "ChartNo", "Sex", "YearOfBirth", "PatientStatus"
+    private static final java.util.Map<String, String> FIND_BY_FIELDS = java.util.Map.of(
+        "DemographicNo", "demographicNo", "LastName", "lastName", "FirstName", "firstName",
+        "ChartNo", "chartNo", "Sex", "sex", "YearOfBirth", "yearOfBirth", "PatientStatus", "patientStatus"
     );
 
     @SuppressWarnings("unchecked")
@@ -2667,28 +2668,21 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     public List<Demographic> findByField(String fieldName, Object fieldValue, String orderBy, int offset) {
         boolean isFieldValueEmpty = fieldValue == null || fieldValue.equals("");
 
-        // Validate fieldName against allowlist to prevent HQL injection
-        if (fieldName != null && !VALID_FIND_BY_FIELDS.contains(fieldName)) {
-            fieldName = "LastName";
+        // The legacy picker sends display names; HQL requires the actual case-sensitive properties.
+        String property = fieldName == null ? "lastName" : FIND_BY_FIELDS.getOrDefault(fieldName, "lastName");
+        boolean byNumber = "demographicNo".equals(property);
+        String sql = "FROM Demographic d";
+        if (!isFieldValueEmpty) {
+            sql += " WHERE d." + property + (byNumber ? " = :fieldValue" : " LIKE :fieldValue");
         }
-
-        String sql = "FROM Demographic d WHERE d." + fieldName + " LIKE :fieldValue";
-        if (isFieldValueEmpty) {
-            sql = "FROM Demographic d";
-        }
-
         if (orderBy != null && !orderBy.isEmpty()) {
-            // Validate orderBy against allowlist to prevent HQL injection
-            if (!VALID_FIND_BY_FIELDS.contains(orderBy)) {
-                orderBy = "LastName";
-            }
-            sql = sql + " ORDER BY d." + orderBy;
+            sql += " ORDER BY d." + FIND_BY_FIELDS.getOrDefault(orderBy, "lastName");
         }
 
         EntityManager s = entityManager();
         Query q = s.createQuery(sql); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- field/order names are allowlisted above; fieldValue is bound via setParameter below
         if (!isFieldValueEmpty) {
-            q.setParameter("fieldValue", fieldValue);
+            q.setParameter("fieldValue", byNumber ? Integer.valueOf(fieldValue.toString()) : fieldValue);
         }
 
         q.setMaxResults(10);

@@ -90,8 +90,9 @@
 
     DemographicDao dao = SpringUtils.getBean(DemographicDao.class);
 
-    String keywordForSearch = (keyword == null || "".equals(keyword)) ? "" : keyword + "%";
-    List<Demographic> demographics = dao.findByField(column, (Object) keywordForSearch, orderby, ConversionUtils.fromIntString(startLimit).intValue()); // deepcode ignore SqlInjection: column and orderby validated against validColumns allowlist above; keywordForSearch bound via named parameter in DAO
+    Object keywordForSearch = (keyword == null || "".equals(keyword)) ? ""
+            : ("DemographicNo".equals(column) ? keyword : keyword + "%");
+    List<Demographic> demographics = dao.findByField(column, keywordForSearch, orderby, ConversionUtils.fromIntString(startLimit).intValue()); // deepcode ignore SqlInjection: column and orderby validated against validColumns allowlist above; keywordForSearch bound via named parameter in DAO
 %>
 
 <html>

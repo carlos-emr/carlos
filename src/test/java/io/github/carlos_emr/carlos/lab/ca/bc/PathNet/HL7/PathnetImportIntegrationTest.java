@@ -137,4 +137,31 @@ class PathnetImportIntegrationTest extends CarlosTestBase {
         assertThat(links.find(pid.getId()).getStatus()).isEqualTo("N");
     }
 
+    @Test
+    void shouldSearchPickerByName_whenLegacyDisplayColumnsAreUsed() {
+        Demographic demo = patient("5052000008", "AC");
+        assertThat(demographics.findByField("LastName", "FAKE-5052%", "LastName", 0))
+                .extracting(Demographic::getDemographicNo).contains(demo.getDemographicNo());
+    }
+
+    @Test
+    void shouldSearchPickerByPatientNumber_whenNumberIsSelected() {
+        Demographic demo = patient("5052000009", "AC");
+        assertThat(demographics.findByField("DemographicNo", demo.getDemographicNo(), "DemographicNo", 0))
+                .extracting(Demographic::getDemographicNo).containsExactly(demo.getDemographicNo());
+    }
+
+    @Test
+    void shouldRenderInitialPicker_whenSearchIsEmpty() {
+        patient("5052000010", "AC");
+        assertThat(demographics.findByField(null, "", "LastName", 0)).isNotEmpty();
+    }
+
+    @Test
+    void shouldUseSafeDefaultPickerColumns_whenColumnInputIsInvalid() {
+        Demographic demo = patient("5052000011", "AC");
+        assertThat(demographics.findByField("invalid", "FAKE-5052%", "invalid", 0))
+                .extracting(Demographic::getDemographicNo).contains(demo.getDemographicNo());
+    }
+
 }
