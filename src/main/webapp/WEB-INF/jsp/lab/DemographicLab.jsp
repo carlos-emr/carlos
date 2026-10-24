@@ -131,7 +131,7 @@
                 }
             }
             if (aBoxIsChecked) {
-                popupStart(300, 400, '${ctx}/oscarMDS/ViewSelectProvider', 'providerselect');
+                popupStart(397, 700, '${ctx}/oscarMDS/ViewSelectProvider', 'providerselect');
             } else {
                 alert('<fmt:message key="oscarMDS.index.msgSelectOneLab"/>');
             }
@@ -278,7 +278,9 @@
                     <tr class="<%=rowClass%>">
                         <%  if (demographicNo == null) { %>
                         <td>
-                            <input type="checkbox" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"/>
+                            <%-- data-lab-type: the picker posts each checked lab as "<id>:<type>" (issue #4558). --%>
+                            <input type="checkbox" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"
+                                   data-lab-type="<carlos:encode value='<%= result.labType %>' context='htmlAttribute'/>"/>
                         </td>
                         <% } %>
                         <td><%=SafeEncode.forHtmlContent(formattedDate)%></td>
@@ -301,7 +303,7 @@
                                 }
                                 if (labLabel == null || labLabel.isEmpty()) labLabel = StringUtils.trimToEmpty(result.getDiscipline());
                             %>
-                            <a href="javascript:reportWindow('<%=SafeEncode.forJavaScript(labUrl)%>')">
+                            <a href="<%=SafeEncode.forHtmlAttribute(labUrl)%>" onclick="reportWindow(this.href); return false;">
                                 <%=SafeEncode.forHtmlContent(labLabel)%>
                             </a>
                         </td>
@@ -344,21 +346,6 @@
     }
 
     public ArrayList<LabResultData> getLatestLabVersions(ArrayList<LabResultData> labs) {
-        List<String> allLabIds = new ArrayList<>();
-        ArrayList<LabResultData> latestLabVersions = new ArrayList<>();
-        for (LabResultData lab : labs) {
-            if (allLabIds.contains(lab.getSegmentID())) {
-                continue;
-            }
-            String[] allLabVersionIdsOfLab = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
-            allLabIds.addAll(Arrays.asList(allLabVersionIdsOfLab));
-            for (LabResultData labResultData : labs) {
-                if (allLabVersionIdsOfLab[allLabVersionIdsOfLab.length - 1].equals(labResultData.getSegmentID())) {
-                    latestLabVersions.add(labResultData);
-                    break;
-                }
-            }
-        }
-        return latestLabVersions;
+        return CommonLabResultData.latestVisibleVersions(labs);
     }
 %>

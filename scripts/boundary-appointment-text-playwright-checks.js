@@ -7,7 +7,7 @@
  * Asserts: a reason and notes that fill their boxes exactly (80 and 255 UTF-16 units) and carry an
  * apostrophe, accents, CJK, an emoji, "&amp;", quotes, backslash, "%41", "+" and ";" are stored byte for
  * byte, redisplayed identically by the edit popup, and an unchanged Update leaves every column as it was.
- * Last (the defects): a reason and notes that fill their box with a line break inside are stored whole
+ * A reason and notes that fill their box with a line break inside are stored whole
  * (the browser counts a break as one character, submits two); a free-text appointment name and a resources
  * entry past their columns are refused or visibly limited, never silently cut.
  * Fixtures: the throwaway login (lib/throwaway-login-fixture.js) and the owned FAKE- patient; cleanup deletes
@@ -155,22 +155,83 @@ async function workflow(s) {
     const resourcesColumn = b.columnLength(sql, 'appointment', 'resources');
     const longName = b.exactly(nameColumn + 1, 'N' + marker.slice(-6));
     const longResources = b.exactly(resourcesColumn + 1, 'R');
-    const popup = await openBooking();
-    await popup.locator('#keyword').fill(longName);
-    await field(popup, 'resources').fill(longResources);
-    const shownName = await popup.locator('#keyword').inputValue();
-    const shownResources = await field(popup, 'resources').inputValue();
-    await ui.clickAndAwaitReload(popup, popup.locator('#addButton'), { required: false });
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    const second = sql.value(`SELECT appointment_no FROM appointment WHERE provider_no=${owner} AND appointment_no<>${apptNo} ORDER BY appointment_no DESC LIMIT 1`);
-    if (/^\d+$/.test(second)) {
-      for (const [column, typed] of [['name', shownName], ['resources', shownResources]]) {
-        const stored = b.readStored(sql, 'appointment', column, `${byApptNo()}${second}`);
-        if (stored.hex !== b.hex(typed)) problems.push(`${column}: ${b.cpLength(typed)} characters were typed into a box with no maxlength and the booking was accepted, but ${stored.chars} were stored (column ${b.columnLength(sql, 'appointment', column)}); silent truncation`);
+    // Each field is probed in a booking of its own, so a refusal of one cannot mask what happens to the other.
+    // The outcome must be visible either way: the box limits the text, the booking stores it whole, or the
+    // booking is refused with a length-specific message (alert or page). No row and no message is a defect too.
+    const probeOverlong = async (column, selector, typed, otherName) => {
+      const popup = await openBooking();
+      if (otherName) await popup.locator('#keyword').fill(otherName);
+      await popup.locator(selector).fill(typed);
+      const shown = await popup.locator(selector).inputValue();
+      if (b.cpLength(shown) < b.cpLength(typed)) { await popup.close().catch(() => {}); return; } // visibly limited by the box
+      const highWater = Number(sql.value(`SELECT COALESCE(MAX(appointment_no),0) FROM appointment WHERE provider_no=${owner}`));
+      let pageText = '';
+      const dialogs = await h.withExpectedDialogs(popup, async () => {
+        await ui.clickAndAwaitReload(popup, popup.locator('#addButton'), { required: false });
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        if (!popup.isClosed()) pageText = await popup.locator('body').innerText().catch(() => '');
+      });
+      const row = sql.value(`SELECT appointment_no FROM appointment WHERE provider_no=${owner} AND appointment_no>${highWater} ORDER BY appointment_no DESC LIMIT 1`);
+      if (/^\d+$/.test(row)) {
+        const stored = b.readStored(sql, 'appointment', column, `${byApptNo()}${row}`);
+        if (stored.hex !== b.hex(shown)) problems.push(`${column}: ${b.cpLength(shown)} characters were typed into a box with no maxlength and the booking was accepted, but ${stored.chars} were stored (column ${b.columnLength(sql, 'appointment', column)}); silent truncation`);
+      } else if (!b.lengthRefusal([...dialogs.map(entry => entry.text), pageText].join('\n'))) {
+        problems.push(`${column}: a ${b.cpLength(shown)}-character entry past its column was not saved, but no length refusal was shown (no alert or page message naming the limit)`);
       }
+      await popup.close().catch(() => {});
+      await reloadDaySheet();
+    };
+    await probeOverlong('name', '#keyword', longName, null);
+    await probeOverlong('resources', 'form#addappt [name="resources"]', longResources, `N${marker.slice(-6)}`);
+    h.assert(problems.length === 0, problems.join(' || '));
+  });
+
+  await s.step('booking and an unchanged Update preserve full multiline reason and notes through reopening', async () => {
+    const multilineReason = `${'r'.repeat(reasonColumn - 4)}\n\nxZ`;
+    const multilineNotes = `${'n'.repeat(notesColumn - 4)}\n\nxZ`;
+    const highWater = Number(sql.value(`SELECT COALESCE(MAX(appointment_no),0) FROM appointment WHERE provider_no=${owner}`));
+    const popup = await openBooking();
+    await pickPatient(popup);
+    h.assert(await field(popup, 'keyword').getAttribute('maxlength') === String(b.columnLength(sql, 'appointment', 'name')),
+      'The booking name limit does not match its column');
+    h.assert(await field(popup, 'resources').getAttribute('maxlength') === String(b.columnLength(sql, 'appointment', 'resources')),
+      'The booking resources limit does not match its column');
+    await field(popup, 'reason').fill(multilineReason);
+    await field(popup, 'notes').fill(multilineNotes);
+    h.assert(await field(popup, 'reason').inputValue() === multilineReason && await field(popup, 'notes').inputValue() === multilineNotes,
+      'The booking form dropped text from a full multiline field');
+    await ui.clickAndAwaitReload(popup, popup.locator('#addButton'), { required: false });
+    const multilineApptNo = await pollFor(sql,
+      `SELECT appointment_no FROM appointment WHERE provider_no=${owner} AND appointment_no>${highWater} ORDER BY appointment_no DESC LIMIT 1`,
+      v => /^\d+$/.test(v), 'The multiline booking was not saved');
+    const where = `${byApptNo()}${multilineApptNo}`;
+    for (const [column, value] of [['reason', multilineReason], ['notes', multilineNotes]]) {
+      b.assertStored(sql, 'appointment', column, where, value, `Multiline booking ${column} (LF storage)`);
     }
     await popup.close().catch(() => {});
-    h.assert(problems.length === 0, problems.join(' || '));
+    await reloadDaySheet();
+    const edit = await openEdit(multilineApptNo);
+    for (const [name, value] of [['reason', multilineReason], ['notes', multilineNotes]]) {
+      h.assert(await edit.locator(`form [name="${name}"]`).first().inputValue() === value,
+        `The edit popup changed multiline ${name}`);
+    }
+    for (const [name, column] of [['keyword', 'name'], ['resources', 'resources']]) {
+      h.assert(await edit.locator(`form [name="${name}"]`).first().getAttribute('maxlength') === String(b.columnLength(sql, 'appointment', column)),
+        `The edit ${column} limit does not match its column`);
+    }
+    const before = sql.rows(`SELECT HEX(reason), HEX(notes) FROM appointment WHERE ${where}`)[0].join('|');
+    await edit.locator('#updateButton').click();
+    await edit.waitForEvent('close', { timeout: 15000 }).catch(() => {});
+    await pollFor(sql, `SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${multilineApptNo}`,
+      v => Number(v) >= 1, 'The multiline Update was not recorded');
+    h.assert(sql.rows(`SELECT HEX(reason), HEX(notes) FROM appointment WHERE ${where}`)[0].join('|') === before,
+      'An unchanged Update altered the full multiline reason or notes');
+    await reloadDaySheet();
+    const reopened = await openEdit(multilineApptNo);
+    h.assert(await reopened.locator('form [name="reason"]').first().inputValue() === multilineReason &&
+      await reopened.locator('form [name="notes"]').first().inputValue() === multilineNotes,
+    'Reopening after Update changed the full multiline values');
+    await reopened.close();
   });
 }
 

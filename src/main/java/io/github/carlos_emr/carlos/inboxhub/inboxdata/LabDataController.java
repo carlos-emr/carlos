@@ -38,6 +38,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -97,6 +98,8 @@ public class LabDataController {
 
     private boolean providerSearch;
     private boolean patientSearch;
+    /** The clinic's clock: "today" for the toolbar's Acknowledged list is the clinic's day. */
+    private final Clock clock;
 
     /**
      * Constructs a new LabDataController with default search settings.
@@ -106,8 +109,14 @@ public class LabDataController {
      * when retrieving laboratory and document data.</p>
      */
     public LabDataController() {
+        this(Clock.systemDefaultZone());
+    }
+
+    /** Lets a test fix "today" for the toolbar's Acknowledged list. */
+    LabDataController(Clock clock) {
         providerSearch = true;
         patientSearch = true;
+        this.clock = clock;
     }
 
     /**
@@ -337,13 +346,14 @@ public class LabDataController {
 
         Boolean all = (!query.getDoc() && !query.getLab() && !query.getHrm());
         mixLabsAndDocs = query.getDoc() && query.getLab();
+        Date acknowledgedSince = acknowledgedSince(query);
         if (query.getDoc() || all) {
             labDocs.addAll(inboxResultsDao.populateDocumentResultsData(query.getSearchProviderNo(), query.getDemographicNo(), query.getPatientFirstName(),
-                query.getPatientLastName(), query.getPatientHealthNumber(), query.getStatusFilter().getValue(), isPaged, page, pageSize, mixLabsAndDocs, query.getAbnormalBool(), startDate, endDate));
+                query.getPatientLastName(), query.getPatientHealthNumber(), query.getStatusFilter().getValue(), isPaged, page, pageSize, mixLabsAndDocs, query.getAbnormalBool(), startDate, endDate, acknowledgedSince));
         }
         if (query.getLab() || all) {
             List<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo, query.getSearchProviderNo(), query.getDemographicNo(), query.getPatientFirstName(),
-                                                query.getPatientLastName(), query.getPatientHealthNumber(), query.getStatusFilter().getValue(), isPaged, page, labPageSize, mixLabsAndDocs, query.getAbnormalBool(), startDate, endDate);
+                                                query.getPatientLastName(), query.getPatientHealthNumber(), query.getStatusFilter().getValue(), isPaged, page, labPageSize, mixLabsAndDocs, query.getAbnormalBool(), startDate, endDate, acknowledgedSince);
             // Preserve the rows selected by the status-aware, paginated query. Collapsing
             // accession numbers afterwards hid reports (even from different patients),
             // made All disagree with New/Acknowledged/Filed, and disagreed with the
@@ -355,9 +365,32 @@ public class LabDataController {
             HRMResultsData hrmResult = new HRMResultsData();
             String searchProvider = query.getProviderSearchFilter().equals(ProviderSearchFilter.ANY_PROVIDER) ? "" : query.getSearchProviderNo();
             labDocs.addAll(hrmResult.populateHRMdocumentsResultsData(loggedInInfo, searchProvider, query.getPatientFirstName(),
-                query.getPatientLastName(), query.getPatientHealthNumber(), query.getDemographicNo(), query.getStatusFilter().getValue(), startDate, endDate, isPaged, page, pageSize));
+                query.getPatientLastName(), query.getPatientHealthNumber(), query.getDemographicNo(), query.getStatusFilter().getValue(), startDate, endDate, isPaged, page, pageSize, acknowledgedSince));
         }
         return labDocs;
+    }
+
+    /**
+     * The earliest acknowledgement the toolbar's Acknowledged list shows: the start of the clinic's
+     * day, or null for every other search.
+     *
+     * <p>The Inbox Hub list loads every page of a result set before it is done, so an Acknowledged
+     * list with no bound pages in every result the provider has ever acknowledged -- the hang an
+     * alpha tester had to stop by hand. The bound is when each item was acknowledged, not the
+     * result's own date: bounding by the result date hid labs acknowledged today whose results were
+     * older (#2515). The search panel's Acknowledged status does not set the flag, so older
+     * acknowledgements stay reachable there.
+     *
+     * @param query the inbox query being run
+     * @return start of today in the clinic's zone when the toolbar asked for today's
+     *         acknowledgements and the query is for acknowledged results; otherwise null
+     */
+    private Date acknowledgedSince(InboxhubQuery query) {
+        if (!Boolean.TRUE.equals(query.getAcknowledgedToday())
+                || query.getStatusFilter() != StatusFilter.ACKNOWLEDGED) {
+            return null;
+        }
+        return Date.from(LocalDate.now(clock).atStartOfDay(clock.getZone()).toInstant());
     }
 
     /**

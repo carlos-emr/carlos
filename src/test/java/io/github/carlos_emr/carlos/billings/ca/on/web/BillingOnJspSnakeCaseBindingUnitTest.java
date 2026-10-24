@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
@@ -32,6 +34,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimBatchAcknowledgementReportRecordDto;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimsErrorReportParser;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimBatchAcknowledgementReportParser;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 
 import org.junit.jupiter.api.DisplayName;
@@ -53,7 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Billing ON JSP snake_case bindings")
 @Tag("unit")
 @Tag("billing")
-class BillingOnJspSnakeCaseBindingUnitTest {
+class BillingOnJspSnakeCaseBindingUnitTest extends CarlosUnitTestBase {
 
     private static final Path BILLING_ON_JSP_ROOT = Path.of(
             "src/main/webapp/WEB-INF/jsp/billing/CA/ON");
@@ -69,6 +74,31 @@ class BillingOnJspSnakeCaseBindingUnitTest {
     private static final Map<String, Class<?>> BEAN_BACKED_PROPERTIES = Map.of(
             "billPayment", BillingONPayment.class,
             "claimsError", BillingClaimsErrorReportRecordDto.class);
+
+    @Test
+    void shouldExposeEveryReportElProperty_whenClaimsOrBatchAcknowledgementsAreRendered()
+            throws IOException, IntrospectionException {
+        Map<String, Class<?>> reportBeans = Map.of(
+                "claimsErrors", BillingClaimsErrorReportParser.class,
+                "claimsError", BillingClaimsErrorReportRecordDto.class,
+                "batchAcks", BillingClaimBatchAcknowledgementReportParser.class,
+                "batchAck", BillingClaimBatchAcknowledgementReportRecordDto.class);
+        Pattern binding = Pattern.compile("\\b(claimsErrors|claimsError|batchAcks|batchAck)\\.(\\w+)");
+        Matcher expressions = EL_EXPRESSION.matcher(Files.readString(BILLING_ON_JSP_ROOT.resolve("billingEAreport.jsp")));
+        Set<String> checked = new HashSet<>();
+        while (expressions.find()) {
+            Matcher properties = binding.matcher(expressions.group(1));
+            while (properties.find()) {
+                String bean = properties.group(1);
+                String property = properties.group(2);
+                assertThat(readablePropertyNames(reportBeans.get(bean)))
+                        .as("Report EL binding %s.%s must have a readable getter", bean, property)
+                        .contains(property);
+                checked.add(bean);
+            }
+        }
+        assertThat(checked).containsExactlyInAnyOrderElementsOf(reportBeans.keySet());
+    }
 
     @Test
     void shouldKeepSnakeCaseElBindings_limitedToKnownLegacyOrMapBackedProperties() throws IOException {

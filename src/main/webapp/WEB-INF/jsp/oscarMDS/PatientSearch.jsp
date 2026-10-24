@@ -104,7 +104,7 @@
     String labPatientSex       = "", labPatientAddress   = "", labPatientCity    = "";
     String labPatientProvince  = "", labPatientPostal    = "", labPatientPhone   = "";
     String labPatientHin       = "", labPatientHinVer    = "";
-    if (!p_labNo.isEmpty()) {
+    if (!p_labNo.isEmpty() && "HL7".equals(p_labType)) {
         try {
             MessageHandler labHandler = Factory.getHandler(p_labNo);
             labPatientFirstName = StringUtils.noNull(labHandler.getFirstName());
@@ -200,6 +200,7 @@
                 String monStr  = "" + MyDateFormat.getMonthFromStandardDate(p_keyword) + "%";
                 String dayStr  = "" + MyDateFormat.getDayFromStandardDate(p_keyword) + "%";
                 if (monStr.length() == 2) monStr = "0" + monStr; // zero-pad single-digit month
+                if (dayStr.length() == 2) dayStr = "0" + dayStr; // zero-pad single-digit day
                 ps.setString(pidx++, yearStr);
                 ps.setString(pidx++, monStr);
                 ps.setString(pidx++, dayStr);

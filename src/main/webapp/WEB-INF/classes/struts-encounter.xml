@@ -63,6 +63,7 @@
             <result name="HRM">/encounter/displayHRM</result>
             <result name="eams">/eaaps/displayEctEaaps</result>
         </action>
+        <action name="encounter/formExists" class="io.github.carlos_emr.carlos.encounter.pageUtil.FormExists2Action"/>
         <action name="encounter/displayForms" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayForm2Action">
             <result name="labs">/encounter/displayLabs</result>
             <result name="forms">/encounter/displayForms</result>
@@ -447,6 +448,7 @@
         <action name="encounter/ConsultationLookup2Action" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.ConsultationLookup2Action"/>
         <action name="encounter/AddService" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddService2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddService.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
         </action>
         <action name="encounter/ShowAllServices" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action">
             <result name="list">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/ShowAllServices.jsp</result>
@@ -608,6 +610,10 @@
             <result name="addDSHTML">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDSadd.jsp</result>
             <result name="removeDSHTML">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDSremove.jsp</result>
         </action>
+        <!-- Adds or removes a group's decision support from the Add and Remove pages' POST forms (POST only). -->
+        <action name="encounter/oscarMeasurements/MeasurementGroupDecisionSupport" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurementGroupDecisionSupport2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDScomplete.jsp</result>
+        </action>
         <action name="encounter/oscarMeasurements/SetupEditMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupEditMeasurementGroup2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/EditMeasurementGroup.jsp</result>
         </action>
@@ -626,6 +632,9 @@
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
+            <!-- Nothing was written (no type chosen, or the name was taken meanwhile): the
+                 type-selection page again, with the reason. -->
+            <result name="input">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementGroup.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/DeleteMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action">
             <result name="success">/encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet</result>

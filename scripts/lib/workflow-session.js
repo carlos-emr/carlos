@@ -7,7 +7,7 @@ const { openChart, waitForNavbars } = require('../echart-navbar-modules-playwrig
 
 // Each scenario owns its patient and child rows. No reset of a shared demo chart.
 // REST workflows may retain the patient fixture without opening its master record.
-async function runWorkflow(name, workflow, { openPatient = true, openMaster = true, preflight, patientFixtureFactory, contextOptions = {} } = {}) {
+async function runWorkflow(name, workflow, { openPatient = true, openMaster = true, preflightConfig, preflight, patientFixtureFactory, contextOptions = {} } = {}) {
   let browser;
   let sql;
   let patient;
@@ -19,6 +19,9 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
     name,
     async run({ cancellation }) {
       const config = h.readConfig();
+      // Environment-only prerequisites must be able to SKIP without database
+      // credentials. Keep provider/schema-dependent preflight after SQL setup.
+      if (preflightConfig) await preflightConfig({config});
       sql = h.createSqlRunner(config.mysql);
       const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
       h.assert(provider, 'The configured test login has no provider');
@@ -69,8 +72,16 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
           return ui.clickOpensPopup(page, locator, { context, recorder, label, timeout: 20000 });
         },
         async step(label, body) {
-          await cancellation.run(body);
-          h.assertStrictPage(recorder);
+          // Both inside the try: a script error or console error that the step's own
+          // actions provoked is reported by assertStrictPage, and belongs to this step.
+          // markFailedStep tags the error so the runner can compare the failing step with the
+          // manifest's expectedFailure.step (and tell a known failure from a new one).
+          try {
+            await cancellation.run(body);
+            h.assertStrictPage(recorder);
+          } catch (error) {
+            throw h.markFailedStep(error, label);
+          }
           console.log(`  PASS ${name}: ${label}`);
         },
       };
@@ -140,11 +151,12 @@ async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, p
   h.assert(!failures.length, failures.map(error => error.message).join('; '));
 }
 
-async function expectValue(sql, query, expected, message) {
+async function expectValue(sql, query, expected, message, parameters) {
   // Database reads are synchronous; bounded polling covers asynchronous UI saves.
+  // `parameters`, when given, are bound to the query's placeholders (createSqlRunner).
   const deadline = Date.now() + 15000;
   do {
-    if (sql.value(query) === expected) return;
+    if (sql.value(query, parameters) === expected) return;
     await new Promise(resolve => setTimeout(resolve, 150));
   } while (Date.now() < deadline);
   h.assert(false, message);

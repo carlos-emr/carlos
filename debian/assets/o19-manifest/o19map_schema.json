@@ -13104,7 +13104,8 @@
    "passwordUpdateDate",
    "pinUpdateDate",
    "lastUpdateUser",
-   "lastUpdateDate"
+   "lastUpdateDate",
+   "usingMfa"
   ],
   "ServiceClient": [
    "id",
@@ -14232,7 +14233,8 @@
    "key_val",
    "value",
    "date_time",
-   "hidden"
+   "hidden",
+   "dashboard_single_value_key"
   ],
   "demographicExtArchive": [
    "id",
@@ -24607,6 +24609,9 @@
   ],
   "patientLabRouting": [
    "lab_no"
+  ],
+  "pharmacyInfo": [
+   "uid"
   ],
   "prescribe": [
    "demographic_no"
@@ -43119,7 +43124,8 @@
      "passwordUpdateDate",
      "pinUpdateDate",
      "lastUpdateUser",
-     "lastUpdateDate"
+     "lastUpdateDate",
+     "usingMfa"
     ],
     "ServiceClient": [
      "id",
@@ -44212,7 +44218,8 @@
      "key_val",
      "value",
      "date_time",
-     "hidden"
+     "hidden",
+     "dashboard_single_value_key"
     ],
     "demographicExtArchive": [
      "id",
@@ -58811,6 +58818,9 @@
     "patientLabRouting": [
      "lab_no"
     ],
+    "pharmacyInfo": [
+     "uid"
+    ],
     "prescribe": [
      "demographic_no"
     ],
@@ -58943,9 +58953,7 @@
      "ID",
      "billing_no",
      "demographic_no",
-     "formNeeded",
-     "provider_no",
-     "w_duration"
+     "provider_no"
     ]
    },
    "PRISTINE_TOLERATED_TABLES": [

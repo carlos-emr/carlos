@@ -32,6 +32,9 @@
     AJAX issue-list fragment for the active note, including encounter type and clinical flags.
     Uses demographicNo and newNoteIdx request parameters and caseManagementEntryForm
     (request model or patient-specific session fallback). Refresh must finish before saving.
+    The encounter date (observation_date) is rendered by NoteObservationDate in its fixed English
+    form, never by fmt:formatDate: that formats in the browser's language and, for a language with
+    no date format, prints the raw java.sql.Timestamp, which the save could not read (issue #4711).
     @since 2026-09-27 (soft-wrap and save-order documentation)
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -40,6 +43,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteObservationDate" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
@@ -70,6 +74,8 @@
         request.setAttribute("caseManagementEntryForm", frm);
     }
     request.setAttribute("encSelect", encSelect);
+    String observationDateText = NoteObservationDate.format(
+            frm == null || frm.getCaseNote() == null ? null : frm.getCaseNote().getObservation_date());
 %>
 <c:choose>
     <c:when test="${empty caseManagementEntryForm.caseNote.id}">
@@ -100,7 +106,7 @@
         <c:when test="${not empty ajaxsave}">
             <fmt:message key="encounter.encounterDate.title"/>&nbsp;
             <span id="obs${caseManagementEntryForm.caseNote.id}">
-                <fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>
+                <carlos:encode value="<%= observationDateText %>"/>
             </span>&nbsp;
             <fmt:message key="encounter.noteRev.title"/>
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
@@ -112,7 +118,7 @@
             <img src="${ctx}/images/cal.gif" id="observationDate_cal" alt="calendar">&nbsp;
             <input type="text" id="observationDate" name="observation_date" ondblclick="this.value='';"
                    style="border: none; width: 140px;" readonly
-                   value="<fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>">
+                   value="<carlos:encode value="<%= observationDateText %>" context="htmlAttribute"/>">
             rev
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
                 ${caseManagementEntryForm.caseNote.revision}
@@ -263,6 +269,16 @@
 
 
 <div id="noteIssues" data-saved-note-id="${carlos:forHtmlAttribute(ajaxsave)}">
+    <c:if test="${empty ajaxsave}">
+        <div class="add-issues">
+            <label for="issueAutocomplete"><fmt:message key="encounter.Index.assnIssue"/></label>
+            <input type="text" id="issueAutocomplete" class="issueAutocomplete" name="issueSearch"
+                   size="25" autocomplete="off" onkeypress="return submitIssue(event);">
+            <fmt:message key="encounter.assign.title" var="assignIssueLabel"/>
+            <input type="button" id="asgnIssues" value="${carlos:forHtmlAttribute(assignIssueLabel)}"
+                   onclick="return assignNoteIssue(event);">
+        </div>
+    </c:if>
     <div id="noteIssues-resolved" style="margin: 0; background-color: #CCCCFF; display: none;">
         <b><fmt:message key="encounter.referenceResolvedIssues.title"/></b>
         <% int countResolvedIssue = -1; %>
@@ -273,11 +289,7 @@
     <c:if test="${issueCheckList.issue.resolved == true}">
         <tr>
             <td style="width: 50%; background-color: #CCCCFF;">
-                <c:set var="winame" value="window${issueCheckList.issueDisplay.description}"/>
-                <c:set var="winame" value="${fn:replace(winame, ' ', '_')}" />
-                <c:set var="winame" value="${fn:replace(winame, '/', '_')}" />
-                <c:set var="winame" value="${fn:replace(winame, '*', '_')}" />
-                <c:set var="winame" value="${fn:replace(winame, \"'\", '')}" />
+                <c:set var="winame" value="noteIssueDetails${status.index}" />
 
                 <c:set var="submitString" value="this.form.method.value='issueChange'; this.form.lineId.value='${status.index}'; return ajaxUpdateIssues('issueChange', $('noteIssues').up().id);" />
                 <c:set var="id" value="noteIssue${status.index}" />
@@ -285,7 +297,7 @@
                 <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
                 <c:set var="disabled" value="${!writeAccess}" />
 
-                <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''}/>
+                <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''}/>
 
                 <a href="#" onclick="return displayIssue('${winame}');">
                     ${carlos:forHtml(issueCheckList.issueDisplay.description)}
@@ -352,12 +364,8 @@
             <c:forEach var="issueCheckList" items="${caseManagementEntryForm.issueCheckList}" varStatus="status">
     <c:if test="${issueCheckList.issue.resolved == false}">
 
-        <c:set var="winame" value="window${issueCheckList.issueDisplay.description}" />
-        <c:set var="winame" value="${fn:replace(winame, ' ', '_')}" />
-        <c:set var="winame" value="${fn:replace(winame, '/', '_')}" />
-        <c:set var="winame" value="${fn:replace(winame, '*', '_')}" />
-        <c:set var="winame" value="${fn:replace(winame, \"'\", '')}" />
-        <c:set var="winame" value="${fn:escapeXml(winame)}" />
+        <c:set var="winame" value="noteIssueDetails${status.index}" />
+
         <c:set var="countUnresolvedIssue" value="${status.index + 1}" />
 
         <c:if test="${countUnresolvedIssue % 2 == 0}">
@@ -371,10 +379,10 @@
             <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
             <c:set var="disabled" value="${!writeAccess}" />
 
-            <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''} />
+            <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''} />
 
             <a href="#" onclick="return displayIssue('${winame}');">
-                ${issueCheckList.issueDisplay.description}
+                ${carlos:forHtml(issueCheckList.issueDisplay.description)}
             </a>
 
             <c:if test="${issueCheckList.used == false}">
@@ -435,10 +443,14 @@
 <script type="text/javascript">
 (function () {
     // AJAX responses re-evaluate this fragment, so keep its declarations isolated.
+    <c:if test="${empty ajaxsave}">
+        initializeIssueAutocomplete(document.getElementById('noteIssues'));
+    </c:if>
 
     //check to see if we need to update div containers to most recent note id
     //this happens only when we're called thru ajaxsave
     <c:if test="${not empty ajaxsave}">
+        destroyNoteIssueAutocomplete();
         var origId = "${carlos:forJavaScriptBlock(origNoteId)}";
         var newId = "${carlos:forJavaScriptBlock(ajaxsave)}";
         var oldDiv;

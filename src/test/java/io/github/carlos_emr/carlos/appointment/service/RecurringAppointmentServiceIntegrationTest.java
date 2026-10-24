@@ -143,6 +143,32 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
                 .containsExactly("2027-01-31", "2027-02-07", "2027-02-14");
     }
 
+    @Test
+    void shouldExtendLegacyMultilineSeriesWithoutDuplicates_whenLineEndingsAreNormalized() {
+        values.put("endDate", "31/01/2027");
+        values.put("reason", "Legacy\r\nreason");
+        service.apply(user, values, 10016);
+        Appointment anchor = rows().getFirst();
+        // Hibernate uses field access: represent a pre-fix CRLF row without calling the new setters.
+        em.createNativeQuery("UPDATE appointment SET reason=:reason WHERE appointment_no=:id")
+                .setParameter("reason", "Legacy\r\nreason").setParameter("id", anchor.getId()).executeUpdate();
+        em.clear();
+        values.put("appointment_no", anchor.getId().toString());
+        values.put("endDate", "14/02/2027");
+
+        assertThat(service.apply(user, values, 10016)).isEqualTo(2);
+        em.flush();
+        em.clear();
+        assertThat(service.apply(user, values, 10016)).isZero();
+        assertThat(rows()).hasSize(3);
+        values.put("groupappt", "Group Update");
+        values.put("reason", "Updated\r\nreason");
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        em.flush();
+        em.clear();
+        assertThat(rows()).hasSize(3).allSatisfy(a -> assertThat(a.getReason()).isEqualTo("Updated\nreason"));
+    }
+
     @Test void updatesCancelsAndArchivesEveryMatchingDate() {
         service.apply(user, values, 10016);
         values.put("appointment_no", rows().getFirst().getId().toString());

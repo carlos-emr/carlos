@@ -79,6 +79,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -464,7 +465,7 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
     }
     const expectCommunity = Boolean(seededLookupListId);
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context, config, recorder);
 
     // Path 1: the gate route. Always present, so this is the assertion that

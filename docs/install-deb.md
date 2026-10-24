@@ -44,6 +44,12 @@ account, with its connector bound to `127.0.0.1:18080` behind the
 nginx + ModSecurity front door, serving an application tree the EMR's own
 account cannot write to.
 
+Packaged JSPs use Jasper production mode (`development=false`) through a
+package-only `WEB-INF/tomcat-web.xml`. They compile on first use and keep the
+compiled page until Tomcat restarts; package upgrades restart the service and
+clear its JSP work files. The shared WAR and devcontainer retain their existing
+on-access change checks for JSP development.
+
 Installing the `tomcat11` *service* package on top of that ("CARLOS is a Java
 webapp, so it must need Tomcat") starts a **second, unrelated** container as
 the `tomcat` user listening on `*:8080` — every interface, with no TLS, WAF,

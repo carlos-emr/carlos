@@ -116,18 +116,18 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform"><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
 					</security:oscarSec>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode"><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingPrivateCodeAdjust"><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
 					<oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
 						value="yes">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingAddCode"><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingCodeAdjust"><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/BC/showServiceCodeAssocs"><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/BC/supServiceCodeAssocAction"><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
 
-					<li><a href="${ctx}/billing/CA/BC/AddReferralDoc" class="contentLink defaultManageReferralDoc"><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
+					<li><a href="${ctx}/billing/CA/BC/ViewBillingManageReferralDoc" class="contentLink defaultManageReferralDoc"><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
 
 					<li>
 						<a href="javascript:void(0);" class="xlink" rel="${ ctx }/quickBillingBC" >
@@ -143,9 +143,9 @@ Properties oscarVariables = CarlosProperties.getInstance();
 					</oscar:oscarPropertiesCheck>
 					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/GenerateTeleplanFile"><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/GenerateTeleplanFile"><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
 						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/SimulateTeleplanFile"><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
+							class="xlink" rel="${ctx}/billing/CA/BC/SimulateTeleplanFile"><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
 						<li><a href='javascript:void(0);'
 							class="xlink" rel="${ctx}/billing/CA/BC/ManageTeleplan"><fmt:message key="admin.admin.manageTeleplan"/></a></li>
 					</oscar:oscarPropertiesCheck>
@@ -155,7 +155,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 							class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingTA"><fmt:message key="admin.admin.uploadRemittance"/></a></li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/ProcessRemittance"><fmt:message key="admin.admin.reconciliationReports"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/BC/ViewReconcileReports"><fmt:message key="admin.admin.reconciliationReports"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/BC/ViewBillingAccountReports"><fmt:message key="admin.admin.AccountingRpts"/></a></li>
 					<li><a href='javascript:void(0);'
@@ -374,11 +374,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						class="contentLink"><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
 					<li><a href="${ctx}/oscarReport/obec" class="contentLink"><fmt:message key="admin.admin.overnightBatch"/></a></li>
 								
-					<caisi:isModuleLoad moduleName="caisi">		
-						<li><a href="javascript:void(0);"
-						class="xlink contentLink" rel="${ctx}/PMmodule/Reports/ProgramActivityReport"><fmt:message key="admin.admin.activityRpt"/></a></li>
-					</caisi:isModuleLoad>			
-								
 					<li><a href="${ctx}/oscarReport/ViewPatientlist"
 						class="contentLink"><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
 					<li><a
@@ -386,7 +381,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						class="contentLink"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
 								
 					<caisi:isModuleLoad moduleName="caisi">
-						<li><a page="${pageContext.request.contextPath}/PopulationReport" class="contentLink"> <fmt:message key="admin.admin.popRpt"/></a></li>
+						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/PopulationReport"><fmt:message key="admin.admin.popRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ViewCds4ReportForm"	class="contentLink"><fmt:message key="admin.admin.cdsRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ViewMisReportForm" class="contentLink"><fmt:message key="admin.admin.misRpt"/></a></li>
 					</caisi:isModuleLoad>
@@ -521,10 +516,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						<fmt:message key="admin.admin.issueEditor"/>
 					</a></li>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SurveyManager">
-						<fmt:message key="admin.admin.surveyManager"/>
-					</a></li>
-					<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/DefaultEncounterIssue">
 						<fmt:message key="admin.admin.defaultEncounterIssue"/>
 					</a></li>
@@ -568,13 +559,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 							<fmt:message key="admin.admin.issueEditor"/>
 						</a></li>
 					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>"
-						objectName="_admin.userCreatedForms" rights="r">
-						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SurveyManager">
-							<fmt:message key="admin.admin.surveyManager"/>
-						</a></li>
-					</security:oscarSec>
 				</ul>
 				</div>
 				</div>
@@ -584,7 +568,30 @@ Properties oscarVariables = CarlosProperties.getInstance();
 <!-- #CAISI END-->
 
 <!-- #SYSTEM Management-->
-	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements,_admin.document,_admin.flowsheet" rights="r" reverse="<%=false%>">
+	<%-- One tag per object: a combined objectName list keeps ONE privilege per role across the
+	     objects it names, so a role's `o` (no-rights) row on _admin.misc could hide this whole
+	     section from a role that reads _admin.flowsheet (manage-flowsheets-access pins that case).
+	     Each listed object opens at least one entry below. --%>
+	<c:set var="canSeeSystemManagement" value="${false}" />
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.measurements" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.document" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.flowsheet" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.misc" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="r">
+		<c:set var="canSeeSystemManagement" value="${true}" />
+	</security:oscarSec>
+	<c:if test="${canSeeSystemManagement}">
 			<div class="accordion-item">
 			<h2 class="accordion-header">
 			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEight" aria-expanded="false" aria-controls="collapseEight">
@@ -600,18 +607,35 @@ Properties oscarVariables = CarlosProperties.getInstance();
 					<fmt:message key="admin.admin.addRole"/></a></li>
 				</security:oscarSec>
 
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r" reverse="<%=false%>">			
-								
+				<%-- Same rule as DisplayDocumentDescriptionTemplate2Action for the clinic-wide list: read on
+				     either object, each checked alone so one object's row cannot mask the other (#5057). --%>
+				<c:set var="canOpenDocumentDescriptionTemplates" value="${false}" />
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r">
+					<c:set var="canOpenDocumentDescriptionTemplates" value="${true}" />
+				</security:oscarSec>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.document" rights="r">
+					<c:set var="canOpenDocumentDescriptionTemplates" value="${true}" />
+				</security:oscarSec>
+				<c:if test="${canOpenDocumentDescriptionTemplates}">
 				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/DisplayDocumentDescriptionTemplate?setDefault=true"><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>		
-				</security:oscarSec>		
+					class="xlink" rel="${ctx}/admin/DisplayDocumentDescriptionTemplate?setDefault=true"><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
+				</c:if>
 						
 						
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">			
+				<%-- Same gate as ProviderPrivilege2Action and providerPrivilege.jsp: write on either object. --%>
+				<c:set var="canManageRoleRights" value="${false}" />
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w">
+					<c:set var="canManageRoleRights" value="${true}" />
+				</security:oscarSec>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="w">
+					<c:set var="canManageRoleRights" value="${true}" />
+				</security:oscarSec>
+				<c:if test="${canManageRoleRights}">
 				<li><a href='javascript:void(0);'
 					class="xlink" rel="${ctx}/admin/ProviderPrivilege">
 				<fmt:message key="admin.admin.assignRightsObject"/></a></li>
-				
+				</c:if>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/ManageClinic"><fmt:message key="admin.admin.clinicAdmin"/></a></li>
 					<%
@@ -666,9 +690,22 @@ Properties oscarVariables = CarlosProperties.getInstance();
 <%--					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/FacilityManager"><fmt:message key="admin.admin.manageFacilities"/></a></li>--%>
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/encounter/oscarMeasurements/adminFlowsheet/ViewNewFlowsheet"><fmt:message key="admin.admin.newFlowsheet"/></a></li>
 					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageFlowsheets"><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+					<%-- Same objects and right as ManageFlowsheets2Action's view gate: read on any one
+					     opens the list, and the page offers enable/disable and upload only to a writer
+					     (issue #4623). One tag per object, as combined tags collapse each role's grants. --%>
+					<c:set var="canViewFlowsheets" value="${false}" />
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r">
+						<c:set var="canViewFlowsheets" value="${true}" />
 					</security:oscarSec>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.misc" rights="r">
+						<c:set var="canViewFlowsheets" value="${true}" />
+					</security:oscarSec>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.flowsheet" rights="r">
+						<c:set var="canViewFlowsheets" value="${true}" />
+					</security:oscarSec>
+					<c:if test="${canViewFlowsheets}">
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageFlowsheets"><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+					</c:if>
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 			      	<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewLotNrAddRecordHtm"><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewLotNrSearchRecordsHtm"><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
@@ -723,7 +760,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 				</div>
 				</div>
 				</div>
-	</security:oscarSec>
+	</c:if>
 <!-- #SYSTEM Management END-->
 
 <!-- #Fax Management -->
@@ -811,26 +848,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						</ul>
 					</li>
 
-					<%
-						if (oscarVariables.getProperty("hsfo.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo.loginSiteCode", "")))
-									{
-					%>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/RecommitHSFO?method=showSchedule"><fmt:message key="admin.admin.hsfoSubmit"/></a></li>
-					<%
-						}
-					%>
-		
-					  <%
-		                                if (oscarVariables.getProperty("hsfo2.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo2.loginSiteCode", "")))
-		                                {
-		                        %>
-		                        <li><a href='javascript:void(0);'
-		                                class="xlink" rel="${ctx}/admin/RecommitHSFO2?method=showSchedule"><fmt:message key="admin.admin.hsfo2Submit"/></a></li>
-		                        <%
-		                                }
-		                        %>		
-			
 					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/ViewUpdateDrugref" ><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
 <%-- K2A config link removed --%>
 				</ul>
@@ -895,6 +912,61 @@ function popupPage(vheight,vwidth,varpage) { //open a new popup window
 	  }
 }
 
+// Opens an administration section inside the panel's #myFrame. The .xlink entries below use it,
+// and so do section pages that host a full-page tool the shell cannot inject as an AJAX fragment
+// (the eForm Library's Visual eForm Editor links, #3166). `source` is the URL to frame; when
+// `submitForm` names a form instead, that form is posted into the frame (it targets "myFrame").
+function carlosOpenInAdminFrame(source, iframeTitle, submitForm) {
+	iframeTitle = iframeTitle || "Administration page";
+	if (typeof resetFrameSizing === 'function') {
+		// Start from the CSS aspect box; the previous section may have grown it.
+		resetFrameSizing();
+	}
+	$("#dynamic-content").addClass("dynamic-iframe-content");
+	$("#dynamic-content").empty().append($("<iframe>", {
+		id: "myFrame",
+		name: "myFrame",
+		title: iframeTitle,
+		loading: "lazy",
+		role: "region",
+		"aria-live": "polite"
+	}).css("border", "0"));
+	// Every document the frame loads — the first one AND every in-frame
+	// navigation after it (a link, a form post, a wizard's "Next") — has to
+	// bring the shell back to the top of the new page. Without this, a reader
+	// who scrolled the SHELL down to reach a control near the bottom of the
+	// frame stays parked at that offset while the frame swaps in a new
+	// document, and sees the middle of it: the schedule week-setting "Next"
+	// saved the schedule and loaded the calendar step, and the reader
+	// reported that clicking it did nothing (alpha10). Only a handful of
+	// legacy pages call parent.parent.resizeIframe() themselves, so this has
+	// to be driven from the shell to cover the rest.
+	$("#myFrame").on("load", function () {
+		if (typeof scrollFramedContentIntoView === 'function') {
+			scrollFramedContentIntoView(this);
+		}
+	});
+	if (submitForm) {
+		var form = document.getElementById(submitForm);
+		if (form) {
+			form.submit();
+		}
+	} else {
+		$("#myFrame").attr("src", source);
+	}
+	// Immediate feedback: a section whose page takes a moment to arrive would
+	// otherwise leave the reader at their old offset until it does. The load
+	// handler above then owns the final position once the real content height
+	// is known. Go through the shell's helper so this scroll clears the
+	// animation queue too — two clicks in quick succession would otherwise
+	// queue and extend each other.
+	if (typeof scrollShellToTop === 'function') {
+		scrollShellToTop();
+	} else {
+		$("html, body").stop(true).animate({ scrollTop: 0 }, "slow");
+	}
+}
+
 $(document).ready(function(){
 	$(".accordion-header").click(function(e) {
 		if($(this).hasClass('selected-heading')) {
@@ -906,56 +978,8 @@ $(document).ready(function(){
 	});
 
 	$(".xlink").click(function(e) {
-		var source = $(this).attr('rel');
-		var submitForm = $(this).data('submit-form');
 		var iframeTitle = $(this).data('frame-title') || $.trim($(this).text()) || "Administration page";
-		if (typeof resetFrameSizing === 'function') {
-			// Start from the CSS aspect box; the previous section may have grown it.
-			resetFrameSizing();
-		}
-		$("#dynamic-content").addClass("dynamic-iframe-content");
-		$("#dynamic-content").empty().append($("<iframe>", {
-			id: "myFrame",
-			name: "myFrame",
-			title: iframeTitle,
-			loading: "lazy",
-			role: "region",
-			"aria-live": "polite"
-		}).css("border", "0"));
-		// Every document the frame loads — the first one AND every in-frame
-		// navigation after it (a link, a form post, a wizard's "Next") — has to
-		// bring the shell back to the top of the new page. Without this, a reader
-		// who scrolled the SHELL down to reach a control near the bottom of the
-		// frame stays parked at that offset while the frame swaps in a new
-		// document, and sees the middle of it: the schedule week-setting "Next"
-		// saved the schedule and loaded the calendar step, and the reader
-		// reported that clicking it did nothing (alpha10). Only a handful of
-		// legacy pages call parent.parent.resizeIframe() themselves, so this has
-		// to be driven from the shell to cover the rest.
-		$("#myFrame").on("load", function () {
-			if (typeof scrollFramedContentIntoView === 'function') {
-				scrollFramedContentIntoView(this);
-			}
-		});
-		if (submitForm) {
-			var form = document.getElementById(submitForm);
-			if (form) {
-				form.submit();
-			}
-		} else {
-			$("#myFrame").attr("src", source);
-		}
-		// Immediate feedback: a section whose page takes a moment to arrive would
-		// otherwise leave the reader at their old offset until it does. The load
-		// handler above then owns the final position once the real content height
-		// is known. Go through the shell's helper so this scroll clears the
-		// animation queue too — two clicks in quick succession would otherwise
-		// queue and extend each other.
-		if (typeof scrollShellToTop === 'function') {
-			scrollShellToTop();
-		} else {
-			$("html, body").stop(true).animate({ scrollTop: 0 }, "slow");
-		}
+		carlosOpenInAdminFrame($(this).attr('rel'), iframeTitle, $(this).data('submit-form'));
 	});
 
 

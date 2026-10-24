@@ -185,7 +185,7 @@
 			</box>
 			<expression><![CDATA["Account: " + $F{accountName}]]></expression>
 		</element>
-		<element kind="textField" mode="Opaque" x="367" y="29" width="166" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-42" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+		<element kind="textField" mode="Opaque" x="367" y="29" width="166" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-42" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="false" pattern="">
 			<paragraph lineSpacing="Single" />
 			<box>
 				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />

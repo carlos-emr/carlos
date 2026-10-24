@@ -32,6 +32,8 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - name: Install supported npm
+        run: npm install --global npm@10.9.9 --ignore-scripts --no-audit --no-fund
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       # Several script tests read carlos-ctl, which is its own repository
@@ -84,3 +86,5 @@ jobs:
         run: node scripts/eform-toolbar-browser-check.js
       - name: Check calendar initialization in eForms
         run: node scripts/calendar-eform-browser-check.js
+      - name: Check prevention print popup navigation in Chromium
+        run: node scripts/prevention-print-popup-browser-check.js

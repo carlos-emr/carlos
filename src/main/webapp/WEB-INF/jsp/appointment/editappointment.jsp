@@ -258,7 +258,7 @@
     boolean bMultipleSameDayGroupAppt = false;
 %>
 
-<html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
     <head>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
@@ -1058,17 +1058,18 @@
                                value="<fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>
                     <td>
-            	<input type="text" name="keyword" id="keyword" class="form-control"
+                        <label for="keyword" class="visually-hidden"><fmt:message key="Appointment.formName"/></label>
+                        <input type="text" name="keyword" id="keyword" class="form-control" maxlength="50"
                                value="<carlos:encode value='<%= bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "") %>' context="htmlAttribute"/>"
                                placeholder="<fmt:message key="Appointment.formName"/>">
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formReason"/>:</label>
+                        <label for="reasonCode"><fmt:message key="Appointment.formReason"/>:</label>
                     </td>
                     <td>
-				<select name="reasonCode" class="form-select">
+				<select name="reasonCode" id="reasonCode" class="form-select">
                             <%
                                 String rCode = bFirstDisp && appt.getReasonCode() != null ? appt.getReasonCode().toString() : request.getParameter("reasonCode");
                                 pageContext.setAttribute("rCode", rCode);
@@ -1094,13 +1095,14 @@
                 </tr>
                 <tr>
             <td></td><td>
+                        <label for="reason" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
 				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
 
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formLocation"/>:</label>
+                        <span id="appointmentLocationLabel"><fmt:message key="Appointment.formLocation"/>:</span>
                     </td>
                     <td>
                         <%
@@ -1114,7 +1116,7 @@
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
 
                             if (bMultisites) { %>
-				        <select tabindex="4" name="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+				        <select name="location" id="locationSite" aria-labelledby="appointmentLocationLabel" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                             <%
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
@@ -1133,7 +1135,7 @@
                             isSiteSelected = true;
                             if (locationEnabled) {
                         %>
-		<select name="location" class="form-select">
+		<select name="location" id="locationProgram" aria-labelledby="appointmentLocationLabel" class="form-select">
                             <%
                                 String location = SafeEncode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
                                 if (programs != null && !programs.isEmpty()) {
@@ -1148,7 +1150,7 @@
                             %>
                         </select>
                         <% } else { %>
-		        <input type="text" class="form-control" name="location" tabindex="4"
+		        <input type="text" class="form-control" name="location" id="locationText" aria-labelledby="appointmentLocationLabel"
                        value="<carlos:encode value='<%= bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : "") %>' context="htmlAttribute"/>" >
                         <% } %>
                         <% } %>
@@ -1156,11 +1158,11 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formCreator"/>:</label>
+                        <label for="appointmentCreator"><fmt:message key="Appointment.formCreator"/>:</label>
                     </td>
                     <td>
                         <% String lastCreatorNo = bFirstDisp ? (appt.getCreator()) : request.getParameter("user_id"); %>
-                <input type="text" class="form-control" name="user_id" value="<carlos:encode value='<%= lastCreatorNo %>' context="htmlAttribute"/>" readonly >
+                <input type="text" class="form-control" name="user_id" id="appointmentCreator" value="<carlos:encode value='<%= lastCreatorNo %>' context="htmlAttribute"/>" readonly >
                     </td>
                 </tr>
                 <%
@@ -1314,18 +1316,18 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formNotes"/>:</label>
+                        <label for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
-				<textarea name="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
+				<textarea name="notes" id="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formResources"/>:</label>
+                        <label for="resources"><fmt:message key="Appointment.formResources"/>:</label>
                     </td>
                     <td>
-                <input type="text" name="resources" tabindex="5" class="form-control"
+                <input type="text" name="resources" id="resources" class="form-control" maxlength="255"
                                value="<carlos:encode value='<%= bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : "") %>' context="htmlAttribute"/>">
                     </td>
                 </tr>

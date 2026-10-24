@@ -61,6 +61,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -248,10 +249,39 @@
             height: 100%;
         }
 
+        /* The framed reports (PHCP, billing reconciliation) are paginated by the
+           shell, whose page margin applies to them; their own @page rule does not. */
+        @page {
+            margin: 12mm;
+        }
+
         @media print {
             /*this is so the link locatons don't display*/
             a:link:after, a:visited:after {
                 content: "";
+            }
+
+            /* Print the panel, not the shell around it (#3342). The accordion
+               column is already d-print-none. The schedule menu (scheduleNav=1)
+               is classed noprint, but only print.css gave that class a rule and
+               this shell never loads print.css, so it printed. Without the side
+               column the content pane would keep its 9/12 width and leave a
+               blank strip down the left of every page. */
+            #firstTable, .noprint {
+                display: none !important;
+            }
+
+            #main-wrapper {
+                margin-top: 0 !important;
+            }
+
+            #dynamic-content {
+                flex: 0 0 100%;
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+                overflow: visible;
             }
         }
     </style>
@@ -345,14 +375,23 @@
                     </div>
                 </security:oscarSec>
 
-                <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r"
-                                   reverse="<%=false%>">
+                <%-- Assign Role/Rights to Object writes, so its card follows ProviderPrivilege2Action:
+                     write on _admin or on _admin.userAdmin, checked one object at a time (a combined
+                     tag keeps one privilege per role). Read alone would offer a card that answers 403. --%>
+                <c:set var="canAssignRoleRights" value="${false}" />
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w">
+                    <c:set var="canAssignRoleRights" value="${true}" />
+                </security:oscarSec>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="w">
+                    <c:set var="canAssignRoleRights" value="${true}" />
+                </security:oscarSec>
+                <c:if test="${canAssignRoleRights}">
                     <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ProviderPrivilege"><i
                                 class="fa-solid fa-wrench fa-4x"></i>
                             <h5><fmt:message key="admin.admin.assignRightsObject"/></h5></a>
                     </div>
-                </security:oscarSec>
+                </c:if>
             </div>
 
             <%}%>

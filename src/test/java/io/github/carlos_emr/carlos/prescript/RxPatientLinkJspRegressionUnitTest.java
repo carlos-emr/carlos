@@ -272,7 +272,7 @@ class RxPatientLinkJspRegressionUnitTest {
                     .contains("/rx/choosePatient?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true");
         }
         assertThat(read("rx/SearchDrug3.jsp"))
-                .contains("window.location.href = RxPatientContext.withPatient(ctx + \"/rx/searchDrug\");")
+                .contains("window.location.href = RxPatientContext.withPatient(ctx + \"/rx/choosePatient\");")
                 .contains("onFailure: reportRefusedSave");
     }
 
@@ -314,8 +314,8 @@ class RxPatientLinkJspRegressionUnitTest {
         assertThat(read("rx/WriteScript.jsp"))
                 .contains("name=\"randomId\" value=\"\"")
                 .contains("form.elements['randomId'].value = randomId")
-                .contains("javascript:addFavorite('${rx2.randomId}'")
-                .doesNotContain("javascript:addFavorite('${loopStatus.index}'");
+                .contains("addFavorite('${rx2.randomId}'")
+                .doesNotContain("addFavorite('${loopStatus.index}'");
     }
 
     @Test

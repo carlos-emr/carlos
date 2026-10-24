@@ -102,6 +102,17 @@ for REF_MIGRATION in \
     "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql"; do
   $SQL carlos < "${REF_MIGRATION}"
 done
+# development.sql also truncate-reloads the security tables (secObjectName,
+# secObjPrivilege, secRole, secUserRole, secPrivilege), wiping every security
+# object a migration added after the snapshot was taken (issue #4369: a missing
+# grant surfaces as a 403 for carlosdoc). Re-apply, in version order, every
+# forward migration that touches those tables. Discovery is by content rather
+# than a hand-kept list so a future migration that adds a security object is
+# covered automatically; this relies on the repo rule that forward migrations
+# are idempotent. (The deb demo load needs no equivalent:
+# demo-additive-exclude.txt drops the security tables, so Flyway rows stand.)
+echo 'Re-applying security-object migrations undone by the demo snapshot...'
+sh /scripts/reapply_security_migrations.sh "${MIG}" carlos -u root
 echo 'Restoring current Administration privileges...'
 $SQL carlos < /scripts/development_privileges.sql
 echo 'Seeding fake referral specialists and provider links...'
@@ -167,4 +178,23 @@ $SQL carlos -e "UPDATE clinic SET clinic_name = 'CARLOS Demo Clinic' WHERE TRIM(
 echo 'Loading Administration test fixtures...'
 $SQL carlos < /scripts/admin_test_data.sql
 $SQL carlos < /scripts/admin_test_account.sql
+# Query by Example runs as a separate read-only account that MariaDB grants SELECT on the
+# reportable tables only (issue #3372). Last, so every table it may read already exists. The
+# same file grants it on packaged installs (carlos-ctl db-users / db-migrate); re-run it with
+# the qbe-reporting-account helper from the app container after a schema change. '%' because
+# the app connects from another container. Dev-only password, matching db_reporting_password
+# in .devcontainer/development/config/shared/volumes/carlos.properties.
+echo 'Provisioning the read-only Query by Example reporting account...'
+REPORT_PASSWORD="${CARLOS_REPORT_DB_PASSWORD:-carlos-report-dev}"
+# The password goes into SQL string literals below; refuse what would end the literal, as the
+# qbe-reporting-account helper does.
+case "$REPORT_PASSWORD" in
+    *"'"*|*'\'*) echo "CARLOS_REPORT_DB_PASSWORD: quotes and backslashes are not supported" >&2; exit 1 ;;
+esac
+# On stdin, not argv, like the root password above.
+$SQL <<EOSQL
+CREATE USER IF NOT EXISTS 'carlos_report'@'%' IDENTIFIED BY '${REPORT_PASSWORD}';
+ALTER USER 'carlos_report'@'%' IDENTIFIED BY '${REPORT_PASSWORD}';
+EOSQL
+$SQL carlos < /scripts/carlos_report_grants.sql
 echo 'Database initialization complete!'

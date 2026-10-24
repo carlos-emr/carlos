@@ -13,8 +13,8 @@
 
 /*
  * Browser regression check for CPP (orange box) items that carry MORE THAN ONE
- * extension key: can a clinician save a Social History item with both a start
- * date and a resolution date, read both back, and archive it -- without the box
+ * extension key: can a clinician save a Medical History item with both a start
+ * date and a resolution date, read both back, clear Treatment, and archive it -- without the box
  * turning into "Error: 500"?
  *
  * WHY THIS CHECK EXISTS (issue #3739). issueNoteSave() in
@@ -32,26 +32,30 @@
  * extension never trips it -- one persist() per request succeeds -- so a
  * one-field check would pass against the broken code and prove nothing.
  *
- * THE ARCHIVE IS THE SECOND HALF, and it is a different trap. Archiving re-runs
- * the same write path over a note that ALREADY has its extension rows, so a
- * plain persist() per save would pile a second row onto every key rather than
- * replace it. The readers disagree about which duplicate wins
- * (CaseManagementNoteExtDAOImpl orders id desc; NotesService.getNote() assigns
- * from every row it walks and ends on the OLDEST), so a duplicate is not
- * cosmetic: it makes an edited date read back as the value it replaced. The
- * check asserts the row COUNT is unchanged after the archive, not merely that
- * the request succeeded.
+ * Archiving creates a new note revision (#4507). The latest revision must carry
+ * one extension row per populated key, and the prior revision and its dates must
+ * remain unchanged. Duplicate keys can otherwise make readers display old values.
  *
  * ENTERED THE WAY A CLINICIAN ENTERS IT: login, Search, the patient's Master
- * Record, E-Chart, the Social History box's "+", then the dialog's own
+ * Record, E-Chart, the Medical History box's "+", then the dialog's own
  * Sign & Save and Archive buttons. Nothing is posted behind the page's back --
  * the point is partly that the page's own CarlosAjax POST carries its CSRF
  * token and its serialized form exactly as the browser builds them.
  *
- * WHAT IT WRITES, AND REMOVES. One casemgmt_note row and its casemgmt_note_ext
- * rows for the selected patient, plus the casemgmt_note_lock the chart takes.
- * All are deleted afterwards through MYSQL_*; the note is found by the stamp
- * this run generated, so no clinician's note is matched. The lock delete is
+ * A patient-scoped trigger rejects the edited Resolution Date after the Start Date
+ * update. The whole failed save must roll back, and retrying the original revision
+ * through the still-open dialog must succeed before archive creates the third revision.
+ * The edit also clears Treatment: the latest value must be empty while the original
+ * revision retains its populated value, including after archive.
+ *
+ * WHAT IT WRITES, AND REMOVES. Three casemgmt_note revisions and their casemgmt_note_ext
+ * rows for a FAKE patient this check creates (lib/owned-patient.js: last name = a
+ * FAKE-PW run marker), plus the casemgmt_note_lock the chart takes, the patient's
+ * casemgmt_issue assignment and CPP summary and eChart rows. The patient used to be
+ * DEMO patient 2, where the first Social History item also created the casemgmt_issue
+ * row the chart assigns the issue by, which stayed behind. The note's rows are deleted
+ * afterwards through MYSQL_*, found by the stamp this run generated, and then everything
+ * left for the patient and the patient itself by its key. The lock delete is
  * scoped to THIS browser session id (casemgmt_note_lock records the id that
  * took the lock), so a lock another session holds on the same patient is left
  * alone. Cleanup runs through runCheck()'s cleanup hook: a delete that fails is
@@ -65,30 +69,30 @@
  *   MYSQL_PASSWORD=... npm run test:cpp-note-extension-archive-playwright
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
- *   CPP_EXT_SEARCH=FAKE-           surname prefix used to reach a patient
- *   CPP_EXT_DEMOGRAPHIC_NO=2       which patient's chart to open. Defaults to 2, not 1: the
- *                                  shared helper records that demographic 1's chart answers 500 on
- *                                  the demo dataset, because its HRM rows point at report files
- *                                  that never shipped
  *   CPP_EXT_TIMEOUT_MS=45000       per-step allowance
  */
 
 const {
   assert, assertStrictPage, createRecorder, createSqlRunner, launchBrowser, login, newContext, readConfig, runCheck,
-  sqlString,
+  sqlString, withExpectedDialogs,
 } = require('./lib/playwright-harness');
+const { randomBytes } = require('node:crypto');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
-/** The Social History box in the encounter layout's CPP grid. */
-const BOX_ID = 'divR1I1';
+/** Medical History exposes Treatment as well as both dates in the actual dialog. */
+const BOX_ID = 'divR1I2';
 /** The hovering CPP item editor newEncounterLayout.jsp renders once per chart. */
 const DIALOG = '#showEditNote';
 /** Two dated keys, because one persist() per request always succeeds. */
 const START_DATE = '2021-01-01';
 const RESOLUTION_DATE = '2021-02-02';
+const EDIT_START_DATE = '2022-03-03';
+const EDIT_RESOLUTION_DATE = '2022-04-04';
+const TREATMENT = 'PW original treatment';
 /** casemgmt_note_ext.key_val values CaseManagementNoteExt writes for those fields. */
-const EXPECTED_KEYS = ['Start Date', 'Resolution Date'];
+const EXPECTED_KEYS = ['Start Date', 'Resolution Date', 'Treatment'];
 
 /**
  * What the run leaves for cleanup() to remove, filled in as the run learns it.
@@ -101,16 +105,21 @@ const fixture = {
   demographicNo: '',
   providerNo: '',
   sessionId: '',
+  /** The owned patient the item is written for, and its marker (never a demo patient). */
+  ownedPatient: '',
+  ownedMarker: '',
   /** What the patient's chart summary looked like before this run wrote anything. */
   chartBefore: null,
   /** eChart rows this run's own saves wrote: id -> fingerprint when last written by the run. */
   echartOwned: {},
+  /** Registered before CREATE so both the immediate finally and cleanup can drop it. */
+  rollbackTrigger: '',
 };
 
 /**
  * The chart summary columns copyNote2cpp() can append a saved note into.
  *
- * Which one it picks depends on the item's issue code (SocHistory here), and saveCPPIntoEchart()
+ * Which one it picks depends on the item's issue code (MedHistory here), and saveCPPIntoEchart()
  * mirrors the same five into the legacy eChart row. Cleanup covers all of them rather than only
  * the one this check currently drives, so changing the issue does not silently leave text behind.
  */
@@ -290,6 +299,83 @@ function sqlNumber(value, what) {
   return String(value);
 }
 
+function rollbackTriggerName(name) {
+  assert(/^pw_cpp_ext_[a-f0-9]{24}$/.test(name), 'the rollback trigger needs a unique owned SQL identifier');
+  return name;
+}
+
+/** Reject only the submitted second date, after the first date reached this transaction. */
+function rollbackTriggerSql(name, patient, stamp) {
+  rollbackTriggerName(name);
+  assert(/^[1-9]\d*$/.test(String(patient)), 'the rollback trigger needs an owned patient key');
+  assert(/^PW_CPP_EXT_\d+$/.test(stamp), 'the rollback trigger needs this check\'s note stamp');
+  return `DELIMITER //
+CREATE TRIGGER ${name} BEFORE UPDATE ON casemgmt_note_ext FOR EACH ROW
+BEGIN
+  IF NEW.key_val='Resolution Date' AND NEW.date_value=${sqlString(EDIT_RESOLUTION_DATE)}
+    AND EXISTS (SELECT 1 FROM casemgmt_note n WHERE n.note_id=NEW.note_id
+      AND n.demographic_no=${patient} AND LOCATE(${sqlString(stamp)}, n.note)=1)
+    AND EXISTS (SELECT 1 FROM casemgmt_note_ext e WHERE e.note_id=NEW.note_id
+      AND e.key_val='Start Date' AND e.date_value=${sqlString(EDIT_START_DATE)}) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Owned CPP late extension rollback probe';
+  END IF;
+END//
+DELIMITER ;`;
+}
+
+function dropRollbackTrigger() {
+  if (!fixture.rollbackTrigger) return;
+  const name = rollbackTriggerName(fixture.rollbackTrigger);
+  fixture.sql.execute(`DROP TRIGGER IF EXISTS ${name}`);
+  assert(fixture.sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS
+    WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=${sqlString(name)}`) === '0',
+  'the owned rollback trigger survived cleanup');
+  fixture.rollbackTrigger = '';
+}
+
+/** Full owned rows include revision metadata, positions, signatures, and both CPP projections. */
+function readCppWriteSnapshot(sql, patient) {
+  const demographic = sqlNumber(patient, 'the owned snapshot patient');
+  const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${demographic}`;
+  const queries = {
+    notes: `SELECT * FROM casemgmt_note WHERE demographic_no=${demographic} ORDER BY note_id`,
+    extensions: `SELECT * FROM casemgmt_note_ext WHERE note_id IN (${notes}) ORDER BY id`,
+    issueLinks: `SELECT * FROM casemgmt_issue_notes WHERE note_id IN (${notes}) ORDER BY note_id,id`,
+    noteLinks: `SELECT * FROM casemgmt_note_link WHERE note_id IN (${notes}) ORDER BY id`,
+    issues: `SELECT * FROM casemgmt_issue WHERE demographic_no=${demographic} ORDER BY id`,
+    cpp: `SELECT * FROM casemgmt_cpp WHERE demographic_no=${demographic} ORDER BY id`,
+    echart: `SELECT * FROM eChart WHERE demographicNo=${demographic} ORDER BY eChartId`,
+    signatures: `SELECT * FROM hash_audit WHERE type='enc' AND id IN (${notes}) ORDER BY pkid`,
+  };
+  return Object.fromEntries(Object.entries(queries).map(([name, query]) => [name, sql.rows(query)]));
+}
+
+function readNoteHistory(sql, noteIds) {
+  const ids = noteIds.map(id => sqlNumber(id, 'a historical CPP revision')).join(',');
+  return {
+    notes: sql.rows(`SELECT * FROM casemgmt_note WHERE note_id IN (${ids}) ORDER BY note_id`),
+    extensions: sql.rows(`SELECT * FROM casemgmt_note_ext WHERE note_id IN (${ids}) ORDER BY id`),
+    issueLinks: sql.rows(`SELECT * FROM casemgmt_issue_notes WHERE note_id IN (${ids}) ORDER BY note_id,id`),
+    noteLinks: sql.rows(`SELECT * FROM casemgmt_note_link WHERE note_id IN (${ids}) ORDER BY id`),
+  };
+}
+
+function assertSameSnapshot(before, after, context) {
+  for (const name of Object.keys(before)) {
+    assert(JSON.stringify(before[name]) === JSON.stringify(after[name]), `${context} changed ${name}`);
+  }
+}
+
+async function step(name, body) {
+  try {
+    await body();
+    console.log(`  PASS ${name}`);
+  } catch (error) {
+    error.failedStep = name;
+    throw error;
+  }
+}
+
 /**
  * Remove what the run wrote, every statement attempted, any failure thrown.
  *
@@ -305,6 +391,11 @@ async function cleanup() {
   }
   const statements = [];
   const failuresBeforeStatements = [];
+  try {
+    dropRollbackTrigger();
+  } catch (error) {
+    failuresBeforeStatements.push(`the owned rollback trigger: ${error.message}`);
+  }
   /** [table, where, columns] sets whose stamped blocks are stripped, not deleted. */
   const stripFrom = [];
   if (stamp) {
@@ -436,6 +527,15 @@ async function cleanup() {
         failures.push(`the leftover eChart check: ${(error && error.message) || 'query failed'}`);
       }
     }
+    // LAST: whatever else the chart wrote for the owned patient (its casemgmt_issue assignment, its CPP summary and eChart
+    // rows), then the patient, all by its key, asserted gone.
+    if (fixture.ownedPatient) {
+      try {
+        removeOwnedPatient(sql, fixture.ownedPatient, fixture.ownedMarker);
+      } catch (error) {
+        failures.push(`the owned patient: ${(error && error.message) || 'delete failed'}`);
+      }
+    }
   } finally {
     // ALWAYS, EVEN ON THE WAY OUT OF A THROW: createSqlRunner writes MYSQL_PASSWORD into a
     // temporary client.cnf, and dispose() is what removes it.
@@ -459,8 +559,62 @@ async function clickDialogButton(page, titlePattern, what) {
 }
 
 /** The POST the CPP dialog makes, whichever button was pressed. */
-function isNoteSave(response) {
-  return /method=issueNoteSave/.test(response.url()) && response.request().method() === 'POST';
+function isNoteSave(response, expectedAction) {
+  const url = new URL(response.url());
+  if (!url.pathname.endsWith('/CaseManagementEntry') || url.searchParams.get('method') !== 'issueNoteSave'
+    || response.request().method() !== 'POST') return false;
+  if (!expectedAction) return true;
+  const expected = new URL(expectedAction);
+  return url.origin === expected.origin && url.pathname === expected.pathname
+    && ['noteId', 'demographicNo', 'providerNo'].every(key => url.searchParams.get(key) === expected.searchParams.get(key));
+}
+
+function isCppTerminalResponse(response, postedRequest) {
+  if (!postedRequest || response.request() === postedRequest
+    || (response.status() >= 300 && response.status() < 400)) return false;
+  let root = response.request();
+  while (root.redirectedFrom()) root = root.redirectedFrom();
+  return root === postedRequest;
+}
+
+function assertCppSaveRedirect(posted, terminal, action, reloadUrl) {
+  assert(isNoteSave(posted, action) && posted.status() === 302,
+    'the CPP save must return its configured HTTP 302 redirect');
+  assert(isCppTerminalResponse(terminal, posted.request()) && terminal.request().method() === 'GET'
+    && terminal.status() === 200, 'the CPP save redirect must finish with its own successful GET');
+  const expected = new URL(reloadUrl);
+  const actual = new URL(terminal.url());
+  expected.searchParams.sort(); actual.searchParams.sort();
+  assert(actual.href === expected.href, 'the CPP save redirected outside its expected CaseManagementView listing');
+  // The AJAX listNotes include renders viewNotes.jsp without setting Content-Type.
+  // The caller verifies the rendered note/reopen state, or the empty list after archive.
+  const contentType = terminal.headers()['content-type'];
+  assert(contentType === undefined || /^text\/html\b/i.test(contentType),
+    'the CPP redirect declared a non-HTML listing response');
+}
+
+/** Bind both response listeners before clicking; a fast redirect must not escape the check. */
+async function saveCppDialog(page, sql, timeout, action, titlePattern, what) {
+  const reload = new URL('CaseManagementView', action);
+  reload.search = await page.locator('#reloadUrl').inputValue();
+  let postedRequest;
+  const posted = page.waitForResponse(response => {
+    if (!isNoteSave(response, action)) return false;
+    postedRequest = response.request();
+    return true;
+  }, {timeout}).then(async response => {
+    try { await response.finished(); }
+    finally { recordOwnEchartRows(sql); }
+    assert(response.status() === 302, `the CPP ${what} must return HTTP 302, received ${response.status()}`);
+    return response;
+  });
+  const terminal = page.waitForResponse(response => isCppTerminalResponse(response, postedRequest), {timeout})
+    .then(async response => { await response.finished(); return response; });
+  const [postedResponse, terminalResponse] = await Promise.all([
+    posted, terminal, clickDialogButton(page, titlePattern, what),
+  ]);
+  assertCppSaveRedirect(postedResponse, terminalResponse, action, reload.href);
+  return postedResponse;
 }
 
 /** Did updateCPPNote()'s onFailure handler repaint the box with an HTTP status? */
@@ -470,18 +624,26 @@ async function boxErrorText(page) {
   return match ? match[1] : '';
 }
 
-/** The extension rows the stamped item holds, as [key, date] pairs. */
+/** The extension rows the stamped item holds, including empty non-date values. */
 function extensionRows(sql, stamp) {
   return sql.rows(
-    `SELECT e.key_val, e.date_value FROM casemgmt_note_ext e `
-    + `JOIN casemgmt_note n ON n.note_id = e.note_id WHERE LOCATE(${sqlString(stamp)}, n.note) = 1 ORDER BY e.key_val`,
+    `SELECT e.key_val, e.date_value, e.value FROM casemgmt_note_ext e `
+    + `JOIN casemgmt_note n ON n.note_id = e.note_id WHERE n.note_id = (SELECT MAX(note_id) FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1) ORDER BY e.key_val`,
   );
+}
+
+function assertExtensionValues(rows, startDate, resolutionDate, treatment) {
+  const byKey = new Map(rows.map(row => [row[0], row]));
+  assert(byKey.size === rows.length, 'the CPP revision contains duplicate extension keys');
+  assert(EXPECTED_KEYS.every(key => byKey.has(key)), 'the CPP revision lost a required extension row');
+  assert(byKey.get('Start Date')[1] === startDate && byKey.get('Resolution Date')[1] === resolutionDate,
+    'the CPP revision did not retain both expected dates');
+  assert(byKey.get('Treatment')[2] === treatment,
+    'the CPP revision did not retain the exact Treatment value, including an explicit empty value');
 }
 
 async function main() {
   const config = readConfig({ require: ['MYSQL_PASSWORD'] });
-  const searchTerm = process.env.CPP_EXT_SEARCH || 'FAKE-';
-  const preferredDemographicNo = process.env.CPP_EXT_DEMOGRAPHIC_NO || '2';
   const timeout = Number(process.env.CPP_EXT_TIMEOUT_MS || '45000');
   // The stamp leads the note text so the cleanup can anchor its LIKE.
   const stamp = `PW_CPP_EXT_${Date.now()}`;
@@ -489,6 +651,13 @@ async function main() {
   const sql = createSqlRunner(config.mysql);
   fixture.sql = sql;
   fixture.stamp = stamp;
+  // The owned patient, recorded before it exists so cleanup can still find it: its marker is the search term.
+  fixture.ownedMarker = newOwnedMarker();
+  const searchTerm = fixture.ownedMarker;
+  const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)}`);
+  assert(provider, 'the configured test login has no provider');
+  const preferredDemographicNo = createOwnedPatient(sql, { marker: fixture.ownedMarker, provider });
+  fixture.ownedPatient = preferredDemographicNo;
 
   const recorder = createRecorder();
   let browser;
@@ -512,6 +681,7 @@ async function main() {
     const chartUrl = new URL(chartPage.url());
     fixture.demographicNo = sqlNumber(chartUrl.searchParams.get('demographicNo') || '',
       'the demographicNo in the chart URL');
+    assert(fixture.demographicNo === String(fixture.ownedPatient), 'the chart must belong to this run\'s owned patient');
     // Read from the chart rather than assumed: saveCPP() stamps the summary row with whoever
     // saved, and cleanup puts the previous provider back only while the row still records this one.
     fixture.providerNo = sqlNumber(chartUrl.searchParams.get('providerNo') || '',
@@ -526,7 +696,7 @@ async function main() {
     // the status is read from the wire.
     const saves = [];
     chartPage.on('response', (response) => {
-      if (/method=issueNoteSave/.test(response.url())) {
+      if (isNoteSave(response)) {
         saves.push({ method: response.request().method(), status: response.status() });
       }
     });
@@ -540,14 +710,13 @@ async function main() {
     await chartPage.locator('#noteEditTxt').fill(`${stamp} CPP extension regression item`);
     await chartPage.locator('#startdate').fill(START_DATE);
     await chartPage.locator('#resolutiondate').fill(RESOLUTION_DATE);
+    await chartPage.locator('#treatment').fill(TREATMENT);
     // WAIT FOR THE SAVE ITSELF. An earlier version waited on a DOM predicate that every element
     // satisfies -- the box is already visible and `dataset` is never undefined -- so it returned at
     // once and a fixed sleep decided whether the database had been written yet. The POST is the
     // event that matters, so wait for it, then let the box finish repainting from its reply.
-    const saveArrived = chartPage.waitForResponse(isNoteSave, { timeout });
-    await clickDialogButton(chartPage, /sign|save/i, 'save');
-    await saveArrived;
-    recordOwnEchartRows(sql);
+    const initialAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
+    await saveCppDialog(chartPage, sql, timeout, initialAction, /sign|save/i, 'create');
     await chartPage.waitForTimeout(1500);
 
     const savedError = await boxErrorText(chartPage);
@@ -556,40 +725,128 @@ async function main() {
       `saving a CPP item that carries a start date and a resolution date answered HTTP ${(failedSaves[0] || {}).status}; `
       + 'issueNoteSave is re-persisting one detached CaseManagementNoteExt across the keys (issue #3739)');
     assert(savedError === '',
-      `the Social History box repainted as "Error: ${savedError}" after the save, so the POST behind it failed`);
+      `the Medical History box repainted as "Error: ${savedError}" after the save, so the POST behind it failed`);
 
     const savedRows = extensionRows(sql, stamp);
-    assert(savedRows.length === EXPECTED_KEYS.length,
-      `the saved CPP item holds ${savedRows.length} extension rows instead of ${EXPECTED_KEYS.length}; `
-      + 'a start date and a resolution date must each get their own row');
-    const savedKeys = savedRows.map((row) => row[0]).sort();
-    assert(JSON.stringify(savedKeys) === JSON.stringify([...EXPECTED_KEYS].sort()),
-      `the saved CPP item holds extension keys ${JSON.stringify(savedKeys)} instead of ${JSON.stringify(EXPECTED_KEYS)}`);
-    const byKey = Object.fromEntries(savedRows);
-    assert(byKey['Start Date'] === START_DATE && byKey['Resolution Date'] === RESOLUTION_DATE,
-      'the saved CPP item\'s extension rows do not hold the two dates that were entered');
+    // The form also serializes blank non-date fields; they may now have explicit empty rows.
+    assertExtensionValues(savedRows, START_DATE, RESOLUTION_DATE, TREATMENT);
 
     // --- reopen it: both dates must come BACK, not just be stored ---
     const noteId = sqlNumber(sql.value(
       `SELECT note_id FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1 ORDER BY note_id DESC LIMIT 1`),
       'the saved CPP item\'s note id');
     const reopen = box.locator(`a[onclick*="noteId=${noteId}"]`).first();
-    assert(await reopen.count() > 0, 'the saved CPP item does not appear in the Social History box, so it cannot be archived');
+    assert(await reopen.count() > 0, 'the saved CPP item does not appear in the Medical History box, so it cannot be archived');
     await reopen.click();
     await chartPage.waitForSelector(DIALOG, { state: 'visible', timeout });
     const prefill = await chartPage.evaluate(() => ({
       start: document.getElementById('startdate').value,
       resolution: document.getElementById('resolutiondate').value,
+      treatment: document.getElementById('treatment').value,
     }));
-    assert(prefill.start === START_DATE && prefill.resolution === RESOLUTION_DATE,
-      'reopening the CPP item did not bring both dates back, so one extension key was lost between the write and the read');
+    assert(prefill.start === START_DATE && prefill.resolution === RESOLUTION_DATE && prefill.treatment === TREATMENT,
+      'reopening the CPP item did not bring both dates and Treatment back');
+
+    const originalHistory = readNoteHistory(sql, [noteId]);
+    const editedText = `${stamp} CPP revision after rollback`;
+    await chartPage.locator('#noteEditTxt').fill(editedText);
+    await chartPage.locator('#startdate').fill(EDIT_START_DATE);
+    await chartPage.locator('#resolutiondate').fill(EDIT_RESOLUTION_DATE);
+    await chartPage.locator('#treatment').fill('');
+    await step('late extension failure rolls back the complete CPP revision', async () => {
+      assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${fixture.demographicNo}
+        AND last_name=${sqlString(fixture.ownedMarker)}`) === '1', 'the rollback probe requires the owned fixture patient');
+      const trigger = rollbackTriggerName(`pw_cpp_ext_${randomBytes(12).toString('hex')}`);
+      assert(sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()
+        AND TRIGGER_NAME=${sqlString(trigger)}`) === '0', 'the owned trigger name already exists');
+      fixture.rollbackTrigger = trigger;
+      try {
+        sql.execute(rollbackTriggerSql(trigger, fixture.demographicNo, stamp));
+        const before = readCppWriteSnapshot(sql, fixture.demographicNo);
+        const badBefore = recorder.badResponses.length;
+        const consoleBefore = recorder.consoleIssues.length;
+        const expectedAlert = await chartPage.evaluate(() => savingNoteError + ' 500');
+        const failedAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
+        let failed;
+        const dialogs = await withExpectedDialogs(chartPage, async () => {
+          [failed] = await Promise.all([
+            chartPage.waitForResponse(response => isNoteSave(response, failedAction), {timeout}).then(async response => {
+              try { await response.finished(); }
+              finally { recordOwnEchartRows(sql); }
+              assert(response.status() === 500, 'the late extension trigger must reject the actual CPP save with HTTP 500');
+              return response;
+            }),
+            chartPage.waitForEvent('dialog', {timeout}),
+            clickDialogButton(chartPage, /sign|save/i, 'save'),
+          ]);
+          await failed.finished();
+          await chartPage.locator(DIALOG).waitFor({state: 'visible', timeout});
+        });
+        assert(dialogs.length === 1 && dialogs[0].type === 'alert' && dialogs[0].text === expectedAlert,
+          'the failed CPP save must show exactly its save-error alert');
+        const submitted = new URLSearchParams(failed.request().postData() || '');
+        assert(new URL(failed.url()).searchParams.get('noteId') === noteId
+          && submitted.get('value') === editedText && submitted.get('startdate') === EDIT_START_DATE
+          && submitted.get('resolutiondate') === EDIT_RESOLUTION_DATE && submitted.get('treatment') === '',
+        'the failed save must submit the original revision with the edited note, both new dates and empty Treatment');
+        assertSameSnapshot(before, readCppWriteSnapshot(sql, fixture.demographicNo), 'the rolled-back CPP save');
+        assert(await chartPage.locator('#noteEditTxt').inputValue() === editedText
+          && await chartPage.locator('#startdate').inputValue() === EDIT_START_DATE
+          && await chartPage.locator('#resolutiondate').inputValue() === EDIT_RESOLUTION_DATE
+          && await chartPage.locator('#treatment').inputValue() === '',
+        'the failed CPP save lost the dialog draft');
+        // Exempt exactly this deliberately rejected request, retaining all unrelated errors.
+        const bad = recorder.badResponses.slice(badBefore);
+        assert(bad.length === 1 && bad[0].url === failed.url() && bad[0].method === 'POST' && bad[0].status === 500,
+          'the rollback probe produced an unexpected HTTP failure');
+        recorder.badResponses.splice(badBefore, 1);
+        for (let index = recorder.consoleIssues.length - 1; index >= consoleBefore; index--) {
+          const entry = recorder.consoleIssues[index];
+          if (entry.label === 'echart' && entry.location.url === failed.url()
+            && /^Failed to load resource:.*\b500\b/.test(entry.text)) recorder.consoleIssues.splice(index, 1);
+        }
+      } finally {
+        dropRollbackTrigger();
+      }
+    });
+
+    let editedId;
+    let editedRows;
+    await step('retry the original CPP revision through Sign & Save after rollback', async () => {
+      const action = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
+      assert(new URL(action).searchParams.get('noteId') === noteId,
+        'the failed save advanced the dialog revision before retry');
+      const retried = await saveCppDialog(chartPage, sql, timeout, action, /sign|save/i, 'retry');
+      assert(new URL(retried.url()).searchParams.get('noteId') === noteId,
+        'retrying must submit the original revision ID on the wire');
+      assert(new URLSearchParams(retried.request().postData() || '').get('treatment') === '',
+        'retrying must submit Treatment as empty rather than omit the cleared field');
+      editedId = sqlNumber(sql.value(`SELECT MAX(note_id) FROM casemgmt_note
+        WHERE demographic_no=${fixture.demographicNo} AND LOCATE(${sqlString(stamp)}, note)=1`), 'the retried CPP revision');
+      assert(BigInt(editedId) > BigInt(noteId), 'the retry must create a fresh CPP revision');
+      assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${fixture.demographicNo}
+        AND LOCATE(${sqlString(stamp)}, note)=1`) === '2', 'the failed attempt left an extra CPP revision');
+      assert(sql.value(`SELECT note FROM casemgmt_note WHERE note_id=${editedId}`) === editedText,
+        'the retry did not persist the edited note');
+      editedRows = extensionRows(sql, stamp);
+      assertExtensionValues(editedRows, EDIT_START_DATE, EDIT_RESOLUTION_DATE, '');
+      assertSameSnapshot(originalHistory, readNoteHistory(sql, [noteId]), 'the successful retry');
+      const editedLink = box.locator(`a[onclick*="noteId=${editedId}"]`).first();
+      await editedLink.waitFor({state: 'visible', timeout});
+      await editedLink.click();
+      await chartPage.locator(DIALOG).waitFor({state: 'visible', timeout});
+      assert(await chartPage.locator('#startdate').inputValue() === EDIT_START_DATE
+        && await chartPage.locator('#resolutiondate').inputValue() === EDIT_RESOLUTION_DATE
+        && await chartPage.locator('#treatment').inputValue() === '',
+      'reopening the retried revision lost a new date or restored the cleared Treatment');
+    });
+    const historyBeforeArchive = readNoteHistory(sql, [noteId, editedId]);
 
     // --- archive it: the same write path, over rows that already exist ---
     const savesBeforeArchive = saves.length;
-    const archiveArrived = chartPage.waitForResponse(isNoteSave, { timeout });
-    await clickDialogButton(chartPage, /archive/i, 'archive');
-    await archiveArrived;
-    recordOwnEchartRows(sql);
+    const archiveAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
+    assert(new URL(archiveAction).searchParams.get('noteId') === editedId, 'archive must submit the retried revision');
+    await saveCppDialog(chartPage, sql, timeout, archiveAction, /archive/i, 'archive');
     await chartPage.waitForTimeout(1500);
     const archiveSaves = saves.slice(savesBeforeArchive);
     assert(archiveSaves.length > 0, 'clicking Archive posted nothing, so the archive path was never exercised');
@@ -598,21 +855,35 @@ async function main() {
       `archiving the CPP item answered HTTP ${(failedArchives[0] || {}).status} (issue #3739)`);
     const archiveError = await boxErrorText(chartPage);
     assert(archiveError === '',
-      `the Social History box repainted as "Error: ${archiveError}" after the archive`);
+      `the Medical History box repainted as "Error: ${archiveError}" after the archive`);
+    await box.locator('.topBox-notes .cpp-empty-state').waitFor({state: 'visible', timeout});
+    assert(!(await box.textContent()).includes(stamp), 'the archived CPP item remains in the active listing');
 
     const archivedRows = extensionRows(sql, stamp);
-    assert(archivedRows.length === EXPECTED_KEYS.length,
-      `archiving left ${archivedRows.length} extension rows instead of ${EXPECTED_KEYS.length}; `
-      + 'the write path is adding a second row per key rather than updating the one that exists');
-    const archived = sql.value(`SELECT archived FROM casemgmt_note WHERE note_id = ${noteId}`);
+    assertExtensionValues(archivedRows, EDIT_START_DATE, EDIT_RESOLUTION_DATE, '');
+    const latestId = sqlNumber(sql.value(
+      `SELECT MAX(note_id) FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1`), 'archived revision id');
+    assert(BigInt(latestId) > BigInt(editedId), 'archiving overwrote the prior CPP revision');
+    assert(sql.value(`SELECT archived FROM casemgmt_note WHERE note_id = ${noteId}`) === '0',
+      'archiving changed the historical CPP revision');
+    const originalRows = sql.rows(`SELECT key_val,date_value,value FROM casemgmt_note_ext WHERE note_id=${noteId} ORDER BY key_val`);
+    assertExtensionValues(originalRows, START_DATE, RESOLUTION_DATE, TREATMENT);
+    assert(JSON.stringify(originalRows) === JSON.stringify(savedRows), 'archiving changed historical CPP extensions');
+    assert(JSON.stringify(archivedRows) === JSON.stringify(editedRows), 'archiving lost the edited CPP extension values');
+    assertSameSnapshot(historyBeforeArchive, readNoteHistory(sql, [noteId, editedId]), 'archiving the CPP revision');
+    assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${fixture.demographicNo}
+      AND LOCATE(${sqlString(stamp)}, note)=1`) === '3', 'the CPP history must contain create, retry, and archive revisions only');
+    const archived = sql.value(`SELECT archived FROM casemgmt_note WHERE note_id = ${latestId}`);
     assert(archived === '1', 'the archive request succeeded but the CPP item is not marked archived');
 
     assertStrictPage(recorder, ['echart']);
-    console.log('  CPP item with a start date and a resolution date: saved, read back, and archived with one row per key');
+    console.log('  PASS CPP create/reopen, late-write rollback/retry, and archive preserve three revisions with both dates');
+    console.log('  PASS cleared Treatment stays empty in the latest revisions while its original value remains immutable');
     await chartPage.close().catch(() => {});
-    return { extensionRows: archivedRows.length };
+    return { extensionRows: archivedRows.length, revisions: 3, rollbackStatus: 500 };
   } finally {
-    if (browser) await browser.close().catch(() => {});
+    try { dropRollbackTrigger(); }
+    finally { if (browser) await browser.close().catch(() => {}); }
   }
 }
 
@@ -622,5 +893,6 @@ if (require.main === module) {
 
 module.exports = {
   BOX_ID, DIALOG, EXPECTED_KEYS, RESOLUTION_DATE, START_DATE, cleanup, fixture, main,
-  ownedEchartDeletes, withoutStampedBlocks,
+  ownedEchartDeletes, withoutStampedBlocks, rollbackTriggerSql, dropRollbackTrigger, assertSameSnapshot, isNoteSave,
+  isCppTerminalResponse, assertCppSaveRedirect, saveCppDialog, assertExtensionValues,
 };

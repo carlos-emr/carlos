@@ -59,7 +59,11 @@ function faultDatabase(failAt) {
     value(query) {
       if (query.startsWith('SELECT value FROM billingservice')) return '20.00';
       if (query.startsWith('SELECT MAX(id)')) throw new Error('lost insert acknowledgement');
-      if (query.includes('AND first_name=')) return providers.has(query.match(/provider_no='(\d+)'/)[1]) ? '1' : '0';
+      // Model allocation lookups too: returning zero for an already inserted ID lets
+      // a random collision overwrite fixture state and appear twice during cleanup.
+      if (query.startsWith('SELECT COUNT(*) FROM provider WHERE provider_no=')) {
+        return providers.has(query.match(/provider_no='(\d+)'/)[1]) ? '1' : '0';
+      }
       return '0';
     },
     execute(query) {
@@ -91,6 +95,25 @@ for (const failAt of ['prerequisite', 'site', 'claim-result']) {
   });
 }
 
+test('provider allocation retries collisions before cleanup recovers each owned provider once', async (t) => {
+  const root = directory(t);
+  const fake = faultDatabase('claim-result');
+  const state = { providers: {}, headerIds: [], groupNo: '', marker: 'PW3942-collision' };
+  // group; first provider/OHIP; duplicate provider then retry/OHIP; duplicate provider then retry/OHIP.
+  const choices = [0.1, 0.1, 0.2, 0.1, 0.3, 0.4, 0.3, 0.5, 0.6];
+  t.mock.method(Math, 'random', () => {
+    assert.ok(choices.length, 'Unexpected random allocation');
+    return choices.shift();
+  });
+  assert.throws(() => createFixture(fake.db, {
+    templateProvider: '999998', window: { serviceDate: '2003-02-03' }, paidCode: 'A007A', testUser: 'test',
+  }, state), /lost insert acknowledgement/);
+  assert.deepEqual([...fake.providers].sort(), ['971000', '973000', '975000']);
+  await cleanupResources(null, fake.db, state, root);
+  assert.deepEqual(fake.deleted.sort(), [...fake.providers].sort());
+  assert.equal(choices.length, 0);
+});
+
 test('browser and database cleanup failures are reported and credentials are still disposed', async (t) => {
   const root = directory(t);
   let disposed = false;
@@ -99,4 +122,31 @@ test('browser and database cleanup failures are reported and credentials are sti
   await assert.rejects(cleanupResources({ close: async () => { throw new Error('browser close failed'); } }, db, state, root),
     (error) => error instanceof AggregateError && error.errors.length === 2);
   assert.equal(disposed, true);
+});
+
+test('legacy empty-group cleanup retains exclusive provider ownership checks', async (t) => {
+  const root = directory(t);
+  fs.writeFileSync(path.join(root, 'HJ.001'), 'owned fallback');
+  fs.writeFileSync(path.join(root, 'H9999J.001'), 'unrelated');
+  const deleted = [];
+  const db = {
+    value: query => query.includes('AND first_name=') ? '1' : '0',
+    rows(query) {
+      if (query.startsWith('SELECT d.id')) {
+        assert.match(query, /d\.groupno IN \('8123',''\)/);
+        assert.match(query, /AND EXISTS .*f\.providerno IN \('970001'\)/);
+        assert.match(query, /AND NOT EXISTS .*f\.providerno IS NULL OR f\.providerno NOT IN \('970001'\)/);
+        return [['12', 'HJ.001']];
+      }
+      return [];
+    },
+    execute: query => deleted.push(query),
+    dispose() {},
+  };
+  await cleanupResources(null, db, {
+    marker: 'PW4277-test', groupNo: '8123', cleanupGroupNumbers: ['8123', ''],
+    providers: { ZERO: { providerNo: '970001' } },
+  }, root);
+  assert.deepEqual(fs.readdirSync(root), ['H9999J.001']);
+  assert.ok(deleted.some(query => query.includes('DELETE FROM billing_on_diskname WHERE id=12')));
 });

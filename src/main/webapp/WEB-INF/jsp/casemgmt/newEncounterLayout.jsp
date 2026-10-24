@@ -105,6 +105,7 @@
 
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/js/formOpenGuard.js"></script>
         <script type="text/javascript">jQuery.noConflict();</script>
         <!-- Prototype.js/Scriptaculous removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
         <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->

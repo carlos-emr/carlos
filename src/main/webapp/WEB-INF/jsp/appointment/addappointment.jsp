@@ -81,6 +81,7 @@ Ontario, Canada
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.time.LocalDateTime" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@ page import="java.time.format.FormatStyle" %>
 <%@ page import="java.time.ZoneId" %>
 
@@ -849,10 +850,20 @@ Ontario, Canada
 
                             });
 
-                            var lockedMsg = locked ? '<span style="color:red" title="' + lockedProviderName + '">&nbsp(locked)</span>' : '';
-                            document.getElementById('lock_notification').innerHTML =
-                                '<span title="' + providerNames + '">Viewers:' + data.length + lockedMsg + '</span>'
-                            ;
+                            // Provider names come from the server: build the notice as text nodes and
+                            // attributes, never as HTML.
+                            var notice = document.getElementById('lock_notification');
+                            var viewers = document.createElement('span');
+                            viewers.setAttribute('title', providerNames);
+                            viewers.textContent = 'Viewers:' + data.length;
+                            if (locked) {
+                                var lockedMark = document.createElement('span');
+                                lockedMark.style.color = 'red';
+                                lockedMark.setAttribute('title', lockedProviderName);
+                                lockedMark.textContent = '\u00a0(locked)';
+                                viewers.appendChild(lockedMark);
+                            }
+                            notice.replaceChildren(viewers);
 
 
                             updateBookingButtonVisibility(locked);
@@ -1140,6 +1151,9 @@ Ontario, Canada
             <input type="hidden" name="month" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="day" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="fromAppt" value="1">
+            <%-- One booking per rendering (issue #4225): a repeat of this form ends as its first save did. --%>
+            <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+                   value="<carlos:encode value='<%= FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.APPOINTMENT_ADD, null) %>' context="htmlAttribute"/>">
 
 
             <div class="page-header-bar time" id="header">
@@ -1222,7 +1236,7 @@ Ontario, Canada
                                            value='<%=(bFirstDisp && !bFromWL) ? "" : SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>
                                     <fmt:message key="Appointment.formNamePlaceholder" var="formNamePlaceholderMsg"/>
                                     <fmt:message key="appointment.addappointment.btnSearch" var="btnSearchMsg"/>
-                                    <input type="text" name="keyword" id="keyword" class="form-control form-control-sm"
+                                    <input type="text" name="keyword" id="keyword" class="form-control form-control-sm" maxlength="50"
                                         value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"
                                         placeholder="${carlos:forHtmlAttribute(formNamePlaceholderMsg)}">
                                     <button type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary btn-sm"
@@ -1392,7 +1406,7 @@ Ontario, Canada
                         <div class="mb-2 row">
                             <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formResources"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="resources" class="form-control form-control-sm"
+                                <input type="text" name="resources" class="form-control form-control-sm" maxlength="255"
                                        tabindex="6"
                                        value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'>
                             </div>

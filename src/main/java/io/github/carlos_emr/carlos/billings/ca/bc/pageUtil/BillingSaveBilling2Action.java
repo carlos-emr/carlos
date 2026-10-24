@@ -74,6 +74,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class BillingSaveBilling2Action extends ActionSupport {
+    /** The private bill review's receipt button (billingCreated.jsp). */
+    static final String RECEIPT_SUBMIT = "Save and Print Receipt";
+    /** The button's value before #4439; the packaged WAF refuses it, but a direct Tomcat request may still send it. */
+    static final String LEGACY_RECEIPT_SUBMIT = "Save & Print Receipt";
     private static final String BILLING_SESSION_EXPIRED_KEY = "billing.billingSave.sessionExpired";
     private static final String BILLING_SESSION_EXPIRED_FALLBACK = "Billing session expired.";
     private static final String MALFORMED_BILLING_REQUEST_KEY = "billing.billingSave.malformedBillingRequest";
@@ -216,8 +220,17 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
 
         if ("Another Bill".equals(submit)) {
+            // The same bill stays open for the next one; store its updated state again.
+            BcBillStaging.save(request, bean);
             return "anotherBill";
-        } else if ("Save & Print Receipt".equals(submit)) {
+        }
+        // Saved and finished with: a repeated submit still finds the bill, but it is the first to
+        // go when room is needed, before bills still open in other windows.
+        BcBillStaging.release(request);
+        // The button reads "Save and Print Receipt": "& Print" in a request value is CRS rule 932115's Windows
+        // "print" command, so the packaged front door answered every Save & Print Receipt with 403 (#4439). The old
+        // value is still accepted from a review page rendered before the change.
+        if (RECEIPT_SUBMIT.equals(submit) || LEGACY_RECEIPT_SUBMIT.equals(submit)) {
             String redirectUrl = receiptRedirectUrl(request.getContextPath(), billingIds);
             sendReceiptRedirect(response, redirectUrl);
             return NONE;
@@ -241,28 +254,26 @@ public class BillingSaveBilling2Action extends ActionSupport {
     }
 
     /**
-     * Reads the staged BC billing session bean without assuming the session is still valid.
+     * The bill this window's review form belongs to, named by its key ({@link BcBillStaging}),
+     * without assuming the session is still valid. It used to be the login-wide session bill, so a
+     * save in one window billed the patient and appointment of whichever bill another window had
+     * opened last (issue #4673). The bill is also handed to the "Another Bill" page.
      */
     private BillingSessionBean billingSessionBean(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session == null) {
-            return null;
-        }
-        Object billingSessionAttr = session.getAttribute("billingSessionBean");
-        return billingSessionAttr instanceof BillingSessionBean
-                ? (BillingSessionBean) billingSessionAttr
-                : null;
+        return BcBillStaging.resume(request);
     }
 
     /**
-     * Sends a bad-request response for expired or replayed billing submits.
+     * Sends a bad-request response for a BC billing request whose bill is no longer open: an
+     * expired session, a replayed submit, or a window whose bill was dropped for newer ones
+     * ({@link BcBillStaging}). The bill form and its review answer the same way.
      *
      * <p>The response body is written directly instead of using {@code sendError}; otherwise the
      * servlet error-page mapping replaces the localized operator guidance.</p>
      */
-    private void rejectExpiredBillingSession(HttpServletRequest request, HttpServletResponse response)
+    static void rejectExpiredBillingSession(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-        log.warn("Rejected BC billing save because billingSessionBean is missing: method={}, uri={}, remote={}",
+        log.warn("Rejected a BC billing request because its bill is no longer open: method={}, uri={}, remote={}",
                 LogSafe.sanitize(request.getMethod()),
                 LogSafe.sanitizeUri(request.getRequestURI()),
                 LogSafe.sanitize(request.getRemoteAddr()));
@@ -488,7 +499,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
      * <p>The request is used only for sanitized diagnostics if an upstream wrapper has already
      * obtained the servlet output stream and the writer path is unavailable.</p>
      */
-    private void writeBody(HttpServletRequest request, HttpServletResponse response, String body) throws IOException {
+    private static void writeBody(HttpServletRequest request, HttpServletResponse response, String body) throws IOException {
         try {
             response.getWriter().write(body);
         } catch (IllegalStateException writerUnavailable) {

@@ -707,6 +707,25 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         }
 
         @Test
+        void shouldOrderHistoryById_whenUpdatesShareOneSecond() {
+            String uuid = UUID.randomUUID().toString();
+            Date timestamp = Date.from(java.time.Instant.parse("2026-10-05T12:00:00Z"));
+            CaseManagementNote first = createNote("4001", "First same-second revision", timestamp);
+            CaseManagementNote second = createNote("4001", "Newest same-second revision", timestamp);
+            CaseManagementNote earlier = createNote("4001", "Earlier timestamp but larger ID",
+                    new Date(timestamp.getTime() - 1000));
+            for (CaseManagementNote note : List.of(first, second, earlier)) {
+                note.setUuid(uuid);
+                caseManagementNoteDAO.saveNote(note);
+            }
+            hibernateTemplate.flush();
+            entityManager.clear();
+            assertThat(caseManagementNoteDAO.getHistory(first))
+                    .extracting(CaseManagementNote::getId)
+                    .containsExactly(earlier.getId(), first.getId(), second.getId());
+        }
+
+        @Test
         @Tag("query")
         @DisplayName("should return raw note info as Object array by demographic")
         void shouldReturnRawNoteInfo_byDemographic() {

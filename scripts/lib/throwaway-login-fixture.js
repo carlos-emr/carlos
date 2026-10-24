@@ -10,7 +10,8 @@
  * the test login's active role assignments, and removes every row it owns on
  * cleanup -- including the rows the application writes on the throwaway's
  * behalf (SecurityArchive on a password change, provider_facility on first
- * login, the audit `log` rows that carry its provider number or username).
+ * login, the audit `log` rows that carry its provider number or username, the
+ * add-appointment page locks held under its provider number).
  *
  * Usernames are alphanumeric only: Login2Action rejects anything else before
  * authentication (`[a-zA-Z0-9]{1,30}`), so the run marker's hex tail is used
@@ -28,6 +29,10 @@ const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'provid
 // behind accumulated orphan preference rows for providers that no longer exist.
 const PROVIDER_PREFERENCE_TABLES = ['ProviderPreferenceAppointmentScreenEForm', 'ProviderPreferenceAppointmentScreenForm',
   'ProviderPreferenceAppointmentScreenQuickLink', 'ProviderPreference'];
+// The add-appointment screen records a page lock under the login's provider number
+// (PageMonitor, keyed providerNo). A lock still held when the run ended stayed behind
+// after the provider was deleted (5 orphan rows on relbc, 19 Oct).
+const PAGE_LOCK_TABLES = ['PageMonitor'];
 
 /**
  * English text of a bundle key, read from the source tree so a reworded
@@ -70,7 +75,10 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
     /** The bcrypt hash the throwaway started with (identical to the test login's). */
     get passwordHash() { return state.passwordHash; },
 
-    create() {
+    create({ roleNames, expiresTomorrow = false } = {}) {
+      assert(roleNames === undefined || (Array.isArray(roleNames) && roleNames.length > 0
+        && roleNames.every(role => typeof role === 'string' && /^[A-Za-z0-9_-]{1,60}$/.test(role))),
+      'Explicit fixture roles must be a nonempty list of role names');
       assert(!state.created, 'The throwaway login was already created');
       assert(sql.value(`SELECT COUNT(*) FROM security WHERE user_name=${sqlString(testUser)}`) === '1',
         'The shared test login has no single security row to copy');
@@ -89,7 +97,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
           `(SELECT COUNT(*) FROM log WHERE provider_no=${c})`,
           `(SELECT COUNT(*) FROM SecurityArchive WHERE provider_no=${c})`,
           ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${c})`),
-          ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`),
+          ...[...PROVIDER_PREFERENCE_TABLES, ...PAGE_LOCK_TABLES].map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`),
         ].join('+')}`);
         if (taken === '0') state.providerNo = candidate;
       }
@@ -106,7 +114,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
       // forcePasswordReset and MFA are explicitly off so the login lands on the schedule.
       state.securityNo = sql.value(`INSERT INTO security (user_name,password,provider_no,pin,b_ExpireSet,date_ExpireDate,
           b_LocalLockSet,b_RemoteLockSet,forcePasswordReset,passwordUpdateDate,pinUpdateDate,lastUpdateUser,lastUpdateDate,usingMfa,mfaSecret)
-        SELECT ${sqlString(username)},password,${providerNo},pin,b_ExpireSet,date_ExpireDate,b_LocalLockSet,b_RemoteLockSet,
+        SELECT ${sqlString(username)},password,${providerNo},pin,${expiresTomorrow ? '1,DATE_ADD(CURDATE(), INTERVAL 1 DAY)' : 'b_ExpireSet,date_ExpireDate'},b_LocalLockSet,b_RemoteLockSet,
           0,NOW(),NOW(),${sqlString(provider)},NOW(),0,NULL
         FROM security WHERE user_name=${sqlString(testUser)}; SELECT LAST_INSERT_ID()`);
       assert(/^[1-9]\d*$/.test(state.securityNo), 'The throwaway security row was not created');
@@ -114,9 +122,15 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
       assert(state.passwordHash
         && state.passwordHash === sql.value(`SELECT password FROM security WHERE user_name=${sqlString(testUser)}`),
       'The throwaway did not inherit the test login\'s password hash');
-      sql.execute(`INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate)
-        SELECT ${providerNo},role_name,orgcd,activeyn,NOW() FROM secUserRole
-        WHERE provider_no=${sqlString(provider)} AND activeyn=1`);
+      if (roleNames) {
+        // Denial checks start with only their explicit grants, never inherited roles.
+        sql.execute(`INSERT INTO secUserRole (provider_no,role_name,activeyn,lastUpdateDate)
+          VALUES ${[...new Set(roleNames)].map(role => `(${providerNo},${sqlString(role)},1,NOW())`).join(',')}`);
+      } else {
+        sql.execute(`INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate)
+          SELECT ${providerNo},role_name,orgcd,activeyn,NOW() FROM secUserRole
+          WHERE provider_no=${sqlString(provider)} AND activeyn=1`);
+      }
       assert(Number(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${providerNo}`)) > 0,
         'The throwaway received no role assignment');
       return this;
@@ -136,7 +150,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
         `(SELECT COUNT(*) FROM log WHERE ${ownedLogPredicate()})`,
         `(SELECT COUNT(*) FROM SecurityArchive WHERE user_name=${user} OR provider_no=${providerNo})`,
         ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${providerNo})`),
-        ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${providerNo})`),
+        ...[...PROVIDER_PREFERENCE_TABLES, ...PAGE_LOCK_TABLES].map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${providerNo})`),
         `(SELECT COUNT(*) FROM security WHERE user_name=${user} OR provider_no=${providerNo})`,
         `(SELECT COUNT(*) FROM provider WHERE provider_no=${providerNo})`,
       ].join('+')}`);
@@ -153,7 +167,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
         `DELETE FROM log WHERE ${ownedLogPredicate()}`,
         `DELETE FROM SecurityArchive WHERE user_name=${user} OR provider_no=${providerNo}`,
         ...PROVIDER_LINKED_TABLES.map(table => `DELETE FROM ${table} WHERE provider_no=${providerNo}`),
-        ...PROVIDER_PREFERENCE_TABLES.map(table => `DELETE FROM ${table} WHERE providerNo=${providerNo}`),
+        ...[...PROVIDER_PREFERENCE_TABLES, ...PAGE_LOCK_TABLES].map(table => `DELETE FROM ${table} WHERE providerNo=${providerNo}`),
         `DELETE FROM security WHERE user_name=${user} AND provider_no=${providerNo}`,
         `DELETE FROM provider WHERE provider_no=${providerNo} AND last_name=${sqlString(marker)}`,
       ];

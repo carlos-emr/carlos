@@ -31,6 +31,9 @@ import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamplesFavorite;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
+import io.github.carlos_emr.carlos.report.data.QueryByExampleAccessDeniedException;
+import io.github.carlos_emr.carlos.report.data.ReportingAccountUnavailableException;
+import io.github.carlos_emr.carlos.report.data.ReportingConnectionService;
 import io.github.carlos_emr.carlos.report.pageUtil.RptByExample2Action;
 import io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesAllFavorites2Action;
 import io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action;
@@ -52,6 +55,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -262,6 +267,37 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("RptByExamplesFavorite deletes the verified ID rather than the detached entity")
+    void shouldDeleteVerifiedFavoriteId_whenFavoriteBelongsToCurrentProvider() throws Exception {
+        authorizeFavoritePost();
+        ReportByExamplesFavorite favorite = favorite(42, "999998", "Mine", "select 1");
+        when(favoritesDao.find(42)).thenReturn(favorite);
+        when(favoritesDao.remove((Object) 42)).thenReturn(true);
+
+        RptByExamplesFavorite2Action action = new RptByExamplesFavorite2Action();
+        action.setToDelete("true");
+        action.setId("42");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(favoritesDao).remove((Object) 42);
+        verify(favoritesDao, never()).remove(favorite);
+        verify(favoritesDao).findByProvider("999998");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"not-a-number", "2147483648"})
+    void shouldRejectFavoriteDelete_whenIdentifierIsInvalid(String id) {
+        authorizeFavoritePost();
+        RptByExamplesFavorite2Action action = new RptByExamplesFavorite2Action();
+        action.setToDelete("true");
+        action.setId(id);
+
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("Invalid favorite selection");
+        verifyNoInteractions(favoritesDao);
+    }
+
+    @Test
     @DisplayName("RptByExamplesFavorite rejects deletion of another provider's favorite")
     void shouldRejectFavoriteDelete_whenFavoriteBelongsToAnotherProvider() {
         authorizeFavoritePost();
@@ -276,6 +312,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("Favorite does not belong to the current provider");
         verify(favoritesDao, never()).remove(favorite);
+        verify(favoritesDao, never()).remove((Object) 42);
     }
 
     @Test
@@ -373,6 +410,97 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("RptByExample tells the user the reporting account is unavailable and saves no history")
+    void shouldShowReportingUnavailable_whenReportingAccountCannotBeUsed() throws Exception {
+        authorizeReportPost();
+        RptByExample2Action action = new RptByExample2Action();
+        action.setSql("select demographic_no from demographic");
+
+        withProperties(java.util.Map.of(RptByExample2Action.ENABLED_PROPERTY, "true"), () -> {
+            try (MockedConstruction<RptByExampleData> reportData = mockConstruction(
+                    RptByExampleData.class,
+                    (mock, context) -> when(mock.execute(any(), any(Properties.class), any()))
+                            .thenThrow(new ReportingAccountUnavailableException("db_reporting_username is not set")))) {
+                assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+                assertThat(reportData.constructed()).hasSize(1);
+            }
+        });
+
+        assertThat(request.getAttribute("queryReportingUnavailable")).isEqualTo(true);
+        assertThat(request.getAttribute("queryExecutionError")).isNull();
+        assertThat(request.getAttribute("results")).isNull();
+        verifyNoInteractions(reportByExamplesDao);
+    }
+
+    @Test
+    @DisplayName("RptByExample tells the user the database refused part of the query and saves no history")
+    void shouldShowAccessDenied_whenDatabaseRefusesQuery() throws Exception {
+        authorizeReportPost();
+        RptByExample2Action action = new RptByExample2Action();
+        action.setSql("select * from qbe_unclassified");
+
+        withProperties(java.util.Map.of(RptByExample2Action.ENABLED_PROPERTY, "true"), () -> {
+            try (MockedConstruction<RptByExampleData> reportData = mockConstruction(
+                    RptByExampleData.class,
+                    (mock, context) -> when(mock.execute(any(), any(Properties.class), any()))
+                            .thenThrow(new QueryByExampleAccessDeniedException(
+                                    new java.sql.SQLException("SELECT command denied", "42000", 1142))))) {
+                assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+                assertThat(reportData.constructed()).hasSize(1);
+            }
+        });
+
+        assertThat(request.getAttribute("queryAccessDenied")).isEqualTo(true);
+        assertThat(request.getAttribute("queryExecutionError")).isNull();
+        assertThat(request.getAttribute("results")).isNull();
+        verifyNoInteractions(reportByExamplesDao);
+    }
+
+    @Test
+    @DisplayName("RptByExample warns on open when the reporting account is not configured")
+    void shouldWarnOnOpen_whenReportingAccountIsNotConfigured() throws Exception {
+        authorizeReportPost();
+        request.setMethod("GET");
+
+        withProperties(reportingSettings(""), () -> {
+            assertThat(new RptByExample2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        });
+
+        assertThat(request.getAttribute("queryReportingUnavailable")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("RptByExample opens without a warning when the reporting account is configured")
+    void shouldNotWarnOnOpen_whenReportingAccountIsConfigured() throws Exception {
+        authorizeReportPost();
+        request.setMethod("GET");
+
+        try (MockedConstruction<RptByExampleData> reportData = mockConstruction(RptByExampleData.class)) {
+            withProperties(reportingSettings("carlos_report"), () -> {
+                assertThat(new RptByExample2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+            });
+            assertThat(reportData.constructed()).isEmpty();
+        }
+
+        assertThat(request.getAttribute("queryReportingUnavailable")).isNull();
+    }
+
+    @Test
+    @DisplayName("RptByExample does not warn about the reporting account while the tool is disabled")
+    void shouldNotWarnOnOpen_whenQueryByExampleIsDisabled() throws Exception {
+        authorizeReportPost();
+        request.setMethod("GET");
+        java.util.Map<String, String> settings = new java.util.HashMap<>(reportingSettings(""));
+        settings.put(RptByExample2Action.ENABLED_PROPERTY, "false");
+
+        withProperties(settings, () -> {
+            assertThat(new RptByExample2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        });
+
+        assertThat(request.getAttribute("queryReportingUnavailable")).isNull();
+    }
+
+    @Test
     @DisplayName("UploadTemplates passes LoggedInInfo and the uploaded document when adding and editing templates")
     void shouldPassLoggedInInfo_whenAddingAndEditingTemplates() throws Exception {
         authorizeTemplateUpload();
@@ -461,6 +589,50 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_report)");
             assertThat(reportManagers.constructed()).isEmpty();
+        }
+    }
+
+    private void authorizeReportPost() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)).thenReturn(true);
+        request.setMethod("POST");
+    }
+
+    /** Complete reporting-account settings, with {@code username} as the reporting account (blank: unset). */
+    private static java.util.Map<String, String> reportingSettings(String username) {
+        return java.util.Map.of(
+                RptByExample2Action.ENABLED_PROPERTY, "true",
+                "db_uri", "jdbc:mysql://127.0.0.1:3306/",
+                "db_name", "carlos?zeroDateTimeBehavior=round",
+                "db_username", "carlos",
+                ReportingConnectionService.USERNAME_PROPERTY, username,
+                ReportingConnectionService.PASSWORD_PROPERTY, username.isEmpty() ? "" : "test-" + java.util.UUID.randomUUID());
+    }
+
+    @FunctionalInterface
+    private interface PropertyScopedCheck {
+        void run() throws Exception;
+    }
+
+    /** Runs {@code check} with these CarlosProperties values, then restores the previous ones. */
+    private static void withProperties(java.util.Map<String, String> values, PropertyScopedCheck check) throws Exception {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        java.util.Map<String, String> previous = new java.util.HashMap<>();
+        for (String key : values.keySet()) {
+            previous.put(key, properties.getProperty(key));
+        }
+        try {
+            values.forEach(properties::setProperty);
+            check.run();
+        } finally {
+            previous.forEach((key, value) -> {
+                if (value == null) {
+                    properties.remove(key);
+                } else {
+                    properties.setProperty(key, value);
+                }
+            });
         }
     }
 

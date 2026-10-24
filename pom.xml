@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-alpha19-SNAPSHOT</version>
+    <version>2026.08.0-beta1-SNAPSHOT</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -35,6 +35,24 @@
             src/main/webapp/**/*.min.js,
             src/main/webapp/**/*.min.css
         </sonar.exclusions>
+        <!--
+            The Query by Example grant list is a data table with one classification row per
+            database table, each shaped like the next (issue #3372). Copy-paste detection reads
+            those rows as duplicated blocks. Only duplication detection skips it; the file is
+            still analyzed.
+        -->
+        <!--
+            The legacy BC form pages (BC-AR original/2007/2012, both Birth Summaries, BC-NewBorn original and
+            2008, BC-INR, Chart Checklist, BC Health Passport) are versioned copies of provincial forms, kept so
+            old records still open, so each version repeats the previous one by design. Encoding their saved
+            values (#5090) marked thousands of those lines as new code. Only duplication detection skips them;
+            BC-AR 2020 (formBCAR2020*) is not covered.
+        -->
+        <sonar.cpd.exclusions>
+            src/main/resources/db/reporting/**,
+            src/main/webapp/WEB-INF/jsp/form/formbc*.jsp,
+            src/main/webapp/WEB-INF/jsp/form/formBCNewBorn2008*.jsp
+        </sonar.cpd.exclusions>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <!--
             Suppress SonarCloud S2083 (path traversal) false positives in files that use
@@ -44,7 +62,7 @@
             has already validated the path. This does NOT suppress the rule globally — any code
             that uses raw user input in file paths without PathValidationUtils will still be caught.
         -->
-        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling,pvuDocS6549,csrfTplS6638,csrfTplS3403</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008</sonar.issue.ignore.multicriteria>
         <!-- PathValidationUtils itself (it IS the sanitizer) -->
         <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
@@ -94,8 +112,27 @@
         <sonar.issue.ignore.multicriteria.csrfTplS6638.resourceKey>**/csrfguard/carlos-csrfguard.js</sonar.issue.ignore.multicriteria.csrfTplS6638.resourceKey>
         <sonar.issue.ignore.multicriteria.csrfTplS3403.ruleKey>javascript:S3403</sonar.issue.ignore.multicriteria.csrfTplS3403.ruleKey>
         <sonar.issue.ignore.multicriteria.csrfTplS3403.resourceKey>**/csrfguard/carlos-csrfguard.js</sonar.issue.ignore.multicriteria.csrfTplS3403.resourceKey>
+        <!--
+            The legacy BC form pages' layout is the provincial paper form's: unlabelled entry boxes laid out in
+            table cells and <font> sizing throughout. Relabelling or restyling them changes the printed form, so
+            these two markup rules are not reported on them. Every other rule, security rules included, still is,
+            and BC-AR 2020 (formBCAR2020*) is not covered.
+        -->
+        <sonar.issue.ignore.multicriteria.bcFormLabel.ruleKey>Web:InputWithoutLabelCheck</sonar.issue.ignore.multicriteria.bcFormLabel.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormLabel.resourceKey>**/WEB-INF/jsp/form/formbc*.jsp</sonar.issue.ignore.multicriteria.bcFormLabel.resourceKey>
+        <sonar.issue.ignore.multicriteria.bcFormLabel2008.ruleKey>Web:InputWithoutLabelCheck</sonar.issue.ignore.multicriteria.bcFormLabel2008.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormLabel2008.resourceKey>**/WEB-INF/jsp/form/formBCNewBorn2008*.jsp</sonar.issue.ignore.multicriteria.bcFormLabel2008.resourceKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont.ruleKey>Web:UnsupportedTagsInHtml5Check</sonar.issue.ignore.multicriteria.bcFormFont.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont.resourceKey>**/WEB-INF/jsp/form/formbc*.jsp</sonar.issue.ignore.multicriteria.bcFormFont.resourceKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont2008.ruleKey>Web:UnsupportedTagsInHtml5Check</sonar.issue.ignore.multicriteria.bcFormFont2008.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont2008.resourceKey>**/WEB-INF/jsp/form/formBCNewBorn2008*.jsp</sonar.issue.ignore.multicriteria.bcFormFont2008.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine/>
+        <!-- Extra JVM options for forked test JVMs, set with -Dtest.jvmArgs="...". Unlike
+             -DargLine, a command-line value reaches the forks. The report font matrix
+             (scripts/check-report-fonts.sh) uses it to give each scenario its own user.home,
+             because the JDK caches its fontconfig resolution there (issue #5046). -->
+        <test.jvmArgs/>
         <test.forkCount>4</test.forkCount>
         <!-- Log4j Version -->
         <log4j2.version>2.25.5</log4j2.version>
@@ -110,12 +147,12 @@
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
-        <spring.version>7.0.8</spring.version>
+        <spring.version>7.0.9</spring.version>
         <spring-security.version>7.0.5</spring-security.version>
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.22.2</jackson.version>
+        <jackson.version>2.22.3</jackson.version>
         <!-- Apache HttpClient 5 -->
         <httpclient5.version>5.6.3</httpclient5.version>
         <!-- Version of the provided-scope Tomcat artifacts we compile against. The servlet
@@ -1540,6 +1577,7 @@
                     <propertiesEncoding>ISO-8859-1</propertiesEncoding>
                     <nonFilteredFileExtensions>
                         <nonFilteredFileExtension>ttf</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>ttc</nonFilteredFileExtension>
                         <nonFilteredFileExtension>pdf</nonFilteredFileExtension>
                         <nonFilteredFileExtension>jar</nonFilteredFileExtension>
                         <nonFilteredFileExtension>xls</nonFilteredFileExtension>
@@ -1547,6 +1585,9 @@
                         <nonFilteredFileExtension>xsd</nonFilteredFileExtension>
                         <nonFilteredFileExtension>jasper</nonFilteredFileExtension>
                         <nonFilteredFileExtension>doc</nonFilteredFileExtension>
+                        <!-- SQL resources (db/reporting/carlos_report_grants.sql) use @session
+                             variables and must reach the WAR byte for byte, like the migrations. -->
+                        <nonFilteredFileExtension>sql</nonFilteredFileExtension>
                     </nonFilteredFileExtensions>
                 </configuration>
             </plugin>
@@ -1798,6 +1839,15 @@
                         <include>**/*Test.java</include>
                         <include>**/*Tests.java</include>
                     </includes>
+                    <!-- Fork test JVMs under the locale the packaged service runs with
+                         (carlos-emr.service sets LANG=C.UTF-8). The JVM derives its filename
+                         encoding (sun.jnu.encoding) from the locale and it cannot be overridden
+                         by a system property, so under a POSIX/C shell non-ASCII document names
+                         fail with InvalidPathException in tests but never in production. -->
+                    <environmentVariables>
+                        <LANG>C.UTF-8</LANG>
+                        <LC_ALL>C.UTF-8</LC_ALL>
+                    </environmentVariables>
                     <argLine>
                        @{argLine}
                        -Xmx2048m
@@ -1807,6 +1857,7 @@
                        -Djdk.attach.allowAttachSelf=true
                        -XX:+EnableDynamicAgentLoading
                        -Djava.awt.headless=true
+                       ${test.jvmArgs}
                      </argLine>
                     <!-- Test filtering by groups when specified -->
                     <groups>${groups}</groups>

@@ -24,6 +24,7 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, markOpener } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { documentChain, pickInPopup, lostOpenerMessage, assertId } = require('./lib/popup-opener-helpers');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const TIMEOUT = 20000;
 
@@ -38,6 +39,10 @@ async function workflow(s) {
   let contactId;
   let specialistId;
   s.cleanup(() => {
+    // Archive IDs in the imported demo history can overlap new archive IDs;
+    // child cleanup must be scoped to the owned patient, never that ID alone.
+    sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${s.patient};
+      DELETE FROM demographiccust WHERE demographic_no=${s.patient}`);
     if (second) {
       sql.execute(`DELETE FROM DemographicContact WHERE demographicNo IN (${ownedPatients()})
         OR (type=1 AND contactId IN (${ownedPatients().split(',').map(q).join(',')}))`);
@@ -53,8 +58,10 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM DemographicContact WHERE demographicNo IN (${ownedPatients()}))
       + (SELECT COUNT(*) FROM Contact WHERE lastName=${q(marker)})
       + (SELECT COUNT(*) FROM professionalSpecialists WHERE lName=${q(marker)})
-      + (SELECT COUNT(*) FROM demographic WHERE last_name=${q(marker)} AND demographic_no<>${s.patient})`) === '0',
-    'Owned contact, specialist or second-patient rows were not removed');
+      + (SELECT COUNT(*) FROM demographic WHERE last_name=${q(marker)} AND demographic_no<>${s.patient})
+      + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${s.patient})
+      + (SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${s.patient})`) === '0',
+    'Owned contact, specialist, patient or update rows were not removed');
   });
   h.assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${s.patient}`) === '0',
     'The owned patient unexpectedly has contact associations');
@@ -121,7 +128,7 @@ async function workflow(s) {
   };
 
   await s.step('Manage Contacts opens from the Master Record with empty personal and professional lists', async () => {
-    contacts = await s.popup(master, master.locator('a[onclick*="/demographic/Contact?method=manage"]').first(), 'manage-contacts');
+    contacts = await s.popup(master, masterRecordLink(master, '/demographic/Contact?method=manage').first(), 'manage-contacts');
     await contacts.locator('form#contactForm').waitFor();
     h.assert(await contacts.locator('#contact_container > *').count() === 0
       && await contacts.locator('#procontact_container > *').count() === 0, 'Manage Contacts opened with rows for a patient that has none');
@@ -172,7 +179,7 @@ async function workflow(s) {
   // first; this step tries all three and names each one that fails.
   await s.step('Specialist, professional-contact and Referral Doctor pickers each hand the pick back and it saves', async () => {
     const failures = [];
-    contacts = await s.popup(master, master.locator('a[onclick*="/demographic/Contact?method=manage"]').first(), 'manage-contacts-2');
+    contacts = await s.popup(master, masterRecordLink(master, '/demographic/Contact?method=manage').first(), 'manage-contacts-2');
     await contacts.locator('form#contactForm').waitFor();
     const specialistRow = await addRow('procontact');
     await contacts.locator(`[name="${specialistRow}.type"]`).selectOption('3');
@@ -211,7 +218,12 @@ async function workflow(s) {
       h.assert(closed, 'The referral doctor picker filled the fields but did not close itself');
       await clickAndAwaitReload(master, master.locator('#updateButton input[type="submit"]').first(),
         { timeout: TIMEOUT, label: 'Update Record' });
-      await expectValue(sql, `SELECT family_doctor LIKE ${q(`%<rdohip>${referralNo}</rdohip>%<rd>${referralName}</rd>%`)}
+      // family_doctor is an XML fragment. Since 0369b05d5b its text is XML-escaped (the referrer's "& Co" is stored
+      // as &amp;); decode it once, &amp; last, so the raw picked name matches on builds that escape and on those that
+      // do not.
+      const decodedFamilyDoctor = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(family_doctor, '&lt;', '<'), '&gt;', '>'), "
+        + "'&quot;', '\"'), '&apos;', ''''), '&amp;', '&')";
+      await expectValue(sql, `SELECT ${decodedFamilyDoctor} LIKE ${q(`%<rdohip>${referralNo}</rdohip>%<rd>${referralName}</rd>%`)}
         FROM demographic WHERE demographic_no=${s.patient}`, '1', 'The saved record does not carry the picked referral doctor');
     }
     const broken = failures.filter(Boolean);

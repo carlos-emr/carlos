@@ -1,0 +1,251 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+// Unit tests for scripts/deb-docker-validation.sh: everything that can be
+// decided without a Docker daemon (the guard, the preseed, the cgroup mode
+// and the package-set validation). A fake `docker` on PATH records every call
+// so a test can prove the script refused BEFORE touching the daemon.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+const test = require('node:test');
+
+const SCRIPT = path.join(__dirname, 'deb-docker-validation.sh');
+
+function sandbox(t) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-deb-docker-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const bin = path.join(dir, 'bin');
+  fs.mkdirSync(bin);
+  const calls = path.join(dir, 'docker-calls.log');
+  // `docker inspect` answers "no such container"; anything else is recorded and fails.
+  fs.writeFileSync(path.join(bin, 'docker'), `#!/bin/sh\necho "$*" >> '${calls}'\nexit 1\n`, { mode: 0o755 });
+  return { dir, calls, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, LOG_DIR: path.join(dir, 'logs') } };
+}
+
+function run(args, env) {
+  return spawnSync('bash', [SCRIPT, ...args], { encoding: 'utf8', env });
+}
+
+test('should enable consultation auto-include before restarting the disposable validation install', (t) => {
+  const box = sandbox(t);
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  const start = source.indexOf("    if grep -qE '^CONSULTATION_AUTO_INCLUDE_MEDICATIONS");
+  const end = source.indexOf('    carlos-ctl restart', start);
+  assert.ok(start > 0 && end > start);
+  // Unquote the in_container string, then execute the real fixture commands
+  // against a temporary properties file, never /etc or a running installation.
+  const fixture = source.slice(start, end).replaceAll('\\"', '"').replaceAll('\\$', '$');
+  const props = path.join(box.dir, 'carlos.properties');
+  for (const before of ['', 'CONSULTATION_AUTO_INCLUDE_MEDICATIONS=false\n',
+    'CONSULTATION_AUTO_INCLUDE_MEDICATIONS = false\n', 'CONSULTATION_AUTO_INCLUDE_MEDICATIONS: false\n']) {
+    fs.writeFileSync(props, `other.setting=unchanged\n${before}`);
+    const r = spawnSync('bash', ['-ec', fixture], { encoding: 'utf8', env: { ...box.env, P: props } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(fs.readFileSync(props, 'utf8'), 'other.setting=unchanged\nCONSULTATION_AUTO_INCLUDE_MEDICATIONS=true\n');
+  }
+  assert.match(source, /^export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true$/m);
+});
+
+test('should pass bash syntax checking', () => {
+  assert.equal(spawnSync('bash', ['-n', SCRIPT]).status, 0);
+});
+
+test('should refuse every container command without CARLOS_DISPOSABLE_HOST=true and never call docker', (t) => {
+  const box = sandbox(t);
+  for (const command of ['up', 'suite', 'audit', 'down']) {
+    const r = run([command], { ...box.env, CARLOS_DISPOSABLE_HOST: '' });
+    assert.equal(r.status, 1, `${command}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /refusing to run: set CARLOS_DISPOSABLE_HOST=true/);
+  }
+  assert.equal(fs.existsSync(box.calls), false, 'docker was called before the guard refused');
+});
+
+test('should preseed the runbook answers for the selected province', (t) => {
+  const box = sandbox(t);
+  for (const province of ['on', 'bc', 'other']) {
+    const r = run(['print-preseed'], { ...box.env, CARLOS_PROVINCE: province });
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, new RegExp(`^carlos-emr carlos-emr/province select ${province}$`, 'm'));
+    // The secure default stays on: the validation must prove the forced first-login reset.
+    assert.match(r.stdout, /^carlos-emr carlos-emr\/reset-seed-admin boolean true$/m);
+    assert.match(r.stdout, /^carlos-emr carlos-emr\/tls-mode select selfsigned$/m);
+    assert.match(r.stdout, /^carlos-emr carlos-emr\/install-demo-data boolean true$/m);
+  }
+  const noDemo = run(['print-preseed'], { ...box.env, INSTALL_DEMO_DATA: 'false' });
+  assert.match(noDemo.stdout, /^carlos-emr carlos-emr\/install-demo-data boolean false$/m);
+});
+
+test('should filter the suite on the province the package installs, and on Ontario for the other alias', (t) => {
+  const box = sandbox(t);
+  // `other` applies the Ontario migrations (runbook section 2): it must not leave the filter empty, which would run
+  // every BC-only check against a schema without its tables.
+  for (const [province, expected] of [['on', 'ON'], ['bc', 'BC'], ['other', 'ON']]) {
+    const r = run(['print-suite-province'], { ...box.env, CARLOS_PROVINCE: province });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout.trim(), expected, `CARLOS_PROVINCE=${province}`);
+  }
+});
+
+test('should reject a province or demo-data value the package does not offer', (t) => {
+  const box = sandbox(t);
+  const province = run(['print-preseed'], { ...box.env, CARLOS_PROVINCE: 'qc' });
+  assert.equal(province.status, 1);
+  assert.match(province.stderr, /CARLOS_PROVINCE must be on, bc or other/);
+  const demo = run(['print-preseed'], { ...box.env, INSTALL_DEMO_DATA: 'yes' });
+  assert.equal(demo.status, 1);
+});
+
+test('should classify the host cgroup hierarchy as v2, hybrid or v1', (t) => {
+  const box = sandbox(t);
+  const v2 = path.join(box.dir, 'v2');
+  fs.mkdirSync(v2);
+  fs.writeFileSync(path.join(v2, 'cgroup.controllers'), 'cpu memory\n');
+  const hybrid = path.join(box.dir, 'hybrid');
+  fs.mkdirSync(path.join(hybrid, 'unified'), { recursive: true });
+  fs.writeFileSync(path.join(hybrid, 'unified', 'cgroup.controllers'), '\n');
+  const v1 = path.join(box.dir, 'v1');
+  fs.mkdirSync(path.join(v1, 'memory'), { recursive: true });
+  for (const [root, mode] of [[v2, 'v2'], [hybrid, 'hybrid'], [v1, 'v1']]) {
+    const r = run(['cgroup-mode'], { ...box.env, CGROUP_ROOT: root });
+    assert.equal(r.stdout.trim(), mode);
+  }
+});
+
+test('should require exactly one of each package before building anything', (t) => {
+  const box = sandbox(t);
+  const env = { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' };
+  const missing = run(['up'], { ...env, DEBS_DIR: '' });
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /DEBS_DIR must name the directory/);
+
+  const debs = path.join(box.dir, 'debs');
+  fs.mkdirSync(debs);
+  for (const name of ['carlos-emr_2026.08.0~alpha19_amd64.deb', 'carlos-emr_2026.08.0~alpha18_amd64.deb',
+    'carlos-emr-drugref_2026.08.0~alpha19_all.deb', 'carlos-ctl_1.1.2_all.deb']) {
+    fs.writeFileSync(path.join(debs, name), '');
+  }
+  const twoEmr = run(['up'], { ...env, DEBS_DIR: debs });
+  assert.equal(twoEmr.status, 1);
+  assert.match(twoEmr.stderr, /exactly one carlos-emr_\*_amd64\.deb/);
+
+  fs.rmSync(path.join(debs, 'carlos-ctl_1.1.2_all.deb'));
+  fs.rmSync(path.join(debs, 'carlos-emr_2026.08.0~alpha18_amd64.deb'));
+  const noCtl = run(['up'], { ...env, DEBS_DIR: debs });
+  assert.equal(noCtl.status, 1);
+  assert.match(noCtl.stderr, /exactly one carlos-ctl_\*_all\.deb/);
+  assert.equal(fs.existsSync(box.calls), false, 'docker was called before the package set was validated');
+});
+
+test('should print usage for help and fail on an unknown command', (t) => {
+  const box = sandbox(t);
+  const help = run(['--help'], box.env);
+  assert.equal(help.status, 0);
+  assert.match(help.stdout, /CARLOS_DISPOSABLE_HOST=true DEBS_DIR=/);
+  assert.equal(run(['frobnicate'], box.env).status, 2);
+});
+
+test('should hand the audit no empty argument and quote the ones it is given', (t) => {
+  const box = sandbox(t);
+  const env = { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' };
+  run(['audit'], env);
+  run(['audit', '--since', '2026-10-08 04:40:00'], env);
+  const calls = fs.readFileSync(box.calls, 'utf8').split('\n').filter((line) => line.includes('deb-server-log-audit.sh'));
+  assert.equal(calls.length, 2, fs.readFileSync(box.calls, 'utf8'));
+  assert.match(calls[0], /deb-server-log-audit\.sh $/);
+  assert.match(calls[1], /deb-server-log-audit\.sh --since 2026-10-08\\ 04:40:00 $/);
+});
+
+
+test('should refuse a cgroup-v1-only host before building an image or starting a container', (t) => {
+  const box = sandbox(t);
+  const v1 = path.join(box.dir, 'v1');
+  fs.mkdirSync(path.join(v1, 'memory'), { recursive: true });
+  const debs = path.join(box.dir, 'debs');
+  fs.mkdirSync(debs);
+  for (const name of ['carlos-emr_1_amd64.deb', 'carlos-emr-drugref_1_all.deb', 'carlos-ctl_1_all.deb']) {
+    fs.writeFileSync(path.join(debs, name), '');
+  }
+  const r = run(['up'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true', DEBS_DIR: debs, CGROUP_ROOT: v1 });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /cgroup-v1-only hierarchy/);
+  const calls = fs.existsSync(box.calls) ? fs.readFileSync(box.calls, 'utf8') : '';
+  assert.doesNotMatch(calls, /^(build|buildx|run) /m, `docker was asked to build or run: ${calls}`);
+});
+
+test('should refuse a reset password that quoting could not carry into the container', (t) => {
+  const box = sandbox(t);
+  for (const password of ["it's", 'Pa$$w0rd', 'a`id`', 'back\\slash', 'q"x']) {
+    const r = run(['print-preseed'], { ...box.env, RESET_PASSWORD: password });
+    assert.equal(r.status, 1, `accepted ${password}`);
+    assert.match(r.stderr, /RESET_PASSWORD must not/);
+  }
+  assert.equal(run(['print-preseed'], { ...box.env, RESET_PASSWORD: 'Carlos2026!Verify' }).status, 0);
+});
+
+test('should refuse an unknown profile, and every profile without CARLOS_DISPOSABLE_HOST=true, before calling docker', (t) => {
+  const box = sandbox(t);
+  const unknown = run(['profile', 'nonesuch'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /profile must be legacy-teleplan or default \(got 'nonesuch'\)/);
+  for (const name of ['legacy-teleplan', 'default']) {
+    const r = run(['profile', name], { ...box.env, CARLOS_DISPOSABLE_HOST: '' });
+    assert.equal(r.status, 1, `${name}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /refusing to run: set CARLOS_DISPOSABLE_HOST=true/);
+  }
+  assert.equal(fs.existsSync(box.calls), false, 'docker was called before the profile was refused');
+});
+
+test('should refuse the legacy-teleplan profile on an install that is not British Columbia', (t) => {
+  const box = sandbox(t);
+  // The fake docker answers nothing, so the installed province reads as unknown.
+  const r = run(['profile', 'legacy-teleplan'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /the legacy-teleplan profile is for a BC install \(this one is 'unknown'\)/);
+  const calls = fs.readFileSync(box.calls, 'utf8');
+  assert.doesNotMatch(calls, /carlos-ctl restart/, 'the install was changed although the province check failed');
+});
+
+/** Apply `profile NAME`'s carlos.properties edit to `file`, as the container does. */
+function applyProfileEdit(name, file) {
+  const edit = run(['print-profile-edit', name], process.env);
+  assert.equal(edit.status, 0, edit.stderr);
+  const r = spawnSync('bash', ['-ec', `P='${file}'\n${edit.stdout}`], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  return fs.readFileSync(file, 'utf8');
+}
+
+test('should switch carlos.properties to a profile and back byte for byte, whatever the file ends with', (t) => {
+  const box = sandbox(t);
+  const cases = {
+    'with the setting': 'A=1\nNEW_BC_TELEPLAN=yes\nB=2\n',
+    'without a final newline': 'A=1\nNEW_BC_TELEPLAN=yes\nB=2',
+    'without the setting': 'A=1\nB=2',
+    'with a spaced setting': 'A=1\nNEW_BC_TELEPLAN = yes\n',
+  };
+  for (const [label, original] of Object.entries(cases)) {
+    const file = path.join(box.dir, 'carlos.properties');
+    fs.writeFileSync(file, original);
+    let text = applyProfileEdit('legacy-teleplan', file);
+    // Java properties keep the last value of a key: the profile's own line must be the one that is read.
+    const values = [...text.matchAll(/^NEW_BC_TELEPLAN\s*[=:]\s*(.*)$/gm)].map(m => m[1]);
+    assert.deepEqual(values, ['no'], `${label}: NEW_BC_TELEPLAN values ${JSON.stringify(values)}`);
+    if (/^B=2$/m.test(original)) assert.match(text, /^B=2$/m, `${label}: the last setting was changed`);
+    assert.equal(applyProfileEdit('legacy-teleplan', file), text, `${label}: switching twice is not idempotent`);
+    text = applyProfileEdit('default', file);
+    assert.equal(text.replace(/\n$/, ''), original.replace(/\n$/, ''), `${label}: profile default did not restore the file`);
+    assert.equal(applyProfileEdit('default', file), text, `${label}: profile default twice changed the file`);
+  }
+});
+
+test('should refuse a suite run that does not match the profile the install is in', (t) => {
+  const box = sandbox(t);
+  // This fake docker answers the profile query with legacy-teleplan; anything else is recorded and fails.
+  fs.writeFileSync(path.join(box.dir, 'bin', 'docker'),
+    `#!/bin/sh\ncase "$*" in *carlos-validation-profile:*) echo legacy-teleplan; exit 0 ;; esac\necho "$*" >> '${box.calls}'\nexit 1\n`,
+    { mode: 0o755 });
+  const r = run(['suite', '--tier', 'smoke'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /the install is in profile 'legacy-teleplan' but the run asks for 'default'/);
+  assert.equal(fs.existsSync(box.calls), false, 'the suite ran although the install is in another profile');
+});

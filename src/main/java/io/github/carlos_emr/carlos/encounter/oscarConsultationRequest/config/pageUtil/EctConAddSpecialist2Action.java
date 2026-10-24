@@ -115,9 +115,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
                 }
             }
             if (!saveSpecialist(professionalSpecialist)) return NONE;
-
-            EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-            constructSpecialistsScriptsFile.makeString(request.getLocale());
         } else {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;

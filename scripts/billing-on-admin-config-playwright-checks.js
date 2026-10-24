@@ -28,6 +28,7 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { seedOwnedBill, openHistory, openCorrection, billDate } = require('./billing-on-invoice-third-party-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const FORM_ROUTE = '/billing/CA/ON/ManageBillingform';
 const LOCATION_ROUTE = '/billing/CA/ON/ManageBillingLocation';
@@ -179,7 +180,7 @@ async function workflow(s) {
     await form.locator('input[name="description"]').fill(`${marker} private`);
     await form.locator('input[name="value"]').fill('31.50');
     await ui.pickDate(frame, form.locator('#billingservice_date'), issued);
-    const dialogs = await h.withExpectedDialogs(admin, () => navigates(admin, frame, form.locator('input[name="submit"][value="Save"]')));
+    const dialogs = await h.withExpectedDialogs(admin, () => navigates(admin, frame, form.locator('[name="submit"][value="Save"]')));
     h.assert(dialogs.length === 1 && /sure you want to save/i.test(dialogs[0].text), 'Save did not ask for confirmation once');
     h.assert((await frame.locator('form[name="baseurl"] .alert').innerText()).includes(`${privateCode} is added`),
       'The add banner did not name the private code');
@@ -192,7 +193,7 @@ async function workflow(s) {
       'Editing the private code did not load its description');
     await form.locator('input[name="value"]').fill('32.75');
     await ui.pickDate(frame, form.locator('#billingservice_date'), issued);
-    await h.withExpectedDialogs(admin, () => navigates(admin, frame, form.locator('input[name="submit"][value="Save"]')));
+    await h.withExpectedDialogs(admin, () => navigates(admin, frame, form.locator('[name="submit"][value="Save"]')));
     h.assert(sql.value(`SELECT CONCAT_WS('|', COUNT(*), MAX(value)) FROM billingservice
       WHERE service_code=${h.sqlString(privateCode)}`) === '1|32.75', 'The private code edit did not update its single row');
   });
@@ -275,7 +276,7 @@ async function workflow(s) {
 
   // Master Record ▸ Create Invoice: the Ontario bill form for the owned patient.
   const openBillForm = async () => {
-    const link = s.master.locator('a[onclick*="/billing?billRegion=ON"]').first();
+    const link = masterRecordLink(s.master, '/billing?billRegion=ON').first();
     h.assert(await link.count() === 1, 'The Master Record does not offer Create Invoice');
     const page = await s.popup(s.master, link, 'bill-form');
     await page.locator('select[name="xml_billtype"]').waitFor({ state: 'visible', timeout: 30000 });

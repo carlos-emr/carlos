@@ -48,6 +48,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -88,7 +89,7 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
       );
     }
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const landing = await login(context, config, recorder);
     await landing.close();
 

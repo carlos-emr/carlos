@@ -57,11 +57,12 @@
  *      search links to, probed only: soft wrap, and no whitespace padding from its markup.
  *
  * Delayed-response checks also cover fast Save/Sign & Save and leaving an already saved note.
- * Legacy compatibility routes cover six editors and literal recovery text (AbandonOldChart=false).
+ * Legacy compatibility routes cover six editors and the literal text a refused (stale) save
+ * recovers on the concurrency page (AbandonOldChart=false).
  *
  * The check owns every row it touches: a synthetic FAKE- patient (runWorkflow), the notes
- * signed and saved on it and their issue/ext/link rows, an owned program/admission and a
- * legacy eChart row, all removed afterwards.
+ * signed and saved on it and their issue/ext/link rows, an owned program/admission and two
+ * legacy eChart rows, all removed afterwards.
  *
  * Environment (see docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*
@@ -69,6 +70,7 @@
 
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const { settleOperations } = require('./graceful-signal-cancellation');
 
 // Long enough to wrap several times in an 84-column editor at any chart width.
 const LONG_PARAGRAPH_WORDS = 90;
@@ -219,9 +221,11 @@ async function openEditorAndSettle(chart, open) {
     && new URLSearchParams(r.request().postData() || '').get('method') === method;
   const issueList = chart.waitForResponse((r) => isPost(r, 'edit'), { timeout: 30000 });
   const issuesPanel = chart.waitForResponse((r) => /\/encounter\/displayIssues/.test(r.url()), { timeout: 30000 });
-  await open();
-  await (await issueList).finished();
-  await (await issuesPanel).finished();
+  // Settle both waits together: awaiting one while the other is pending lets a second timeout
+  // reject unhandled and kill the process before the workflow's cleanup runs (#3607). The trigger
+  // goes first so its own failure is the one reported, not the waits' timeout.
+  const [, list, panel] = await settleOperations([Promise.resolve().then(open), issueList, issuesPanel]);
+  await settleOperations([list.finished(), panel.finished()]);
 }
 
 /**
@@ -472,10 +476,13 @@ async function workflow(session, { legacyOnly = false } = {}) {
     // untouched editor, so opening the note for editing raises no "not saved" prompt.
     chart = await reopenChart(session);
     const noteDiv = chart.locator('#encMainDiv div[id^="n"]').filter({ hasText: `${tag} new-note icon` }).last();
+    const noteContainerId = await noteDiv.getAttribute('id');
+    h.assert(/^n\d+$/.test(noteContainerId), 'The saved note has no stable editor container ID');
     const editLink = noteDiv.locator('a[id^="edit"]').first();
     await editLink.waitFor({ state: 'visible', timeout: 30000 });
     await openEditorAndSettle(chart, () => editLink.click());
-    const editor = noteDiv.locator('textarea[name="caseNote_note"]');
+    // A DOM textarea stores text in .value, so the view's hasText filter no longer matches.
+    const editor = chart.locator(`#${noteContainerId} textarea[name="caseNote_note"]`);
     await editor.first().waitFor({ state: 'visible', timeout: 30000 });
     // editNote() loads the stored text (typed text plus the signature stamp), trimmed, with
     // one trailing line break for the clinician to continue on.
@@ -541,6 +548,22 @@ async function workflow(session, { legacyOnly = false } = {}) {
 
 }
 
+/** Excuses the one expected refusal of a stale legacy save: its 409 and Chromium's console line for it. */
+function excuseStaleSaveRefusal(recorder, marks) {
+  const isSave = url => {
+    try { return new URL(url).pathname.endsWith('/encounter/SaveEncounter2'); } catch { return false; }
+  };
+  const refused = recorder.badResponses.slice(marks.bad).filter(entry => entry.status === 409 && isSave(entry.url));
+  h.assert(refused.length === 1, 'The stale legacy Save was not refused exactly once');
+  recorder.badResponses.splice(recorder.badResponses.indexOf(refused[0]), 1);
+  for (let i = recorder.consoleIssues.length - 1; i >= marks.console; i--) {
+    const entry = recorder.consoleIssues[i];
+    if (entry.type === 'error' && /status of 409\b/.test(entry.text) && entry.location && isSave(entry.location.url)) {
+      recorder.consoleIssues.splice(i, 1);
+    }
+  }
+}
+
 async function legacyNoteWorkflow(session) {
   const { sql, patient, marker } = session;
   const tag = marker.slice(-10);
@@ -566,12 +589,25 @@ async function legacyNoteWorkflow(session) {
         assertSoftWrap(await probeEditor(editor), `legacy ${name}`);
         await editor.fill(original);
       }
-      await page.goto(`${session.config.baseUrl}/encounter/ViewConcurrencyError`,
-        { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await h.assertNotErrorPage(page, 'encounter recovery');
+      // Recovery is the refused save's own page: concurrencyError.jsp shows the text that save posted
+      // (issue #4673; it used to show the login-wide encounter bean's). Another revision lands after
+      // the editor opened, so the editor's Save of the note is refused as stale.
+      sql.execute(`INSERT INTO eChart (demographicNo,providerNo,subject,socialHistory,familyHistory,
+        medicalHistory,ongoingConcerns,reminders,encounter) VALUES (${patient},${h.sqlString(session.provider)},
+        ${h.sqlString(marker)},'','','','','',${h.sqlString(`${marker}-newer`)})`);
+      await page.locator('textarea[name="enTextarea"]').fill(text);
+      const marks = { bad: session.recorder.badResponses.length, console: session.recorder.consoleIssues.length };
+      const [refused] = await Promise.all([
+        page.waitForResponse(response => response.request().method() === 'POST'
+          && new URL(response.url()).pathname.endsWith('/encounter/SaveEncounter2'), { timeout: 30000 }),
+        page.locator('form[name="encForm"] input[type="button"][value="Save"]').click(),
+      ]);
+      h.assert(refused.status() === 409, `The stale legacy Save answered HTTP ${refused.status()}`);
+      await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+      excuseStaleSaveRefusal(session.recorder, marks);
       const recovered = page.locator('textarea[name="encounterTextarea"]');
       h.assert(await recovered.inputValue() === text,
-        'Recovery lost the original note (legacy validation requires AbandonOldChart=false)');
+        'Recovery lost the refused note (legacy validation requires AbandonOldChart=false)');
       h.assert(await recovered.getAttribute('wrap') === 'soft', 'Recovery editor is not soft-wrapped');
       h.assert(await page.locator('#pw-recovery-injection').count() === 0,
         'Recovery interpreted note content as HTML');

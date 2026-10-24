@@ -53,6 +53,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
+import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -68,19 +69,28 @@ public class QuickBillingBCSave2Action extends ActionSupport {
     }
 
 
+    /**
+     * Saves the bills the quick billing page collected in this session. POST only: the page's Save form posts, and a
+     * GET or HEAD is refused with 405 before the session's bills are read or written.
+     */
     public String execute()
-            throws ServletException, IOException {        if (request.getSession().getAttribute("user") == null) {
-            return "Logout";
-        }
-
-
+            throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        // The route's "save" prefix is refused for GET by HttpMethodGuardFilter too; this is the action's own guard.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
+        }
+        if (request.getSession().getAttribute("user") == null) {
+            return "Logout";
+        }
 
 
-        QuickBillingBCHandler quickBillingHandler = new QuickBillingBCHandler();
+        // Saves the bills the quick billing page collected in this session's form.
+        QuickBillingBCHandler quickBillingHandler =
+                new QuickBillingBCHandler(QuickBillingBCFormBean.fromSession(request.getSession()));
 
         if (quickBillingHandler.saveBills()) {
 

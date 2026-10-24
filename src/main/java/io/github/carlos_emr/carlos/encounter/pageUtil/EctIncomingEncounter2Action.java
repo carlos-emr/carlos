@@ -45,7 +45,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -60,6 +59,8 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -88,6 +89,20 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Opens one patient's legacy encounter page ({@code /encounter/IncomingEncounter}) and remembers
+ * that chart's entry metadata (provider, appointment, reason, encounter type) for this login.
+ *
+ * <p>The request names its own patient ({@code demographicNo}) and, optionally, an appointment of
+ * that patient ({@code appointmentNo}; {@code 0} or absent for none). The appointment is checked
+ * against its row before any chart is loaded or remembered: one that does not exist or is booked
+ * for another patient is refused (400). The entry used to accept any appointment number, so a
+ * hand-built request could make another patient's visit a chart's remembered appointment; and the
+ * legacy {@code appointmentList} branch, which no page called, loaded the named appointment's
+ * patient into the bean and overwrote that patient's remembered entry before the page refused to
+ * render it (issue #4676). A request that still carries {@code appointmentList} is an ordinary
+ * entry for its own patient.</p>
+ */
 public class EctIncomingEncounter2Action extends ActionSupport {
 
     private static Logger log = MiscUtils.getLogger();
@@ -99,9 +114,25 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     // Any character except ASCII control chars (allows Unicode for bilingual Canadian EMR)
     private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
     private static final Set<String> VALID_SOURCES = Set.of("encounter", "messenger");
-    private CaseManagementNoteDAO caseManagementNoteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
-    private CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Spring singletons: transient because ActionSupport is Serializable; an action is never serialized.
+    private final transient CaseManagementNoteDAO caseManagementNoteDao;
+    private final transient CaseManagementManager caseManagementMgr;
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient OscarAppointmentDao appointmentDao;
+
+    /** Struts object-factory constructor. */
+    public EctIncomingEncounter2Action() {
+        this(SpringUtils.getBean(CaseManagementNoteDAO.class), SpringUtils.getBean(CaseManagementManager.class),
+                SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(OscarAppointmentDao.class));
+    }
+
+    EctIncomingEncounter2Action(CaseManagementNoteDAO caseManagementNoteDao, CaseManagementManager caseManagementMgr,
+                                SecurityInfoManager securityInfoManager, OscarAppointmentDao appointmentDao) {
+        this.caseManagementNoteDao = caseManagementNoteDao;
+        this.caseManagementMgr = caseManagementMgr;
+        this.securityInfoManager = securityInfoManager;
+        this.appointmentDao = appointmentDao;
+    }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -115,18 +146,15 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        String demoNo = request.getParameter("demographicNo");
-
-        // Check if demographicNo is null or invalid
-        if (demoNo == null || demoNo.trim().isEmpty() || "null".equals(demoNo)) {
-            log.error("EctIncomingEncounter2Action called with null or invalid demographicNo");
-            return "failure";
+        final String demoNo;
+        try {
+            demoNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
         }
-
-        // Validate demographicNo is numeric before crossing the trust boundary
-        if (!demoNo.matches("\\d+")) {
-            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo");
-            return "failure";
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demoNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
@@ -138,24 +166,11 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         }
 
         EctSessionBean bean;
-        String appointmentNo = null;
-
-        if (request.getSession().getAttribute("cur_appointment_no") != null) {
-            appointmentNo = (String) request.getSession().getAttribute("cur_appointment_no");
-        }
-
-        if (request.getParameter("appointmentList") != null) {
-            bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-            String apptListNo = request.getParameter("appointmentNo");
-            if (apptListNo != null && !apptListNo.matches("\\d{1,9}")) {
-                log.warn("Invalid non-numeric appointmentNo in appointmentList branch");
-                return "failure";
-            }
-            bean.setUpEncounterPage(loggedInInfo, apptListNo);
-            bean.template = "";
-        } else if (request.getParameter("demographicSearch") != null) {
+        // The legacy appointmentList switch is gone (#4676): such a request is an ordinary entry
+        // for its own demographicNo, and its appointmentNo must be that patient's.
+        if (request.getParameter("demographicSearch") != null) {
             // Coming in from the demographicSearch page
-            bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+            bean = newEntryBean(request, loggedInInfo);
             // Use pre-validated demoNo (validated at method entry)
             bean.demographicNo = demoNo;
             // no curProviderNo when viewing eCharts from search screen
@@ -179,20 +194,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } else {
             if ("yes".equals(request.getParameter("PEAttach"))) {
-                String selectClientmo = request.getParameter("selectId");
-                String lastId = request.getParameter("noteId");
-                if (selectClientmo == null || !selectClientmo.matches("\\d{1,9}")) {
-                    log.warn("Invalid selectId for PEAttach: {}", LogSafe.sanitize(selectClientmo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    return "failure";
-                }
-                if (lastId == null || !lastId.matches("\\d{1,9}")) {
-                    log.warn("Invalid noteId for PEAttach: {}", LogSafe.sanitize(lastId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    return "failure";
-                }
-                CaseManagementNote note = caseManagementNoteDao.getNote(Long.parseLong(lastId));
-                note.setId(null);
-                note.setDemographic_no(selectClientmo);
-                caseManagementNoteDao.saveNote(note);
+                return attachNoteToClient(request, response, loggedInInfo, demoNo);
             }
             bean = new EctSessionBean();
             bean.currentDate = UtilDateUtilities.StringToDate(request.getParameter("curDate"));
@@ -217,12 +219,16 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             } else if (!bean.appointmentNo.matches("\\d{1,9}")) {
                 log.warn("Invalid appointmentNo");
                 return "failure";
+            } else {
+                // Before the chart is loaded or remembered: the chart's eForm and billing links and
+                // the legacy encounter save start from the remembered appointment (#4676).
+                bean.appointmentNo = ownAppointment(demoNo, bean.appointmentNo);
+                if (bean.appointmentNo == null) {
+                    log.warn("Refused encounter entry: the requested appointment is not this patient's");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "The appointment is not this patient's");
+                    return NONE;
+                }
             }
-            // use this one.
-            if (bean.appointmentNo != null && appointmentNo != null) {
-                bean.appointmentNo = appointmentNo;
-            }
-
             bean.curProviderNo = request.getParameter("curProviderNo");
             if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
                 log.warn("Invalid curProviderNo");
@@ -284,55 +290,122 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             // source whitelisted to {"encounter","messenger"}; reason/userName sanitized for control chars and length-capped;
             // eChartId is server-generated from setUpEncounterPage()
             request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
+            // No login-wide eChartID: the legacy editor posts the revision it was opened from
+            // (Index2.jsp's eChartId field), so another window's entry cannot change it (#4673).
 
             long notesCount = caseManagementNoteDao.getNotesCountByDemographicId(bean.getDemographicNo());
             if (notesCount == 0
                     && CarlosProperties.getInstance().getProperty("wl_default_issue", "false").equals("true")) {
                 // assign default issues for a feature: WL: default issues assignment
                 String wlProgramId = (String) request.getSession().getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
-                DefaultIssueDao defaultIssueDao = SpringUtils.getBean(DefaultIssueDao.class);
-                IssueDAO issueDao = (IssueDAO) SpringUtils.getBean(IssueDAO.class);
-                CaseManagementIssueDAO cmiDao = (CaseManagementIssueDAO) SpringUtils.getBean(CaseManagementIssueDAO.class);
-                Set<Long> issueIdSet = getIssueIdSet(bean.getCurProviderNo(), wlProgramId);
-                String[] issueIds = defaultIssueDao.findAllDefaultIssueIds();
-                for (String id : issueIds) {
-                    Issue issue = issueDao.getIssue(Long.valueOf(id));
-                    // judge current provider can access this issue
-                    if (!issueIdSet.contains(Long.parseLong(id))) {
-                        continue;
-                    }
-
-                    // judge this issue exists or not
-                    CaseManagementIssue cmi = cmiDao.getIssuebyId(bean.getDemographicNo(), id);
-                    if (cmi != null) { // this issue exists
-                        continue;
-                    }
-                    cmi = new CaseManagementIssue();
-                    cmi.setAcute(false);
-                    cmi.setCertain(false);
-                    cmi.setDemographic_no(Integer.valueOf(bean.getDemographicNo()));
-                    cmi.setIssue_id(Long.valueOf(id));
-                    cmi.setMajor(false);
-                    cmi.setProgram_id(Integer.valueOf(wlProgramId));
-                    cmi.setResolved(false);
-                    cmi.setType(issue.getRole());
-                    cmi.setUpdate_date(new Date());
-                    cmiDao.saveIssue(cmi);
-                }
+                assignDefaultIssues(bean, wlProgramId);
             }
 
         }
 
-        setEncounterAttributes(request, bean, loggedInInfo);
+        EncounterPatientContext.rememberEncounter(request, bean);
+        setEncounterAttributes(request, bean, loggedInInfo, request.getParameter("splitchart") != null, false);
         return "success2";
+    }
+
+    /**
+     * The PMM "attach note to client" popup's result (casemgmt/attachClient.jsp): copies the note
+     * it was opened for into the client's chart, then opens that chart. The client is this
+     * request's own patient ({@code selectId} must equal the validated {@code demographicNo}).
+     *
+     * <p>It used to copy on a GET, which CSRFGuard does not check, any note id into any chart with
+     * only {@code _demographic} read, and the copy kept the source note's uuid, appointment and
+     * issue links. The uuid made the copy the newest revision of the source note, so the source
+     * chart could no longer save or sign that note, and the issue links tied the client's note to
+     * the other patient's issues. It now takes the popup's POST only, needs {@code _casemgmt.notes}
+     * read and record access for the note's own patient and write and record access for the
+     * client, and writes the copy as a new note of the client's: a new uuid, no appointment, no
+     * issues, and only its current text as history. A successful copy redirects to the chart, so
+     * reloading the chart does not copy the note again.</p>
+     *
+     * @return {@link #NONE} after the redirect or a refusal
+     */
+    // FindSecBugs UNVALIDATED_REDIRECT: the redirect goes to this application's own chart route for the
+    // validated numeric patient number, never to a URL taken from the request.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "same-origin redirect to this application's chart route for a validated numeric patient number, never to a URL taken from the request")
+    private String attachNoteToClient(HttpServletRequest request, HttpServletResponse response,
+            LoggedInInfo loggedInInfo, String client) throws IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        String noteId = request.getParameter("noteId");
+        if (!client.equals(request.getParameter("selectId")) || noteId == null || !noteId.matches("\\d{1,9}")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        CaseManagementNote note = caseManagementNoteDao.getNote(Long.parseLong(noteId));
+        String source = note == null ? null : note.getDemographic_no();
+        if (source == null || !source.matches("[1-9]\\d{0,9}")) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", source)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(source))
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "w", client)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(client))) {
+            throw new SecurityException("missing required sec object (_casemgmt.notes)");
+        }
+        note.setId(null);
+        note.setUuid(null);
+        note.setDemographic_no(client);
+        note.setAppointmentNo(0);
+        note.setIssues(new HashSet<CaseManagementIssue>());
+        note.setHistory(note.getNote());
+        caseManagementNoteDao.saveNote(note);
+        // demographicNo is the validated, canonical patient number.
+        response.sendRedirect(request.getContextPath() + "/encounter/IncomingEncounter?demographicNo=" + client
+                + "&appointmentNo=0");
+        return NONE;
+    }
+
+    /**
+     * The appointment an entry for {@code demographicNo} may remember, read from the appointment
+     * row rather than echoed from the request.
+     *
+     * @param demographicNo the request's canonical patient number
+     * @param appointmentNo the requested appointment number, already checked to be 1 to 9 digits
+     * @return {@code "0"} when the request names no appointment, the appointment's own number when
+     *         it is booked for this patient, or null when it does not exist or is another patient's
+     */
+    private String ownAppointment(String demographicNo, String appointmentNo) {
+        int id = Integer.parseInt(appointmentNo);
+        if (id == 0) {
+            return "0";
+        }
+        Appointment appointment = appointmentDao.find(id);
+        return appointment != null && Integer.toString(appointment.getDemographicNo()).equals(demographicNo)
+                ? Integer.toString(appointment.getId()) : null;
+    }
+
+    /** Starts a legacy entry without borrowing another chart window's mutable bean. */
+    private EctSessionBean newEntryBean(HttpServletRequest request, LoggedInInfo loggedInInfo) {
+        EctSessionBean bean = new EctSessionBean();
+        bean.currentDate = new Date();
+        bean.providerNo = loggedInInfo.getLoggedInProviderNo();
+        bean.curProviderNo = bean.providerNo;
+        bean.userName = request.getSession().getAttribute("userfirstname") + " "
+                + request.getSession().getAttribute("userlastname");
+        bean.appointmentDate = UtilDateUtilities.DateToString(bean.currentDate, "yyyy-MM-dd");
+        return bean;
     }
 
     /**
      * Sets request attributes needed by Index2.jsp and its includes.
      * Moves data-fetching logic from JSP scriptlets into the Action layer.
+     *
+     * @param split         render the split-chart continuation of the encounter text
+     * @param savedRevision the bean holds the revision a save just wrote ({@link EctSaveEncounter2Action}):
+     *                      the visit continues, so no new visit header is added to the text
      */
-    private void setEncounterAttributes(HttpServletRequest request, EctSessionBean bean, LoggedInInfo loggedInInfo) {
+    static void setEncounterAttributes(HttpServletRequest request, EctSessionBean bean, LoggedInInfo loggedInInfo,
+                                       boolean split, boolean savedRevision) {
         CarlosProperties oscarProps = CarlosProperties.getInstance();
 
         // Patient age as integer string
@@ -391,7 +464,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         request.setAttribute("prescriptions", prescriptions);
 
         // Encounter text and consumption
-        boolean bSplit = request.getParameter("splitchart") != null;
+        boolean bSplit = split;
         int nEctLen = bean.encounter != null ? bean.encounter.length() : 0;
         boolean bTruncate = bSplit && nEctLen > 5120;
         int consumption = (int) ((bTruncate ? 5120 : nEctLen) / (10.24 * 32));
@@ -402,7 +475,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         request.setAttribute("bSplit", bSplit);
 
         // Build encounter text
-        String encounterText = buildEncounterText(bean, bSplit, bTruncate, nEctLen);
+        String encounterText = buildEncounterText(bean, bSplit, bTruncate, nEctLen, savedRevision);
         request.setAttribute("encounterText", encounterText);
 
         // CarlosProperties labels
@@ -435,8 +508,12 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     /**
      * Assembles the encounter text from the session bean, handling split chart
      * truncation and date stamp insertion.
+     *
+     * @param savedRevision the text is the revision a save just wrote: no visit header is added,
+     *                      and the entry message is already part of the saved text
      */
-    private String buildEncounterText(EctSessionBean bean, boolean bSplit, boolean bTruncate, int nEctLen) {
+    private static String buildEncounterText(EctSessionBean bean, boolean bSplit, boolean bTruncate, int nEctLen,
+                                             boolean savedRevision) {
         StringBuilder sb = new StringBuilder();
         try {
             if (!bSplit) {
@@ -449,6 +526,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 sb.append("\n--------------------------------------------------\n$$SPLIT CHART$$\n");
             }
 
+            if (savedRevision) {
+                return sb.toString();
+            }
             UtilDateUtilities dateConvert = new UtilDateUtilities();
             if (bean.eChartTimeStamp == null) {
                 sb.append("\n[").append(dateConvert.DateToString(bean.currentDate))
@@ -474,17 +554,112 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         return sb.toString();
     }
 
-    private Set<Long> getIssueIdSet(String providerNo, String wlProgramId) {
+    /**
+     * WL default issues (wl_default_issue=true): gives a patient's first encounter the clinic's
+     * default issues (Administration ▸ CAISI ▸ Default Encounter Issue), limited to the issues
+     * the login's role in the session's CAISI program may write.
+     *
+     * <p>The program comes only from the schedule's CAISI program list (or the login location
+     * page), which many logins never use or cannot use: one without a bed program is offered
+     * only "-No assigned program-". Without a usable program, or with one the login has no role
+     * in, nothing is assigned and the encounter opens as usual, with one warning so a clinic can
+     * see why. Before #4838 both cases threw, and the encounter page failed with HTTP 500 for
+     * every patient who had no notes yet.
+     *
+     * @param bean             the encounter being opened
+     * @param sessionProgramId the session's {@link SessionConstants#CURRENT_PROGRAM_ID}, or null
+     */
+    void assignDefaultIssues(EctSessionBean bean, String sessionProgramId) {
+        Integer programId = usableProgramId(sessionProgramId);
+        if (programId == null) {
+            log.warn("Default encounter issues were not assigned: wl_default_issue is on, but this session has no CAISI program chosen");
+            return;
+        }
+        Set<Long> issueIdSet = getIssueIdSet(bean.getCurProviderNo(), programId);
+        if (issueIdSet == null) {
+            log.warn("Default encounter issues were not assigned: wl_default_issue is on, but the login has no role in the session's CAISI program");
+            return;
+        }
+        Integer demographicNo;
+        try {
+            demographicNo = Integer.valueOf(bean.getDemographicNo());
+        } catch (NumberFormatException e) {
+            log.warn("Default encounter issues were not assigned: the encounter has no numeric patient number");
+            return;
+        }
+        DefaultIssueDao defaultIssueDao = SpringUtils.getBean(DefaultIssueDao.class);
+        IssueDAO issueDao = (IssueDAO) SpringUtils.getBean(IssueDAO.class);
+        CaseManagementIssueDAO cmiDao = (CaseManagementIssueDAO) SpringUtils.getBean(CaseManagementIssueDAO.class);
+        String[] issueIds = defaultIssueDao.findAllDefaultIssueIds();
+        for (String rawId : issueIds) {
+            // The admin page stores resolved ids, but a hand-edited or imported list may not be clean;
+            // one bad entry must not fail the encounter page (#4838), so skip it.
+            Long issueId;
+            try {
+                issueId = Long.valueOf(rawId.trim());
+            } catch (NumberFormatException e) {
+                log.warn("A default encounter issue was skipped: the stored default issue list holds a non-numeric id");
+                continue;
+            }
+            // judge current provider can access this issue
+            if (!issueIdSet.contains(issueId)) {
+                continue;
+            }
+
+            // judge this issue exists or not
+            CaseManagementIssue cmi = cmiDao.getIssuebyId(bean.getDemographicNo(), issueId.toString());
+            if (cmi != null) { // this issue exists
+                continue;
+            }
+            Issue issue = issueDao.getIssue(issueId);
+            cmi = new CaseManagementIssue();
+            cmi.setAcute(false);
+            cmi.setCertain(false);
+            cmi.setDemographic_no(demographicNo);
+            cmi.setIssue_id(issueId);
+            cmi.setMajor(false);
+            cmi.setProgram_id(programId);
+            cmi.setResolved(false);
+            cmi.setType(issue.getRole());
+            cmi.setUpdate_date(new Date());
+            cmiDao.saveIssue(cmi);
+        }
+    }
+
+    /**
+     * The session's CAISI program id when it names a program, else null: absent, blank, not a
+     * number, or not positive ("-No assigned program-" is 0).
+     */
+    static Integer usableProgramId(String sessionProgramId) {
+        if (sessionProgramId == null) {
+            return null;
+        }
+        try {
+            int programId = Integer.parseInt(sessionProgramId.trim());
+            return programId > 0 ? programId : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * The issues the login's role in {@code programId} may write, or null when the login has no
+     * role in that program.
+     */
+    private Set<Long> getIssueIdSet(String providerNo, Integer programId) {
         ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(wlProgramId));
+                Long.valueOf(programId));
+        if (ppList == null || ppList.isEmpty() || ppList.get(0).getRole() == null) {
+            return null;
+        }
         ProgramProvider pp = ppList.get(0);
         Secrole role = pp.getRole();
 
         // get program accesses... program allows either all roles or not all roles
         // (does this mean no roles?)
         ProgramAccessDAO programAccessDAO = (ProgramAccessDAO) SpringUtils.getBean(ProgramAccessDAO.class);
-        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(Long.valueOf(wlProgramId));
+        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
         Map<String, ProgramAccess> paMap = new HashMap<String, ProgramAccess>();
         for (Iterator<ProgramAccess> iter = paList.iterator(); iter.hasNext(); ) {
             ProgramAccess pa = iter.next();

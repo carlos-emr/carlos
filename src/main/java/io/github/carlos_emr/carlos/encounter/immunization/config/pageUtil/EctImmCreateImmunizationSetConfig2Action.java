@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmHeading;
 import io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmImmunizationSetWriter;
 import io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmImmunizations;
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -72,8 +71,11 @@ public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_prevention)");
         }
 
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        String providerNo = bean.providerNo;
+        // The template's author is the logged-in provider. It used to be the provider of the
+        // login-wide EctSessionBean, named by whichever chart was entered last (the schedule's
+        // provider when that chart was opened from another provider's day sheet), and creating a
+        // template failed with a NullPointerException before any chart was entered (issue #4673).
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
         Enumeration e = request.getParameterNames();
         Vector headingVec = new Vector();
         Vector immunizationVec = new Vector();

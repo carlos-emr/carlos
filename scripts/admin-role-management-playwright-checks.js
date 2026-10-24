@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
+ * Run exclusively on a disposable deployment: EXCLUSIVE=1 npm run test:admin-role-management-playwright
  * Role and privilege administration: coverage plan §2.2 admin-misc / role-privilege-matrix.
  * User path: Schedule ▸ Administration ▸ System Management ▸ Add A Role, Assign Role/Rights to Object;
  * User Management ▸ Assign Role to Provider (fixture step; assign-role covers it); Schedule Management
- * ▸ Access Control; Data Management ▸ Fix notes with invalid role (opened only: its submit is an
- * unscoped bulk UPDATE). Asserted: the role is created once (secRole + audit); the editor grants it
+ * ▸ Access Control; Data Management ▸ Fix notes with invalid role (its submit is an
+ * unscoped bulk UPDATE, exercised only with an isolated owned invalid-role note). Asserted: the role is created once (secRole + audit); the editor grants it
  * _admin.userAdmin read (secObjPrivilege + audit); a throwaway doctor given the role opens Add A Role
  * from its own menu while the write-only editor stays hidden and 403; deleting the grant (recyclebin
  * copy) refuses Add A Role again; unassigning removes secUserRole; Access Control hides an owned group
- * from the admin's day-sheet list and back; Fix notes lists the role; GET saves are 405. Defects met on
+ * from the admin's day-sheet list and back; Fix notes lists the role; GET saves are 405. A grant matrix
+ * pins the menu and home-page card against the actions: Manage Flowsheets opens for read on _admin,
+ * _admin.misc or _admin.flowsheet (enable/disable for write only) and Assign Role/Rights to Object
+ * needs write on _admin or _admin.userAdmin, each object checked on its own. Defects met on
  * the way are asserted in the last step. Fixtures: role, throwaway login and mygroup named by the marker;
  * no role delete exists in the UI, so cleanup deletes every marker row and asserts they are gone.
  */
+const { randomBytes } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -56,6 +61,7 @@ async function submitIn(admin, frame, action) {
 
 async function workflow(s) {
   const { sql, config, context, recorder, marker } = s;
+  h.assert(process.env.EXCLUSIVE === '1', 'Role repair validation requires an exclusive disposable deployment');
   const role = marker;
   const group = 'PW' + marker.slice(-8);
   const R = h.sqlString(role);
@@ -64,7 +70,7 @@ async function workflow(s) {
   s.cleanup(() => fixture.cleanup());
   const owned = `%${role}%`;
   // The GET ProviderAddRole probe names this role; a wrongly accepted GET would create it.
-  const roles = `${R},${h.sqlString(`${role}-GET`)}`;
+  const roles = `${R},${h.sqlString(`${role}-GET`)},${h.sqlString(`${role}-read`)}`;
   s.cleanup(() => {
     sql.execute([
       `DELETE FROM MyGroupAccessRestriction WHERE myGroupNo=${G}`,
@@ -143,12 +149,17 @@ async function workflow(s) {
 
   const admin = await openAdmin(s.schedule, context, recorder, 'role-administration');
   let frame;
+  await s.step('an administrator can open the flowsheet editor from its menu', async () => {
+    const flowsheets = await openItem(admin, 'ManageFlowsheets', '#flowsheetActionForm');
+    await h.assertNotErrorPage(flowsheets, 'administrator flowsheet editor');
+  });
+
   await s.step('Add A Role refuses a one-letter name in the page before any request is sent', async () => {
     frame = await openItem(admin, 'ProviderAddRole', 'input#role_name');
     const before = frame.url();
     await frame.locator('#role_name').fill('Z');
     const dialogs = await h.withExpectedDialogs(admin, async () => {
-      await frame.locator('input[name="submit"][value="Search"]').click();
+      await frame.locator('[name="submit"][value="Search"]').click();
     });
     h.assert(dialogs.length === 1 && /must type/i.test(dialogs[0].text), 'The short role name raised no validation alert');
     h.assert(frame.url() === before, 'The refused search still submitted');
@@ -156,10 +167,10 @@ async function workflow(s) {
   let roleNo;
   await s.step('searching the new name offers it as NEW and the confirmed Save creates exactly one role', async () => {
     await frame.locator('#role_name').fill(role);
-    await submitIn(admin, frame, frame.locator('input[name="submit"][value="Search"]'));
+    await submitIn(admin, frame, frame.locator('[name="submit"][value="Search"]'));
     h.assert(/It is a NEW role/.test(await frame.locator('span.alert').innerText()), 'The search did not offer the name as a new role');
     const dialogs = await h.withExpectedDialogs(admin, () =>
-      submitIn(admin, frame, frame.locator('input[name="submit"][value="Save"]')));
+      submitIn(admin, frame, frame.locator('[name="submit"][value="Save"]')));
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Save did not ask for confirmation exactly once');
     h.assert((await frame.locator('span.alert').innerText()).includes(`${role} is added.`), 'Save did not confirm the new role');
     h.assert(sql.value(`SELECT CONCAT(COUNT(*),'|',MAX(description)) FROM secRole WHERE role_name=${R}`) === `1|${role}`,
@@ -169,13 +180,19 @@ async function workflow(s) {
   });
   await s.step('searching the saved name again offers it for editing, not as a duplicate', async () => {
     await frame.locator('#role_name').fill(role);
-    await submitIn(admin, frame, frame.locator('input[name="submit"][value="Search"]'));
+    await submitIn(admin, frame, frame.locator('[name="submit"][value="Search"]'));
     h.assert(/You can edit the role/.test(await frame.locator('span.alert').innerText())
       && await frame.locator('input[name="action"]').inputValue() === `edit${role}`, 'The existing role was not offered for editing');
     h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name LIKE ${h.sqlString(owned)}`) === '1', 'Searching changed the role table');
   });
   await s.step(`Assign Role/Rights to Object grants the owned role ${OBJECT} read and lists it`, async () => {
     frame = await openItem(admin, 'ProviderPrivilege', 'select[name="roleUserGroup"]');
+    await frame.locator('select[name="roleUserGroup"]').selectOption(role);
+    h.assert(await frame.locator('select[name="roleUserGroup1"]').evaluate(el => el.style.backgroundColor) === 'silver',
+      'Choosing a role did not update the provider selector');
+    await frame.locator('select[name="roleUserGroup"]').selectOption('');
+    h.assert(await frame.locator('select[name="roleUserGroup1"]').evaluate(el => el.style.backgroundColor) === 'white',
+      'Clearing the role did not restore the provider selector');
     await frame.locator('select[name="roleUserGroup"]').selectOption(role);
     await frame.locator('#addtbl_filter input').fill(OBJECT);
     const row = frame.locator('#addtbl tbody tr').filter({ has: frame.locator(`input[name="object$${OBJECT}"]`) });
@@ -196,7 +213,9 @@ async function workflow(s) {
     const { ctx, schedule } = await throwawaySession('role-throwaway-before', false);
     try {
       h.assert(await refused(ctx, 'ProviderAddRole') === 403, 'A plain doctor was not refused Add A Role');
-      // The doctor role holds _admin.flowsheet, which shows the Administration link on the day sheet.
+      // The fixture's doctor role holds flowsheet read permission and must reach the shell.
+      h.assert(await schedule.locator('#admin-panel').count() === 1,
+        'A flowsheet-read doctor was not offered the Administration shell');
       if (await schedule.locator('#admin-panel').count()) {
         const label = 'role-throwaway-before-administration';
         const { page: own } = await clickOpensPopupOrNavigates(schedule, schedule.locator('#admin-panel'),
@@ -209,6 +228,18 @@ async function workflow(s) {
         if (!forbidden) {
           await own.locator('#adminNav').waitFor({ state: 'attached', timeout: TIMEOUT });
           h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderAddRole"]').count() === 0, 'A plain doctor was offered Add A Role');
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0,
+            'Flowsheet access exposed the role-rights editor');
+          h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Flowsheet access granted role-rights editing');
+          h.assert(await own.locator('#dynamic-content a[rel$="/admin/ProviderPrivilege"]').count() === 0,
+            'Flowsheet access offered the role-rights card on the Administration home page');
+          // Read on _admin.flowsheet opens the list; the write controls are the writer's alone
+          // (manage-flowsheets-access pins both sides, issue #4623).
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ManageFlowsheets"]').count() === 1,
+            'The menu does not list Manage Flowsheets once for a flowsheet-read doctor');
+          const flowsheets = await openItem(own, 'ManageFlowsheets', 'table.table');
+          await h.assertNotErrorPage(flowsheets, 'doctor flowsheet administration');
+          h.assert(await flowsheets.locator('#flowsheetActionForm').count() === 0, 'A read-only doctor was handed the flowsheet enable/disable form');
         }
       }
     } finally { await ctx.close(); }
@@ -226,8 +257,25 @@ async function workflow(s) {
   await s.step('the granted throwaway opens Add A Role from its own menu; Rights to Object stays hidden and refused', async () => {
     const { ctx, admin: own } = await throwawaySession('role-throwaway-granted');
     try {
+      // Before any item replaces the home page: its role-rights card follows the editor's write gate.
+      h.assert(await own.locator('#dynamic-content a[rel$="/admin/ProviderPrivilege"]').count() === 0,
+        'Read access offered the Assign Role/Rights to Object card on the Administration home page');
       const page = await openItem(own, 'ProviderAddRole', 'input#role_name');
-      h.assert(await page.locator('input[name="submit"][value="Search"]').isVisible(), 'Add A Role did not render its form');
+      h.assert(await page.locator('[name="submit"][value="Search"]').isVisible(), 'Add A Role did not render its form');
+      await page.locator('#role_name').fill(role);
+      await submitIn(own, page, page.locator('[name="submit"][value="Search"]'));
+      h.assert(await page.locator('input[name="action"]').inputValue() === `edit${role}`,
+        'The read-only role search did not find the saved role');
+      h.assert(await page.locator('[name="submit"][value="Save"]').count() === 0,
+        'The read-only role search offered Save');
+      const extra = `${role}-read`;
+      const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+      const denied = await ctx.request.post(h.appUrl(config.baseUrl, '/admin/ProviderAddRole'), {
+        form: { submit: 'Save', action: `add${extra}`, role_name: extra, 'CSRF-TOKEN': token }, maxRedirects: 0 });
+      h.assert(denied.status() === 403, 'The read-only role Save was not refused');
+      await denied.dispose();
+      h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${h.sqlString(extra)}`) === '0',
+        'The refused read-only Save created a role');
       h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0, 'Read access exposed Assign Role/Rights to Object');
       h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Read access was not refused the write-only privilege editor');
     } finally { await ctx.close(); }
@@ -258,6 +306,82 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${throwaway}`) === 'doctor',
       'The owned role was not unassigned (or doctor went with it)');
   });
+  // Each case gives a fresh role exactly these admin grants. Manage Flowsheets opens for read on
+  // _admin, _admin.misc or _admin.flowsheet and offers its enable/disable form only to a writer
+  // (ManageFlowsheets2Action, issue #4623); Assign Role/Rights to Object needs write on _admin or
+  // _admin.userAdmin (ProviderPrivilege2Action). The mixed rows pin one-object-at-a-time checks: a
+  // combined oscarSec tag keeps ONE privilege per role, so a read row could hide another's write.
+  const grantCases = [
+    { grants: { '_admin.misc': 'w' }, flowsheets: 'write', roleRights: false },
+    { grants: { '_admin': 'w', '_admin.misc': 'r', '_admin.flowsheet': 'r' }, flowsheets: 'write', roleRights: true },
+    { grants: { '_admin.misc': 'w', '_admin': 'r', '_admin.flowsheet': 'r' }, flowsheets: 'write', roleRights: false },
+    { grants: { '_admin.flowsheet': 'w', '_admin': 'r', '_admin.misc': 'r' }, flowsheets: 'write', roleRights: false },
+    { grants: { '_admin.userAdmin': 'w', '_admin': 'r', '_admin.misc': 'r', '_admin.flowsheet': 'r' }, flowsheets: 'read', roleRights: true },
+    { grants: { '_admin.userAdmin': 'w' }, flowsheets: 'none', roleRights: true },
+    { grants: { '_admin.misc': 'r' }, flowsheets: 'read', roleRights: false },
+  ];
+  for (const [index, { grants, flowsheets, roleRights }] of grantCases.entries()) {
+    const described = Object.entries(grants).map(([object, right]) => `${object} ${right}`).join(', ');
+    await s.step(`administration menu follows ${described}`, async () => {
+      const grantRole = `${role}-flow${index}`;
+      const label = `role-grants-${index}`;
+      const M = h.sqlString(grantRole);
+      const grantFixture = throwawayLoginFixture({ sql, marker: `FAKE-PW${randomBytes(8).toString('hex')}`, provider: s.provider, testUser: config.testUser });
+      h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${M}`) === '0', 'The grant-case role already exists');
+      s.cleanup(() => {
+        try {
+          grantFixture.cleanup();
+        } finally {
+          sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${M}; DELETE FROM secRole WHERE role_name=${M}`);
+          h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM secRole WHERE role_name=${M})
+            + (SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${M})`) === '0', 'Owned grant-case role was not removed');
+        }
+      });
+      // Copy sign-in rights without inheriting any of doctor's admin grants, then add the case's own.
+      sql.execute(`INSERT INTO secRole (role_name,description) VALUES (${M},${M});
+        INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
+          SELECT ${M},objectName,privilege,priority,provider_no FROM secObjPrivilege
+          WHERE roleUserGroup='doctor' AND LEFT(objectName,6)<>'_admin'`);
+      for (const [object, right] of Object.entries(grants)) {
+        sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
+          VALUES (${M},${h.sqlString(object)},${h.sqlString(right)},0,${h.sqlString(s.provider)})`);
+      }
+      grantFixture.create({ roleNames: [grantRole] });
+      h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege
+        WHERE roleUserGroup=${M} AND LEFT(objectName,6)='_admin'`) === String(Object.keys(grants).length), 'The fixture has unexpected admin grants');
+      const ctx = await h.newContext(context.browser(), config);
+      ctx.on('page', page => h.wireStrictPage(page, label, recorder));
+      try {
+        const schedule = await h.login(ctx, { ...config, testUser: grantFixture.username }, recorder, { label });
+        const own = await openAdmin(schedule, ctx, recorder, `${label}-administration`);
+        // The home page's role-rights card is checked before any item replaces it.
+        h.assert(await own.locator('#dynamic-content a[rel$="/admin/ProviderPrivilege"]').count() === (roleRights ? 1 : 0),
+          roleRights ? 'The home page does not offer the allowed role-rights card' : 'The home page offered the role-rights card without its write grant');
+        const flowsheetLinks = await own.locator('#adminNav a[rel$="/admin/ManageFlowsheets"]').count();
+        if (flowsheets === 'none') {
+          h.assert(flowsheetLinks === 0, 'The menu offered Manage Flowsheets without a flowsheet grant');
+          h.assert(await refused(ctx, 'ManageFlowsheets') === 403, 'Manage Flowsheets opened without a flowsheet grant');
+        } else {
+          h.assert(flowsheetLinks === 1, 'The allowed flowsheet link is missing or duplicated');
+          const page = await openItem(own, 'ManageFlowsheets', flowsheets === 'write' ? '#flowsheetActionForm' : 'table.table');
+          await h.assertNotErrorPage(page, `${label} flowsheet list`);
+          if (flowsheets === 'read') {
+            h.assert(await page.locator('#flowsheetActionForm').count() === 0, 'A flowsheet reader was handed the enable/disable form');
+          }
+        }
+        if (roleRights) {
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 1,
+            'The allowed role-rights link is missing or duplicated');
+          const rights = await openItem(own, 'ProviderPrivilege', 'select[name="roleUserGroup"]');
+          await h.assertNotErrorPage(rights, 'authorized role-rights editor');
+        } else {
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0,
+            'The menu offered the role-rights editor without its write grant');
+          h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'The role-rights editor opened without its write grant');
+        }
+      } finally { await ctx.close(); }
+    });
+  }
   // The Administration link replaced the original day sheet, so a second admin session keeps one open.
   const dayContext = await h.newContext(context.browser(), config);
   dayContext.on('page', page => h.wireStrictPage(page, 'role-day-sheet', recorder));
@@ -273,6 +397,16 @@ async function workflow(s) {
     frame = await openItem(admin, 'GroupNoAcl', 'select#chosen_group');
     // Choosing a group re-renders the page for it (onChange submits method=setGroupNo).
     await submitIn(admin, frame, () => frame.locator('select#chosen_group').selectOption(group));
+    // The page offers only active providers (PMmodule ProviderDao.getActiveProviders: status 1, and a
+    // provider number not starting with "-"). Not "exactly", in either direction: that list is cached for
+    // five minutes (CacheConfig.ACTIVE_PROVIDERS) and only an application save evicts it, so a provider
+    // a check inserts by SQL can be missing, and a throwaway provider an earlier check deleted by SQL can
+    // still be listed. What the page must never offer is a provider whose row says it is not active.
+    const listed = await frame.locator('input[name="data"]').evaluateAll(boxes => boxes.map(b => b.value));
+    const notActive = listed.length ? sql.rows(`SELECT provider_no FROM provider WHERE provider_no IN (${listed.map(h.sqlString).join(',')})
+      AND (status IS NULL OR status<>'1' OR provider_no LIKE '-%')`).map(r => r[0]) : [];
+    h.assert(!notActive.length, `Access Control lists providers that are not active: ${notActive.join(',')}`);
+    h.assert(listed.includes(s.provider), 'Access Control does not list the administrator');
     const box = frame.locator(`input[name="data"][value="${s.provider}"]`);
     h.assert(await box.isChecked() === !restrict, 'The group\'s current restriction is not reflected');
     await box.setChecked(restrict);
@@ -292,12 +426,70 @@ async function workflow(s) {
     h.assert(restrictions().length === 0, 'The restriction row was not removed');
     h.assert(await groupOption() === 1, 'The un-restricted group did not return to the day sheet');
   });
+  await s.step('a GET carrying the Access Control save is refused with 405 and stores nothing', async () => {
+    const params = new URLSearchParams({ method: 'save', chosen_group: group, data: s.provider });
+    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/admin/GroupNoAcl?${params}`), { maxRedirects: 0 });
+    h.assert(response.status() === 405, `A GET Access Control save answered ${response.status()}, not 405`);
+    h.assert(restrictions().length === 0, 'A refused GET stored a restriction');
+  });
   await s.step('Fix notes with invalid role lists the owned role as a target (opened, never submitted)', async () => {
     frame = await openItem(admin, 'FixRolesOnNotes', 'select[name="role_to"]');
     const option = frame.locator(`select[name="role_to"] option[value="${roleNo}"]`);
     h.assert(await option.count() === 1 && (await option.innerText()).trim() === role, 'The owned role is not offered as a target');
     h.assert(await frame.locator('input[name="action"]').inputValue() === 'run', 'The page did not render its unsubmitted form');
   });
+  await s.step('Fix notes refuses GET/HEAD and missing CSRF, then a protected POST repairs only the owned note', async () => {
+    // This utility updates every zero-role note. Refuse to run if any pre-existing row could be affected.
+    h.assert(sql.value("SELECT COUNT(*) FROM casemgmt_note WHERE reporter_caisi_role='0'") === '0',
+      'Pre-existing invalid-role notes prevent an isolated repair test');
+    const q = h.sqlString;
+    const uuids = [marker, `${marker}-empty`, `${marker}-text`].map(q).join(',');
+    const ownedNotes = `demographic_no=${s.patient} AND uuid IN (${uuids})`;
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE ${ownedNotes}`) === '0', 'The note marker is already in use');
+    const others = () => JSON.stringify(sql.rows(`SELECT note_id,reporter_caisi_role FROM casemgmt_note
+      WHERE NOT (${ownedNotes}) OR demographic_no IS NULL OR uuid IS NULL ORDER BY note_id`));
+    const before = others();
+    s.cleanup(() => {
+      sql.execute(`DELETE FROM casemgmt_note WHERE ${ownedNotes}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE ${ownedNotes}`) === '0',
+        'The owned repair note remains');
+      h.assert(others() === before, 'The repair changed another note role');
+    });
+    const noteId = sql.value(`INSERT INTO casemgmt_note (update_date,observation_date,demographic_no,provider_no,
+      note,history,uuid,locked,archived,reporter_caisi_role,appointmentNo)
+      VALUES (NOW(),NOW(),${s.patient},${q(s.provider)},${q(marker)},${q(marker)},${q(marker)},0,0,'0',0);
+      SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(noteId), 'No owned note ID was returned');
+    for (const [suffix, value] of [['empty', ''], ['text', 'invalid-role']]) {
+      sql.execute(`INSERT INTO casemgmt_note (update_date,observation_date,demographic_no,provider_no,
+        note,history,uuid,locked,archived,reporter_caisi_role,appointmentNo)
+        VALUES (NOW(),NOW(),${s.patient},${q(s.provider)},${q(marker)},${q(marker)},${q(`${marker}-${suffix}`)},0,0,${q(value)},0)`);
+    }
+    const untouchedRoles = () => sql.rows(`SELECT uuid,reporter_caisi_role FROM casemgmt_note
+      WHERE demographic_no=${s.patient} AND uuid IN (${q(`${marker}-empty`)},${q(`${marker}-text`)}) ORDER BY uuid`);
+    const untouchedBefore = JSON.stringify(untouchedRoles());
+    const currentRole = () => sql.value(`SELECT reporter_caisi_role FROM casemgmt_note WHERE note_id=${noteId}`);
+    h.assert(sql.value("SELECT COUNT(*) FROM casemgmt_note WHERE reporter_caisi_role='0'") === '1'
+      && currentRole() === '0', 'The repair would target anything other than the owned note');
+    const route = h.appUrl(config.baseUrl, '/admin/FixRolesOnNotes');
+    for (const method of ['GET', 'HEAD']) {
+      const response = await context.request.fetch(route, {method, params: {action: 'run', role_to: roleNo}, maxRedirects: 0});
+      h.assert(response.status() === 405 && response.headers().allow === 'POST', `${method} did not deliberately refuse repair`);
+      await response.dispose();
+      h.assert(currentRole() === '0' && others() === before, `${method} changed a note role`);
+    }
+    const refused = await context.request.post(route, {form: {action: 'run', role_to: roleNo}, maxRedirects: 0});
+    h.assert(refused.status() === 403, 'Repair without CSRF was not refused');
+    await refused.dispose();
+    h.assert(currentRole() === '0' && others() === before, 'A request without CSRF changed a note role');
+    h.assert((await frame.locator('input[name="CSRF-TOKEN"]').inputValue()).length > 0, 'The repair form has no CSRF token');
+    await frame.locator('select[name="role_to"]').selectOption(roleNo);
+    await submitIn(admin, frame, frame.locator('input[type="submit"]'));
+    await h.assertNotErrorPage(frame, 'protected note role repair');
+    h.assert(currentRole() === roleNo && others() === before, 'The protected repair did not change exactly the owned note');
+    h.assert(JSON.stringify(untouchedRoles()) === untouchedBefore, 'The repair overwrote an empty or nonnumeric role');
+  });
+
   await s.step('ProviderAddRole and ProviderPrivilege refuse a GET save without writing', async () => {
     const extra = `${role}-GET`;
     const add = await context.request.get(h.appUrl(config.baseUrl, '/admin/ProviderAddRole'), {
@@ -319,5 +511,5 @@ async function workflow(s) {
     h.assert(defects.length === 0, `Application defects: ${defects.join('; ')}`);
   });
 }
-if (require.main === module) runWorkflow('admin-role-management', workflow, { openPatient: false });
+if (require.main === module) runWorkflow('admin-role-management', workflow, { openPatient: true, openMaster: false });
 module.exports = { workflow };

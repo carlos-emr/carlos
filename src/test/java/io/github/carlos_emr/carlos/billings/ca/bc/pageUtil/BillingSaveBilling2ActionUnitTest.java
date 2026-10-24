@@ -291,7 +291,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("user", "100");
         BillingSessionBean bean = minimalBillingSessionBean("bad\r\nvalue");
         bean.getBillItem().add(mock(BillingBillingManager.BillingItem.class));
-        request.getSession().setAttribute("billingSessionBean", bean);
+        stageBill(bean);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
 
@@ -320,7 +320,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("user", "100");
         BillingSessionBean bean = minimalBillingSessionBean("bad-value");
         bean.getBillItem().add(mock(BillingBillingManager.BillingItem.class));
-        request.getSession().setAttribute("billingSessionBean", bean);
+        stageBill(bean);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
         response.getOutputStream();
@@ -361,7 +361,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("user", "100");
         BillingSessionBean bean = minimalBillingSessionBean("not-a-number");
         bean.getBillItem().add(mock(BillingBillingManager.BillingItem.class));
-        request.getSession().setAttribute("billingSessionBean", bean);
+        stageBill(bean);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
 
@@ -477,7 +477,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     void shouldTreatNullLiteralAppointmentNumber_asUnlinkedBilling() throws Exception {
         request.setMethod("POST");
         request.getSession().setAttribute("user", "100");
-        request.getSession().setAttribute("billingSessionBean", minimalBillingSessionBean("NuLl"));
+        stageBill(minimalBillingSessionBean("NuLl"));
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
 
@@ -532,7 +532,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     void shouldSkipAppointmentArchive_whenNumericAppointmentIsNotFound() throws Exception {
         request.setMethod("POST");
         request.getSession().setAttribute("user", "100");
-        request.getSession().setAttribute("billingSessionBean", minimalBillingSessionBean("123"));
+        stageBill(minimalBillingSessionBean("123"));
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
         when(appointmentDao.find(123)).thenReturn(null);
@@ -553,9 +553,13 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
+    // "Save and Print Receipt" is the button's value; the old "Save & Print Receipt" is still honoured for a review
+    // page rendered before the change (the packaged WAF refuses that value with rule 932115, so only a direct
+    // Tomcat request can still send it).
+    @ParameterizedTest
+    @ValueSource(strings = {"Save and Print Receipt", "Save & Print Receipt"})
     @DisplayName("should save bill update appointment and redirect receipt when session is valid")
-    void shouldSaveBillUpdateAppointmentAndRedirectReceipt_whenSessionIsValid() throws Exception {
+    void shouldSaveBillUpdateAppointmentAndRedirectReceipt_whenSessionIsValid(String submit) throws Exception {
         request.setMethod("POST");
         request.setContextPath("/carlos");
         request.addParameter("dispPrice+00100", "125.50");
@@ -565,7 +569,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         BillingBillingManager.BillingItem item = new BillingBillingManager()
                 .new BillingItem("00100", "Office visit", "100.00", "100", 2);
         bean.getBillItem().add(item);
-        request.getSession().setAttribute("billingSessionBean", bean);
+        stageBill(bean);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
         Appointment appointment = new Appointment();
@@ -593,7 +597,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
             when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                     .thenReturn(true);
             BillingSaveBilling2Action action = new BillingSaveBilling2Action();
-            action.setSubmit("Save & Print Receipt");
+            action.setSubmit(submit);
 
             String result = action.execute();
 
@@ -623,6 +627,94 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should bill the patient of the bill its form names, not a bill another window opened later")
+    void shouldBillNamedBillsPatient_whenAnotherWindowOpenedABillLater() throws Exception {
+        request.setMethod("POST");
+        request.setContextPath("/carlos");
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean windowA = populatedBillingSessionBean("0");
+        windowA.setPatientNo("22");
+        windowA.getBillItem().add(new BillingBillingManager()
+                .new BillingItem("00100", "Office visit", "100.00", "100", 1));
+        stageBill(windowA);
+        String windowAKey = request.getParameter(BcBillStaging.KEY_PARAMETER);
+        // Issue #4673: a bill opened in another window, for another patient, used to replace this
+        // window's bill in the session, so this save billed that patient.
+        BillingSessionBean windowB = populatedBillingSessionBean("0");
+        windowB.setPatientNo("33");
+        stageBill(windowB);
+        String windowBKey = request.getParameter(BcBillStaging.KEY_PARAMETER);
+        request.setParameter(BcBillStaging.KEY_PARAMETER, windowAKey);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+        doAnswer(invocation -> {
+            Billing billing = invocation.getArgument(0);
+            ReflectionTestUtils.setField(billing, "id", 456);
+            return null;
+        }).when(billingmasterDAO).save(any(Billing.class));
+        ArgumentCaptor<Billing> billingCaptor = ArgumentCaptor.forClass(Billing.class);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedConstruction<BillingHistoryDAO> ignored = mockConstruction(BillingHistoryDAO.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+            BillingSaveBilling2Action action = new BillingSaveBilling2Action();
+            action.setSubmit("Save Bill");
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            verify(billingmasterDAO).save(billingCaptor.capture());
+        }
+        assertThat(billingCaptor.getValue().getDemographicNo()).isEqualTo(22);
+        assertThat(request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).isSameAs(windowA);
+
+        // Saved, the bill is the first to go when other windows open bills, before window B's,
+        // which is still being written.
+        for (int i = 2; i <= BcBillStaging.MAX_ENTRIES; i++) {
+            MockHttpServletRequest opener = new MockHttpServletRequest();
+            opener.setSession(request.getSession());
+            BcBillStaging.open(opener, populatedBillingSessionBean("0"));
+        }
+        assertThat(resumeBill(windowAKey)).isNull();
+        assertThat(resumeBill(windowBKey)).isSameAs(windowB);
+    }
+
+    private BillingSessionBean resumeBill(String key) {
+        MockHttpServletRequest step = new MockHttpServletRequest();
+        step.setSession(request.getSession());
+        step.setParameter(BcBillStaging.KEY_PARAMETER, key);
+        return BcBillStaging.resume(step);
+    }
+
+    @Test
+    @DisplayName("should refuse a save that names no bill even when another window has one open")
+    void shouldRefuseSave_whenFormNamesNoBillButAnotherWindowHasOne() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean otherWindow = populatedBillingSessionBean("0");
+        otherWindow.getBillItem().add(new BillingBillingManager()
+                .new BillingItem("00100", "Office visit", "100.00", "100", 1));
+        stageBill(otherWindow);
+        request.removeParameter(BcBillStaging.KEY_PARAMETER);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            assertThat(new BillingSaveBilling2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).isEqualTo("Billing session expired.");
+            verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
+        }
+    }
+
+    @Test
     @DisplayName("should reject malformed payment type before billing writes")
     void shouldRejectMalformedPaymentType_beforeBillingWrites() throws Exception {
         request.setMethod("POST");
@@ -631,7 +723,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         bean.setPaymentType("bad");
         bean.getBillItem().add(new BillingBillingManager()
                 .new BillingItem("00100", "Office visit", "100.00", "100", 1));
-        request.getSession().setAttribute("billingSessionBean", bean);
+        stageBill(bean);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
 
@@ -661,7 +753,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         bean.setWcbId("bad");
         bean.getBillItem().add(new BillingBillingManager()
                 .new BillingItem("00100", "Office visit", "100.00", "100", 1));
-        request.getSession().setAttribute("billingSessionBean", bean);
+        stageBill(bean);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
 
@@ -691,7 +783,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         BillingSessionBean bean = populatedBillingSessionBean("123");
         bean.getBillItem().add(new BillingBillingManager()
                 .new BillingItem("00100", "Office visit", "100.00", "100", 1));
-        request.getSession().setAttribute("billingSessionBean", bean);
+        stageBill(bean);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
 
@@ -725,7 +817,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         bean.getBillItem().add(manager.new BillingItem("00100", "Office visit", "100.00", "100", 1));
         bean.getBillItem().add(manager.new BillingItem("00101", "Follow-up", "50.00", "50", 1));
         bean.getBillItem().add(manager.new BillingItem("00102", "Procedure", "75.00", "75", 1));
-        request.getSession().setAttribute("billingSessionBean", bean);
+        stageBill(bean);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
 
@@ -753,7 +845,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         BillingSessionBean bean = populatedBillingSessionBean("123");
         bean.getBillItem().add(new BillingBillingManager()
                 .new BillingItem("00100", "Office visit", "100.00", "100", 1));
-        request.getSession().setAttribute("billingSessionBean", bean);
+        stageBill(bean);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
 
@@ -780,7 +872,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         BillingSessionBean bean = populatedBillingSessionBean("123");
         bean.getBillItem().add(new BillingBillingManager()
                 .new BillingItem("00100", "Office visit", "100.00", "100", 1));
-        request.getSession().setAttribute("billingSessionBean", bean);
+        stageBill(bean);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
         doAnswer(invocation -> {
@@ -902,5 +994,15 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
                 // Not used by synchronous unit tests.
             }
         };
+    }
+
+    /**
+     * Opens {@code bill} the way the bill form's own request does, in this test's session, and
+     * names it on the save request the way the review form does ({@link BcBillStaging}).
+     */
+    private void stageBill(BillingSessionBean bill) {
+        MockHttpServletRequest opener = new MockHttpServletRequest();
+        opener.setSession(request.getSession());
+        request.setParameter(BcBillStaging.KEY_PARAMETER, BcBillStaging.open(opener, bill));
     }
 }

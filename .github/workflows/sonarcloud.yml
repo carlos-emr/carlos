@@ -83,6 +83,20 @@ jobs:
           persist-credentials: false
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
+      - name: Test reliability diagnostics
+        run: python3 -m unittest discover -s scripts -p test_sonar_reliability_report.py
+
+      # The Sonar GitHub check can expose only a subset of findings on large PRs. Report all reliability
+      # findings from the latest available analysis before starting the expensive build.
+      # This is diagnostic only; the separate Sonar quality gate remains authoritative.
+      - name: Report latest PR reliability findings
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 scripts/sonar_reliability_report.py
+
       - name: Cache SonarCloud packages
         # Keyed on the files that pin the scanner/plugin versions so the entry is
         # refreshed when they change; the previous constant key could never be

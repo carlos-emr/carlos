@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.util.JasperReportPdfPrint;
+import io.github.carlos_emr.carlos.form.util.Rourke2020PdfReport.RenderingException;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
@@ -99,9 +100,9 @@ public final class Frm2Action extends ActionSupport {
         // instantiate. Every use of rec below dereferences it, so a refused class raised a
         // NullPointerException that the catch at the end of this method downgraded to the
         // "failure" forward — surfacing to the clinician as "CARLOS Error: 500" for what is
-        // really a request naming a form this build cannot service. The chart can reach this:
-        // the form selector offers ALPHA and formAlpha carries rows, but no FrmAlphaRecord
-        // exists. Answer it as a client error and stop, rather than resolving a named result
+        // really a request naming a form this build cannot service (ALPHA reached this until
+        // FrmAlphaRecord was added, #4590; a registration left behind by a removed form still
+        // can). Answer it as a client error and stop, rather than resolving a named result
         // after the response is written (see the direct-response contract in CLAUDE.md).
         // Issue #3735. This runs before formId / demographic_no are parsed so a malformed
         // request naming an unsupported class is still refused with 400 rather than a 500.
@@ -118,6 +119,16 @@ public final class Frm2Action extends ActionSupport {
         }
 
         String submitType = request.getParameter("submit");
+        // Every save comes as the form page's POST. Only the read-only graph and print-all views open by GET.
+        if (!"POST".equals(request.getMethod()) && !isReadOnlySubmit(submitType)) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (IOException e) {
+                log.error("Could not send 405 for a form save sent without POST", e);
+            }
+            return NONE;
+        }
         String id = request.getParameter("formId");
         Integer formId = null;
 
@@ -173,13 +184,13 @@ public final class Frm2Action extends ActionSupport {
 
                     response.setContentType("application/pdf");
                     if (isRourkeForm2020) {
-                        response.setHeader("Content-Disposition", "attachment; filename=\"Rourke2020_" + formId + ".pdf\"");
+                        // Replace the print-progress popup with the PDF viewer.
+                        response.setHeader("Content-Disposition", "inline; filename=\"Rourke2020_" + formId + ".pdf\"");
                     } else {
                         response.setHeader("Content-Disposition", "attachment; filename=\"Rourke2017_" + formId + ".pdf\"");
                     }
-                    ((JasperReportPdfPrint) rec).PrintJasperPdf(response.getOutputStream(), loggedInInfo, demographicNo, formId, pagesToPrint);
-                    newID = 0;
-                    return null;
+                    writeJasperPdf((JasperReportPdfPrint) rec, loggedInInfo, demographicNo, formId, pagesToPrint);
+                    return NONE;
                 } else {
                     props = rec.getFormRecord(loggedInInfo, Integer.parseInt(request.getParameter("demographic_no")), formId);
 
@@ -342,6 +353,35 @@ public final class Frm2Action extends ActionSupport {
         return actionForward;
     }
 
+    private void writeJasperPdf(JasperReportPdfPrint report, LoggedInInfo loggedInInfo,
+                               Integer demographicNo, Integer formId, List<Integer> pagesToPrint) {
+        try {
+            report.PrintJasperPdf(response.getOutputStream(), loggedInInfo, demographicNo, formId, pagesToPrint);
+        } catch (RuntimeException | IOException ex) {
+            sendPdfError(ex);
+        }
+    }
+
+    private void sendPdfError(Exception failure) {
+        log.error("Could not generate form PDF", failure);
+        // Never forward an HTML result over a configured or partial PDF response.
+        if (response.isCommitted()) return;
+        response.reset();
+        try {
+            if (failure instanceof RenderingException) {
+                // The generic error JSP hides sendError messages in production. These
+                // enum-backed messages contain no record data and must remain actionable.
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                response.setContentType("text/plain;charset=UTF-8");
+                response.getOutputStream().write(failure.getMessage().getBytes(StandardCharsets.UTF_8));
+            } else {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not generate form PDF");
+            }
+        } catch (IOException sendError) {
+            log.error("Could not send PDF generation error response", sendError);
+        }
+    }
+
     /**
      * The id of the record this request wrote, for the result locations to forward with.
      *
@@ -363,7 +403,7 @@ public final class Frm2Action extends ActionSupport {
         String redirectUrl = StringUtils.defaultString(contextPath)
                 + "/form/forwardname?form_link="
                 + URLEncoder.encode(StringUtils.defaultString(formLink), StandardCharsets.UTF_8)
-                + "&" + actionForward.substring(SAVE_ACTION_PREFIX.length());
+                + "&" + actionForward.substring(SAVE_ACTION_PREFIX.length()) + "&saved=true";
         if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
             throw new IllegalArgumentException("Unsafe form forward redirect");
         }
@@ -407,4 +447,11 @@ public final class Frm2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Whether {@code submit} names a view that only reads the form record: the growth graph and the print-all views.
+     * Every other submission saves.
+     */
+    private static boolean isReadOnlySubmit(String submit) {
+        return "graph".equals(submit) || "printAll".equals(submit) || "printAllJasperReport".equals(submit);
+    }
 }

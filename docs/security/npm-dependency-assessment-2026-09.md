@@ -1,5 +1,9 @@
 # Documentation dependency assessment — September 2026
 
+This is the historical alpha12 assessment. See the
+[October 2026 remediation](dependency-remediation-2026-10.md) for the current
+release-branch dependency changes and validation expectations.
+
 The alpha12 promotion review included the existing npm dependency alerts, not
 only dependencies changed by the release. Compatible patches are locked for
 `colord`, `joi`, `baseline-browser-mapping`, `svgo`, `qs`, `fast-uri`,

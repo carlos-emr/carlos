@@ -44,6 +44,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -67,6 +69,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int FIRST_NAME_MAX_LENGTH = 30;
     public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
     public static final int ALIAS_MAX_LENGTH = 70;
+    /** The pref_name column ({@code varchar(30) NOT NULL}); see {@link #prefNameForNameUsed(String)}. */
+    public static final int PREF_NAME_MAX_LENGTH = 30;
     public static final int ADDRESS_MAX_LENGTH = 60;
     public static final int CITY_MAX_LENGTH = 50;
     public static final int PROVINCE_MAX_LENGTH = 20;
@@ -161,6 +165,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
     private Provider provider;
     private String lastUpdateUser = null;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate = new Date();
 
     private String title;
@@ -185,6 +190,14 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private Integer pronounId;
     private String patientType;
 
+    /**
+     * The stored pref_name column, mapped by field (issue #4835). The entity uses property access,
+     * and {@link #getPrefName()} answers the alias when one is set, so a getter mapping made every
+     * loaded patient with a differing alias look changed: the next flush wrote the alias into
+     * pref_name, and an alias longer than the 30-character column failed the page.
+     */
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "pref_name", length = 30)
     private String prefName;
 
     private Provider mrp;
@@ -326,6 +339,30 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
         }
     }
+
+    /**
+     * The pref_name value for a Name Used typed on the Master Record (issue #5128).
+     *
+     * <p>Name Used is stored whole in the alias (70 characters, checked by
+     * {@link #validateFieldLengths()}) and copied into pref_name, which holds only 30. A longer
+     * copy failed the save under a strict sql_mode (HTTP 500, nothing saved) and was cut silently
+     * under an empty one. The copy is now cut to the column here, at whole characters, so a
+     * surrogate pair is never split; {@link #getPrefName()} shows the alias first, so the cut copy
+     * is not what the patient's name reads as. pref_name is NOT NULL, so no value becomes "".</p>
+     *
+     * @param nameUsed the submitted Name Used, or {@code null} when the form sent none
+     * @return at most {@link #PREF_NAME_MAX_LENGTH} characters of it, never {@code null}
+     */
+    public static String prefNameForNameUsed(String nameUsed) {
+        if (nameUsed == null) {
+            return "";
+        }
+        if (nameUsed.codePointCount(0, nameUsed.length()) <= PREF_NAME_MAX_LENGTH) {
+            return nameUsed;
+        }
+        return nameUsed.substring(0, nameUsed.offsetByCodePoints(0, PREF_NAME_MAX_LENGTH));
+    }
+
     @jakarta.persistence.Transient
 
     public String getDisplayName() {
@@ -858,11 +895,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     /**
-     * Gets demographic's preferred name.
+     * Gets the name to show for the patient: the alias when one is set, otherwise the stored
+     * preferred name. Not mapped; Hibernate reads and writes the {@code prefName} field.
      *
-     * @return Returns the preferred name.
+     * @return the alias, or the stored preferred name when there is no alias
      */
-    @jakarta.persistence.Column(name = "pref_name")
+    @jakarta.persistence.Transient
     public String getPrefName() {
         if (getAlias() != null && !getAlias().isEmpty()) {
             return getAlias();
@@ -1568,7 +1606,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
         if (dateOfBirth != null && monthOfBirth != null && yearOfBirth != null) {
             cal = new GregorianCalendar();
-            cal.setTimeInMillis(0);
+            // Clear the epoch's local time-of-day before setting this date-only value.
+            cal.clear();
             cal.set(Integer.parseInt(yearOfBirth), Integer.parseInt(monthOfBirth) - 1, Integer.parseInt(dateOfBirth));
 
             // force materialisation of data

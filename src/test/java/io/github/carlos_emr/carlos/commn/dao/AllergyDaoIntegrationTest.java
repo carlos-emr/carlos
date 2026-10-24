@@ -23,11 +23,14 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
+import io.github.carlos_emr.carlos.prescript.data.AllergyAtcClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +60,9 @@ public class AllergyDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private AllergyDao allergyDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private static final int DEMO_1 = 10001;
     private static final int DEMO_2 = 10002;
@@ -231,6 +237,123 @@ public class AllergyDaoIntegrationTest extends CarlosTestBase {
             cal.add(Calendar.DAY_OF_YEAR, -1);
             List<Allergy> results = allergyDao.findByUpdateDate(cal.getTime(), 2);
             assertThat(results).hasSize(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("archiveIfActive (conditional archive for amendments, issue #4410)")
+    class ArchiveIfActive {
+
+        /** Re-reads the row from the database, past anything the persistence context cached. */
+        private Allergy reload(Integer id) {
+            entityManager.flush();
+            entityManager.clear();
+            return allergyDao.find(id);
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should archive an active allergy of the patient and stamp its last update")
+        void shouldArchiveAndReturnOne_whenAllergyIsActive() {
+            Allergy allergy = createAllergy(DEMO_1, false);
+            Date before = new GregorianCalendar(2020, Calendar.JANUARY, 1).getTime();
+            allergy.setLastUpdateDate(before);
+            entityManager.flush();
+            entityManager.createQuery("update Allergy x set x.lastUpdateDate = ?1 where x.id = ?2")
+                    .setParameter(1, before).setParameter(2, allergy.getId()).executeUpdate();
+
+            int archived = allergyDao.archiveIfActive(allergy.getId(), DEMO_1);
+
+            assertThat(archived).isEqualTo(1);
+            Allergy reloaded = reload(allergy.getId());
+            assertThat(reloaded.getArchived()).isTrue();
+            assertThat(reloaded.getLastUpdateDate()).isAfter(before);
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should archive nothing when the allergy is already archived")
+        void shouldReturnZero_whenAllergyIsAlreadyArchived() {
+            Allergy allergy = createAllergy(DEMO_1, true);
+
+            assertThat(allergyDao.archiveIfActive(allergy.getId(), DEMO_1)).isZero();
+            assertThat(reload(allergy.getId()).getArchived()).isTrue();
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should archive the allergy once when two amendments race on it")
+        void shouldArchiveOnce_whenCalledTwice() {
+            Allergy allergy = createAllergy(DEMO_1, false);
+
+            assertThat(allergyDao.archiveIfActive(allergy.getId(), DEMO_1)).isEqualTo(1);
+            assertThat(allergyDao.archiveIfActive(allergy.getId(), DEMO_1)).isZero();
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should not archive another patient's allergy")
+        void shouldReturnZero_whenAllergyBelongsToAnotherPatient() {
+            Allergy allergy = createAllergy(DEMO_2, false);
+
+            assertThat(allergyDao.archiveIfActive(allergy.getId(), DEMO_1)).isZero();
+            assertThat(reload(allergy.getId()).getArchived()).isFalse();
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should archive nothing for an id that does not exist")
+        void shouldReturnZero_whenAllergyDoesNotExist() {
+            assertThat(allergyDao.archiveIfActive(Integer.MAX_VALUE, DEMO_1)).isZero();
+        }
+    }
+
+    /**
+     * ATC class allergens (issue #4576): what the Penicillin and Sulfa shortcuts store is what the
+     * drug-allergy check reads back, for a new allergy and for one an old shortcut recorded.
+     */
+    @Nested
+    @DisplayName("ATC class allergens")
+    class AtcClassAllergens {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should read back the ATC class of a class allergen stored with no DrugRef id")
+        void shouldReadBackAtcClass_forClassAllergenWithNoDrugrefId() {
+            Allergy allergy = createAllergy(DEMO_3, false);
+            allergy.setDescription("PENICILLINS");
+            allergy.setTypeCode(AllergyAtcClass.TYPE_CODE);
+            allergy.setAtc("J01C");
+            allergy.setDrugrefId("");
+            allergyDao.merge(allergy);
+            entityManager.flush();
+            entityManager.clear();
+
+            List<Allergy> active = allergyDao.findActiveAllergies(DEMO_3);
+
+            assertThat(active).singleElement().satisfies(stored -> {
+                assertThat(stored.getDrugrefId()).isNull();
+                assertThat(stored.getTypeCode()).isEqualTo(8);
+                assertThat(AllergyAtcClass.classCodeOf(stored)).isEqualTo("J01C");
+            });
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should read an allergy an old Sulfa shortcut recorded as the ATC class J01E")
+        void shouldReadShortcutClass_forAllergyAnOldShortcutRecorded() {
+            Allergy allergy = createAllergy(DEMO_3, false);
+            allergy.setDescription("SULFONAMIDES");
+            allergy.setTypeCode(10);
+            allergy.setDrugrefId("44159");
+            allergyDao.merge(allergy);
+            entityManager.flush();
+            entityManager.clear();
+
+            List<Allergy> active = allergyDao.findActiveAllergies(DEMO_3);
+
+            assertThat(active).singleElement()
+                    .satisfies(stored -> assertThat(AllergyAtcClass.classCodeOf(stored)).isEqualTo("J01E"));
         }
     }
 }

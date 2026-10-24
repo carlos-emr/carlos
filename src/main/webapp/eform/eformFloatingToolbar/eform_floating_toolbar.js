@@ -294,6 +294,262 @@ document.addEventListener("formdata", function (event) {
     }
 }, true);
 
+/*
+ * Signature and drawing data URIs (#3552). A signature pad keeps the drawn signature as a data URI
+ * (data:image/png;base64,... from a canvas, or jSignature's data:image/jsignature;base30,...) in one
+ * of the template's own fields. Those names are chosen by whoever wrote the eForm, so the front-door
+ * WAF cannot name them, and the value matches the CRS attribute-XSS rules 941130/941170: without help
+ * the save is refused with a 403, and excluding those rules for the whole save also stopped them
+ * checking every other field.
+ *
+ * While the browser builds an eForm save, each such value moves into the fixed "carlos-data-uri"
+ * argument (the only one the WAF excludes for this), and its field posts
+ * "carlos-data-uri:<nonce>:<n>", n being the value's position among the carlos-data-uri values and
+ * nonce a random value drawn for this submission and posted as "carlos-data-uri-nonce". The server
+ * treats only values bearing that nonce as references, so a field whose own text happens to read
+ * "carlos-data-uri:0" is stored as typed. AddEForm2Action, through EFormDataUriCarrier, puts every
+ * value back before the eForm is stored. The page itself never changes: the fields keep their data
+ * URIs.
+ *
+ * Only exactly what EFormDataUriCarrier accepts moves: lower-case PNG, JPEG, GIF or WebP Base64 data
+ * URIs whose bytes start with that format's signature, and jSignature base30 strokes. Anything else
+ * that looks like a data URI (SVG, text/html, a malformed payload) is posted where it is and stays
+ * fully inspected. Keep the two sides identical: a value this sends that the server refuses fails
+ * the whole save.
+ *
+ * Like newForm above, the formdata event covers every submission (requestSubmit, a native click, the
+ * toolbar's form.submit()) after all submit handlers. Browsers without it (Safari before 15) get the
+ * same request from temporary hidden inputs instead. The event also fires for a template script's
+ * own new FormData(form) on the save form; it gets the same rewritten entries, which is what an
+ * AJAX post of that form to addEForm needs.
+ */
+// <eform-data-uri-carrier>
+const eformDataUriCarrier = (function () {
+    const PARAMETER = "carlos-data-uri";
+    const NONCE_PARAMETER = "carlos-data-uri-nonce";
+    const REFERENCE_PREFIX = "carlos-data-uri:";
+    // EFormDataUriCarrier.MAX_VALUES and MAX_BASE64_CHARS (at most 5 MiB decoded).
+    const MAX_VALUES = 256;
+    const MAX_PAYLOAD_CHARS = 6990504;
+    const RASTER = /^data:image\/(png|jpeg|gif|webp);base64,([A-Za-z0-9+/]+={0,2})$/;
+    const JSIGNATURE = /^data:image\/jsignature;base30,(\w*)$/;
+    const FILE_SIGNATURES = {
+        png: [[0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]]],
+        jpeg: [[0, [0xFF, 0xD8, 0xFF]]],
+        gif: [[0, [0x47, 0x49, 0x46, 0x38]]],
+        webp: [[0, [0x52, 0x49, 0x46, 0x46]], [8, [0x57, 0x45, 0x42, 0x50]]],
+    };
+
+    function startsLikeFormat(format, payload) {
+        let head;
+        try {
+            // 16 Base64 characters are the first 12 bytes, enough for every signature above.
+            head = atob(payload.slice(0, 16));
+        } catch (e) {
+            return false;
+        }
+        return FILE_SIGNATURES[format].every(function (part) {
+            const offset = part[0];
+            return part[1].every(function (byte, i) { return head.codePointAt(offset + i) === byte; });
+        });
+    }
+
+    /** True when EFormDataUriCarrier will accept {@code value} as a carried image. */
+    function isCarriable(value) {
+        if (typeof value !== "string" || value.lastIndexOf("data:image/", 0) !== 0) {
+            return false;
+        }
+        const raster = RASTER.exec(value);
+        if (raster) {
+            const payload = raster[2];
+            return payload.length <= MAX_PAYLOAD_CHARS && payload.length % 4 === 0
+                && startsLikeFormat(raster[1], payload);
+        }
+        const strokes = JSIGNATURE.exec(value);
+        return !!strokes && strokes[1].length <= MAX_PAYLOAD_CHARS;
+    }
+
+    /**
+     * True when this submission is a same-origin POST to the eForm save route. A submit button's
+     * formaction/formmethod override the form's own, so a button that posts elsewhere (or by GET)
+     * is never rewritten for a destination that could not restore it. Read through the attributes:
+     * a template field named "action" or "method" replaces form.action/form.method.
+     */
+    function postsToEFormSave(form, submitter) {
+        if (!(form instanceof HTMLFormElement)) {
+            return false;
+        }
+        const overrides = function (name) {
+            return typeof submitter?.hasAttribute === "function" && submitter.hasAttribute(name);
+        };
+        const method = overrides("formmethod") ? submitter.getAttribute("formmethod") : form.getAttribute("method");
+        if (String(method || "").toLowerCase() !== "post") {
+            return false;
+        }
+        let action;
+        try {
+            action = new URL((overrides("formaction") ? submitter.getAttribute("formaction")
+                : form.getAttribute("action")) || "", document.baseURI);
+        } catch (e) {
+            return false;
+        }
+        return action.origin === window.location.origin && /\/eform\/addEForm(?:;[^/]*)?$/.test(action.pathname);
+    }
+
+    // The submitter of the submission in progress, per form. A native submission fires submit, then
+    // (in the same task, if not cancelled) builds its request; form.submit() fires no submit event
+    // and has no submitter. Forgotten on the next task, so a cancelled click never applies to a later
+    // form.submit().
+    const submitters = new WeakMap();
+    function rememberSubmitter(form, submitter) {
+        if (!(form instanceof HTMLFormElement)) return;
+        submitters.set(form, submitter || null);
+        setTimeout(function () {
+            if (submitters.get(form) === (submitter || null)) submitters.delete(form);
+        }, 0);
+    }
+
+    /** 128 random bits as 32 lower-case hex digits: EFormDataUriCarrier's nonce shape. */
+    function newNonce() {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes, function (b) { return (b < 16 ? "0" : "") + b.toString(16); }).join("");
+    }
+
+    /**
+     * Plans one submission: for [name, value] entries in posting order, returns the replacement value
+     * for each carried entry (by entry index), the carried values (an identical value carried once)
+     * and the nonce the references bear.
+     */
+    function plan(entries, nonce) {
+        const replacements = new Map();
+        const carried = [];
+        const positions = new Map();
+        entries.forEach(function (entry, i) {
+            const value = entry[1];
+            if (entry[0] === PARAMETER || !isCarriable(value)) return;
+            let position = positions.get(value);
+            if (position === undefined) {
+                if (carried.length >= MAX_VALUES) return;
+                position = carried.length;
+                positions.set(value, position);
+                carried.push(value);
+            }
+            replacements.set(i, REFERENCE_PREFIX + nonce + ":" + position);
+        });
+        return {replacements: replacements, carried: carried, nonce: nonce};
+    }
+
+    /** Rewrites a FormData in place, keeping every entry's position. Returns the number carried. */
+    function carryFormData(formData) {
+        if (formData.getAll(PARAMETER).length > 0) return 0;
+        const entries = Array.from(formData.entries());
+        const result = plan(entries, newNonce());
+        if (result.carried.length === 0) return 0;
+        new Set(entries.map(function (entry) { return entry[0]; })).forEach(function (name) {
+            formData.delete(name);
+        });
+        entries.forEach(function (entry, i) {
+            formData.append(entry[0], result.replacements.has(i) ? result.replacements.get(i) : entry[1]);
+        });
+        result.carried.forEach(function (value) { formData.append(PARAMETER, value); });
+        formData.append(NONCE_PARAMETER, result.nonce);
+        return result.carried.length;
+    }
+
+    /**
+     * Without the formdata event: disables each carried control for this one submission and posts its
+     * reference and the carried values from temporary hidden inputs, all undone on the next task (the
+     * browser has built the request by then). A cancelled submission is undone the same way.
+     */
+    function carryControls(form) {
+        if (form.querySelector('input[name="' + PARAMETER + '"]:not(:disabled)')) return 0;
+        const controls = Array.prototype.filter.call(form.elements, function (control) {
+            const tag = control.tagName;
+            return control.name && !control.matches(":disabled")
+                && (tag === "TEXTAREA" || (tag === "INPUT"
+                    && !/^(?:button|checkbox|file|image|radio|reset|submit)$/i.test(control.type)));
+        });
+        const result = plan(controls.map(function (control) { return [control.name, control.value]; }),
+            newNonce());
+        if (result.carried.length === 0) return 0;
+        const added = [];
+        function addHidden(name, value, after) {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = name;
+            input.value = value;
+            if (after) {
+                // Directly after the control it stands in for, so a repeated name keeps its value
+                // order (the server stores a name's first value), and in the same form.
+                if (after.hasAttribute("form")) input.setAttribute("form", after.getAttribute("form"));
+                after.after(input);
+            } else {
+                form.appendChild(input);
+            }
+            added.push(input);
+        }
+        const disabled = [];
+        result.replacements.forEach(function (reference, i) {
+            const control = controls[i];
+            control.disabled = true;
+            disabled.push(control);
+            addHidden(control.name, reference, control);
+        });
+        result.carried.forEach(function (value) { addHidden(PARAMETER, value); });
+        addHidden(NONCE_PARAMETER, result.nonce);
+        setTimeout(function () {
+            added.forEach(function (input) { input.remove(); });
+            disabled.forEach(function (control) { control.disabled = false; });
+        }, 0);
+        return result.carried.length;
+    }
+
+    const nativeSubmit = HTMLFormElement.prototype.submit;
+    if (eformFormDataEventSupported) {
+        document.addEventListener("submit", function (event) {
+            rememberSubmitter(event.target, event.submitter);
+        }, true);
+        // form.submit() never uses a submitter's overrides, even when a submit handler calls it
+        // while the clicked button's submission is still being dispatched.
+        HTMLFormElement.prototype.submit = function () {
+            submitters.delete(this);
+            return nativeSubmit.apply(this, arguments);
+        };
+        document.addEventListener("formdata", function (event) {
+            if (event.formData && postsToEFormSave(event.target, submitters.get(event.target))) {
+                carryFormData(event.formData);
+            }
+        }, true);
+    } else {
+        HTMLFormElement.prototype.submit = function () {
+            if (postsToEFormSave(this, null)) carryControls(this);
+            return nativeSubmit.apply(this, arguments);
+        };
+        // These browsers lack SubmitEvent.submitter too: take it from the click that starts a native
+        // submission (implicit Enter submission dispatches that click as well).
+        let clicked = null;
+        document.addEventListener("click", function (event) {
+            const control = event.target instanceof Element
+                ? event.target.closest("button, input[type=submit], input[type=image]") : null;
+            if (!control || (control.type !== "submit" && control.type !== "image")) return;
+            clicked = control;
+            setTimeout(function () { clicked = null; }, 0);
+        }, true);
+        // Bubble phase on document, after the template's own submit handlers have written the pads.
+        document.addEventListener("submit", function (event) {
+            const submitter = event.submitter || (clicked?.form === event.target ? clicked : null);
+            if (!event.defaultPrevented && postsToEFormSave(event.target, submitter)) {
+                carryControls(event.target);
+            }
+        });
+    }
+
+    return {isCarriable: isCarriable, plan: plan, carryFormData: carryFormData, carryControls: carryControls,
+        postsToEFormSave: postsToEFormSave};
+})();
+// </eform-data-uri-carrier>
+
 function submitEForm() {
 	const ef = getEForm();
 	if (!ef) {
@@ -576,6 +832,24 @@ function remoteSave() {
 }
 
 /**
+ * The element jQuery UI dialogs opened from the toolbar are appended to: a box-less container at the
+ * end of <body> carrying carlos-eform-ui, the scope of the page's Bootstrap copy (#3944). The
+ * attachment picker shows and hides its rows with Bootstrap's .d-none, so it needs the scope; and
+ * putting the scope above the dialog, where <body> used to be, keeps the dialog's jQuery UI font and
+ * colours instead of restyling its content element as if it were the page body.
+ */
+function eformDialogHost() {
+    let host = document.getElementById("carlosEformDialogHost");
+    if (!host) {
+        host = document.createElement("div");
+        host.id = "carlosEformDialogHost";
+        host.className = "carlos-eform-ui carlos-eform-dialog-host";
+        document.body.appendChild(host);
+    }
+    return host;
+}
+
+/**
  * Triggers the eForm attach function
  */
 jQuery(document).on('click', '*[data-poload]', function () {
@@ -622,6 +896,7 @@ jQuery(document).on('click', '*[data-poload]', function () {
         }
     }).dialog({
         title: title,
+        appendTo: eformDialogHost(),
         modal: true,
         closeText: "Save and Close",
         height: 'auto',
@@ -1242,7 +1517,9 @@ function includeHTML(elmnt) {
             if (this.status === 200) {
                 let toolbarWrapper = document.createElement("div");
                 toolbarWrapper.setAttribute("id", "toolbarWrapper");
-                toolbarWrapper.setAttribute("class", "hidden-print DoNotPrint no-print");
+                // carlos-eform-ui scopes the page's Bootstrap copy to the toolbar, so the eForm
+                // around it keeps its own styling (#3944).
+                toolbarWrapper.setAttribute("class", "carlos-eform-ui hidden-print DoNotPrint no-print");
                 // Same-origin JSP fragment (eform_floating_toolbar) with server-defined
                 // event handlers — innerHTML is required for toolbar functionality.
                 toolbarWrapper.innerHTML = this.responseText; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
@@ -1517,7 +1794,7 @@ function HideSpin() {
 				return true;
 			}
 
-			const inputId = 'openosp-img-' + id;
+			const inputId = 'carlos-img-' + id;
 
 			// Remove any existing hidden input for this image
 			jQuery("input[type='hidden'][id='" + inputId + "']").remove();
@@ -1525,7 +1802,7 @@ function HideSpin() {
 			// Add a fresh hidden input
 			jQuery('<input>', {
 				id: inputId,
-				name: 'openosp-image-link',
+				name: 'carlos-image-link',
 				value: JSON.stringify({ id: id, value: src }),
 				type: 'hidden'
 			}).appendTo("form[method='POST']");

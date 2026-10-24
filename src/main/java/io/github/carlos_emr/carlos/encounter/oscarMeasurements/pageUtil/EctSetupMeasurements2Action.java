@@ -36,16 +36,14 @@ import java.util.Vector;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler;
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -60,11 +58,17 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
     public String execute()
             throws Exception {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", null)) {
+        String demo;
+        try {
+            demo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", demo)) {
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
-        HttpSession session = request.getSession();
         //EctMeasurementsForm frm = (EctMeasurementsForm) form;
 
         String groupName = request.getParameter("groupName");
@@ -78,26 +82,17 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
 
         request.setAttribute("groupName", groupName);
         request.setAttribute("css", css);
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-
-        String demo = null;
-        if (bean != null) {
-            demo = bean.getDemographicNo();
-        } else {
-            demo = String.valueOf(ConversionUtils.fromIntString(request.getParameter("demographicNo")));
-        }
         request.setAttribute("demographicNo", demo);
         EctMeasurementTypesBeanHandler hd = new EctMeasurementTypesBeanHandler(groupName, demo);
         for (int i = 0; i < hd.getMeasurementTypeVector().size(); i++) {
             this.setValue("date-" + i, today);
         }
-        //session.setAttribute("EctMeasurementsForm", frm);
-        session.setAttribute("measurementTypes", hd); // nosemgrep: tainted-session-from-http-request
+        request.setAttribute("measurementTypes", hd);
         Vector mInstrcVector = hd.getMeasuringInstrcHdVector();
         for (int i = 0; i < mInstrcVector.size(); i++) {
             EctMeasuringInstructionBeanHandler mInstrcs = (EctMeasuringInstructionBeanHandler) mInstrcVector.elementAt(i);
             String mInstrcName = "mInstrcs" + i;
-            session.setAttribute(mInstrcName, mInstrcs); // nosemgrep: tainted-session-from-http-request
+            request.setAttribute(mInstrcName, mInstrcs);
         }
 
 

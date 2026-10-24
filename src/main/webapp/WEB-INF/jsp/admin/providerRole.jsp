@@ -429,8 +429,8 @@
                 for(Properties prop:vec) {
                         %>
         item = {
-            providerNo: "<%=prop.get("provider_no")%>",
-            role_id: "<%=prop.get("role_id")%>",
+            providerNo: "<carlos:encode value='<%= (String)prop.get("provider_no") %>' context="javaScriptBlock"/>",
+            role_id: "<carlos:encode value='<%= (String)prop.get("role_id") %>' context="javaScriptBlock"/>",
             roleName: "<carlos:encode value='<%= (String)prop.get("role_name") %>' context="javaScriptBlock"/>"
         };
         items.push(item);
@@ -447,7 +447,8 @@
             var provider = document.getElementById('primaryRoleProvider').value;
             for (var i = 0; i < items.length; i++) {
                     if(items[i].providerNo === provider && items[i].role_id !== "") {
-                    $("#primaryRoleRole").append('<option value="' + items[i].roleName + '">' + items[i].roleName + '</option>');
+                    // Built with DOM APIs so a role name stays text, whatever characters it holds.
+                    $("#primaryRoleRole").append($('<option>').val(items[i].roleName).text(items[i].roleName));
                 }
             }
         }
@@ -458,7 +459,7 @@
             if(providerNo !== '' && roleName !== '') {
                 return true;
             } else {
-                alert('Please enter in a providers and a corresponding role');
+                alert('Please enter in a provider and a corresponding role');
                 return false;
             }
         }
@@ -469,7 +470,7 @@
 	 */
     function enableAddRoleButton(e) {
 		// get the originally selected values from all the other
-        // roles set for this providers.
+        // roles set for this provider.
 	    const forms = document.getElementsByClassName(e.form.attributes.class.value);
 	    const SELECTED_ROLE_VALUES = [];
 	    for(let i=0;i<forms.length;i++) {
@@ -548,7 +549,10 @@
               <td><carlos:encode value='<%= item.getProperty("first_name", "") %>' context="html"/></td>
               <td><carlos:encode value='<%= item.getProperty("last_name", "") %>' context="html"/></td>
             <td>
-              <select name="roleNew" onchange="enableAddRoleButton(this)" data-org="<%= item.getProperty("role_name", "") %>">
+              <%-- One role select per row, so each needs its own id to be labelled. The label is
+                   visually hidden because the column header already carries the visible text. --%>
+              <label class="visually-hidden" for="roleNew-<%= i %>"><fmt:message key="role"/></label>
+              <select id="roleNew-<%= i %>" name="roleNew" onchange="enableAddRoleButton(this)" data-org="<%= item.getProperty("role_name", "") %>">
                     <option value="-">-</option>
                     <%
                         for (int j = 0; j < vecRoleName.size(); j++) {

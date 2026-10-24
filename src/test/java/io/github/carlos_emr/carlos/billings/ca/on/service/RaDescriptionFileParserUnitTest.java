@@ -82,7 +82,7 @@ class RaDescriptionFileParserUnitTest {
         assertThat(parsed.claimCount()).isEqualTo(1);
         assertThat(parsed.balanceForwardRow().claimsAdjustment()).isEqualTo("0000001.11");
         assertThat(parsed.transactionRows()).singleElement().satisfies(row -> {
-            assertThat(row.transaction()).isEqualTo("Accounting adjustment");
+            assertThat(row.transaction()).isEqualTo("Estimated Payment for Unprocessed Claims");
             assertThat(row.chequeIssued()).isEqualTo("Computer Cheque issued");
             assertThat(row.message()).contains("claim <adjustment> & message");
         });

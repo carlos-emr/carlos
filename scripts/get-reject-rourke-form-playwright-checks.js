@@ -20,6 +20,7 @@
  * Risk sweep "get-reject" (STATE-CHANGING ACTIONS THAT ACCEPT GET).
  */
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { captureRequest, replayParams, createLedger } = require('./lib/get-reject-probe');
 
@@ -30,7 +31,11 @@ async function workflow(s) {
   const q = h.sqlString;
   const ledger = createLedger(NAME);
   s.cleanup(() => {
-    sql.execute(`DELETE FROM measurements WHERE demographicNo=${patient}; DELETE FROM formRourke2017 WHERE demographic_no=${patient}`);
+    // A save also writes the form's ticked boxes to form_boolean_value, keyed by the record's id (434 rows per save), so
+    // those go first, while the records that name them still exist.
+    sql.execute(`DELETE FROM form_boolean_value WHERE form_name='formRourke2017'
+        AND form_id IN (SELECT ID FROM formRourke2017 WHERE demographic_no=${patient});
+      DELETE FROM measurements WHERE demographicNo=${patient}; DELETE FROM formRourke2017 WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient})
       + (SELECT COUNT(*) FROM formRourke2017 WHERE demographic_no=${patient})`) === '0', 'Owned measurement/form rows were not removed');
   });
@@ -44,7 +49,7 @@ async function workflow(s) {
 
   await s.step('E-Chart ▸ Forms ▸ Rourke2017 opens the form for the owned patient', async () => {
     const chart = await s.chart();
-    await chart.locator('#menuTitle1 a').hover();
+    await ui.openFormsMenu(chart);
     const link = chart.getByRole('link', { name: 'Rourke2017', exact: true });
     h.assert(await link.count() === 1, 'The Forms menu does not list Rourke2017 exactly once');
     form = await s.popup(chart, link, 'rourke2017');

@@ -226,13 +226,17 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <link rel="stylesheet" href="${ctx}/share/css/transitions.css" type="text/css" />
         <script type="text/javascript" src="${ctx}/js/global.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/carlos-ajax.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-profile-loader.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
         <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
         <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"></script>
         <script src="${ctx}/share/javascript/allergy-alerts.js"></script>
+        <script src="${ctx}/share/javascript/rx-interaction-warnings.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-input-validation.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-hide-cpp.js"></script>
 
 
         <%-- UI library includes (Bootstrap, jQuery UI) --%>
@@ -271,15 +275,25 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.staleDraft"                var="msg_staleDraft"/>
         <fmt:message key="SearchDrug.js.removeRefused"             var="msg_removeRefused"/>
         <fmt:message key="SearchDrug.js.requestRefused"            var="msg_requestRefused"/>
+        <fmt:message key="SearchDrug.js.deleteRefused"             var="msg_deleteRefused"/>
         <fmt:message key="SearchDrug.js.previewUnavailable"        var="msg_previewUnavailable"/>
+        <fmt:message key="SearchDrug.js.dateNotOnCalendar"         var="msg_dateNotOnCalendar"/>
+        <fmt:message key="SearchDrug.js.pickupDateInvalid"         var="msg_pickupDateInvalid"/>
+        <fmt:message key="SearchDrug.js.pickupTimeInvalid"         var="msg_pickupTimeInvalid"/>
+        <fmt:message key="SearchDrug.js.doseInvalid"               var="msg_doseInvalid"/>
+        <fmt:message key="SearchDrug.js.repeatsInvalid"            var="msg_repeatsInvalid"/>
         <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
 
+        <fmt:message key="SearchDrug.js.profileLoadFailed" var="msg_profileLoadFailed"/>
         <fmt:message key="SearchDrug.js.favoriteLoadFailed" var="msg_favoriteLoadFailed"/>
+        <fmt:message key="SearchDrug.js.drugSearchNoMatch" var="msg_drugSearchNoMatch"/>
         <script type="text/javascript">
             let selectedReRxIDs = [];
             // i18n message strings for JavaScript alerts and confirm dialogs
             var jsMsg = {
+                profileLoadFailed: '${carlos:forJavaScript(msg_profileLoadFailed)}',
                 favoriteLoadFailed: '${carlos:forJavaScript(msg_favoriteLoadFailed)}',
+                drugSearchNoMatch: '${carlos:forJavaScript(msg_drugSearchNoMatch)}',
                 handlerNotRemoved: '${carlos:forJavaScript(msg_handlerNotRemoved)}',
                 confirmMedRecComplete: '${carlos:forJavaScript(msg_confirmMedRecComplete)}',
                 medRecCompleted: '${carlos:forJavaScript(msg_medRecCompleted)}',
@@ -309,7 +323,13 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 staleDraft: '${carlos:forJavaScript(msg_staleDraft)}',
                 removeRefused: '${carlos:forJavaScript(msg_removeRefused)}',
                 requestRefused: '${carlos:forJavaScript(msg_requestRefused)}',
-                previewUnavailable: '${carlos:forJavaScript(msg_previewUnavailable)}'
+                deleteRefused: '${carlos:forJavaScript(msg_deleteRefused)}',
+                previewUnavailable: '${carlos:forJavaScript(msg_previewUnavailable)}',
+                dateNotOnCalendar: '${carlos:forJavaScript(msg_dateNotOnCalendar)}',
+                pickupDateInvalid: '${carlos:forJavaScript(msg_pickupDateInvalid)}',
+                pickupTimeInvalid: '${carlos:forJavaScript(msg_pickupTimeInvalid)}',
+                doseInvalid: '${carlos:forJavaScript(msg_doseInvalid)}',
+                repeatsInvalid: '${carlos:forJavaScript(msg_repeatsInvalid)}'
             };
 	        function saveLinks(randNumber) {
 	            document.getElementById('method_'+randNumber).onblur();
@@ -691,7 +711,7 @@ function renderRxStage() {
   		  method: 'post',
   		  parameters: {method: 'update', direction: 'down', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
   		  onSuccess: function(transport) {
-  			callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
+            refreshDrugProfile();
             resetStash();
   		  }
   		});
@@ -702,7 +722,7 @@ function renderRxStage() {
     		  method: 'post',
     		  parameters: {method: 'update', direction: 'up', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
     		  onSuccess: function(transport) {
-    			  callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
+                  refreshDrugProfile();
                   resetStash();
     		  }
     		});
@@ -715,7 +735,8 @@ function renderRxStage() {
     var Lst;
 
     function CngClass(obj){
-    	document.getElementById("selected_default").removeAttribute("style");
+        var current = document.getElementById("selected_default");
+        if (current) current.removeAttribute("style");
      if (Lst) Lst.className='';
      obj.className='selected';
      Lst=obj;
@@ -863,7 +884,7 @@ function renderRxStage() {
 
                                                 <div id="prescriptionStageSet" style="display:none">
 
-                                                    <div id="interactingDrugErrorMsg" style="display:none"></div>
+                                                    <div id="interactingDrugErrorMsg" role="status" style="display:none;color:#856404;font-weight:bold;"></div>
 
                                                     <div id="rxText"></div>
                                                         <%-- Prescriptions are staged here via the prescribe.jsp widget --%>
@@ -986,7 +1007,7 @@ function renderRxStage() {
 
                                                     <div style="text-indent: 5px">
                                                     <a href="javascript:void(0);" onclick="reprint2('<%=drug.getScript_no()%>')">
-                                                        <%=drug.getRxDisplay()%>
+                                                        <carlos:encode value='<%= drug.getRxDisplay() %>'/>
                                                     </a>
                                                     </div>
 
@@ -1008,7 +1029,7 @@ function renderRxStage() {
                                                             </div>
                                                         </div>
                                                         <div style="text-indent: 5px">
-                                                        <a href="javascript:void(0);" onclick="reprint2('<%=drug.getScript_no()%>')"><%=drug.getRxDisplay()%></a>
+                                                        <a href="javascript:void(0);" onclick="reprint2('<%=drug.getScript_no()%>')"><carlos:encode value='<%= drug.getRxDisplay() %>'/></a>
                                                         </div>
 
 
@@ -1042,7 +1063,7 @@ function renderRxStage() {
 																			<tr>
 																				<%if(show_current){%>
 																				<td >
-		                                                                            <a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('current', this);"
 		                                                                            	id="selected_default" style="color:#000000; text-decoration: none;"
 		                                                                            	TITLE="<fmt:message key='SearchDrug.msgShowCurrentDesc'/>">
 		                                                                            	<fmt:message key="SearchDrug.msgShowCurrent"/>
@@ -1050,21 +1071,21 @@ function renderRxStage() {
 	                                                                            </td>
 																				<%}if(show_all){%>
 	                                                                            <td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?show=all','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('all', this);"
 																						Title="<fmt:message key='SearchDrug.msgShowAllDesc'/>">
 																						<fmt:message key="SearchDrug.msgShowAll"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(active){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?status=active','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('active', this);"
 																						TITLE="<fmt:message key='SearchDrug.msgActiveDesc'/>">
 																						<fmt:message key="SearchDrug.msgActive"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(inactive){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?status=inactive','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('inactive', this);"
 																						TITLE="<fmt:message key='SearchDrug.msgInactiveDesc'/>">
 																						<fmt:message key="SearchDrug.msgInactive"/>
 																					</a>
@@ -1073,14 +1094,14 @@ function renderRxStage() {
 
 																				if(longterm_acute){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?longTermOnly=true&heading=Long Term Meds','drugProfile'); callAdditionWebService('/rx/ViewListDrugs?longTermOnly=acute&heading=Acute','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('longTermAcute', this);"
                                                                                    TITLE="<fmt:message key='SearchDrug.msgLongTermAcuteDesc'/>">
                                                                                     <fmt:message key="SearchDrug.msgLongTermAcute"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(longterm_acute_inactive_external){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?longTermOnly=true&heading=Long Term Meds','drugProfile'); callAdditionWebService('/rx/ViewListDrugs?longTermOnly=acute&heading=Acute&status=active','drugProfile');callAdditionWebService('/rx/ViewListDrugs?longTermOnly=acute&heading=Inactive&status=inactive','drugProfile');callAdditionWebService('/rx/ViewListDrugs?heading=External&drugLocation=external','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('combined', this);"
                                                                                    TITLE="<fmt:message key='SearchDrug.msgLongTermAcuteInactiveExternalDesc'/>">
                                                                                     <fmt:message key="SearchDrug.msgLongTermAcuteInactiveExternal"/>
 																					</a>
@@ -1208,6 +1229,7 @@ function renderRxStage() {
         <br/>
         <fmt:message key="oscarRx.discontinuedReason.msgComment"/><br/>
         <textarea id="disComment" rows="3" cols="45"></textarea><br/>
+        <p id="discontinueChanged" role="alert" hidden><fmt:message key="SearchDrug.discontinue.changed"/></p>
         <input type="button" onclick="document.getElementById('discontinueUI').style.display='none';" value="<fmt:message key="SearchDrug.discontinue.cancel"/>"/>
         <input type="button" onclick="Discontinue2(document.getElementById('disDrugId').value,document.getElementById('disReason').value,document.getElementById('disComment').value,document.getElementById('disDrug').textContent);" value="<fmt:message key="SearchDrug.discontinue.action"/>"/>
 
@@ -1303,7 +1325,7 @@ function renderRxStage() {
                     var json = null;
                     try { json = JSON.parse(transport.responseText); } catch(e) { checkboxRevertStatus(element); return; }
                     if (json != null && (json.success === 'true' || json.success === true)) {
-                        callReplacementWebService('/rx/ViewListDrugs','drugProfile');
+                        refreshDrugProfile();
                     } else {
                         checkboxRevertStatus(element);
                     }
@@ -1411,15 +1433,65 @@ function renderRxStage() {
              var url=ctx + "/rx/WriteScript?parameterValue=updateProperty";
              var el=document.getElementById(elementId);
              var data="";
-             if(elementId.match("prnVal_")!=null)
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
-             else if(elementId.match("repeats_")!=null)
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
+             var value;
+             if(elementId.match("prnVal_")!=null || elementId.match("repeats_")!=null)
+                 value=el.value;
              else
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.textContent);
+                 value=el.textContent;
+             // Only the field's latest edit decides its invalid state: a late answer to an older
+             // request must not clear or set it over a newer edit, including one refused here.
+             var version = (el.carlosPropertyVersion || 0) + 1;
+             el.carlosPropertyVersion = version;
+             // A Min/Max that is not a number is refused here, on the field, and the card keeps
+             // its staged dose; the server refuses it too (400, never the old HTTP 500) (#5003).
+             if (/^(minimum|maximum)_/.test(elementId) && !RxInputValidation.isDoseAmount(value)) {
+                 reportInvalidProperty(el, RxInputValidation.format(jsMsg.doseInvalid, value));
+                 return;
+             }
+             data="elementId="+elementId+"&propertyValue="+encodeURIComponent(value);
              data = data + "&rand="+Math.floor(Math.random()*10001);
-             CarlosAjax.request(url, {method: 'post',parameters:data});
+             CarlosAjax.request(url, {method: 'post',parameters:data,
+                 onSuccess: function () {
+                     // A corrected value was accepted: the field is no longer invalid.
+                     if (el.carlosPropertyVersion === version) el.removeAttribute('aria-invalid');
+                 },
+                 onFailure: function (transport) {
+                     var error = transport && transport.responseJSON ? transport.responseJSON.error : null;
+                     if (el.carlosPropertyVersion !== version && (error === 'INVALID_RX_DOSE' || error === 'INVALID_RX_REPEATS')) {
+                         return;
+                     }
+                     if (error === 'INVALID_RX_DOSE') {
+                         reportInvalidProperty(el, RxInputValidation.format(jsMsg.doseInvalid, value));
+                     } else if (error === 'INVALID_RX_REPEATS') {
+                         reportInvalidProperty(el, RxInputValidation.format(jsMsg.repeatsInvalid, value));
+                     } else {
+                         reportRefusedRequest(transport);
+                     }
+                 }});
          }
+    }
+
+    /**
+     * The card's optional pick-up date/time (#5002). Clearing either is a valid choice and saves
+     * as no pick-up, so a blank value raises nothing; checkDate.js's isValidDate/isValidTime
+     * alerted on it, and quoted a regular expression instead of the entry. A non-blank value
+     * that is not a real yyyy-mm-dd day / HH:MM time is named in the message and cleared, as
+     * before, so it cannot be saved.
+     */
+    function checkPickupField(el, kind) {
+        var result = kind === 'time' ? RxInputValidation.pickupTime(el.value) : RxInputValidation.pickupDate(el.value);
+        el.value = result.value;
+        if (!result.ok) {
+            alert(RxInputValidation.format(kind === 'time' ? jsMsg.pickupTimeInvalid : jsMsg.pickupDateInvalid, result.value));
+            el.value = '';
+        }
+    }
+
+    /** Marks a card field whose value was refused and tells the prescriber how to correct it. */
+    function reportInvalidProperty(el, message) {
+        el.className = 'highlight';
+        el.setAttribute('aria-invalid', 'true');
+        alert(message);
     }
     function lookNonEdittable(elementId){
         document.getElementById(elementId).className='';
@@ -1525,8 +1597,6 @@ function renderRxStage() {
           requestHeaders: { 'Accept': 'application/json' },
           evalScripts:true,
 					insertion: 'bottom', onSuccess: function (data) {
-                // updateCurrentInteractions();
-
 						// detect postback or page load.
 						if (data.responseText) {
 							renderRxStage();
@@ -1592,10 +1662,17 @@ function renderRxStage() {
         var data="favoriteId="+favoriteId+"&randomId="+randomId;
         var url= ctx + "/rx/useFavorite";
         data += "&parameterValue=useFav2";
+        // The favourite already carries its dosing, PRN and quantity. The card's own script calls
+        // calculateRxData while CarlosAjax inserts it, before onComplete, so the flag must be set
+        // before the request: set afterwards, the directions were re-parsed into the card and a
+        // saved PRN flag was cleared because the directions text does not say "prn" (#4996).
+        // The cards' scripts have all run by onComplete, so the flag is cleared there whatever the
+        // answer, and a later staged drug parses its directions as usual.
+        skipParseInstr = true;
         CarlosAjax.updater({success: 'rxText'},url, {method:'post',parameters:data,evalScripts:true,insertion: 'bottom',
             onComplete: function(transport) {
+                skipParseInstr = false;
                 if (transport.status >= 200 && transport.status < 300) {
-                    skipParseInstr = true;
                     renderRxStage();
                 }
             },
@@ -1631,18 +1708,19 @@ function renderRxStage() {
                   document.getElementById(del).style.textDecoration='line-through';
                   document.getElementById(discont).style.textDecoration='line-through';
                   document.getElementById(prescrip).style.textDecoration='line-through';
-		  // updateCurrentInteractions();
 							location.reload();
 
-						}
+						},
+						// A refused or failed delete leaves the drug on the profile; say so (no reload).
+						onFailure: reportRefusedDelete
 					});
         }
         return false;
     }
 
-   function checkAllergy(id,atcCode){
+   function checkAllergy(id,atcCode,din){
      const url = ctx + "/rx/showAllergy";
-     const data="method=allergyData&demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
+     const data="method=allergyData&demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&din="+encodeURIComponent(din || '')+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
      CarlosAllergyAlert.render(document, id, {pending: true});
      CarlosAjax.request(url, {method: 'post', postBody: data,
        requestHeaders: {'Accept': 'application/json'},
@@ -1723,6 +1801,7 @@ function renderRxStage() {
        document.getElementById('disDrug').textContent = drugName;
        document.getElementById('discontinueUI').style.display="";
        document.getElementById('disDrugId').value=id;
+       document.getElementById('discontinueChanged').hidden=true;
 
 
     }
@@ -1741,8 +1820,13 @@ function renderRxStage() {
                   document.getElementById('del_'+json.id).style.textDecoration='line-through';
                   document.getElementById('discont_'+json.id).textContent = json.reason;
                   document.getElementById('prescrip_'+json.id).style.textDecoration='line-through';
+                  // The discontinued drug no longer counts as a current medication.
+                  updateCurrentInteractions();
                     }, onFailure: function (transport) {
-                        if (transport && transport.responseJSON
+                        if (transport && transport.status === 409 && transport.responseJSON
+                                && transport.responseJSON.error === 'STALE_RX_DISCONTINUE') {
+                            document.getElementById('discontinueChanged').hidden=false;
+                        } else if (transport && transport.responseJSON
                                 && transport.responseJSON.error === 'INCOMPLETE_RX_DISCONTINUE') {
                             alert(jsMsg.discontinueIncomplete);
                         } else {
@@ -1896,42 +1980,73 @@ function popForm2(scriptId, saveAndPrint){
         }
     }
 
-     function callAdditionWebService(url,id){
-         var contextPath = '${carlos:forJavaScript(ctx)}';
-         if (url.indexOf(contextPath) !== 0) {
-             // url typically begins with '/rx/...' (already context-relative).
-             // Only prepend contextPath; don't double-stack '/rx/'.
-             url = contextPath + (url.charAt(0) === '/' ? url : '/rx/' + url);
-         }
-         var ran_number=Math.round(Math.random()*1000000);
-         var params = "demographicNo=<%=demoNo%>&rand="+ran_number;  //hack to get around ie caching the page
-         var updater=CarlosAjax.updater(id,url, {method:'get',parameters:params,insertion: 'bottom',evalScripts:true});
-     }
+    var drugProfile = document.getElementById('drugProfile');
+    var rxProfileLoader = RxProfileLoader.create({
+        updater: CarlosAjax.updater,
+        url: '${carlos:forJavaScript(ctx)}/rx/ViewListDrugs',
+        demographicNo: '<%=demoNo%>',
+        loading: function (loading) {
+            drugProfile.hidden = loading;
+            drugProfile.setAttribute('aria-busy', String(loading));
+        },
+        failed: function () { drugProfile.textContent = jsMsg.profileLoadFailed; }
+    });
 
-			function callReplacementWebService(url, id) {
-            var contextPath = '${carlos:forJavaScript(ctx)}';
-            if (url.indexOf(contextPath) !== 0) {
-                // url typically begins with '/rx/...' (already context-relative).
-                // Only prepend contextPath; don't double-stack '/rx/'.
-                url = contextPath + (url.charAt(0) === '/' ? url : '/rx/' + url);
-            }
-				var ran_number = Math.round(Math.random() * 1000000);
-				// alert(url + "  " + id + "  " + ran_number);
-				var params = "demographicNo=<%=demoNo%>&rand=" + ran_number;  //hack to get around ie caching the page
-            var updater = CarlosAjax.updater(id, url, {method: 'get', parameters: params, evalScripts: true});
+    function selectDrugProfile(view, link) {
+        CngClass(link);
+        rxProfileLoader.select(view);
+    }
+
+    function refreshDrugProfile() {
+        rxProfileLoader.refresh();
+    }
+
+    refreshDrugProfile();
+
+    // Drug-drug interaction markers on the staged cards (#4506). Every way a card is staged or
+    // removed changes #rxText, so one observer re-checks after each of them; the check runs
+    // against the cards the server holds for this patient and their current medications.
+    var rxInteractionCheck = RxInteractionWarnings.create({
+        document: document,
+        url: ctx + '/rx/interactionWarnings?demographicNo=<%=demoNo%>',
+        fetch: window.fetch.bind(window),
+        setTimeout: window.setTimeout.bind(window),
+        clearTimeout: window.clearTimeout.bind(window)
+    });
+
+    function updateCurrentInteractions() {
+        rxInteractionCheck.schedule();
+    }
+
+    RxInteractionWarnings.watch(document.getElementById('rxText'), updateCurrentInteractions, window.MutationObserver);
+
+
+			// DrugRef answers a search with no match with one placeholder row, "None found", whose id is 0.
+			// It becomes a translated note that cannot be picked; every other row is a product.
+			function toDrugSearchItem(item, keyword) {
+				if (String(item.id) === '0') {
+					return {label: jsMsg.drugSearchNoMatch, value: '', id: null, noMatch: true, keyword: keyword};
+				}
+				return {
+					label: item.name,
+					value: item.description,
+					id: item.id,
+					active: item.isInactive,
+					keyword: keyword
+				};
 			}
-
-			//callReplacementWebService("/rx/ViewInteractionDisplay",'interactionsRx');
-			callReplacementWebService("/rx/ViewListDrugs", 'drugProfile');
-
 
 			function searchResultsHandler(type, args) {
 
 				var url = ctx + "/rx/WriteScript";
 				var ran_number = Math.round(Math.random() * 1000000);
+				// This page's own patient (the bean authorised for this request). The EL name
+				// demographicNo used here before resolved from session scope on routes that set no
+				// attribute of that name, i.e. to the patient of the last waiting-list, registry or
+				// allergy page in any window, and the drug was then staged for that patient (#4673).
 				var params = "parameterValue=createNewRx"
 					+ "&demographicNo="
-					+ "${ demographicNo }"
+					+ "<%= demoNo %>"
 					+ "&drugId="
 					+ encodeURIComponent(args.id)
 					+ "&text="
@@ -2017,13 +2132,7 @@ function popForm2(scriptId, saveAndPrint){
 						jQuery.each(cache, function (key, data) {
 							if (term.indexOf(key) === 0 && data.length > 0) {
 								response(jQuery.map(cache.results, function (item) {
-									return {
-										label: item.name,
-										value: item.description,
-										id: item.id,
-										active: item.isInactive,
-										keyword: request.term
-									};
+									return toDrugSearchItem(item, request.term);
 								}))
 
 								foundInCache = true;
@@ -2054,13 +2163,7 @@ function popForm2(scriptId, saveAndPrint){
 								setDrugSearchAlert(null);
 
 								response(jQuery.map(data.results, function (item) {
-									return {
-										label: item.name,
-										value: item.description,
-										id: item.id,
-										active: item.isInactive,
-										keyword: request.term
-									};
+									return toDrugSearchItem(item, request.term);
 								}))
 							},
 							// Without this the search failed silently: dataType "json" means any
@@ -2099,6 +2202,11 @@ function popForm2(scriptId, saveAndPrint){
 					},
 					select: function (event, ui) {
 						event.preventDefault();
+						// The arrow keys can highlight the no-match note and Enter selects it, so refuse it here:
+						// it stages nothing and keeps the typed text.
+						if (ui.item.noMatch) {
+							return;
+						}
 						searchResultsHandler(null, ui.item);
 						jQuery('#searchString').val("");
 					},
@@ -2112,6 +2220,13 @@ function popForm2(scriptId, saveAndPrint){
 					}
 
 				}).data("ui-autocomplete")._renderItem = function (ul, item) {
+					if (item.noMatch) {
+						// ui-state-disabled: the menu ignores a click on it. No link, so nothing looks pickable.
+						return jQuery("<li class='ui-state-disabled'></li>")
+							.data("item.autocomplete", item)
+							.append(jQuery("<div></div>").text(item.label))
+							.appendTo(ul);
+					}
 					var inactivedrug = item.active ? " inactiveDrug" : "";
 					return jQuery("<li></li>")
 						.data("item.autocomplete", item)
@@ -2136,8 +2251,9 @@ function addFav(randomId,brandName){
         var url= ctx + "/rx/addFavorite2";
         var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
         CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
-              // Reload this window's patient, not the most recently opened Rx patient (#3875).
-              window.location.href = RxPatientContext.withPatient(ctx + "/rx/searchDrug");
+              // Return to this patient's prescribing cards; searchDrug renders the legacy
+              // search results instead (#5248).
+              window.location.href = RxPatientContext.withPatient(ctx + "/rx/choosePatient");
    }
 					})
 }
@@ -2279,6 +2395,10 @@ function reportRefusedRequest() {
     alert(jsMsg.requestRefused);
 }
 
+function reportRefusedDelete() {
+    alert(jsMsg.deleteRefused);
+}
+
 //represcribe a drug
 function represcribe(element, toArchive){
 
@@ -2304,9 +2424,7 @@ function represcribe(element, toArchive){
         var url= ctx + "/rx/rePrescribe2";
         data += "&method=represcribe2&rand="+Math.floor(Math.random()*10001);
         CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'post',parameters:data,evalScripts:true,
-            insertion: 'bottom',onSuccess:function(transport){
-                // updateCurrentInteractions();
-            }});
+            insertion: 'bottom'});
 
    }
 }
@@ -2813,6 +2931,14 @@ function updateQty(element){
                     x = false;
                     return;
                 }
+                // The day-range check let 2026-02-31 through; the save then stored 2026-03-03,
+                // a date the prescriber never entered (#5003). Refuse it and keep the card.
+                if (!RxInputValidation.fullDateIsReal(str1)) {
+                    jQuery(this).focus();
+                    alert(RxInputValidation.format(jsMsg.dateNotOnCalendar, str1));
+                    x = false;
+                    return;
+                }
             }
             var date1 = new Date(yr1, mon1, dt1);
             var now  = new Date();
@@ -2887,7 +3013,8 @@ function updateQty(element){
         const statusMessage = count === 1
             ? CONFIRMATION_MESSAGE.SINGLE
             : CONFIRMATION_MESSAGE.MULTIPLE(count);
-        return "There " + statusMessage + ".\n" + SAVE_WARNING + "\n" + SAVE_PROMPT;
+        // Each locale's key is the whole first sentence; a word added here would stay in English.
+        return statusMessage + "\n" + SAVE_WARNING + "\n" + SAVE_PROMPT;
     }
 
 <%--	<%--%>
@@ -2914,14 +3041,18 @@ function updateQty(element){
 		}
 		<%}%>
 		setPharmacyId();
-        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString();
+        // The search box is not prescription data; submitting it again can trigger
+        // WAF signatures even though the staged drug's name has a prose exclusion.
+        var saveFields = new FormData(document.getElementById('drugForm'));
+        saveFields.delete('searchString');
+        var data=new URLSearchParams(saveFields).toString();
         var url= ctx + "/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
             onSuccess:function(transport){
 
-                callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
+                refreshDrugProfile();
                 const hasDrugs = jQuery("[id^='drugName_']").length > 0;
                 if (hasDrugs) {
                     openSavedPrescriptionPreview(transport);
@@ -2950,7 +3081,11 @@ function updateQty(element){
 		}
 		<%}%>		
 		setPharmacyId();
-        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString() + '&clearSaved=true';
+        // The search box is not prescription data; submitting it again can trigger
+        // WAF signatures even though the staged drug's name has a prose exclusion.
+        var saveFields = new FormData(document.getElementById('drugForm'));
+        saveFields.delete('searchString');
+        var data=new URLSearchParams(saveFields).toString() + '&clearSaved=true';
         var url= ctx + "/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,synchronous:true,
@@ -2964,7 +3099,7 @@ function updateQty(element){
                     reportRefusedSave(transport);
                     return;
                 }
-                callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
+                refreshDrugProfile();
                 clearStashDisplay();
             },
             onFailure: reportRefusedSave});
@@ -2985,6 +3120,14 @@ function updateQty(element){
             alert(jsMsg.staleDraft);
         } else if (transport && transport.status === 409) {
             alert(jsMsg.saveRefused);
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'INVALID_RX_DATE') {
+            // The server refused a written/start date that is not a real day (#5003); the cards
+            // stay staged, so point at the field to correct.
+            var badDate = jQuery('input[name^="writtenDate_"], input[name^="rxDate_"]').filter(function () {
+                return !RxInputValidation.fullDateIsReal(this.value);
+            }).first();
+            alert(RxInputValidation.format(jsMsg.dateNotOnCalendar, badDate.length ? badDate.val() : ''));
+            if (badDate.length) badDate.focus();
         } else {
             alert(jsMsg.saveRefused + ' (HTTP ' + (transport ? transport.status : '?') + ')');
         }

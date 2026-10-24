@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -168,11 +169,17 @@
             <form action="${pageContext.request.contextPath}/report/DxresearchReport?method=addSearchCode" method="post" accept-charset="UTF-8">
                 <div class="row">
                     <input type="hidden" name="action" value="NA"/>
-                    <select name="quicklistname" class="sel">
+                    <label for="dxQuickListName" class="visually-hidden">Add Dx QuickList</label>
+                    <%-- One-shot Add control: whatever it holds is posted with every Add, a single
+                         code included, so it always renders on the empty placeholder. It reads
+                         dxReportQuickLists, which the action builds for every render; the patient
+                         Disease Registry's session allQuickLists marks a default list and must not
+                         reach this page (#4547). --%>
+                    <select name="quickListName" class="sel" id="dxQuickListName">
                         <option value="">Add Dx QuickList</option>
-                        <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
-                            <option value="${quickLists.quickListName}" ${quickLists.lastUsed}>
-                                ${quickLists.quickListName}
+                        <c:forEach var="quickLists" items="${dxReportQuickLists.dxQuickListBeanVector}">
+                            <option value="${carlos:forHtmlAttribute(quickLists.quickListName)}">
+                                ${carlos:forHtml(quickLists.quickListName)}
                             </option>
                         </c:forEach>
                     </select>

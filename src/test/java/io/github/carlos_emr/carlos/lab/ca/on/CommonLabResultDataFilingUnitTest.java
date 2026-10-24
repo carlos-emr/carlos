@@ -33,6 +33,7 @@ class CommonLabResultDataFilingUnitTest extends CarlosUnitTestBase {
     final SecurityInfoManager security = mock(SecurityInfoManager.class);
     final QueueDocumentLinkDao queues = mock(QueueDocumentLinkDao.class);
     final DocumentDao documents = mock(DocumentDao.class);
+    final ProviderLabRoutingDao routingDao = mock(ProviderLabRoutingDao.class);
     final LoggedInInfo info = mock(LoggedInInfo.class);
     final Map<String, Object> originals = new LinkedHashMap<>();
     JdbcTemplate jdbc;
@@ -44,12 +45,13 @@ class CommonLabResultDataFilingUnitTest extends CarlosUnitTestBase {
     @BeforeEach void fixture() {
         registerMock(SecurityInfoManager.class, security);
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
-        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        registerMock(ProviderLabRoutingDao.class, routingDao);
         registerMock(QueueDocumentLinkDao.class, queues);
         registerMock(DocumentDao.class, documents);
-        for (String field : new String[]{"securityInfoManager", "queueDocumentLinkDao"}) {
+        for (String field : new String[]{"securityInfoManager", "queueDocumentLinkDao", "providerLabRoutingDao"}) {
             originals.put(field, ReflectionTestUtils.getField(CommonLabResultData.class, field));
         }
+        ReflectionTestUtils.setField(CommonLabResultData.class, "providerLabRoutingDao", routingDao);
         ReflectionTestUtils.setField(CommonLabResultData.class, "securityInfoManager", security);
         ReflectionTestUtils.setField(CommonLabResultData.class, "queueDocumentLinkDao", queues);
         when(info.getLoggedInProviderNo()).thenReturn("991001");
@@ -201,4 +203,65 @@ class CommonLabResultDataFilingUnitTest extends CarlosUnitTestBase {
                 .isInstanceOfSatisfying(CommonLabResultData.FilingFailure.class, failure -> assertThat(failure.accepted()).isTrue());
         assertThat(routing(42, "DOC")).isEqualTo("F"); assertThat(queue(1)).isEqualTo("I");
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldCommitOrRollbackAllCmlVersions_whenFilingFailsOnLaterVersion(boolean fail) {
+        jdbc.execute("INSERT INTO owned_routing VALUES(41,'CML','N'),(42,'CML','N')");
+        AtomicInteger writes = new AtomicInteger();
+        afterProviderWrite = () -> { if (writes.incrementAndGet() == 2 && fail) throw new IllegalStateException("injected failure"); };
+        ArrayList<String[]> selected = new ArrayList<>(); selected.add(new String[]{"42", "CML"});
+        try (var construction = mockConstruction(CommonLabResultData.class,
+                (bean, context) -> when(bean.getMatchingLabsForMutation("42", "CML")).thenReturn("41,42"))) {
+            if (fail) assertThatThrownBy(() -> CommonLabResultData.fileLabs(selected, "991001"))
+                    .isInstanceOf(CommonLabResultData.FilingFailure.class);
+            else assertThat(CommonLabResultData.fileLabs(selected, "991001")).isTrue();
+        }
+        assertThat(routing(41, "CML")).isEqualTo(fail ? "N" : "F");
+        assertThat(routing(42, "CML")).isEqualTo(fail ? "N" : "F");
+    }
+
+    @Test void shouldRefuseWholeBatchBeforeWriting_whenCmlChainIsAmbiguous() {
+        ArrayList<String[]> selected = selections("42"); selected.add(new String[]{"99", "CML"});
+        try (var construction = mockConstruction(CommonLabResultData.class,
+                (bean, context) -> when(bean.getMatchingLabsForMutation("99", "CML"))
+                        .thenThrow(new IllegalStateException("ambiguous chain")))) {
+            assertThatThrownBy(() -> CommonLabResultData.fileLabs(selected, info)).isInstanceOf(IllegalStateException.class);
+        }
+        assertThat(routing(42, "DOC")).isEqualTo("N");
+        assertThat(queue(1)).isEqualTo("A");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldCommitOrRollbackWholeForward_whenLaterVersionFails(boolean fail) {
+        jdbc.execute("CREATE TABLE forwarded(id INT PRIMARY KEY)");
+        ArrayList<String[]> selected = new ArrayList<>(); selected.add(new String[]{"42", "CML"});
+        try (var lookup = mockConstruction(CommonLabResultData.class,
+                (bean, context) -> when(bean.getMatchingLabsForMutation("42", "CML")).thenReturn("41,42"));
+             var routing = mockConstruction(io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting.class,
+                (bean, context) -> doAnswer(call -> {
+                    int id = call.getArgument(0);
+                    jdbc.update("INSERT INTO forwarded VALUES(?)", id);
+                    if (fail && id == 42) throw new IllegalStateException("injected failure");
+                    return null;
+                }).when(bean).routeMagic(anyInt(), anyString(), eq("CML")))) {
+            assertThat(CommonLabResultData.updateLabRouting(selected, new String[]{"991002"})).isEqualTo(!fail);
+        }
+        assertThat(jdbc.queryForList("SELECT id FROM forwarded ORDER BY id", Integer.class))
+                .containsExactlyElementsOf(fail ? java.util.List.of() : java.util.List.of(41, 42));
+    }
+
+    @Test void shouldRefuseForwardBeforeWriting_whenLaterSelectedChainIsAmbiguous() {
+        ArrayList<String[]> selected = new ArrayList<>();
+        selected.add(new String[]{"42", "DOC"}); selected.add(new String[]{"99", "CML"});
+        try (var lookup = mockConstruction(CommonLabResultData.class, (bean, context) -> {
+                when(bean.getMatchingLabs("42", "DOC")).thenReturn("42");
+                when(bean.getMatchingLabsForMutation("99", "CML")).thenThrow(new IllegalStateException("ambiguous chain"));
+             });
+             var routing = mockConstruction(io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting.class)) {
+            assertThat(CommonLabResultData.updateLabRouting(selected, new String[]{"991002"})).isFalse();
+            assertThat(routing.constructed()).isEmpty();
+        }
+    }
+
 }

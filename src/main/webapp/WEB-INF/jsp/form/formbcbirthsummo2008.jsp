@@ -57,6 +57,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties"
              scope="session"/>
 
@@ -260,14 +261,14 @@
         }
 
         function syncDemo() {
-            document.forms[0].c_surname.value = "<%=props.getProperty("c_surname_cur", "")%>";
-            document.forms[0].c_givenName.value = "<%=props.getProperty("c_givenName_cur", "")%>";
-            document.forms[0].c_address.value = "<%=props.getProperty("c_address_cur", "")%>";
-            document.forms[0].c_city.value = "<%=props.getProperty("c_city_cur", "")%>";
-            document.forms[0].c_province.value = "<%=props.getProperty("c_province_cur", "")%>";
-            document.forms[0].c_postal.value = "<%=props.getProperty("c_postal_cur", "")%>";
-            document.forms[0].c_phn.value = "<%=props.getProperty("c_phn_cur", "")%>";
-            document.forms[0].c_phone.value = "<%=props.getProperty("c_phone_cur", "")%>";
+            document.forms[0].c_surname.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_surname_cur", ""))%>";
+            document.forms[0].c_givenName.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_givenName_cur", ""))%>";
+            document.forms[0].c_address.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_address_cur", ""))%>";
+            document.forms[0].c_city.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_city_cur", ""))%>";
+            document.forms[0].c_province.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_province_cur", ""))%>";
+            document.forms[0].c_postal.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_postal_cur", ""))%>";
+            document.forms[0].c_phn.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_phn_cur", ""))%>";
+            document.forms[0].c_phone.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_phone_cur", ""))%>";
         }
 
         /**
@@ -556,9 +557,9 @@
     -->
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
     <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
@@ -609,7 +610,7 @@
                                         <td width="40%" rowspan="2" valign="top"><fmt:message key='form.bcbirthsummo.newbornIdNumber'/><br>
                                             <input type="text" name="c_newBornID" style="width: 100%"
                                                    size="30" maxlength="30"
-                                                   value="<%= props.getProperty("c_newBornID", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_newBornID", "")) %>"
                                                    @oscar.formDB/></td>
                                         <td width="20%" valign="top"><input type="checkbox"
                                                                             name="singleton"
@@ -637,10 +638,10 @@
                                     <tr>
                                         <td colspan="3"><fmt:message key='form.bcbirthsummo.gestAge'/> <input type="text" name="gestAge"
                                                                           size="5" maxlength="5"
-                                                                          value="<%= props.getProperty("gestAge", "") %>"
+                                                                          value="<%= SafeEncode.forHtmlAttribute(props.getProperty("gestAge", "")) %>"
                                                                           @oscar.formDB/>
                                             <fmt:message key='form.bcbirthsummo.wks'/> <input type="text" name="gestWks" size="5" maxlength="5"
-                                                        value="<%= props.getProperty("gestWks", "") %>" @oscar.formDB/>
+                                                        value="<%= SafeEncode.forHtmlAttribute(props.getProperty("gestWks", "")) %>" @oscar.formDB/>
                                         </td>
                                     </tr>
                                 </table>
@@ -653,23 +654,23 @@
                                 <br>
                                 <b>G&nbsp;</b><input type="text"
                                                      name="pg1_gravida" size="4" maxlength="4"
-                                                     value="<%= props.getProperty("pg1_gravida", "") %>" @oscar.formDB/>
+                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_gravida", "")) %>" @oscar.formDB/>
                                 <b>T&nbsp;</b><input type="text"
                                                      name="pg1_term" size="3" maxlength="4"
-                                                     value="<%= props.getProperty("pg1_term", "") %>" @oscar.formDB/>
+                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_term", "")) %>" @oscar.formDB/>
                                 <b>P&nbsp;</b><input type="text"
                                                      name="pg1_preterm" size="3" maxlength="4"
-                                                     value="<%= props.getProperty("pg1_preterm", "") %>" @oscar.formDB/>
+                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_preterm", "")) %>" @oscar.formDB/>
                                 <b>A&nbsp;</b><input type="text"
                                                      name="pg1_abortion" size="3" maxlength="3"
-                                                     value="<%= props.getProperty("pg1_abortion", "") %>"
+                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_abortion", "")) %>"
                                                      @oscar.formDB/>
                                 <b>L&nbsp;</b><input type="text"
                                                      name="pg1_living" size="3" maxlength="3"
-                                                     value="<%= props.getProperty("pg1_living", "") %>"
+                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_living", "")) %>"
                                                      @oscar.formDB/><br>
                                 <b>EDD&nbsp;</b><input type="text" name="pg1_EDD" id="pg1_EDD" size="11" maxlength="11"
-                                                       value="<%= props.getProperty("pg1_EDD", "") %>" @oscar.formDB/>
+                                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_EDD", "")) %>" @oscar.formDB/>
                                 <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg1_EDD_cal">
                             </td>
                         </tr>
@@ -685,52 +686,52 @@
                                 <br>
                                 <input type="text" name="pg1_formDate" id="pg1_formDate"
                                        style="width: 100%" size="10" maxlength="10"
-                                       value="<%= props.getProperty("pg1_formDate", "") %>" @oscar.formDB
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_formDate", "")) %>" @oscar.formDB
                                        dbType="date"/></td>
                             <td><fmt:message key='form.bcbirthsummo.motherIdNumber'/><br>
                                 <input type="text" name="pg1_motherID" style="width: 100%"
                                        size="15" maxlength="20"
-                                       value="<%= props.getProperty("pg1_motherID", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_motherID", "")) %>" @oscar.formDB/>
                             </td>
                         </tr>
                         <tr>
                             <td><fmt:message key='form.bcbirthsummo.surname'/><br>
                                 <input type="text" name="c_surname" style="width: 100%" size="30"
-                                       maxlength="30" value="<%= props.getProperty("c_surname", "") %>"
+                                       maxlength="30" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_surname", "")) %>"
                                        @oscar.formDB/></td>
                             <td><fmt:message key='form.bcbirthsummo.givenName'/><br>
                                 <input type="text" name="c_givenName" style="width: 100%" size="30"
-                                       maxlength="30" value="<%= props.getProperty("c_givenName", "") %>"
+                                       maxlength="30" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_givenName", "")) %>"
                                        @oscar.formDB/></td>
                         </tr>
                         <tr>
                             <td><fmt:message key='form.bcbirthsummo.address'/><br>
                                 <input type="text" name="c_address" style="width: 100%" size="50"
-                                       maxlength="60" value="<%= props.getProperty("c_address", "") %>"
+                                       maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_address", "")) %>"
                                        @oscar.formDB/> <input type="text" name="c_city"
                                                               style="width: 100%" size="50" maxlength="60"
-                                                              value="<%= props.getProperty("c_city", "") %>"
+                                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_city", "")) %>"
                                                               @oscar.formDB/> <input
                                         type="text" name="c_province" size="18" maxlength="50"
-                                        value="<%= props.getProperty("c_province", "") %>" @oscar.formDB/>
+                                        value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_province", "")) %>" @oscar.formDB/>
                                 <input type="text" name="c_postal" size="7" maxlength="8"
-                                       value="<%= props.getProperty("c_postal", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_postal", "")) %>" @oscar.formDB/>
                             </td>
                             <td valign="top"><fmt:message key='form.bcbirthsummo.phoneNumber'/><br>
                                 <input type="text" name="c_phone" style="width: 100%" size="60"
-                                       maxlength="60" value="<%= props.getProperty("c_phone", "") %>"
+                                       maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phone", "")) %>"
                                        @oscar.formDB/></td>
                         </tr>
                         <tr>
                             <td><fmt:message key='form.bcbirthsummo.personalHealthNumber'/><br>
                                 <input type="text" name="c_phn" style="width: 100%" size="20"
-                                       maxlength="20" value="<%= props.getProperty("c_phn", "") %>"
+                                       maxlength="20" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phn", "")) %>"
                                        @oscar.formDB/></td>
                             <td><span class="small9"> <a href=#
-                                                         onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup?fieldname=c_phyMid'); return false;">PHYSICIAN
+                                                         onClick="popupFixedPage(600, 300, 'form/formbcarpg1namepopup?fieldname=c_phyMid'); return false;">PHYSICIAN
 					/ MIDWIFE NAME</a></span><br>
                                 <input type="text" name="c_phyMid" style="width: 100%" size="30"
-                                       maxlength="60" value="<%= props.getProperty("c_phyMid", "") %>"
+                                       maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phyMid", "")) %>"
                                        @oscar.formDB/></td>
                         </tr>
                     </table>
@@ -770,10 +771,10 @@
                                        @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.other'/>
 
                                 <input type="text" name="labOther1" style="size=" 15" maxlength="40"
-                                value="<%= props.getProperty("labOther1", "") %>" @oscar.formDB /> &nbsp;<fmt:message key='form.bcbirthsummo.indication'/>
+                                value="<%= SafeEncode.forHtmlAttribute(props.getProperty("labOther1", "")) %>" @oscar.formDB /> &nbsp;<fmt:message key='form.bcbirthsummo.indication'/>
 
                                 <input type="text" name="labIndication1" style="size=" 20" maxlength="40"
-                                value="<%= props.getProperty("labIndication1", "") %>" @oscar.formDB />
+                                value="<%= SafeEncode.forHtmlAttribute(props.getProperty("labIndication1", "")) %>" @oscar.formDB />
 
                             </td>
                         </tr>
@@ -805,19 +806,19 @@
                                         <%= props.getProperty("labProstaglandin2", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.prostaglandinInserted'/>&nbsp;
                                 <input type="text" name="labNumInserted" size="2" maxlength="2"
-                                       value="<%= props.getProperty("labNumInserted", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("labNumInserted", "")) %>" @oscar.formDB/>
 
                                 <input type="checkbox" name="labOtherChk2"
                                         <%= props.getProperty("labOtherChk2", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/> <span class="small9"> <fmt:message key='form.bcbirthsummo.other'/> </span>
                                 <input type="text" name="labOther2" style="size=" 15" maxlength="60"
-                                value="<%= props.getProperty("labOther2", "") %>" @oscar.formDB />
+                                value="<%= SafeEncode.forHtmlAttribute(props.getProperty("labOther2", "")) %>" @oscar.formDB />
 
                                 <span class="small9"> &nbsp;<fmt:message key='form.bcbirthsummo.primaryIndication'/></span>
 
 
                                 <input type="text" name="labIndication2" style="size=" 50" maxlength="80"
-                                value="<%= props.getProperty("labIndication2", "") %>" @oscar.formDB />
+                                value="<%= SafeEncode.forHtmlAttribute(props.getProperty("labIndication2", "")) %>" @oscar.formDB />
 
                             </td>
                         </tr>
@@ -879,7 +880,7 @@
 						<fmt:message key='form.bcbirthsummo.indicationForEfm'/>
 						<input type="text"
                                name="labIndicationEFM" size="20" maxlength="20"
-                               value="<%= props.getProperty("labIndicationEFM", "") %>"
+                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("labIndicationEFM", "")) %>"
                                @oscar.formDB/>
 								
 						
@@ -894,10 +895,10 @@
 					
 						LOWEST: pH <input type="text"
                                           name="labFetalBldPh" size="10" maxlength="10"
-                                          value="<%= props.getProperty("labFetalBldPh", "") %>"
+                                          value="<%= SafeEncode.forHtmlAttribute(props.getProperty("labFetalBldPh", "")) %>"
                                           @oscar.formDB/> Base Excess <input type="text" name="labFetalBldBe"
                                                                              size="10" maxlength="10"
-                                                                             value="<%= props.getProperty("labFetalBldBe", "") %>"
+                                                                             value="<%= SafeEncode.forHtmlAttribute(props.getProperty("labFetalBldBe", "")) %>"
                                                                              @oscar.formDB/> </span></td>
                         </tr>
                         <tr>
@@ -926,7 +927,7 @@
                                     <br>
                                     <fmt:message key='form.bcbirthsummo.otherPresentation'/> (<fmt:message key='form.bcbirthsummo.specify'/>) <input type="text" name="labOtherPresentation"
                                                                          style="size=" 50" maxlength="80"
-                                    value="<%= props.getProperty("labOtherPresentation", "") %>" @oscar.formDB />
+                                    value="<%= SafeEncode.forHtmlAttribute(props.getProperty("labOtherPresentation", "")) %>" @oscar.formDB />
                                 </td>
 
                                 <td width="33%">
@@ -951,7 +952,7 @@
                                            name="AnalgesiaOther" <%= props.getProperty("AnalgesiaOther", "") %>
                                            @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.other'/> &nbsp;
                                     <input type="text" name="AnalgesiaOthertext" size="10" maxlength="10"
-                                           value="<%= props.getProperty("AnalgesiaOthertext", "") %>" @oscar.formDB/>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("AnalgesiaOthertext", "")) %>" @oscar.formDB/>
 
                                     <br>
                                     <fmt:message key='form.bcbirthsummo.labour'/> <input type="checkbox"
@@ -986,7 +987,7 @@
                                            name="ProphylacticIntrapartum" <%= props.getProperty("ProphylacticIntrapartum", "") %>
                                            @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.intrapartumDoses'/> &nbsp;
                                     <input type="text" name="ProphylacticIntrapartumDoses" size="10" maxlength="10"
-                                           value="<%= props.getProperty("ProphylacticIntrapartumDoses", "") %>"
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ProphylacticIntrapartumDoses", "")) %>"
                                            @oscar.formDB/><br>
                                     <input type="checkbox"
                                            name="ProphylacticIntraoperative" <%= props.getProperty("ProphylacticIntraoperative", "") %>
@@ -995,7 +996,7 @@
                                            name="ProphylacticOther" <%= props.getProperty("ProphylacticOther", "") %>
                                            @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.other'/> &nbsp;
                                     <input type="text" name="ProphylacticOtherText" size="10" maxlength="10"
-                                           value="<%= props.getProperty("ProphylacticOtherText", "") %>" @oscar.formDB/>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ProphylacticOtherText", "")) %>" @oscar.formDB/>
                                 </td>
 
                         </tr>
@@ -1022,7 +1023,7 @@
                             <td colspan="4" nowrap>
                                 <fmt:message key='form.bcbirthsummo.fetalPositionAtOnsetOfLabour'/>
                                 <input type="text" name="delFetalPosLab" size="30" maxlength="40"
-                                       value="<%= props.getProperty("delFetalPosLab", "") %>" @oscar.formDB/> <br>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delFetalPosLab", "")) %>" @oscar.formDB/> <br>
                                 <fmt:message key='form.bcbirthsummo.fetalPositionAtDelivery'/>&nbsp;&nbsp;
                                 <input type="checkbox" name="delOA" <%= props.getProperty("delOA", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/>OA &nbsp;
@@ -1031,7 +1032,7 @@
                                 <input type="checkbox" name="delOther" <%= props.getProperty("delOther", "") %>
                                        @oscar.formDB dbType="tinyint(1)"/><fmt:message key='form.bcbirthsummo.otherPresentation'/> &nbsp;
                                 <input type="text" name="delOtherText" size="20" maxlength="20"
-                                       value="<%= props.getProperty("delOtherText", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delOtherText", "")) %>" @oscar.formDB/>
                                 <br>
                                 <input type="checkbox" name="delSvd" <%= props.getProperty("delSvd", "") %>
                                        @oscar.formDB dbType="tinyint(1)"/> SVD &nbsp;
@@ -1099,7 +1100,7 @@
                                 <input type="checkbox" name="delRepeat" <%= props.getProperty("delRepeat", "") %>
                                        @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.repeat'/>:
                                 CS #<input type="text" name="delCesSectNo" size="6" maxlength="20"
-                                           value="<%= props.getProperty("delCesSectNo", "") %>" @oscar.formDB/>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delCesSectNo", "")) %>" @oscar.formDB/>
                             </td>
                         </tr>
                         <tr>
@@ -1107,7 +1108,7 @@
                                 <br>
                                 &nbsp;&nbsp;<fmt:message key='form.bcbirthsummo.primaryIndication'/> <input type="text" name="delPrimaryIndication" size="30"
                                                                        maxlength="40"
-                                                                       value="<%= props.getProperty("delPrimaryIndication", "") %>"
+                                                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delPrimaryIndication", "")) %>"
                                                                        @oscar.formDB/><br>
                                 &nbsp;&nbsp;<input type="checkbox"
                                                    name="delElective" <%= props.getProperty("delElective", "") %>
@@ -1123,17 +1124,17 @@
                             <td nowrap>
                                 <fmt:message key='form.bcbirthsummo.decisionAt'/>
                                 <input type="text" name="delDecisionDate" id="delDecisionDate" size="10" maxlength="10"
-                                       value="<%= props.getProperty("delDecisionDate", "") %>" @oscar.formDB/><img
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delDecisionDate", "")) %>" @oscar.formDB/><img
                                     src="<%= request.getContextPath() %>/images/cal.gif" id="delDecisionDate_cal">
                             </td>
                             <td>
                                 <input type="text" name="delDecisionHrs" size="5" maxlength="5"
-                                       value="<%= props.getProperty("delDecisionHrs", "") %>" @oscar.formDB/>hrs
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delDecisionHrs", "")) %>" @oscar.formDB/>hrs
                             </td>
 
                             <td>
                                 <input type="text" name="delDecisionCM" size="5" maxlength="5"
-                                       value="<%= props.getProperty("delDecisionCM", "") %>" @oscar.formDB/>cm
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delDecisionCM", "")) %>" @oscar.formDB/>cm
                             </td>
                         </tr>
                         <tr>
@@ -1154,7 +1155,7 @@
                             <td nowrap>
                                 <fmt:message key='form.bcbirthsummo.maternalPositionAtDelivery'/>:<br>
                                 <input type="text" name="delDecisionMaternalPosition" size="30" maxlength="30"
-                                       value="<%= props.getProperty("delDecisionMaternalPosition", "") %>"
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delDecisionMaternalPosition", "")) %>"
                                        @oscar.formDB/>
 
                             </td>
@@ -1261,7 +1262,7 @@
                                             <fmt:message key='form.bcbirthsummo.abnormalitiesComplications'/>:<br>
                                             <input type="text" name="delCordAbormalitiesComplications" size="20"
                                                    maxlength="20"
-                                                   value="<%= props.getProperty("delCordAbormalitiesComplications", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delCordAbormalitiesComplications", "")) %>"
                                                    @oscar.formDB/>
 
                                         </td>
@@ -1316,7 +1317,7 @@
                                                    name="delPerOthTrau" <%= props.getProperty("delPerOthTrau", "") %>
                                                    @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.otherTrauma'/>:
                                             <input type="text" name="delPerOthTrauSpec" size="12" maxlength="60"
-                                                   value="<%= props.getProperty("delPerOthTrauSpec", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delPerOthTrauSpec", "")) %>"
                                                    @oscar.formDB/>
                                         </td>
                                     </tr>
@@ -1335,7 +1336,7 @@
                                                    name="delEstSpoN1" <%= props.getProperty("delEstSpoN1", "") %>
                                                    @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='global.no'/>
                                             <input type="text" name="delEstSpoInit1" size="10" maxlength="50"
-                                                   value="<%= props.getProperty("delEstSpoInit1", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delEstSpoInit1", "")) %>"
                                                    @oscar.formDB/>
                                         </td>
                                     </tr>
@@ -1351,7 +1352,7 @@
                                                    name="delEstSpoN2" <%= props.getProperty("delEstSpoN2", "") %>
                                                    @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='global.no'/>
                                             <input type="text" name="delEstSpoInit2" size="10" maxlength="50"
-                                                   value="<%= props.getProperty("delEstSpoInit2", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delEstSpoInit2", "")) %>"
                                                    @oscar.formDB/>
                                         </td>
                                     </tr>
@@ -1360,7 +1361,7 @@
                                         <td colspan="2">
                                             <fmt:message key='form.bcbirthsummo.repairedBy'/>:
                                             <input type="text" name="delPerSutu" size="12" maxlength="60"
-                                                   value="<%= props.getProperty("delPerSutu", "") %>" @oscar.formDB/><fmt:message key='form.bcbirthsummo.mdRm'/>
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delPerSutu", "")) %>" @oscar.formDB/><fmt:message key='form.bcbirthsummo.mdRm'/>
                                         </td>
                                     </tr>
                                 </table>
@@ -1403,7 +1404,7 @@
                                                    name="delEstBldOther" <%= props.getProperty("delEstBldOther", "") %>
                                                    @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.otherSpecify'/>:
                                             <input type="text" name="delEstBldOtherSpec" size="15" maxlength="30"
-                                                   value="<%= props.getProperty("delEstBldOtherSpec", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("delEstBldOtherSpec", "")) %>"
                                                    @oscar.formDB/>
                                         </td>
                                     </tr>
@@ -1445,11 +1446,11 @@
                                         <td align="right"><fmt:message key='form.bcbirthsummo.membranesRuptured'/></td>
                                         <td><input type="text" name="birTimeHour1"
                                                    style="width: 100%" size="5" maxlength="5"
-                                                   value="<%= props.getProperty("birTimeHour1", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birTimeHour1", "")) %>"
                                                    @oscar.formDB dbType="time"/></td>
                                         <td><input type="text" name="birTimeDate1" id="birTimeDate1"
                                                    size="10" maxlength="10"
-                                                   value="<%= props.getProperty("birTimeDate1", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birTimeDate1", "")) %>"
                                                    @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                                                       id="birTimeDate1_cal"></td>
                                     </tr>
@@ -1457,11 +1458,11 @@
                                         <td align="right"><fmt:message key='form.bcbirthsummo.firstStage'/></td>
                                         <td><input type="text" name="birTimeHour2"
                                                    style="width: 100%" size="5" maxlength="5"
-                                                   value="<%= props.getProperty("birTimeHour2", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birTimeHour2", "")) %>"
                                                    @oscar.formDB dbType="time"/></td>
                                         <td><input type="text" name="birTimeDate2" id="birTimeDate2"
                                                    size="10" maxlength="10"
-                                                   value="<%= props.getProperty("birTimeDate2", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birTimeDate2", "")) %>"
                                                    @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                                                       id="birTimeDate2_cal"></td>
                                     </tr>
@@ -1469,11 +1470,11 @@
                                         <td align="right"><fmt:message key='form.bcbirthsummo.secondStage'/></td>
                                         <td><input type="text" name="birTimeHour3"
                                                    style="width: 100%" size="5" maxlength="5"
-                                                   value="<%= props.getProperty("birTimeHour3", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birTimeHour3", "")) %>"
                                                    @oscar.formDB dbType="time"/></td>
                                         <td><input type="text" name="birTimeDate3" id="birTimeDate3"
                                                    size="10" maxlength="10"
-                                                   value="<%= props.getProperty("birTimeDate3", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birTimeDate3", "")) %>"
                                                    @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                                                       id="birTimeDate3_cal"></td>
                                     </tr>
@@ -1481,11 +1482,11 @@
                                         <td align="right"><fmt:message key='form.bcbirthsummo.newbornDelivered'/></td>
                                         <td><input type="text" name="birTimeHour4"
                                                    style="width: 100%" size="5" maxlength="5"
-                                                   value="<%= props.getProperty("birTimeHour4", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birTimeHour4", "")) %>"
                                                    @oscar.formDB dbType="time"/></td>
                                         <td><input type="text" name="birTimeDate4" id="birTimeDate4"
                                                    size="10" maxlength="10"
-                                                   value="<%= props.getProperty("birTimeDate4", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birTimeDate4", "")) %>"
                                                    @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                                                       id="birTimeDate4_cal"></td>
                                     </tr>
@@ -1493,11 +1494,11 @@
                                         <td align="right"><fmt:message key='form.bcbirthsummo.placentaDelivered'/></td>
                                         <td><input type="text" name="birTimeHour5"
                                                    style="width: 100%" size="5" maxlength="5"
-                                                   value="<%= props.getProperty("birTimeHour5", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birTimeHour5", "")) %>"
                                                    @oscar.formDB dbType="time"/></td>
                                         <td><input type="text" name="birTimeDate5" id="birTimeDate5"
                                                    size="10" maxlength="10"
-                                                   value="<%= props.getProperty("birTimeDate5", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birTimeDate5", "")) %>"
                                                    @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                                                       id="birTimeDate5_cal"></td>
                                     </tr>
@@ -1520,30 +1521,30 @@
                                         <td align="right"><fmt:message key='form.bcbirthsummo.firstStage'/></td>
                                         <td><input type="text" name="birDurHour1"
                                                    onDblClick="calc1();" class="spe" size="2" maxlength="2"
-                                                   value="<%= props.getProperty("birDurHour1", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birDurHour1", "")) %>"
                                                    @oscar.formDB/></td>
                                         <td><input type="text" name="birDurMin1" size="2"
-                                                   maxlength="2" value="<%= props.getProperty("birDurMin1", "") %>"
+                                                   maxlength="2" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birDurMin1", "")) %>"
                                                    @oscar.formDB/></td>
                                     </tr>
                                     <tr>
                                         <td align="right"><fmt:message key='form.bcbirthsummo.secondStage'/></td>
                                         <td><input type="text" name="birDurHour2"
                                                    onDblClick="calc2();" class="spe" size="2" maxlength="2"
-                                                   value="<%= props.getProperty("birDurHour2", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birDurHour2", "")) %>"
                                                    @oscar.formDB/></td>
                                         <td><input type="text" name="birDurMin2" size="2"
-                                                   maxlength="2" value="<%= props.getProperty("birDurMin2", "") %>"
+                                                   maxlength="2" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birDurMin2", "")) %>"
                                                    @oscar.formDB/></td>
                                     </tr>
                                     <tr>
                                         <td align="right"><fmt:message key='form.bcbirthsummo.thirdStage'/></td>
                                         <td><input type="text" name="birDurHour3"
                                                    onDblClick="calc3();" class="spe" size="2" maxlength="2"
-                                                   value="<%= props.getProperty("birDurHour3", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birDurHour3", "")) %>"
                                                    @oscar.formDB/></td>
                                         <td><input type="text" name="birDurMin3" size="2"
-                                                   maxlength="2" value="<%= props.getProperty("birDurMin3", "") %>"
+                                                   maxlength="2" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birDurMin3", "")) %>"
                                                    @oscar.formDB/></td>
                                     </tr>
                                     <tr>
@@ -1555,7 +1556,7 @@
                                         <td><input type="text" name="birDurRupHour"
                                                    onDblClick="calcRup();" class="spe" style="width: 100%" size="5"
                                                    maxlength="5"
-                                                   value="<%= props.getProperty("birDurRupHour", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birDurRupHour", "")) %>"
                                                    @oscar.formDB/> <input type="hidden" name="birDurRupMin"/></td>
                                     </tr>
                                 </table>
@@ -1582,21 +1583,21 @@
                                         <td width="33%" colspan="3"><fmt:message key='form.bcbirthsummo.apgar'/></td>
                                         <td width="10%" rowspan="2" nowrap><fmt:message key='form.bcbirthsummo.weightGrams'/><BR>
                                             <input type="text" name="birWeight" style="width: 100%" size="5"
-                                                   maxlength="6" value="<%= props.getProperty("birWeight", "") %>"
+                                                   maxlength="6" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birWeight", "")) %>"
                                                    @oscar.formDB/></td>
                                     </tr>
                                     <tr>
                                         <td width="10%"><fmt:message key='form.bcbirthsummo.at1Min'/><br>
                                             <input type="text" name="birApgar1" size="6" maxlength="10"
-                                                   value="<%= props.getProperty("birApgar1", "") %>" @oscar.formDB/>
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birApgar1", "")) %>" @oscar.formDB/>
                                         </td>
                                         <td width="10%"><fmt:message key='form.bcbirthsummo.at5Min'/><br>
                                             <input type="text" name="birApgar5" size="6" maxlength="10"
-                                                   value="<%= props.getProperty("birApgar5", "") %>" @oscar.formDB/>
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birApgar5", "")) %>" @oscar.formDB/>
                                         </td>
                                         <td width="20%"><fmt:message key='form.bcbirthsummo.at10Min'/><br>
                                             <input type="text" name="birApgar10" size="10" maxlength="20"
-                                                   value="<%= props.getProperty("birApgar10", "") %>" @oscar.formDB/>
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birApgar10", "")) %>" @oscar.formDB/>
                                         </td>
                                     </tr>
                                 </table>
@@ -1617,7 +1618,7 @@
                             </td>
                             <td><input type="text" name="birDelBy" style="width: 100%"
                                        size="60" maxlength="80"
-                                       value="<%= props.getProperty("birDelBy", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birDelBy", "")) %>" @oscar.formDB/>
                             </td>
                         </tr>
                         <tr>
@@ -1637,7 +1638,7 @@
                                                                                     dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.otherSpecify'/>
                                 <input type="text"
                                        name="birDelOtherSpec" size="6" maxlength="15"
-                                       value="<%= props.getProperty("birDelOtherSpec", "") %>"
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("birDelOtherSpec", "")) %>"
                                        @oscar.formDB/></td>
                         </tr>
                         <tr>
@@ -1646,7 +1647,7 @@
                             </td>
                             <td><textarea name="birMDPres" style="width: 100%" cols="30"
                                           rows="3" @oscar.formDB
-                                          dbType="varchar(255)"> <%= props.getProperty("birMDPres", "") %></textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("birMDPres", "") %>'/></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -1655,7 +1656,7 @@
                             </td>
                             <td><textarea name="birNurPres" style="width: 100%" cols="30"
                                           rows="3" @oscar.formDB
-                                          dbType="varchar(255)"> <%= props.getProperty("birNurPres", "") %></textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("birNurPres", "") %>'/></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -1664,7 +1665,7 @@
                             </td>
                             <td><textarea name="birOtherPres" style="width: 100%"
                                           cols="30" rows="3" @oscar.formDB
-                                          dbType="varchar(255)"> <%= props.getProperty("birOtherPres", "") %></textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("birOtherPres", "") %>'/></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -1694,7 +1695,7 @@
                         <%= props.getProperty("comLabNormal", "") %> @oscar.formDB
                         dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.normal'/> &nbsp;&nbsp; <fmt:message key='form.bcbirthsummo.ifNotSpecify'/> <input
                         type="text" name="comLabNormalSpec" size="10" maxlength="20"
-                        value="<%= props.getProperty("comLabNormalSpec", "") %>"
+                        value="<%= SafeEncode.forHtmlAttribute(props.getProperty("comLabNormalSpec", "")) %>"
                         @oscar.formDB/></td>
                 <td><fmt:message key='form.bcbirthsummo.placeOfBirth'/> <input type="checkbox" name="comLabPlaHosp"
                         <%= props.getProperty("comLabPlaHosp", "") %> @oscar.formDB
@@ -1707,11 +1708,11 @@
                             <%= props.getProperty("comLabPlaTran", "") %> @oscar.formDB
                                         dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.other'/>
                     <input type="text" name="comLabPlaTranText" size="10" maxlength="20"
-                           value="<%= props.getProperty("comLabPlaTranText", "") %>" @oscar.formDB/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("comLabPlaTranText", "")) %>" @oscar.formDB/></td>
             </tr>
             <tr>
                 <td colspan="2"><textarea name="comLabBirth" style="width: 100%" cols="100" rows="2" @oscar.formDB
-                                          dbType="text"> <%= props.getProperty("comLabBirth", "") %> </textarea>
+                                          dbType="text"><carlos:encode value='<%= props.getProperty("comLabBirth", "") %>'/></textarea>
                 </td>
             </tr>
         </table>
@@ -1724,11 +1725,11 @@
 
                 <td colspan="2" nowrap><B><fmt:message key='form.bcbirthsummo.consultTo'/></B> <input type="text"
                                                                  name="consultTo" size="30" maxlength="120"
-                                                                 value="<%= props.getProperty("consultTo", "") %>"
+                                                                 value="<%= SafeEncode.forHtmlAttribute(props.getProperty("consultTo", "")) %>"
                                                                  @oscar.formDB/>
                     &nbsp; | <fmt:message key='form.bcbirthsummo.admission'/> <input type="text" name="admisDateTime"
                                               id="admisDateTime" size="12" maxlength="16"
-                                              value="<%= props.getProperty("admisDateTime", "") %>" @oscar.formDB/>
+                                              value="<%= SafeEncode.forHtmlAttribute(props.getProperty("admisDateTime", "")) %>" @oscar.formDB/>
                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="admisDateTime_cal">
                 <td width="20%"><fmt:message key='form.bcbirthsummo.signature'/></td>
                 <td width="20%"><fmt:message key='form.bcbirthsummo.signature'/></td>
@@ -1743,20 +1744,20 @@
                            dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.pediatrician'/> | <fmt:message key='form.bcbirthsummo.discharge'/> <input
                         type="text" name="dischargeDateTime" id="dischargeDateTime"
                         size="12" maxlength="16"
-                        value="<%= props.getProperty("dischargeDateTime", "") %>"
+                        value="<%= SafeEncode.forHtmlAttribute(props.getProperty("dischargeDateTime", "")) %>"
                         @oscar.formDB/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                              id="dischargeDateTime_cal">
                     |
                     <fmt:message key='form.bcbirthsummo.ppLos'/> <input type="text" name="ppLos" onDblClick="calcPPLOS();" class="spe" size="3" maxlength="3"
-                                  value="<%= props.getProperty("ppLos", "") %>" @oscar.formDB/> <fmt:message key='form.bcbirthsummo.hr'/>
+                                  value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ppLos", "")) %>" @oscar.formDB/> <fmt:message key='form.bcbirthsummo.hr'/>
                 </td>
                 <td><input type="text" name="conRmSignat" style="width: 100%"
                            size="30" maxlength="60"
-                           value="<%= props.getProperty("conRmSignat", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("conRmSignat", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="conMdSignat" style="width: 100%"
                            size="30" maxlength="60"
-                           value="<%= props.getProperty("conMdSignat", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("conMdSignat", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
@@ -1773,14 +1774,14 @@
                                               dbType="tinyint(1)"/> <fmt:message key='form.bcbirthsummo.other'/> <input type="text"
                                                                                   name="conOtherTxt" size="20"
                                                                                   maxlength="30"
-                                                                                  value="<%= props.getProperty("conOtherTxt", "") %>"
+                                                                                  value="<%= SafeEncode.forHtmlAttribute(props.getProperty("conOtherTxt", "")) %>"
                                                                                   @oscar.formDB/>
                             </td>
                             <td align="right" nowrap><fmt:message key='form.bcbirthsummo.los'/> <input type="text"
                                                                    name="conLos" onDblClick="calcLOS();" class="spe"
                                                                    size="3"
                                                                    maxlength="3"
-                                                                   value="<%= props.getProperty("conLos", "") %>"
+                                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("conLos", "")) %>"
                                                                    @oscar.formDB/> <fmt:message key='form.bcbirthsummo.hr'/>
                             </td>
                         </tr>

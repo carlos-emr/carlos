@@ -90,8 +90,16 @@ class PatientEndYearStatementIntegrationTest extends CarlosTestBase {
         item(invoice("HCP", "O", "2025-06-15", "31.00", "0.00"), "HCP99", "O", "31.00");
         item(invoice("PAT", "O", "2024-12-31", "32.00", "0.00"), "OLD99", "O", "32.00");
         item(invoice("PAT", "O", "2026-01-01", "33.00", "0.00"), "NEW99", "O", "33.00");
+        // A real demographic must survive the report's JOIN so the patient
+        // predicate, rather than an orphaned foreign key, excludes this invoice (#5191).
+        var otherDemographic = new Demographic();
+        otherDemographic.setFirstName("Other");
+        otherDemographic.setLastName("StatementFixture");
+        otherDemographic.setSex("F");
+        entityManager.persist(otherDemographic);
+        entityManager.flush();
         var otherPatient = invoice("PAT", "O", "2025-06-15", "44.00", "0.00");
-        otherPatient.setDemographicNo(patient.getDemographicNo() + 1000);
+        otherPatient.setDemographicNo(otherDemographic.getDemographicNo());
         item(otherPatient, "OTH99", "O", "44.00");
 
         var result = service.aggregateInvoices(patient, Date.valueOf("2025-01-01"), Date.valueOf("2025-12-31"));

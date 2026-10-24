@@ -54,7 +54,7 @@ async function workflow(s) {
     await popup.close().catch(() => {});
     const wrong = Object.keys(trueAge).filter(label => String(shown[label]).replace(/\D+$/, '') !== String(trueAge[label]));
     h.assert(wrong.length === 0, `Search results show the wrong age for: ${wrong.map(label => `${label} shows ${shown[label]}, calendar age ${trueAge[label]}`).join('; ')}. `
-      + 'Demographic.getAge() runs Utility.calcAge(y, m, d), which tests curDay > birthDay, so a patient is one year younger on the day of the birthday');
+      + 'Demographic.getAge() runs Utility.calcAge(y, m, d); a patient must already be the new age on the day of the birthday');
   });
 }
 

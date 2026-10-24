@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingGroupNumber;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -75,7 +76,6 @@ public class OhipReportGenerationService {
 
     private static final int PROVIDER_BILLINGNO_LENGTH = 6;
     private static final int PROVIDER_SPECIALTYCODE_LENGTH = 2;
-    private static final int PROVIDER_GROUPNO_LENGTH = 4;
 
     private final BillActivityDao billActivityDao;
     private final ProviderDao providerDao;
@@ -282,7 +282,7 @@ public class OhipReportGenerationService {
         StringBuilder errorMsg = new StringBuilder();
         String provider = request.getParameter("providers");
         if (provider == null || provider.length() != PROVIDER_BILLINGNO_LENGTH) {
-            errorMsg.append("The providers's billing code is not correct!<br>");
+            errorMsg.append("The provider's billing code is not correct!<br>");
         }
 
         Date dateBegin = ConversionUtils.fromDateString(request.getParameter("xml_vdate"));
@@ -297,19 +297,18 @@ public class OhipReportGenerationService {
             if (p.getOhipNo() == null || p.getOhipNo().isEmpty()) continue;
 
             String proOHIP = p.getOhipNo();
-            String groupNo = SxmlMisc.getXmlContent(p.getComments(),
-                    "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>");
+            String groupNo = sanitizeGroupNo(SxmlMisc.getXmlContent(p.getComments(),
+                    "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>"));
             String specialty = SxmlMisc.getXmlContent(p.getComments(),
                     "<xml_p_specialty_code>", "</xml_p_specialty_code>");
 
             if (specialty == null || specialty.isEmpty() || "null".equals(specialty)
                     || specialty.length() != PROVIDER_SPECIALTYCODE_LENGTH) {
-                errorMsg.append("The providers's specialty code is not correct!<br>");
+                errorMsg.append("The provider's specialty code is not correct!<br>");
                 specialty = "00";
             }
-            if (groupNo == null || groupNo.isEmpty() || "null".equals(groupNo)
-                    || groupNo.length() != PROVIDER_GROUPNO_LENGTH) {
-                errorMsg.append("The providers's group no is not correct!<br>");
+            if (!BillingGroupNumber.isWellFormed(groupNo)) {
+                errorMsg.append("The provider's group no is not correct!<br>");
                 groupNo = "0000";
             }
 
@@ -419,7 +418,7 @@ public class OhipReportGenerationService {
     }
 
     private static String sanitizeGroupNo(String raw) {
-        return (raw == null || raw.isEmpty() || "null".equals(raw)) ? "0000" : raw;
+        return BillingGroupNumber.normalize(raw);
     }
 
     private static String sanitizeSpecialty(String raw) {
