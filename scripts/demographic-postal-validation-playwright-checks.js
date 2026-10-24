@@ -13,8 +13,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 async function workflow(s) {
   const { master, sql, patient, marker } = s;
   s.cleanup(() => {
-    sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${patient}
-      OR archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient});
+    sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${patient};
       DELETE FROM demographiccust WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient})`) === '0',
