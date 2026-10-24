@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -65,11 +66,20 @@ class PathnetImportIntegrationTest extends CarlosTestBase {
     }
 
     private Hl7Pid upload(String phn, String dob) throws Exception {
+        return upload(phn, dob, "FAKE5052");
+    }
+
+    private Hl7Pid upload(String phn, String dob, String filler) throws Exception {
+        String[] obr = new String[26];
+        java.util.Arrays.fill(obr, "");
+        obr[0] = "OBR"; obr[1] = "1"; obr[3] = filler; obr[4] = "GLU^Glucose";
+        for (int field : new int[]{6, 7, 14, 22}) obr[field] = "20261023090000";
+        obr[24] = "CH"; obr[25] = "F";
         Message message = new Message("now");
         message.Parse("MSH|^~\\&|FAKE|PATHNET|CARLOS|TEST|20261023090000||ORU^R01|FAKE5052|P|2.3\n"
                 + "PID|1|" + phn + "|||DIFFERENT^NAME||" + dob + "|F\n"
-                + "ORC|RE||FAKE5052\n"
-                + "OBR|1||FAKE5052|GLU^Glucose||20261023090000|20261023090000\n"
+                + "ORC|RE||" + filler + "\n"
+                + String.join("|", obr) + "\n"
                 + "OBX|1|NM|GLU^Glucose||5.2|mmol/L|3.6-6.0|N|||F\n");
         message.ToDatabase();
         em.flush();
@@ -104,6 +114,37 @@ class PathnetImportIntegrationTest extends CarlosTestBase {
         assertThat(links.find(pid.getId()).getDemographicNo()).isZero();
         assertThat(links.find(pid.getId()).getStatus()).isEqualTo("P");
         assertThat(links.findLabs()).anySatisfy(row -> assertThat(((Hl7Pid) row[0]).getId()).isEqualTo(pid.getId()));
+    }
+
+    @Test
+    void shouldRelinkOnlyExactAccessionVersions_whenAnotherAccessionContainsTheSameDigits() throws Exception {
+        Demographic demo = patient("5052000013", "AC");
+        Hl7Pid selected = upload("5052999901", "19800115", "123-01-01");
+        Hl7Pid version = upload("5052999901", "19800115", "123-01-02");
+        Hl7Pid unrelated = upload("5052999902", "19800115", "9123-01-01");
+        links.find(version.getId()).setStatus("S");
+        em.flush();
+        String chain = new CommonLabResultData()
+                .getMatchingLabsForMutation(Integer.toString(selected.getMessageId()), "BCP");
+        assertThat(chain.split(",")).containsExactly(Integer.toString(selected.getMessageId()), Integer.toString(version.getMessageId()));
+        assertThat(CommonLabResultData.updatePatientLabRouting(
+                java.util.Arrays.stream(chain.split(",")).map(Integer::valueOf).toList(), demo.getDemographicNo().toString(), "BCP")).isTrue();
+        em.flush();
+        assertThat(links.find(selected.getId()).getDemographicNo()).isEqualTo(demo.getDemographicNo());
+        assertThat(links.find(version.getId()).getDemographicNo()).isEqualTo(demo.getDemographicNo());
+        assertThat(links.find(version.getId()).getStatus()).isEqualTo("S");
+        assertThat(links.find(unrelated.getId()).getDemographicNo()).isZero();
+        assertThat(routing.findByLabNoAndLabType(unrelated.getMessageId(), "BCP")).singleElement()
+                .satisfies(route -> assertThat(route.getDemographicNo()).isZero());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FAKE5052", "FAKE-5052", ""})
+    void shouldResolveSelectedReport_whenFillerHasNoLegacyVersionSuffix(String filler) throws Exception {
+        Hl7Pid pid = upload("5052999903", "19800115", filler);
+        assertThat(new CommonLabResultData()
+                .getMatchingLabsForMutation(Integer.toString(pid.getMessageId()), "BCP"))
+                .isEqualTo(Integer.toString(pid.getMessageId()));
     }
 
     @Test
@@ -165,7 +206,7 @@ class PathnetImportIntegrationTest extends CarlosTestBase {
         Demographic demo = patient("5052000007", "AC");
         Hl7Pid pid = upload("5052999999", "19800115");
         assertThat(links.find(pid.getId()).getDemographicNo()).isZero();
-        assertThat(io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updatePatientLabRouting(
+        assertThat(CommonLabResultData.updatePatientLabRouting(
                 java.util.List.of(pid.getMessageId()), demo.getDemographicNo().toString(), "BCP")).isTrue();
         em.flush();
         assertThat(links.find(pid.getId()).getDemographicNo()).isEqualTo(demo.getDemographicNo());

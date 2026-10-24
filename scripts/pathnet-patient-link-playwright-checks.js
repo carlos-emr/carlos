@@ -91,11 +91,22 @@ async function workflow(s) {
     await revealAuditLink(admin, link);
     return reopenAdminPage(admin, route);
   };
-  const upload = async (kind, dob, expected) => {
+  const choosePatient = async name => {
+    const frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
+    const row = frame.locator('tr').filter({ hasText: name });
+    const popup = await s.popup(admin, row.getByRole('button', { name: 'Select patient', exact: true }), 'pathnet-patient-picker');
+    await popup.getByLabel('Patient Search', { exact: true }).fill(marker);
+    await Promise.all([popup.waitForNavigation(), popup.locator('input[type=submit]').click()]);
+    const post = admin.waitForResponse(r => r.request().method() === 'POST'
+      && new URL(r.url()).pathname.endsWith('/lab/CA/BC/ViewIndex'));
+    await popup.getByRole('link', { name: patient, exact: true }).click();
+    h.assert((await post).status() === 200, 'Patient picker did not submit a successful POST');
+  };
+  const upload = async (kind, dob, expected, accession = `F-${marker.slice(-8)}${kind}`) => {
     const name = `${marker}^${kind}`;
     let frame = await openFrame(uploadLink, 'lab/labUpload');
     await frame.locator('input[type=file]').setInputFiles({ name: `${marker}-${kind}.xml`,
-      mimeType: 'application/xml', buffer: batch(phn, dob, name, `F-${marker.slice(-8)}${kind}`) });
+      mimeType: 'application/xml', buffer: batch(phn, dob, name, accession) });
     ({ frame } = await submitInFrame(admin, frame.locator('input[type=submit]'), 'lab/labUpload'));
     const resultText = await frame.locator('body').innerText();
     h.assert(resultText.includes('Lab File Successfully Uploaded'), `${kind}: upload failed: ${resultText.slice(-700)}`);
@@ -130,7 +141,7 @@ async function workflow(s) {
     await noDobReport.goto(h.appUrl(s.config.baseUrl, `/lab/CA/BC/ViewReport?pid=${noDob}`));
     h.assert((await noDobReport.locator('body').innerText()).includes('5.2'), 'A missing DOB prevented displaying the observation');
     await noDobReport.close();
-    let row = frame.locator('tr').filter({ hasText: `${marker}^mismatch` });
+    const row = frame.locator('tr').filter({ hasText: `${marker}^mismatch` });
     await row.getByRole('button', { name: 'Select patient', exact: true }).waitFor();
     const report = await s.popup(admin, row.getByRole('link', { name: `${marker}^mismatch`, exact: true }), 'pathnet-result');
     h.assert((await report.locator('body').innerText()).includes('5.2'), 'The stored observation is missing from the report');
@@ -161,14 +172,8 @@ async function workflow(s) {
       'A rejected batch left the earlier patient match committed');
     }
     frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
-    row = frame.locator('tr').filter({ hasText: `${marker}^mismatch` });
     h.assert(sql.value(`SELECT demographic_no FROM hl7_link WHERE pid_id=${unlinked}`) === '0', 'Opening page auto-linked a lab');
-    const popup = await s.popup(admin, row.getByRole('button', { name: 'Select patient', exact: true }), 'pathnet-patient-picker');
-    await popup.getByLabel('Patient Search', { exact: true }).fill(marker);
-    await Promise.all([popup.waitForNavigation(), popup.locator('input[type=submit]').click()]);
-    const post = admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/lab/CA/BC/ViewIndex'));
-    await popup.getByRole('link', { name: patient, exact: true }).click();
-    h.assert((await post).status() === 200, 'Patient picker did not submit a successful POST');
+    await choosePatient(`${marker}^mismatch`);
     h.assert(sql.value(`SELECT l.demographic_no FROM hl7_link l JOIN hl7_pid p ON p.pid_id=l.pid_id
       JOIN patientLabRouting r ON r.lab_no=p.message_id AND r.lab_type='BCP'
       WHERE l.pid_id=${unlinked} AND l.demographic_no=r.demographic_no AND l.status='N'`) === patient,
@@ -178,6 +183,33 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM hl7_link l JOIN hl7_pid p ON p.pid_id=l.pid_id
       WHERE p.patient_name IN (${h.sqlString(`${marker}^malformed`)},${h.sqlString(`${marker}^ambiguous`)})
       AND l.demographic_no=0`) === '2', 'Manual linking changed other unmatched reports');
+  });
+  await s.step('manual selection updates exact accession versions and leaves substring collisions untouched', async () => {
+    const accession = `ACC${marker.slice(-8)}`;
+    const selected = await upload('versionone', '19800102', '0', `${accession}-01-01`);
+    const version = await upload('versiontwo', '19800102', '0', `${accession}-01-02`);
+    const unrelated = await upload('collision', '19800102', '0', `9${accession}-01-01`);
+    sql.execute(`UPDATE hl7_link SET status='S' WHERE pid_id=${version}`);
+    await choosePatient(`${marker}^versionone`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM hl7_link l JOIN hl7_pid p ON p.pid_id=l.pid_id
+      JOIN patientLabRouting r ON r.lab_no=p.message_id AND r.lab_type='BCP'
+      WHERE l.pid_id IN (${selected},${version}) AND l.demographic_no=${patient} AND r.demographic_no=${patient}`) === '2',
+    'The exact accession versions were not linked together');
+    h.assert(sql.value(`SELECT status FROM hl7_link WHERE pid_id=${version}`) === 'S', 'Version matching changed a clinical acknowledgement');
+    h.assert(sql.value(`SELECT COUNT(*) FROM hl7_link l JOIN hl7_pid p ON p.pid_id=l.pid_id
+      JOIN patientLabRouting r ON r.lab_no=p.message_id AND r.lab_type='BCP'
+      WHERE l.pid_id=${unrelated} AND l.demographic_no=0 AND r.demographic_no=0 AND l.status='P'`) === '1',
+    'A substring collision assigned an unrelated report to the selected patient');
+  });
+  await s.step('manual selection accepts ordinary and empty filler identifiers', async () => {
+    for (const [kind, filler] of [['ordinary', `ORDINARY${marker.slice(-8)}`], ['empty', '']]) {
+      const pid = await upload(kind, '19800102', '0', filler);
+      await choosePatient(`${marker}^${kind}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM hl7_link l JOIN hl7_pid p ON p.pid_id=l.pid_id
+        JOIN patientLabRouting r ON r.lab_no=p.message_id AND r.lab_type='BCP'
+        WHERE l.pid_id=${pid} AND l.demographic_no=${patient} AND r.demographic_no=${patient} AND l.status='N'`) === '1',
+      `${kind}: ordinary filler prevented manual matching`);
+    }
   });
 }
 if (require.main === module) runWorkflow('pathnet-patient-link', workflow, { openMaster: false });

@@ -16294,12 +16294,13 @@
       "provinces": [
         "BC"
       ],
-      "timeoutSec": 180,
+      "timeoutSec": 300,
       "manual": true,
       "env": [
         "LAB_UPLOAD_DOCUMENT_STORE"
       ],
       "mutates": [
+        "log",
         "demographic",
         "hl7_message",
         "hl7_msh",
