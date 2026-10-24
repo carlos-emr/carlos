@@ -9,7 +9,7 @@ const h = require('./lib/playwright-harness');
 
 // Drive the workflow against a small UI/SQL boundary. In particular, its initial list
 // already contains the runner's address: a below-threshold failure is listed too.
-function scenario({ hideAddress = false, initialOutcome = 'failed', releaseStatus = 200, exclusive = '1' } = {}) {
+function scenario({ hideAddress = false, initialOutcome = 'failed', releaseStatus = 200, releaseConfirmed = true, exclusive = '1' } = {}) {
   const address = '192.0.2.208';
   const otherAddress = '192.0.2.209';
   const username = 'FAKEPW0123456789abcdef';
@@ -50,8 +50,8 @@ function scenario({ hideAddress = false, initialOutcome = 'failed', releaseStatu
     async waitForEvent() {},
     async evaluate(_callback, { key }) {
       releases.push(key);
-      if (releaseStatus === 200 && entries.delete(key)) audits.push({ id: 42, address: key });
-      return releaseStatus;
+      if (releaseStatus === 200 && releaseConfirmed && entries.delete(key)) audits.push({ id: 42, address: key });
+      return { status: releaseStatus, message: releaseConfirmed ? `Account unlocked: ${key}` : '' };
     },
   };
   const probes = { on() {}, async close() { closed = true; } };
@@ -143,4 +143,11 @@ test('shouldRequireExclusiveUse_beforeCreatingAnyFixture', async () => {
   const s = scenario({ exclusive: '' });
   await assert.rejects(s.run(), /EXCLUSIVE=1/);
   assert.equal(s.isCreated(), false);
+});
+
+test('shouldRejectAnUnconfirmedRelease_whenTheRefusalPageAnswers200', async () => {
+  const s = scenario({ hideAddress: true, releaseConfirmed: false });
+  await assert.rejects(s.run(), /does not contain.*failure-safe release FAILED:.*did not confirm an unlock/);
+  assert.equal(s.entries.size, 2);
+  assert.equal(s.isClosed(), true);
 });

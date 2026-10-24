@@ -85,16 +85,25 @@ async function workflow(s) {
   const wrongPassword = `${config.testPassword}-WRONG`;
   async function release() {
     if (needsRelease) {
-      const status = await admin.evaluate(({ url, key }) => new Promise(resolve => {
+      const response = await admin.evaluate(({ url, key }) => new Promise(resolve => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', url);
         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.onloadend = () => resolve(xhr.status);
+        xhr.onloadend = () => {
+          const doc = new DOMParser().parseFromString(xhr.responseText || '', 'text/html');
+          resolve({ status: xhr.status, message: (doc.querySelector('.alert-success')?.textContent || '').replace(/\s+/g, ' ').trim() });
+        };
         xhr.send(new URLSearchParams({ userName: key, submit: 'Unlock' }).toString());
       }), { url: h.appUrl(config.baseUrl, '/admin/UnLock'), key: address });
-      h.assert(status === 200, `The owned address release answered HTTP ${status}`);
-      // A 200 can be a refusal page: prove the address is usable again before closing.
+      h.assert(response.status === 200, `The owned address release answered HTTP ${response.status}`);
+      // Below-threshold counters do not block a correct password. Require the actual unlock
+      // confirmation too, or a 200 permission-refusal page could leave that counter behind.
+      h.assert(response.message === `Account unlocked: ${address}`
+        || response.message === `Account was not in the lock list (it may have already been unlocked): ${address}`,
+      'The owned address release did not confirm an unlock');
       await h.login(probes, { ...config, testUser: username }, recorder, { label: 'address-release-login' });
+      await expectValue(sql, `SELECT COUNT(*) FROM log WHERE ${unlockAudit()}`, '1',
+        'The failure-safe address unlock was not audited');
       needsRelease = false;
     }
   }
