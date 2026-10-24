@@ -72,6 +72,7 @@
     "test:form-print-pdf-playwright": "node scripts/form-print-pdf-playwright-checks.js",
     "test:consultation-print-preview-playwright": "node scripts/consultation-print-preview-playwright-checks.js",
     "test:consultation-labs-not-included-playwright": "node scripts/consultation-labs-not-included-playwright-checks.js",
+    "test:consultation-pdf-cjk-playwright": "node scripts/consultation-pdf-cjk-playwright-checks.js",
     "test:clinical-freetext-playwright": "node scripts/clinical-freetext-playwright-checks.js",
     "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js",
     "test:eform-admin-playwright": "node scripts/eform-admin-playwright-checks.js",

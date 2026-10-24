@@ -95,6 +95,19 @@
   the `qbe-reporting-account` helper in the devcontainer. See
   `docs/query-by-example-least-privilege.md`.
 
+## PDF and Report Fonts
+
+- Never let a host font decide what prints (#5046). Jasper templates name a bundled DejaVu family
+  or nothing: `src/main/resources/jasperreports.properties` makes DejaVu Sans the default, and
+  `fonts/carlos-jasper-fonts.xml` maps Java's logical names to bundled faces. A fixed-height Jasper
+  text box must fit one line of its face, or Jasper prints nothing; `JasperTemplateFontPolicyUnitTest`
+  fails the build otherwise.
+- OpenPDF record text goes through `PdfFonts.phrase`/`paragraph`/`addText`/`showTextAligned`, which
+  fall back to bundled CJK and symbol faces. Not `new Phrase(text, font)`, `Phrase.add(String)`,
+  font-less chunks, `addCell(String)`, `PdfContentByte.showText*` or OpenPDF's default font.
+- `bash scripts/check-report-fonts.sh` re-runs the report tests under other host fonts in fresh
+  JVMs. See `docs/pdf-font-policy.md`.
+
 ## Debian Packaging and carlos-ctl
 
 The single-host deployment is three Debian packages (plus a transitional one):

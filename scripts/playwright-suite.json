@@ -4433,6 +4433,26 @@
       "fixtures": "The owned consultation service, consultant and their link are in the clinic-wide service and consultant pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned FAKE-PW patient (runWorkflow), FAKE service, specialist and referral; a copy of one demo HL7 lab routed to the patient (no inbox routing); an MDS lab (mdsMSH, mdsZRG, routing) for the patient; the consultdocs rows; the archive/ext rows and stamp DigitalSignature that Update writes. Cleanup removes them by the run's patient, accession and reason and asserts them gone. The fax step cancels on the cover page, so nothing is queued and no fax_config state is needed. Needs pdftotext and a demo HL7 lab to copy (SKIP otherwise)."
     },
     {
+      "name": "consultation-pdf-cjk",
+      "script": "scripts/consultation-pdf-cjk-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists"
+      ],
+      "notes": "Issue #5046: a referral whose reason, clinical information and patient first name are in Chinese, Japanese and Korean. The legacy printPdf2 route and the edit screen's Print button must print every value (they used to drop the characters DejaVu lacks) and pdffonts must report every font embedded.",
+      "fixtures": "The owned consultation service, consultant and their link are in the clinic-wide service and consultant pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned FAKE-PW patient (runWorkflow) with a CJK first name, FAKE service, specialist and referral. Cleanup removes them by the run's patient and reason and asserts them gone. Needs pdftotext and pdffonts (SKIP otherwise)."
+    },
+    {
       "name": "cpp-note-extension-archive",
       "script": "scripts/cpp-note-extension-archive-playwright-checks.js",
       "tiers": [
