@@ -61,7 +61,6 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -353,7 +352,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script src="${pageContext.request.contextPath}/share/javascript/rx-patient-context.js"
                 data-demographic-no="<%= viewScriptDemographicNo %>"
-                data-chart-context="<%= Encode.forHtmlAttribute(viewScriptChartContext) %>"></script>
+                data-chart-context="<%= SafeEncode.forHtmlAttribute(viewScriptChartContext) %>"></script>
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
@@ -836,7 +835,7 @@
         return form && form.elements.demographicNo
             && form.elements.demographicNo.value === '<%= viewScriptDemographicNo %>'
             && ((form.elements.chartContext && form.elements.chartContext.value) || '')
-                === '<%= Encode.forJavaScript(viewScriptChartContext) %>';
+                === '<%= SafeEncode.forJavaScript(viewScriptChartContext) %>';
     }
 	function writeToEncounter(print, text) {
     	try {
@@ -849,7 +848,7 @@
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&expectedDemographicNo=<%= bean.getDemographicNo() %>" +
 						"&demographicNo=<%= bean.getDemographicNo() %>" +
-						"<%= viewScriptChartContext.isEmpty() ? "" : "&chartContext=" + Encode.forUriComponent(viewScriptChartContext) %>" +
+						"<%= viewScriptChartContext.isEmpty() ? "" : "&chartContext=" + SafeEncode.forUriComponent(viewScriptChartContext) %>" +
 						"&additionalNotes=" +
 						"&body="+ encodeURIComponent(text)
 			};
@@ -888,7 +887,7 @@
                 var currentDate = new Date().toISOString().substring(0, 10);
                 var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="uriComponent"/>&curDate=" + currentDate;
                 <% if (!viewScriptChartContext.isEmpty()) { %>
-                url += '&chartContext=<%= Encode.forJavaScript(Encode.forUriComponent(viewScriptChartContext)) %>';
+                url += '&chartContext=<%= SafeEncode.forJavaScript(SafeEncode.forUriComponent(viewScriptChartContext)) %>';
                 <% } %>
 
                 if (window.parent.opener && matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
@@ -897,7 +896,7 @@
                     return window.parent.opener;
                 }
 
-                return window.open(url, 'encounter<%= viewScriptDemographicNo %>_<%= Encode.forJavaScript(viewScriptChartContext) %>', windowprops);
+                return window.open(url, 'encounter<%= viewScriptDemographicNo %>_<%= SafeEncode.forJavaScript(viewScriptChartContext) %>', windowprops);
             }
 
             var rxToPaste = null;
@@ -1465,7 +1464,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px onload="setComment()"
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + Encode.forHtmlAttribute(Encode.forUriComponent(viewScriptChartContext)) %>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(viewScriptChartContext)) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
