@@ -668,7 +668,7 @@ function fmtOscarMsg() {
                                     String demoKeyJs = SafeEncode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
                                     <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
-                                    <a href="<%=request.getContextPath()%>/encounter/IncomingEncounter?demographicNo=<carlos:encode value='<%= pageContext.getAttribute("demographicNumber") %>' context="uriComponent"/>&amp;curProviderNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>"
+                                    <a href="<%=request.getContextPath()%>/encounter/IncomingEncounter?demographicNo=<carlos:encode value='<%= String.valueOf(pageContext.getAttribute("demographicNumber")) %>' context="uriComponent"/>&amp;curProviderNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>"
                                        onclick="popupViewAttach(700,960,this.href);return false;"><fmt:message key="global.E" /></a>
                                     <a href="javascript:popupViewAttach(700,960,'../rx/choosePatient?providerNo=<carlos:encode value='<%= (String)request.getAttribute("providerNo") %>' context="javaScript"/>&demographicNo=<%=demoKeyJs%>')">Rx</a>
                                 </span>
