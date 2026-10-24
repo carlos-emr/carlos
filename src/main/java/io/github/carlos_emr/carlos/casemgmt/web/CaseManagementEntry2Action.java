@@ -117,6 +117,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final String YYYY_MM_DD_HHMM_PATTERN = "yyyy-MM-dd HH:mm";
     /** Request attribute set when a save is refused for an unreadable encounter date (closeWithError.jsp). */
     static final String OBSERVATION_DATE_REJECTED = "observationDateRejected";
+    private static final String NOTE_INPUT_REJECTED = "noteInputRejected";
     private static final String CASE_MANAGEMENT_LIST_CHAIN = "list";
     @SuppressWarnings("java:S1075") // fixed allowlist target; making this configurable would weaken redirect hardening
     private static final String CASE_MANAGEMENT_LIST_REDIRECT_PATH = "/CaseManagementView?method=view";
@@ -1679,6 +1680,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return -1L;
         }
 
+        NoteTimes times = readNoteTimes();
+        if (times == null) return -1L;
+
         bindNoteAppointment(note);
         note.setNote(noteTxt);
 
@@ -1698,25 +1702,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setEncounter_type(encounterType);
         }
 
-        String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
-        if (StringUtils.isNotEmpty(hourOfEncounterTime)) {
-            note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
-        }
-
-        String minuteOfEncounterTime = request.getParameter("minuteOfEncounterTime");
-        if (StringUtils.isNotEmpty(minuteOfEncounterTime)) {
-            note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
-        }
-
-        String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-        if (StringUtils.isNotEmpty(hourOfEncTransportationTime)) {
-            note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
-        }
-
-        String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-        if (StringUtils.isNotEmpty(minuteOfEncTransportationTime)) {
-            note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
-        }
+        times.applyTo(note);
 
         String sign = request.getParameter("sign");
         if (sign == null) {
@@ -1767,22 +1753,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Set<CaseManagementIssue> issueset = new HashSet<CaseManagementIssue>();
         Set<CaseManagementNote> noteSet = new HashSet<CaseManagementNote>();
         String ongoing = "";
-        if (checkedlist != null) {
-            for (CheckBoxBean cb : checkedlist) {
-                if ("on".equalsIgnoreCase(cb.getChecked())) {
-                    CaseManagementIssue issue = cb.getIssue();
-                    if (issue != null && issue.getId() != null) {
-                        issueset.add(issue);
-                    }
-                }
-            }
-        }
         note.setIssues(issueset);
-        Boolean useNewCaseMgmt = Boolean.valueOf((String) session.getAttribute("newCaseManagement"));
-        if (useNewCaseMgmt) {
+        if (checkedlist != null) {
             ongoing = prepareCheckedIssues(request, demo, issuelist, checkedlist, issueset, noteSet, ongoing);
-        } else {
-            ongoing = saveCheckedIssues_oldCme(request, demo, issuelist, checkedlist, issueset, noteSet, ongoing);
         }
 
         sessionFrm.setIssueCheckList(checkedlist);
@@ -1868,6 +1841,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return -1;
         }
+        // Publish generated issue identities only after the note transaction commits.
+        if (checkedlist != null) {
+            for (CheckBoxBean checkbox : checkedlist) {
+                for (CaseManagementIssue savedIssue : issuelist) {
+                    if (checkbox.getIssue().getIssue_id() == savedIssue.getIssue_id()) {
+                        checkbox.setIssue(savedIssue);
+                        break;
+                    }
+                }
+            }
+        }
         caseManagementMgr.getEditors(note);
         this.setCaseNote(note);
         sessionFrm.setCaseNote(note);
@@ -1895,78 +1879,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
     }
 
-    private String saveCheckedIssues_oldCme(HttpServletRequest request, String demo, List<CaseManagementIssue> issuelist, List<CheckBoxBean> checkedlist, Set issueset, Set noteSet, String ongoing) {
-
-        int demographicNo = Integer.parseInt(demo);
-
-        for (int i = 0; i < checkedlist.size(); i++) {
-            CheckBoxBean checkBoxBean = checkedlist.get(i);
-            CaseManagementViewAction.IssueDisplay issueDisplay = checkBoxBean.getIssueDisplay();
-
-            if (issueDisplay.resolved != null && issueDisplay.resolved.equals("unresolved")) {
-                ongoing = ongoing + issueDisplay.getDescription() + "\n";
-            }
-
-            boolean isChecked = WebUtils.isChecked(request, "issueCheckList[" + i + "].checked");
-
-            CaseManagementIssue caseManagementIssue = null;
-            caseManagementIssue = caseManagementIssueDao.getIssuebyIssueCode(demo, issueDisplay.code);
-            if (caseManagementIssue == null && isChecked) {
-                Issue issue = issueDao.findIssueByCode(issueDisplay.code);
-                if (issue != null) {
-                    caseManagementIssue = new CaseManagementIssue();
-                    caseManagementIssue.setDemographic_no(demographicNo);
-                    caseManagementIssue.setIssue_id(issue.getId());
-                    caseManagementIssue.setType(issue.getRole());
-                    caseManagementIssue.setUpdate_date(new Date());
-
-                    // Should not save duplicated issue for one demographic
-                    if (caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId())) == null) {
-                        caseManagementIssueDao.saveIssue(caseManagementIssue);
-                    }
-                    // reload to materliase generated fields.
-                    caseManagementIssue = caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId()));
-                }
-            } else if (caseManagementIssue != null && isChecked) {
-                caseManagementIssue.setAcute("acute".equals(issueDisplay.acute));
-                caseManagementIssue.setCertain("certain".equals(issueDisplay.certain));
-                caseManagementIssue.setMajor("major".equals(issueDisplay.major));
-                caseManagementIssue.setResolved("resolved".equals(issueDisplay.resolved));
-                Issue issue = issueDao.findIssueByCode(issueDisplay.code);
-                if (issue != null) {
-                    caseManagementIssue.setUpdate_date(new Date());
-                    // Should not save duplicated issue for one demographic
-                    // But should be able to update existing issues.
-                    caseManagementIssueDao.saveIssue(caseManagementIssue);
-                    // reload to materliase generated fields.
-                    caseManagementIssue = caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId()));
-                }
-            }
-
-            if (caseManagementIssue == null) continue;
-            else copyIssueDisplayToCaseManagementIssue(caseManagementIssue, issueDisplay);
-
-            if (isChecked) {
-                checkBoxBean.setChecked("on");
-                checkBoxBean.setUsed(true);
-                caseManagementIssue.setNotes(noteSet);
-
-                issueset.add(caseManagementIssue);
-            } else {
-                checkBoxBean.setChecked("off");
-                boolean isLocal = "local".equals(issueDisplay.location);
-                if (!isLocal) {
-                    checkBoxBean.setUsed(false);
-                } else {
-                    checkBoxBean.setUsed(caseManagementNoteDao.haveIssue(issueDisplay.code, demographicNo));
-                }
-            }
-
-            if (!containsIssue(issuelist, caseManagementIssue)) issuelist.add(caseManagementIssue);
-        }
-        return ongoing;
-    }
-
     private boolean containsIssue(List<CaseManagementIssue> issuelist, CaseManagementIssue issue) {
         for (CaseManagementIssue tempIssue : issuelist) {
             if (tempIssue == issue || (tempIssue.getId() != null && tempIssue.getId().equals(issue.getId()))) return true;
@@ -1990,11 +1902,28 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             CheckBoxBean checkBoxBean = checkedlist.get(i);
             IssueDisplay issueDisplay = checkBoxBean.getIssueDisplay();
 
+            if (!issueDisplay.isWriteAccess()) {
+                // Disabled controls are omitted from Form.serialize. Retain only the
+                // server-selected association, without rewriting this issue's flags or date.
+                CaseManagementIssue existing = caseManagementIssueDao.getIssuebyId(demo,
+                        String.valueOf(checkBoxBean.getIssue().getIssue_id()));
+                if (existing != null) {
+                    if ("on".equalsIgnoreCase(checkBoxBean.getChecked())) issueset.add(copyIssueForRevision(existing));
+                    if (!existing.isResolved()) ongoing += issueDisplay.getDescription() + "\n";
+                }
+                continue;
+            }
+
             if ("unresolved".equals(issueDisplay.resolved)) {
                 ongoing = ongoing + issueDisplay.getDescription() + "\n";
             }
 
-            boolean isChecked = WebUtils.isChecked(request, "issueCheckList[" + i + "].checked");
+            // The legacy form has additive existing selections and omits the checked
+            // attribute. Keep those links while modern enabled controls can deselect.
+            boolean legacy = !Boolean.parseBoolean((String) request.getSession().getAttribute("newCaseManagement"));
+            boolean isChecked = WebUtils.isChecked(request, "issueCheckList[" + i + "].checked")
+                    || (legacy && checkBoxBean.getIssue().getId() != null && checkBoxBean.getIssue().getId() > 0
+                        && "on".equalsIgnoreCase(checkBoxBean.getChecked()));
 
             CaseManagementIssue caseManagementIssue = findCheckedIssue(demo, issueDisplay, isChecked, issuelist);
 
@@ -2025,24 +1954,30 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private CaseManagementIssue findCheckedIssue(String demo, IssueDisplay display, boolean checked,
                                                  List<CaseManagementIssue> pending) {
         CaseManagementIssue existing = caseManagementIssueDao.getIssuebyIssueCode(demo, display.code);
-        if (existing != null || !checked) return existing;
+        if (existing != null) return copyIssueForRevision(existing);
+        if (!checked) return null;
         Issue issue = issueDao.findIssueByCode(display.code);
         return issue == null ? null : prepareCheckedIssue(demo, issue, pending);
     }
 
     private CaseManagementIssue prepareCheckedIssue(String demo, Issue issue, List<CaseManagementIssue> pending) {
         CaseManagementIssue existing = caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId()));
-        if (existing != null) return existing;
+        if (existing != null) return copyIssueForRevision(existing);
         for (CaseManagementIssue prepared : pending) {
             if (prepared.getIssue_id() == issue.getId()) return prepared;
         }
-        // Persist with saveCaseManagementNote so a stale revision rolls it back too.
-        CaseManagementIssue prepared = new CaseManagementIssue();
-        prepared.setDemographic_no(Integer.parseInt(demo));
-        prepared.setIssue_id(issue.getId());
-        prepared.setIssue(issue);
-        prepared.setType(issue.getRole());
-        return prepared;
+        // Persist with the note transaction, keeping the chart's origin rather than a shared note's program.
+        String program = ChartProgramContext.resolve(request);
+        Integer origin = program != null && program.matches("[1-9][0-9]*") ? Integer.valueOf(program) : null;
+        return prepareCaseIssue(demo, issue, origin);
+    }
+
+    private static CaseManagementIssue copyIssueForRevision(CaseManagementIssue issue) {
+        CaseManagementIssue copy = new CaseManagementIssue(issue);
+        copy.setId(issue.getId());
+        copy.setProgram_id(issue.getProgram_id());
+        copy.setNotes(new HashSet<>());
+        return copy;
     }
 
     public String save() throws Exception {
@@ -2105,7 +2040,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /** Keep a rejected full-form draft available when the response replaces the editor page. */
     private String rejectedFullFormSave(String unsavedNoteText, String fallbackResult) {
-        if (Boolean.TRUE.equals(request.getAttribute(OBSERVATION_DATE_REJECTED))) {
+        if (Boolean.TRUE.equals(request.getAttribute(OBSERVATION_DATE_REJECTED))
+                || Boolean.TRUE.equals(request.getAttribute(NOTE_INPUT_REJECTED))) {
             request.setAttribute("unsavedNoteText", unsavedNoteText);
             return "windowCloseError";
         }
@@ -2113,6 +2049,42 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("noteRevisionConflict", Boolean.TRUE);
         request.setAttribute("unsavedNoteText", unsavedNoteText);
         return "windowCloseError";
+    }
+
+    /** Preserve missing fields, clear explicit blanks, and validate every value before applying any. */
+    private NoteTimes readNoteTimes() {
+        String[] fields = {"hourOfEncounterTime", "minuteOfEncounterTime", "hourOfEncTransportationTime", "minuteOfEncTransportationTime"};
+        Integer[] values = new Integer[fields.length];
+        boolean[] supplied = new boolean[fields.length];
+        try {
+            for (int i = 0; i < fields.length; i++) {
+                String raw = request.getParameter(fields[i]);
+                supplied[i] = raw != null;
+                if (StringUtils.isNotEmpty(raw)) values[i] = Integer.valueOf(raw);
+            }
+        } catch (NumberFormatException invalidDuration) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.setAttribute(NOTE_INPUT_REJECTED, Boolean.TRUE);
+            return null;
+        }
+        return new NoteTimes(values, supplied);
+    }
+
+    private static final class NoteTimes {
+        private final Integer[] values;
+        private final boolean[] supplied;
+
+        private NoteTimes(Integer[] values, boolean[] supplied) {
+            this.values = values;
+            this.supplied = supplied;
+        }
+
+        private void applyTo(CaseManagementNote note) {
+            if (supplied[0]) note.setHourOfEncounterTime(values[0]);
+            if (supplied[1]) note.setMinuteOfEncounterTime(values[1]);
+            if (supplied[2]) note.setHourOfEncTransportationTime(values[2]);
+            if (supplied[3]) note.setMinuteOfEncTransportationTime(values[3]);
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -2175,21 +2147,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         List<CheckBoxBean> checkedlist = sessionFrm.getIssueCheckList();
         int numIssues;
-        Integer[] times = new Integer[4];
-        boolean[] submittedTimes = new boolean[4];
-        String[] timeFields = {"hourOfEncounterTime", "minuteOfEncounterTime", "hourOfEncTransportationTime", "minuteOfEncTransportationTime"};
         try {
             numIssues = Integer.parseInt(request.getParameter("numIssues"));
             if (checkedlist == null || numIssues < 0 || numIssues > checkedlist.size()) throw new NumberFormatException();
-            for (int i = 0; i < timeFields.length; i++) {
-                String value = request.getParameter(timeFields[i]);
-                submittedTimes[i] = value != null;
-                if (StringUtils.isNotEmpty(value)) times[i] = Integer.valueOf(value);
-            }
         } catch (NumberFormatException invalidForm) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return null;
         }
+        NoteTimes times = readNoteTimes();
+        if (times == null) return null;
         Date now = new Date();
         CaseManagementNote note = newNote ? new CaseManagementNote() : source.copyForRevision();
         if (!newNote) note.setId(source.getId());
@@ -2239,10 +2205,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         note.setUpdate_date(now);
         if (note.getCreate_date() == null) note.setCreate_date(now);
         note.setEncounter_type(request.getParameter("caseNote.encounter_type"));
-        if (submittedTimes[0]) note.setHourOfEncounterTime(times[0]);
-        if (submittedTimes[1]) note.setMinuteOfEncounterTime(times[1]);
-        if (submittedTimes[2]) note.setHourOfEncTransportationTime(times[2]);
-        if (submittedTimes[3]) note.setMinuteOfEncTransportationTime(times[3]);
+        times.applyTo(note);
 
         CaseManagementManager.CompactSaveResult saved;
         try {
@@ -2607,6 +2570,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // we need to convert single issue into checkbox array so we can play nicely with CaseManagementEntryFormBean
     public String makeIssue() throws Exception {
         if (!requireIssueWriteAccess()) return NONE;
+        if (readNoteTimes() == null) return NONE;
         HttpSession session = request.getSession();
         // grab the issue we want to add
         String issueId = request.getParameter("newIssueId");
@@ -2642,6 +2606,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueAdd() throws Exception {
         if (!requireIssueWriteAccess()) return NONE;
+        NoteTimes times = readNoteTimes();
+        if (times == null) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -2685,14 +2651,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
             if (this.getCaseNote() != null && this.getCaseNote().getEncounter_type() != null)
                 sessionFrm.getCaseNote().setEncounter_type(this.getCaseNote().getEncounter_type());
-            if (this.getMinuteOfEncounterTime() != null)
-                sessionFrm.getCaseNote().setMinuteOfEncounterTime(this.getMinuteOfEncounterTime());
-            if (this.getHourOfEncounterTime() != null)
-                sessionFrm.getCaseNote().setHourOfEncounterTime(this.getHourOfEncounterTime());
-            if (this.getMinuteOfEncTransportationTime() != null)
-                sessionFrm.getCaseNote().setMinuteOfEncTransportationTime(this.getMinuteOfEncTransportationTime());
-            if (this.getHourOfEncTransportationTime() != null)
-                sessionFrm.getCaseNote().setHourOfEncTransportationTime(this.getHourOfEncTransportationTime());
+            if (sessionFrm.getCaseNote() != null) times.applyTo(sessionFrm.getCaseNote());
         }
 
         // add checked new issues to client's issue list
@@ -2922,6 +2881,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             rejectObservationDate();
             return rejectedFullFormSave(this.getCaseNote_note(), "view");
         }
+        NoteTimes times = readNoteTimes();
+        if (times == null) return rejectedFullFormSave(this.getCaseNote_note(), "view");
         logger.debug("issueDelete");
 
         HttpSession session = request.getSession();
@@ -2937,6 +2898,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // both writes before either the issue, CPP or selected editor model is changed.
         if (sessionFrm != null && sessionFrm.getCaseNote() != null
                 && sessionFrm.getCaseNote().getId() != null && !requireNoteWriteAccess()) return NONE;
+        if (sessionFrm != null && sessionFrm.getCaseNote() != null) times.applyTo(sessionFrm.getCaseNote());
 
         request.setAttribute("change_flag", "true");
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
@@ -2990,6 +2952,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueChange() throws Exception {
         if (!requireIssueWriteAccess()) return NONE;
+        NoteTimes times = readNoteTimes();
+        if (times == null) return NONE;
         logger.debug("issueChange");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -3006,6 +2970,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String demono = getDemographicNo(request);
         String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
+
+        if (sessionFrm != null && sessionFrm.getCaseNote() != null) times.applyTo(sessionFrm.getCaseNote());
 
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));

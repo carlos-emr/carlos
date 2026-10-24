@@ -251,6 +251,212 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"blank", "absent", "numeric"})
+    void shouldRetainDurationEditingIntent_whenInlineIssueRefreshOrStandaloneIssueSearchRebuildsTheForm(String mode) throws Exception {
+        seedDurationFields();
+        String[] names = {"hourOfEncounterTime", "minuteOfEncounterTime", "hourOfEncTransportationTime", "minuteOfEncTransportationTime"};
+        String[] values = {"2", "17", "1", "29"};
+        for (int i = 0; i < names.length; i++) {
+            if ("absent".equals(mode)) request.removeParameter(names[i]);
+            else request.setParameter(names[i], "blank".equals(mode) ? "" : values[i]);
+        }
+        if (!"absent".equals(mode)) request.setParameter("ajax", "true");
+        action.setObservation_date(null);
+
+        assertThat(addIssue()).isEqualTo("absent".equals(mode) ? "view" : "issueList_ajax");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        Integer[] expected = switch (mode) {
+            case "blank" -> new Integer[4];
+            case "numeric" -> new Integer[]{2, 17, 1, 29};
+            default -> new Integer[]{5, 6, 7, 8};
+        };
+        assertThat(java.util.Arrays.asList(note.getHourOfEncounterTime(), note.getMinuteOfEncounterTime(),
+                note.getHourOfEncTransportationTime(), note.getMinuteOfEncTransportationTime())).containsExactly(expected);
+        assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);
+        if (!"absent".equals(mode)) assertThat(request.getAttribute("caseManagementEntryForm")).isSameAs(form);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"issueAdd,hourOfEncounterTime,not-a-duration", "makeIssue,minuteOfEncounterTime,not-a-duration",
+            "issueAdd,hourOfEncTransportationTime,not-a-duration", "makeIssue,minuteOfEncTransportationTime,not-a-duration",
+            "issueAdd,hourOfEncounterTime,' '", "makeIssue,minuteOfEncounterTime,' 2'"})
+    void shouldRefuseBadInlineDurationsBeforeDateTypeOrPendingIssuesChange(String operation, String field, String value) throws Exception {
+        seedDurationFields();
+        note.setEncounter_type("office");
+        var posted = new CaseManagementNote();
+        posted.setEncounter_type("telephone");
+        action.setCaseNote(posted);
+        action.setObservation_date("14-Oct-2026 10:05");
+        request.setParameter("newIssueId", "73");
+        request.setParameter(field, value);
+        var pending = new CheckIssueBoxBean[0];
+        form.setNewIssueCheckList(pending);
+
+        assertThat("makeIssue".equals(operation) ? action.makeIssue() : action.issueAdd()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(form.getNewIssueCheckList()).isSameAs(pending);
+        assertThat(form.getCaseNote()).isSameAs(note);
+        assertThat(note.getNote()).isEqualTo("Original FAKE note");
+        assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);
+        assertThat(note.getEncounter_type()).isEqualTo("office");
+        assertThat(note.getHourOfEncounterTime()).isEqualTo(5);
+        assertThat(note.getMinuteOfEncounterTime()).isEqualTo(6);
+        assertThat(note.getHourOfEncTransportationTime()).isEqualTo(7);
+        assertThat(note.getMinuteOfEncTransportationTime()).isEqualTo(8);
+        verifyNoInteractions(manager);
+        verify(locks, never()).merge(any());
+    }
+
+    private void seedDurationFields() {
+        note.setHourOfEncounterTime(5);
+        note.setMinuteOfEncounterTime(6);
+        note.setHourOfEncTransportationTime(7);
+        note.setMinuteOfEncTransportationTime(8);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"issueChange,blank", "issueChange,numeric", "issueChange,absent",
+            "issueDelete,blank", "issueDelete,numeric", "issueDelete,absent"})
+    void shouldKeepDurationIntent_whenIssueStatusOrDeletionRebuildsTheEditor(String operation, String mode) throws Exception {
+        seedDurationFields();
+        var entry = editableIssueEntry();
+        form.getIssueCheckList().add(entry);
+        // Deleting an issue from an unsaved note does not call noteSave, so the fragment
+        // itself must carry the submitted duration edits into the editor's session model.
+        if ("issueDelete".equals(operation)) note.setId(null);
+        postDurationMode(mode);
+        action.setObservation_date("15-Oct-2026 19:14");
+        action.setLineId("0");
+        action.setDeleteId("0");
+        request.setParameter("ajax", "true");
+        request.setParameter("issueCheckList[0].issue.certain", "true");
+        stubPatientDisplay();
+        var properties = mock(io.github.carlos_emr.CarlosProperties.class);
+        try (var config = mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
+            config.when(io.github.carlos_emr.CarlosProperties::getInstance).thenReturn(properties);
+
+            assertThat("issueChange".equals(operation) ? action.issueChange() : action.issueDelete())
+                    .isEqualTo("issueList_ajax");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertDurationMode(mode);
+            assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);
+            assertThat(form.getCaseNote()).isSameAs(note);
+            assertThat(request.getAttribute("caseManagementEntryForm")).isSameAs(form);
+            if ("issueChange".equals(operation)) {
+                assertThat(form.getIssueCheckList()).containsExactly(entry);
+                assertThat(entry.getIssue().isCertain()).isTrue();
+                assertThat(entry.getIssueDisplay().getCertain()).isEqualTo("certain");
+                verify(manager).saveAndUpdateCaseIssues(argThat(issues -> issues.size() == 1
+                        && issues.get(0) == entry.getIssue()));
+                verify(manager, never()).deleteIssueById(any());
+            } else {
+                verify(manager).deleteIssueById(entry.getIssue());
+                assertThat(form.getIssueCheckList()).isEmpty();
+                verify(manager, never()).saveAndUpdateCaseIssues(any());
+            }
+            verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                    any(), any(), any(), any(), any(), any(), any());
+            verify(locks, never()).merge(any());
+        }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "issueChange,hourOfEncounterTime,not-a-duration", "issueChange,minuteOfEncounterTime,not-a-duration",
+            "issueChange,hourOfEncTransportationTime,not-a-duration", "issueChange,minuteOfEncTransportationTime,not-a-duration",
+            "issueChange,hourOfEncounterTime,' '", "issueChange,minuteOfEncounterTime,' 2'",
+            "issueDelete,hourOfEncounterTime,not-a-duration", "issueDelete,minuteOfEncounterTime,not-a-duration",
+            "issueDelete,hourOfEncTransportationTime,not-a-duration", "issueDelete,minuteOfEncTransportationTime,not-a-duration",
+            "issueDelete,hourOfEncounterTime,' '", "issueDelete,minuteOfEncounterTime,' 2'"})
+    void shouldRefuseBadDurations_beforeIssueStatusDeletionCppOrEditorMutation(String operation, String field, String value) throws Exception {
+        seedDurationFields();
+        var entry = editableIssueEntry();
+        form.getIssueCheckList().add(entry);
+        Date originalIssueDate = entry.getIssue().getUpdate_date();
+        String rawDraft = "Retained FAKE duration draft\r\nwith trailing spaces  ";
+        request.setParameter("caseNote_note", rawDraft);
+        doReturn(rawDraft).when(action).getCaseNote_note();
+        request.setParameter(field, value);
+        request.setParameter("issueCheckList[0].issue.acute", "true");
+        request.setParameter("issueCheckList[0].issue.certain", "true");
+        request.setParameter("issueCheckList[0].issue.major", "true");
+        request.setParameter("issueCheckList[0].issue.resolved", "true");
+        action.setObservation_date("15-Oct-2026 19:14");
+        action.setLineId("0");
+        action.setDeleteId("0");
+
+        assertThat("issueChange".equals(operation) ? action.issueChange() : action.issueDelete())
+                .isEqualTo("issueChange".equals(operation) ? "none" : "windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("noteInputRejected")).isEqualTo(Boolean.TRUE);
+        if ("issueDelete".equals(operation)) assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(rawDraft);
+        assertThat(form.getIssueCheckList()).containsExactly(entry);
+        assertThat(entry.getIssue().isAcute()).isFalse();
+        assertThat(entry.getIssue().isCertain()).isFalse();
+        assertThat(entry.getIssue().isMajor()).isFalse();
+        assertThat(entry.getIssue().isResolved()).isFalse();
+        assertThat(entry.getIssue().getUpdate_date()).isEqualTo(originalIssueDate);
+        assertThat(entry.getIssueDisplay().getAcute()).isEqualTo("chronic");
+        assertThat(entry.getIssueDisplay().getCertain()).isEqualTo("uncertain");
+        assertThat(entry.getIssueDisplay().getMajor()).isEqualTo("not major");
+        assertThat(entry.getIssueDisplay().getResolved()).isEqualTo("unresolved");
+        assertDurationMode("absent");
+        assertThat(form.getCaseNote()).isSameAs(note);
+        assertThat(note.getNote()).isEqualTo("Original FAKE note");
+        assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);
+        assertThat(note.isSigned()).isFalse();
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock101")).isSameAs(lock);
+        verifyNoInteractions(manager);
+        verify(locks, never()).merge(any());
+        verify(locks, never()).removeForSession(any(), any(), any(), any());
+    }
+
+    private CheckBoxBean editableIssueEntry() {
+        var issue = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue();
+        issue.setId(71L);
+        issue.setDemographic_no(101);
+        issue.setUpdate_date(STORED_DATE);
+        var display = new CaseManagementViewAction.IssueDisplay();
+        display.setAcute("chronic");
+        display.setCertain("uncertain");
+        display.setMajor("not major");
+        display.setResolved("unresolved");
+        var entry = new CheckBoxBean();
+        entry.setIssue(issue);
+        entry.setIssueDisplay(display);
+        return entry;
+    }
+
+    private void postDurationMode(String mode) {
+        String[] names = {"hourOfEncounterTime", "minuteOfEncounterTime", "hourOfEncTransportationTime", "minuteOfEncTransportationTime"};
+        String[] values = {"2", "17", "1", "29"};
+        for (int i = 0; i < names.length; i++) {
+            if ("absent".equals(mode)) request.removeParameter(names[i]);
+            else request.setParameter(names[i], "blank".equals(mode) ? "" : values[i]);
+        }
+    }
+
+    private void assertDurationMode(String mode) {
+        Integer[] expected = switch (mode) {
+            case "blank" -> new Integer[4];
+            case "numeric" -> new Integer[]{2, 17, 1, 29};
+            default -> new Integer[]{5, 6, 7, 8};
+        };
+        assertThat(java.util.Arrays.asList(note.getHourOfEncounterTime(), note.getMinuteOfEncounterTime(),
+                note.getHourOfEncTransportationTime(), note.getMinuteOfEncTransportationTime())).containsExactly(expected);
+    }
+
+    private void stubPatientDisplay() {
+        doReturn("").when(action).getDemoName(anyString());
+        doReturn("").when(action).getDemoAge(anyString());
+        doReturn("").when(action).getDemoDOB(anyString());
+    }
+
+    @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"", "  ", "2026-10-15 19:14:08.0"})
     void shouldKeepStoredDate_whenIssueAddPostsNoReadableDate(String posted) throws Exception {

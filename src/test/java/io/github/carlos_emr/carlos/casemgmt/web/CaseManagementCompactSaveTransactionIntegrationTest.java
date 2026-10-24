@@ -63,6 +63,7 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.io.IOException;
 import java.sql.Clob;
 import java.util.*;
 
@@ -82,6 +83,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     @Autowired @Qualifier("CaseManagementNoteExtDAO") private CaseManagementNoteExtDAO extensions;
     @Autowired @Qualifier("CaseManagementNoteLinkDAO") private CaseManagementNoteLinkDAO links;
     @Autowired @Qualifier("CaseManagementTmpSaveDao") private CaseManagementTmpSaveDao drafts;
+    @Autowired @Qualifier("CaseManagementCPPDAO") private CaseManagementCPPDAO cpps;
     @Autowired private HashAuditDao hashes;
 
     private final List<Integer> draftIds = new ArrayList<>();
@@ -91,6 +93,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     private String ownedProviderName;
     private String submittedText;
     private Long lookupId;
+    private Long pendingLookupId;
     private Long originalId;
     private Long caseIssueId;
     private CaseManagementNote original;
@@ -175,6 +178,8 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         target.setCaseManagementNoteLinkDAO(links);
         target.setCaseManagementIssueDAO(caseManagementIssueDAO);
         target.setCaseManagementTmpSaveDao(drafts);
+        target.setCaseManagementCPPDAO(cpps);
+        target.seteChartDao(mock(io.github.carlos_emr.carlos.commn.dao.EChartDao.class));
         ReflectionTestUtils.setField(target, "hashAuditDao", hashes);
         programs = mock(ProgramManager.class);
         admissions = mock(AdmissionManager.class);
@@ -193,6 +198,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         manager = (CaseManagementManager) proxy.getProxy();
         beans = mockStatic(SpringUtils.class, CALLS_REAL_METHODS);
         beans.when(() -> SpringUtils.getBean(ProgramManager.class)).thenReturn(programs);
+        beans.when(() -> SpringUtils.getBean(AdmissionManager.class)).thenReturn(admissions);
         roles = mockStatic(RoleCache.class);
         roles.when(() -> RoleCache.getRole(701L)).thenReturn(originRole.getRole());
         roles.when(() -> RoleCache.getRole(801L)).thenReturn(storedRole.getRole());
@@ -208,6 +214,9 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         action.request = request;
         action.response = response;
         action.caseManagementMgr = manager;
+        ReflectionTestUtils.setField(action, "caseManagementIssueDao", caseManagementIssueDAO);
+        ReflectionTestUtils.setField(action, "issueDao", issueDAO);
+        ReflectionTestUtils.setField(action, "caseManagementNoteDao", caseManagementNoteDAO);
         request.setParameter("demographicNo", "1");
         request.setParameter("nId", originalId.toString());
         request.setParameter("noteTxt", submittedText);
@@ -259,6 +268,9 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         Admission admission = new Admission();
         admission.setTeamId(73);
         when(admissions.getAdmission("7", 1)).thenReturn(admission);
+        Admission storedAdmission = new Admission();
+        storedAdmission.setTeamId(83);
+        when(admissions.getAdmission("8", 1)).thenReturn(storedAdmission);
     }
 
     @AfterEach
@@ -279,8 +291,11 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
                 entityManager.remove(note);
             }
             entityManager.flush();
+            if (pendingLookupId != null) entityManager.createQuery("delete CaseManagementIssue i where i.issue_id=:lookup")
+                    .setParameter("lookup", pendingLookupId).executeUpdate();
             if (caseIssueId != null) entityManager.remove(entityManager.find(CaseManagementIssue.class, caseIssueId));
             entityManager.flush();
+            if (pendingLookupId != null) entityManager.remove(entityManager.find(Issue.class, pendingLookupId));
             if (lookupId != null) entityManager.remove(entityManager.find(Issue.class, lookupId));
             entityManager.flush();
             if (createdProvider) {
@@ -537,6 +552,267 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertDurations(note, 2, 17, 1, 29);
     }
 
+    @ParameterizedTest
+    @CsvSource({"save,true", "save,false", "saveAndExit,true", "saveAndExit,false"})
+    void shouldClearExplicitlyBlankFullSaveDurationsAndPreserveAbsentFields(String operation, boolean blank) throws Exception {
+        prepareFullSave(submittedText);
+        seedFullSaveDurations();
+        for (String field : List.of("hourOfEncounterTime", "minuteOfEncounterTime",
+                "hourOfEncTransportationTime", "minuteOfEncTransportationTime")) {
+            if (blank) request.setParameter(field, "");
+            else request.removeParameter(field);
+        }
+        Snapshot before = snapshot();
+
+        assertThat("save".equals(operation) ? action.save() : action.saveAndExit())
+                .isEqualTo("save".equals(operation) ? "view" : "windowClose");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        CaseManagementNote saved = form.getCaseNote();
+        assertThat(saved.getNote()).isEqualTo(submittedText);
+        assertThat(saved.getProgram_no()).isEqualTo("8");
+        assertDurations(saved, blank ? null : 5, blank ? null : 6, blank ? null : 7, blank ? null : 8);
+        tx().executeWithoutResult(status -> assertDurations(caseManagementNoteDAO.getNote(saved.getId()),
+                blank ? null : 5, blank ? null : 6, blank ? null : 7, blank ? null : 8));
+        Snapshot after = snapshot();
+        assertThat(after.notes().getFirst()).isEqualTo(before.notes().getFirst());
+        assertThat(after.issues()).isEqualTo(before.issues());
+        assertThat(after.identities()).isEqualTo(before.identities());
+        assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"save,hourOfEncounterTime,not-a-duration", "saveAndExit,minuteOfEncounterTime,not-a-duration",
+            "save,hourOfEncTransportationTime,not-a-duration", "saveAndExit,minuteOfEncTransportationTime,not-a-duration",
+            "save,hourOfEncounterTime,' '", "saveAndExit,minuteOfEncounterTime,' 2'"})
+    void shouldRefuseMalformedFullSaveDurationsBeforeSessionMutation_andPublishTheRawRecoveryDraft(
+            String operation, String field, String value) throws Exception {
+        String raw = "\n" + submittedText + "  ";
+        prepareFullSave(raw);
+        seedFullSaveDurations();
+        request.setParameter(field, value);
+        Snapshot before = snapshot();
+
+        assertThat("save".equals(operation) ? action.save() : action.saveAndExit()).isEqualTo("windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(original.getNote()).isEqualTo(marker + " original");
+        assertDurations(original, 5, 6, 7, 8);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(raw);
+        assertThat(request.getAttribute("noteInputRejected")).isEqualTo(Boolean.TRUE);
+        assertThat(request.getAttribute("observationDateRejected")).isNull();
+        verify(target, never()).saveCaseManagementNote(any(), any(), anyList(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any());
+        verify(locks, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true,true,success,false", "true,false,success,false", "false,true,success,false", "false,false,success,false",
+            "true,true,stale,false", "true,false,stale,false", "false,true,stale,false", "false,false,stale,false",
+            "true,true,checked,false", "true,false,checked,false", "false,true,checked,false", "false,false,checked,false",
+            "true,false,success,true", "false,false,success,true", "true,false,stale,true", "false,false,stale,true",
+            "true,false,checked,true", "false,false,checked,true"})
+    void shouldCommitFullIssueChangesWithTheRevisionOrRollThemBackBeforeRetry(
+            boolean modern, boolean freshIssue, String scenario, boolean readOnly) throws Exception {
+        CheckBoxBean input = prepareFullIssueSave(modern, freshIssue);
+        if (readOnly) {
+            input.getIssueDisplay().setWriteAccess(false);
+            request.removeParameter("issueCheckList[0].checked"); // A disabled native checkbox is not serialized.
+        }
+        if (!modern && !freshIssue) {
+            // Legacy markup also omits the checked attribute for enabled server-selected issues.
+            request.removeParameter("issueCheckList[0].checked");
+        }
+        CaseManagementIssue inputIssue = input.getIssue();
+        if ("stale".equals(scenario)) {
+            tx().executeWithoutResult(status -> {
+                CaseManagementNote concurrent = original.copyForRevision();
+                concurrent.setNote(marker + " concurrent");
+                caseManagementNoteDAO.saveNote(concurrent);
+            });
+        }
+        Snapshot before = snapshot();
+        IOException failure = new IOException("Checked failure after full issue save and draft deletion");
+        if ("checked".equals(scenario)) {
+            doAnswer(call -> {
+                entityManager.flush();
+                assertThat(raw("SELECT * FROM casemgmt_tmpsave WHERE provider_no='999998' AND demographic_no=1 AND program_id=7")).isEmpty();
+                CaseManagementIssue attempted = caseManagementIssueDAO.getIssuebyId("1", String.valueOf(inputIssue.getIssue_id()));
+                assertThat(attempted).isNotNull();
+                assertThat(attempted.isAcute()).isEqualTo(!readOnly);
+                assertThat(attempted.isCertain()).isEqualTo(!readOnly);
+                assertThat(attempted.isMajor()).isEqualTo(!readOnly);
+                assertThat(attempted.isResolved()).isEqualTo(!readOnly);
+                throw failure;
+            }).when(target).getLinkByTableIdDesc(CaseManagementNoteLink.CASEMGMTNOTE, originalId);
+            assertThatThrownBy(() -> action.save()).isSameAs(failure);
+            assertThat(snapshot()).isEqualTo(before);
+            assertThat(input.getIssue()).isSameAs(inputIssue);
+            assertThat(inputIssue.getId()).isEqualTo(freshIssue ? null : caseIssueId);
+            doCallRealMethod().when(target).getLinkByTableIdDesc(CaseManagementNoteLink.CASEMGMTNOTE, originalId);
+        }
+        if ("stale".equals(scenario)) {
+            assertThat(action.save()).isEqualTo("windowCloseError");
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(snapshot()).isEqualTo(before);
+            assertThat(input.getIssue()).isSameAs(inputIssue);
+            assertThat(inputIssue.getId()).isEqualTo(freshIssue ? null : caseIssueId);
+            verify(locks, never()).merge(any());
+            return;
+        }
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        CaseManagementNote saved = form.getCaseNote();
+        assertThat(saved.getProgram_no()).isEqualTo("8");
+        assertThat(saved.getReporter_program_team()).isEqualTo("83");
+        assertThat(saved.getRevision()).isEqualTo("2");
+        assertThat(input.getIssue().getId()).isNotNull();
+        assertThat(input.getIssue().getId()).isPositive();
+        assertThat(input.getIssue().getProgram_id()).isEqualTo(freshIssue ? 7 : 8);
+        tx().executeWithoutResult(status -> {
+            CaseManagementNote reloaded = caseManagementNoteDAO.getNote(saved.getId());
+            assertThat(reloaded.getIssues()).hasSize(1);
+            CaseManagementIssue savedIssue = reloaded.getIssues().iterator().next();
+            assertThat(savedIssue.getIssue_id()).isEqualTo(inputIssue.getIssue_id());
+            assertThat(savedIssue.getId()).isEqualTo(input.getIssue().getId());
+            assertThat(savedIssue.getProgram_id()).isEqualTo(freshIssue ? 7 : 8);
+            assertThat(savedIssue.isAcute()).isEqualTo(!readOnly);
+            assertThat(savedIssue.isCertain()).isEqualTo(!readOnly);
+            assertThat(savedIssue.isMajor()).isEqualTo(!readOnly);
+            assertThat(savedIssue.isResolved()).isEqualTo(!readOnly);
+            assertThat(caseManagementNoteDAO.getNote(originalId).getIssues()).extracting(CaseManagementIssue::getId)
+                    .containsExactly(caseIssueId);
+            assertThat(entityManager.createQuery("select count(i) from CaseManagementIssue i where i.demographic_no=1 and i.issue_id=:lookup", Long.class)
+                    .setParameter("lookup", inputIssue.getIssue_id()).getSingleResult()).isEqualTo(1L);
+        });
+        Snapshot after = snapshot();
+        assertThat(after.notes().getFirst()).isEqualTo(before.notes().getFirst());
+        if (readOnly) assertThat(after.issues()).isEqualTo(before.issues());
+        assertThat(after.identities()).isEqualTo(before.identities());
+        assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPreserveLegacyNullIssueProgramForANewGlobalChartIssue(boolean modern) throws Exception {
+        prepareFullIssueSave(modern, true);
+        ChartProgramContext.remember(request, "0");
+        request.getSession().setAttribute(ChartProgramContext.formKey(request, "1"), form);
+        List<List<String>> draftsBefore = snapshot().drafts();
+
+        assertThat(action.save()).isEqualTo("view");
+
+        tx().executeWithoutResult(status -> assertThat(caseManagementNoteDAO.getNote(form.getCaseNote().getId()).getIssues())
+                .singleElement().satisfies(issue -> assertThat(issue.getProgram_id()).isNull()));
+        assertThat(snapshot().drafts()).containsExactlyElementsOf(draftsBefore.stream()
+                .filter(row -> !row.contains(marker + " Global chart draft")).toList());
+        assertThat(form.getCaseNote().getProgram_no()).isEqualTo("8");
+    }
+
+    @Test
+    void shouldDeselectAWritableModernIssueWithoutRemovingItsHistoricalAssociation() throws Exception {
+        CheckBoxBean checkbox = prepareFullIssueSave(true, false);
+        checkbox.getIssueDisplay().setAcute("chronic");
+        checkbox.getIssueDisplay().setCertain("uncertain");
+        checkbox.getIssueDisplay().setMajor("not major");
+        checkbox.getIssueDisplay().setResolved("unresolved");
+        // A writable native checkbox that the user unchecks is absent from Form.serialize.
+        request.removeParameter("issueCheckList[0].checked");
+        Snapshot before = snapshot();
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(checkbox.getChecked()).isEqualTo("off");
+        CaseManagementNote saved = form.getCaseNote();
+        assertThat(saved.getProgram_no()).isEqualTo("8");
+        assertThat(saved.getReporter_program_team()).isEqualTo("83");
+        tx().executeWithoutResult(status -> {
+            assertThat(caseManagementNoteDAO.getNote(saved.getId()).getIssues()).isEmpty();
+            assertThat(caseManagementNoteDAO.getNote(originalId).getIssues()).extracting(CaseManagementIssue::getId)
+                    .containsExactly(caseIssueId);
+            CaseManagementIssue retained = entityManager.find(CaseManagementIssue.class, caseIssueId);
+            assertThat(retained).isNotNull();
+            assertThat(retained.isAcute()).isFalse();
+            assertThat(retained.isCertain()).isFalse();
+            assertThat(retained.isMajor()).isFalse();
+            assertThat(retained.isResolved()).isFalse();
+        });
+        Snapshot after = snapshot();
+        assertThat(after.notes().getFirst()).isEqualTo(before.notes().getFirst());
+        assertThat(after.identities()).isEqualTo(before.identities());
+        assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
+    }
+
+    private CheckBoxBean prepareFullIssueSave(boolean modern, boolean freshIssue) {
+        prepareFullSave(submittedText);
+        request.getSession().setAttribute("newCaseManagement", String.valueOf(modern));
+        Issue catalog = tx().execute(status -> {
+            if (!freshIssue) return entityManager.find(Issue.class, lookupId);
+            Issue created = new Issue();
+            created.setCode("PND" + UUID.randomUUID().toString().substring(0, 8));
+            created.setDescription("Pending full save issue");
+            created.setRole("doctor");
+            created.setType("system");
+            entityManager.persist(created);
+            entityManager.flush();
+            pendingLookupId = created.getId();
+            return created;
+        });
+        CaseManagementIssue inputIssue = new CaseManagementIssue();
+        inputIssue.setId(freshIssue ? null : caseIssueId);
+        inputIssue.setDemographic_no(1);
+        inputIssue.setIssue_id(catalog.getId());
+        inputIssue.setIssue(catalog);
+        inputIssue.setProgram_id(freshIssue ? 7 : 8);
+        inputIssue.setType("doctor");
+        CheckBoxBean checkbox = new CheckBoxBean();
+        checkbox.setIssue(inputIssue);
+        checkbox.setChecked("on");
+        var display = checkbox.getIssueDisplay();
+        display.setCode(catalog.getCode());
+        display.setDescription(catalog.getDescription());
+        display.setWriteAccess(true);
+        display.setAcute("acute");
+        display.setCertain("certain");
+        display.setMajor("major");
+        display.setResolved("resolved");
+        form.setIssueCheckList(new ArrayList<>(List.of(checkbox)));
+        request.setParameter("issueCheckList[0].checked", "on");
+        return checkbox;
+    }
+
+    private void prepareFullSave(String rawNote) {
+        form.setIssueCheckList(new ArrayList<>());
+        request.getSession().setAttribute("newCaseManagement", "true");
+        request.setParameter("caseNote_note", rawNote);
+        action.setObservation_date("14-Oct-2026 10:00");
+        doReturn(rawNote).when(action).getCaseNote_note();
+        doReturn("Owned patient").when(action).getDemoName(anyString());
+        doReturn("46").when(action).getDemoAge(anyString());
+        doReturn("1980-01-02").when(action).getDemoDOB(anyString());
+        doReturn("Note saved").when(action).getText("note.saved");
+        doNothing().when(action).addActionMessage(anyString());
+    }
+
+    private void seedFullSaveDurations() {
+        tx().executeWithoutResult(status -> {
+            CaseManagementNote stored = entityManager.find(CaseManagementNote.class, originalId);
+            stored.setHourOfEncounterTime(5);
+            stored.setMinuteOfEncounterTime(6);
+            stored.setHourOfEncTransportationTime(7);
+            stored.setMinuteOfEncTransportationTime(8);
+        });
+        original.setHourOfEncounterTime(5);
+        original.setMinuteOfEncounterTime(6);
+        original.setHourOfEncTransportationTime(7);
+        original.setMinuteOfEncTransportationTime(8);
+    }
+
     private void assertDurations(CaseManagementNote note, Integer hours, Integer minutes, Integer transportHours, Integer transportMinutes) {
         assertThat(note.getHourOfEncounterTime()).isEqualTo(hours);
         assertThat(note.getMinuteOfEncounterTime()).isEqualTo(minutes);
@@ -581,7 +857,8 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     private Snapshot snapshot() {
         return tx().execute(status -> new Snapshot(
                 raw("SELECT * FROM casemgmt_note WHERE note LIKE :marker ORDER BY note_id", Map.of("marker", marker + "%")),
-                raw("SELECT * FROM casemgmt_issue WHERE id=" + caseIssueId),
+                raw("SELECT * FROM casemgmt_issue WHERE id=" + caseIssueId
+                        + (pendingLookupId == null ? "" : " OR issue_id=" + pendingLookupId) + " ORDER BY id"),
                 raw("SELECT * FROM casemgmt_tmpsave WHERE id IN (" + String.join(",", draftIds.stream().map(String::valueOf).toList()) + ") ORDER BY id"),
                 List.of(raw("SELECT * FROM provider WHERE provider_no IN ('999998','999997') ORDER BY provider_no"),
                         raw("SELECT * FROM demographic WHERE demographic_no IN (1,2) ORDER BY demographic_no"))));

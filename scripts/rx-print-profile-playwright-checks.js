@@ -33,7 +33,11 @@
  * state. A real retry saves the compact revision in the same Y-only context while preserving
  * the original note location, history, role and other drafts. Native full Save first records
  * all four duration values; clearing those inputs on compact Save stores SQL NULL only in
- * the new revision, with historical values and failure-recovery controls preserved.
+ * the new revision, with historical values and failure-recovery controls preserved. A final
+ * new unsigned note also records and then clears all four values through two native full
+ * Saves; an actual inline issue assignment must keep those cleared inputs blank before
+ * the second Save. A later native issue-status change retains newly staged duration
+ * inputs without changing either saved note revision or earlier clinical fixtures.
  *
  * Fixtures: one owned `prescription` row and two `drugs` rows (customName/special carry the run
  * marker) for the owned synthetic patient; native Save And Print operations add owned rows.
@@ -874,7 +878,7 @@ async function workflow(s) {
         await page.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation
           && window.issueUpdatesPending === 0);
         await page.evaluate(() => clearAutoSaveTimer());
-        const text = `${await editor().inputValue()}\n${marker}-originating-program-only-edit`;
+        const text = `${await editor().inputValue()}\n${marker}-originating-program-only-edit H&P + = & / # ?`;
         await editor().fill(text);
         const pendingDraft = page.waitForResponse(response => response.request().method() === 'POST'
           && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
@@ -1028,17 +1032,25 @@ async function workflow(s) {
           s.recorder.requestFailures.splice(s.recorder.requestFailures.indexOf(recorded[0]), 1);
           console.log('  CHECK rx-print-profile: acknowledged only the proved owned reload lock-release beacon abort');
         }
-        await s.step('native save-on-note-switch preserves the shared note and recovers from an invalid save acknowledgment', async () => {
+        await s.step('native duration-only save-on-note-switch preserves the shared note and recovers from an invalid save acknowledgment', async () => {
           await page.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation
             && !window.noteSwitchSavePending && window.issueUpdatesPending === 0);
           await page.evaluate(() => clearAutoSaveTimer());
           h.assert(await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue() === revision
             && sql.value(`SELECT COUNT(*) FROM program_provider WHERE ${membershipWhere}`) === '0',
           'The compact switch does not start on the selected shared note in its Y-only chart');
+          const compactText = await editor().inputValue();
+          const storedCompactHex = sql.value(`SELECT HEX(note) FROM casemgmt_note WHERE note_id=${revision}`);
+          h.assert(compactText === presentedText && await page.evaluate(() => !noteIssuesChanged
+            && origCaseNote === document.getElementById(caseNote).value
+            && origObservationDate === document.getElementById('observationDate').value),
+          'The duration-only switch does not start from an unchanged editor/date/issue state');
           for (const name of durationNames) await page.locator(`[name="${name}"]`).fill('');
           const clearedDurations = JSON.stringify(durationNames.map(() => ''));
-          const compactText = `${await editor().inputValue()}\n${marker}-compact-switch H&P + = & / # ?`;
-          await editor().fill(compactText);
+          h.assert(await editor().inputValue() === compactText && await page.evaluate(() => noteIssuesChanged
+            && origCaseNote === document.getElementById(caseNote).value
+            && origObservationDate === document.getElementById('observationDate').value),
+          'Changing only the native duration inputs did not mark the note for a save-on-switch');
           const pendingDraft = page.waitForResponse(response => response.request().method() === 'POST'
             && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
             && new URLSearchParams(response.request().postData() || '').get('method') === 'autosave');
@@ -1196,6 +1208,7 @@ DELIMITER ;`);
                   wafResponse: h.isWafPage(serverFailure.status(), body), response: fingerprint(body) }));
               }
               h.assert(serverFailure.status() === 500 && hasChartContext(serverFailure.request(), tokens[1])
+                && new URLSearchParams(serverFailure.request().postData() || '').get('noteTxt') === compactText
                 && Object.hasOwn(serverFailure.headers(), h.APPLICATION_HEADER)
                 && !h.isWafPage(serverFailure.status(), body),
               'The owned compact DELETE failure did not return an actual application500');
@@ -1235,6 +1248,8 @@ DELIMITER ;`);
             }
             h.assert(saved.status() === 200 && hasChartContext(saved.request(), tokens[1]),
               'The real compact retry failed or changed its chart context');
+            h.assert(new URLSearchParams(saved.request().postData() || '').get('noteTxt') === compactText,
+              'The duration-only retry changed the submitted raw editor presentation');
             await page.waitForFunction(() => document.forms.caseManagementEntryForm?.elements.noteId?.value === '0'
               && !window.noteSwitchSavePending && window.issueUpdatesPending === 0);
           }, { accept: true });
@@ -1246,7 +1261,7 @@ DELIMITER ;`);
           h.assert(/^[1-9]\d*$/.test(compactRevision) && Number(compactRevision) > Number(revision),
             'The native compact save did not create a new note revision');
           h.assert(sql.value(`SELECT HEX(note) FROM casemgmt_note WHERE note_id=${compactRevision}`)
-            === Buffer.from(compactText, 'utf8').toString('hex').toUpperCase()
+            === storedCompactHex
             && sql.value(`SELECT reporter_caisi_role FROM casemgmt_note WHERE note_id=${compactRevision}`) === writerRole
             && JSON.stringify(sql.rows(`SELECT program_no,reporter_program_team FROM casemgmt_note
               WHERE note_id=${compactRevision}`)) === originalLocation,
@@ -1265,8 +1280,202 @@ DELIMITER ;`);
             && sql.value(`SELECT COUNT(*) FROM program_provider WHERE ${membershipWhere}`) === '0',
           'The compact save consumed another draft or changed provider/patient/membership state');
           await page.locator(`#n${compactRevision}`).waitFor({ state: 'visible' });
-          h.assert(!((await editor().inputValue()).includes(`${marker}-compact-switch`)),
+          h.assert(!((await editor().inputValue()).includes(`${marker}-originating-program-only-edit`)),
             'The requested native new-note editor did not open after the confirmed compact save');
+        });
+        await s.step('native full Save clears all four duration fields without changing historical or other clinical records', async () => {
+          await page.waitForFunction(() => document.forms.caseManagementEntryForm?.elements.noteId?.value === '0'
+            && !window.autoSaveXhr && !window.autoSaveOperation && !window.noteSwitchSavePending
+            && window.issueUpdatesPending === 0);
+          await page.evaluate(() => clearAutoSaveTimer());
+          let inlineLookupId;
+          const inlineCode = `RX${marker.slice(7)}`;
+          const inlineDescription = `${marker}-duration-inline-issue`;
+          const inlineRole = sql.value(`SELECT r.role_name FROM program_provider pp
+            JOIN secRole r ON r.role_no=pp.role_id WHERE pp.provider_no=${owner}
+            AND pp.program_id=${defaultProgram} ORDER BY pp.id LIMIT 1`);
+          h.assert(inlineRole && inlineRole !== 'NULL'
+            && sql.value(`SELECT COUNT(*) FROM issue WHERE code=${q(inlineCode)}`) === '0',
+          'The inline issue does not have a valid owned code and originating writer role');
+          const priorNotes = excluded => sql.rows(`SELECT * FROM casemgmt_note
+            WHERE demographic_no IN (${patient},${referencePatient})
+            ${excluded.length ? `AND note_id NOT IN (${excluded.join(',')})` : ''} ORDER BY note_id`);
+          const protectedClinicalState = () => JSON.stringify([
+            sql.rows(`SELECT * FROM casemgmt_issue WHERE demographic_no IN (${patient},${referencePatient})
+              ${inlineLookupId ? `AND issue_id<>${inlineLookupId}` : ''} ORDER BY id`),
+            sql.rows(`SELECT * FROM casemgmt_issue_notes WHERE note_id IN
+              (SELECT note_id FROM casemgmt_note WHERE demographic_no IN (${patient},${referencePatient}))
+              ${inlineLookupId ? `AND id NOT IN (SELECT id FROM casemgmt_issue WHERE issue_id=${inlineLookupId})` : ''} ORDER BY note_id,id`),
+            fingerprint(JSON.stringify(sql.rows(`SELECT SHA2(JSON_ARRAY(pkid,signature,id,type,algorithm),256)
+              FROM hash_audit ORDER BY pkid`))),
+            sql.rows(`SELECT * FROM casemgmt_tmpsave WHERE demographic_no IN (${patient},${referencePatient}) ORDER BY id`),
+            providerAndPatients(),
+          ]);
+          const notesBefore = JSON.stringify(priorNotes([]));
+          const protectedBefore = protectedClinicalState();
+          const saveFull = async (text, durations, previous, beforeSave) => {
+            await page.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation
+              && !window.noteSwitchSavePending && window.issueUpdatesPending === 0);
+            await page.evaluate(() => clearAutoSaveTimer());
+            await editor().fill(text);
+            for (let index = 0; index < durationNames.length; index++) {
+              await page.locator(`[name="${durationNames[index]}"]`).fill(durations[index]);
+            }
+            if (beforeSave) await beforeSave();
+            const response = page.waitForResponse(result => result.request().method() === 'POST'
+              && new URL(result.url()).pathname.endsWith('/CaseManagementEntry')
+              && new URLSearchParams(result.request().postData() || '').get('method') === 'save');
+            await page.locator('#saveImg').first().click();
+            const saved = await response;
+            await saved.finished();
+            const posted = new URLSearchParams(saved.request().postData() || '');
+            h.assert(saved.status() === 200 && hasChartContext(saved.request(), tokens[1])
+              && durationNames.every((name, index) => posted.has(name)
+                && posted.getAll(name).every(value => value === durations[index])),
+            'The native full Save failed, changed its context or omitted an entered/cleared duration');
+            await page.waitForFunction(oldId => {
+              const id = document.forms.caseManagementEntryForm?.elements.noteId?.value;
+              return /^[1-9]\d*$/.test(id || '') && id !== oldId && !window.autoSaveXhr
+                && !window.noteSwitchSavePending && window.issueUpdatesPending === 0;
+            }, previous);
+            await page.evaluate(() => clearAutoSaveTimer());
+            const id = await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue();
+            h.assert(await editor().inputValue() === text
+              && JSON.stringify(await durationState()) === JSON.stringify(durations)
+              && sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${id}
+                AND demographic_no=${patient} AND provider_no=${owner} AND program_no=${q(defaultProgram)} AND signed=0`) === '1'
+              && sql.value(`SELECT HEX(note) FROM casemgmt_note WHERE note_id=${id}`)
+                === Buffer.from(text, 'utf8').toString('hex').toUpperCase(),
+            'The full Save lost exact text, native duration values or unsigned Y ownership');
+            return id;
+          };
+          const firstText = `${marker}-full-duration-entered H&P + retained`;
+          const entered = ['3', '19', '2', '29'];
+          const firstId = await saveFull(firstText, entered, '0');
+          const firstRow = JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${firstId}`));
+          const firstUuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${firstId}`);
+          h.assert(firstUuid && firstUuid !== 'NULL'
+            && JSON.stringify(sql.rows(`SELECT ${durationNames.join(',')} FROM casemgmt_note WHERE note_id=${firstId}`))
+              === JSON.stringify([entered])
+            && JSON.stringify(priorNotes([firstId])) === notesBefore && protectedClinicalState() === protectedBefore,
+          'The first full Save did not persist durations or changed prior clinical state');
+          let inlineLookupSnapshot;
+          s.cleanup(() => {
+            const lookup = sql.rows(`SELECT issue_id,description,role FROM issue WHERE code=${q(inlineCode)}`);
+            if (!lookup.length) {
+              h.assert(!inlineLookupId || sql.value(`SELECT COUNT(*) FROM casemgmt_issue WHERE issue_id=${inlineLookupId}`) === '0',
+                'The inline lookup disappeared with remaining patient-issue references');
+              return;
+            }
+            h.assert(lookup.length === 1 && /^[1-9]\d*$/.test(lookup[0][0])
+              && (!inlineLookupId || lookup[0][0] === inlineLookupId)
+              && lookup[0][1] === inlineDescription && lookup[0][2] === inlineRole
+              && (!inlineLookupSnapshot || JSON.stringify(sql.rows(`SELECT * FROM issue
+                WHERE issue_id=${lookup[0][0]}`)) === inlineLookupSnapshot),
+            'The owned inline lookup definition changed; refusing cleanup');
+            inlineLookupId = lookup[0][0];
+            h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_issue WHERE issue_id=${inlineLookupId}
+              AND demographic_no<>${patient}`) === '0'
+              && sql.value(`SELECT COUNT(*) FROM casemgmt_issue_notes WHERE id IN
+                (SELECT id FROM casemgmt_issue WHERE issue_id=${inlineLookupId}) AND note_id NOT IN
+                (SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient})`) === '0',
+            'The owned inline issue has foreign patient/note references; refusing cleanup');
+            sql.execute(`DELETE FROM casemgmt_issue_notes WHERE id IN
+              (SELECT id FROM casemgmt_issue WHERE issue_id=${inlineLookupId} AND demographic_no=${patient});
+              DELETE FROM casemgmt_issue WHERE issue_id=${inlineLookupId} AND demographic_no=${patient}`);
+            h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_issue WHERE issue_id=${inlineLookupId}`) === '0',
+              'The owned inline case issue survived cleanup');
+            sql.execute(`DELETE FROM issue WHERE issue_id=${inlineLookupId} AND code=${q(inlineCode)}
+              AND description=${q(inlineDescription)} AND role=${q(inlineRole)}`);
+            h.assert(sql.value(`SELECT COUNT(*) FROM issue WHERE issue_id=${inlineLookupId} OR code=${q(inlineCode)}`) === '0',
+              'The owned inline lookup survived cleanup');
+          });
+          inlineLookupId = h.insertId(sql, `INSERT INTO issue
+            (code,description,role,update_date,priority,type,sortOrderId)
+            VALUES (${q(inlineCode)},${q(inlineDescription)},${q(inlineRole)},NOW(),'0','',0)`, 'owned inline issue lookup');
+          inlineLookupSnapshot = JSON.stringify(sql.rows(`SELECT * FROM issue WHERE issue_id=${inlineLookupId}`));
+          const clearedText = `${firstText}\n${marker}-full-duration-cleared`;
+          const secondId = await saveFull(clearedText, durationNames.map(() => ''), firstId, async () => {
+            const checkedBefore = await page.locator('#noteIssues input[name$=".checked"]:checked').count();
+            const selected = await ui.typeAutocomplete(page, '#issueAutocomplete', inlineCode,
+              { option: inlineDescription, hidden: '#newIssueId', timeout: 30000 });
+            h.assert(selected === inlineLookupId, 'The native autocomplete did not select the owned inline issue');
+            const [assigned] = await Promise.all([
+              page.waitForResponse(response => response.request().method() === 'POST'
+                && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
+                && new URLSearchParams(response.request().postData() || '').get('method') === 'makeIssue'),
+              page.locator('#asgnIssues').click(),
+            ]);
+            await assigned.finished();
+            const posted = new URLSearchParams(assigned.request().postData() || '');
+            h.assert(assigned.status() === 200 && hasChartContext(assigned.request(), tokens[1])
+              && durationNames.every(name => posted.has(name) && posted.getAll(name).every(value => value === '')),
+            'Inline issue assignment failed or did not serialize the four cleared duration inputs');
+            await page.waitForFunction(() => window.issueUpdatesPending === 0 && !window.issueUpdateFailed);
+            await page.evaluate(() => clearAutoSaveTimer());
+            h.assert(await page.locator('#asgnIssues').isEnabled()
+              && await page.locator('#noteIssues input[name$=".checked"]:checked').count() === checkedBefore + 1
+              && (await page.locator('#noteIssues').innerText()).includes(inlineDescription)
+              && JSON.stringify(await durationState()) === JSON.stringify(durationNames.map(() => ''))
+              && await editor().inputValue() === clearedText
+              && JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${firstId}`)) === firstRow
+              && protectedClinicalState() === protectedBefore,
+            'The inline issue fragment reverted cleared durations/text or changed prior clinical records');
+          });
+          const inlineCase = sql.rows(`SELECT id,demographic_no,program_id FROM casemgmt_issue
+            WHERE issue_id=${inlineLookupId} ORDER BY id`);
+          h.assert(inlineCase.length === 1 && /^[1-9]\d*$/.test(inlineCase[0][0])
+            && inlineCase[0][1] === patient && inlineCase[0][2] === defaultProgram
+            && JSON.stringify(sql.rows(`SELECT id,note_id FROM casemgmt_issue_notes WHERE id=${inlineCase[0][0]}
+              ORDER BY note_id`)) === JSON.stringify([[inlineCase[0][0], secondId]]),
+          'The inline issue did not persist exactly one owned case issue linked only to the new revision');
+          h.assert(Number(secondId) > Number(firstId)
+            && sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${secondId} AND uuid=${q(firstUuid)}
+              AND ${durationNames.map(name => `${name} IS NULL`).join(' AND ')}`) === '1'
+            && JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${firstId}`)) === firstRow
+            && JSON.stringify(priorNotes([firstId, secondId])) === notesBefore
+            && protectedClinicalState() === protectedBefore,
+          'Clearing durations on native full Save did not create SQL NULLs or changed history/other clinical state');
+          const notesBeforeIssueChange = JSON.stringify(priorNotes([]));
+          const caseId = inlineCase[0][0];
+          const stableCaseColumns = 'id,demographic_no,issue_id,acute,major,resolved,program_id,type';
+          const stableCaseBefore = JSON.stringify(sql.rows(`SELECT ${stableCaseColumns}
+            FROM casemgmt_issue WHERE id=${caseId}`));
+          const joinsBefore = JSON.stringify(sql.rows(`SELECT id,note_id FROM casemgmt_issue_notes
+            WHERE id=${caseId} ORDER BY note_id`));
+          h.assert(sql.value(`SELECT certain FROM casemgmt_issue WHERE id=${caseId}`) === '0',
+            'The owned issue must start uncertain for the native status-change probe');
+          const stagedDurations = ['4', '21', '1', '37'];
+          for (let index = 0; index < durationNames.length; index++) {
+            await page.locator(`[name="${durationNames[index]}"]`).fill(stagedDurations[index]);
+          }
+          const detailsLink = page.locator('#noteIssues').getByRole('link', { name: inlineDescription, exact: true });
+          const details = /displayIssue\('(noteIssueDetails\d+)'\)/.exec(await detailsLink.getAttribute('onclick') || '');
+          h.assert(details, 'The owned issue has no native detail control');
+          await detailsLink.click();
+          const [changed] = await Promise.all([
+            page.waitForResponse(response => response.request().method() === 'POST'
+              && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
+              && new URLSearchParams(response.request().postData() || '').get('method') === 'issueChange'),
+            page.locator(`#${details[1]} input[type="radio"][name$=".issue.certain"][value="true"]`).check(),
+          ]);
+          await changed.finished();
+          const changePost = new URLSearchParams(changed.request().postData() || '');
+          h.assert(changed.status() === 200 && hasChartContext(changed.request(), tokens[1])
+            && durationNames.every((name, index) => changePost.has(name)
+              && changePost.getAll(name).every(value => value === stagedDurations[index])),
+          'The native issue status change failed or omitted the staged duration inputs');
+          await page.waitForFunction(() => window.issueUpdatesPending === 0 && !window.issueUpdateFailed);
+          await page.evaluate(() => clearAutoSaveTimer());
+          h.assert(JSON.stringify(await durationState()) === JSON.stringify(stagedDurations)
+            && await editor().inputValue() === clearedText
+            && sql.value(`SELECT certain FROM casemgmt_issue WHERE id=${caseId}`) === '1'
+            && JSON.stringify(sql.rows(`SELECT ${stableCaseColumns} FROM casemgmt_issue WHERE id=${caseId}`)) === stableCaseBefore
+            && JSON.stringify(sql.rows(`SELECT id,note_id FROM casemgmt_issue_notes WHERE id=${caseId} ORDER BY note_id`)) === joinsBefore
+            && JSON.stringify(priorNotes([])) === notesBeforeIssueChange && protectedClinicalState() === protectedBefore
+            && sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${secondId}
+              AND ${durationNames.map(name => `${name} IS NULL`).join(' AND ')}`) === '1',
+          'The issue fragment lost staged durations or changed saved notes, unrelated issue fields/joins, or protected clinical state');
         });
       } finally {
         context.off('request', observePing);
