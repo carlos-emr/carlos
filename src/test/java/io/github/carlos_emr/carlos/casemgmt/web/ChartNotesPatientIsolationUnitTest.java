@@ -95,4 +95,15 @@ class ChartNotesPatientIsolationUnitTest {
                 .contains("if (bean.source == null) {")
                 .doesNotContain("bean.demographicNo%>");
     }
+    @Test
+    @DisplayName("should use the canonical patient for session keys and form fields")
+    void shouldUseCanonicalPatient_whenAliasIsAccepted() throws IOException {
+        String source = source();
+        assertThat(source).contains("String demographicNo = chartPatientNo;")
+                .doesNotContain("request.getParameter(\"demographicNo\")");
+        assertThat(source).contains("String demoNo = chartPatientNo;");
+        assertThat(source.indexOf("EncounterPatientContext.requireDemographicNo(request)"))
+                .isLessThan(source.indexOf("Integer.parseInt(demoNo)"));
+    }
+
 }

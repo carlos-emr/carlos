@@ -8,7 +8,11 @@ import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-/** Restricts saved message attachments to the local sender or a local recipient. */
+/**
+ * Restricts saved message attachments to the local sender or a local recipient.
+ *
+ * @since 2026-10-24
+ */
 public final class MsgAttachmentAccess {
     private MsgAttachmentAccess() { }
 

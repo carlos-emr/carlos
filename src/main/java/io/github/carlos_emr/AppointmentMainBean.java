@@ -145,7 +145,7 @@ public class AppointmentMainBean {
         String sqlQuery = null;
 
         ResultSet rs = null;
-        if (aKeyword[0].equals("*")) {
+        if (aKeyword.length > 0 && "*".equals(aKeyword[0])) {
             sqlQuery = dbSQL.getDef("search*", "");
             // SQL from UtilDict constants is server-owned; empty parameters are part of an established template path.
             rs = LegacyJdbcQuery.queryResults(sqlQuery, EMPTY_DB_PARAMS);

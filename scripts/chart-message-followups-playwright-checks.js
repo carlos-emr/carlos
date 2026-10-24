@@ -29,6 +29,33 @@ async function workflow(s) {
       'Owned follow-up messages remain after cleanup');
   });
 
+  // This must precede every inbox/compose visit: a fresh login has no messaging bean.
+  await s.step('document transfer works before the inbox has initialized messaging', async () => {
+    const page = await context.newPage();
+    await page.goto(url(`/messenger/Transfer/SelectItems?val1=spoofed-provider&val2=${patient}`));
+    await h.assertNotErrorPage(page, 'fresh-login document transfer');
+    const encoded = await page.locator('input[name="xmlDoc"]').inputValue();
+    h.assert(Buffer.from(encoded, 'base64').toString('utf8').includes(marker),
+      'The real transfer form did not contain the selected patient');
+    await Promise.all([page.waitForNavigation(), page.getByRole('button', {name: 'Send These eDocs'}).click()]);
+    await page.locator('#subject').waitFor();
+    h.assert(new URL(page.url()).pathname.endsWith('/messenger/ViewCreateMessage'),
+      'Submitting a first-use transfer lost its selection in an inbox redirect');
+    h.assert((await page.locator('body').innerText()).includes('Message has attachments!'),
+      'The first-use compose window has no staged patient attachment');
+    await page.close();
+  });
+
+  await s.step('the report index renders provider choices without privacy filters', async () => {
+    const page = await context.newPage();
+    const response = await page.goto(url('/report/ViewReportindex'));
+    h.assert(response.status() === 200, `Report index returned HTTP ${response.status()}`);
+    await h.assertNotErrorPage(page, 'report index');
+    h.assert(await page.locator(`select[name="provider_no"] option[value="${provider}"]`).count() > 0,
+      'The report index did not render the logged-in provider');
+    await page.close();
+  });
+
   await s.step('an orphaned appointment does not prevent the day sheet from rendering', async () => {
     const missingPatient = Number(sql.value('SELECT MAX(demographic_no) FROM demographic')) + 100;
     const date = sql.value('SELECT CURDATE()');
@@ -88,6 +115,24 @@ async function workflow(s) {
       AND ongoingConcerns='FAKE-PW concern'`) === '1',
     'Saving the reminder lost history or other patient fields');
     await page.close();
+  });
+
+  await s.step('chart notes accept the patient alias and reject malformed identifiers', async () => {
+    await s.chart();
+    for (const parameter of ['demographicNo', 'demographic_no']) {
+      const response = await context.request.get(url(`/casemgmt/ViewChartNotes?${parameter}=${patient}`));
+      try {
+        h.assert(response.status() === 200, `Chart notes with ${parameter} returned HTTP ${response.status()}`);
+        const body = await response.text();
+        h.assert(new RegExp(`name="demographicNo"[^>]*value="${patient}"`).test(body),
+          `Chart notes with ${parameter} lost its canonical form patient`);
+      } finally { await response.dispose(); }
+    }
+    for (const query of ['', '?demographic_no=invalid']) {
+      const response = await context.request.get(url('/casemgmt/ViewChartNotes' + query));
+      try { h.assert(response.status() === 400, `Invalid chart patient returned HTTP ${response.status()}`); }
+      finally { await response.dispose(); }
+    }
   });
 
   const location = sql.value('SELECT locationId FROM oscarcommlocations WHERE current1=1 LIMIT 1');

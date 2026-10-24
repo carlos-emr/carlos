@@ -1377,29 +1377,6 @@ async function run(s) {
     await activateOther(chartB);
   });
 
-  // One message linked to each patient, for each navigation's message list.
-  const navigationSubject = label => `${marker} ${label} navigation message`;
-  const ownedMessages = `SELECT messageid FROM messagetbl WHERE thesubject LIKE ${q(`${marker} % navigation message`)}`;
-  s.cleanup(() => {
-    const ids = sql.rows(ownedMessages).map(row => patientKey(row[0]));
-    if (ids.length) {
-      sql.execute(`DELETE FROM msgDemoMap WHERE messageID IN (${ids.join(',')}) AND demographic_no IN (${patients});
-        DELETE FROM messagetbl WHERE messageid IN (${ids.join(',')})`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM msgDemoMap WHERE messageID IN (${ids.join(',')})
-        AND demographic_no IN (${patients})`) === '0', 'The owned navigation messages\' patient links were not removed');
-    }
-    h.assert(sql.rows(ownedMessages).length === 0, 'The owned navigation messages were not removed');
-  });
-  const messageLocation = sql.value('SELECT locationId FROM oscarcommlocations WHERE current1=1 LIMIT 1');
-  h.assert(/^\d+$/.test(messageLocation), 'No current messenger location is configured');
-  for (const d of directions) {
-    const id = h.insertId(sql, `INSERT INTO messagetbl(thedate, theime, themessage, thesubject, sentby, sentto,
-        sentbyNo, sentByLocation, type)
-      VALUES(CURDATE(), CURTIME(), 'FAKE-PW', ${q(navigationSubject(d.label))}, 'FAKE-PW sender', 'FAKE-PW recipient',
-        ${q(provider)}, ${messageLocation}, 0)`, 'navigation message');
-    sql.execute(`INSERT INTO msgDemoMap(messageID, demographic_no) VALUES(${id}, ${d.patient})`);
-  }
-
   await s.step('retired direct-render chart routes reject requests without changing either chart', async () => {
     const beforeA = snapshot(A);
     const beforeB = snapshot(B);

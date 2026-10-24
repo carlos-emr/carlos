@@ -139,7 +139,9 @@ class MsgViewPDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldStreamNothing_whenTheMessageHasNoPdfs() throws Exception {
-        when(messageTblDao.find(200)).thenReturn(new MessageTbl());
+        MessageTbl withoutPdfs = new MessageTbl();
+        withoutPdfs.setSentByNo("101");
+        when(messageTblDao.find(200)).thenReturn(withoutPdfs);
 
         String result = download("200", "0");
 

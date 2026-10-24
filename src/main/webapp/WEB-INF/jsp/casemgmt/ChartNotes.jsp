@@ -118,7 +118,15 @@
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-    String demoNo = request.getParameter("demographicNo");
+    String chartPatientNo;
+    try {
+        chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(400);
+        return;
+    }
+    String demoNo = chartPatientNo;
+    String demographicNo = chartPatientNo;
     String privateConsentEnabledProperty = CarlosProperties.getInstance().getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true");
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -151,14 +159,6 @@
             pId = "";
         }
 
-        String demographicNo = request.getParameter("demographicNo");
-        String chartPatientNo;
-        try {
-            chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
-        } catch (IllegalArgumentException invalidPatient) {
-            response.sendError(400);
-            return;
-        }
         EctSessionBean bean = EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo);
         // Encounter metadata belongs to the explicitly named chart.
         pageContext.setAttribute("chartPatientNo", chartPatientNo);

@@ -1279,6 +1279,10 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     // we want to load a temp saved note only if it's more recent than date
     @Override
     public CaseManagementTmpSave restoreTmpSave(String providerNo, String demographicNo, String programId, Date date) {
+        if (demographicNo == null || demographicNo.isEmpty() || !StringUtils.isNumeric(demographicNo)
+                || programId == null || programId.isEmpty() || !StringUtils.isNumeric(programId)) {
+            return null;
+        }
         CaseManagementTmpSave obj = caseManagementTmpSaveDao.find(providerNo, Integer.valueOf(demographicNo),
                 Integer.valueOf(programId), date);
         return obj;

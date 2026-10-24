@@ -14,20 +14,20 @@ name their patient; opening another chart cannot supply that identity.
 | 9, 21, 22 | Retain at most 100 patients' disposable appointment, encounter and saved-note metadata per category. Unsaved clinical drafts are not evicted. |
 | 10, 32 | Keep each compose window's attachment key in its URL. Reply, Reply All and Forward reloads also retain their source message and read-only operation, reconstructing the quote without placing message text in the URL. |
 | 11 | Retain the intentional provider-wide appointment cut/copy clipboard. |
-| 12 | The transfer chooser no longer changes the authenticated messenger identity from `val1`. |
+| 12 | The transfer chooser no longer changes the authenticated messenger identity from `val1`. A first-use transfer initializes messaging from the authenticated provider and retains its selected attachment. |
 | 13 | Add per-patient module privilege and patient-record access checks to registry and note-list entry points. |
 | 14 | Require the local sender or a local recipient for saved attachment views/downloads, including configured clinic location IDs. |
 | 15, 17, 24 | Already addressed by #4775: attachment POST/source checks, PMM selection state, and copied-note UUID handling. Retain those fixes and their regressions. |
 | 16 | An appointment whose patient was deleted still renders using its appointment name. |
 | 18 | Consume the form's `filter_providers` field and the legacy editor handoff without leaving stale filters. |
-| 19 | Bind provider/group values in report queries. |
+| 19 | Bind provider/group values in report queries, including unfiltered queries with empty parameter arrays. |
 | 20 | Require POST in both immunization configuration mutators themselves. |
 | 23 | Require POST and patient write access for CPP saves; derive the saved CPP identity from the authorized patient. |
 | 25 | Run PMM initialization after authentication and before Struts action execution. Use the core role DAO so note attachment also works without the optional CAISI context. |
 | 26 | Bundle the transfer definition as a classpath resource, excluding the retired `formAR` table. Check access to its clinical sections before rendering, encode displayed data, and load the packaged stylesheet. |
 | 27 | Carry the resolved message ID through the position-navigation redirect; return 404 when no result exists. |
 | 28 | Restore the dynamically included legacy chart fragments under `WEB-INF`, with current routes and encoding. |
-| 29 | Return an empty issue search for an absent/invalid program selection. |
+| 29 | Return an empty issue search for an absent/invalid program selection. Dated draft restoration also returns no draft when patient/program context is missing or invalid. |
 | 30 | Guard chart-close lock release until the editor and note field exist. |
 | 31 | The release already removes the incorrect custom-drug charset conversion; retain and rerun `rx-drug-name-quotes`. |
 | 33 | Already addressed by #4954: billing refusals survive the redirect on the bill's own bean. |
@@ -42,7 +42,8 @@ access, sender/recipient attachment access, and direct POST contracts.
 `chart-message-followups` drives the legacy chart owner, history/reminder saves without
 losing fields from other tabs, orphan appointments, independent mailbox searches and
 sorting, Inbox/Sent return navigation, message-position redirects, and attachment denial
-for a provider who is neither sender nor recipient.
+for a provider who is neither sender nor recipient. It also checks a fresh-login transfer,
+the unfiltered report index, and canonical chart patient fields for both parameter aliases.
 `session-state-two-window-isolation` also checks Reply, Reply All and Forward reloads
 (subject, quoted text, patient and attachments) and the packaged document-transfer
 chooser. `echart-two-patient-isolation` checks that the
@@ -55,17 +56,36 @@ version satisfying the package dependency. No CLI release is published by this w
 
 ## Validation results (Ubuntu 26.04)
 
-- Full Java unit/integration run: 25,516 tests, zero failures/errors, seven skips.
+- Initial full Java unit/integration run: 25,516 tests, zero failures/errors, seven skips.
   The subsequent reply/forward reload and mailbox-navigation checks passed all 33
-  focused tests, including three new reload cases. All 992 JSPs compile.
-- Full script regression run: 4,472 passed, zero failures, four skipped and one TODO.
+  focused tests, including three new reload cases. The CodeRabbit follow-up suite
+  passed 31 tests covering empty report parameters, missing draft context, first-use
+  transfer identity, canonical JSP patient keys and the authorized missing-PDF path.
+  All 992 JSPs compile.
+- Full script regression run: 4,475 passed, zero failures, four skipped and one TODO.
 - Pinned DrugRef build: 74 tests passed. The documented `carlos-ctl` fallback build:
   1,597 passed and 78 skipped.
 - CARLOS and DrugRef debs were built, installed and upgraded in a disposable Ubuntu
   26.04 systemd container. `carlos-ctl check` passed, including live application and
   DrugRef requests, database migrations, TLS, WAF and least-privilege reporting.
-  The final local package version is `2026.08.0~beta1+issue4811test7` with
+  The final local package version is `2026.08.0~beta1+issue4811test8` with
   `carlos-ctl` `1.2.0+issue4811test1`.
 - CAISI legacy-editor isolation and multi-site Rx previews both passed with their
   optional modules enabled temporarily. Both settings were restored afterwards;
   fixture residue audits passed. Browser validation uses Chromium 154.0.8025.0.
+
+## Review and broader audit limits
+
+CodeRabbit's full review identified seven inline findings and one missing-PDF fixture
+outside the diff. All were validated and addressed, with regressions for the behavior
+changes. The unused retired-navigation message fixtures were removed and the new
+attachment-access helper received its creation-date `@since` tag.
+
+Six broader authorization workflows did not pass. Five reproduced failures documented
+in the existing suite manifest: chart-note writes through GET/HEAD, patient-lock read
+bypasses, note-history patient checks, document descriptions exposed without `_edoc`,
+and registry authorization refusals rendered as HTTP 500. The print/export sweep was
+inconclusive because its prevention-print positive control failed before the sweep.
+These results are recorded separately from the 16 passing workflows; they are not
+claimed as fixed by this issue. The OAuth audit passed with its documented prerequisite
+enabled temporarily, and that setting was restored.

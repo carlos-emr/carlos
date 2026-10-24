@@ -129,7 +129,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         program = programDao.getProgram(Integer.valueOf(pId));
     }
 
-    String demographicNo = request.getParameter("demographicNo");
     String chartPatientNo;
     try {
         chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
@@ -137,6 +136,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         response.sendError(400);
         return;
     }
+    String demographicNo = chartPatientNo;
     EctSessionBean bean = EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo);
     // Encounter metadata belongs to the explicitly named chart.
 

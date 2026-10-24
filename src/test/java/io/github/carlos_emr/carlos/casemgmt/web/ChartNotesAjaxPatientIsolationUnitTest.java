@@ -90,4 +90,12 @@ class ChartNotesAjaxPatientIsolationUnitTest extends CarlosUnitTestBase {
                 .contains("List<String> templateNames = bean.templateNames != null ? bean.templateNames : List.of();")
                 .doesNotContain("bean.templateNames.size()");
     }
+    @Test
+    @DisplayName("should use the canonical patient for session keys and form fields")
+    void shouldUseCanonicalPatient_whenAliasIsAccepted() throws IOException {
+        String source = source();
+        assertThat(source).contains("String demographicNo = chartPatientNo;")
+                .doesNotContain("request.getParameter(\"demographicNo\")");
+    }
+
 }
