@@ -188,10 +188,11 @@
                 measurementWindows[idx].parentChanged = true;
         }
 
-        if (needToReleaseLock) {
+        var editor = document.forms['caseManagementEntryForm'];
+        if (needToReleaseLock && editor && editor.noteId) {
             //release lock on note via sendBeacon (reliable on page unload)
             var url = ctx + "/CaseManagementEntry";
-            var nId = document.forms['caseManagementEntryForm'].noteId.value;
+            var nId = editor.noteId.value;
             var params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
             var csrfToken = CarlosAjax.getCsrfToken();
             if (csrfToken) {

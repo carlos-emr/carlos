@@ -39,7 +39,7 @@
  *   8. A compose window for B open ▸ the transfer page's post (messenger/Transfer/PostItems, with
  *      A's items): the compose window the transfer opens carries them, and B's message carries none.
  *      The transfer left its items on the login's messenger bean for whichever window sent next.
- *      (The transfer page itself cannot render on any install; the step posts its form.)
+ *      The transfer chooser must first render using the packaged export definition (#4811).
  *   9. A received message linked to A ▸ Attachment ▸ Save Attachments ▸ Reply in its view,
  *      Forward in a second view of it and Compose in a third ▸ Attach Patient in the reply only ▸
  *      Send Message from the forward, the new message, then the reply: all three carry the saved
@@ -567,8 +567,12 @@ async function transferredItems(s, A, B, messenger, chartOf) {
       'compose-B-beside-transfer');
     await composeB.locator('#subject').waitFor({ timeout: TIMEOUT });
     const transfer = await context.newPage();
-    await h.gotoApp(transfer, s.config.baseUrl, '/messenger/DisplayMessages');
-    await settle(transfer, 'the inbox the transfer is posted from');
+    await h.gotoApp(transfer, s.config.baseUrl, `/messenger/Transfer/SelectItems?val1=untrusted-provider&val2=${A}`);
+    await settle(transfer, 'the patient document-transfer chooser');
+    h.assert(await transfer.locator('form[action$="/messenger/Transfer/PostItems"]').count() === 1,
+      'The packaged document-transfer definition did not render a chooser');
+    h.assert((await transfer.locator('body').innerText()).includes(A_FIRST_NAME),
+      'The transfer chooser does not display its named patient');
     const content = `${marker} ${A_FIRST_NAME} transferred eDoc`;
     await postTransfer(transfer, content);
     h.assert((await transfer.locator('body').innerText()).includes(ATTACHMENTS_LABEL),
@@ -905,6 +909,14 @@ async function forwardedItems(s, A, messenger) {
       await composeFromView(view, label, button);
       h.assert(/Attachments/i.test(await view.locator('#scrollNumber1').innerText()),
         `${button} from the ${label} message view does not show the items saved in it`);
+      const composeKey = new URL(view.url()).searchParams.get('attachmentKey');
+      h.assert(composeKey, `${button} has no stable compose key in its address`);
+      await view.reload({ waitUntil: 'domcontentloaded' });
+      await settle(view, `${button} after reload`);
+      h.assert(new URL(view.url()).searchParams.get('attachmentKey') === composeKey,
+        `${button} reload replaced its compose workspace`);
+      h.assert(/Attachments/i.test(await view.locator('#scrollNumber1').innerText()),
+        `${button} reload discarded its saved chart items`);
       const id = await sendToSelf(s, view, messenger.groupId, `${marker} forwarded ${label}`);
       const stored = sql.value(`SELECT attachment FROM messagetbl WHERE messageid=${id}`) || '';
       h.assert(stored.includes(`name="${received[label].item}"`) && !stored.includes(`name="${received[other].item}"`),

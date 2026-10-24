@@ -179,8 +179,9 @@
     // message; every other render starts a new message with a new key.
     String attachmentKey = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
     if (!MsgAttachmentStaging.isKey(attachmentKey)) {
-        attachmentKey = MsgAttachmentStaging.newKey();
+        attachmentKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
     }
+    if (!MsgAttachmentStaging.isKey(attachmentKey)) attachmentKey = MsgAttachmentStaging.newKey();
     MsgAttachmentStaging.Staged stagedAttachments = MsgAttachmentStaging.peek(session, attachmentKey);
 
     // Handle patient demographic association if message is patient-related
@@ -211,6 +212,12 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <script>
+        // A reload belongs to this compose window and must keep its staged attachments.
+        var composeUrl = new URL(window.location.href);
+        composeUrl.searchParams.set('attachmentKey', '<%= SafeEncode.forJavaScript(attachmentKey) %>');
+        window.history.replaceState(window.history.state, '', composeUrl);
+    </script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="messenger.CreateMessage.title"/></title>
     <style>

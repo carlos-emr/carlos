@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -70,6 +72,9 @@ public final class dxSetupResearch2Action extends ActionSupport {
         // taint chain: CodeQL does not treat regex matching alone as a sanitizer, but passing
         // through Integer.parseInt() confirms the value is a safe integer before session storage.
         String demographicNo = String.valueOf(Integer.parseInt(demographicNoParam));
+        if (Integer.parseInt(demographicNo) <= 0) return ERROR;
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_dxresearch", "r");
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_demographic", "r");
 
         // Validate providerNo is numeric if supplied from the request
         String providerNo = request.getParameter("providerNo");
@@ -111,7 +116,6 @@ public final class dxSetupResearch2Action extends ActionSupport {
         session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         // The patient and its diagnoses belong to this request. In the session they were the
         // registry opened last in any window, and dxResearch.jsp's ${demographicNo} also leaked
         // into every other page that resolves that name from session scope (issue #4673).

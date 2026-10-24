@@ -80,14 +80,14 @@
 
         int size = (form.getIssueCheckList() != null) ? form.getIssueCheckList().size() : 0;
 
-        if (session.getAttribute("newNote")!=null && "true".equalsIgnoreCase((String)session.getAttribute("newNote")))
+        if (request.getAttribute("newNote")!=null && "true".equalsIgnoreCase((String)request.getAttribute("newNote")))
         {%>
         var newNote = true;
         <%}else{%>
         var newNote = false;
         <%}
 
-        if (session.getAttribute("issueStatusChanged")!=null && "true".equalsIgnoreCase((String)session.getAttribute("issueStatusChanged")))
+        if (request.getAttribute("issueStatusChanged")!=null && "true".equalsIgnoreCase((String)request.getAttribute("issueStatusChanged")))
         {%>
         var issueChanged = true;
         <%}else{%>
@@ -206,7 +206,7 @@
 
                 var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
                 var noteId = '<carlos:encode value='<%= request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                var programId = '${carlos:forJavaScript(case_program_id)}';
+                var programId = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request)) %>';
                 XMLHttpRequestObject.send("method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + encodeURIComponent(obj.value));
             }
 
@@ -235,7 +235,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="u">
     <%
         //get programId
-        String pId = (String) session.getAttribute("case_program_id");
+        String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
         if (pId == null) pId = "";
     %>
     <form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath() %>/CaseManagementEntry" method="post">

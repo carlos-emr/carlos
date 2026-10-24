@@ -107,6 +107,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
      * @throws SecurityException if user lacks read permissions for messaging
      */
     public String execute() throws IOException, ServletException {
+        this.messageID = null;
         HttpServletRequest request = ServletActionContext.getRequest();
 
         // Verify user has read permission for messages
@@ -165,7 +166,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
             }
             query.setFirstResult(firstResult);
             query.setMaxResults(1);
-            Integer messageIdResult = (Integer) query.getSingleResult();
+            Number messageIdResult = (Number) query.getSingleResult();
 
             if (messageIdResult != null) {
                 this.messageID = messageIdResult.toString();
@@ -176,6 +177,10 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
             addActionError("Could not retrieve the requested message.");
         }
 
+        if (messageID == null) {
+            ServletActionContext.getResponse().sendError(404);
+            return NONE;
+        }
         return SUCCESS;
     }
 

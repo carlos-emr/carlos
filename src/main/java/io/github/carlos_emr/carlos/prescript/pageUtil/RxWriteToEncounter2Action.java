@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+
 import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
 
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
@@ -172,7 +174,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
 
     public CaseManagementNote getLastSaved(HttpServletRequest request, String demono, String providerNo, CaseManagementManager caseManagementMgr) {
         HttpSession session = request.getSession();
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 

@@ -1513,6 +1513,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     @Override
     public Integer searchIssuesCount(String providerNo, String programId, String search) {
+        // No selected program is an empty issue search, not an invalid numeric query.
+        if (programId == null || !programId.matches("[1-9][0-9]{0,8}")) return 0;
+
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
                 Long.valueOf(programId));
@@ -1571,6 +1574,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             throw new IllegalArgumentException(
                     "Can only return a maximum of " + AbstractDao.MAX_LIST_RETURN_SIZE + " results");
         }
+
+        // No selected program is an empty issue search, not an invalid numeric query.
+        if (programId == null || !programId.matches("[1-9][0-9]{0,8}")) return new ArrayList<>();
 
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
@@ -1636,6 +1642,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         if (issues.isEmpty()) {
             return issues;
         }
+
+        // No selected program is an empty issue search, not an invalid numeric query.
+        if (programId == null || !programId.matches("[1-9][0-9]{0,8}")) return new ArrayList<>();
 
         // Get Role - if no ProgramProvider record found, show no issues.
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,

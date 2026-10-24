@@ -27,6 +27,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
@@ -360,7 +362,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("Get demo and providers no " + String.valueOf(current - start));
         start = current;
 
-        String programIdString = (String) session.getAttribute("case_program_id");
+        String programIdString = ChartProgramContext.resolve(request);
         Integer programId = null;
         try {
             programId = Integer.parseInt(programIdString);
@@ -428,8 +430,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // create a new note
         if (request.getParameter("note_edit") != null && request.getParameter("note_edit").equals("new")) {
             logger.debug("NEW NOTE GENERATED");
-            session.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-            session.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            request.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            request.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             request.setAttribute("newNoteIdx", request.getParameter("newNoteIdx"));
 
             note = new CaseManagementNote();
@@ -470,11 +472,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (original == null) {
                 // Keep the draft text even if its original note no longer exists. Render it
                 // as a new note so the save and lock paths do not reuse the orphaned ID.
-                session.setAttribute("newNote", "true");
-                session.setAttribute("issueStatusChanged", "false");
+                request.setAttribute("newNote", "true");
+                request.setAttribute("issueStatusChanged", "false");
                 request.setAttribute("noteId", "0");
             } else {
-                session.setAttribute("newNote", "false");
+                request.setAttribute("newNote", "false");
                 request.setAttribute("noteId", String.valueOf(note.getId()));
             }
 
@@ -487,7 +489,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         else if (nId != null && !"null".equalsIgnoreCase(nId) && Integer.parseInt(nId) > 0) {
             logger.debug("Using nId {} to fetch note", LogSafe.sanitize(nId));
             // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- value is hardcoded literal "false", not user input
-            session.setAttribute("newNote", "false");
+            request.setAttribute("newNote", "false");
             note = caseManagementMgr.getNote(nId);
 
             if (note.getHistory() == null || note.getHistory().equals("")) {
@@ -504,11 +506,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // A hack to load last unsigned note when not specifying a particular note to edit
             // if there is no unsigned note load a new one
             if ((note = getLastSaved(request, demono, providerNo)) == null) {
-                session.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                session.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                request.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                request.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
                 note = this.makeNewNote(providerNo, demono, request);
             } else {
-                session.setAttribute("newNote", "false"); // should be able to get getLatSaved from the manager now // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                request.setAttribute("newNote", "false"); // should be able to get getLatSaved from the manager now // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             }
         }
         current = System.currentTimeMillis();
@@ -1200,7 +1202,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         logger.debug("Note archived {}", LogSafe.sanitize(String.valueOf(note.isArchived())));
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         note.setProgram_no(programId);
 
         WebApplicationContext ctx = this.getSpringContext();
@@ -1422,7 +1424,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             sessionFrm.setIssueCheckList(caseIssueList);
         }
         /* remember the str written into this patient's echart */
-        session.setAttribute(ChartSessionKeys.lastSavedNoteText(demo), savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        io.github.carlos_emr.carlos.utility.BoundedSessionAttributes.put(session, "savedNoteText", ChartSessionKeys.lastSavedNoteText(demo), savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         caseManagementMgr.getEditors(note);
 
@@ -1664,11 +1666,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // if this is an update, don't overwrite the program id
         if (note.getProgram_no() == null || note.getProgram_no().equals("") || "0".equals(note.getProgram_no())) {
-            String programId = (String) session.getAttribute("case_program_id");
+            String programId = ChartProgramContext.resolve(request);
             if (programId == null || "null".equalsIgnoreCase(programId)) {
                 EctProgram ectProgram = new EctProgram(session);
                 programId = ectProgram.getProgram(providerNo);
-                session.setAttribute("case_program_id", programId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                ChartProgramContext.remember(request, programId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             }
             note.setProgram_no(programId);
         }
@@ -2106,7 +2108,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         note.setProviderNo(providerNo);
         if (provider != null) note.setProvider(provider);
 
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         note.setProgram_no(programId);
 
         WebApplicationContext ctx = this.getSpringContext();
@@ -2211,8 +2213,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         newform.setCaseNote(note);
         newform.setIssueCheckList(checkedlist);
         request.setAttribute("caseManagementEntryForm", newform);
-        String varName = "newNote";
-        session.setAttribute(varName, false); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.setAttribute("newNote", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         request.setAttribute("ajaxsave", note.getId());
         request.setAttribute("origNoteId", noteId);
         // noteIssueList.jsp renders the saved text into the read-only view through
@@ -2422,7 +2423,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HttpSession session = request.getSession();
         if (session.getAttribute("userrole") == null) return "expired";
 
-        String programNo = (String) session.getAttribute("case_program_id");
+        String programNo = ChartProgramContext.resolve(request);
 
         String demo = this.getDemographicNo();
 
@@ -2475,7 +2476,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         // get the issue list have search string
@@ -2497,7 +2498,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         HttpSession session = request.getSession();
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
 
         request.setAttribute("change_flag", "true");
 
@@ -2662,8 +2663,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         k = 0;
 
-        String programIdStr = (String) session.getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
-        if (programIdStr == null) programIdStr = (String) session.getAttribute("case_program_id");
+        String programIdStr = ChartProgramContext.resolve(request);
         Integer programId = null;
         if (programIdStr != null) programId = Integer.valueOf(programIdStr);
 
@@ -2942,7 +2942,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         request.setAttribute("change_flag", "true");
-        session.setAttribute("issueStatusChanged", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.setAttribute("issueStatusChanged", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         String demono = getDemographicNo(request);
         String sessionFrmName = "caseManagementEntryForm" + demono;
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
@@ -2992,7 +2992,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         if (CarlosProperties.getInstance().isCaisiLoaded()) {
             // get access right
-            List accessRight = caseManagementMgr.getAccessRight(providerNo, demono, (String) session.getAttribute("case_program_id"));
+            List accessRight = caseManagementMgr.getAccessRight(providerNo, demono, ChartProgramContext.resolve(request));
 
             // add medical history to CPP
             CaseManagementCPP cpp = this.caseManagementMgr.getCPP(getDemographicNo(request));
@@ -3050,7 +3050,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 || !selectedNote.getDemographic_no().equals(note.getDemographic_no()))) {
             return refuseNoteHistory();
         }
-        String programId = (String) request.getSession().getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         if (!linkedGroupNote && programId != null && !programId.isEmpty() && !"0".equals(programId)) {
             // Match the chart's role/program/facility filter. Reject the whole expansion if any
             // row is hidden: a visible row's cumulative text may contain that earlier revision.
@@ -3401,7 +3401,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     public CaseManagementNote getLastSaved(HttpServletRequest request, String demono, String providerNo) {
         HttpSession session = request.getSession();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 

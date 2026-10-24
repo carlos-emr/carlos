@@ -55,7 +55,7 @@
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String demographicNo = request.getParameter("demographicNo");
-    String programId = (String) request.getSession().getAttribute("case_program_id");
+    String programId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
 
     String[] ids = request.getParameterValues("group_client_id");
 

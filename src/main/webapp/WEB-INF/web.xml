@@ -227,6 +227,10 @@
         <url-pattern>/*</url-pattern>
         <dispatcher>REQUEST</dispatcher>
     </filter-mapping>
+  <filter-mapping>
+    <filter-name>PMMFilter</filter-name>
+    <url-pattern>/PMmodule/*</url-pattern>
+  </filter-mapping>
 	<filter>
 		<filter-name>struts2-execute</filter-name>
 		<filter-class>org.apache.struts2.dispatcher.filter.StrutsExecuteFilter</filter-class>
@@ -326,10 +330,6 @@
   <filter-mapping>
     <filter-name>DbConnectionFilter</filter-name>
     <url-pattern>/*</url-pattern>
-  </filter-mapping>
-  <filter-mapping>
-    <filter-name>PMMFilter</filter-name>
-    <url-pattern>/PMmodule/*</url-pattern>
   </filter-mapping>
   <filter-mapping>
     <filter-name>ResponseOverrideFilter</filter-name>

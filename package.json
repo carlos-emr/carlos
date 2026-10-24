@@ -900,7 +900,8 @@
     "test:admin-security-workflow-playwright": "node scripts/admin-security-workflow-playwright-checks.js",
     "test:email-compose-send-playwright": "node scripts/email-compose-send-playwright-checks.js",
     "test:admin-login-text-playwright": "node scripts/admin-login-text-playwright-checks.js",
-    "test:login-agreement-display-playwright": "node scripts/login-agreement-display-playwright-checks.js"
+    "test:login-agreement-display-playwright": "node scripts/login-agreement-display-playwright-checks.js",
+    "test:chart-message-followups-playwright": "node scripts/chart-message-followups-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

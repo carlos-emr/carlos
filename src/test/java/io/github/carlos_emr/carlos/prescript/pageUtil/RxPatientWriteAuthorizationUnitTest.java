@@ -327,6 +327,7 @@ class RxPatientWriteAuthorizationUnitTest {
         assertThat(RxSessionBeanResolver.find(request.getSession(), otherPatient)).isNull();
         assertThat(RxSessionBeanResolver.resolve(new MockHttpServletRequest() {{
             setSession(request.getSession());
+            setParameter("demographicNo", String.valueOf(bean.getDemographicNo()));
         }})).isSameAs(bean);
         for (Object dependency : dependencies.values()) {
             verifyNoInteractions(dependency);

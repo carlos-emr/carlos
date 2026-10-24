@@ -148,7 +148,7 @@
 <caisi:isModuleLoad moduleName="caisi" reverse="true">
     <%
         EctProgram prgrmMgr = new EctProgram(session);
-        session.setAttribute("case_program_id", prgrmMgr.getProgram(bean.providerNo));
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, prgrmMgr.getProgram(bean.providerNo));
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
         String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view" +
         "&demographicNo=" + bean.demographicNo +

@@ -1394,30 +1394,16 @@ async function run(s) {
     sql.execute(`INSERT INTO msgDemoMap(messageID, demographic_no) VALUES(${id}, ${d.patient})`);
   }
 
-  for (const d of directions) {
-    await s.step(`the legacy case-management navigation for ${d.label} links only to ${d.label}`, async () => {
-      await activateOther(d.otherChart);
-      const before = snapshot(d.other);
-      const navigation = await read(`/casemgmt/ViewNavigation?demographicNo=${d.patient}`);
-      // Its messenger list used to fail every rendering (a literal items string), cutting the page
-      // off after the first sections while the response still said 200.
-      h.assert(navigation.status === 200 && navigation.body.includes('Clinical Resources'),
-        `${d.label}'s legacy navigation did not render past its messenger list`);
-      h.assert(navigation.body.includes(navigationSubject(d.label)) && !navigation.body.includes(navigationSubject(otherLabelOf(d))),
-        `${d.label}'s legacy navigation does not list exactly the messages linked to ${d.label}`);
-      const owners = [...navigation.body.matchAll(/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=(\d+)/g)]
-        .map(match => match[1]);
-      h.assert(owners.length > 0 && owners.every(owner => owner === d.patient),
-        `${d.label}'s legacy navigation links to ${[...new Set(owners)].map(ownerLabel).join(', ') || 'no patient'}`);
-      // Its form links read ${bean.demographicNo}, which used to name no scoped bean.
-      h.assert(!/[?&;](?:demographic_no|demographicNo)=(?!\d)/.test(navigation.body),
-        `${d.label}'s legacy navigation has links that name no patient`);
-      const anonymous = await read('/casemgmt/ViewNavigation');
-      h.assert(anonymous.status === 200 && !/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=\d/.test(anonymous.body),
-        'The legacy navigation without a patient linked to one');
-      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s legacy navigation`);
-    });
-  }
+  await s.step('retired direct-render chart routes reject requests without changing either chart', async () => {
+    const beforeA = snapshot(A);
+    const beforeB = snapshot(B);
+    for (const route of ['/casemgmt/ViewNavigation', '/casemgmt/ViewSearch', '/encounter/ViewIndex2']) {
+      const response = await read(`${route}?demographicNo=${A}`);
+      h.assert(response.status === 404, `${route} bypasses its owning chart action (HTTP ${response.status})`);
+    }
+    assertPatientStateUnchanged(beforeA, snapshot(A), 'retired chart routes (A)');
+    assertPatientStateUnchanged(beforeB, snapshot(B), 'retired chart routes (B)');
+  });
 
   // The notes list (ChartNotesAjax.jsp) compares each unsigned note's author with its chart entry's
   // provider. It used to take that provider from the bean, so once the other chart was entered from

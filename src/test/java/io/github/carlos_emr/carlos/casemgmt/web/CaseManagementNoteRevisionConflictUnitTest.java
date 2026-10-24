@@ -82,7 +82,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         request.setParameter("noteTxt", "Unsaved draft");
         request.setParameter("numIssues", "0");
         request.getSession().setAttribute("userrole", "doctor");
-        request.getSession().setAttribute("case_program_id", "7");
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "7");
         LoggedInInfo user = mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn("999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);

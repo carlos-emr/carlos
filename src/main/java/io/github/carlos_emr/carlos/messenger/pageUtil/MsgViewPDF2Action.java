@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import java.nio.charset.StandardCharsets;
+
 import java.io.IOException;
 import java.util.Vector;
 
@@ -37,7 +39,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.MessageTblDao;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -151,12 +152,12 @@ public class MsgViewPDF2Action extends ActionSupport {
         String pdfFile = null;
         int messageId = ConversionUtils.fromIntString(attId);
         if (messageId > 0 && fileId >= 0) {
-            MessageTbl message = SpringUtils.getBean(MessageTblDao.class).find(messageId);
+            MessageTbl message = MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request), messageId);
             if (message != null && message.getPdfAttachment() != null) {
                 // Every CONTENT tag of the message's PDF list, in order; file_id is an index.
                 Vector<?> contents;
                 try {
-                    contents = Doc2PDF.getXMLTagValue(new String(message.getPdfAttachment()), "CONTENT");
+                    contents = Doc2PDF.getXMLTagValue(new String(message.getPdfAttachment(), StandardCharsets.UTF_8), "CONTENT");
                 } catch (Exception unreadable) {
                     // No content in the log: the list is a patient's chart.
                     MiscUtils.getLogger().error("A message's PDF attachment list could not be read");

@@ -84,14 +84,15 @@ class ChartNotesPatientIsolationUnitTest {
 
     @Test
     @DisplayName("should take entry metadata only from this chart's own patient")
-    void shouldUseSessionBean_onlyForTheChartsOwnPatient() throws IOException {
+    void shouldUsePatientMetadata_whenAnotherChartIsOpen() throws IOException {
         String source = source();
 
         assertThat(source)
-                .contains("boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);")
+                .contains("EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo)")
+                .doesNotContain("session.getAttribute(\"EctSessionBean\")")
                 .contains("String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);")
                 .doesNotContain("provNo = ownChartBean")
-                .contains("if (!ownChartBean || bean.source == null) {")
+                .contains("if (bean.source == null) {")
                 .doesNotContain("bean.demographicNo%>");
     }
 }

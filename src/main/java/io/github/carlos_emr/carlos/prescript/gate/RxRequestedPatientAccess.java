@@ -59,23 +59,10 @@ public final class RxRequestedPatientAccess {
     public static void require(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo,
                                HttpServletRequest request, String objectName, String privilege) {
         int demographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
-        // A malformed, non-positive or conflicting patient (demographicNo=1&demographic_no=2) is
-        // refused outright rather than treated as "no patient named", which would let the page
-        // fall back to the session's Rx patient without any patient-level check.
-        if (demographicNo == RxSessionBeanResolver.INVALID) {
+        if (demographicNo <= 0) {
             throw new SecurityException("missing required sec object (" + objectName + ")");
         }
-        if (demographicNo > 0) {
-            requirePatient(securityInfoManager, loggedInInfo, demographicNo, objectName, privilege);
-            return;
-        }
-        // No patient named: the page falls back to the session's active Rx patient. Authorise
-        // that patient too, so a patient-less URL cannot read a chart the caller may not open
-        // (for instance after the caller's access to it changed) (#3908).
-        RxSessionBean active = RxSessionBeanResolver.resolve(request);
-        if (active != null && active.getDemographicNo() > 0) {
-            requirePatient(securityInfoManager, loggedInInfo, active.getDemographicNo(), objectName, privilege);
-        }
+        requirePatient(securityInfoManager, loggedInInfo, demographicNo, objectName, privilege);
     }
 
     /**

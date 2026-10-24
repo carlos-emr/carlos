@@ -92,12 +92,22 @@ public final class RxViewScript2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
+        if ("true".equals(request.getParameter("saveAndPrint")) && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         // Setup variables
 
 
         HttpSession session = request.getSession();
         RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         if (bean == null) {
+            if (RxSessionBeanResolver.requestedDemographicNo(request) <= 0) {
+                response.sendError(HttpServletResponse.SC_CONFLICT);
+                return NONE;
+            }
             response.sendRedirect("error.html");
             return null;
         }

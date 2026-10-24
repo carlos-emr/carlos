@@ -146,27 +146,21 @@
     try {
         Facility facility = loggedInInfo.getCurrentFacility();
 
-        String pId = (String) session.getAttribute("case_program_id");
+        String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
         if (pId == null) {
             pId = "";
         }
 
         String demographicNo = request.getParameter("demographicNo");
-        EctSessionBean bean = null;
-        if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-            response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
-            return;
-        }
-        // The session bean follows whichever chart was entered last in any window of this login
-        // (issue #4556). Only this chart's own patient may supply its entry metadata; links that
-        // name a patient use the patient this request carries.
         String chartPatientNo;
         try {
             chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
         } catch (IllegalArgumentException invalidPatient) {
-            chartPatientNo = null;
+            response.sendError(400);
+            return;
         }
-        boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);
+        EctSessionBean bean = EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo);
+        // Encounter metadata belongs to the explicitly named chart.
         pageContext.setAttribute("chartPatientNo", chartPatientNo);
 
         // This chart's own entry provider: the patient's remembered entry, or the logged-in provider
@@ -652,7 +646,7 @@
                            title='<fmt:message key="encounter.Index.btnSign"/>'>
                     <%
                         // A chart entered from the messenger hides Bill; another window's entry must not.
-                        if (!ownChartBean || bean.source == null) {
+                        if (bean.source == null) {
                     %>
                     <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/dollar-sign-icon.png"

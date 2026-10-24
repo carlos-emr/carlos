@@ -275,7 +275,9 @@ public class MsgHandleMessages2Action extends ActionSupport {
     private void keepForwardedAttachments(Integer messageId) {
         if (messageId != null && messageId > 0) {
             request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE,
-                    MsgAttachmentStaging.composeKey(request.getSession(), messageId));
+                    MsgAttachmentStaging.isKey(request.getParameter(MsgAttachmentStaging.KEY_PARAMETER))
+                            ? request.getParameter(MsgAttachmentStaging.KEY_PARAMETER)
+                            : MsgAttachmentStaging.composeKey(request.getSession(), messageId));
         }
     }
 

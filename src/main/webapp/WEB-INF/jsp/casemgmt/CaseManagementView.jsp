@@ -187,7 +187,7 @@
                     reminders = cpp.getReminders().length() > 0;
                 }
                 //get programId
-                String pId = (String) session.getAttribute("case_program_id");
+                String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
                 if (pId == null) pId = "";
             %>
             <table>

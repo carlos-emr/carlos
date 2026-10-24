@@ -125,7 +125,7 @@
     String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
     String backurl = bsurl + "/encounter/IncomingEncounter?";
 //get programId
-    String pgId = (String) session.getAttribute("case_program_id");
+    String pgId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
     if (pgId == null) pgId = "";
 %>
 

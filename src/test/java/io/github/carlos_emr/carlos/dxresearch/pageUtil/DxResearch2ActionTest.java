@@ -86,6 +86,8 @@ class DxResearch2ActionTest extends CarlosUnitTestBase {
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_dxresearch"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyString())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         when(mockDxresearchDao.findByDemographicNoResearchCodeAndCodingSystem(any(), anyString(), anyString()))
                 .thenReturn(Collections.emptyList());
@@ -159,7 +161,9 @@ class DxResearch2ActionTest extends CarlosUnitTestBase {
     void shouldNotPublishAPatient_whenTheFormsPatientIsNotANumber() throws Exception {
         action.setDemographicNo("12345<script>");
 
-        assertThat(action.execute()).isEqualTo("failure");
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockDxresearchDao, never()).persist(any());
 
         assertThat(mockRequest.getAttribute("demographicNo")).isNull();
         assertThat(mockRequest.getAttribute("allDiagnostics")).isNull();

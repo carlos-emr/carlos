@@ -29,13 +29,14 @@
 
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import java.nio.charset.StandardCharsets;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.MessageTblDao;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -129,15 +130,14 @@ public class MsgViewPDFAttachment2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        String pdfAtt = null;
-
         // Retrieve message and extract PDF attachment
-        MessageTblDao dao = SpringUtils.getBean(MessageTblDao.class);
-        MessageTbl m = dao.find(ConversionUtils.fromIntString(attachId));
-        if (m != null) {
-            // BUG: Converting binary PDF to String can corrupt the data
-            pdfAtt = new String(m.getPdfAttachment());
+        MessageTbl m = MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request),
+                ConversionUtils.fromIntString(attachId));
+        if (m == null || m.getPdfAttachment() == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
         }
+        String pdfAtt = new String(m.getPdfAttachment(), StandardCharsets.UTF_8);
         
         // Set PDF data for view layer
         request.setAttribute("PDFAttachment", pdfAtt);

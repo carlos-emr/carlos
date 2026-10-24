@@ -191,7 +191,6 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.check = "myCheck";
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             // demographicNo validated as numeric at method entry; other bean fields are unsanitized — consuming JSPs MUST use OWASP encoding
-            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } else {
             if ("yes".equals(request.getParameter("PEAttach"))) {
                 return attachNoteToClient(request, response, loggedInInfo, demoNo);
@@ -289,7 +288,6 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; times validated HH:MM; encType validated alphanumeric;
             // source whitelisted to {"encounter","messenger"}; reason/userName sanitized for control chars and length-capped;
             // eChartId is server-generated from setUpEncounterPage()
-            request.getSession().setAttribute("EctSessionBean", bean);
             // No login-wide eChartID: the legacy editor posts the revision it was opened from
             // (Index2.jsp's eChartId field), so another window's entry cannot change it (#4673).
 
@@ -303,6 +301,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
         }
 
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.capture(request);
         EncounterPatientContext.rememberEncounter(request, bean);
         setEncounterAttributes(request, bean, loggedInInfo, request.getParameter("splitchart") != null, false);
         return "success2";

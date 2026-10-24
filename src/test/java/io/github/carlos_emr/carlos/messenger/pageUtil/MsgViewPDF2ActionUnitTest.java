@@ -41,6 +41,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.MessageTblDao;
+import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -83,7 +85,10 @@ class MsgViewPDF2ActionUnitTest extends CarlosUnitTestBase {
     void setUp() {
         securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
         messageTblDao = createAndRegisterMock(MessageTblDao.class);
+        createAndRegisterMock(MessageListDao.class);
+        createAndRegisterMock(OscarCommLocationsDao.class);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("101");
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_msg"), eq("r"), isNull())).thenReturn(true);
 
         request = new MockHttpServletRequest("POST", "/carlos/messenger/ViewPDFFile");
@@ -181,6 +186,7 @@ class MsgViewPDF2ActionUnitTest extends CarlosUnitTestBase {
 
     private static MessageTbl message(String... contents) {
         MessageTbl message = new MessageTbl();
+        message.setSentByNo("101");
         message.setPdfAttachment(pdfList(contents).getBytes(StandardCharsets.UTF_8));
         return message;
     }

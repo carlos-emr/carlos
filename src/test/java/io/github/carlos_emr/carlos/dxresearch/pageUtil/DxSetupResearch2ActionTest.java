@@ -70,6 +70,8 @@ class DxSetupResearch2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(QuickListDao.class, quickListDao);
         when(quickListDao.findDistinct()).thenReturn(List.of());
 
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyString())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, mockLoggedInInfo);

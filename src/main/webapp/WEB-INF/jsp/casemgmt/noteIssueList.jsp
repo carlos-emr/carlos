@@ -153,7 +153,7 @@
 
 <%
     Facility currentFacility = loggedInInfo73557.getCurrentFacility();
-    String programId = (String) request.getSession().getAttribute("case_program_id");
+    String programId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
     Program currentProgram = null;
     if (programId != null) {
         ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);

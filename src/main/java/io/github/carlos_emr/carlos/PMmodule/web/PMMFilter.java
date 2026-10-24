@@ -86,12 +86,9 @@ public class PMMFilter implements Filter {
      * {@link String#isBlank()} so Unicode whitespace is rejected too.</p>
      *
      * <p><strong>This is defence in depth, not the authentication gate.</strong>
-     * {@code LoginFilter} is the canonical gate and is the check that actually runs for PMmodule
-     * Struts actions: {@code web.xml} maps {@code struts2-execute} ahead of this filter, and Struts
-     * terminates the chain once it executes an action, so routes such as
-     * {@code /PMmodule/ProgramManager} never arrive here. This filter still runs for PMmodule
-     * requests that fall through Struts without matching an action. Keep the blank-user contract
-     * here consistent with {@code LoginFilter}; the two must not drift apart.</p>
+     * {@code LoginFilter} is the canonical gate. This filter runs after authentication and
+     * before {@code struts2-execute}, so PMmodule actions receive their program domain.
+     * Keep the blank-user contract consistent with {@code LoginFilter}.</p>
      *
      * <p>Once authentication is confirmed the filter caches {@code program_domain} and
      * {@code pmm_admin} on the session and the local {@code Agency} in application scope, then

@@ -1,6 +1,8 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.NoteSelectionCriteria;
@@ -44,6 +46,10 @@ class CaseManagementViewFilterUnitTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         action.request = request;
+        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        action.securityInfoManager = security;
         action.response = response;
         request.setParameter("demographicNo", "101");
         request.getSession().setAttribute("userrole", "doctor");

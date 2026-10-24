@@ -116,7 +116,7 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRefuseCumulativeHistory_whenProgramOrFacilityFilterHidesARow() {
-        request.getSession().setAttribute("case_program_id", "7");
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "7");
         when(manager.filterNotes(user, "4249", List.of(note), "7")).thenReturn(List.of());
         assertRefused();
         verify(manager).filterNotes(user, "4249", List.of(note), "7");
@@ -125,7 +125,7 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"", "0", "7"})
     void shouldRenderHistory_whenPatientAndChartFiltersAllowIt(String program) {
-        request.getSession().setAttribute("case_program_id", program);
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, program);
         when(manager.filterNotes(user, "4249", List.of(note), "7")).thenReturn(List.of(note));
         assertThat(action.notehistory()).isEqualTo("showHistory");
         assertThat(request.getAttribute("history")).isEqualTo(List.of(note));

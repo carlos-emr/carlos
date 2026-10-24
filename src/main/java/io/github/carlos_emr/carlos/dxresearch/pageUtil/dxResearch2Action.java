@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -75,6 +77,15 @@ public class dxResearch2Action extends ActionSupport {
         //request.getSession().setAttribute("dxResearchForm", frm);
         String codingSystem = this.getSelectedCodingSystem();
         String demographicNo = this.getDemographicNo();
+        if (demographicNo == null || !demographicNo.matches("[0-9]{1,9}")
+                || Integer.parseInt(demographicNo) <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        demographicNo = Integer.toString(Integer.parseInt(demographicNo));
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_dxresearch", "w");
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_demographic", "r");
         String providerNo = this.getProviderNo();
         String forward = this.getForward();
         String[] xml_research = null;

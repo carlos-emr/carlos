@@ -49,7 +49,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         request.addParameter("demographicNo", "42");
         request.addParameter("body", "exact prescription text");
         request.getSession().setAttribute("user", "999998");
-        request.getSession().setAttribute("case_program_id", "0");
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "0");
         sessionBean = new RxSessionBean();
         sessionBean.setDemographicNo(42);
         RxSessionBeanResolver.register(request.getSession(), sessionBean);

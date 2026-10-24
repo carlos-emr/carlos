@@ -35,7 +35,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.MessageTblDao;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -124,14 +123,14 @@ public class MsgViewAttachment2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        String att = null;
-
         // Retrieve message and extract attachment data
-        MessageTblDao dao = SpringUtils.getBean(MessageTblDao.class);
-        MessageTbl m = dao.find(ConversionUtils.fromIntString(attachId));
-        if (m != null) {
-            att = m.getAttachment();
+        MessageTbl m = MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request),
+                ConversionUtils.fromIntString(attachId));
+        if (m == null || m.getAttachment() == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
         }
+        String att = m.getAttachment();
         
         // Set attachment data for display
         request.setAttribute("Attachment", att);

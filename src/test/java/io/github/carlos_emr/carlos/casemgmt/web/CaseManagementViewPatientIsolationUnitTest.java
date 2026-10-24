@@ -112,6 +112,60 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(manager);
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"GET,save", "HEAD,save", "GET,saveAndExit",
+            "HEAD,saveAndExit", "GET,patientCPPSave", "HEAD,patientCPPSave"})
+    void shouldRefuseAllCppWrites_whenRequestUsesGetOrHead(String method, String operation) throws Exception {
+        request.setMethod(method);
+        request.setParameter("demographicNo", "101");
+        String result = switch (operation) {
+            case "save" -> action.save();
+            case "saveAndExit" -> action.saveAndExit();
+            default -> action.patientCPPSave();
+        };
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(manager);
+    }
+
+    @Test
+    void shouldRefuseCppWrite_whenPatientRecordAccessIsDenied() {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "101");
+        when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
+        assertThatThrownBy(action::save).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(action::patientCPPSave).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(manager);
+    }
+
+    @Test
+    void shouldBindCppIdentityFromStorage_whenSubmittedIdentityNamesAnotherPatient() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "101");
+        var existing = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP();
+        existing.setId(11L);
+        existing.setDemographic_no("101");
+        when(manager.getCPP("101")).thenReturn(existing);
+        var submitted = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP();
+        submitted.setId(22L);
+        submitted.setDemographic_no("202");
+        doReturn(submitted).when(action).getCpp();
+        action.save();
+        assertThat(submitted.getId()).isEqualTo(11L);
+        assertThat(submitted.getDemographic_no()).isEqualTo("101");
+        verify(manager).saveCPP(submitted, "4249");
+    }
+
+    @Test
+    void shouldRefuseNoteReads_whenPatientPrivilegeIsDenied() {
+        request.setParameter("demographicNo", "101");
+        when(security.hasPrivilege(user, "_eChart", "r", "101")).thenReturn(false);
+        assertThatThrownBy(action::listNotes).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(action::viewNotesOpt).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(manager);
+    }
+
     @Test
     void shouldRefuseWithoutWritingAnyPatient_whenADiseaseRegistryAddNamesNoPatient() throws Exception {
         request.setMethod("POST");

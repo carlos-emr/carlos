@@ -280,11 +280,10 @@ public class MsgViewMessage2Action extends ActionSupport {
         request.setAttribute("viewMessageId", canonicalMessageNo);
         request.setAttribute("viewMessageNo", canonicalMessageNo);
         request.setAttribute("viewMessagePosition", messagePosition);
-        request.getSession().setAttribute("from", from); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- whitelisted to "encounter"|"messenger"
-        request.getSession().setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authenticated provider number from LoggedInInfo session
+        request.setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authenticated provider number from LoggedInInfo session
 
         if (orderBy != null) {
-            request.getSession().setAttribute("orderBy", orderBy); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            request.setAttribute("orderBy", orderBy); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         }
 
         MiscUtils.getLogger().debug("viewMessagePosition: " + messagePosition + "IsLastMsg: " + request.getAttribute("viewMessageIsLastMsg"));
