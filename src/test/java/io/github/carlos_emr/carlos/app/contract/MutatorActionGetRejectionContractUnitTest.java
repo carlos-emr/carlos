@@ -202,6 +202,24 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_billing", "w"),
             Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteWithoutNo2Action",
                     "_billing", "w"),
+            // BC billing saves that only their own POST forms reach (#4439 D12): quick billing's Save, the
+            // billing preferences, the service/diagnostic association save and Remove, the referral doctor
+            // add/edit and the billing code add. Each refuses GET and HEAD itself, not only by route name.
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBCSave2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveBillingPreferences2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveAssoc2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeleteServiceCodeAssoc2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AddReferralDoc2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingAddCode2Action",
+                    "_billing", "w"),
+            // BC private code delete: refuses anything but POST before its privilege check.
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeletePrivateCode2Action",
+                    "_admin.billing", "w"),
             // eForm restore: marks a deleted eForm current again; both deleted-list pages post it.
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.UnRemEForm2Action",
                     "_eform", "w"),
@@ -510,6 +528,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         // BC Teleplan: default page view permits GET; method dispatches are POST-only.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
+        // Generate Teleplan File (#4439 D3): opening the page (menu, year archive) permits GET; providers is the
+        // Create Report form's write and needs POST. Also in HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE.
+        // Covered by GenerateTeleplanFile2ActionUnitTest.
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action",
         // BC MSP Quick Billing (#4772): opening the page permits GET; add (data) and remove accept
         // only POST, as the page sends them. Covered by QuickBillingBCSessionFormUnitTest.
         "io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action",
@@ -727,6 +749,15 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.eform.actions.UnRemEForm2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action",
+        // BC billing (#4439 D3, D12): the Teleplan file generation and the POST-only saves registered above.
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBCSave2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveBillingPreferences2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveAssoc2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeleteServiceCodeAssoc2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AddReferralDoc2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingAddCode2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeletePrivateCode2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
@@ -905,7 +936,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action", new String[]{"_admin", "w"},
         "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action", new String[]{"_admin", "r"},
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action", new String[]{"_msg", "r"},
-        "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action", new String[]{"_form", "w"});
+        "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action", new String[]{"_form", "w"},
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action", new String[]{"_billing", "w"});
 
     /**
      * One case per route and write parameter in {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE},

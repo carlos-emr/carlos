@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO;
+import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 
 import java.util.List;
 
@@ -93,12 +94,16 @@ public class SaveBillingPreferences2Action
      * a new one or updates the existing record, always for the signed-in provider. The providerNo is set as a
      * request attribute for use by the result page.
      *
-     * @return String "success" to forward to the result page
+     * @return String "success" to forward to the result page, or {@code NONE} after a 405 for a request that is not a POST
      */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+        // The preferences page posts; a GET or HEAD is refused before any preference is read or written.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
         // The preferences are the signed-in provider's own; a provider number posted with the form is not used. The
         // form never filled it, and an empty one stored the preferences as clinic-wide settings (issue #4936).

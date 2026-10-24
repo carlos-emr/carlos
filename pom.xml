@@ -41,7 +41,18 @@
             those rows as duplicated blocks. Only duplication detection skips it; the file is
             still analyzed.
         -->
-        <sonar.cpd.exclusions>src/main/resources/db/reporting/**</sonar.cpd.exclusions>
+        <!--
+            The legacy BC form pages (BC-AR original/2007/2012, both Birth Summaries, BC-NewBorn original and
+            2008, BC-INR, Chart Checklist, BC Health Passport) are versioned copies of provincial forms, kept so
+            old records still open, so each version repeats the previous one by design. Encoding their saved
+            values (#5090) marked thousands of those lines as new code. Only duplication detection skips them;
+            BC-AR 2020 (formBCAR2020*) is not covered.
+        -->
+        <sonar.cpd.exclusions>
+            src/main/resources/db/reporting/**,
+            src/main/webapp/WEB-INF/jsp/form/formbc*.jsp,
+            src/main/webapp/WEB-INF/jsp/form/formBCNewBorn2008*.jsp
+        </sonar.cpd.exclusions>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <!--
             Suppress SonarCloud S2083 (path traversal) false positives in files that use
@@ -51,7 +62,7 @@
             has already validated the path. This does NOT suppress the rule globally — any code
             that uses raw user input in file paths without PathValidationUtils will still be caught.
         -->
-        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling,pvuDocS6549,csrfTplS6638,csrfTplS3403</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008</sonar.issue.ignore.multicriteria>
         <!-- PathValidationUtils itself (it IS the sanitizer) -->
         <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
@@ -101,6 +112,20 @@
         <sonar.issue.ignore.multicriteria.csrfTplS6638.resourceKey>**/csrfguard/carlos-csrfguard.js</sonar.issue.ignore.multicriteria.csrfTplS6638.resourceKey>
         <sonar.issue.ignore.multicriteria.csrfTplS3403.ruleKey>javascript:S3403</sonar.issue.ignore.multicriteria.csrfTplS3403.ruleKey>
         <sonar.issue.ignore.multicriteria.csrfTplS3403.resourceKey>**/csrfguard/carlos-csrfguard.js</sonar.issue.ignore.multicriteria.csrfTplS3403.resourceKey>
+        <!--
+            The legacy BC form pages' layout is the provincial paper form's: unlabelled entry boxes laid out in
+            table cells and <font> sizing throughout. Relabelling or restyling them changes the printed form, so
+            these two markup rules are not reported on them. Every other rule, security rules included, still is,
+            and BC-AR 2020 (formBCAR2020*) is not covered.
+        -->
+        <sonar.issue.ignore.multicriteria.bcFormLabel.ruleKey>Web:InputWithoutLabelCheck</sonar.issue.ignore.multicriteria.bcFormLabel.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormLabel.resourceKey>**/WEB-INF/jsp/form/formbc*.jsp</sonar.issue.ignore.multicriteria.bcFormLabel.resourceKey>
+        <sonar.issue.ignore.multicriteria.bcFormLabel2008.ruleKey>Web:InputWithoutLabelCheck</sonar.issue.ignore.multicriteria.bcFormLabel2008.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormLabel2008.resourceKey>**/WEB-INF/jsp/form/formBCNewBorn2008*.jsp</sonar.issue.ignore.multicriteria.bcFormLabel2008.resourceKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont.ruleKey>Web:UnsupportedTagsInHtml5Check</sonar.issue.ignore.multicriteria.bcFormFont.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont.resourceKey>**/WEB-INF/jsp/form/formbc*.jsp</sonar.issue.ignore.multicriteria.bcFormFont.resourceKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont2008.ruleKey>Web:UnsupportedTagsInHtml5Check</sonar.issue.ignore.multicriteria.bcFormFont2008.ruleKey>
+        <sonar.issue.ignore.multicriteria.bcFormFont2008.resourceKey>**/WEB-INF/jsp/form/formBCNewBorn2008*.jsp</sonar.issue.ignore.multicriteria.bcFormFont2008.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine/>
         <test.forkCount>4</test.forkCount>

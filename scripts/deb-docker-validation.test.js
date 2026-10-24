@@ -162,3 +162,70 @@ test('should refuse a reset password that quoting could not carry into the conta
   }
   assert.equal(run(['print-preseed'], { ...box.env, RESET_PASSWORD: 'Carlos2026!Verify' }).status, 0);
 });
+
+test('should refuse an unknown profile, and every profile without CARLOS_DISPOSABLE_HOST=true, before calling docker', (t) => {
+  const box = sandbox(t);
+  const unknown = run(['profile', 'nonesuch'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /profile must be legacy-teleplan or default \(got 'nonesuch'\)/);
+  for (const name of ['legacy-teleplan', 'default']) {
+    const r = run(['profile', name], { ...box.env, CARLOS_DISPOSABLE_HOST: '' });
+    assert.equal(r.status, 1, `${name}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /refusing to run: set CARLOS_DISPOSABLE_HOST=true/);
+  }
+  assert.equal(fs.existsSync(box.calls), false, 'docker was called before the profile was refused');
+});
+
+test('should refuse the legacy-teleplan profile on an install that is not British Columbia', (t) => {
+  const box = sandbox(t);
+  // The fake docker answers nothing, so the installed province reads as unknown.
+  const r = run(['profile', 'legacy-teleplan'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /the legacy-teleplan profile is for a BC install \(this one is 'unknown'\)/);
+  const calls = fs.readFileSync(box.calls, 'utf8');
+  assert.doesNotMatch(calls, /carlos-ctl restart/, 'the install was changed although the province check failed');
+});
+
+/** Apply `profile NAME`'s carlos.properties edit to `file`, as the container does. */
+function applyProfileEdit(name, file) {
+  const edit = run(['print-profile-edit', name], process.env);
+  assert.equal(edit.status, 0, edit.stderr);
+  const r = spawnSync('bash', ['-ec', `P='${file}'\n${edit.stdout}`], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  return fs.readFileSync(file, 'utf8');
+}
+
+test('should switch carlos.properties to a profile and back byte for byte, whatever the file ends with', (t) => {
+  const box = sandbox(t);
+  const cases = {
+    'with the setting': 'A=1\nNEW_BC_TELEPLAN=yes\nB=2\n',
+    'without a final newline': 'A=1\nNEW_BC_TELEPLAN=yes\nB=2',
+    'without the setting': 'A=1\nB=2',
+    'with a spaced setting': 'A=1\nNEW_BC_TELEPLAN = yes\n',
+  };
+  for (const [label, original] of Object.entries(cases)) {
+    const file = path.join(box.dir, 'carlos.properties');
+    fs.writeFileSync(file, original);
+    let text = applyProfileEdit('legacy-teleplan', file);
+    // Java properties keep the last value of a key: the profile's own line must be the one that is read.
+    const values = [...text.matchAll(/^NEW_BC_TELEPLAN\s*[=:]\s*(.*)$/gm)].map(m => m[1]);
+    assert.deepEqual(values, ['no'], `${label}: NEW_BC_TELEPLAN values ${JSON.stringify(values)}`);
+    if (/^B=2$/m.test(original)) assert.match(text, /^B=2$/m, `${label}: the last setting was changed`);
+    assert.equal(applyProfileEdit('legacy-teleplan', file), text, `${label}: switching twice is not idempotent`);
+    text = applyProfileEdit('default', file);
+    assert.equal(text.replace(/\n$/, ''), original.replace(/\n$/, ''), `${label}: profile default did not restore the file`);
+    assert.equal(applyProfileEdit('default', file), text, `${label}: profile default twice changed the file`);
+  }
+});
+
+test('should refuse a suite run that does not match the profile the install is in', (t) => {
+  const box = sandbox(t);
+  // This fake docker answers the profile query with legacy-teleplan; anything else is recorded and fails.
+  fs.writeFileSync(path.join(box.dir, 'bin', 'docker'),
+    `#!/bin/sh\ncase "$*" in *carlos-validation-profile:*) echo legacy-teleplan; exit 0 ;; esac\necho "$*" >> '${box.calls}'\nexit 1\n`,
+    { mode: 0o755 });
+  const r = run(['suite', '--tier', 'smoke'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /the install is in profile 'legacy-teleplan' but the run asks for 'default'/);
+  assert.equal(fs.existsSync(box.calls), false, 'the suite ran although the install is in another profile');
+});

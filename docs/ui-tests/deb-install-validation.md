@@ -3582,3 +3582,93 @@ on routes this change does not touch: `authz-read-role-matrix` (two `oscarResear
 `authz-read-patient-lock` (the routes it lists, none of them the shortcut pages). The server-log audit's
 unexplained signatures are BC billing routes probed on this Ontario install and those two research routes; every log
 line naming the shortcut routes is the check's deliberate GET (405) or that 403.
+
+### BC forms and billing (2026-10-22, issues #5090, #5062, #5051, #5050 and #4439)
+
+Branch `claude/bc-forms-5090-5062-5051-5050-4439` (PR #5167), merged with `release/2026.08` at `eacd3d9230`, packaged
+unstamped as `2026.09.0~snapshot26`: the CARLOS WAR compiled from source in an `ubuntu:26.04` builder (OpenJDK 25),
+DrugRef from `debian/drugref.pin` (`1941e14`), carlos-ctl `1.2.0` built from its pin's fallback commit (`325482a`),
+`dpkg-buildpackage -us -uc -b` with `CARLOS_WAR` and `DRUGREF_WAR`. Every run below used a fresh install made with
+`CARLOS_PROVINCE=bc scripts/deb-docker-validation.sh up` (BC preseed, BC demo data); `carlos-ctl check` passed each time.
+Checks that need the Teleplan output directory ran with `HOME_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/billing/download`.
+
+| Run | Result |
+|---|---|
+| New and changed checks: `form-bc-saved-value-encoding`, `form-bc-add-form-defaults`, `form-bc-epds-wording`, `get-reject-bc-billing`, `authz-bc-billing`, `billing-bc-teleplan-file`, `billing-bc-codes-admin`, `billing-bc-settle-paid-claims` | **PASS**, 8 of 8 |
+| The 44 BC-only checks of the default profile, `--residue-audit` | 42 **PASS** and 2 known failures (findings 145 and 153, pinned), no residue. `billing-bc-wcb-links` runs alone after `carlos-ctl restart`: the simulation lists the active providers cached at the first login after startup, and `up` has already signed in once |
+| `profile legacy-teleplan`, then `suite --profile legacy-teleplan --residue-audit`, then `profile default` | `billing-bc-remittance-upload` **PASS**, all 9 steps, no residue |
+| `--tier smoke` (final packages) | **PASS**, 12 of 12 |
+| `--tier core --province BC --residue-audit` (final packages) | 473 **PASS**, 74 FAIL, 30 SKIP (fixtures or settings a BC install lacks), 23 known failures, 1 unexpected pass (`xss-poison-eform`, finding 121), 1 failed elsewhere (`audit-log-chart-read`). None of the 74 is a BC form or BC billing check; see below |
+| server-log audit (after the core run) | 16 unexplained signatures, none in code this PR changes. The largest are `PreventionDisplayConfig` NPE (108) and the Flu Billing report's 500 (14, below). The base install, after only its 66-check run, logged three of the same signatures (Flu Billing, a constraint violation, a client abort) |
+
+**The 74 core failures are not this PR's.** They were rerun one by one with `EXCLUSIVE=1` after `carlos-ctl restart`. 8 passed: they need an exclusive run or failed on run order. The other 66 were run the same way on a fresh BC install of the unmodified base (`release/2026.08` at `eacd3d9230`, the commit the tested packages were merged with). 65 fail there too, and `appointment-waiting-list-prompt` is flaky on both: it fails 2 of 4 base runs with the same aborted login-page requests. None of the 66 is a BC form or BC billing check. They are: `admin-email-config`, `admin-index-links`, `admin-jobs`, `admin-lookup-lists`, `allergy-partial-start-date`, `annotate-document`, `appointment-waiting-list-prompt`, `audit-log-appointment`, `audit-log-billing-on`, `audit-log-chart-modules`, `audit-log-chart-note`, `audit-log-demographic-import`, `audit-log-document-read`, `audit-log-locked-patient`, `audit-log-report-tools`, `audit-log-session`, `audit-log-vitals`, `boundary-appointment-text`, `boundary-chart-note-text`, `boundary-demographic-search`, `boundary-demographic-text`, `boundary-document-text`, `boundary-messaging-text`, `boundary-rbt-group-label`, `bpmh-form`, `clinical-freetext`, `concurrency-appointment-edit`, `concurrency-chart-note-takeover`, `concurrency-security-record`, `concurrency-tickler-edit`, `concurrency-tickler-list-status`, `cpp-copy-position`, `demographic-cds-import`, `demographic-paper-chart-country`, `demographic-patient-consents`, `demographic-report-favourites`, `document-description-templates`, `double-submit-chart-note`, `double-submit-messenger`, `echart-note-lifecycle`, `echart-two-patient-isolation`, `gap-clinical-cpp-boxes`, `gap-encounter-eform-edoc-approval`, `gap-provider-schedule-reason-privacy`, `gap-records-hrm-inbox-null-hin`, `gap-records-hrm-report-actions`, `gap-records-usage-report`, `get-reject-chart-notes`, `get-reject-eform-editor`, `hrm-retired-statement`, `hrm-tickler`, `lab-recall-delegate`, `messenger-reply-send-archive`, `page-health-admin-panel:1of2`, `page-health-patient-hubs`, `password-change-preferences`, `patient-list-by-appointment-export`, `popup-opener-colour-picker`, `pregnancy-lifecycle`, `prevention-partial-date`, `prevention-print`, `prevention-print-selection`, `rx-unique-medication-list`, `schedule-period-delete`, `scratchpad-workflow`, `xss-poison-echart`. #4439 task 11 asks for each to be classified (an Ontario-only route gets `provinces: ["ON"]`, a BC defect a finding row); that classification is not part of this record. One is plainly BC-specific: `admin-index-links` fails because Administration offers the Flu Billing Report on BC, and the report queries the Ontario-only `billing_on_cheader1` table (HTTP 500).
+
+**Negative control.** The pre-fix `GenerateTeleplanFile2Action`, the six BC billing writes, `EditServiceCodeAssoc2Action`
+and `HttpMethodGuardFilter`, compiled against the installed classpath, and the pre-fix `TeleplanSubmission.jsp`,
+`leftNav.jspf`, `admin.jsp`, `manageSVCDXAssoc.jsp`, `billingBC.jsp` and `struts-billing.xml` were swapped into the
+install, then the fixed files put back byte for byte:
+- `billing-bc-teleplan-file` fails at "opening the Teleplan file item from the menu writes no batch of its own": the
+  menu's GET wrote 1 batch (#4439 D3).
+- `billing-bc-codes-admin` fails at its last step: Create New Association does not open an editor (#4439 D14).
+- `get-reject-bc-billing` still passes: `HttpMethodGuardFilter`'s route-name rules (the `save`, `add` and `delete`
+  prefixes and `billingaddcode`) already refused all 13 GETs. The actions' own guards (D12) are defense in depth.
+
+**Defects found and fixed during the run.**
+- `billing-bc-two-window-isolation` failed at "Update Invoice on a two-line private receipt": the private bill's
+  Save & Print Receipt answered 403. The ModSecurity audit log showed CRS rule 932115 (Windows command injection)
+  matching `& Print Receipt` in `ARGS:submit` on `billing/CA/BC/SaveBilling`, so no private-bill receipt could be
+  saved through the packaged front door. The button now reads "Save and Print Receipt", and `BillingSaveBilling2Action`
+  accepts both values; the check passes.
+- The residue audit found 9 `property`, 3 `providerArchive`, 3 `providerbillcenter` and 1 `PrintResourceLog` rows.
+  `billing-bc-simulation-encoding` and `billing-bc-two-window-isolation` add physicians through Add Provider, which
+  also writes those provider rows; `form-bc-antenatal-record` kept the print record of its own FAKE patient. All three
+  cleanups now remove them, and the rerun reported no residue.
+- `billing-bc-report-center` failed at its first step: a `target=_blank` tab reports an empty address until its first
+  navigation commits, and the check read it at once. It now waits for the centre's address.
+- `billing-bc-wcb-links` fails at its simulation step when an earlier login has already filled the active-provider
+  cache; after a restart it passes. This is a property of the check's fixture (documented in its header), not a defect.
+- `bpmh-form` fails at "Print answers a PDF of the saved form", as recorded for #3394 above with the pre-fix classes;
+  it is not caused by this change.
+
+**Final packages (`69ffc538`).** The review fixes after the runs above (Chart Checklist descriptions, BC-NewBorn page
+dates, the BC-AR 2007 doula boxes, BC-AR 2012's EPDS restore and substance-use "No" box, BC-NewBorn 2008's saved page,
+the PRI default) were packaged from `69ffc538` with `dpkg-buildpackage -us -uc -b`, the WAR compiled by `debian/rules`
+(lintian clean). Before installing, every one of the package's 1,045 `WEB-INF/jsp` files was compared with the commit
+and matched. An earlier rebuild with `-nc` had kept the previous build's WAR: debhelper's build stamp skips
+`dh_auto_build`, so the package carried code from before these fixes, and the comparison found 6 pages that differ.
+The runs below are on a fresh `CARLOS_PROVINCE=bc` install of the checked packages (`carlos-ctl check` passed).
+
+| Run | Result |
+|---|---|
+| `--tier smoke` | **PASS**, 12 of 12 |
+| `billing-bc-wcb-links`, after `carlos-ctl restart` | **PASS** |
+| The other 44 BC-only checks of the default profile, `--residue-audit` | 42 **PASS** and 2 known failures (findings 145 and 153), no residue. `form-bc-legacy-field-restore` passes all 5 steps and `form-bc-epds-wording` all 8 |
+| The 25 province-neutral checks whose scripts use `scripts/lib/get-reject-probe.js`, which this PR changed (`expect405`, off by default), `--residue-audit` | 13 **PASS**, 10 known failures (findings 263 and 264), 2 FAIL: `get-reject-chart-notes` and `get-reject-eform-editor`, both among the 66 that fail on the base above. Their routes answer GET with 200 or 302 and write; `expect405` changes only how a 403 is read, and neither check sets it. The residue audit found 434 `form_boolean_value` rows: `rourke-measurement` deletes its `formRourke2017` row but not the checkbox rows the form keeps for it, the gap `form-rourke2017` closed for itself. Neither check is changed here |
+| `profile legacy-teleplan`, `suite --profile legacy-teleplan --residue-audit`, `profile default` | `billing-bc-remittance-upload` **PASS**, no residue |
+| server-log audit | 2 unexplained signatures, `Misc.areaCode` and `Misc.phoneNumber` (`StringIndexOutOfBoundsException`), both from `billing-bc-wcb-links`: `TeleplanCorrectionActionWCB2Action` (lines 195 and 196) splits the patient's second phone number, which here is 1 character, into area code and number. Neither the action nor the check is changed here |
+
+**Negative control (form fixes).** Each pre-fix page was swapped into the install, with a Tomcat restart, and the fixed
+page put back byte for byte:
+- `formbcar2007pg2.jsp` and `formbcar2012pg2.jsp`: `form-bc-legacy-field-restore` fails at the BC-AR 2007 doula step
+  ("formbcar2007pg2 offers no doula box"), and `form-bc-epds-wording` fails at the BC-AR 2012 reopen: no EPDS answer is
+  ticked (every position `-1`).
+- `formbcar2012pg1.jsp`: the substance-use "No" box reopens unticked.
+- `formBCNewBorn2008pg2.jsp`: the record stores `c_lastVisited` `pg1` and reopens on page 1.
+- `formbcclientchartchecklist.jsp`: the description comes back as `FAKE desc `, cut at its first `'`.
+- BC-NewBorn page 2's date: on the package that kept the earlier WAR, the reopened page 2 shows "23/10/2026", page 1's
+  date, instead of the 05/03/2025 saved for it.
+
+**Defects found and fixed after the first runs.**
+- BC-AR 2007 pages 2 and 3 left the doula's `<td` unclosed, so the browser read the box as the cell's attributes:
+  the saved doula was never shown and never posted again.
+- BC-AR 2012 page 2 defined its EPDS restore but never called it: a reopened record showed no answer ticked, and the
+  next Save stored the answers as empty. The DOM-ready handler now restores them before the dirty check records the form.
+- BC-AR 2012 page 1 printed the substance-use "No" box's saved state as text after the box, so it never showed ticked
+  and the next Save cleared it.
+- BC-NewBorn 2008 pages 2 and 3 saved themselves as page 1, so a record always reopened on page 1.
+- BC-NewBorn pages 2 and 3 showed page 1's date in their own date boxes, so the next Save stored it over theirs
+  (CodeRabbit).
+- The Chart Checklist built its 17 free-text description boxes as Java strings with the saved value unencoded: a `'`
+  ended the attribute, and `<` or `&` did not come back as typed (CodeRabbit).
+- A configured PRI default billed privately even when the PRI form was not installed and another form was chosen in
+  its place (CodeRabbit). The private billing type now follows the chosen form.

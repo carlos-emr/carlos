@@ -1633,6 +1633,7 @@ module.exports = {
   assertNotErrorPage,
   assertRefused,
   isApplicationErrorPage,
+  isSecurityErrorBody,
   assertStrictPage,
   buildArtifactPath,
   buildFailureDetails,

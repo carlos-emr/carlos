@@ -76,6 +76,15 @@
  *   node scripts/run-playwright-suite.js --only tickler-crud --only login
  *   node scripts/run-playwright-suite.js --only fax-configure --residue-audit
  *   node scripts/run-playwright-suite.js --list
+ *   node scripts/run-playwright-suite.js --province BC --profile legacy-teleplan
+ *
+ * PROFILES. A few checks need the install configured another way than the packaged default, which a
+ * check cannot change for itself (the setting is read at startup). Such a check names its profile in the
+ * manifest (`profile`) and runs only in a run started with that --profile, after the install has been
+ * switched (scripts/deb-docker-validation.sh profile <name>); a run with a --profile runs only that
+ * profile's checks. In its own profile run a check that SKIPs FAILS the run: the skip would mean the
+ * install was not switched, and the profile exists so that this check is never left unrun. Known profiles
+ * are PROFILES below.
  */
 
 const fs = require('node:fs');
@@ -90,6 +99,12 @@ const { auditResidueDetailed, captureBaseline, describeResidue, formatResidue } 
 
 const MANIFEST_PATH = path.join(__dirname, 'playwright-suite.json');
 
+/** Install configurations a check can need, and how to switch a validation container to each. */
+const PROFILES = Object.freeze({
+  // Issue #4439: BC remittances are imported through Upload Remittance Files only with NEW_BC_TELEPLAN=no.
+  'legacy-teleplan': 'a BC install with NEW_BC_TELEPLAN=no (scripts/deb-docker-validation.sh profile legacy-teleplan)',
+});
+
 function loadManifest(manifestPath = MANIFEST_PATH) {
   const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   if (!Array.isArray(parsed.checks)) {
@@ -100,7 +115,7 @@ function loadManifest(manifestPath = MANIFEST_PATH) {
 
 function parseArguments(argv) {
   const options = {
-    tiers: [], only: [], skip: [], province: '', junit: '', list: false, dryRun: false, residueAudit: false,
+    tiers: [], only: [], skip: [], province: '', profile: '', junit: '', list: false, dryRun: false, residueAudit: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -117,6 +132,7 @@ function parseArguments(argv) {
       case '--only': options.only.push(takeValue()); break;
       case '--skip': options.skip.push(takeValue()); break;
       case '--province': options.province = takeValue(); break;
+      case '--profile': options.profile = takeValue(); break;
       case '--junit': options.junit = takeValue(); break;
       case '--list': options.list = true; break;
       case '--dry-run': options.dryRun = true; break;
@@ -124,6 +140,9 @@ function parseArguments(argv) {
       case '--help': options.help = true; break;
       default: throw new Error(`Unknown argument ${argument}`);
     }
+  }
+  if (options.profile && !PROFILES[options.profile]) {
+    throw new Error(`Unknown profile ${options.profile}; known: ${Object.keys(PROFILES).join(', ')}`);
   }
   return options;
 }
@@ -140,7 +159,23 @@ function selectChecks(checks, options) {
   // input the harness contract does not carry; it runs only when asked for
   // by name, never as part of a tier or of the whole-suite default.
   // --list still shows it, marked, so the name is discoverable.
-  let selected = checks.filter((check) => !check.manual || options.list || options.only.includes(check.name));
+  // A check that needs another install configuration runs only in its profile's run, and a profile run
+  // runs only that profile's checks. Naming one with --only outside its profile is refused rather than
+  // quietly selecting nothing.
+  const profileOf = (check) => check.profile || '';
+  // selectChecks is exported: an options object without profile is the default run.
+  const wanted = options.profile || '';
+  for (const name of options.only) {
+    const check = checks.find((entry) => entry.name === name);
+    // An unknown name is reported where the selection is checked against --only, below.
+    if (check && profileOf(check) !== wanted) {
+      throw new Error(profileOf(check)
+        ? `${name} runs only with --profile ${profileOf(check)} (${PROFILES[profileOf(check)] || 'unknown profile'})`
+        : `${name} has no profile, so it does not run with --profile ${wanted}`);
+    }
+  }
+  let selected = checks.filter((check) => profileOf(check) === wanted);
+  selected = selected.filter((check) => !check.manual || options.list || options.only.includes(check.name));
   if (options.tiers.length) {
     selected = selected.filter((check) => check.tiers.some((tier) => options.tiers.includes(tier)));
   }
@@ -433,6 +468,14 @@ function runOne(check, options, run = spawnSync) {
         cleanupFailed: Boolean(ordinary && record.cleanupFailed),
       };
     }
+    if (raw.outcome === 'SKIP' && options.profile && check.profile === options.profile) {
+      raw = {
+        outcome: 'FAIL',
+        // Keep the check's own reason: the profile is one cause, a missing fixture or tool is another.
+        detail: `skipped in its own --profile ${options.profile} run (${raw.detail || 'no reason given'}); `
+          + `a profile run needs ${PROFILES[options.profile]}`,
+      };
+    }
     return { name: check.name, ...classifyResult(check, raw), durationMs, ...(browserVersion ? { browserVersion } : {}) };
   } finally {
     if (resultDirectory) fs.rmSync(resultDirectory, { recursive: true, force: true });
@@ -637,7 +680,8 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
     return EXIT_FAIL;
   }
   if (options.help) {
-    out.log('Usage: node scripts/run-playwright-suite.js [--tier T]... [--only NAME]... [--skip NAME]... [--province ON|BC] [--junit FILE] [--residue-audit] [--list] [--dry-run]');
+    out.log('Usage: node scripts/run-playwright-suite.js [--tier T]... [--only NAME]... [--skip NAME]... [--province ON|BC] [--profile NAME] [--junit FILE] [--residue-audit] [--list] [--dry-run]');
+    out.log(`Profiles: ${Object.entries(PROFILES).map(([name, what]) => `${name} = ${what}`).join('; ')}`);
     return EXIT_PASS;
   }
 
@@ -722,5 +766,5 @@ if (require.main === module) {
 
 module.exports = {
   assertSafeTarget, browserVersionsOf, classifyResult, cleanBrowserVersion, exitCodeFor, loadManifest, main, mutatesOf,
-  parseArguments, readBuildIdentity, runOne, selectChecks, summarise, toJUnit, validateExpectedFailure,
+  PROFILES, parseArguments, readBuildIdentity, runOne, selectChecks, summarise, toJUnit, validateExpectedFailure,
 };

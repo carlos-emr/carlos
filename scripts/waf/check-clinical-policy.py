@@ -76,6 +76,7 @@ VITALS = "/carlos/encounter/Measurements"
 FORWARD = "/carlos/casemgmt/ViewForward"
 ENTRY = "/carlos/CaseManagementEntry"
 PREVENTION = "/carlos/prevention/AddPrevention"
+PREGNANCY = "/carlos/Pregnancy"
 ERROR_LOG = "/carlos/eform/logEformError"
 # What a browser hands window.onerror for a broken eForm script, plus the two fixed reports CARLOS
 # itself sends. The first was answered 403 on a packaged install (932130 reads jQuery's "$(...)"
@@ -177,6 +178,25 @@ def signature_png(size=96 * 1024):
 
 def build_cases(phrases, corpus):
     cases = []
+    for operation in ("create", "complete"):
+        for name, value in (("baseline", "Routine follow up."), ("corpus", corpus), ("literal-markup", XSS)):
+            cases.append(request_case(f"pregnancy-{operation}-{name}", 5184, PREGNANCY, "notes", value,
+                                      extra=(("method", operation),)))
+    for field in ("demographicNo", "episodeId", "code", "startDate", "endDate", "method", "unrelatedField"):
+        cases.append(request_case(f"pregnancy-protected-{field}", 5184, PREGNANCY, field, XSS,
+                                  extra=() if field == "method" else (("method", "create"),),
+                                  expect="inbound", signatures=("941100", "941110")))
+    for suffix in ("Evil", "/child"):
+        cases.append(request_case(f"pregnancy-wrong-route-{suffix.replace('/', '-')}", 5184, PREGNANCY + suffix,
+                                  "notes", XSS, extra=(("method", "create"),),
+                                  expect="inbound", signatures=("941100", "941110")))
+    for verb in ("GET", "PUT"):
+        cases.append(request_case(f"pregnancy-wrong-{verb}", 5184, PREGNANCY, "notes", XSS, method=verb,
+                                  extra=(("method", "create"),), expect="inbound", signatures=("941100", "941110")))
+    for name, extra in (("absent", ()), ("unknown", (("method", "saveFormAjax"),)),
+                        ("duplicate", (("method", "create"), ("method", "complete")))):
+        cases.append(request_case(f"pregnancy-operation-{name}", 5184, PREGNANCY, "notes", XSS, extra=extra,
+                                  expect="inbound", signatures=("941100", "941110")))
     # Preserve diagnostic case names while the submitted Rx comment name is
     # distinct from comment_<n> used by the unrelated growth forms.
     rx_fields = {"instructions": "instructions", "drugName": "drugName", "comment": "rxComment"}
