@@ -1965,6 +1965,59 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return revision;
     }
 
+    @Override
+    public CompactSaveResult saveCompactNoteRevision(LoggedInInfo login, CaseManagementNote submitted,
+            List<CaseManagementIssue> submittedIssues, String originatingProgram) {
+        if (login == null || !Objects.equals(login.getLoggedInProviderNo(), submitted.getProviderNo())) {
+            throw new SecurityException("Compact note writer does not match the login");
+        }
+        // Lock and validate the revision before issue writes. Keep the submitted note
+        // and issue identities untouched so the same editor can retry a failed commit.
+        CaseManagementNote previous = previousRevision(submitted);
+        CaseManagementNote note = submitted.copyForRevision();
+        note.setId(submitted.getId());
+        note.setRevision(revisionAfter(previous));
+        ProgramManager programs = SpringUtils.getBean(ProgramManager.class);
+        if (isPositiveProgram(originatingProgram)) {
+            note.setReporter_caisi_role(writerRoleForChart(programs, note.getProviderNo(),
+                    note.getProgram_no(), originatingProgram).getId().toString());
+        } else {
+            try {
+                note.setReporter_caisi_role(programs.getProgramProvider(note.getProviderNo(),
+                        note.getProgram_no()).getRole().getId().toString());
+            } catch (Exception missingLegacyRole) {
+                note.setReporter_caisi_role("0");
+            }
+        }
+        Map<CaseManagementIssue, CaseManagementIssue> copies = new IdentityHashMap<>();
+        List<CaseManagementIssue> issues = new ArrayList<>();
+        for (CaseManagementIssue source : submittedIssues) {
+            if (!Objects.equals(String.valueOf(source.getDemographic_no()), note.getDemographic_no())) {
+                throw new SecurityException("Issue belongs to a different demographic");
+            }
+            CaseManagementIssue copy = new CaseManagementIssue(source);
+            copy.setId(source.getId() != null && source.getId() > 0 ? source.getId() : null);
+            copy.setProgram_id(source.getProgram_id());
+            copy.setNotes(new HashSet<>());
+            copies.put(source, copy);
+            issues.add(copy);
+        }
+        List<CaseManagementIssue> selected = new ArrayList<>();
+        for (CaseManagementIssue source : submitted.getIssues()) {
+            CaseManagementIssue copy = copies.get(source);
+            if (copy == null) throw new IllegalArgumentException("Selected issue is missing from the compact form");
+            selected.add(copy);
+        }
+        saveAndUpdateCaseIssues(issues);
+        // New issue IDs affect hashing; assemble the selected set after persistence.
+        note.setIssues(new LinkedHashSet<>(selected));
+        note = saveNoteRevisionSimple(note);
+        if (originatingProgram != null) {
+            deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), originatingProgram);
+        }
+        return new CompactSaveResult(note, List.copyOf(issues));
+    }
+
     private CaseManagementNote previousRevision(CaseManagementNote note) {
         String uuid = note.getUuid();
         if (uuid == null || uuid.isBlank()) {
@@ -2617,11 +2670,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         if (explicitChartOrigin && isPositiveProgram(draftProgram)) {
             // Preserve the writer's existing role in the stored note's program.
             // A shared-note editor may instead belong only to the originating chart.
-            Secrole writerRole = writerRoleInProgram(programManager, note.getProviderNo(), note.getProgram_no());
-            if (writerRole == null && !Objects.equals(note.getProgram_no(), draftProgram)) {
-                writerRole = writerRoleInProgram(programManager, note.getProviderNo(), draftProgram);
-            }
-            if (writerRole == null) throw new SecurityException("No writer role for the chart program");
+            Secrole writerRole = writerRoleForChart(programManager, note.getProviderNo(), note.getProgram_no(), draftProgram);
             role = writerRole.getId().toString();
             roleName = writerRole.getRoleName();
         } else {
@@ -2747,15 +2796,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             saveCPP(cpp, note.getProviderNo());
         }
 
-        int revision;
-
-        if (note.getRevision() != null) {
-            revision = Integer.parseInt(note.getRevision());
-            ++revision;
-        } else
-            revision = 1;
-
-        note.setRevision(String.valueOf(revision));
+        // Derive the published count from the locked database row. A legacy
+        // UUID-null source reports zero until its first revision initializes the chain.
+        note.setRevision(revisionAfter(previousRevision(note)));
 
         /* save note including add signature */
         note = saveNoteRevision(cpp, note, note.getProviderNo(), userName, lastSavedNoteString, roleName).note();
@@ -2820,12 +2863,29 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
     }
 
+    private static String revisionAfter(CaseManagementNote previous) {
+        if (previous == null) return "1";
+        int baseline;
+        try { baseline = Math.max(1, Integer.parseInt(previous.getRevision())); }
+        catch (NumberFormatException legacyCounter) { baseline = 1; }
+        return Integer.toString(Math.addExact(baseline, 1));
+    }
+
     private static Secrole writerRoleInProgram(ProgramManager programs, String provider, String program) {
         if (!isPositiveProgram(program)) return null;
         ProgramProvider membership = programs.getProgramProvider(provider, program);
         Secrole role = membership == null ? null : membership.getRole();
         return role != null && role.getId() != null && role.getId() > 0
                 && StringUtils.isNotBlank(role.getRoleName()) ? role : null;
+    }
+
+    private static Secrole writerRoleForChart(ProgramManager programs, String provider, String storedProgram, String originatingProgram) {
+        Secrole role = writerRoleInProgram(programs, provider, storedProgram);
+        if (role == null && !Objects.equals(storedProgram, originatingProgram)) {
+            role = writerRoleInProgram(programs, provider, originatingProgram);
+        }
+        if (role == null) throw new SecurityException("No writer role for the chart program");
+        return role;
     }
 
     @Override

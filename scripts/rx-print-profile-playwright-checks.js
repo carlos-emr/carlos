@@ -28,6 +28,10 @@
  * With the owned first-program membership temporarily absent, a further native Save from
  * the second program retains the note's original program/team and the writer's valid role;
  * a chart reload and native Edit prove the revision remains visible and readable there.
+ * Native New Note navigation refuses an invalid compact-save acknowledgment, then a real
+ * owned-draft DELETE failure proves MariaDB rollback without losing the editor or clinical
+ * state. A real retry saves the compact revision in the same Y-only context while preserving
+ * the original note location, history, role and other drafts.
  *
  * Fixtures: one owned `prescription` row and two `drugs` rows (customName/special carry the run
  * marker) for the owned synthetic patient; native Save And Print operations add owned rows.
@@ -35,6 +39,8 @@
  * unsigned note prove draft references cannot cross patients. Cleanup verifies removal of both
  * patients' clinical fixtures, owned program memberships/defaults/admissions and login rows.
  * Requires pdftotext (poppler-utils) and a headless browser (page.pdf()).
+ * Requires exclusive execution and MySQL CREATE/DROP TRIGGER permission for one owned,
+ * uniquely named rollback probe; its exact definition is checked before DROP in finally.
  */
 const { execFileSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
@@ -47,7 +53,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { masterRecordLink } = require('./lib/master-record-link');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 const { sessionToken } = require('./lib/mutation-replay');
-const { waitUntil } = require('./lib/concurrency-support');
+const { waitUntil, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
 const isEncounterWrite = response => response.request().method() === 'POST'
@@ -1009,6 +1015,228 @@ async function workflow(s) {
           s.recorder.requestFailures.splice(s.recorder.requestFailures.indexOf(recorded[0]), 1);
           console.log('  CHECK rx-print-profile: acknowledged only the proved owned reload lock-release beacon abort');
         }
+        await s.step('native save-on-note-switch preserves the shared note and recovers from an invalid save acknowledgment', async () => {
+          await page.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation
+            && !window.noteSwitchSavePending && window.issueUpdatesPending === 0);
+          await page.evaluate(() => clearAutoSaveTimer());
+          h.assert(await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue() === revision
+            && sql.value(`SELECT COUNT(*) FROM program_provider WHERE ${membershipWhere}`) === '0',
+          'The compact switch does not start on the selected shared note in its Y-only chart');
+          const compactText = `${await editor().inputValue()}\n${marker}-compact-switch H&P + = & / # ?`;
+          await editor().fill(compactText);
+          const pendingDraft = page.waitForResponse(response => response.request().method() === 'POST'
+            && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
+            && new URLSearchParams(response.request().postData() || '').get('method') === 'autosave');
+          await page.evaluate(() => autoSave());
+          const compactDraft = await pendingDraft;
+          await compactDraft.finished();
+          h.assert(compactDraft.status() === 200 && hasChartContext(compactDraft.request(), tokens[1])
+            && new URLSearchParams(compactDraft.request().postData() || '').get('note_id') === revision,
+          'The compact draft lost its selected shared note or originating chart context');
+          await page.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation);
+          await page.evaluate(() => clearAutoSaveTimer());
+          h.assert(sql.value(`SELECT HEX(note) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+            AND provider_no=${owner} AND program_id=${defaultProgram} AND note_id=${revision}`)
+            === Buffer.from(compactText, 'utf8').toString('hex').toUpperCase(),
+          'The exact compact editor text was not preserved in its Y draft');
+          const noteRows = excluded => sql.rows(`SELECT * FROM casemgmt_note
+            WHERE demographic_no IN (${patient},${referencePatient})${excluded ? ` AND note_id<>${excluded}` : ''} ORDER BY note_id`);
+          const issueRows = () => [
+            sql.rows(`SELECT * FROM casemgmt_issue WHERE demographic_no IN (${patient},${referencePatient}) ORDER BY id`),
+            sql.rows(`SELECT * FROM casemgmt_issue_notes WHERE note_id IN
+              (SELECT note_id FROM casemgmt_note WHERE demographic_no IN (${patient},${referencePatient})) ORDER BY note_id,id`),
+          ];
+          // The audit table has no provider column. Hash each row inside SQL, then
+          // hash the complete ordered digest list without exposing another actor's data.
+          const hashState = () => fingerprint(JSON.stringify(sql.rows(`SELECT
+            SHA2(JSON_ARRAY(pkid,signature,id,type,algorithm),256) FROM hash_audit ORDER BY pkid`)));
+          const clinicalState = () => JSON.stringify([
+            noteRows(), issueRows(), hashState(),
+            sql.rows(`SELECT * FROM casemgmt_tmpsave WHERE demographic_no IN (${patient},${referencePatient}) ORDER BY id`),
+            providerAndPatients(),
+          ]);
+          const beforeRefusal = clinicalState();
+          const originalNotes = JSON.stringify(noteRows());
+          const originalIssues = JSON.stringify(issueRows());
+          const isCompactSave = response => {
+            const request = response.request();
+            const body = new URLSearchParams(request.postData() || '');
+            return request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/CaseManagementEntry')
+              && body.get('method') === 'ajaxsave' && body.get('nId') === revision;
+          };
+          const compactRequestEvidence = request => {
+            const body = new URLSearchParams(request.postData() || '');
+            const query = new URL(request.url()).searchParams;
+            const identifiers = ['nId', 'noteId', 'demographicNo', 'demoNo', 'providerNo', 'programId',
+              'caseNote.id', 'caseNote.demographic_no', 'caseNote.providerNo', 'caseNote.uuid', 'note_edit', 'newNoteIdx', 'numIssues'];
+            return { fieldNames: [...new Set(body.keys())].sort(),
+              identifiers: Object.fromEntries(identifiers.filter(name => body.has(name)).map(name => [name, body.getAll(name)])),
+              charts: [...query.getAll('chartContext'), ...body.getAll('chartContext')].map(token => tokens.indexOf(token)),
+              csrfPresent: body.has('CSRF-TOKEN'), expected: { patient, revision, capturedProgram, defaultProgram, writerRole } };
+          };
+          const actionPath = url => url.pathname.endsWith('/CaseManagementEntry');
+          const invalidAck = async route => {
+            const request = route.request();
+            const body = new URLSearchParams(request.postData() || '');
+            if (body.get('method') !== 'ajaxsave') return route.fallback();
+            h.assert(request.method() === 'POST' && body.get('nId') === revision
+              && body.get('noteTxt') === compactText && hasChartContext(request, tokens[1]),
+            'The false-ack probe did not intercept the exact owned compact save');
+            await route.fulfill({ status: 200, contentType: 'text/html',
+              body: '<div id="noteIssues" data-saved-note-id="0"></div>' });
+          };
+          const labels = await page.evaluate(() => ({ warning: unsavedNoteWarning, error: savingNoteError }));
+          h.assert(labels.warning && labels.error, 'The native compact-save messages are missing');
+          await page.route(actionPath, invalidAck);
+          try {
+            const refusedResponse = page.waitForResponse(isCompactSave);
+            const alert = page.waitForEvent('dialog', { predicate: dialog => dialog.type() === 'alert' });
+            const dialogs = await h.withExpectedDialogs(page, async () => {
+              await page.locator('#newNoteImg').click();
+              await alert;
+              const refused = await refusedResponse;
+              await refused.finished();
+              h.assert(refused.status() === 200, 'The compact false acknowledgment did not answer HTTP200');
+              await page.waitForFunction(() => !window.noteSwitchSavePending);
+            }, { accept: true });
+            h.assert(dialogs.length === 2 && dialogs[0].type === 'confirm' && dialogs[0].text === labels.warning
+              && dialogs[1].type === 'alert' && dialogs[1].text === labels.error,
+            'The invalid compact acknowledgment did not visibly refuse the requested note switch');
+            await page.evaluate(() => clearAutoSaveTimer());
+            h.assert(await editor().inputValue() === compactText && await editor().isEnabled()
+              && await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue() === revision
+              && clinicalState() === beforeRefusal,
+            'The invalid compact acknowledgment lost the editor, selected note, draft or clinical state');
+          } finally {
+            await page.unroute(actionPath, invalidAck);
+          }
+          const compactHash = createHash('sha256').update(compactText).digest('hex');
+          const compactDraftId = sql.value(`SELECT id FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+            AND provider_no=${owner} AND program_id=${defaultProgram} AND note_id=${revision}
+            AND SHA2(note,256)=${q(compactHash)}`);
+          h.assert(/^[1-9]\d*$/.test(compactDraftId) && /^FAKE-PW[0-9a-f]{16}$/.test(marker),
+            'The compact rollback probe does not identify one owned draft');
+          const triggerName = `pw_rx_del_${marker.slice(7)}`;
+          const triggerWhere = `TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=${q(triggerName)}`;
+          const triggerMessage = `Owned compact rollback ${marker.slice(7)}`;
+          h.assert(sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE ${triggerWhere}`) === '0',
+            'The compact rollback trigger name is already in use');
+          let triggerDefinition;
+          const dropTrigger = () => {
+            const rows = sql.rows(`SELECT ACTION_STATEMENT,EVENT_OBJECT_TABLE,ACTION_TIMING,EVENT_MANIPULATION
+              FROM information_schema.TRIGGERS WHERE ${triggerWhere}`);
+            if (rows.length) {
+              h.assert(rows.length === 1 && rows[0][1] === 'casemgmt_tmpsave'
+                && rows[0][2] === 'AFTER' && rows[0][3] === 'DELETE'
+                && (!triggerDefinition || rows[0][0] === triggerDefinition)
+                && rows[0][0].includes(q(triggerMessage)) && rows[0][0].includes(q(compactHash))
+                && rows[0][0].includes(`OLD.id=${compactDraftId}`),
+              'The compact rollback trigger ownership changed');
+              sql.execute(`DROP TRIGGER ${triggerName}`);
+            }
+            h.assert(sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE ${triggerWhere}`) === '0',
+              'The owned compact rollback trigger survived cleanup');
+          };
+          s.cleanup(dropTrigger);
+          const formState = () => page.locator('#caseManagementEntryForm').evaluate(form =>
+            Array.from(form.elements).map(control => [control.name, control.type, control.value,
+              control.checked ?? null, control.disabled, control.selectedIndex ?? null]));
+          const controlsBeforeFailure = JSON.stringify(await formState());
+          const beforeServerFailure = clinicalState();
+          const serverFailureMark = failureMark(s.recorder);
+          let serverFailure;
+          try {
+            sql.execute(`DELIMITER //
+CREATE TRIGGER ${triggerName} AFTER DELETE ON casemgmt_tmpsave FOR EACH ROW
+BEGIN
+  IF OLD.id=${compactDraftId} AND OLD.demographic_no=${patient} AND OLD.provider_no=${owner}
+      AND OLD.program_id=${defaultProgram} AND OLD.note_id=${revision}
+      AND SHA2(OLD.note,256)=${q(compactHash)} THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT=${q(triggerMessage)};
+  END IF;
+END//
+DELIMITER ;`);
+            triggerDefinition = sql.value(`SELECT ACTION_STATEMENT FROM information_schema.TRIGGERS WHERE ${triggerWhere}`);
+            h.assert(triggerDefinition && triggerDefinition.includes(q(triggerMessage)),
+              'The owned compact rollback probe was not installed');
+            const failedResponse = page.waitForResponse(isCompactSave);
+            const alert = page.waitForEvent('dialog', { predicate: dialog => dialog.type() === 'alert' });
+            const dialogs = await h.withExpectedDialogs(page, async () => {
+              await page.locator('#newNoteImg').click();
+              await alert;
+              serverFailure = await failedResponse;
+              await serverFailure.finished();
+              const body = await serverFailure.text();
+              if (serverFailure.status() !== 500) {
+                console.error('Compact rollback refusal evidence:', JSON.stringify({
+                  request: compactRequestEvidence(serverFailure.request()), status: serverFailure.status(),
+                  applicationOrigin: Object.hasOwn(serverFailure.headers(), h.APPLICATION_HEADER),
+                  wafResponse: h.isWafPage(serverFailure.status(), body), response: fingerprint(body) }));
+              }
+              h.assert(serverFailure.status() === 500 && hasChartContext(serverFailure.request(), tokens[1])
+                && Object.hasOwn(serverFailure.headers(), h.APPLICATION_HEADER)
+                && !h.isWafPage(serverFailure.status(), body),
+              'The owned compact DELETE failure did not return an actual application500');
+              await page.waitForFunction(() => !window.noteSwitchSavePending);
+            }, { accept: true });
+            h.assert(dialogs.length === 2 && dialogs[0].type === 'confirm' && dialogs[0].text === labels.warning
+              && dialogs[1].type === 'alert' && dialogs[1].text === `${labels.error} 500`,
+            'The real compact rollback did not visibly retain the failed switch');
+            await page.evaluate(() => clearAutoSaveTimer());
+            h.assert(await editor().inputValue() === compactText && await editor().isEnabled()
+              && await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue() === revision
+              && JSON.stringify(await formState()) === controlsBeforeFailure && clinicalState() === beforeServerFailure,
+            'The real compact failure changed the editor/controls, notes/issues/hash or drafts instead of rolling back');
+          } finally {
+            dropTrigger();
+          }
+          const resourceDiagnostics = s.recorder.consoleIssues.slice(serverFailureMark.console).filter(entry =>
+            entry.location?.url === serverFailure.url() && /^Failed to load resource:.*500/.test(entry.text));
+          h.assert(resourceDiagnostics.length <= 1,
+            'The owned compact rollback emitted duplicate resource-error diagnostics');
+          consumeExpectedFailure(s.recorder, serverFailureMark,
+            { status: 500, method: 'POST', path: /\/CaseManagementEntry$/ });
+          const realResponse = page.waitForResponse(isCompactSave);
+          const retryDialogs = await h.withExpectedDialogs(page, async () => {
+            await page.locator('#newNoteImg').click();
+            const saved = await realResponse;
+            await saved.finished();
+            if (saved.status() !== 200 || !hasChartContext(saved.request(), tokens[1])) {
+              const body = await saved.text();
+              console.error('Compact retry evidence:', JSON.stringify({ request: compactRequestEvidence(saved.request()),
+                status: saved.status(), applicationOrigin: Object.hasOwn(saved.headers(), h.APPLICATION_HEADER),
+                wafResponse: h.isWafPage(saved.status(), body), response: fingerprint(body) }));
+            }
+            h.assert(saved.status() === 200 && hasChartContext(saved.request(), tokens[1]),
+              'The real compact retry failed or changed its chart context');
+            await page.waitForFunction(() => document.forms.caseManagementEntryForm?.elements.noteId?.value === '0'
+              && !window.noteSwitchSavePending && window.issueUpdatesPending === 0);
+          }, { accept: true });
+          h.assert(retryDialogs.length === 1 && retryDialogs[0].type === 'confirm' && retryDialogs[0].text === labels.warning,
+            'The compact retry raised an unexpected dialog or switched without confirming the save');
+          await page.evaluate(() => clearAutoSaveTimer());
+          const compactRevision = sql.value(`SELECT note_id FROM casemgmt_note WHERE uuid=${q(originalUuid)}
+            AND demographic_no=${patient} AND provider_no=${owner} ORDER BY note_id DESC LIMIT 1`);
+          h.assert(/^[1-9]\d*$/.test(compactRevision) && Number(compactRevision) > Number(revision),
+            'The native compact save did not create a new note revision');
+          h.assert(sql.value(`SELECT HEX(note) FROM casemgmt_note WHERE note_id=${compactRevision}`)
+            === Buffer.from(compactText, 'utf8').toString('hex').toUpperCase()
+            && sql.value(`SELECT reporter_caisi_role FROM casemgmt_note WHERE note_id=${compactRevision}`) === writerRole
+            && JSON.stringify(sql.rows(`SELECT program_no,reporter_program_team FROM casemgmt_note
+              WHERE note_id=${compactRevision}`)) === originalLocation,
+          'The compact save changed the exact text, writer role, original program or team');
+          h.assert(JSON.stringify(noteRows(compactRevision)) === originalNotes
+            && JSON.stringify(issueRows()) === originalIssues,
+          'The compact save changed a historical/other note or unchanged issue state');
+          h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+            AND provider_no=${owner} AND program_id=${defaultProgram}`) === '0'
+            && otherDrafts() === draftsBefore && providerAndPatients() === identitiesBefore
+            && sql.value(`SELECT COUNT(*) FROM program_provider WHERE ${membershipWhere}`) === '0',
+          'The compact save consumed another draft or changed provider/patient/membership state');
+          await page.locator(`#n${compactRevision}`).waitFor({ state: 'visible' });
+          h.assert(!((await editor().inputValue()).includes(`${marker}-compact-switch`)),
+            'The requested native new-note editor did not open after the confirmed compact save');
+        });
       } finally {
         context.off('request', observePing);
         context.off('requestfailed', observePingFailure);

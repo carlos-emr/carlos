@@ -67,6 +67,7 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
 
     private final List<Integer> ownedDraftIds = new ArrayList<>();
     private String uuid;
+    private Long sourceNoteId;
     private CaseManagementNote submitted;
     private CaseManagementManagerImpl target;
     private CaseManagementManager service;
@@ -89,6 +90,7 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
             original.setUpdate_date(new Date(1_700_000_000_000L));
             original.setObservation_date(new Date(1_700_000_000_000L));
             caseManagementNoteDAO.saveNote(original);
+            sourceNoteId = original.getId();
             entityManager.flush();
             seed("999998", 1, 7, original.getId(), "Originating chart draft");
             seed("999998", 1, 7, original.getId(), "Earlier originating draft");
@@ -137,11 +139,18 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
                 entityManager.createQuery("delete CaseManagementTmpSave d where d.id in :ids")
                         .setParameter("ids", ownedDraftIds).executeUpdate();
             }
-            if (uuid != null) {
-                entityManager.createQuery("delete HashAudit h where h.type = 'enc' and h.id2 in (select cast(n.id as string) from CaseManagementNote n where n.uuid = :uuid)")
-                        .setParameter("uuid", uuid).executeUpdate();
-                entityManager.createQuery("delete CaseManagementNote n where n.uuid = :uuid")
-                        .setParameter("uuid", uuid).executeUpdate();
+            if (sourceNoteId != null) {
+                CaseManagementNote source = entityManager.find(CaseManagementNote.class, sourceNoteId);
+                String initializedUuid = source == null ? null : source.getUuid();
+                List<Long> ids = entityManager.createQuery("select n.id from CaseManagementNote n where n.id=:source or n.uuid=:original or n.uuid=:initialized", Long.class)
+                        .setParameter("source", sourceNoteId).setParameter("original", uuid)
+                        .setParameter("initialized", initializedUuid).getResultList();
+                if (!ids.isEmpty()) {
+                    entityManager.createQuery("delete HashAudit h where h.type='enc' and h.id2 in :ids")
+                            .setParameter("ids", ids.stream().map(String::valueOf).toList()).executeUpdate();
+                    entityManager.createQuery("delete CaseManagementNote n where n.id in :ids")
+                            .setParameter("ids", ids).executeUpdate();
+                }
             }
         });
     }
@@ -352,6 +361,56 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
         return membership;
     }
 
+    @ParameterizedTest
+    @CsvSource({"save,false", "sign,false", "verify,false", "save,true", "sign,true", "verify,true"})
+    void shouldPublishRevisionTwoForTheFirstLegacyEdit_andKeepItsCounterRetryable(String operation, boolean failedAttempt) throws Exception {
+        tx().executeWithoutResult(status -> entityManager.createQuery("update CaseManagementNote n set n.uuid=null where n.id=:id")
+                .setParameter("id", submitted.getId()).executeUpdate());
+        CaseManagementNote legacy = tx().execute(status -> caseManagementNoteDAO.getNote(submitted.getId()));
+        assertThat(legacy.getRevision()).isEqualTo("0");
+        submitted.setUuid(null);
+        submitted.setRevision(legacy.getRevision());
+        submitted.setSigned("sign".equals(operation));
+        if (submitted.isSigned()) submitted.setSigning_provider_no("999998");
+        List<Draft> before = snapshot();
+        if (failedAttempt) {
+            CaseManagementTmpSaveDao failing = mock(CaseManagementTmpSaveDao.class, delegatesTo(drafts));
+            doAnswer(call -> {
+                drafts.remove(call.getArgument(0), call.getArgument(1), call.getArgument(2));
+                entityManager.flush();
+                throw new IllegalStateException("Legacy cleanup failed");
+            }).when(failing).remove("999998", 1, 7);
+            target.setCaseManagementTmpSaveDao(failing);
+
+            assertThatThrownBy(() -> save("7", "verify".equals(operation))).isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Legacy cleanup failed");
+
+            assertThat(snapshot()).containsExactlyElementsOf(before);
+            assertThat(noteTexts()).containsExactly("Original shared assessment");
+            assertThat(submitted.getRevision()).isEqualTo("0");
+            assertThat(submitted.getUuid()).isNull();
+            assertThat(submitted.getNote()).isEqualTo("Revised shared assessment");
+            assertThat(tx().execute(status -> caseManagementNoteDAO.getNote(submitted.getId()).getUuid())).isNull();
+            target.setCaseManagementTmpSaveDao(drafts);
+        }
+
+        CaseManagementNote saved = save("7", "verify".equals(operation));
+
+        assertThat(saved.getRevision()).isEqualTo("2");
+        assertThat(saved.getUuid()).isNotBlank();
+        assertThat(saved.getNote()).isEqualTo("save".equals(operation) ? "Revised shared assessment"
+                : "Revised shared assessment\nTest signed marker");
+        assertThat(submitted.getRevision()).isEqualTo("0");
+        assertThat(submitted.getNote()).isEqualTo("Revised shared assessment");
+        tx().executeWithoutResult(status -> {
+            CaseManagementNote reloaded = caseManagementNoteDAO.getNote(saved.getId());
+            assertThat(reloaded.getRevision()).isEqualTo(saved.getRevision());
+            assertThat(caseManagementNoteDAO.getNote(submitted.getId()).getUuid()).isEqualTo(reloaded.getUuid());
+        });
+        assertThat(snapshot()).containsExactlyElementsOf(before.stream().filter(d -> !ownedBy(d, "7")).toList());
+        assertThat(noteTexts()).hasSize(2);
+    }
+
     private CaseManagementNote save(String origin) throws Exception {
         return save(origin, false);
     }
@@ -390,9 +449,12 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
     }
 
     private List<String> noteTexts() {
-        return tx().execute(status -> entityManager.createQuery(
-                        "select n.note from CaseManagementNote n where n.uuid = :uuid order by n.id", String.class)
-                .setParameter("uuid", uuid).getResultList());
+        return tx().execute(status -> {
+            CaseManagementNote source = entityManager.find(CaseManagementNote.class, sourceNoteId);
+            String currentUuid = source == null ? null : source.getUuid();
+            return entityManager.createQuery("select n.note from CaseManagementNote n where n.id=:source or n.uuid=:uuid order by n.id", String.class)
+                    .setParameter("source", sourceNoteId).setParameter("uuid", currentUuid).getResultList();
+        });
     }
 
     private boolean ownedBy(Draft draft, String program) {

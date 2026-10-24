@@ -280,7 +280,7 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(400);
         verify(manager, never()).getNote(any());
-        verify(manager, never()).saveNoteRevisionSimple(any());
+        verify(manager, never()).saveCompactNoteRevision(any(), any(), anyList(), any());
         verify(manager, never()).saveAndUpdateCaseIssues(any());
         verify(locks, never()).merge(any());
         assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);
@@ -292,12 +292,13 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         // browser's language, where "Oct" is not a month.
         request.addHeader("Accept-Language", "fr-CA,fr;q=0.9");
         request.setParameter("obsDate", "15-Oct-2026 19:14");
-        when(manager.saveNoteRevisionSimple(any())).thenAnswer(call -> call.getArgument(0));
+        when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenAnswer(call ->
+                new CaseManagementManager.CompactSaveResult(call.getArgument(1), call.getArgument(2)));
 
         action.ajaxsave();
 
         ArgumentCaptor<CaseManagementNote> saved = ArgumentCaptor.forClass(CaseManagementNote.class);
-        verify(manager).saveNoteRevisionSimple(saved.capture());
+        verify(manager).saveCompactNoteRevision(any(), saved.capture(), anyList(), any());
         assertThat(saved.getValue().getObservation_date()).isEqualTo(at(2026, 10, 15, 19, 14));
         assertThat(response.getStatus()).isEqualTo(200);
     }
@@ -316,7 +317,7 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
     void shouldRefuseFutureNoteSwitchDate_beforeLoadingOrChangingNote() throws Exception {
         request.setParameter("obsDate","01-Jan-2099 10:00");
         assertThat(action.ajaxsave()).isNull();assertThat(response.getStatus()).isEqualTo(400);
-        verify(manager,never()).getNote(any());verify(manager,never()).saveNoteRevisionSimple(any());
+        verify(manager,never()).getNote(any());verify(manager,never()).saveCompactNoteRevision(any(), any(), anyList(), any());
         assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);assertThat(note.isSigned()).isFalse();
     }
 

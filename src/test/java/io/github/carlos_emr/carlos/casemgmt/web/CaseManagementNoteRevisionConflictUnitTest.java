@@ -93,6 +93,8 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(true);
         injectDependency(action, "securityInfoManager", security);
         manager = mock(CaseManagementManager.class);
+        when(manager.filterNotes(any(), any(), anyCollection(), any())).thenAnswer(call ->
+                new ArrayList<>(call.<java.util.Collection<CaseManagementNote>>getArgument(2)));
         action.caseManagementMgr = manager;
         locks = mock(CasemgmtNoteLockDao.class);
         injectDependency(action, "casemgmtNoteLockDao", locks);
@@ -150,9 +152,9 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldKeepDraftAndLock_whenAjaxSaveHasWrappedSnapshotConflict() throws Exception {
-        when(manager.saveNoteRevisionSimple(any())).thenThrow(snapshotConflict());
+        when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenThrow(snapshotConflict());
         assertThat(action.ajaxsave()).isNull();
-        assertDraftRetained();
+        assertDraftRetained("Original");
     }
 
     @ParameterizedTest
@@ -251,10 +253,11 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
                 "7", "Originating draft", "8", "Independent other program draft"));
         doAnswer(call -> drafts.remove((String) call.getArgument(2))).when(manager)
                 .deleteTmpSave(eq("999998"), eq("101"), anyString());
-        when(manager.saveNoteRevisionSimple(any())).thenAnswer(call -> {
-            CaseManagementNote saved = ((CaseManagementNote) call.getArgument(0)).copyForRevision();
+        when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenAnswer(call -> {
+            CaseManagementNote saved = ((CaseManagementNote) call.getArgument(1)).copyForRevision();
             saved.setId(600L);
-            return saved;
+            drafts.remove((String) call.getArgument(3));
+            return new CaseManagementManager.CompactSaveResult(saved, call.getArgument(2));
         });
 
         if ("compact".equals(route)) {
@@ -263,12 +266,17 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         } else {
             action.setDemographicNo("101");
             assertThat(action.cancel()).isEqualTo("windowClose");
-            verify(manager, never()).saveNoteRevisionSimple(any());
+            verify(manager, never()).saveCompactNoteRevision(any(), any(), anyList(), any());
         }
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(drafts).containsExactlyEntriesOf(Map.of("8", "Independent other program draft"));
-        verify(manager).deleteTmpSave("999998", "101", "7");
+        if ("cancel".equals(route)) verify(manager).deleteTmpSave("999998", "101", "7");
+        else {
+            assertThat(form.getCaseNote().getProgram_no()).isEqualTo("8");
+            verify(manager).saveCompactNoteRevision(any(), any(), anyList(), eq("7"));
+            verify(manager, never()).deleteTmpSave(any(), any(), any());
+        }
         verify(manager, never()).deleteTmpSave("999998", "101", "8");
     }
 
@@ -285,6 +293,75 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"", "invalid", "-1", "0bad", "9223372036854775808"})
+    void shouldRefuseMalformedCompactReference_beforeLoadingOrMutatingTheSelectedNote(String raw) throws Exception {
+        if (raw == null) request.removeParameter("nId");
+        else request.setParameter("nId", raw);
+        assertThat(action.ajaxsave()).isNull();
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(manager, never()).getNote(anyString());
+        verify(manager, never()).saveCompactNoteRevision(any(), any(), anyList(), any());
+        assertThat(note.getNote()).isEqualTo("Original");
+        assertThat(form.getCaseNote()).isSameAs(note);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"502", "01"})
+    void shouldRefuseCompactSave_whenTheRequestDoesNotNameTheSelectedEditor(String raw) throws Exception {
+        request.setParameter("nId", raw);
+        assertThat(action.ajaxsave()).isNull();
+        assertThat(response.getStatus()).isEqualTo(409);
+        verify(manager, never()).getNote(anyString());
+        verify(manager, never()).saveCompactNoteRevision(any(), any(), anyList(), any());
+        assertThat(note.getNote()).isEqualTo("Original");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "foreign", "hidden", "program-changed"})
+    void shouldRefuseCompactSave_beforeMutatingAnUnavailableSelectedRevision(String boundary) throws Exception {
+        CaseManagementNote stored = note.copyForRevision();
+        stored.setId(note.getId());
+        if ("foreign".equals(boundary)) stored.setDemographic_no("202");
+        if ("program-changed".equals(boundary)) stored.setProgram_no("8");
+        when(manager.getNote("501")).thenReturn("missing".equals(boundary) ? null : stored);
+        if ("hidden".equals(boundary)) when(manager.filterNotes(any(), any(), anyCollection(), any())).thenReturn(List.of());
+
+        assertThat(action.ajaxsave()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo(switch (boundary) {
+            case "missing", "foreign" -> 404;
+            case "hidden" -> 403;
+            default -> 409;
+        });
+        verify(manager, never()).saveCompactNoteRevision(any(), any(), anyList(), any());
+        assertThat(note.getNote()).isEqualTo("Original");
+        assertThat(stored.getNote()).isEqualTo("Original");
+        verify(locks, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "01", "0.1"})
+    void shouldAcceptCanonicalNewEditorIds_withoutTreatingThemAsExistingNotes(String raw) throws Exception {
+        note.setId(null);
+        request.setParameter("nId", raw);
+        when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenAnswer(call -> {
+            CaseManagementNote saved = ((CaseManagementNote) call.getArgument(1)).copyForRevision();
+            saved.setId(600L);
+            return new CaseManagementManager.CompactSaveResult(saved, call.getArgument(2));
+        });
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        assertThat(form.getCaseNote().getId()).isEqualTo(600L);
+        assertThat(form.getCaseNote().getProgram_no()).isEqualTo("7");
+        assertThat(form.getCaseNote().getNote()).isEqualTo("Unsaved draft");
+        assertThat(note.getNote()).isEqualTo("Original");
+        verify(manager, never()).getNote(anyString());
+        verify(manager).saveCompactNoteRevision(any(), any(), anyList(), eq("7"));
+    }
+
     @Test
     void shouldReturnWindowCloseError_whenSaveAndExitHasLostItsSessionLock() throws Exception {
         when(locks.find(10L)).thenReturn(null);
@@ -298,7 +375,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPropagateOtherDatabaseFailures_insteadOfReportingARevisionConflict() {
         RuntimeException failure = new DataIntegrityViolationException("invalid row");
-        when(manager.saveNoteRevisionSimple(any())).thenThrow(failure);
+        when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenThrow(failure);
         assertThatThrownBy(() -> action.ajaxsave()).isSameAs(failure);
         assertThat(response.getStatus()).isEqualTo(200);
         verify(manager, never()).deleteTmpSave(any(), any(), any());

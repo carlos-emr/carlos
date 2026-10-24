@@ -342,6 +342,13 @@ public interface CaseManagementManager {
     /** Saves an edit whose history text has already been prepared by the caller. */
     CaseManagementNote saveNoteRevisionSimple(CaseManagementNote note);
 
+    /** The compact editor publishes its issue selection only after the complete save commits. */
+    record CompactSaveResult(CaseManagementNote note, List<CaseManagementIssue> issues) { }
+
+    /** Saves the compact editor's revision, issue changes and originating draft deletion atomically. */
+    CompactSaveResult saveCompactNoteRevision(LoggedInInfo login, CaseManagementNote note,
+            List<CaseManagementIssue> issues, String originatingProgram);
+
     public void saveNoteSimple(CaseManagementNote note);
 
     public Long saveNoteSimpleReturnID(CaseManagementNote note);

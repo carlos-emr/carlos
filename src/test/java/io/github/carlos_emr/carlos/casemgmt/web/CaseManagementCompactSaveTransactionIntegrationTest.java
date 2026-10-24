@@ -1,0 +1,526 @@
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+package io.github.carlos_emr.carlos.casemgmt.web;
+
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramAccess;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.PMmodule.utility.ProgramAccessCache;
+import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+import io.github.carlos_emr.carlos.casemgmt.dao.*;
+import io.github.carlos_emr.carlos.casemgmt.model.*;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl;
+import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
+import io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDao;
+import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
+import io.github.carlos_emr.carlos.commn.dao.HashAuditDao;
+import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.model.security.Secrole;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.context.WebApplicationContext;
+
+import java.sql.Clob;
+import java.util.*;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.*;
+
+/**
+ * Drives the real compact action into a proxied manager and real note/issue/draft DAOs.
+ * Service calls commit or roll back themselves; no surrounding test transaction hides partial writes.
+ *
+ * @since 2026-10-24
+ */
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
+class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagementNoteDaoBaseIntegrationTest {
+    @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired @Qualifier("CaseManagementNoteExtDAO") private CaseManagementNoteExtDAO extensions;
+    @Autowired @Qualifier("CaseManagementNoteLinkDAO") private CaseManagementNoteLinkDAO links;
+    @Autowired @Qualifier("CaseManagementTmpSaveDao") private CaseManagementTmpSaveDao drafts;
+    @Autowired private HashAuditDao hashes;
+
+    private final List<Integer> draftIds = new ArrayList<>();
+    private final Set<Long> attemptedNoteIds = new HashSet<>();
+    private String marker;
+    private String submittedText;
+    private Long lookupId;
+    private Long originalId;
+    private Long caseIssueId;
+    private CaseManagementNote original;
+    private CaseManagementEntryFormBean form;
+    private CaseManagementEntry2Action action;
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
+    private CaseManagementManagerImpl target;
+    private CaseManagementManager manager;
+    private CasemgmtNoteLockDao locks;
+    private CasemgmtNoteLock lock;
+    private ProgramManager programs;
+    private AdmissionManager admissions;
+    private MockedStatic<SpringUtils> beans;
+    private MockedStatic<RoleCache> roles;
+    private MockedStatic<ProgramAccessCache> access;
+    private final Map<String, ProgramAccess> readGrants = new HashMap<>();
+
+    @BeforeEach
+    void prepareChartAndIndependentDrafts() {
+        marker = "compact-" + UUID.randomUUID();
+        submittedText = marker + " revised\n<literal>& unchanged";
+        original = tx().execute(status -> {
+            Issue lookup = new Issue();
+            lookup.setCode("CMP" + UUID.randomUUID().toString().substring(0, 8));
+            lookup.setDescription("Compact transaction issue");
+            lookup.setRole("doctor");
+            lookup.setType("system");
+            entityManager.persist(lookup);
+            lookupId = lookup.getId();
+            CaseManagementIssue issue = new CaseManagementIssue();
+            issue.setDemographic_no(1);
+            issue.setIssue_id(lookupId);
+            issue.setIssue(lookup);
+            issue.setProgram_id(8);
+            issue.setType("doctor");
+            issue.setUpdate_date(new Date(1_700_000_000_000L));
+            entityManager.persist(issue);
+            caseIssueId = issue.getId();
+            CaseManagementNote source = new CaseManagementNote();
+            source.setDemographic_no("1");
+            source.setProviderNo("999998");
+            source.setProgram_no("8");
+            source.setReporter_program_team("83");
+            source.setReporter_caisi_role("801");
+            source.setUuid(UUID.randomUUID().toString());
+            source.setNote(marker + " original");
+            source.setHistory("Original compact history");
+            source.setRevision("1"); // The database Formula also counts this sole UUID row as revision 1.
+            source.setObservation_date(new Date(1_700_000_000_000L));
+            source.getIssues().add(issue);
+            caseManagementNoteDAO.saveNote(source);
+            originalId = source.getId();
+            seedDraft("999998", 1, 7, "Originating draft");
+            seedDraft("999998", 1, 8, "Other program draft");
+            seedDraft("999998", 1, 0, "Global chart draft");
+            seedDraft("999997", 1, 7, "Another provider draft");
+            seedDraft("999998", 2, 7, "Another patient draft");
+            CaseManagementNote selected = source.copyForRevision();
+            selected.setId(source.getId());
+            selected.setRevision("1");
+            return selected;
+        });
+        target = spy(new CaseManagementManagerImpl());
+        target.setCaseManagementNoteDAO(caseManagementNoteDAO);
+        target.setCaseManagementNoteExtDAO(extensions);
+        target.setCaseManagementNoteLinkDAO(links);
+        target.setCaseManagementIssueDAO(caseManagementIssueDAO);
+        target.setCaseManagementTmpSaveDao(drafts);
+        ReflectionTestUtils.setField(target, "hashAuditDao", hashes);
+        programs = mock(ProgramManager.class);
+        admissions = mock(AdmissionManager.class);
+        ProgramProvider originRole = membership(701L, "Origin nurse");
+        ProgramProvider storedRole = membership(801L, "Stored doctor");
+        when(programs.getProgramProvider("999998", "7")).thenReturn(originRole);
+        when(programs.getProgramProvider("999998", "8")).thenReturn(storedRole);
+        when(programs.hasAccessBasedOnCurrentFacility(any(), anyInt())).thenReturn(true);
+        target.setProgramManager(programs);
+        ProgramProviderDAO memberships = mock(ProgramProviderDAO.class);
+        when(memberships.getProgramProviderByProviderProgramId("999998", 7L)).thenReturn(List.of(originRole));
+        target.setProgramProviderDao(memberships);
+        target.setRoleProgramAccessDAO(mock(RoleProgramAccessDAO.class));
+        ProxyFactory proxy = new ProxyFactory(target);
+        proxy.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
+        manager = (CaseManagementManager) proxy.getProxy();
+        beans = mockStatic(SpringUtils.class, CALLS_REAL_METHODS);
+        beans.when(() -> SpringUtils.getBean(ProgramManager.class)).thenReturn(programs);
+        roles = mockStatic(RoleCache.class);
+        roles.when(() -> RoleCache.getRole(701L)).thenReturn(originRole.getRole());
+        roles.when(() -> RoleCache.getRole(801L)).thenReturn(storedRole.getRole());
+        access = mockStatic(ProgramAccessCache.class);
+        ProgramAccess allowed = new ProgramAccess();
+        allowed.setAllRoles(true);
+        readGrants.put("read stored doctor notes", allowed);
+        access.when(() -> ProgramAccessCache.getAccessMap(7L)).thenReturn(readGrants);
+
+        action = mock(CaseManagementEntry2Action.class, CALLS_REAL_METHODS);
+        request = new MockHttpServletRequest("POST", "/CaseManagementEntry");
+        response = new MockHttpServletResponse();
+        action.request = request;
+        action.response = response;
+        action.caseManagementMgr = manager;
+        request.setParameter("demographicNo", "1");
+        request.setParameter("nId", originalId.toString());
+        request.setParameter("noteTxt", submittedText);
+        request.setParameter("obsDate", "14-Oct-2026 10:00");
+        request.setParameter("numIssues", "1");
+        request.setParameter("issue0", "on");
+        request.setParameter("hourOfEncounterTime", "2");
+        request.setParameter("minuteOfEncounterTime", "17");
+        request.setParameter("hourOfEncTransportationTime", "1");
+        request.setParameter("minuteOfEncTransportationTime", "29");
+        request.getSession().setAttribute("userrole", "doctor");
+        ChartProgramContext.remember(request, "7");
+        LoggedInInfo login = mock(LoggedInInfo.class);
+        when(login.getLoggedInProviderNo()).thenReturn("999998");
+        Provider author = new Provider();
+        author.setProviderNo("999998");
+        when(login.getLoggedInProvider()).thenReturn(author);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(login, "_eChart", "w", "1")).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "w", "1")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, 1)).thenReturn(true);
+        ReflectionTestUtils.setField(action, "securityInfoManager", security);
+        locks = mock(CasemgmtNoteLockDao.class);
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", locks);
+        lock = new CasemgmtNoteLock();
+        lock.setId(10L);
+        lock.setNoteId(originalId);
+        lock.setSessionId(request.getSession().getId());
+        when(locks.find(10L)).thenReturn(lock);
+        request.getSession().setAttribute("casemgmtNoteLock1", lock);
+        form = new CaseManagementEntryFormBean();
+        form.setCaseNote(original);
+        CaseManagementIssue staged = tx().execute(status -> {
+            CaseManagementIssue stored = entityManager.find(CaseManagementIssue.class, caseIssueId);
+            CaseManagementIssue copy = new CaseManagementIssue(stored);
+            copy.setId(stored.getId());
+            copy.setProgram_id(stored.getProgram_id());
+            copy.setNotes(new HashSet<>());
+            copy.setResolved(true);
+            return copy;
+        });
+        CheckBoxBean checkbox = new CheckBoxBean();
+        checkbox.setIssue(staged);
+        checkbox.setChecked("off");
+        form.setIssueCheckList(new ArrayList<>(List.of(checkbox)));
+        request.getSession().setAttribute(ChartProgramContext.formKey(request, "1"), form);
+        WebApplicationContext spring = mock(WebApplicationContext.class);
+        when(spring.getBean(AdmissionManager.class)).thenReturn(admissions);
+        doReturn(spring).when(action).getSpringContext();
+        Admission admission = new Admission();
+        admission.setTeamId(73);
+        when(admissions.getAdmission("7", 1)).thenReturn(admission);
+    }
+
+    @AfterEach
+    void removeOnlyOwnedFixtures() {
+        if (access != null) access.close();
+        if (roles != null) roles.close();
+        if (beans != null) beans.close();
+        tx().executeWithoutResult(status -> {
+            for (Long id : attemptedNoteIds) entityManager.createQuery("delete HashAudit h where h.type='enc' and h.id2=:id")
+                    .setParameter("id", id.toString()).executeUpdate();
+            if (!draftIds.isEmpty()) entityManager.createQuery("delete CaseManagementTmpSave d where d.id in :ids")
+                    .setParameter("ids", draftIds).executeUpdate();
+            List<CaseManagementNote> notes = entityManager.createQuery("from CaseManagementNote n where n.note like :marker", CaseManagementNote.class)
+                    .setParameter("marker", marker + "%").getResultList();
+            for (CaseManagementNote note : notes) {
+                entityManager.createQuery("delete HashAudit h where h.type = 'enc' and h.id2 = :id")
+                        .setParameter("id", note.getId().toString()).executeUpdate();
+                entityManager.remove(note);
+            }
+            entityManager.flush();
+            if (caseIssueId != null) entityManager.remove(entityManager.find(CaseManagementIssue.class, caseIssueId));
+            entityManager.flush();
+            if (lookupId != null) entityManager.remove(entityManager.find(Issue.class, lookupId));
+        });
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true,false,false", "true,false,true", "true,true,false", "true,true,true",
+            "false,false,false", "false,false,true", "false,true,false", "false,true,true"})
+    void shouldCommitSharedCompactRevisionWithoutMovingItsProgramOrTeam(boolean memberOfStoredProgram, boolean signed, boolean legacy) throws Exception {
+        if (!memberOfStoredProgram) when(programs.getProgramProvider("999998", "8")).thenReturn(null);
+        setSigned(signed);
+        useOrigin(legacy);
+        Snapshot before = snapshot();
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        assertSuccessfulCompactSave(before, memberOfStoredProgram ? "801" : "701", signed);
+        assertThat(original.getNote()).isEqualTo(marker + " original");
+        assertThat(original.getProgram_no()).isEqualTo("8");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldReturn409WithoutIssueOrDraftWrites_whenTheSelectedRevisionBecameStale(boolean signed) throws Exception {
+        setSigned(signed);
+        tx().executeWithoutResult(status -> {
+            CaseManagementNote concurrent = original.copyForRevision();
+            concurrent.setNote(marker + " concurrent");
+            caseManagementNoteDAO.saveNote(concurrent);
+        });
+        Snapshot before = snapshot();
+        CheckBoxBean retained = form.getIssueCheckList().getFirst();
+
+        assertThat(action.ajaxsave()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(form.getIssueCheckList().getFirst()).isSameAs(retained);
+        assertThat(retained.getChecked()).isEqualTo("off");
+        verify(locks, never()).merge(any());
+        verify(target, never()).saveAndUpdateCaseIssues(anyList());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,false", "true,false", "false,true", "true,true"})
+    void shouldRollBackIssueRevisionHashAndDeletedDrafts_thenRetryTheSameEditorAfterCleanupFailure(boolean signed, boolean legacyUuid) throws Exception {
+        setSigned(signed);
+        if (legacyUuid) {
+            original.setUuid(null);
+            tx().executeWithoutResult(status -> entityManager.createQuery("update CaseManagementNote n set n.uuid=null where n.id=:id")
+                    .setParameter("id", originalId).executeUpdate());
+        }
+        Snapshot before = snapshot();
+        CheckBoxBean retained = form.getIssueCheckList().getFirst();
+        CaseManagementTmpSaveDao failing = mock(CaseManagementTmpSaveDao.class, delegatesTo(drafts));
+        doAnswer(call -> {
+            drafts.remove(call.getArgument(0), call.getArgument(1), call.getArgument(2));
+            entityManager.flush();
+            assertThat(raw("SELECT * FROM casemgmt_tmpsave WHERE provider_no='999998' AND demographic_no=1 AND program_id=7")).isEmpty();
+            assertThat(entityManager.find(CaseManagementIssue.class, caseIssueId).isResolved()).isTrue();
+            assertThat(entityManager.createQuery("select count(n) from CaseManagementNote n where n.note like :marker", Long.class)
+                    .setParameter("marker", marker + "%").getSingleResult()).isEqualTo(2L);
+            attemptedNoteIds.add(entityManager.createQuery("select max(n.id) from CaseManagementNote n where n.note like :marker", Long.class)
+                    .setParameter("marker", marker + "%").getSingleResult());
+            throw new IllegalStateException("Compact cleanup failed");
+        }).when(failing).remove("999998", 1, 7);
+        target.setCaseManagementTmpSaveDao(failing);
+
+        assertThatThrownBy(() -> action.ajaxsave()).isInstanceOf(IllegalStateException.class).hasMessage("Compact cleanup failed");
+
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(form.getIssueCheckList().getFirst()).isSameAs(retained);
+        assertThat(original.getRevision()).isEqualTo("1");
+        assertThat(original.getNote()).isEqualTo(marker + " original");
+        for (Long id : attemptedNoteIds) assertThat(tx().execute(status -> entityManager.createQuery(
+                        "select count(h) from HashAudit h where h.type='enc' and h.id2=:id", Long.class)
+                .setParameter("id", id.toString()).getSingleResult())).isZero();
+        verify(locks, never()).merge(any());
+        target.setCaseManagementTmpSaveDao(drafts);
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        assertSuccessfulCompactSave(before, "801", signed);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"unselected", "foreign", "hidden"})
+    void shouldRefuseForgedOrHiddenCompactReferences_withoutChangingClinicalOrEditorState(String boundary) throws Exception {
+        if ("hidden".equals(boundary)) readGrants.clear();
+        else {
+            Long otherId = tx().execute(status -> {
+                CaseManagementNote other = original.copyForRevision();
+                other.setUuid(UUID.randomUUID().toString());
+                other.setDemographic_no("foreign".equals(boundary) ? "2" : "1");
+                other.setNote(marker + " " + boundary);
+                caseManagementNoteDAO.saveNote(other);
+                return other.getId();
+            });
+            request.setParameter("nId", otherId.toString());
+        }
+        Snapshot before = snapshot();
+
+        assertThat(action.ajaxsave()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo("hidden".equals(boundary) ? 403 : 409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(form.getIssueCheckList().getFirst().getChecked()).isEqualTo("off");
+        verify(target, never()).saveCompactNoteRevision(any(), any(), anyList(), any());
+        verify(locks, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"7,0", "7,01", "7,0.1", "0,0", "0,01", "0,0.1"})
+    void shouldSaveANewCompactEditorInItsOriginProgram_forCanonicalClientIds(String origin, String id) throws Exception {
+        original.setId(null);
+        request.setParameter("nId", id);
+        ChartProgramContext.remember(request, origin);
+        request.getSession().setAttribute(ChartProgramContext.formKey(request, "1"), form);
+        Snapshot before = snapshot();
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        CaseManagementNote saved = form.getCaseNote();
+        assertThat(saved.getId()).isPositive();
+        assertThat(saved.getProgram_no()).isEqualTo(origin);
+        assertThat(saved.getReporter_program_team()).isEqualTo("0".equals(origin) ? "0" : "73");
+        assertThat(saved.getReporter_caisi_role()).isEqualTo("0".equals(origin) ? "0" : "701");
+        assertThat(saved.getNote()).isEqualTo(submittedText);
+        assertThat(saved.getUuid()).isNotBlank();
+        assertThat(saved.getUuid()).isNotEqualTo(tx().execute(status -> caseManagementNoteDAO.getNote(originalId).getUuid()));
+        assertThat(snapshot().notes().getFirst()).isEqualTo(before.notes().getFirst());
+        assertTimes(saved);
+        tx().executeWithoutResult(status -> assertTimes(caseManagementNoteDAO.getNote(saved.getId())));
+        assertThat(snapshot().identities()).isEqualTo(before.identities());
+        String removed = marker + ("0".equals(origin) ? " Global chart draft" : " Originating draft");
+        assertThat(snapshot().drafts()).containsExactlyElementsOf(before.drafts().stream().filter(row -> !row.contains(removed)).toList());
+    }
+
+    private void assertSuccessfulCompactSave(Snapshot before, String role, boolean signed) {
+        assertThat(response.getStatus()).isEqualTo(200);
+        CaseManagementNote saved = form.getCaseNote();
+        assertThat(saved.getId()).isNotEqualTo(originalId);
+        assertThat(saved.getProgram_no()).isEqualTo("8");
+        assertThat(saved.getReporter_program_team()).isEqualTo("83");
+        assertThat(saved.getReporter_caisi_role()).isEqualTo(role);
+        assertThat(saved.getUuid()).isNotBlank();
+        assertThat(saved.getRevision()).isEqualTo("2");
+        assertThat(saved.getNote()).isEqualTo(submittedText);
+        assertThat(saved.getHistory()).containsOnlyOnce("---------History Record---------").endsWith("Original compact history");
+        assertThat(saved.isSigned()).isEqualTo(signed);
+        Snapshot after = snapshot();
+        assertThat(after.identities()).isEqualTo(before.identities());
+        assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
+        assertThat(after.notes()).hasSize(2);
+        if (original.getUuid() == null) {
+            List<Integer> changed = java.util.stream.IntStream.range(0, before.notes().getFirst().size())
+                    .filter(i -> !Objects.equals(before.notes().getFirst().get(i), after.notes().getFirst().get(i)))
+                    .boxed().toList();
+            assertThat(changed).singleElement().satisfies(i -> {
+                assertThat(before.notes().getFirst().get(i)).isNull();
+                assertThat(after.notes().getFirst().get(i)).isEqualTo(saved.getUuid());
+            });
+        } else assertThat(after.notes().getFirst()).isEqualTo(before.notes().getFirst());
+        tx().executeWithoutResult(status -> {
+            CaseManagementNote persisted = caseManagementNoteDAO.getNote(saved.getId());
+            CaseManagementNote previous = caseManagementNoteDAO.getNote(originalId);
+            assertThat(previous.getUuid()).isEqualTo(persisted.getUuid());
+            assertThat(previous.getIssues()).extracting(CaseManagementIssue::getId).containsExactly(caseIssueId);
+            assertThat(persisted.getProgram_no()).isEqualTo("8");
+            assertThat(persisted.getReporter_program_team()).isEqualTo("83");
+            assertThat(persisted.getReporter_caisi_role()).isEqualTo(role);
+            assertThat(persisted.getNote()).isEqualTo(submittedText);
+            assertThat(persisted.getRevision()).isEqualTo("2");
+            assertTimes(persisted);
+            assertThat(entityManager.find(CaseManagementIssue.class, caseIssueId).isResolved()).isTrue();
+            assertThat(persisted.getIssues()).extracting(CaseManagementIssue::getId).containsExactly(caseIssueId);
+            assertThat(entityManager.createQuery("select count(h) from HashAudit h where h.type='enc' and h.id2=:id", Long.class)
+                    .setParameter("id", saved.getId().toString()).getSingleResult()).isEqualTo(signed ? 1L : 0L);
+        });
+        assertThat(manager.filterNotes(null, "999998", List.of(saved), "7")).containsExactly(saved);
+        assertThat(form.getIssueCheckList().getFirst().getChecked()).isEqualTo("on");
+        assertThat(form.getIssueCheckList().getFirst().getIssue().getId()).isEqualTo(caseIssueId);
+        verify(target, never()).getSignature(any(), any(), any(), any(), anyInt());
+    }
+
+    private void assertTimes(CaseManagementNote note) {
+        assertThat(note.getHourOfEncounterTime()).isEqualTo(2);
+        assertThat(note.getMinuteOfEncounterTime()).isEqualTo(17);
+        assertThat(note.getHourOfEncTransportationTime()).isEqualTo(1);
+        assertThat(note.getMinuteOfEncTransportationTime()).isEqualTo(29);
+    }
+
+    private void setSigned(boolean signed) {
+        original.setSigned(signed);
+        tx().executeWithoutResult(status -> entityManager.createQuery("update CaseManagementNote n set n.signed=:signed where n.id=:id")
+                .setParameter("signed", signed).setParameter("id", originalId).executeUpdate());
+    }
+
+    private void useOrigin(boolean legacy) {
+        if (legacy) {
+            request.removeAttribute(ChartProgramContext.class.getName() + ".requestContext");
+            request.getSession().setAttribute(ChartProgramContext.formKey(request, "1"), form);
+        } else {
+            request.setParameter(ChartProgramContext.PARAMETER, ChartProgramContext.token(request));
+            MockHttpServletRequest other = new MockHttpServletRequest();
+            other.setSession(request.getSession());
+            other.setParameter("demographicNo", "1");
+            ChartProgramContext.remember(other, "8");
+        }
+    }
+
+    private void seedDraft(String provider, int patient, int program, String text) {
+        CaseManagementTmpSave draft = new CaseManagementTmpSave();
+        draft.setProviderNo(provider);
+        draft.setDemographicNo(patient);
+        draft.setProgramId(program);
+        draft.setNoteId(Math.toIntExact(originalId));
+        draft.setNote(marker + " " + text);
+        draft.setUpdateDate(new Date(1_700_000_000_000L));
+        entityManager.persist(draft);
+        entityManager.flush();
+        draftIds.add(draft.getId());
+    }
+
+    private TransactionTemplate tx() { return new TransactionTemplate(transactionManager); }
+
+    private Snapshot snapshot() {
+        return tx().execute(status -> new Snapshot(
+                raw("SELECT * FROM casemgmt_note WHERE note LIKE :marker ORDER BY note_id", Map.of("marker", marker + "%")),
+                raw("SELECT * FROM casemgmt_issue WHERE id=" + caseIssueId),
+                raw("SELECT * FROM casemgmt_tmpsave WHERE id IN (" + String.join(",", draftIds.stream().map(String::valueOf).toList()) + ") ORDER BY id"),
+                List.of(raw("SELECT * FROM provider WHERE provider_no IN ('999998','999997') ORDER BY provider_no"),
+                        raw("SELECT * FROM demographic WHERE demographic_no IN (1,2) ORDER BY demographic_no"))));
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<List<String>> raw(String query) {
+        return raw(query, Map.of());
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<List<String>> raw(String query, Map<String, Object> parameters) {
+        var statement = entityManager.createNativeQuery(query);
+        parameters.forEach(statement::setParameter);
+        List<Object[]> rows = statement.getResultList();
+        return rows.stream().map(row -> Arrays.stream(row).map(value -> {
+            if (value == null) return (String) null;
+            try {
+                if (value instanceof Clob clob) return clob.getSubString(1, Math.toIntExact(clob.length()));
+                if (value instanceof java.sql.Blob blob) return HexFormat.of().formatHex(blob.getBytes(1, Math.toIntExact(blob.length())));
+                if (value instanceof byte[] bytes) return HexFormat.of().formatHex(bytes);
+                return value.toString();
+            }
+            catch (java.sql.SQLException failure) { throw new IllegalStateException(failure); }
+        }).toList()).toList();
+    }
+
+    private List<List<String>> otherDrafts(Snapshot before) {
+        // The run-specific exact text identifies our captured origin row regardless of
+        // physical column order; every field of each unrelated row is compared intact.
+        return before.drafts().stream().filter(row -> !row.contains(marker + " Originating draft")).toList();
+    }
+
+    private static ProgramProvider membership(long id, String name) {
+        Secrole role = new Secrole();
+        role.setId(id);
+        role.setName(name);
+        ProgramProvider provider = new ProgramProvider();
+        provider.setRole(role);
+        return provider;
+    }
+
+    private record Snapshot(List<List<String>> notes, List<List<String>> issues,
+                            List<List<String>> drafts, List<List<List<String>>> identities) { }
+}
