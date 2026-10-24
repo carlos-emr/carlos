@@ -121,6 +121,50 @@ class EncounterPatientContextUnitTest {
     }
 
     @Test
+    void shouldRetainSourceAndIndependentTemplates_whenEntryAndRestoredListsChange() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean first = metadata("101", "A", "9001");
+        first.source = "messenger";
+        first.templateNames = new java.util.ArrayList<>(java.util.List.of("A template", "Shared template"));
+        EctSessionBean second = metadata("202", "B", "9002");
+        second.source = "encounter";
+        second.templateNames = new java.util.ArrayList<>(java.util.List.of("B template"));
+        EncounterPatientContext.rememberEncounter(request, first);
+        EncounterPatientContext.rememberEncounter(request, second);
+
+        first.source = "encounter";
+        first.templateNames.clear();
+        second.templateNames.add("Later template");
+        EctSessionBean restored = EncounterPatientContext.findEncounter(request, "101");
+        assertThat(restored.source).isEqualTo("messenger");
+        assertThat(restored.templateNames).containsExactly("A template", "Shared template");
+        restored.source = "changed";
+        restored.templateNames.add("Request-only template");
+
+        EctSessionBean next = EncounterPatientContext.findEncounter(request, "101");
+        assertThat(next.source).isEqualTo("messenger");
+        assertThat(next.templateNames).containsExactly("A template", "Shared template");
+        EctSessionBean otherPatient = EncounterPatientContext.findEncounter(request, "202");
+        assertThat(otherPatient.source).isEqualTo("encounter");
+        assertThat(otherPatient.templateNames).containsExactly("B template");
+    }
+
+    @Test
+    void shouldRestoreMutableEmptyTemplates_whenEntryHasNoTemplateList() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean entry = metadata("101", "A", "9001");
+        entry.source = null;
+        entry.templateNames = null;
+        EncounterPatientContext.rememberEncounter(request, entry);
+
+        EctSessionBean restored = EncounterPatientContext.findEncounter(request, "101");
+        assertThat(restored.source).isNull();
+        assertThat(restored.templateNames).isEmpty();
+        restored.templateNames.add("Request-only template");
+        assertThat(EncounterPatientContext.findEncounter(request, "101").templateNames).isEmpty();
+    }
+
+    @Test
     void shouldRefreshOnlyTheRememberedPatientWithoutChangingPriorRequestCopies() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         EncounterPatientContext.rememberEncounter(request, metadata("00101", "A", "9001"));

@@ -27,6 +27,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
@@ -115,6 +117,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final String YYYY_MM_DD_HHMM_PATTERN = "yyyy-MM-dd HH:mm";
     /** Request attribute set when a save is refused for an unreadable encounter date (closeWithError.jsp). */
     static final String OBSERVATION_DATE_REJECTED = "observationDateRejected";
+    private static final String NOTE_INPUT_REJECTED = "noteInputRejected";
     private static final String CASE_MANAGEMENT_LIST_CHAIN = "list";
     @SuppressWarnings("java:S1075") // fixed allowlist target; making this configurable would weaken redirect hardening
     private static final String CASE_MANAGEMENT_LIST_REDIRECT_PATH = "/CaseManagementView?method=view";
@@ -149,6 +152,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     private static final String ISSUE_LIST_AJAX_RESULT = "issueList_ajax";
     private static final Set<String> ALLOWED_CHAIN_RESULT_NAMES = Set.of("list", "view", ISSUE_LIST_AJAX_RESULT);
+    private static final Set<String> NOTE_WRITE_METHODS = Set.of(
+            "issueNoteSave", "issueNoteSaveJson", "ajaxsave", "save", "saveAndExit", "ticklerSaveNote");
 
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -163,6 +168,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String operation = request.getParameter("method") != null ? request.getParameter("method")
                 : (String) request.getAttribute("method");
+        if (NOTE_WRITE_METHODS.contains(operation == null ? "" : operation) && !requireNoteWriteAccess()) {
+            return NONE;
+        }
         if (Set.of("makeIssue", "issueAdd", "issueDelete", "issueChange",
                 "submitChangeDiagnosis", "ajaxChangeDiagnosis").contains(operation == null ? "" : operation)) {
             if (!requireIssueWriteAccess()) return NONE;
@@ -174,6 +182,31 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             prepareBillingUrl(getDemographicNo(request));
         }
         return result;
+    }
+
+    /** Refuse note writes before restoring or mutating a patient-scoped session form. */
+    private boolean requireNoteWriteAccess() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
+            return false;
+        }
+        String patient;
+        try {
+            patient = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return false;
+        }
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (login == null || !securityInfoManager.hasPrivilege(login, "_eChart", "w", patient)
+                || !securityInfoManager.hasPrivilege(login, "_casemgmt.notes", "w", patient)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(login, Integer.valueOf(patient))) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return false;
+        }
+        request.setAttribute("casemgmt_DemoNo", patient);
+        return true;
     }
 
     /** Match the issue editor's permission and enforce access before session or database writes. */
@@ -200,7 +233,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // Read only this session's existing form after numeric patient validation and record authorization;
         // the note/issue owners are checked below before any mutation. No request value is stored here.
         // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        CaseManagementEntryFormBean form = (CaseManagementEntryFormBean) request.getSession().getAttribute("caseManagementEntryForm" + demographicNo);
+        CaseManagementEntryFormBean form = (CaseManagementEntryFormBean) request.getSession().getAttribute(ChartProgramContext.formKey(request, demographicNo));
         if (form != null) {
             if (form.getCaseNote() != null && form.getCaseNote().getDemographic_no() != null
                     && !demographicNo.equals(form.getCaseNote().getDemographic_no())) {
@@ -360,7 +393,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("Get demo and providers no " + String.valueOf(current - start));
         start = current;
 
-        String programIdString = (String) session.getAttribute("case_program_id");
+        String programIdString = ChartProgramContext.resolve(request);
         Integer programId = null;
         try {
             programId = Integer.parseInt(programIdString);
@@ -401,6 +434,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         CaseManagementNote note = null;
 
         String nId = request.getParameter("noteId");
+        int requestedNoteId = 0;
+        if (StringUtils.isNotBlank(nId) && !"null".equalsIgnoreCase(nId)) {
+            try {
+                requestedNoteId = Integer.parseInt(nId);
+            } catch (NumberFormatException invalidNoteId) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+        }
         String forceNote = request.getParameter("forceNote");
         if (forceNote == null) forceNote = "false";
 
@@ -428,8 +470,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // create a new note
         if (request.getParameter("note_edit") != null && request.getParameter("note_edit").equals("new")) {
             logger.debug("NEW NOTE GENERATED");
-            session.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-            session.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            request.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            request.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             request.setAttribute("newNoteIdx", request.getParameter("newNoteIdx"));
 
             note = new CaseManagementNote();
@@ -466,15 +508,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logger.debug("tempsavenote is NOT NULL");
             CaseManagementNote original = tmpsavenote.getNoteId() != null && tmpsavenote.getNoteId() > 0
                     ? caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId())) : null;
+            if (original != null && !authorizeEditorNoteReference(loggedInInfo, demono, programIdString, original)) return NONE;
             note = restoreDraftNote(original, tmpsavenote.getNote(), providerNo, demono);
             if (original == null) {
                 // Keep the draft text even if its original note no longer exists. Render it
                 // as a new note so the save and lock paths do not reuse the orphaned ID.
-                session.setAttribute("newNote", "true");
-                session.setAttribute("issueStatusChanged", "false");
+                request.setAttribute("newNote", "true");
+                request.setAttribute("issueStatusChanged", "false");
                 request.setAttribute("noteId", "0");
             } else {
-                session.setAttribute("newNote", "false");
+                request.setAttribute("newNote", "false");
                 request.setAttribute("noteId", String.valueOf(note.getId()));
             }
 
@@ -484,11 +527,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         }
         // get an existing non-temp note?
-        else if (nId != null && !"null".equalsIgnoreCase(nId) && Integer.parseInt(nId) > 0) {
+        else if (requestedNoteId > 0) {
             logger.debug("Using nId {} to fetch note", LogSafe.sanitize(nId));
             // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- value is hardcoded literal "false", not user input
-            session.setAttribute("newNote", "false");
+            request.setAttribute("newNote", "false");
             note = caseManagementMgr.getNote(nId);
+            if (note == null) {
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
+            if (!authorizeEditorNoteReference(loggedInInfo, demono, programIdString, note)) return NONE;
 
             if (note.getHistory() == null || note.getHistory().equals("")) {
                 // old note - we need to save the original in here
@@ -504,11 +552,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // A hack to load last unsigned note when not specifying a particular note to edit
             // if there is no unsigned note load a new one
             if ((note = getLastSaved(request, demono, providerNo)) == null) {
-                session.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                session.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                request.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                request.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
                 note = this.makeNewNote(providerNo, demono, request);
             } else {
-                session.setAttribute("newNote", "false"); // should be able to get getLatSaved from the manager now // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                request.setAttribute("newNote", "false"); // should be able to get getLatSaved from the manager now // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             }
         }
         current = System.currentTimeMillis();
@@ -593,10 +641,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note = makeNewNote(providerNo, demono, request);
             cform.setCaseNote(note);
         }
+        // The legacy autosave must name the final editor note, including an unsigned
+        // fallback or the new note substituted when the originally requested one is locked.
+        request.setAttribute("noteId", note.getId() == null || note.getId() <= 0 ? "0" : note.getId().toString());
 
         session.setAttribute("casemgmtNoteLock" + demono, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
-        String frmName = "caseManagementEntryForm" + demono;
+        String frmName = ChartProgramContext.formKey(request, demono);
         logger.debug("Stored note form id={} noteLength={}",
                 LogSafe.sanitize(String.valueOf(note.getId())),
                 cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
@@ -626,6 +677,22 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         setOrRemove(session, ChartSessionKeys.noteFilterHandoff("issues", demono), sanitizeIdFilterArray(request.getParameterValues("issues")));
 
         return fwd;
+    }
+
+    /** Authorizes a referenced note before its history, editor model or links can be changed. */
+    private boolean authorizeEditorNoteReference(LoggedInInfo login, String patient, String program, CaseManagementNote note) {
+        if (!patient.equals(note.getDemographic_no())
+                || !securityInfoManager.hasPrivilege(login, "_eChart", "r", patient)
+                || !securityInfoManager.hasPrivilege(login, "_casemgmt.notes", "r", patient)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(login, Integer.parseInt(patient))
+                || (!caseManagementMgr.isClientInProgramDomain(login.getLoggedInProviderNo(), patient)
+                    && !caseManagementMgr.isClientReferredInProgramDomain(login.getLoggedInProviderNo(), patient))
+                || (program != null && !"0".equals(program) && caseManagementMgr.filterNotes(login,
+                    login.getLoggedInProviderNo(), List.of(note), program).isEmpty())) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -759,6 +826,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             restored.setDemographic_no(demographicNo);
         } else if (!Objects.equals(demographicNo, restored.getDemographic_no())) {
             throw new SecurityException("Draft references a note outside this patient chart");
+        } else {
+            restored = original.copyForRevision();
+            restored.setId(original.getId());
         }
         restored.setNote(draftText == null ? "" : draftText);
         return restored;
@@ -897,12 +967,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = {"XSS_SERVLET", "IMPROPER_UNICODE"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueNoteSaveJson() throws Exception {
+        if (!requireNoteWriteAccess()) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String strNote = request.getParameter("value");
         String appointmentNo = request.getParameter("appointment_no");
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String noteId = request.getParameter("noteId");
-        String demographicNo = request.getParameter("demographic_no");
+        String demographicNo = getDemographicNo(request);
         String issueCode = request.getParameter("issue_id");
         String issueAlphaCode = request.getParameter("issue_code");
         String archived = request.getParameter("archived");
@@ -1079,6 +1150,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueNoteSave() throws Exception {
+        if (!requireNoteWriteAccess()) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -1204,7 +1276,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         logger.debug("Note archived {}", LogSafe.sanitize(String.valueOf(note.isArchived())));
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         note.setProgram_no(programId);
 
         WebApplicationContext ctx = this.getSpringContext();
@@ -1232,7 +1304,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
         // update note issues
-        String sessionFrmName = "caseManagementEntryForm" + demo;
+        String sessionFrmName = ChartProgramContext.formKey(request, demo);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
         Set<CaseManagementIssue> issueSet = new HashSet<CaseManagementIssue>();
         Set<CaseManagementNote> noteSet = new HashSet<CaseManagementNote>();
@@ -1425,7 +1497,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             sessionFrm.setIssueCheckList(caseIssueList);
         }
         /* remember the str written into this patient's echart */
-        session.setAttribute(ChartSessionKeys.lastSavedNoteText(demo), savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        io.github.carlos_emr.carlos.utility.BoundedSessionAttributes.put(session, "savedNoteText", ChartSessionKeys.lastSavedNoteText(demo), savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         caseManagementMgr.getEditors(note);
 
@@ -1568,22 +1640,31 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs IMPROPER_UNICODE: compares on/persist/null/empty form flags and sentinels, not provider identities or secrets.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive form flags and null/empty sentinels; provider identities and secrets are not case-folded")
     private long noteSave() throws Exception {
+        if (!requireNoteWriteAccess()) return -1L;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         //Before we do anything we make sure we still have the lock on the note
         HttpSession session = request.getSession();
         String demo = getDemographicNo(request);
-        String sessionFrmName = "caseManagementEntryForm" + demo;
+        String sessionFrmName = ChartProgramContext.formKey(request, demo);
 
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
+        if (sessionFrm == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return -1L;
+        }
         if (!hasNoteLock(demo)) {
             logger.debug("noteSave rejected: no valid lock for demographic {}", demo);
             return -1L;
         }
 
         CaseManagementNote note = sessionFrm.getCaseNote();
+        if (note == null || !demo.equals(note.getDemographic_no())) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return -1L;
+        }
         String noteTxt = this.getCaseNote_note();
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return -1L;
@@ -1598,6 +1679,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             rejectObservationDate();
             return -1L;
         }
+
+        NoteTimes times = readNoteTimes();
+        if (times == null) return -1L;
 
         bindNoteAppointment(note);
         note.setNote(noteTxt);
@@ -1618,25 +1702,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setEncounter_type(encounterType);
         }
 
-        String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
-        if (StringUtils.isNotEmpty(hourOfEncounterTime)) {
-            note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
-        }
-
-        String minuteOfEncounterTime = request.getParameter("minuteOfEncounterTime");
-        if (StringUtils.isNotEmpty(minuteOfEncounterTime)) {
-            note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
-        }
-
-        String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-        if (StringUtils.isNotEmpty(hourOfEncTransportationTime)) {
-            note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
-        }
-
-        String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-        if (StringUtils.isNotEmpty(minuteOfEncTransportationTime)) {
-            note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
-        }
+        times.applyTo(note);
 
         String sign = request.getParameter("sign");
         if (sign == null) {
@@ -1667,11 +1733,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // if this is an update, don't overwrite the program id
         if (note.getProgram_no() == null || note.getProgram_no().equals("") || "0".equals(note.getProgram_no())) {
-            String programId = (String) session.getAttribute("case_program_id");
+            String programId = ChartProgramContext.resolve(request);
             if (programId == null || "null".equalsIgnoreCase(programId)) {
                 EctProgram ectProgram = new EctProgram(session);
                 programId = ectProgram.getProgram(providerNo);
-                session.setAttribute("case_program_id", programId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                ChartProgramContext.remember(request, programId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             }
             note.setProgram_no(programId);
         }
@@ -1687,22 +1753,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Set<CaseManagementIssue> issueset = new HashSet<CaseManagementIssue>();
         Set<CaseManagementNote> noteSet = new HashSet<CaseManagementNote>();
         String ongoing = "";
-        if (checkedlist != null) {
-            for (CheckBoxBean cb : checkedlist) {
-                if ("on".equalsIgnoreCase(cb.getChecked())) {
-                    CaseManagementIssue issue = cb.getIssue();
-                    if (issue != null && issue.getId() != null) {
-                        issueset.add(issue);
-                    }
-                }
-            }
-        }
         note.setIssues(issueset);
-        Boolean useNewCaseMgmt = Boolean.valueOf((String) session.getAttribute("newCaseManagement"));
-        if (useNewCaseMgmt) {
+        if (checkedlist != null) {
             ongoing = prepareCheckedIssues(request, demo, issuelist, checkedlist, issueset, noteSet, ongoing);
-        } else {
-            ongoing = saveCheckedIssues_oldCme(request, demo, issuelist, checkedlist, issueset, noteSet, ongoing);
         }
 
         sessionFrm.setIssueCheckList(checkedlist);
@@ -1781,11 +1834,23 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             note = caseManagementMgr.saveCaseManagementNote(
                     loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
-                    userName, providerNo, request.getRemoteAddr(), lastSavedNoteString);
+                    userName, providerNo, request.getRemoteAddr(), lastSavedNoteString,
+                    ChartProgramContext.resolve(request));
         } catch (RuntimeException e) {
             if (!StaleNoteRevisionException.isConflict(e)) throw e;
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return -1;
+        }
+        // Publish generated issue identities only after the note transaction commits.
+        if (checkedlist != null) {
+            for (CheckBoxBean checkbox : checkedlist) {
+                for (CaseManagementIssue savedIssue : issuelist) {
+                    if (checkbox.getIssue().getIssue_id() == savedIssue.getIssue_id()) {
+                        checkbox.setIssue(savedIssue);
+                        break;
+                    }
+                }
+            }
         }
         caseManagementMgr.getEditors(note);
         this.setCaseNote(note);
@@ -1800,85 +1865,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             session.setAttribute("casemgmtNoteLock" + demo, casemgmtNoteLockSession); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         }
 
-        try {
-            this.caseManagementMgr.deleteTmpSave(providerNo, note.getDemographic_no(), note.getProgram_no());
-        } catch (Exception e) {
-            logger.warn("Warning ({})", e.getClass().getSimpleName());
-        }
-
         return note.getId();
     }
 
-    private String saveCheckedIssues_oldCme(HttpServletRequest request, String demo, List<CaseManagementIssue> issuelist, List<CheckBoxBean> checkedlist, Set issueset, Set noteSet, String ongoing) {
-
-        int demographicNo = Integer.parseInt(demo);
-
-        for (int i = 0; i < checkedlist.size(); i++) {
-            CheckBoxBean checkBoxBean = checkedlist.get(i);
-            CaseManagementViewAction.IssueDisplay issueDisplay = checkBoxBean.getIssueDisplay();
-
-            if (issueDisplay.resolved != null && issueDisplay.resolved.equals("unresolved")) {
-                ongoing = ongoing + issueDisplay.getDescription() + "\n";
-            }
-
-            boolean isChecked = WebUtils.isChecked(request, "issueCheckList[" + i + "].checked");
-
-            CaseManagementIssue caseManagementIssue = null;
-            caseManagementIssue = caseManagementIssueDao.getIssuebyIssueCode(demo, issueDisplay.code);
-            if (caseManagementIssue == null && isChecked) {
-                Issue issue = issueDao.findIssueByCode(issueDisplay.code);
-                if (issue != null) {
-                    caseManagementIssue = new CaseManagementIssue();
-                    caseManagementIssue.setDemographic_no(demographicNo);
-                    caseManagementIssue.setIssue_id(issue.getId());
-                    caseManagementIssue.setType(issue.getRole());
-                    caseManagementIssue.setUpdate_date(new Date());
-
-                    // Should not save duplicated issue for one demographic
-                    if (caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId())) == null) {
-                        caseManagementIssueDao.saveIssue(caseManagementIssue);
-                    }
-                    // reload to materliase generated fields.
-                    caseManagementIssue = caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId()));
-                }
-            } else if (caseManagementIssue != null && isChecked) {
-                caseManagementIssue.setAcute("acute".equals(issueDisplay.acute));
-                caseManagementIssue.setCertain("certain".equals(issueDisplay.certain));
-                caseManagementIssue.setMajor("major".equals(issueDisplay.major));
-                caseManagementIssue.setResolved("resolved".equals(issueDisplay.resolved));
-                Issue issue = issueDao.findIssueByCode(issueDisplay.code);
-                if (issue != null) {
-                    caseManagementIssue.setUpdate_date(new Date());
-                    // Should not save duplicated issue for one demographic
-                    // But should be able to update existing issues.
-                    caseManagementIssueDao.saveIssue(caseManagementIssue);
-                    // reload to materliase generated fields.
-                    caseManagementIssue = caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId()));
-                }
-            }
-
-            if (caseManagementIssue == null) continue;
-            else copyIssueDisplayToCaseManagementIssue(caseManagementIssue, issueDisplay);
-
-            if (isChecked) {
-                checkBoxBean.setChecked("on");
-                checkBoxBean.setUsed(true);
-                caseManagementIssue.setNotes(noteSet);
-
-                issueset.add(caseManagementIssue);
-            } else {
-                checkBoxBean.setChecked("off");
-                boolean isLocal = "local".equals(issueDisplay.location);
-                if (!isLocal) {
-                    checkBoxBean.setUsed(false);
-                } else {
-                    checkBoxBean.setUsed(caseManagementNoteDao.haveIssue(issueDisplay.code, demographicNo));
-                }
-            }
-
-            if (!containsIssue(issuelist, caseManagementIssue)) issuelist.add(caseManagementIssue);
+    /** The chart owns its draft even when it explicitly edits a visible note from another program. */
+    private void deleteSavedChartDraft(String providerNo, String patient) {
+        String program = ChartProgramContext.resolve(request);
+        if (program == null) return;
+        try {
+            caseManagementMgr.deleteTmpSave(providerNo, patient, program);
+        } catch (Exception e) {
+            logger.warn("Warning ({})", e.getClass().getSimpleName());
         }
-        return ongoing;
     }
 
     private boolean containsIssue(List<CaseManagementIssue> issuelist, CaseManagementIssue issue) {
@@ -1904,11 +1902,28 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             CheckBoxBean checkBoxBean = checkedlist.get(i);
             IssueDisplay issueDisplay = checkBoxBean.getIssueDisplay();
 
+            if (!issueDisplay.isWriteAccess()) {
+                // Disabled controls are omitted from Form.serialize. Retain only the
+                // server-selected association, without rewriting this issue's flags or date.
+                CaseManagementIssue existing = caseManagementIssueDao.getIssuebyId(demo,
+                        String.valueOf(checkBoxBean.getIssue().getIssue_id()));
+                if (existing != null) {
+                    if ("on".equalsIgnoreCase(checkBoxBean.getChecked())) issueset.add(copyIssueForRevision(existing));
+                    if (!existing.isResolved()) ongoing += issueDisplay.getDescription() + "\n";
+                }
+                continue;
+            }
+
             if ("unresolved".equals(issueDisplay.resolved)) {
                 ongoing = ongoing + issueDisplay.getDescription() + "\n";
             }
 
-            boolean isChecked = WebUtils.isChecked(request, "issueCheckList[" + i + "].checked");
+            // The legacy form has additive existing selections and omits the checked
+            // attribute. Keep those links while modern enabled controls can deselect.
+            boolean legacy = !Boolean.parseBoolean((String) request.getSession().getAttribute("newCaseManagement"));
+            boolean isChecked = WebUtils.isChecked(request, "issueCheckList[" + i + "].checked")
+                    || (legacy && checkBoxBean.getIssue().getId() != null && checkBoxBean.getIssue().getId() > 0
+                        && "on".equalsIgnoreCase(checkBoxBean.getChecked()));
 
             CaseManagementIssue caseManagementIssue = findCheckedIssue(demo, issueDisplay, isChecked, issuelist);
 
@@ -1939,27 +1954,34 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private CaseManagementIssue findCheckedIssue(String demo, IssueDisplay display, boolean checked,
                                                  List<CaseManagementIssue> pending) {
         CaseManagementIssue existing = caseManagementIssueDao.getIssuebyIssueCode(demo, display.code);
-        if (existing != null || !checked) return existing;
+        if (existing != null) return copyIssueForRevision(existing);
+        if (!checked) return null;
         Issue issue = issueDao.findIssueByCode(display.code);
         return issue == null ? null : prepareCheckedIssue(demo, issue, pending);
     }
 
     private CaseManagementIssue prepareCheckedIssue(String demo, Issue issue, List<CaseManagementIssue> pending) {
         CaseManagementIssue existing = caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId()));
-        if (existing != null) return existing;
+        if (existing != null) return copyIssueForRevision(existing);
         for (CaseManagementIssue prepared : pending) {
             if (prepared.getIssue_id() == issue.getId()) return prepared;
         }
-        // Persist with saveCaseManagementNote so a stale revision rolls it back too.
-        CaseManagementIssue prepared = new CaseManagementIssue();
-        prepared.setDemographic_no(Integer.parseInt(demo));
-        prepared.setIssue_id(issue.getId());
-        prepared.setIssue(issue);
-        prepared.setType(issue.getRole());
-        return prepared;
+        // Persist with the note transaction, keeping the chart's origin rather than a shared note's program.
+        String program = ChartProgramContext.resolve(request);
+        Integer origin = program != null && program.matches("[1-9][0-9]*") ? Integer.valueOf(program) : null;
+        return prepareCaseIssue(demo, issue, origin);
+    }
+
+    private static CaseManagementIssue copyIssueForRevision(CaseManagementIssue issue) {
+        CaseManagementIssue copy = new CaseManagementIssue(issue);
+        copy.setId(issue.getId());
+        copy.setProgram_id(issue.getProgram_id());
+        copy.setNotes(new HashSet<>());
+        return copy;
     }
 
     public String save() throws Exception {
+        if (!requireNoteWriteAccess()) return NONE;
         HttpSession session = request.getSession();
         if (session == null || session.getAttribute("userrole") == null) return "expired";
 
@@ -2018,7 +2040,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /** Keep a rejected full-form draft available when the response replaces the editor page. */
     private String rejectedFullFormSave(String unsavedNoteText, String fallbackResult) {
-        if (Boolean.TRUE.equals(request.getAttribute(OBSERVATION_DATE_REJECTED))) {
+        if (Boolean.TRUE.equals(request.getAttribute(OBSERVATION_DATE_REJECTED))
+                || Boolean.TRUE.equals(request.getAttribute(NOTE_INPUT_REJECTED))) {
             request.setAttribute("unsavedNoteText", unsavedNoteText);
             return "windowCloseError";
         }
@@ -2028,32 +2051,58 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return "windowCloseError";
     }
 
+    /** Preserve missing fields, clear explicit blanks, and validate every value before applying any. */
+    private NoteTimes readNoteTimes() {
+        String[] fields = {"hourOfEncounterTime", "minuteOfEncounterTime", "hourOfEncTransportationTime", "minuteOfEncTransportationTime"};
+        Integer[] values = new Integer[fields.length];
+        boolean[] supplied = new boolean[fields.length];
+        try {
+            for (int i = 0; i < fields.length; i++) {
+                String raw = request.getParameter(fields[i]);
+                supplied[i] = raw != null;
+                if (StringUtils.isNotEmpty(raw)) values[i] = Integer.valueOf(raw);
+            }
+        } catch (NumberFormatException invalidDuration) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.setAttribute(NOTE_INPUT_REJECTED, Boolean.TRUE);
+            return null;
+        }
+        return new NoteTimes(values, supplied);
+    }
+
+    private static final class NoteTimes {
+        private final Integer[] values;
+        private final boolean[] supplied;
+
+        private NoteTimes(Integer[] values, boolean[] supplied) {
+            this.values = values;
+            this.supplied = supplied;
+        }
+
+        private void applyTo(CaseManagementNote note) {
+            if (supplied[0]) note.setHourOfEncounterTime(values[0]);
+            if (supplied[1]) note.setMinuteOfEncounterTime(values[1]);
+            if (supplied[2]) note.setHourOfEncTransportationTime(values[2]);
+            if (supplied[3]) note.setMinuteOfEncTransportationTime(values[3]);
+        }
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String ajaxsave() throws Exception {
+        if (!requireNoteWriteAccess()) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-
         HttpSession session = request.getSession();
         if (session.getAttribute("userrole") == null) return "expired";
-
-        String noteTxt = request.getParameter("noteTxt");
-        noteTxt = StringUtils.trimToNull(noteTxt);
-        if (noteTxt == null || noteTxt.equals("")) return null;
-
-        logger.debug("Saving Note {}", LogSafe.sanitize(request.getParameter("nId")));
-        logger.debug("Note text received");
+        String noteTxt = StringUtils.trimToNull(request.getParameter("noteTxt"));
+        if (noteTxt == null) return null;
         String demo = getDemographicNo(request);
-
         if (!hasNoteLock(demo)) {
-            logger.debug("ajaxsave rejected: no valid lock for demographic {}", demo);
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
 
-        // Before the note is loaded, so a refusal changes nothing. The editor renders English
-        // months whatever the browser's language; reading them in the request locale (as this
-        // did) made every non-English switch save fail once that rendering was fixed (#4711).
         Date dateObserve;
         try {
             dateObserve = NoteObservationDate.parse(request.getParameter("obsDate"), LocaleUtils.resolveBundleLocale(request));
@@ -2062,177 +2111,144 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             rejectObservationDate();
             return null;
         }
-
-        Provider provider = loggedInInfo.getLoggedInProvider();
-
-        CaseManagementNote note;
-        String history;
         String noteId = request.getParameter("nId");
-        boolean newNote;
-        Date now = new Date();
-        if (noteId.substring(0, 1).equals("0")) {
-            note = new CaseManagementNote();
-            note.setDemographic_no(demo);
-            history = new String();
-            newNote = true;
-        } else {
-            note = this.caseManagementMgr.getNote(request.getParameter("nId"));
-            if (note == null || !demo.equals(note.getDemographic_no())) {
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                return null;
-            }
-            history = note.getHistory();
-            history = "---------History Record---------" + history;
-            newNote = false;
+        Long reference = compactNoteReference(noteId);
+        if (reference == null) return null;
+        boolean newNote = reference == 0;
+        String program = ChartProgramContext.resolve(request);
+        String sessionName = ChartProgramContext.formKey(request, demo);
+        CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session editor selected by authenticated chart context
+        CaseManagementNote selected = sessionFrm == null ? null : sessionFrm.getCaseNote();
+        if (selected == null || !demo.equals(selected.getDemographic_no())) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return null;
         }
-
-        bindNoteAppointment(note);
-        ResourceBundle props = ResourceBundle.getBundle("oscarResources");
-        if (dateObserve != null) {
-            note.setObservation_date(dateObserve);
-        } else if (note.getObservation_date() == null) {
-            note.setObservation_date(now);
-        }
-
-        history = noteTxt + "[[" + now + "]]" + history;
-        note.setNote(noteTxt);
-        note.setHistory(history);
-
-        if (note.isSigned()) {
-            note.setSigning_provider_no(providerNo);
-            note.setSigned(true);
-        } else {
-            note.setSigning_provider_no("");
-            note.setSigned(false);
-        }
-
-        note.setProviderNo(providerNo);
-        if (provider != null) note.setProvider(provider);
-
-        String programId = (String) session.getAttribute("case_program_id");
-        note.setProgram_no(programId);
-
-        WebApplicationContext ctx = this.getSpringContext();
-        ProgramManager programManager = (ProgramManager) ctx.getBean(ProgramManager.class);
-        AdmissionManager admissionManager = (AdmissionManager) ctx.getBean(AdmissionManager.class);
-
-        String role = null;
-        try {
-            role = String.valueOf((programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
-        } catch (Exception e) {
-            logger.error("Error ({})", e.getClass().getSimpleName());
-            role = "0";
-        }
-
-        note.setReporter_caisi_role(role);
-
-        String team = resolveReporterProgramTeamId(admissionManager, note.getProgram_no(), note.getDemographic_no());
-
-        note.setReporter_program_team(team);
-
-        String sessionName = "caseManagementEntryForm" + demo;
-        CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
-        List<CaseManagementIssue> issuelist = new ArrayList<CaseManagementIssue>();
-        Set<CaseManagementIssue> issueset = new HashSet<CaseManagementIssue>();
-        Set<CaseManagementNote> noteSet = new HashSet<CaseManagementNote>();
-
-        int numIssues = Integer.parseInt(request.getParameter("numIssues"));
-
-        List<CheckBoxBean> checkedlist = sessionFrm.getIssueCheckList();
-        for (int i = 0; i < numIssues; i++) {
-            String ischecked = request.getParameter("issue" + i);
-            if (ischecked != null && ischecked.equalsIgnoreCase("on")) {
-                checkedlist.get(i).setChecked("on");
-                CaseManagementIssue iss = checkedlist.get(i).getIssue();
-                iss.setNotes(noteSet);
-                issueset.add(checkedlist.get(i).getIssue());
-            } else {
-                checkedlist.get(i).setChecked("off");
-            }
-            issuelist.add(checkedlist.get(i).getIssue());
-        }
-
-        note.setIssues(issueset);
-        note.setIncludeissue(false);
-        caseManagementMgr.saveAndUpdateCaseIssues(issuelist);
-        sessionFrm.setIssueCheckList(checkedlist);
-
-        int revision;
-
-        if (note.getRevision() != null) {
-            revision = Integer.parseInt(note.getRevision());
-            ++revision;
-        } else revision = 1;
-
-        note.setRevision(String.valueOf(revision));
-
-        note.setUpdate_date(now);
-        if (note.getCreate_date() == null) note.setCreate_date(now);
-
-        note.setEncounter_type(request.getParameter("caseNote.encounter_type"));
-
-        String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
-        if (hourOfEncounterTime != null) {
-            note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
-        }
-        String minuteOfEncounterTime = request.getParameter("minuteOfEncounterTime");
-        if (minuteOfEncounterTime != null) {
-            note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
-        }
-        String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-        if (minuteOfEncounterTime != null) {
-            note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
-        }
-        String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-        if (minuteOfEncounterTime != null) {
-            note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
-        }
-
-        try {
-            note = this.caseManagementMgr.saveNoteRevisionSimple(note);
-        } catch (RuntimeException e) {
-            if (!StaleNoteRevisionException.isConflict(e)) throw e;
+        long selectedId = selected.getId() == null ? 0 : Math.max(0, selected.getId());
+        // The client saves the old editor before asynchronously opening the next note.
+        // Bind to that editor, not the lock ID (the switch can already have acquired its next lock).
+        if (selectedId != reference) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
-        this.caseManagementMgr.getEditors(note);
+        CaseManagementNote source = newNote ? null : caseManagementMgr.getNote(noteId);
+        if (!newNote && (source == null || !demo.equals(source.getDemographic_no()))) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return null;
+        }
+        if (!newNote && program != null && !"0".equals(program) && caseManagementMgr.filterNotes(
+                loggedInInfo, providerNo, List.of(source), program).isEmpty()) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
+        if (!newNote && !Objects.equals(selected.getProgram_no(), source.getProgram_no())) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return null;
+        }
+
+        List<CheckBoxBean> checkedlist = sessionFrm.getIssueCheckList();
+        int numIssues;
+        try {
+            numIssues = Integer.parseInt(request.getParameter("numIssues"));
+            if (checkedlist == null || numIssues < 0 || numIssues > checkedlist.size()) throw new NumberFormatException();
+        } catch (NumberFormatException invalidForm) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        NoteTimes times = readNoteTimes();
+        if (times == null) return null;
+        Date now = new Date();
+        CaseManagementNote note = newNote ? new CaseManagementNote() : source.copyForRevision();
+        if (!newNote) note.setId(source.getId());
+        note.setDemographic_no(demo);
+        bindNoteAppointment(note);
+        if (dateObserve != null) note.setObservation_date(dateObserve);
+        else if (note.getObservation_date() == null) note.setObservation_date(now);
+        String history = newNote ? "" : "---------History Record---------" + StringUtils.defaultString(source.getHistory());
+        note.setNote(noteTxt);
+        note.setHistory(noteTxt + "[[" + now + "]]" + history);
+        note.setSigning_provider_no(note.isSigned() ? providerNo : "");
+        note.setProviderNo(providerNo);
+        Provider provider = loggedInInfo.getLoggedInProvider();
+        if (provider != null) note.setProvider(provider);
+        if (newNote) {
+            note.setProgram_no(program);
+            AdmissionManager admissions = getSpringContext().getBean(AdmissionManager.class);
+            note.setReporter_program_team(resolveReporterProgramTeamId(admissions, program, demo));
+        }
+
+        List<CaseManagementIssue> issues = new ArrayList<>();
+        Set<CaseManagementIssue> selectedIssues = new LinkedHashSet<>();
+        List<CheckBoxBean> stagedCheckboxes = new ArrayList<>(checkedlist);
+        for (int i = 0; i < numIssues; i++) {
+            CheckBoxBean original = checkedlist.get(i);
+            CaseManagementIssue originalIssue = original.getIssue();
+            if (originalIssue == null || !Integer.valueOf(demo).equals(originalIssue.getDemographic_no())) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                return null;
+            }
+            CaseManagementIssue issue = new CaseManagementIssue(originalIssue);
+            issue.setId(originalIssue.getId());
+            issue.setProgram_id(originalIssue.getProgram_id());
+            issue.setNotes(new HashSet<>());
+            boolean checked = "on".equalsIgnoreCase(request.getParameter("issue" + i));
+            if (checked) selectedIssues.add(issue);
+            issues.add(issue);
+            CheckBoxBean checkbox = new CheckBoxBean();
+            checkbox.setIssue(issue);
+            checkbox.setChecked(checked ? "on" : "off");
+            checkbox.setIssueDisplay(original.getIssueDisplay());
+            checkbox.setUsed(original.isUsed());
+            stagedCheckboxes.set(i, checkbox);
+        }
+        note.setIssues(selectedIssues);
+        note.setIncludeissue(false);
+        note.setUpdate_date(now);
+        if (note.getCreate_date() == null) note.setCreate_date(now);
+        note.setEncounter_type(request.getParameter("caseNote.encounter_type"));
+        times.applyTo(note);
+
+        CaseManagementManager.CompactSaveResult saved;
+        try {
+            saved = caseManagementMgr.saveCompactNoteRevision(loggedInInfo, note, issues, program);
+        } catch (RuntimeException error) {
+            if (!StaleNoteRevisionException.isConflict(error)) throw error;
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return null;
+        }
+        note = saved.note();
+        for (int i = 0; i < numIssues; i++) stagedCheckboxes.get(i).setIssue(saved.issues().get(i));
+        caseManagementMgr.getEditors(note);
         sessionFrm.setCaseNote(note);
-        CasemgmtNoteLock noteLock = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): reads a server-created lock from this session; hasNoteLock already checked database and current-session ownership, and the loaded note's demographic matches demo
+        sessionFrm.setIssueCheckList(stagedCheckboxes);
+        CasemgmtNoteLock noteLock = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session lock already checked above
         if (noteLock != null) {
             noteLock.setNoteId(note.getId());
             casemgmtNoteLockDao.merge(noteLock);
         }
-
-        try {
-            this.caseManagementMgr.deleteTmpSave(providerNo, note.getDemographic_no(), note.getProgram_no());
-        } catch (Exception e) {
-            logger.warn("Warning ({})", e.getClass().getSimpleName());
-        }
-
-        session.setAttribute(sessionName, sessionFrm); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute(sessionName, sessionFrm); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- publishing the committed editor under its authenticated chart context
         CaseManagementEntryFormBean newform = new CaseManagementEntryFormBean();
         newform.setCaseNote(note);
-        newform.setIssueCheckList(checkedlist);
+        newform.setIssueCheckList(stagedCheckboxes);
         request.setAttribute("caseManagementEntryForm", newform);
-        String varName = "newNote";
-        session.setAttribute(varName, false); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.setAttribute("newNote", "false");
         request.setAttribute("ajaxsave", note.getId());
         request.setAttribute("origNoteId", noteId);
-        // noteIssueList.jsp renders the saved text into the read-only view through
-        // ${noteTxt}; EL reads scoped attributes, not request parameters, so without this
-        // the view of a note saved on switch came up empty until the chart was reloaded.
         request.setAttribute("noteTxt", noteTxt);
-
-        String logAction;
-        if (newNote) {
-            logAction = LogConst.ADD;
-        } else {
-            logAction = LogConst.UPDATE;
-        }
-
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
-
+        LogAction.addLog(providerNo, newNote ? LogConst.ADD : LogConst.UPDATE, LogConst.CON_CME_NOTE,
+                String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
         return ISSUE_LIST_AJAX_RESULT;
+    }
+
+    /** New editor DOM IDs are zero-prefixed counters (01) or legacy decimal IDs (0.1). */
+    private Long compactNoteReference(String raw) {
+        if (raw != null && raw.matches("0[0-9]*(?:\\.[0-9]+)?")) return 0L;
+        try {
+            if (raw == null || !raw.matches("[1-9][0-9]*")) throw new NumberFormatException();
+            return Long.valueOf(raw);
+        } catch (NumberFormatException invalidReference) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
     }
 
     /**
@@ -2282,7 +2298,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String noteId = request.getParameter("noteId");
         String forceRelease = request.getParameter("force");
         HttpSession session = request.getSession();
-        String sessionFrmName = "caseManagementEntryForm" + demoNo;
+        String sessionFrmName = ChartProgramContext.formKey(request, demoNo);
 
         try {
             CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
@@ -2307,6 +2323,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveAndExit() throws Exception {
+        if (!requireNoteWriteAccess()) return NONE;
         logger.debug("saveandexit");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2425,7 +2442,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HttpSession session = request.getSession();
         if (session.getAttribute("userrole") == null) return "expired";
 
-        String programNo = (String) session.getAttribute("case_program_id");
+        String programNo = ChartProgramContext.resolve(request);
 
         String demo = this.getDemographicNo();
 
@@ -2452,7 +2469,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         request.setAttribute("change_flag", "true");
         String demono = getDemographicNo(request);
-        String sessionFrmName = "caseManagementEntryForm" + demono;
+        String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
         CaseManagementNote note = sessionFrm.getCaseNote();
         String noteTxt = this.getCaseNote_note();
@@ -2478,7 +2495,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         // get the issue list have search string
@@ -2500,7 +2517,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         HttpSession session = request.getSession();
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
 
         request.setAttribute("change_flag", "true");
 
@@ -2537,7 +2554,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             issueList[i].setIssue(issue);
         }
         logger.debug("Community issue reconciliation complete");
-        String sessionFrmName = "caseManagementEntryForm" + demono;
+        String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
         sessionFrm.setNewIssueCheckList(issueList);
         sessionFrm.setShowList("true");
@@ -2553,11 +2570,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // we need to convert single issue into checkbox array so we can play nicely with CaseManagementEntryFormBean
     public String makeIssue() throws Exception {
         if (!requireIssueWriteAccess()) return NONE;
+        if (readNoteTimes() == null) return NONE;
         HttpSession session = request.getSession();
         // grab the issue we want to add
         String issueId = request.getParameter("newIssueId");
 
-        String sessionFrmName = "caseManagementEntryForm" + this.getDemographicNo(request);
+        String sessionFrmName = ChartProgramContext.formKey(request, this.getDemographicNo(request));
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
         // check to see if this issue has already been associated with this demographic
@@ -2588,6 +2606,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueAdd() throws Exception {
         if (!requireIssueWriteAccess()) return NONE;
+        NoteTimes times = readNoteTimes();
+        if (times == null) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -2615,7 +2635,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
-        String sessionFrmName = "caseManagementEntryForm" + demono;
+        String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
         if (sessionFrm != null) {
@@ -2631,14 +2651,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
             if (this.getCaseNote() != null && this.getCaseNote().getEncounter_type() != null)
                 sessionFrm.getCaseNote().setEncounter_type(this.getCaseNote().getEncounter_type());
-            if (this.getMinuteOfEncounterTime() != null)
-                sessionFrm.getCaseNote().setMinuteOfEncounterTime(this.getMinuteOfEncounterTime());
-            if (this.getHourOfEncounterTime() != null)
-                sessionFrm.getCaseNote().setHourOfEncounterTime(this.getHourOfEncounterTime());
-            if (this.getMinuteOfEncTransportationTime() != null)
-                sessionFrm.getCaseNote().setMinuteOfEncTransportationTime(this.getMinuteOfEncTransportationTime());
-            if (this.getHourOfEncTransportationTime() != null)
-                sessionFrm.getCaseNote().setHourOfEncTransportationTime(this.getHourOfEncTransportationTime());
+            if (sessionFrm.getCaseNote() != null) times.applyTo(sessionFrm.getCaseNote());
         }
 
         // add checked new issues to client's issue list
@@ -2665,8 +2678,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         k = 0;
 
-        String programIdStr = (String) session.getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
-        if (programIdStr == null) programIdStr = (String) session.getAttribute("case_program_id");
+        String programIdStr = ChartProgramContext.resolve(request);
         Integer programId = null;
         if (programIdStr != null) programId = Integer.valueOf(programIdStr);
 
@@ -2825,7 +2837,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         int idx = Integer.parseInt(strIndex);
 
         String substitution = request.getParameter("newIssueId");
-        String sessionFrmName = "caseManagementEntryForm" + getDemographicNo(request);
+        String sessionFrmName = ChartProgramContext.formKey(request, getDemographicNo(request));
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
         List<CheckBoxBean> curIssues = sessionFrm.getIssueCheckList();
@@ -2869,6 +2881,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             rejectObservationDate();
             return rejectedFullFormSave(this.getCaseNote_note(), "view");
         }
+        NoteTimes times = readNoteTimes();
+        if (times == null) return rejectedFullFormSave(this.getCaseNote_note(), "view");
         logger.debug("issueDelete");
 
         HttpSession session = request.getSession();
@@ -2878,8 +2892,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         String demono = getDemographicNo(request);
-        String sessionFrmName = "caseManagementEntryForm" + demono;
+        String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
+        // Removing an issue from an existing note also saves that note below. Authorize
+        // both writes before either the issue, CPP or selected editor model is changed.
+        if (sessionFrm != null && sessionFrm.getCaseNote() != null
+                && sessionFrm.getCaseNote().getId() != null && !requireNoteWriteAccess()) return NONE;
+        if (sessionFrm != null && sessionFrm.getCaseNote() != null) times.applyTo(sessionFrm.getCaseNote());
 
         request.setAttribute("change_flag", "true");
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
@@ -2933,6 +2952,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueChange() throws Exception {
         if (!requireIssueWriteAccess()) return NONE;
+        NoteTimes times = readNoteTimes();
+        if (times == null) return NONE;
         logger.debug("issueChange");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2945,10 +2966,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         request.setAttribute("change_flag", "true");
-        session.setAttribute("issueStatusChanged", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.setAttribute("issueStatusChanged", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         String demono = getDemographicNo(request);
-        String sessionFrmName = "caseManagementEntryForm" + demono;
+        String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
+
+        if (sessionFrm != null && sessionFrm.getCaseNote() != null) times.applyTo(sessionFrm.getCaseNote());
 
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
@@ -2995,7 +3018,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         if (CarlosProperties.getInstance().isCaisiLoaded()) {
             // get access right
-            List accessRight = caseManagementMgr.getAccessRight(providerNo, demono, (String) session.getAttribute("case_program_id"));
+            List accessRight = caseManagementMgr.getAccessRight(providerNo, demono, ChartProgramContext.resolve(request));
 
             // add medical history to CPP
             CaseManagementCPP cpp = this.caseManagementMgr.getCPP(getDemographicNo(request));
@@ -3016,8 +3039,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     public String notehistory() {
         if (request.getSession().getAttribute("userrole") == null) return "expired";
+        AuthorizedNoteHistory access = authorizedNoteHistory();
+        return access == null ? refuseNoteHistory() : prepareNoteHistoryView(access);
+    }
 
-        String demono = getDemographicNo(request);
+    /** Both revision-history entry points enforce the chart's patient, domain and program boundary. */
+    private AuthorizedNoteHistory authorizedNoteHistory() {
+        String demono;
+        try {
+            demono = getDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            return null;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         Long noteId = parseExistingNoteId(request.getParameter("noteId"));
         Long demographicId = parseExistingNoteId(demono);
@@ -3026,16 +3059,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demono)
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demono)
                 || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicId.intValue())) {
-            return refuseNoteHistory();
+            return null;
         }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         if (!caseManagementMgr.isClientInProgramDomain(providerNo, demono)
                 && !caseManagementMgr.isClientReferredInProgramDomain(providerNo, demono)) {
-            return refuseNoteHistory();
+            return null;
         }
         CaseManagementNote selectedNote = caseManagementMgr.getNote(noteId.toString());
         if (selectedNote == null || parseExistingNoteId(selectedNote.getDemographic_no()) == null) {
-            return refuseNoteHistory();
+            return null;
         }
         boolean linkedGroupNote = !demono.equals(selectedNote.getDemographic_no());
 
@@ -3049,23 +3082,30 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         } else {
             history = caseManagementMgr.getHistory(noteId.toString());
         }
-        if (history == null || history.stream().anyMatch(note -> note == null
+        if (history == null || history.isEmpty() || history.stream().anyMatch(note -> note == null
                 || !selectedNote.getDemographic_no().equals(note.getDemographic_no()))) {
-            return refuseNoteHistory();
+            return null;
         }
-        String programId = (String) request.getSession().getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         if (!linkedGroupNote && programId != null && !programId.isEmpty() && !"0".equals(programId)) {
             // Match the chart's role/program/facility filter. Reject the whole expansion if any
             // row is hidden: a visible row's cumulative text may contain that earlier revision.
             List<CaseManagementNote> visible = caseManagementMgr.filterNotes(loggedInInfo,
                     loggedInInfo.getLoggedInProviderNo(), history, programId);
             if (visible.size() != history.size()) {
-                return refuseNoteHistory();
+                return null;
             }
         }
-        request.setAttribute("demoName", getDemoName(demono));
-        request.setAttribute("history", history);
-        request.setAttribute("showStoredNoteHistory", !linkedGroupNote);
+        return new AuthorizedNoteHistory(demono, selectedNote, history, linkedGroupNote);
+    }
+
+    private record AuthorizedNoteHistory(String patient, CaseManagementNote selectedNote,
+                                         List<CaseManagementNote> history, boolean linkedGroupNote) { }
+
+    private String prepareNoteHistoryView(AuthorizedNoteHistory access) {
+        request.setAttribute("demoName", getDemoName(access.patient()));
+        request.setAttribute("history", access.history());
+        request.setAttribute("showStoredNoteHistory", !access.linkedGroupNote());
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         request.setAttribute("title", props.getString("encounter.noteHistory.title"));
         return "showHistory";
@@ -3160,13 +3200,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HttpSession session = request.getSession();
         if (session.getAttribute("userrole") == null) return "expired";
 
-        String demono = getDemographicNo(request);
+        AuthorizedNoteHistory access = authorizedNoteHistory();
+        if (access == null) return refuseNoteHistory();
+        // A shared group-note link grants only its explicitly shared revisions. Its stored
+        // cumulative history can include private owner revisions, so use the bounded view.
+        if (access.linkedGroupNote()) return prepareNoteHistoryView(access);
+        String demono = access.patient();
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
         String noteid = request.getParameter("noteId");
-        CaseManagementNote note = caseManagementMgr.getNote(noteid);
+        CaseManagementNote note = access.selectedNote();
 
         request.setAttribute("history", note.getHistory());
 
@@ -3183,35 +3228,97 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     public String autosave() {
         logger.debug("autosave");
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return null;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        String demographicNo = getDemographicNo(request);
-        String programId = request.getParameter("programId");
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        String programId = ChartProgramContext.resolve(request);
+        if (programId == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "w", demographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "w", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.parseInt(demographicNo))) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
         String note = request.getParameter("note");
         String noteId = request.getParameter("note_id");
+
+        if (note == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
 
         if (!hasNoteLock(demographicNo)) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
 
-        if (note == null || note.length() == 0) {
-            return null;
-        }
+        if (!authorizeAutosaveNoteReference(loggedInInfo, demographicNo, programId, noteId)) return null;
 
-        //delete from tmp save and then add another
         try {
-            caseManagementMgr.deleteTmpSave(providerNo, demographicNo, programId);
-            caseManagementMgr.tmpSave(providerNo, demographicNo, programId, noteId, note);
+            caseManagementMgr.replaceTmpSave(providerNo, demographicNo, programId, noteId, note);
         } catch (Exception e) {
             logger.warn("Encounter autosave failed ({})", e.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return null;
         }
 
         this.getCaseNote().setNote(note);
 
         response.setStatus(HttpServletResponse.SC_OK);
         return null;
+    }
+
+    /** A draft may refer only to this chart's authorized, selected note; a new note uses zero. */
+    private boolean authorizeAutosaveNoteReference(LoggedInInfo login, String patient, String program, String rawId) {
+        int reference;
+        try {
+            reference = rawId == null || rawId.isEmpty() ? 0 : Integer.parseInt(rawId);
+        } catch (NumberFormatException invalidReference) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return false;
+        }
+        CaseManagementNote selected = null;
+        if (reference > 0) {
+            selected = caseManagementMgr.getNote(Integer.toString(reference));
+            if (selected == null || !patient.equals(selected.getDemographic_no())
+                    || (!"0".equals(program) && caseManagementMgr.filterNotes(login,
+                    login.getLoggedInProviderNo(), List.of(selected), program).isEmpty())) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                return false;
+            }
+        }
+        CaseManagementEntryFormBean form = (CaseManagementEntryFormBean) request.getSession()
+                .getAttribute(ChartProgramContext.formKey(request, patient));
+        if (form != null) {
+            CaseManagementNote current = form.getCaseNote();
+            long expected = current == null || current.getId() == null ? 0 : Math.max(0, current.getId());
+            if (expected != Math.max(0, reference) || (selected != null
+                    && !Objects.equals(current.getProgram_no(), selected.getProgram_no()))) {
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                return false;
+            }
+        }
+        return true;
     }
 
     public String restore() throws Exception {
@@ -3250,7 +3357,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // a 500 when the encounter entry was forgotten.
             return;
         }
-        String sessionFrmName = "caseManagementEntryForm" + demoNo;
+        String sessionFrmName = ChartProgramContext.formKey(request, demoNo);
 
         request.getSession().setAttribute(sessionFrmName, null); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         EncounterPatientContext.forgetEncounter(request, demoNo);
@@ -3404,7 +3511,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     public CaseManagementNote getLastSaved(HttpServletRequest request, String demono, String providerNo) {
         HttpSession session = request.getSession();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String programId = (String) session.getAttribute("case_program_id");
+        String programId = ChartProgramContext.resolve(request);
         return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 
@@ -3596,12 +3703,22 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * 2) save/update link to the tickler (not sure yet)
      */
     public String ticklerSaveNote() {
+        if (!requireNoteWriteAccess()) return NONE;
         String strNote = request.getParameter("value");
         Date creationDate = new Date();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         Provider loggedInProvider = loggedInInfo.getLoggedInProvider();
-        String demographicNo = request.getParameter("demographicNo");
-        String ticklerNo = request.getParameter("ticklerNo");
+        String demographicNo = getDemographicNo(request);
+        AuthorizedTickler tickler = authorizedTickler();
+        if (tickler == null) return NONE;
+        if (!Integer.valueOf(demographicNo).equals(tickler.demographicNo())) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
+        if (StringUtils.isBlank(strNote)) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         String noteId = request.getParameter("noteId");
         String revision = "1";
         String history = strNote;
@@ -3610,12 +3727,27 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Long existingNoteId = parseExistingNoteId(noteId);
         if (existingNoteId != null) {
             CaseManagementNote existingNote = this.caseManagementNoteDao.getNote(existingNoteId);
-
-            if (existingNote != null) {
-                revision = nextRevision(existingNote.getRevision());
-                history = combineHistory(strNote, existingNote.getHistory());
-                uuid = existingNote.getUuid();
+            if (existingNote == null || !demographicNo.equals(existingNote.getDemographic_no())) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
             }
+            CaseManagementNoteLinkDAO links = SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
+            CaseManagementNoteLink latest = links.getLastLinkByTableId(CaseManagementNoteLink.TICKLER,
+                    Long.valueOf(tickler.id()));
+            if (latest == null || !existingNoteId.equals(latest.getNoteId())) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
+            revision = nextRevision(existingNote.getRevision());
+            history = combineHistory(strNote, existingNote.getHistory());
+            uuid = existingNote.getUuid();
+        }
+
+        Issue issue = this.issueDao.findIssueByTypeAndCode("system", "TicklerNote");
+        if (issue == null) {
+            logger.error("missing TicklerNote issue, please run all database updates");
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         CaseManagementNote cmn = new CaseManagementNote();
@@ -3645,17 +3777,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         //save link, so we know what tickler this note is linked to
         CaseManagementNoteLink link = new CaseManagementNoteLink();
         link.setNoteId(cmn.getId());
-        link.setTableId(Long.parseLong(ticklerNo));
+        link.setTableId(Long.valueOf(tickler.id()));
         link.setTableName(CaseManagementNoteLink.TICKLER);
 
         CaseManagementNoteLinkDAO caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
         caseManagementNoteLinkDao.save(link);
-
-        Issue issue = this.issueDao.findIssueByTypeAndCode("system", "TicklerNote");
-        if (issue == null) {
-            logger.warn("missing TicklerNote issue, please run all database updates");
-            return null;
-        }
 
         CaseManagementIssue cmi = caseManagementMgr.getIssueById(demographicNo.toString(), issue.getId().toString());
 
@@ -3683,31 +3809,68 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String ticklerGetNote() throws IOException {
-        String ticklerNo = request.getParameter("ticklerNo");
+        AuthorizedTickler tickler = authorizedTickler();
+        if (tickler == null) return NONE;
+        String patient = Integer.toString(tickler.demographicNo());
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(login, "_casemgmt.notes", "r", patient)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(login, tickler.demographicNo())) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
 
         CaseManagementNoteLinkDAO caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
-        CaseManagementNoteLink link = caseManagementNoteLinkDao.getLastLinkByTableId(CaseManagementNoteLink.TICKLER, Long.valueOf(ticklerNo));
+        CaseManagementNoteLink link = caseManagementNoteLinkDao.getLastLinkByTableId(CaseManagementNoteLink.TICKLER,
+                Long.valueOf(tickler.id()));
         ObjectNode json = (ObjectNode) objectMapper.readTree("{}");
 
         if (link != null) {
             Long noteId = link.getNoteId();
 
             CaseManagementNote note = this.caseManagementNoteDao.getNote(noteId);
-
-            if (note != null) {
-                Map<String, Serializable> hashMap = new HashMap<String, Serializable>();
-                hashMap.put("noteId", note.getId().toString());
-                hashMap.put("note", note.getNote());
-                hashMap.put("revision", note.getRevision());
-                hashMap.put("obsDate", CachedDateFormats.format(note.getObservation_date(), YYYY_MM_DD_HHMM_PATTERN));
-                hashMap.put("editor", this.providerMgr.getProvider(note.getProviderNo()).getFormattedName());
-                json = objectMapper.valueToTree(hashMap);
+            if (note == null || !patient.equals(note.getDemographic_no())) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
             }
+
+            Map<String, Serializable> hashMap = new HashMap<String, Serializable>();
+            hashMap.put("noteId", note.getId().toString());
+            hashMap.put("note", note.getNote());
+            hashMap.put("revision", note.getRevision());
+            hashMap.put("obsDate", CachedDateFormats.format(note.getObservation_date(), YYYY_MM_DD_HHMM_PATTERN));
+            hashMap.put("editor", this.providerMgr.getProvider(note.getProviderNo()).getFormattedName());
+            json = objectMapper.valueToTree(hashMap);
         }
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write(json.toString());
         return null;
+    }
+
+    private record AuthorizedTickler(int id, int demographicNo) { }
+
+    /** Resolves scalar identifiers before any patient entity or note link can be loaded. */
+    private AuthorizedTickler authorizedTickler() {
+        String raw = request.getParameter("ticklerNo");
+        Integer id;
+        try {
+            if (raw == null || !raw.matches("[1-9]\\d*")) throw new NumberFormatException();
+            id = Integer.valueOf(raw);
+        } catch (NumberFormatException invalid) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (login == null || !securityInfoManager.hasPrivilege(login, "_tickler", "r", null)) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
+        Integer patient = ticklerManager.getTicklerDemographicNo(login, id);
+        if (patient == null || patient <= 0) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return null;
+        }
+        return new AuthorizedTickler(id, patient);
     }
 
     public static boolean determineNoteRole(CaseManagementNote note, String providerNo, String demographicNo) {
@@ -3967,7 +4130,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         
         if (demographicNo != null) {
-            String sessionName = "caseManagementEntryForm" + demographicNo;
+            String sessionName = ChartProgramContext.formKey(request, demographicNo);
             CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) mySessionMap.get(sessionName);
             if (sessionFrm != null) {
                 this.issueCheckList = sessionFrm.getIssueCheckList();

@@ -279,6 +279,18 @@ public interface CaseManagementManager {
 
     public void tmpSave(String providerNo, String demographicNo, String programId, String noteId, String note);
 
+    /**
+     * Atomically replaces the draft for one provider, patient and program. A failed replacement
+     * rolls back deletion of the previous draft.
+     *
+     * @param providerNo String identifying the provider who owns the draft
+     * @param demographicNo String containing the patient identifier
+     * @param programId String containing the program identifier
+     * @param noteId String containing the note identifier, or null/empty for a new note
+     * @param note String containing the draft text
+     */
+    void replaceTmpSave(String providerNo, String demographicNo, String programId, String noteId, String note);
+
     public void deleteTmpSave(String providerNo, String demographicNo, String programId);
 
     public CaseManagementTmpSave getTmpSave(String providerNo, String demographicNo, String programId);
@@ -329,6 +341,25 @@ public interface CaseManagementManager {
 
     /** Saves an edit whose history text has already been prepared by the caller. */
     CaseManagementNote saveNoteRevisionSimple(CaseManagementNote note);
+
+    /** The compact editor publishes its issue selection only after the complete save commits. */
+    record CompactSaveResult(CaseManagementNote note, List<CaseManagementIssue> issues) { }
+
+    /**
+     * Saves the compact editor's revision, issue changes and originating draft deletion atomically.
+     * Submitted carriers remain unchanged so the same editor can retry a failed transaction.
+     *
+     * @param login authenticated context whose provider must match the submitted writer
+     * @param note submitted note with its selected issue instances
+     * @param issues ordered form issues, including the selected instances from {@code note}
+     * @param originatingProgram chart program owning the draft; null leaves drafts unchanged
+     * @return persisted revision and issues in their submitted order, published after commit
+     * @throws StaleNoteRevisionException when the selected source is no longer current
+     * @throws SecurityException when the writer, issue patient or chart role is invalid
+     * @since 2026-10-24
+     */
+    CompactSaveResult saveCompactNoteRevision(LoggedInInfo login, CaseManagementNote note,
+            List<CaseManagementIssue> issues, String originatingProgram);
 
     public void saveNoteSimple(CaseManagementNote note);
 
@@ -410,6 +441,19 @@ public interface CaseManagementManager {
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString) throws Exception;
+
+    /**
+     * Saves a revision and clears only the draft belonging to the originating chart program.
+     * The note retains its own program when an authorized chart edits a shared note.
+     * For a positive chart origin, a writer without a role in the stored program uses
+     * their origin program's role for the revision and signature; missing both refuses the save.
+     * A null draft program leaves drafts intact. The original overload retains its
+     * note-program cleanup for integrations that do not supply a separate chart context.
+     */
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram) throws Exception;
 
     public void setCPPMedicalHistory(CaseManagementCPP cpp, String providerNo, List accessRight);
 

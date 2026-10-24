@@ -13,8 +13,8 @@
  * LAST step, the history must belong to the patient the request names and to a patient the login
  * may read: (a) naming a DIFFERENT owned patient with this note's id must not return the text,
  * (b) a doctor login locked out of the patient (|o| on _demographic$N and _eChart$N) must be
- * refused. Both methods read the note by id alone (CaseManagementEntry2Action.notehistory/history
- * call caseManagementMgr.getNote/getHistory(noteId) and use demographicNo only for the heading).
+ * refused. Before these guards, both methods read the note by id alone and used demographicNo
+ * only for the heading. A chart reader without the notes module must also be refused.
  *
  * Fixtures: the workflow's owned patient, one more owned patient, the saved note, one throwaway
  * er_clerk login and one throwaway doctor login with the lock rows; all removed and verified.
@@ -97,6 +97,17 @@ async function workflow(s) {
     }
   });
 
+  await s.step('demographic and chart readers without clinical-note rights cannot read either history endpoint', async () => {
+    const role = fixture.addRole({ _demographic: 'r', _appointment: 'r', _eChart: 'r' });
+    const reader = await signIn(s, fixture.addLogin(role));
+    for (const method of ['notehistory', 'history']) {
+      const result = await get(reader.context, noteUrl(method, patient));
+      h.assert(forbiddenByApp(result) && !result.found.length,
+        `${method} returned HTTP ${result.status} to a chart reader without clinical-note rights`);
+    }
+    await reader.context.close();
+  });
+
   await s.step('a doctor login is locked out of the owned patient and signs in', async () => {
     const login = fixture.addLogin('doctor');
     h.assert(fixture.lockPatient(login, patient).length === 2, 'The patient lock rows were not written');
@@ -126,7 +137,7 @@ async function workflow(s) {
       // that is neither served-without-the-note nor a deliberate refusal decided nothing and is reported too.
       const mismatched = await get(s.context, noteUrl(method, other));
       if (mismatched.found.includes(text)) open.add(`${method} naming another patient`, `HTTP ${mismatched.status}, the note id alone decides`);
-      else if (!['served', 'refused'].includes(classify(mismatched))) open.add(`${method} naming another patient`, `HTTP ${mismatched.status}, not a deliberate answer`);
+      else if (!forbiddenByApp(mismatched)) open.add(`${method} naming another patient`, `HTTP ${mismatched.status}, not refused by CARLOS`);
       const lockedOut = await get(doctor.context, noteUrl(method, patient));
       if (lockedOut.found.includes(text)) open.add(`${method} for a patient the login is locked out of`, `HTTP ${lockedOut.status}`);
       else if (classify(lockedOut) !== 'refused') open.add(`${method} for a patient the login is locked out of`, `HTTP ${lockedOut.status}, not refused by CARLOS`);

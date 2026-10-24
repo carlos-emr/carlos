@@ -144,6 +144,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="tickler.ticklerMain.errorNoteSaveFailed" var="ticklerNoteSaveFailed"/>
 
 <html>
     <head>
@@ -198,6 +199,7 @@
             function saveNoteDialog() {
                 //alert('not yet implemented');
                 jQuery.ajax({
+                    type: 'POST',
                     url: '<%=request.getContextPath()%>/CaseManagementEntry',
                     data: {
                         method: "ticklerSaveNote",
@@ -208,14 +210,12 @@
                     },
                     async: false,
                     success: function (data) {
-                        // alert('ok');
+                        jQuery("#note-form").dialog("close");
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
-                        alert(errorThrown);
+                        alert('${carlos:forJavaScriptBlock(ticklerNoteSaveFailed)}');
                     }
                 });
-
-                jQuery("#note-form").dialog("close");
             }
 
 

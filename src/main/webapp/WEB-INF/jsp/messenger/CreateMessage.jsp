@@ -179,9 +179,25 @@
     // message; every other render starts a new message with a new key.
     String attachmentKey = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
     if (!MsgAttachmentStaging.isKey(attachmentKey)) {
-        attachmentKey = MsgAttachmentStaging.newKey();
+        attachmentKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
     }
+    if (!MsgAttachmentStaging.isKey(attachmentKey)) attachmentKey = MsgAttachmentStaging.newKey();
     MsgAttachmentStaging.Staged stagedAttachments = MsgAttachmentStaging.peek(session, attachmentKey);
+
+    // Reply/forward first arrive by POST. Reload must name the source and read-only
+    // operation as well as the compose key, so the action can reconstruct the quote.
+    String reloadMessageNo = request.getParameter("messageNo");
+    String reloadOperation = null;
+    int reloadMessageId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(reloadMessageNo);
+    if (reloadMessageId > 0) {
+        reloadMessageNo = Integer.toString(reloadMessageId);
+        for (String operation : new String[]{"reply", "replyAll", "forward"}) {
+            if (request.getParameter(operation) != null) {
+                reloadOperation = operation;
+                break;
+            }
+        }
+    }
 
     // Handle patient demographic association if message is patient-related
     String demographic_no = (String) request.getAttribute("demographic_no");
@@ -211,6 +227,19 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <script>
+        // A reload belongs to this compose window and must keep its staged attachments.
+        var composeUrl = new URL(window.location.href);
+        composeUrl.searchParams.set('attachmentKey', '<%= SafeEncode.forJavaScript(attachmentKey) %>');
+        <% if (reloadOperation != null) { %>
+        composeUrl.searchParams.set('messageNo', '<%= SafeEncode.forJavaScript(reloadMessageNo) %>');
+        <% if (request.getAttribute("chartPatientNo") != null) { %>
+        composeUrl.searchParams.set('chartPatientNo', '<%= SafeEncode.forJavaScript((String) request.getAttribute("chartPatientNo")) %>');
+        <% } %>
+        composeUrl.searchParams.set('<%= SafeEncode.forJavaScript(reloadOperation) %>', '1');
+        <% } %>
+        window.history.replaceState(window.history.state, '', composeUrl);
+    </script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="messenger.CreateMessage.title"/></title>
     <style>

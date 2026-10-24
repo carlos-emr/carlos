@@ -248,9 +248,6 @@
         <action name="encounter/ViewHelp" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/Help.jsp</result>
         </action>
-        <action name="encounter/ViewIndex2" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/encounter/Index2.jsp</result>
-        </action>
         <action name="encounter/ViewInsertTemplate" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/InsertTemplate.jsp</result>
         </action>
@@ -569,9 +566,6 @@
         <action name="casemgmt/ViewMessages" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/messages.jsp</result>
         </action>
-        <action name="casemgmt/ViewNavigation" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/casemgmt/navigation.jsp</result>
-        </action>
         <action name="casemgmt/ViewNewCaseManagementView" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp</result>
         </action>
@@ -646,9 +640,6 @@
         </action>
         <action name="casemgmt/ViewRightColumn" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/rightColumn.jsp</result>
-        </action>
-        <action name="casemgmt/ViewSearch" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/casemgmt/search.jsp</result>
         </action>
         <action name="casemgmt/ViewShowHistory" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/showHistory.jsp</result>

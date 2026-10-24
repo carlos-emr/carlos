@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
+const chartHelper = source.slice(source.indexOf('    function chartActionUrl('), source.indexOf('    var caisiEnabled'));
 function block(from, to) {
   const start = source.indexOf(from);
   const end = source.indexOf(to, start);
@@ -69,7 +70,9 @@ function harness({ searchData = [{ description: ' Safe & Sound ', code: 'A"B', i
     submitIssues: false, issueUpdatesPending: 0, Event: { stop() {} }, alert: msg => alerts.push(msg),
     ajaxUpdateIssues: (method, div) => updates.push({ method, div }), $: id => fields[id],
     filter: (reset, clearIssues) => { requests.push({ reset, clearIssues }); return false; } };
+  context.chartContext = '';
   vm.createContext(context);
+  vm.runInContext(chartHelper, context);
   vm.runInContext(block('    var changeIssueMsg;', '    var closeWithoutSaveMsg;')
     + block('    var disposeNoteIssueSearch =', '    var ajaxRequest;')
     + block('    function showFilter(', '    function filterCheckBox(')

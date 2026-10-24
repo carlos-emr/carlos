@@ -32,11 +32,14 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean;
 import io.github.carlos_emr.carlos.casemgmt.web.CheckIssueBoxBean;
 
+import java.io.Serializable;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 
-public class CaseManagementEntryFormBean {
+public class CaseManagementEntryFormBean implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private CaseManagementNote caseNote;
     private CaseManagementCPP cpp;
     private String demoNo;

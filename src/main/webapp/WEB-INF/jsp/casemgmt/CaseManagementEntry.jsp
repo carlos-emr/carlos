@@ -50,6 +50,10 @@
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message var="draftSavingLabel" key="encounter.draftSaving.msg"/>
+<fmt:message var="draftSaveFailedLabel" key="encounter.draftSaveFailed.msg"/>
+<fmt:message var="draftSaveConflictLabel" key="encounter.draftSaveConflict.msg"/>
+<fmt:message var="draftSavedLabel" key="encounter.draftSaved.msg"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -74,20 +78,20 @@
         <%
 
             String demographicNo = request.getParameter("demographicNo");
-            String sessionFrmName = "caseManagementEntryForm" + demographicNo;
+            String sessionFrmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
             CaseManagementEntryFormBean form=(CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
             request.setAttribute("caseManagementEntryForm", form);
 
         int size = (form.getIssueCheckList() != null) ? form.getIssueCheckList().size() : 0;
 
-        if (session.getAttribute("newNote")!=null && "true".equalsIgnoreCase((String)session.getAttribute("newNote")))
+        if (request.getAttribute("newNote")!=null && "true".equalsIgnoreCase((String)request.getAttribute("newNote")))
         {%>
         var newNote = true;
         <%}else{%>
         var newNote = false;
         <%}
 
-        if (session.getAttribute("issueStatusChanged")!=null && "true".equalsIgnoreCase((String)session.getAttribute("issueStatusChanged")))
+        if (request.getAttribute("issueStatusChanged")!=null && "true".equalsIgnoreCase((String)request.getAttribute("issueStatusChanged")))
         {%>
         var issueChanged = true;
         <%}else{%>
@@ -191,31 +195,86 @@
         }
 
         var XMLHttpRequestObject = false;
+        var legacyAutosaveTimer = null;
+        var legacyAutosavePending = false;
+        var legacyAutosaveStopped = false;
 
-        if (window.XMLHttpRequest) {
-            XMLHttpRequestObject = new XMLHttpRequest();
-        } else if (window.ActiveXObject) {
-            XMLHttpRequestObject = new ActiveXObject("Microsoft.XMLHTTP");
+        function showLegacyAutosaveStatus(state, text) {
+            var status = document.getElementById('legacyAutosaveStatus');
+            if (!status) return;
+            status.setAttribute('data-autosave-state', state);
+            status.textContent = text;
+        }
+
+        function legacyAutosaveAcknowledged(response, requestUrl) {
+            if (!(response.status >= 200 && response.status < 300)
+                    || typeof response.responseText !== 'string' || response.responseText.trim() !== '') return false;
+            if (!response.responseURL) return true;
+            try {
+                var expected = new URL(requestUrl, window.location.href);
+                var actual = new URL(response.responseURL, window.location.href);
+                return actual.origin === expected.origin && actual.pathname === expected.pathname && actual.search === expected.search;
+            } catch (invalidUrl) {
+                return false;
+            }
         }
 
         function autoSave() {
+            clearTimeout(legacyAutosaveTimer);
+            if (legacyAutosavePending || legacyAutosaveStopped) return;
+            XMLHttpRequestObject = window.XMLHttpRequest ? new XMLHttpRequest()
+                : window.ActiveXObject ? new ActiveXObject("Microsoft.XMLHTTP") : false;
             if (XMLHttpRequestObject) {
                 var obj = document.getElementById('caseNote_note');
-                XMLHttpRequestObject.open("POST", '<%=request.getContextPath() %>/CaseManagementEntry', true);
+                var xhr = XMLHttpRequestObject;
+                var autosaveUrl = '<%=request.getContextPath() %>/CaseManagementEntry';
+                var completed = false;
+                legacyAutosavePending = true;
+                showLegacyAutosaveStatus('pending', '${carlos:forJavaScriptBlock(draftSavingLabel)}');
+                function finish() {
+                    if (completed) return;
+                    completed = true;
+                    legacyAutosavePending = false;
+                    if (legacyAutosaveStopped) return;
+                    if (legacyAutosaveAcknowledged(xhr, autosaveUrl)) {
+                        showLegacyAutosaveStatus('saved', '${carlos:forJavaScriptBlock(draftSavedLabel)}');
+                    } else if (xhr.status === 409) {
+                        legacyAutosaveStopped = true;
+                        showLegacyAutosaveStatus('conflict', '${carlos:forJavaScriptBlock(draftSaveConflictLabel)}');
+                    } else {
+                        showLegacyAutosaveStatus('failed', '${carlos:forJavaScriptBlock(draftSaveFailedLabel)}');
+                    }
+                    setTimer();
+                }
+                xhr.onreadystatechange = function () { if (xhr.readyState === 4) finish(); };
+                xhr.onerror = finish;
+                xhr.ontimeout = finish;
+                xhr.onabort = finish;
+                XMLHttpRequestObject.open("POST", autosaveUrl, true);
+                XMLHttpRequestObject.timeout = 45000;
                 XMLHttpRequestObject.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
                 var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
-                var noteId = '<carlos:encode value='<%= request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                var programId = '${carlos:forJavaScript(case_program_id)}';
-                XMLHttpRequestObject.send("method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + encodeURIComponent(obj.value));
+                var noteId = '<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                var programId = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request)) %>';
+                var chartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+                XMLHttpRequestObject.send((chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "") + "method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + encodeURIComponent(obj.value));
+            } else {
+                showLegacyAutosaveStatus('failed', '${carlos:forJavaScriptBlock(draftSaveFailedLabel)}');
+                setTimer();
             }
-
-            setTimer();
         }
 
         function setTimer() {
-            setTimeout("autoSave()", 60000);
+            clearTimeout(legacyAutosaveTimer);
+            if (!legacyAutosaveStopped) legacyAutosaveTimer = setTimeout(autoSave, 60000);
         }
+
+        window.addEventListener('pagehide', function () {
+            legacyAutosaveStopped = true;
+            clearTimeout(legacyAutosaveTimer);
+            if (legacyAutosavePending && XMLHttpRequestObject) XMLHttpRequestObject.abort();
+        });
 
         function init() {
             setTimer();
@@ -235,10 +294,13 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="u">
     <%
         //get programId
-        String pId = (String) session.getAttribute("case_program_id");
+        String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
         if (pId == null) pId = "";
     %>
     <form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath() %>/CaseManagementEntry" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
         <input type="hidden" name="chain" id="chain"/>
         <input type="hidden" name="demographicNo" id="demographicNo" value="${carlos:forHtmlAttribute(param.demographicNo)}"/>
         <c:if test="${param.providerNo==null}">
@@ -384,7 +446,7 @@
         } else {
         %>
         <input id="showResolved" type="button" value="Show Resolved Issues"
-               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/>&showResolved=true'"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/>&showResolved=true<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) == null ? "" : "&chartContext=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>'"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         <%
             }
         %>
@@ -405,6 +467,7 @@
             </c:if>
 	    </span>
         <%} %>
+        <div id="legacyAutosaveStatus" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <p>
         <table>

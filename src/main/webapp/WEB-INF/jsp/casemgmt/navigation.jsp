@@ -124,8 +124,10 @@
     pageContext.setAttribute("navigationMessages", navigationMessages);
     String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
     String backurl = bsurl + "/encounter/IncomingEncounter?";
+    String navigationChartContext = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request);
+    if (navigationChartContext != null) backurl += "chartContext=" + SafeEncode.forUriComponent(navigationChartContext) + "&";
 //get programId
-    String pgId = (String) session.getAttribute("case_program_id");
+    String pgId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
     if (pgId == null) pgId = "";
 %>
 
@@ -295,7 +297,7 @@
 
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/rx/choosePatient?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Prescriptions</a>
+                               onClick="popupPage('<%=bsurl%>/rx/choosePatient?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%><%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) == null ? "" : "&chartContext=" + org.owasp.encoder.Encode.forJavaScriptAttribute(org.owasp.encoder.Encode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request))) %>');return false;">Prescriptions</a>
                         </td>
                     </tr>
 

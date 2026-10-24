@@ -24,16 +24,16 @@
  * Tags every prescription (Rx) request made from an Rx page with the page's patient.
  *
  * The server keeps one prescription session bean per patient and picks it from the request's
- * demographicNo (RxSessionBeanResolver). Many legacy Rx calls send no demographicNo; without it
- * the server falls back to the patient whose Rx page was opened last, which is another patient
- * when two charts are open side by side (#3875). Loading this script on an Rx page, with
- * data-demographic-no on the script tag, adds demographicNo to:
+ * demographicNo (RxSessionBeanResolver). Every patient-specific request must explicitly name it.
+ * Loading this script with data-demographic-no and optional data-chart-context preserves the
+ * page's patient and originating chart program through:
  *   - CarlosAjax.request / CarlosAjax.updater calls,
  *   - jQuery.ajax calls,
  *   - rx.js popupWindow() and Oscar.js popup2() popups,
  *   - form submissions (a hidden input is added on submit),
  *   - followed links (the href is tagged on click),
- * when the target is an Rx route (/rx/...) and does not already name a patient.
+ * when the target is an Rx route (/rx/...). Existing explicit identities are retained, and chart
+ * context is only added for this page's patient.
  *
  * Load it after carlos-ajax.js, jQuery and rx.js. Use RxPatientContext.withPatient(url) for URLs
  * built by hand, such as a form that is submitted programmatically.
@@ -47,6 +47,11 @@
         var script = typeof document !== 'undefined' ? document.currentScript : null;
         var value = script && script.getAttribute ? script.getAttribute('data-demographic-no') : null;
         return value && /^\d+$/.test(value) ? value : null;
+    }
+
+    function currentScriptChartContext() {
+        var script = typeof document !== 'undefined' ? document.currentScript : null;
+        return script && script.getAttribute ? script.getAttribute('data-chart-context') : null;
     }
 
     function isRxUrl(url) {
@@ -88,8 +93,8 @@
         return path.indexOf('/rx/') >= 0 || path.indexOf('rx/') === 0;
     }
 
-    /** Adds demographicNo to an Rx URL that does not already name a patient. */
-    function tag(url, demographicNo) {
+    /** Adds the missing patient and originating chart context to a same-origin Rx request. */
+    function tag(url, demographicNo, chartContext, data) {
         if (!demographicNo || !isRxUrl(url)) {
             return url;
         }
@@ -97,11 +102,35 @@
         var hash = hashIndex >= 0 ? url.slice(hashIndex) : '';
         var base = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
         var query = base.indexOf('?') >= 0 ? base.slice(base.indexOf('?') + 1) : '';
-        if (PATIENT_PARAMETER.test(query)) {
-            return url;
+        var extra = [];
+        if (!PATIENT_PARAMETER.test(query) && !bodyNamesPatient(data)) {
+            extra.push('demographicNo=' + encodeURIComponent(demographicNo));
         }
+        if (chartContext && !/(^|&)chartContext=/.test(query) && parameterValues(data, 'chartContext').length === 0
+                && namesSamePatient(query, demographicNo) && namesSamePatient(data, demographicNo)) {
+            extra.push('chartContext=' + encodeURIComponent(chartContext));
+        }
+        if (!extra.length) return url;
         var separator = base.indexOf('?') >= 0 ? (base.endsWith('?') || base.endsWith('&') ? '' : '&') : '?';
-        return base + separator + 'demographicNo=' + encodeURIComponent(demographicNo) + hash;
+        return base + separator + extra.join('&') + hash;
+    }
+
+    function parameterValues(data, name) {
+        if (data == null) return [];
+        if (typeof data === 'string') return new URLSearchParams(data).getAll(name);
+        if (typeof data.getAll === 'function') return data.getAll(name);
+        if (typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, name)) {
+            return Array.isArray(data[name]) ? data[name] : [data[name]];
+        }
+        return [];
+    }
+
+    function namesSamePatient(data, demographicNo) {
+        return ['demographicNo', 'demographic_no'].every(function (name) {
+            return parameterValues(data, name).every(function (value) {
+                return value == null || String(value).trim() === '' || Number(value) === Number(demographicNo);
+            });
+        });
     }
 
     /**
@@ -146,15 +175,15 @@
     function stateFor(win) {
         var state = win.__rxPatientContextState;
         if (!state || typeof state !== 'object') {
-            state = {demographicNo: null};
+            state = {demographicNo: null, chartContext: null};
             win.__rxPatientContextState = state;
         }
         return state;
     }
 
-    function create(demographicNo) {
+    function create(demographicNo, chartContext) {
         function withPatient(url) {
-            return tag(url, demographicNo);
+            return tag(url, demographicNo, chartContext);
         }
 
         function install(win) {
@@ -165,32 +194,29 @@
             // The latest page wins, including a page with no patient: its calls must not carry
             // the previous page's patient.
             state.demographicNo = demographicNo;
+            state.chartContext = chartContext;
             if (!demographicNo) {
                 return;
             }
-            function current(url) {
-                return tag(url, state.demographicNo);
+            function current(url, data) {
+                return tag(url, state.demographicNo, state.chartContext, data);
             }
             var ajax = win.CarlosAjax;
             if (ajax && !ajax.__rxPatientContext) {
                 var request = ajax.request;
                 var updater = ajax.updater;
                 ajax.request = function (url, options) {
-                    return request.call(this,
-                            bodyNamesPatient(carlosAjaxData(options)) ? url : current(url), options);
+                    return request.call(this, current(url, carlosAjaxData(options)), options);
                 };
                 ajax.updater = function (container, url, options) {
-                    return updater.call(this, container,
-                            bodyNamesPatient(carlosAjaxData(options)) ? url : current(url), options);
+                    return updater.call(this, container, current(url, carlosAjaxData(options)), options);
                 };
                 ajax.__rxPatientContext = true;
             }
             var jq = win.jQuery;
             if (jq && typeof jq.ajaxPrefilter === 'function' && !jq.__rxPatientContext) {
                 jq.ajaxPrefilter(function (options) {
-                    if (!bodyNamesPatient(options.data)) {
-                        options.url = current(options.url);
-                    }
+                    options.url = current(options.url, options.data);
                 });
                 jq.__rxPatientContext = true;
             }
@@ -212,22 +238,36 @@
                 };
                 win.popup2.__rxPatientContext = true;
             }
-            if (win.document && win.document.addEventListener && !win.document.__rxPatientContext) {
-                win.document.__rxPatientContext = true;
-                win.document.addEventListener('submit', function (event) {
-                    var form = event.target;
-                    if (!state.demographicNo || !form || !form.getAttribute
-                            || !isRxUrl(form.getAttribute('action') || '')) {
-                        return;
-                    }
-                    if (form.querySelector('[name="demographicNo"], [name="demographic_no"]')) {
-                        return;
-                    }
+            function tagForm(form) {
+                if (!state.demographicNo || !form || !form.getAttribute
+                        || !isRxUrl(form.getAttribute('action') || '')) return;
+                var namedPatient = form.querySelector('[name="demographicNo"], [name="demographic_no"]');
+                if (!namedPatient) {
                     var input = win.document.createElement('input');
                     input.type = 'hidden';
                     input.name = 'demographicNo';
                     input.value = state.demographicNo;
                     form.appendChild(input);
+                }
+                if (state.chartContext && (!namedPatient || !namedPatient.value
+                        || Number(namedPatient.value) === Number(state.demographicNo))
+                        && !form.querySelector('[name="chartContext"]')) {
+                    var contextInput = win.document.createElement('input');
+                    contextInput.type = 'hidden';
+                    contextInput.name = 'chartContext';
+                    contextInput.value = state.chartContext;
+                    form.appendChild(contextInput);
+                }
+            }
+            // Native form.submit() skips the submit event. Prepare the forms already rendered,
+            // and repeat at DOMContentLoaded for forms appearing later in the document.
+            if (win.document && typeof win.document.querySelectorAll === 'function') {
+                Array.prototype.forEach.call(win.document.querySelectorAll('form'), tagForm);
+            }
+            if (win.document && win.document.addEventListener && !win.document.__rxPatientContext) {
+                win.document.__rxPatientContext = true;
+                win.document.addEventListener('submit', function (event) {
+                    tagForm(event.target);
                 }, true);
                 // Plain links (drug profile, breadcrumbs, the static-script view) are navigations,
                 // which the wrappers above never see. Tag the href as the link is followed.
@@ -246,7 +286,7 @@
             }
         }
 
-        return {demographicNo: demographicNo, withPatient: withPatient, install: install};
+        return {demographicNo: demographicNo, chartContext: chartContext, withPatient: withPatient, install: install};
     }
 
     var api = {create: create, isRxUrl: isRxUrl, bodyNamesPatient: bodyNamesPatient};
@@ -254,7 +294,7 @@
         module.exports = api;
     }
     if (root && root.document) {
-        var context = create(currentScriptDemographicNo());
+        var context = create(currentScriptDemographicNo(), currentScriptChartContext());
         root.RxPatientContext = context;
         context.install(root);
         // rx.js, Oscar.js and page scripts may define popupWindow / popup2 after this script runs.

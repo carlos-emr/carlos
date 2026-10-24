@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
+const chartHelper = source.slice(source.indexOf('    function chartActionUrl('), source.indexOf('    var caisiEnabled'));
 const start = source.indexOf('    var ajaxRequest;');
 const end = source.indexOf('    function submitIssue(', start);
 assert.ok(start > 0 && end > start);
@@ -14,14 +15,14 @@ function harness() {
   const updates = []; const panels = []; const alerts = [];
   const fields = { newIssueId: { value: '42' }, issueAutocomplete: { value: 'fixture' } };
   const context = {
-    caseNote: 'editor1', demographicNo: '123', ctx: '/carlos', savingNoteError: 'save failed',
+    caseNote: 'editor1', demographicNo: '123', ctx: '/carlos', chartContext: '', savingNoteError: 'save failed',
     document: { forms: { caseManagementEntryForm: { method: {}, ajax: {} } } },
     Form: { serialize: () => 'fixture=form' },
     CarlosAjax: { updater: (target, url, options) => { updates.push(options); return {}; } },
     loadDiv: (target, url, limit, complete) => panels.push(complete),
     $: id => fields[id], alert: message => alerts.push(message),
   };
-  vm.createContext(context); vm.runInContext(source.slice(start, end), context);
+  vm.createContext(context); vm.runInContext(chartHelper + source.slice(start, end), context);
   context.updateIssueError = 'issue refresh failed';
   return { context, updates, panels, alerts, fields };
 }

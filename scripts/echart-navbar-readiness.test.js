@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
+const chartHelper = source.slice(source.indexOf('    function chartActionUrl('), source.indexOf('    var caisiEnabled'));
 const start = source.indexOf('    function updateNavbarLoadState(');
 const end = source.indexOf('// display in place editor', start);
 assert.ok(start > 0 && end > start);
@@ -39,7 +40,8 @@ function harness({ throwFirstSend = false, patient = '2', appointment = 0 } = {}
       return xhr;
     } },
   };
-  vm.createContext(context); vm.runInContext(script, context);
+  context.chartContext = '';
+  vm.createContext(context); vm.runInContext(chartHelper + script, context);
   const loader = new context.navBarLoader(); loader.load();
   function complete(index, { status = 200, html = '<a>loaded</a>' } = {}) {
     const options = requests[index].options;

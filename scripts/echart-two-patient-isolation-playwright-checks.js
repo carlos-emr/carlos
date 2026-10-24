@@ -255,10 +255,16 @@ async function assertVascularTrackerAccessibility(page, form) {
       'The native weight label did not focus its textbox');
     await form.locator('#vt-MedR-comments').focus();
     await page.keyboard.press('Tab');
+    h.assert(await page.evaluate(() => document.activeElement?.id) === 'vt-MedA-yes',
+      'Native Tab from MedR comments did not enter the MedA radio group');
+    await page.keyboard.press('Tab');
+    h.assert(await page.evaluate(() => document.activeElement?.getAttribute('href')) === 'javascript:clearAll(MedAId, MedAId-1)',
+      'Native Tab from the MedA radio group did not focus its clear link');
+    await page.keyboard.press('Tab');
     h.assert(await page.evaluate(() => document.activeElement?.id) === 'vt-MedA-comments',
-      'Native Tab from MedR comments did not focus MedA comments');
-    h.assert(await form.locator('#vt-MedA-comments').evaluate(node => node.tabIndex === 9999 && !node.hasAttribute('abindex')),
-      'MedA comments lost its tabindex or retained the legacy abindex typo');
+      'Native Tab from the MedA clear link did not focus its comments');
+    h.assert(await form.locator('#vt-MedA-comments').evaluate(node => node.tabIndex === 0 && !node.hasAttribute('abindex')),
+      'MedA comments no longer follows native tab order or retained the legacy abindex typo');
   } finally {
     if (examinationToggled) {
       await page.locator('#examLabel a').click();
@@ -1371,53 +1377,16 @@ async function run(s) {
     await activateOther(chartB);
   });
 
-  // One message linked to each patient, for each navigation's message list.
-  const navigationSubject = label => `${marker} ${label} navigation message`;
-  const ownedMessages = `SELECT messageid FROM messagetbl WHERE thesubject LIKE ${q(`${marker} % navigation message`)}`;
-  s.cleanup(() => {
-    const ids = sql.rows(ownedMessages).map(row => patientKey(row[0]));
-    if (ids.length) {
-      sql.execute(`DELETE FROM msgDemoMap WHERE messageID IN (${ids.join(',')}) AND demographic_no IN (${patients});
-        DELETE FROM messagetbl WHERE messageid IN (${ids.join(',')})`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM msgDemoMap WHERE messageID IN (${ids.join(',')})
-        AND demographic_no IN (${patients})`) === '0', 'The owned navigation messages\' patient links were not removed');
+  await s.step('retired direct-render chart routes reject requests without changing either chart', async () => {
+    const beforeA = snapshot(A);
+    const beforeB = snapshot(B);
+    for (const route of ['/casemgmt/ViewNavigation', '/casemgmt/ViewSearch', '/encounter/ViewIndex2']) {
+      const response = await read(`${route}?demographicNo=${A}`);
+      h.assert(response.status === 404, `${route} bypasses its owning chart action (HTTP ${response.status})`);
     }
-    h.assert(sql.rows(ownedMessages).length === 0, 'The owned navigation messages were not removed');
+    assertPatientStateUnchanged(beforeA, snapshot(A), 'retired chart routes (A)');
+    assertPatientStateUnchanged(beforeB, snapshot(B), 'retired chart routes (B)');
   });
-  const messageLocation = sql.value('SELECT locationId FROM oscarcommlocations WHERE current1=1 LIMIT 1');
-  h.assert(/^\d+$/.test(messageLocation), 'No current messenger location is configured');
-  for (const d of directions) {
-    const id = h.insertId(sql, `INSERT INTO messagetbl(thedate, theime, themessage, thesubject, sentby, sentto,
-        sentbyNo, sentByLocation, type)
-      VALUES(CURDATE(), CURTIME(), 'FAKE-PW', ${q(navigationSubject(d.label))}, 'FAKE-PW sender', 'FAKE-PW recipient',
-        ${q(provider)}, ${messageLocation}, 0)`, 'navigation message');
-    sql.execute(`INSERT INTO msgDemoMap(messageID, demographic_no) VALUES(${id}, ${d.patient})`);
-  }
-
-  for (const d of directions) {
-    await s.step(`the legacy case-management navigation for ${d.label} links only to ${d.label}`, async () => {
-      await activateOther(d.otherChart);
-      const before = snapshot(d.other);
-      const navigation = await read(`/casemgmt/ViewNavigation?demographicNo=${d.patient}`);
-      // Its messenger list used to fail every rendering (a literal items string), cutting the page
-      // off after the first sections while the response still said 200.
-      h.assert(navigation.status === 200 && navigation.body.includes('Clinical Resources'),
-        `${d.label}'s legacy navigation did not render past its messenger list`);
-      h.assert(navigation.body.includes(navigationSubject(d.label)) && !navigation.body.includes(navigationSubject(otherLabelOf(d))),
-        `${d.label}'s legacy navigation does not list exactly the messages linked to ${d.label}`);
-      const owners = [...navigation.body.matchAll(/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=(\d+)/g)]
-        .map(match => match[1]);
-      h.assert(owners.length > 0 && owners.every(owner => owner === d.patient),
-        `${d.label}'s legacy navigation links to ${[...new Set(owners)].map(ownerLabel).join(', ') || 'no patient'}`);
-      // Its form links read ${bean.demographicNo}, which used to name no scoped bean.
-      h.assert(!/[?&;](?:demographic_no|demographicNo)=(?!\d)/.test(navigation.body),
-        `${d.label}'s legacy navigation has links that name no patient`);
-      const anonymous = await read('/casemgmt/ViewNavigation');
-      h.assert(anonymous.status === 200 && !/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=\d/.test(anonymous.body),
-        'The legacy navigation without a patient linked to one');
-      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s legacy navigation`);
-    });
-  }
 
   // The notes list (ChartNotesAjax.jsp) compares each unsigned note's author with its chart entry's
   // provider. It used to take that provider from the bean, so once the other chart was entered from
@@ -1617,13 +1586,14 @@ async function run(s) {
     };
     // Chromium omits an unintercepted Blob beacon's body from request events. A temporary
     // pass-through exposes its real bytes without rewriting the request or mocking its response.
-    const releaseEndpoint = h.appUrl(s.config.baseUrl, '/CaseManagementEntry');
+    const releaseEndpoint = new URL(h.appUrl(s.config.baseUrl, '/CaseManagementEntry'));
+    const releaseUrl = url => url.origin === releaseEndpoint.origin && url.pathname === releaseEndpoint.pathname;
     const passReleaseThrough = async route => {
       const request = route.request();
       if (isOwnedLockRelease(request, A, noteId, provider) && request.frame().page() === chartA) releases.push(request);
       await route.continue();
     };
-    await context.route(releaseEndpoint, passReleaseThrough);
+    await context.route(releaseUrl, passReleaseThrough);
     chartA.on('requestfailed', onFailure);
     try {
       // Real navigation preserves the popup's WindowProxy opener while replacing its patient/document.
@@ -1642,7 +1612,7 @@ async function run(s) {
       consumeDeliveredLockReleases(recorder, candidates);
     } finally {
       chartA.off('requestfailed', onFailure);
-      await context.unroute(releaseEndpoint, passReleaseThrough);
+      await context.unroute(releaseUrl, passReleaseThrough);
     }
     const editor = chartA.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
     // Settle B's own draft through its native Save before protecting every B row. Otherwise a

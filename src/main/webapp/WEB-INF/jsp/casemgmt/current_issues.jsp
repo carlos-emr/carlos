@@ -1,0 +1,149 @@
+<%--
+
+
+    Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for
+    Centre for Research on Inner City Health, St. Michael's Hospital,
+    Toronto, Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+    Modifications by CARLOS Contributors, 2026.
+
+--%>
+
+
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.issues" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.issues");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="java.util.Map" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
+
+
+<%
+    Map dxMap = (Map) request.getAttribute("dxMap");
+%>
+<b>Issue Filter Create Report View:</b>
+
+<table width="100%" border="0" cellpadding="0" cellspacing="1"
+       bgcolor="#C0C0C0">
+    <tr class="title">
+        <th scope="col">Select</th>
+        <th scope="col">Code</th>
+        <th scope="col">Issue</th>
+        <th scope="col">Location</th>
+        <th scope="col">Acute</th>
+        <th scope="col">Certain</th>
+        <th scope="col">Major</th>
+        <th scope="col">Resolved</th>
+        <th scope="col">type</th>
+        <th scope="col">Action</th>
+    </tr>
+    <%
+        int index = 0;
+        String bgcolor = "white";
+    %>
+    <c:forEach var="issue" items="${Issues}">
+        <%
+
+            if (index++ % 2 != 0) {
+                bgcolor = "white";
+            } else {
+                bgcolor = "#EEEEFF";
+            }
+        %>
+
+        <tr bgcolor="<%=bgcolor %>" align="center">
+            <%
+                String checked = "";
+                CheckBoxBean checkBoxBean = (CheckBoxBean) pageContext.getAttribute("issue");
+                CaseManagementViewAction.IssueDisplay issue = checkBoxBean.getIssueDisplay();
+                String issueCompositeId = issue.codeType + "." + issue.code;
+                String[] checkedIssues = request.getParameterValues("check_issue");
+                if (checkedIssues != null) {
+                    for (int x = 0; x < checkedIssues.length; x++) {
+                        if (checkedIssues[x].equals(issueCompositeId)) {
+                            checked = "CHECKED";
+                        }
+                    }
+                }
+                String priority = "";
+                if ("allergy".equals(issue.priority))
+                    priority = "yellow";
+            %>
+            <td>
+                <input type="checkbox" name="check_issue" aria-label="<%=SafeEncode.forHtmlAttribute("Select issue " + issue.code + ": " + issue.description)%>" value="<%=SafeEncode.forHtmlAttribute(issueCompositeId)%>" <%=checked%>
+                       onclick="document.caseManagementViewForm.submit();"/>
+            </td>
+            <td><c:out value="${issue.issueDisplay.code}"/></td>
+            <td bgcolor="<%=priority%>"><c:out value="${issue.issueDisplay.description }"/></td>
+            <td><c:out value="${issue.issueDisplay.location}"/></td>
+            <td><c:out value="${issue.issueDisplay.acute}"/></td>
+            <td><c:out value="${issue.issueDisplay.certain}"/></td>
+            <td><c:out value="${issue.issueDisplay.major}"/></td>
+            <td><c:out value="${issue.issueDisplay.resolved}"/></td>
+            <td><c:out value="${issue.issueDisplay.role}"/></td>
+            <td>
+                <%
+                    if ("major".equals(issue.major)) {
+                        if (dxMap.get(issue.code) != null) {
+                %>Dx<%
+            } else {
+            %><button type="button"
+                    style="border: 0; padding: 0; background: transparent; font: inherit; text-decoration: underline; cursor: pointer; color: blue"
+                    onclick="document.caseManagementViewForm.hideActiveIssue.value='false';document.caseManagementViewForm.elements.namedItem('method').value='addToDx';document.caseManagementViewForm.issue_code.value='<%=SafeEncode.forJavaScriptAttribute(issue.code)%>';document.caseManagementViewForm.submit(); return false;">+Dx</button>
+                <%
+                        }
+                    }
+                %>
+            </td>
+        </tr>
+    </c:forEach>
+</table>
+<c:if test="${caseManagementViewForm.hideActiveIssue eq 'true'}">
+	<button type="button" style="border: 0; padding: 0; background: transparent; font: inherit; text-decoration: underline; cursor: pointer; color: blue"
+          onclick="document.caseManagementViewForm.hideActiveIssue.value='false';document.caseManagementViewForm.elements.namedItem('method').value='setHideActiveIssues';document.caseManagementViewForm.submit(); return false;">show
+	resolved issues</button>
+</c:if>
+<c:choose>
+    <c:when test="${caseManagementViewForm.hideActiveIssue ne 'true'}">
+	<button type="button" style="border: 0; padding: 0; background: transparent; font: inherit; text-decoration: underline; cursor: pointer; color: blue"
+          onclick="document.caseManagementViewForm.hideActiveIssue.value='true';document.caseManagementViewForm.elements.namedItem('method').value='setHideActiveIssues';document.caseManagementViewForm.submit(); return false;">hide
+	resolved issues</button>
+    </c:when>
+</c:choose>

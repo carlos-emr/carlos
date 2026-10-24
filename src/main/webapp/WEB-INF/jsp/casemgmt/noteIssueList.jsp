@@ -67,7 +67,7 @@
     String noteIndex = "";
     String encSelect = "encTypeSelect";
     String demoNo = request.getParameter("demographicNo");
-    String caseMgmtEntryFrm = "caseManagementEntryForm" + demoNo;
+    String caseMgmtEntryFrm = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demoNo);
     CaseManagementEntryFormBean frm = (CaseManagementEntryFormBean) request.getAttribute("caseManagementEntryForm");
     if (frm == null) {
         frm = (CaseManagementEntryFormBean) session.getAttribute(caseMgmtEntryFrm);
@@ -153,7 +153,7 @@
 
 <%
     Facility currentFacility = loggedInInfo73557.getCurrentFacility();
-    String programId = (String) request.getSession().getAttribute("case_program_id");
+    String programId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
     Program currentProgram = null;
     if (programId != null) {
         ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
@@ -175,9 +175,13 @@
         <c:otherwise>
             <fmt:message key="encounter.encounterTime.title"/>:&nbsp;
             <input type="text" tabindex="11" id="hourOfEncounterTime" name="hourOfEncounterTime" maxlength="2"
+                   oninput="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
+                   onchange="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
                    style="border: 1px; width: 20px; height: 12px;"
                    value="${caseManagementEntryForm.caseNote.hourOfEncounterTime}">&nbsp;<b>:</b>&nbsp;
             <input type="text" tabindex="12" id="minuteOfEncounterTime" name="minuteOfEncounterTime" maxlength="2"
+                   oninput="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
+                   onchange="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
                    style="border: 1px; width: 20px; height: 12px;"
                    value="${caseManagementEntryForm.caseNote.minuteOfEncounterTime}">
         </c:otherwise>
@@ -202,9 +206,13 @@
         <c:otherwise>
             <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;
             <input type="text" tabindex="13" id="hourOfEncTransportationTime" name="hourOfEncTransportationTime" maxlength="2"
+                   oninput="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
+                   onchange="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
                    style="border: 1px; width: 20px; height:12px;"
                    value="${caseManagementEntryForm.caseNote.hourOfEncTransportationTime}">&nbsp;<b>:</b>&nbsp;
             <input type="text" tabindex="14" id="minuteOfEncTransportationTime" name="minuteOfEncTransportationTime" maxlength="2"
+                   oninput="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
+                   onchange="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
                    style="border: 1px; width: 20px; height:12px;"
                    value="${caseManagementEntryForm.caseNote.minuteOfEncTransportationTime}">
         </c:otherwise>
@@ -404,16 +412,16 @@
                         <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> Chronic
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="true" disabled="${disabled}" onchange="${submitString}"> Certain
+                        <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> Certain
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="false" disabled="${disabled}" onchange="${submitString}"> Uncertain
+                        <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> Uncertain
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.major" value="true" disabled="${disabled}" onchange="${submitString}"> Major
+                        <input type="radio" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> Major
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.major" value="false" disabled="${disabled}" onchange="${submitString}"> Not Major
+                        <input type="radio" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> Not Major
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
                         <input type="radio" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> Resolved
@@ -422,7 +430,7 @@
                         <input type="radio" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> Unresolved
                     </div>
                     <div style="text-align: center;">
-                        <input type="text" name="issueCheckList[${status.index}].issueDisplay.role" size="10" disabled="${disabled}" />
+                        <input type="text" name="issueCheckList[${status.index}].issueDisplay.role" size="10" ${disabled ? 'disabled="disabled"' : ''} />
                     </div>
                 </div>
             </div>
@@ -439,7 +447,8 @@
 </div>
 <!-- end of div noteIssues -->
 
-<div id='autosaveTime' class='sig' style='text-align:center; margin:0px;'></div>
+<div id='autosaveTime' class='sig' style='text-align:center; margin:0px;'
+     role='status' aria-live='polite' aria-atomic='true'></div>
 <script type="text/javascript">
 (function () {
     // AJAX responses re-evaluate this fragment, so keep its declarations isolated.

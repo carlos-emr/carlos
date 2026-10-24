@@ -116,7 +116,7 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRefuseCumulativeHistory_whenProgramOrFacilityFilterHidesARow() {
-        request.getSession().setAttribute("case_program_id", "7");
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "7");
         when(manager.filterNotes(user, "4249", List.of(note), "7")).thenReturn(List.of());
         assertRefused();
         verify(manager).filterNotes(user, "4249", List.of(note), "7");
@@ -125,7 +125,7 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"", "0", "7"})
     void shouldRenderHistory_whenPatientAndChartFiltersAllowIt(String program) {
-        request.getSession().setAttribute("case_program_id", program);
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, program);
         when(manager.filterNotes(user, "4249", List.of(note), "7")).thenReturn(List.of(note));
         assertThat(action.notehistory()).isEqualTo("showHistory");
         assertThat(request.getAttribute("history")).isEqualTo(List.of(note));
@@ -151,5 +151,28 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
         request.setParameter("demographicNo", id);
         assertRefused();
         verifyNoInteractions(manager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"module", "record lock", "another patient", "missing note", "hidden revision", "empty history"})
+    void shouldRefuseLegacyHistoryBeforeRenderingClinicalText_whenItsReadBoundaryFails(String boundary) {
+        switch (boundary) {
+            case "module" -> when(security.hasPrivilege(user, "_casemgmt.notes", "r", "101")).thenReturn(false);
+            case "record lock" -> when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
+            case "another patient" -> note.setDemographic_no("102");
+            case "missing note" -> when(manager.getNote("501")).thenReturn(null);
+            case "hidden revision" -> {
+                io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "7");
+                when(manager.filterNotes(user, "4249", List.of(note), "7")).thenReturn(List.of());
+            }
+            case "empty history" -> when(manager.getHistory("501")).thenReturn(List.of());
+            default -> throw new IllegalArgumentException("Unknown boundary");
+        }
+
+        assertThat(action.history()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("history")).isNull();
+        assertThat(request.getAttribute("demoName")).isNull();
+        logActionMock.verifyNoInteractions();
     }
 }

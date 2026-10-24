@@ -53,6 +53,7 @@
 <%@page buffer="1024kb" %>
 <% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
@@ -118,7 +119,15 @@
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-    String demoNo = request.getParameter("demographicNo");
+    String chartPatientNo;
+    try {
+        chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(400);
+        return;
+    }
+    String demoNo = chartPatientNo;
+    String demographicNo = chartPatientNo;
     String privateConsentEnabledProperty = CarlosProperties.getInstance().getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true");
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -146,27 +155,13 @@
     try {
         Facility facility = loggedInInfo.getCurrentFacility();
 
-        String pId = (String) session.getAttribute("case_program_id");
+        String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
         if (pId == null) {
             pId = "";
         }
 
-        String demographicNo = request.getParameter("demographicNo");
-        EctSessionBean bean = null;
-        if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-            response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
-            return;
-        }
-        // The session bean follows whichever chart was entered last in any window of this login
-        // (issue #4556). Only this chart's own patient may supply its entry metadata; links that
-        // name a patient use the patient this request carries.
-        String chartPatientNo;
-        try {
-            chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
-        } catch (IllegalArgumentException invalidPatient) {
-            chartPatientNo = null;
-        }
-        boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);
+        EctSessionBean bean = EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo);
+        // Encounter metadata belongs to the explicitly named chart.
         pageContext.setAttribute("chartPatientNo", chartPatientNo);
 
         // This chart's own entry provider: the patient's remembered entry, or the logged-in provider
@@ -178,7 +173,7 @@
         SimpleDateFormat jsfmt = new SimpleDateFormat("MMM dd, yyyy");
         Date dToday = new Date();
         String strToday = jsfmt.format(dToday);
-        String frmName = "caseManagementEntryForm" + demographicNo;
+        String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
         CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
         if (request.getParameter("caseManagementEntryForm") == null) {
             request.setAttribute("caseManagementEntryForm", cform);
@@ -198,6 +193,13 @@
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/select.js" type="text/javascript"></script>
+<script>
+    // A standalone response needs the same initial context as the full chart layout.
+    // Fragments inserted into an existing chart retain the containing window's context.
+    if (typeof window.carlosChartContext === 'undefined') {
+        window.carlosChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+    }
+</script>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp?v=<%= System.currentTimeMillis() %>"></script>
 <script type="text/javascript">
     ctx = "${carlos:forJavaScript(ctx)}";
@@ -244,6 +246,9 @@
 </script>
 <div id="topContent">
     <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
         <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="providerNo" value="<%=provNo%>"/>
         <input type="hidden" name="tab" value="Current Issues"/>
@@ -506,6 +511,9 @@
 </div>
 <%-- Insert smart note templates here --%>
 <form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath()%>/CaseManagementEntry" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
     <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="includeIssue" value="off"/>
     <%
@@ -652,7 +660,7 @@
                            title='<fmt:message key="encounter.Index.btnSign"/>'>
                     <%
                         // A chart entered from the messenger hides Bill; another window's entry must not.
-                        if (!ownChartBean || bean.source == null) {
+                        if (bean.source == null) {
                     %>
                     <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/dollar-sign-icon.png"

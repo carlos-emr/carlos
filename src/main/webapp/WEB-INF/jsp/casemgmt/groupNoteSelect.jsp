@@ -64,7 +64,7 @@
 	
 	String demographicNo = request.getParameter("demographicNo");
 	
-	String frmName = "caseManagementEntryForm" + demographicNo;
+	String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
 	CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean)session.getAttribute(frmName);
 	String noteId = cform.getNoteId();
 	boolean isUpdate=false;
@@ -118,6 +118,9 @@
 
 <h5>Select clients for group note</h5>
 <form action="<%= request.getContextPath() %>/casemgmt/ViewGroupNoteSelectAction" method="post">
+    <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+    <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+    <% } %>
     <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
     <table>
 
