@@ -36,6 +36,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -72,7 +73,7 @@ final class ReportingGrantList {
 
     // The shipped list never changes while the application runs; parse it once. Two threads
     // racing here both parse the same file, which is harmless.
-    private static volatile ReportingGrantList classpathList;
+    private static final AtomicReference<ReportingGrantList> CLASSPATH_LIST = new AtomicReference<>();
 
     /** One classification row. */
     record Entry(String table, String access, Set<String> excludedColumns, String reason) {
@@ -117,7 +118,7 @@ final class ReportingGrantList {
      * @throws IllegalArgumentException if the list is not in the documented format
      */
     static ReportingGrantList fromClasspath() throws IOException {
-        ReportingGrantList list = classpathList;
+        ReportingGrantList list = CLASSPATH_LIST.get();
         if (list == null) {
             try (InputStream in = ReportingGrantList.class.getResourceAsStream(RESOURCE)) {
                 if (in == null) {
@@ -125,7 +126,7 @@ final class ReportingGrantList {
                 }
                 list = parse(new String(in.readAllBytes(), StandardCharsets.UTF_8).lines().toList(), RESOURCE);
             }
-            classpathList = list;
+            CLASSPATH_LIST.set(list);
         }
         return list;
     }
