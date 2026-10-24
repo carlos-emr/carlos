@@ -321,9 +321,12 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(form.getIssueCheckList().getFirst()).isSameAs(retained);
         assertThat(original.getRevision()).isEqualTo("1");
         assertThat(original.getNote()).isEqualTo(marker + " original");
-        for (Long id : attemptedNoteIds) assertThat(tx().execute(status -> entityManager.createQuery(
-                        "select count(h) from HashAudit h where h.type='enc' and h.id2=:id", Long.class)
-                .setParameter("id", id.toString()).getSingleResult())).isZero();
+        for (Long id : attemptedNoteIds) {
+            Long orphanHashes = tx().execute(status -> entityManager.createQuery(
+                            "select count(h) from HashAudit h where h.type='enc' and h.id2=:id", Long.class)
+                    .setParameter("id", id.toString()).getSingleResult());
+            assertThat(orphanHashes).isZero();
+        }
         verify(locks, never()).merge(any());
         target.setCaseManagementTmpSaveDao(drafts);
 

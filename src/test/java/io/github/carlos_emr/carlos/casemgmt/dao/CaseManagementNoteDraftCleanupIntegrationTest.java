@@ -390,7 +390,8 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
             assertThat(submitted.getRevision()).isEqualTo("0");
             assertThat(submitted.getUuid()).isNull();
             assertThat(submitted.getNote()).isEqualTo("Revised shared assessment");
-            assertThat(tx().execute(status -> caseManagementNoteDAO.getNote(submitted.getId()).getUuid())).isNull();
+            String rolledBackUuid = tx().execute(status -> caseManagementNoteDAO.getNote(submitted.getId()).getUuid());
+            assertThat(rolledBackUuid).isNull();
             target.setCaseManagementTmpSaveDao(drafts);
         }
 
