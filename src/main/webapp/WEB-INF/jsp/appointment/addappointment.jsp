@@ -1288,7 +1288,7 @@ Ontario, Canada
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
                         %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="location"><fmt:message key="Appointment.formLocation"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="location" id="apptLocationLabel"><fmt:message key="Appointment.formLocation"/>:</label>
                             <div class="col-sm-8">
                                 <% if (bMultisites) { %>
                                 <%
@@ -1309,7 +1309,7 @@ Ontario, Canada
                                     <% } %>
                                 </select>
                                 <% } else if (locationEnabled) { %>
-                                <select id="location" name="location" class="form-select form-select-sm">
+                                <select id="locationSite" aria-labelledby="apptLocationLabel" name="location" class="form-select form-select-sm">
                                     <%
                                         String sessionLocation = "";
                                         ProgramProvider programProvider = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -1327,7 +1327,7 @@ Ontario, Canada
                                     %>
                                 </select>
                                 <% } else { %>
-                                <input type="text" id="location" name="location" tabindex="4" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
+                                <input type="text" id="locationText" aria-labelledby="apptLocationLabel" name="location" tabindex="4" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
                                 <% } %>
                             </div>
                         </div>
@@ -1352,7 +1352,7 @@ Ontario, Canada
                     <%-- Right column: Status, Type, Doctor, Notes, Resources, DateTime, Critical, Email --%>
                     <div class="col-md-6">
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="status"><fmt:message key="Appointment.formStatus"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="status" id="apptStatusLabel"><fmt:message key="Appointment.formStatus"/>:</label>
                             <div class="col-sm-8">
                                 <% if (statusEditable) { %>
                                 <select id="status" class="form-select form-select-sm" name="status" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
@@ -1365,7 +1365,7 @@ Ontario, Canada
                                     <% } %>
                                 </select>
                                 <% } else { %>
-                                <input type="text" id="status" name="status" class="form-control form-control-sm"
+                                <input type="text" id="statusText" aria-labelledby="apptStatusLabel" name="status" class="form-control form-control-sm"
                                        value='<carlos:encode value='<%= bFirstDisp ? "t" : (request.getParameter("status") == null ? "" : request.getParameter("status")) %>' context="htmlAttribute"/>'>
                                 <% } %>
                             </div>
