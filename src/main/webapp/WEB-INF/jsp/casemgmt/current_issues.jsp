@@ -62,16 +62,16 @@
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
     <tr class="title">
-        <td></td>
-        <td>Code</td>
-        <td>Issue</td>
-        <td>Location</td>
-        <td>Acute</td>
-        <td>Certain</td>
-        <td>Major</td>
-        <td>Resolved</td>
-        <td>type</td>
-        <td></td>
+        <th scope="col">Select</th>
+        <th scope="col">Code</th>
+        <th scope="col">Issue</th>
+        <th scope="col">Location</th>
+        <th scope="col">Acute</th>
+        <th scope="col">Certain</th>
+        <th scope="col">Major</th>
+        <th scope="col">Resolved</th>
+        <th scope="col">type</th>
+        <th scope="col">Action</th>
     </tr>
     <%
         int index = 0;
@@ -106,7 +106,7 @@
                     priority = "yellow";
             %>
             <td>
-                <input type="checkbox" name="check_issue" value="<%=SafeEncode.forHtmlAttribute(issueCompositeId)%>" <%=checked%>
+                <input type="checkbox" name="check_issue" aria-label="<%=SafeEncode.forHtmlAttribute("Select issue " + issue.code + ": " + issue.description)%>" value="<%=SafeEncode.forHtmlAttribute(issueCompositeId)%>" <%=checked%>
                        onclick="document.caseManagementViewForm.submit();"/>
             </td>
             <td><c:out value="${issue.issueDisplay.code}"/></td>
@@ -125,7 +125,7 @@
             } else {
             %><span
                     style="text-decoration: underline; cursor: pointer; color: blue"
-                    onclick="document.caseManagementViewForm.hideActiveIssue.value='false';document.caseManagementViewForm.method.value='addToDx';document.caseManagementViewForm.issue_code.value='<%=SafeEncode.forJavaScriptAttribute(issue.code)%>';document.caseManagementViewForm.submit(); return false;">+Dx</span>
+                    onclick="document.caseManagementViewForm.hideActiveIssue.value='false';document.caseManagementViewForm.elements.namedItem('method').value='addToDx';document.caseManagementViewForm.issue_code.value='<%=SafeEncode.forJavaScriptAttribute(issue.code)%>';document.caseManagementViewForm.submit(); return false;">+Dx</span>
                 <%
                         }
                     }

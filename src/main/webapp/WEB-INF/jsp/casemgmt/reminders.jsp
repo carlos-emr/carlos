@@ -60,13 +60,13 @@
 <input type="hidden" name="cpp.otherSupportSystems" value="${carlos:forHtmlAttribute(requestScope.cpp.otherSupportSystems)}"/>
 <input type="hidden" name="cpp.ongoingConcerns" value="${carlos:forHtmlAttribute(requestScope.cpp.ongoingConcerns)}"/>
 
-<table width="100%" border="0" cellpadding="0" cellspacing="1"
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
     <tr class="title">
-        <td>Reminders</td>
+        <td><label for="cpp.reminders">Reminders</label></td>
     </tr>
     <tr>
-        <td bgcolor="white"><textarea name="cpp.reminders" rows="4" cols="85"><c:out value="${requestScope.cpp.reminders}"/></textarea></td>
+        <td bgcolor="white"><textarea id="cpp.reminders" name="cpp.reminders" rows="4" cols="85"><c:out value="${requestScope.cpp.reminders}"/></textarea></td>
     </tr>
 </table>
 <input type="submit" value="Save" onclick="this.form.elements.namedItem('method').value='patientCPPSave'"/>

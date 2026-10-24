@@ -116,8 +116,8 @@
     }
     LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
     SecurityInfoManager access = SpringUtils.getBean(SecurityInfoManager.class);
-    // This export includes demographics, prescriptions, allergies, forms and the legacy chart.
-    for (String object : new String[]{"_demographic", "_rx", "_allergy", "_form", "_eChart"}) {
+    // This export includes demographics, prescriptions, allergies and the legacy chart.
+    for (String object : new String[]{"_demographic", "_rx", "_allergy", "_eChart"}) {
         PatientRecordAccess.require(access, login, demoNo, object, "r");
     }
 

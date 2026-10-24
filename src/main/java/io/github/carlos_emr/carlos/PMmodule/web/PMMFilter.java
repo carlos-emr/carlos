@@ -42,7 +42,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Agency;
 import io.github.carlos_emr.carlos.PMmodule.service.AgencyManager;
-import io.github.carlos_emr.carlos.PMmodule.service.OscarSecurityManager;
+import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -58,7 +58,7 @@ public class PMMFilter implements Filter {
     private static Logger logger = MiscUtils.getLogger();
 
     private AgencyManager agencyManager;
-    private OscarSecurityManager oscarSecurityManager;
+    private SecUserRoleDao secUserRoleDao;
     private ProviderManager providerManager;
     private FilterConfig config;
 
@@ -66,7 +66,9 @@ public class PMMFilter implements Filter {
         WebApplicationContext wac = WebApplicationContextUtils.getWebApplicationContext(config.getServletContext());
 
         agencyManager = (AgencyManager) wac.getBean(AgencyManager.class);
-        oscarSecurityManager = (OscarSecurityManager) wac.getBean(OscarSecurityManager.class);
+        // PMM note attachment is available even when the optional CAISI context is disabled.
+        // Use the core DAO behind OscarSecurityManager so the role check remains identical.
+        secUserRoleDao = wac.getBean(SecUserRoleDao.class);
         providerManager = (ProviderManager) wac.getBean(ProviderManager.class);
     }
 
@@ -124,7 +126,7 @@ public class PMMFilter implements Filter {
 
         if (session.getAttribute("pmm_admin") == null) {
             logger.debug("setting session variable: pmm_admin");
-            session.setAttribute("pmm_admin", Boolean.valueOf(oscarSecurityManager.hasAdminRole(oscarUser))); // nosemgrep: tainted-session-from-http-request -- boolean derived from DAO-sourced role check on authenticated provider
+            session.setAttribute("pmm_admin", Boolean.valueOf(secUserRoleDao.hasAdminRole(oscarUser))); // nosemgrep: tainted-session-from-http-request -- boolean derived from DAO-sourced role check on authenticated provider
         }
 		
 /* If the providers didn't have the role 'admin', he can still have the access to the administration links(eg. Add Program) on PMM.

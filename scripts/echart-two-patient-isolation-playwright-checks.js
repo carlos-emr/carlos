@@ -255,10 +255,16 @@ async function assertVascularTrackerAccessibility(page, form) {
       'The native weight label did not focus its textbox');
     await form.locator('#vt-MedR-comments').focus();
     await page.keyboard.press('Tab');
+    h.assert(await page.evaluate(() => document.activeElement?.id) === 'vt-MedA-yes',
+      'Native Tab from MedR comments did not enter the MedA radio group');
+    await page.keyboard.press('Tab');
+    h.assert(await page.evaluate(() => document.activeElement?.getAttribute('href')) === 'javascript:clearAll(MedAId, MedAId-1)',
+      'Native Tab from the MedA radio group did not focus its clear link');
+    await page.keyboard.press('Tab');
     h.assert(await page.evaluate(() => document.activeElement?.id) === 'vt-MedA-comments',
-      'Native Tab from MedR comments did not focus MedA comments');
-    h.assert(await form.locator('#vt-MedA-comments').evaluate(node => node.tabIndex === 9999 && !node.hasAttribute('abindex')),
-      'MedA comments lost its tabindex or retained the legacy abindex typo');
+      'Native Tab from the MedA clear link did not focus its comments');
+    h.assert(await form.locator('#vt-MedA-comments').evaluate(node => node.tabIndex === 0 && !node.hasAttribute('abindex')),
+      'MedA comments no longer follows native tab order or retained the legacy abindex typo');
   } finally {
     if (examinationToggled) {
       await page.locator('#examLabel a').click();

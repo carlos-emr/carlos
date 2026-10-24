@@ -43,16 +43,7 @@
             <fld name="Allergy Type" sql="ELT(TYPECODE, 'Brand Name', 'Generic Name', 'Ingredient', 'Allergy Group', 'Cross-Sensitive Allergy Group')"/>
         </item>
     </table>
-    <table name="AR Form"
-    sqlFrom="formAR"
-    sqlLink="formAR.demographic_no" sqlOrder="formEdited desc, ID desc">
-        <item name="AR" sql="formAR.formEdited">
-            <fld name="Provider ID" sql="provider_no"/>
-            <fld name="Form Created Date" sql="formCreated"/>
-            <fld name="Patient Name" sql="c_pName"/>
-            <fld name="Patient Address" sql="c_address"/>
-        </item>
-    </table>
+    <!-- formAR was retired by update-2026-03-25-remove-deprecated-form-tables.sql. -->
     <table name="Encounter Info"
     sqlFrom="eChart"
     sqlLink="eChart.demographicNo" sqlOrder="timeStamp desc limit 1">

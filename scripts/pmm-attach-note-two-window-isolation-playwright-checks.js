@@ -245,9 +245,8 @@ async function workflow(s) {
       const popup = popups[label];
       await popup.locator('input[name="criteria.lastName"]').fill(marker);
       await popup.locator('input[name="criteria.firstName"]').fill('PatientCharlie');
-      // "Search all clients": the program-domain search finds no one here, because the session's
-      // program domain is set by PMMFilter, which runs after Struts has already answered PMM
-      // actions (web.xml filter order; a separate defect, see the PR's notes).
+      // C is not admitted to a program, so finding C requires "Search all clients".
+      // PMMFilter initializes the authenticated program domain before this action runs.
       await popup.locator('input[name="criteria.searchOutsideDomain"]').check();
       const search = async what => {
         // The navigation wait is armed before the click, so the results read below are the search's.

@@ -452,12 +452,10 @@ async function sendRefused(s, page, groupId, subject, reason, label) {
 }
 
 /**
- * The transfer page's post (messenger/Transfer/PostItems) with one item, from `page`. The transfer
- * page itself (messenger/Transfer/SelectItems) cannot render: it reads /DocXferConfig.xml from the
- * server's filesystem root, which no install has, so it fails for every patient. Its form posts
- * xmlDoc (the patient's document, Base64) and item<N>=on for each ticked item to PostItems, which
- * is live. The same form is built and submitted here, from a messenger page, so CSRFGuard adds its
- * token as it does for the page's own form. The post opens a compose window of its own in `page`.
+ * Submit the transfer form's XML contract with one identifiable item, from `page`.
+ * The workflow first renders the real packaged chooser, then uses a synthetic item
+ * to distinguish this compose window's attachment from another window's. CSRFGuard
+ * adds the token to this form just as it does to the chooser's own submission.
  */
 async function postTransfer(page, content) {
   const previous = new URL(page.url()).searchParams.get('attachmentKey');

@@ -52,22 +52,22 @@
 
 <input type="hidden" name="cpp.reminders" value="${carlos:forHtmlAttribute(requestScope.cpp.reminders)}"/>
 <input type="hidden" name="cpp.ongoingConcerns" value="${carlos:forHtmlAttribute(requestScope.cpp.ongoingConcerns)}"/>
-<table width="100%" border="0" cellpadding="0" cellspacing="1"
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
     <%if (!CarlosProperties.getInstance().isTorontoRFQ()) { %>
     <tr>
-        <td bgcolor="white">Primary Health Care Provider</td>
+        <td bgcolor="white"><label for="cpp.primaryPhysician">Primary Health Care Provider</label></td>
         <td bgcolor="white"><input type="text" name="cpp.primaryPhysician" id="cpp.primaryPhysician" value="${carlos:forHtmlAttribute(requestScope.cpp.primaryPhysician)}" /></td>
     </tr>
     <%} else { %>
     <input type="hidden" name="cpp.primaryPhysician" value="${carlos:forHtmlAttribute(requestScope.cpp.primaryPhysician)}"/>
     <%} %>
     <tr>
-        <td bgcolor="white">Primary Counsellor/Caseworker</td>
+        <td bgcolor="white"><label for="cpp.primaryCounsellor">Primary Counsellor/Caseworker</label></td>
         <td bgcolor="white"><input type="text" name="cpp.primaryCounsellor" id="cpp.primaryCounsellor" value="${carlos:forHtmlAttribute(requestScope.cpp.primaryCounsellor)}" /></td>
     </tr>
     <tr>
-        <td bgcolor="white">Other File Number</td>
+        <td bgcolor="white"><label for="cpp.otherFileNumber">Other File Number</label></td>
         <td bgcolor="white"><input type="text" name="cpp.otherFileNumber" id="cpp.otherFileNumber" value="${carlos:forHtmlAttribute(requestScope.cpp.otherFileNumber)}" /></td>
     </tr>
     <tr height="10">
@@ -82,31 +82,31 @@
 
 
     <tr class="title">
-        <td>Social History</td>
-        <td>Family History</td>
+        <td><label for="cpp.socialHistory">Social History</label></td>
+        <td><label for="cpp.familyHistory">Family History</label></td>
     </tr>
     <tr>
-        <td bgcolor="white"><textarea name="cpp.socialHistory" rows="5" cols="45"><c:out value="${requestScope.cpp.socialHistory}"/></textarea></td>
-        <td bgcolor="white"><textarea name="cpp.familyHistory" rows="5" cols="45"><c:out value="${requestScope.cpp.familyHistory}"/></textarea></td>
+        <td bgcolor="white"><textarea id="cpp.socialHistory" name="cpp.socialHistory" rows="5" cols="45"><c:out value="${requestScope.cpp.socialHistory}"/></textarea></td>
+        <td bgcolor="white"><textarea id="cpp.familyHistory" name="cpp.familyHistory" rows="5" cols="45"><c:out value="${requestScope.cpp.familyHistory}"/></textarea></td>
     </tr>
 
     <tr class="title">
-        <td>Medical History</td>
-        <td>Past Medications</td>
+        <td><label for="cpp.medicalHistory">Medical History</label></td>
+        <td><label for="cpp.pastMedications">Past Medications</label></td>
     </tr>
     <tr>
-        <td bgcolor="white"><textarea name="cpp.medicalHistory"
+        <td bgcolor="white"><textarea id="cpp.medicalHistory" name="cpp.medicalHistory"
                                       rows="5" cols="45"><c:out value="${requestScope.cpp.medicalHistory}"/></textarea></td>
-        <td bgcolor="white"><textarea name="cpp.pastMedications"
+        <td bgcolor="white"><textarea id="cpp.pastMedications" name="cpp.pastMedications"
                                       rows="5" cols="45"><c:out value="${requestScope.cpp.pastMedications}"/></textarea></td>
     </tr>
 
     <tr class="title">
-        <td colspan="2">Other Support Systems</td>
+        <td colspan="2"><label for="cpp.otherSupportSystems">Other Support Systems</label></td>
     </tr>
     <tr>
         <td colspan="2" bgcolor="white"><textarea
-                name="cpp.otherSupportSystems" rows="2" cols="95"><c:out value="${requestScope.cpp.otherSupportSystems}"/></textarea></td>
+                id="cpp.otherSupportSystems" name="cpp.otherSupportSystems" rows="2" cols="95"><c:out value="${requestScope.cpp.otherSupportSystems}"/></textarea></td>
     </tr>
 </table>
 <input type="submit" value="Save" onclick="this.form.elements.namedItem('method').value='patientCPPSave'"/>
