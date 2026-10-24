@@ -3,24 +3,38 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -406,6 +420,207 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(secondForm.getCaseNote().getNote()).isEqualTo("Unsaved second-program draft");
         assertThat(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(second)).isEqualTo("22");
         assertThat(forms.get(firstKey)).isSameAs(firstForm);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldRestorePopulatedChartDraftsWithoutLosingTheirDataOrMixingWindowState_afterSessionSerialization(
+            boolean samePatient) throws Exception {
+        var linkDao = createAndRegisterMock(CaseManagementNoteLinkDAO.class);
+        MockHttpServletRequest firstRequest = request("101");
+        MockHttpServletRequest secondRequest = request(samePatient ? "101" : "202");
+        ChartProgramContext.remember(firstRequest, "11");
+        ChartProgramContext.remember(secondRequest, "22");
+        String firstKey = ChartProgramContext.formKey(firstRequest, "101");
+        String secondKey = ChartProgramContext.formKey(secondRequest, samePatient ? "101" : "202");
+        CaseManagementEntryFormBean first = populatedSessionForm("101", "11", 501L, linkDao);
+        CaseManagementEntryFormBean second = populatedSessionForm(samePatient ? "101" : "202", "22", 602L, linkDao);
+        Map<String, CaseManagementEntryFormBean> windows = new LinkedHashMap<>();
+        windows.put(firstKey, first);
+        windows.put(secondKey, second);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(windows);
+        }
+
+        Map<?, ?> restored;
+        try (ObjectInputStream input = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            restored = (Map<?, ?>) input.readObject();
+        }
+
+        assertThat(restored.keySet()).isEqualTo(windows.keySet());
+        CaseManagementEntryFormBean restoredFirst = (CaseManagementEntryFormBean) restored.get(firstKey);
+        CaseManagementEntryFormBean restoredSecond = (CaseManagementEntryFormBean) restored.get(secondKey);
+        assertRestoredSessionForm(restoredFirst, first);
+        assertRestoredSessionForm(restoredSecond, second);
+        assertThat(restoredFirst).isNotSameAs(restoredSecond);
+        restoredFirst.getCaseNote().setNote("Changed only in the restored first window");
+        restoredFirst.getCpp().setReminders("Changed first-window reminder");
+        restoredFirst.getGroupNoteClientIds()[0] = "303";
+        restoredFirst.getIssueCheckList().getFirst().getIssueDisplay().certain = "uncertain";
+        assertThat(restoredSecond).usingRecursiveComparison()
+                .ignoringFieldsOfTypes(CaseManagementNoteLinkDAO.class).isEqualTo(second);
+        assertThat(first.getCaseNote().getNote()).contains("11").contains("\r\n").endsWith("  ");
+        assertThat(first.getCpp().getReminders()).isEqualTo("Reminder 11");
+        assertThat(first.getGroupNoteClientIds()).containsExactly("101", "202");
+        verify(linkDao).getLastLinkByNote(501L);
+        verify(linkDao).getLastLinkByNote(602L);
+        verifyNoMoreInteractions(linkDao);
+    }
+
+    private CaseManagementEntryFormBean populatedSessionForm(String patient, String program, long noteId,
+                                                              CaseManagementNoteLinkDAO linkDao) {
+        String raw = "  FAKE unsaved " + patient + "/" + program + "\r\n<literal>& Ω  ";
+        CaseManagementNote note = new CaseManagementNote();
+        note.setId(noteId);
+        note.setUuid("session-" + patient + "-" + program);
+        note.setDemographic_no(patient);
+        note.setProviderNo("999998");
+        note.setProgram_no(program);
+        note.setNote(raw);
+        note.setHistory("Saved history " + program);
+        note.setObservation_date(new Date(1_700_000_000_000L + noteId));
+        note.setUpdate_date(new Date(1_700_000_001_000L + noteId));
+        note.setCreate_date(new Date(1_699_999_000_000L + noteId));
+        note.setRevision("2");
+        note.setReporter_caisi_role("701");
+        note.setReporter_program_team("73");
+        note.setBilling_code("A001");
+        note.setIncludeissue(false);
+        note.setPosition(3);
+        note.setEncounter_type("telephone");
+        note.setAppointmentNo((int) noteId + 9000);
+        note.setHourOfEncounterTime(2);
+        note.setMinuteOfEncounterTime(17);
+        note.setHourOfEncTransportationTime(null);
+        note.setMinuteOfEncTransportationTime(29);
+        Provider provider = new Provider("999998", "Session", "doctor", "F", "GP", "Fixture");
+        note.setProvider(provider);
+        note.setEditors(new ArrayList<>(List.of(provider)));
+        Issue catalog = new Issue();
+        catalog.setId(noteId + 100);
+        catalog.setCode("SESSION" + program);
+        catalog.setDescription("Existing issue " + program);
+        catalog.setRole("doctor");
+        CaseManagementIssue existing = new CaseManagementIssue();
+        existing.setId(noteId + 200);
+        existing.setDemographic_no(Integer.valueOf(patient));
+        existing.setIssue_id(catalog.getId());
+        existing.setIssue(catalog);
+        existing.setProgram_id(Integer.valueOf(program));
+        existing.setCertain(true);
+        existing.setMajor(true);
+        note.getIssues().add(existing);
+        existing.getNotes().add(note);
+        CheckBoxBean selected = new CheckBoxBean();
+        selected.setIssue(existing);
+        selected.setChecked("on");
+        selected.setUsed(true);
+        var display = selected.getIssueDisplay();
+        display.codeType = "system";
+        display.code = catalog.getCode();
+        display.description = catalog.getDescription();
+        display.location = "local";
+        display.acute = "chronic";
+        display.certain = "certain";
+        display.major = "major";
+        display.resolved = "unresolved";
+        display.role = "doctor";
+        display.priority = "high";
+        display.sortOrderId = 3;
+        display.setWriteAccess(false);
+        Issue pendingCatalog = new Issue();
+        pendingCatalog.setId(noteId + 300);
+        pendingCatalog.setCode("PENDING" + program);
+        pendingCatalog.setDescription("New issue " + program);
+        CheckIssueBoxBean pending = new CheckIssueBoxBean();
+        pending.setIssue(pendingCatalog);
+        pending.setChecked(true);
+        pending.setCommunity(true);
+        CaseManagementNoteExt extension = new CaseManagementNoteExt();
+        extension.setId(noteId + 400);
+        extension.setNoteId(noteId);
+        extension.setKeyVal(CaseManagementNoteExt.TREATMENT);
+        extension.setValue("Treatment <literal> " + program);
+        extension.setDateValue(new Date(1_700_000_000_000L));
+        note.getExtend().add(extension);
+        CaseManagementNoteLink link = new CaseManagementNoteLink(CaseManagementNoteLink.DOCUMENT, noteId + 500, noteId);
+        link.setId(noteId + 600);
+        link.setOtherId("Document " + program);
+        when(linkDao.getLastLinkByNote(noteId)).thenReturn(link);
+        assertThat(note.isDocumentNote()).isTrue(); // Populate the real nontransient link cache before passivation.
+        CaseManagementCPP cpp = new CaseManagementCPP();
+        cpp.setId(noteId + 700);
+        cpp.setDemographic_no(patient);
+        cpp.setProviderNo("999998");
+        cpp.setSocialHistory("Social " + program);
+        cpp.setFamilyHistory("Family " + program);
+        cpp.setMedicalHistory("Medical " + program);
+        cpp.setOngoingConcerns("Concern " + program);
+        cpp.setReminders("Reminder " + program);
+        cpp.setRiskFactors("Risk " + program);
+        cpp.setOtherSupportSystems("Support " + program);
+        cpp.setPrimaryPhysician("Physician " + program);
+        cpp.setPrimaryCounsellor("Counsellor " + program);
+        cpp.setPastMedications("Medication " + program);
+        cpp.setOtherFileNumber("File " + program);
+        cpp.setUpdate_date(new Date(1_700_000_000_000L));
+        CaseManagementEntryFormBean form = new CaseManagementEntryFormBean();
+        form.setCaseNote(note);
+        form.setCaseNote_note(raw);
+        form.setCaseNote_history(note.getHistory());
+        form.setCpp(cpp);
+        form.setIssueCheckList(new ArrayList<>(List.of(selected)));
+        form.setNewIssueCheckList(new CheckIssueBoxBean[]{pending});
+        form.setNewIssueList(new ArrayList<>(List.of(pendingCatalog)));
+        form.setDemoNo(patient);
+        form.setDemographicNo(patient);
+        form.setDemoName("FAKE patient " + patient);
+        form.setProviderNo("999998");
+        form.setProgramNo(program);
+        form.setNoteId(Long.toString(noteId));
+        form.setObservation_date("14-Oct-2026 10:00");
+        form.setAppointmentNo(Integer.toString(note.getAppointmentNo()));
+        form.setAppointmentDate("2026-10-14");
+        form.setStart_time("10:00");
+        form.setApptProvider("999998");
+        form.setProviderview("999998");
+        form.setBillRegion("ON");
+        form.setGroupNote(true);
+        form.setGroupNoteClientIds(new String[]{"101", "202"});
+        form.setGroupNoteTotalAnonymous(3);
+        form.setHourOfEncounterTime(2);
+        form.setMinuteOfEncounterTime(17);
+        form.setHourOfEncTransportationTime(null);
+        form.setMinuteOfEncTransportationTime(29);
+        form.setSign("persist");
+        form.setIncludeIssue("on");
+        form.setMethod("save");
+        form.setChain("list");
+        form.setShowList("all");
+        form.setSearString("Issue search " + program);
+        form.setDeleteId("1");
+        form.setLineId("0");
+        return form;
+    }
+
+    private void assertRestoredSessionForm(CaseManagementEntryFormBean restored, CaseManagementEntryFormBean original) {
+        assertThat(restored).isNotSameAs(original).usingRecursiveComparison()
+                .ignoringFieldsOfTypes(CaseManagementNoteLinkDAO.class).isEqualTo(original);
+        CaseManagementNote note = restored.getCaseNote();
+        CaseManagementIssue issue = restored.getIssueCheckList().getFirst().getIssue();
+        assertThat(note.getIssues()).singleElement().isSameAs(issue);
+        assertThat(issue.getNotes()).singleElement().isSameAs(note);
+        assertThat(note.getEditors()).singleElement().isSameAs(note.getProvider());
+        assertThat(restored.getNewIssueList()).singleElement().isSameAs(restored.getNewIssueCheckList()[0].getIssue());
+        assertThat(note.getExtend()).singleElement().satisfies(extension -> {
+            assertThat(extension.getNoteId()).isEqualTo(note.getId());
+            assertThat(extension.getValue()).contains(restored.getProgramNo());
+        });
+        assertThat(note.isDocumentNote()).isTrue(); // A restored cache must not call the transient DAO again.
+        assertThat(ReflectionTestUtils.getField(note, "caseManagementNoteLinkDao")).isNull();
+        assertThat(restored.getHourOfEncTransportationTime()).isNull();
+        assertThat(note.getHourOfEncTransportationTime()).isNull();
     }
 
     private EditedNote edit(String patient, boolean explicitNew, String encounterType) throws Exception {

@@ -713,12 +713,16 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         existing.setDemographic_no(101);
         existing.setIssue_id(73L);
         existing.setIssue(issue);
+        existing.setProgram_id(8);
         if ("existing".equals(kind)) when(patientIssues.getIssuebyId("101", "73")).thenReturn(existing);
         int count = "duplicate".equals(kind) ? 2 : 1;
         for (int i = 0; i < count; i++) {
             CheckBoxBean checkbox = new CheckBoxBean();
             checkbox.getIssueDisplay().code = "TEST73";
+            checkbox.getIssueDisplay().acute = "acute";
             checkbox.getIssueDisplay().certain = "certain";
+            checkbox.getIssueDisplay().major = "major";
+            checkbox.getIssueDisplay().resolved = "resolved";
             form.getIssueCheckList().add(checkbox);
             request.setParameter("issueCheckList[" + i + "].checked", "on");
         }
@@ -727,10 +731,17 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
             assertThat(pending).hasSize(1);
             CaseManagementIssue selected = pending.getFirst();
             assertThat(selected.getIssue()).isSameAs(issue);
+            assertThat(selected.getIssue_id()).isEqualTo(73L);
             assertThat(selected.getDemographic_no()).isEqualTo(101);
+            assertThat(selected.isAcute()).isTrue();
             assertThat(selected.isCertain()).isTrue();
-            if ("existing".equals(kind)) assertThat(selected).isSameAs(existing);
-            else assertThat(selected.getId()).isNull();
+            assertThat(selected.isMajor()).isTrue();
+            assertThat(selected.isResolved()).isTrue();
+            if ("existing".equals(kind)) {
+                assertThat(selected).isNotSameAs(existing);
+                assertThat(selected.getId()).isEqualTo(existing.getId());
+                assertThat(selected.getProgram_id()).isEqualTo(existing.getProgram_id());
+            } else assertThat(selected.getId()).isNull();
             CaseManagementNote submitted = call.getArgument(1);
             assertThat(submitted.getIssues()).hasSize(1);
             assertThat(submitted.getIssues().iterator().next()).isSameAs(selected);
@@ -741,6 +752,15 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.saveAndExit()).isEqualTo("windowCloseError");
         assertThat(response.getStatus()).isEqualTo(409);
+        if ("existing".equals(kind)) {
+            assertThat(existing.getId()).isEqualTo(74L);
+            assertThat(existing.getProgram_id()).isEqualTo(8);
+            assertThat(existing.getIssue()).isSameAs(issue);
+            assertThat(existing.isAcute()).isFalse();
+            assertThat(existing.isCertain()).isFalse();
+            assertThat(existing.isMajor()).isFalse();
+            assertThat(existing.isResolved()).isFalse();
+        }
         verify(patientIssues, never()).saveIssue(any());
         verify(patientIssues, never()).saveAndUpdateCaseIssues(any());
         verify(manager, never()).deleteTmpSave(any(), any(), any());

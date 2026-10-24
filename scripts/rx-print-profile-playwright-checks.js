@@ -38,6 +38,8 @@
  * Saves; an actual inline issue assignment must keep those cleared inputs blank before
  * the second Save. A later native issue-status change retains newly staged duration
  * inputs without changing either saved note revision or earlier clinical fixtures.
+ * Authenticated read-only NotesService responses must report this new UUID chain's
+ * revisions1 and2 despite the other owned chains and second patient in the fixture.
  *
  * Fixtures: one owned `prescription` row and two `drugs` rows (customName/special carry the run
  * marker) for the owned synthetic patient; native Save And Print operations add owned rows.
@@ -1300,12 +1302,12 @@ DELIMITER ;`);
           const priorNotes = excluded => sql.rows(`SELECT * FROM casemgmt_note
             WHERE demographic_no IN (${patient},${referencePatient})
             ${excluded.length ? `AND note_id NOT IN (${excluded.join(',')})` : ''} ORDER BY note_id`);
-          const protectedClinicalState = () => JSON.stringify([
+          const protectedClinicalState = (includeInlineIssue = false) => JSON.stringify([
             sql.rows(`SELECT * FROM casemgmt_issue WHERE demographic_no IN (${patient},${referencePatient})
-              ${inlineLookupId ? `AND issue_id<>${inlineLookupId}` : ''} ORDER BY id`),
+              ${inlineLookupId && !includeInlineIssue ? `AND issue_id<>${inlineLookupId}` : ''} ORDER BY id`),
             sql.rows(`SELECT * FROM casemgmt_issue_notes WHERE note_id IN
               (SELECT note_id FROM casemgmt_note WHERE demographic_no IN (${patient},${referencePatient}))
-              ${inlineLookupId ? `AND id NOT IN (SELECT id FROM casemgmt_issue WHERE issue_id=${inlineLookupId})` : ''} ORDER BY note_id,id`),
+              ${inlineLookupId && !includeInlineIssue ? `AND id NOT IN (SELECT id FROM casemgmt_issue WHERE issue_id=${inlineLookupId})` : ''} ORDER BY note_id,id`),
             fingerprint(JSON.stringify(sql.rows(`SELECT SHA2(JSON_ARRAY(pkid,signature,id,type,algorithm),256)
               FROM hash_audit ORDER BY pkid`))),
             sql.rows(`SELECT * FROM casemgmt_tmpsave WHERE demographic_no IN (${patient},${referencePatient}) ORDER BY id`),
@@ -1313,6 +1315,38 @@ DELIMITER ;`);
           ]);
           const notesBefore = JSON.stringify(priorNotes([]));
           const protectedBefore = protectedClinicalState();
+          const readOrmRevision = async (noteId, expectedRevision) => {
+            h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+              AND provider_no=${owner} AND program_id=${defaultProgram}`) === '0',
+            'The explicit ORM note read has an originating draft that could replace its requested note');
+            const readState = () => JSON.stringify([priorNotes([]), protectedClinicalState(true),
+              inlineLookupId ? sql.rows(`SELECT * FROM issue WHERE issue_id=${inlineLookupId}`) : []]);
+            const before = readState();
+            const uiBefore = JSON.stringify([await editor().inputValue(), await durationState(),
+              await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue()]);
+            const csrf = await sessionToken(page, s.config.baseUrl);
+            const endpoint = new URL(h.appUrl(s.config.baseUrl, `/ws/rs/notes/${patient}/getCurrentNote`));
+            endpoint.searchParams.set('chartContext', tokens[1]);
+            const response = await context.request.post(endpoint.href, {
+              data: { noteId: Number(noteId) }, headers: { 'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrf,
+                origin: new URL(s.config.baseUrl).origin, referer: page.url() },
+              maxRedirects: 0, failOnStatusCode: false,
+            });
+            try {
+              const body = await response.text();
+              h.assert(response.status() === 200 && Object.hasOwn(response.headers(), h.APPLICATION_HEADER)
+                && /application\/json/i.test(response.headers()['content-type'] || '')
+                && !h.isWafPage(response.status(), body),
+              'The explicit ORM note read did not return actual application JSON');
+              const dto = JSON.parse(body);
+              h.assert(dto.noteId === Number(noteId) && dto.revision === String(expectedRevision),
+                `The real ORM chain revision was ${String(dto.revision)}, expected ${expectedRevision}`);
+            } finally { await response.dispose(); }
+            h.assert(readState() === before && JSON.stringify([await editor().inputValue(), await durationState(),
+              await page.locator('#caseManagementEntryForm [name="noteId"]').inputValue()]) === uiBefore,
+            'The ORM revision read changed clinical rows, drafts, lookup data or the current editor');
+          };
           const saveFull = async (text, durations, previous, beforeSave) => {
             await page.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation
               && !window.noteSwitchSavePending && window.issueUpdatesPending === 0);
@@ -1359,6 +1393,7 @@ DELIMITER ;`);
               === JSON.stringify([entered])
             && JSON.stringify(priorNotes([firstId])) === notesBefore && protectedClinicalState() === protectedBefore,
           'The first full Save did not persist durations or changed prior clinical state');
+          await readOrmRevision(firstId, 1);
           let inlineLookupSnapshot;
           s.cleanup(() => {
             const lookup = sql.rows(`SELECT issue_id,description,role FROM issue WHERE code=${q(inlineCode)}`);
@@ -1436,6 +1471,7 @@ DELIMITER ;`);
             && JSON.stringify(priorNotes([firstId, secondId])) === notesBefore
             && protectedClinicalState() === protectedBefore,
           'Clearing durations on native full Save did not create SQL NULLs or changed history/other clinical state');
+          await readOrmRevision(secondId, 2);
           const notesBeforeIssueChange = JSON.stringify(priorNotes([]));
           const caseId = inlineCase[0][0];
           const stableCaseColumns = 'id,demographic_no,issue_id,acute,major,resolved,program_id,type';

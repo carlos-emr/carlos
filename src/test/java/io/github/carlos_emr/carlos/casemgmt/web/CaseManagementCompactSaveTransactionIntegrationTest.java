@@ -291,8 +291,15 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
                 entityManager.remove(note);
             }
             entityManager.flush();
-            if (pendingLookupId != null) entityManager.createQuery("delete CaseManagementIssue i where i.issue_id=:lookup")
-                    .setParameter("lookup", pendingLookupId).executeUpdate();
+            if (pendingLookupId != null) {
+                // Eager note loading has materialized these owned issues. Remove the
+                // entities too, so none remains managed when its catalog row is removed.
+                for (CaseManagementIssue issue : entityManager.createQuery(
+                        "from CaseManagementIssue i where i.issue_id=:lookup", CaseManagementIssue.class)
+                        .setParameter("lookup", pendingLookupId).getResultList()) {
+                    entityManager.remove(issue);
+                }
+            }
             if (caseIssueId != null) entityManager.remove(entityManager.find(CaseManagementIssue.class, caseIssueId));
             entityManager.flush();
             if (pendingLookupId != null) entityManager.remove(entityManager.find(Issue.class, pendingLookupId));
