@@ -114,24 +114,20 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         @Test
         void shouldAuditScalarPatientLookupWithoutLoadingTicklerDetails() {
             when(mockTicklerDao.findDemographicNos(17)).thenReturn(List.of(TEST_DEMO_NO));
-            try (var audit = mockStatic(LogAction.class)) {
-                assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isEqualTo(TEST_DEMO_NO);
-                audit.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
-                        "TicklerManager.getTickler", "id=17"));
-                audit.verifyNoMoreInteractions();
-            }
+            assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isEqualTo(TEST_DEMO_NO);
+            logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
+                    "TicklerManager.getTickler", "id=17"));
+            logActionMock.verifyNoMoreInteractions();
             verify(mockTicklerDao).findDemographicNos(17);
             verifyNoMoreInteractions(mockTicklerDao);
         }
 
         @Test
         void shouldAuditMissingScalarPatientWithoutLoadingAnyEntity() {
-            try (var audit = mockStatic(LogAction.class)) {
-                assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isNull();
-                audit.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
-                        "TicklerManager.getTickler", ""));
-                audit.verifyNoMoreInteractions();
-            }
+            assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isNull();
+            logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
+                    "TicklerManager.getTickler", ""));
+            logActionMock.verifyNoMoreInteractions();
             verify(mockTicklerDao).findDemographicNos(17);
             verifyNoMoreInteractions(mockTicklerDao);
         }
@@ -139,12 +135,10 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         @Test
         void shouldKeepExistingTicklerAuditIdentity_whenTheStoredPatientIsUnassigned() {
             when(mockTicklerDao.findDemographicNos(17)).thenReturn(java.util.Collections.singletonList(null));
-            try (var audit = mockStatic(LogAction.class)) {
-                assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isNull();
-                audit.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
-                        "TicklerManager.getTickler", "id=17"));
-                audit.verifyNoMoreInteractions();
-            }
+            assertThat(ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17)).isNull();
+            logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo,
+                    "TicklerManager.getTickler", "id=17"));
+            logActionMock.verifyNoMoreInteractions();
             verify(mockTicklerDao).findDemographicNos(17);
             verifyNoMoreInteractions(mockTicklerDao);
         }
@@ -152,11 +146,9 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         @Test
         void shouldRejectMissingReadPrivilegeBeforeScalarLookupOrAudit() {
             when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", "r", null)).thenReturn(false);
-            try (var audit = mockStatic(LogAction.class)) {
-                assertThatThrownBy(() -> ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17))
-                        .isInstanceOf(RuntimeException.class).hasMessageContaining("_tickler");
-                audit.verifyNoInteractions();
-            }
+            assertThatThrownBy(() -> ticklerManager.getTicklerDemographicNo(mockLoggedInInfo, 17))
+                    .isInstanceOf(RuntimeException.class).hasMessageContaining("_tickler");
+            logActionMock.verifyNoInteractions();
             verifyNoInteractions(mockTicklerDao);
         }
     }
