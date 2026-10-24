@@ -2622,6 +2622,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,
@@ -2633,6 +2634,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,

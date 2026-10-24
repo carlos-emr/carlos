@@ -1,4 +1,24 @@
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
@@ -9,6 +29,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramAccess;
 import io.github.carlos_emr.carlos.PMmodule.utility.ProgramAccessCache;
 import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl;
 import io.github.carlos_emr.carlos.casemgmt.service.StaleNoteRevisionException;
@@ -39,6 +60,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.io.IOException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -350,6 +374,49 @@ class CaseManagementNoteDraftCleanupIntegrationTest extends CaseManagementNoteDa
         assertThat(saved.getProgram_no()).isEqualTo("8");
         assertThat(snapshot()).containsExactlyElementsOf(before.stream().filter(d -> !ownedBy(d, "0")).toList());
         assertThat(noteTexts()).hasSize(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRollBackCheckedPostDeleteFailuresAndRetryTheSameDraft_throughBothPublicFullSaveBoundaries(boolean explicitOrigin) throws Exception {
+        submitted.setSigned(true);
+        submitted.setSigning_provider_no("999998");
+        String origin = explicitOrigin ? "7" : "8";
+        List<Draft> before = snapshot();
+        AtomicReference<Long> attemptedId = new AtomicReference<>();
+        IOException failure = new IOException("Checked failure after draft deletion");
+        doAnswer(call -> {
+            entityManager.flush();
+            assertThat(snapshotInTransaction()).noneMatch(d -> ownedBy(d, origin));
+            assertThat(entityManager.createQuery("select count(n) from CaseManagementNote n where n.uuid=:uuid", Long.class)
+                    .setParameter("uuid", uuid).getSingleResult()).isEqualTo(2L);
+            attemptedId.set(entityManager.createQuery("select max(n.id) from CaseManagementNote n where n.uuid=:uuid", Long.class)
+                    .setParameter("uuid", uuid).getSingleResult());
+            throw failure;
+        }).when(target).getLinkByTableIdDesc(eq(CaseManagementNoteLink.CASEMGMTNOTE), eq(submitted.getId()));
+        Callable<CaseManagementNote> saveAttempt = () -> explicitOrigin ? save(origin)
+                : service.saveCaseManagementNote(mock(LoggedInInfo.class), submitted, List.of(), null, null,
+                        false, Locale.ENGLISH, new Date(), "Doctor", "999998", "192.0.2.1", "");
+
+        assertThatThrownBy(saveAttempt::call).isSameAs(failure);
+
+        assertThat(attemptedId.get()).isNotNull();
+        assertThat(snapshot()).containsExactlyElementsOf(before);
+        assertThat(noteTexts()).containsExactly("Original shared assessment");
+        assertThat(submitted.getRevision()).isEqualTo("1");
+        assertThat(submitted.getNote()).isEqualTo("Revised shared assessment");
+        Long attemptedHashes = tx().execute(status -> entityManager.createQuery(
+                        "select count(h) from HashAudit h where h.type='enc' and h.id2=:id", Long.class)
+                .setParameter("id", attemptedId.get().toString()).getSingleResult());
+        assertThat(attemptedHashes).isZero();
+        doCallRealMethod().when(target).getLinkByTableIdDesc(eq(CaseManagementNoteLink.CASEMGMTNOTE), eq(submitted.getId()));
+
+        CaseManagementNote saved = saveAttempt.call();
+
+        assertThat(saved.getRevision()).isEqualTo("2");
+        assertThat(saved.getNote()).isEqualTo("Revised shared assessment\nTest signed marker");
+        assertThat(snapshot()).containsExactlyElementsOf(before.stream().filter(d -> !ownedBy(d, origin)).toList());
+        assertThat(noteTexts()).containsExactly("Original shared assessment", saved.getNote());
     }
 
     private static ProgramProvider membership(Long roleId, String roleName) {

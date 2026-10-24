@@ -1,4 +1,24 @@
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -67,6 +87,8 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     private final List<Integer> draftIds = new ArrayList<>();
     private final Set<Long> attemptedNoteIds = new HashSet<>();
     private String marker;
+    private boolean createdProvider;
+    private String ownedProviderName;
     private String submittedText;
     private Long lookupId;
     private Long originalId;
@@ -91,6 +113,21 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     void prepareChartAndIndependentDrafts() {
         marker = "compact-" + UUID.randomUUID();
         submittedText = marker + " revised\n<literal>& unchanged";
+        createdProvider = false;
+        ownedProviderName = "CMP" + UUID.randomUUID().toString().substring(0, 12);
+        Provider author = tx().execute(status -> {
+            Provider existing = entityManager.find(Provider.class, "999998");
+            if (existing == null) {
+                existing = new Provider("999998", ownedProviderName, "doctor", "M", "GP", "Compact");
+                existing.setStatus("1");
+                entityManager.persist(existing);
+                entityManager.flush();
+                createdProvider = true;
+                entityManager.clear();
+                existing = entityManager.find(Provider.class, "999998");
+            }
+            return existing;
+        });
         original = tx().execute(status -> {
             Issue lookup = new Issue();
             lookup.setCode("CMP" + UUID.randomUUID().toString().substring(0, 8));
@@ -185,8 +222,6 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         ChartProgramContext.remember(request, "7");
         LoggedInInfo login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("999998");
-        Provider author = new Provider();
-        author.setProviderNo("999998");
         when(login.getLoggedInProvider()).thenReturn(author);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
         SecurityInfoManager security = mock(SecurityInfoManager.class);
@@ -247,6 +282,14 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
             if (caseIssueId != null) entityManager.remove(entityManager.find(CaseManagementIssue.class, caseIssueId));
             entityManager.flush();
             if (lookupId != null) entityManager.remove(entityManager.find(Issue.class, lookupId));
+            entityManager.flush();
+            if (createdProvider) {
+                Provider owned = entityManager.find(Provider.class, "999998");
+                assertThat(owned).isNotNull();
+                assertThat(owned.getLastName()).isEqualTo(ownedProviderName);
+                assertThat(owned.getFirstName()).isEqualTo("Compact");
+                entityManager.remove(owned);
+            }
         });
     }
 
