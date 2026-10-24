@@ -8,11 +8,17 @@ const { launchBrowser } = require('./lib/playwright-harness');
 
 const source = fs.readFileSync(path.join(__dirname,
   '../src/main/webapp/WEB-INF/jsp/encounter/oscarMeasurements/Measurements.jsp'), 'utf8');
-// The page's inline script blocks, read with one pattern rather than by slicing at offsets; the
-// calculation must sit in exactly one of them for the fixture to run it as the page does.
-const blocks = Array.from(source.matchAll(/<script>([\s\S]*?)<\/script>/g), (match) => match[1]);
-const calculationBlocks = blocks.filter((block) => block.includes('function calcWHtR('));
-assert.equal(calculationBlocks.length, 1, 'The page must define calcWHtR in exactly one script block');
+// The inline script that defines the calculation, located by index search on a lower-cased copy
+// (so <SCRIPT> would match too) instead of a tag pattern; it must sit in exactly one block.
+const lower = source.toLowerCase();
+const marker = 'function calcwhtr(';
+const first = lower.indexOf(marker);
+assert.ok(first >= 0 && lower.indexOf(marker, first + 1) < 0, 'The page must define calcWHtR exactly once');
+const open = lower.lastIndexOf('<script', first);
+const close = lower.indexOf('</script', first);
+assert.ok(open >= 0 && close > first, 'calcWHtR must sit inside an inline script block');
+assert.ok(lower.indexOf('</script', open) === close, 'calcWHtR must sit inside a single script block');
+const calculationBlocks = [source.slice(source.indexOf('>', open) + 1, close)];
 const script = calculationBlocks[0];
 assert.ok(!/<%|\$\{/.test(script), 'The browser fixture must run the page script without rewriting JSP expressions');
 
