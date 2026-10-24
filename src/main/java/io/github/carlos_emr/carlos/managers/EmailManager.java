@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
+import io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
@@ -175,6 +176,8 @@ public class EmailManager {
     private PatientPortalInviteDeliveryDao inviteDeliveries;
     @Autowired
     private ClinicEmailFooterService clinicFooterService;
+    @Autowired
+    private EmailDocumentManifestComposer documentManifestComposer;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
     private final OutboundEmailArchiveService outboundEmailArchiveService;
@@ -382,7 +385,7 @@ public class EmailManager {
                     portalResult = portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
                             () -> {
                                 encryptEmail(emailData);
-                                signAttachments(emailData);
+                                signAttachments(emailData, loggedInInfo, emailLog);
                             },
                             () -> archiveId.set(sendWithArchive(loggedInInfo,
                                     createSenderBeforeTransport(loggedInInfo, emailLog, emailData), emailLog,
@@ -413,7 +416,7 @@ public class EmailManager {
                 }
                 // After encryption and before the sender is built, so the signature covers the
                 // exact bytes that are archived and dispatched.
-                signAttachments(emailData);
+                signAttachments(emailData, loggedInInfo, emailLog);
                 EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
                 Integer archiveId = sendWithArchive(loggedInInfo, emailSender, emailLog,
                         emailData.getArchiveRedactions(), dispatchGate);
@@ -1731,12 +1734,33 @@ public class EmailManager {
      * fail-closed: if signing is enabled and any single attachment cannot be signed, the whole
      * send is aborted rather than delivering a partially signed or unsigned set.</p>
      *
+     * <p>This form embeds no document manifest; the send path uses
+     * {@link #signAttachments(EmailData, LoggedInInfo, EmailLog)}.</p>
+     *
      * @param emailData EmailData containing the final attachment list
+     * @throws EmailSendingException if signing is enabled but an attachment cannot be signed
+     */
+    void signAttachments(EmailData emailData) throws EmailSendingException {
+        signAttachments(emailData, null, null);
+    }
+
+    /**
+     * Signs outgoing PDF attachments as {@link #signAttachments(EmailData)} does and, when
+     * {@code pdf.signing.document_id.secret} is set, embeds each document's manifest in the same
+     * update as its signature (carlos-emr/carlos#4691). An attachment with no CARLOS record behind
+     * it, such as the rendered message text, gets no manifest. A manifest that cannot be built
+     * stops the send like any other signing failure.
+     *
+     * @param emailData EmailData containing the final attachment list
+     * @param loggedInInfo the sending provider's session, or {@code null} for no manifests
+     * @param emailLog the send's email log, holding the patient and the sending provider, or
+     *        {@code null} for no manifests
      * @throws EmailSendingException if signing is enabled but an attachment cannot be signed
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    void signAttachments(EmailData emailData) throws EmailSendingException {
+    void signAttachments(EmailData emailData, LoggedInInfo loggedInInfo, EmailLog emailLog)
+            throws EmailSendingException {
         List<EmailAttachment> attachments = emailData.getAttachments();
         if (attachments == null || attachments.isEmpty()) {
             return;
@@ -1749,11 +1773,13 @@ public class EmailManager {
         ensureWorkingDirectory(emailData);
         // An encrypted PDF can only be modified with its owner password.
         String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
+        EmailDocumentManifestComposer.AttachmentManifests manifests = documentManifests(loggedInInfo, emailLog);
         for (EmailAttachment attachment : attachments) {
             Path signedPDFPath = null;
             try {
                 Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
-                signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword);
+                signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword,
+                        manifests.forAttachment(attachment));
                 attachment.setFilePath(emailData.getWorkingDirectory().adoptGeneratedPdf(signedPDFPath).toString());
             } catch (IOException | RuntimeException e) {
                 // Any RuntimeException, not a chosen few: one that escaped would skip
@@ -1765,6 +1791,21 @@ public class EmailManager {
                 logger.error("Failed to sign an email PDF attachment", e);
                 throw new EmailSendingException("Failed to sign email PDF attachment", e);
             }
+        }
+    }
+
+    private EmailDocumentManifestComposer.AttachmentManifests documentManifests(LoggedInInfo loggedInInfo,
+            EmailLog emailLog) throws EmailSendingException {
+        if (loggedInInfo == null || emailLog == null) {
+            return EmailDocumentManifestComposer.AttachmentManifests.NONE;
+        }
+        try {
+            return documentManifestComposer.forSend(loggedInInfo, emailLog);
+        } catch (RuntimeException e) {
+            // Usually an invalid pdf.signing.document_id.secret. The message names the setting,
+            // never the patient or the document.
+            logger.error("Failed to prepare the document manifests for an email's signed PDFs", e);
+            throw new EmailSendingException("Failed to sign email PDF attachment", e);
         }
     }
 
