@@ -137,7 +137,9 @@ async function workflow(s) {
     await report.close();
     // A bad later checkbox must never leave the earlier explicit match committed,
     // including a numerically valid identifier rejected inside the transaction.
-    for (const invalid of ['invalid', '2147483647']) {
+    const missingPid = sql.value('SELECT COALESCE(MAX(pid_id),0)+1000 FROM hl7_pid');
+    h.assert(/^[1-9]\d*$/.test(missingPid), 'Could not allocate a missing lab identifier');
+    for (const invalid of ['invalid', missingPid]) {
       frame = await openFrame(linkingLink, 'lab/CA/BC/ViewIndex');
       const failure = failureMark(s.recorder);
       const rejectedPost = admin.waitForResponse(r => r.request().method() === 'POST'
@@ -151,7 +153,7 @@ async function workflow(s) {
         form.requestSubmit();
       }, { pid: unlinked, patient, invalid });
       h.assert((await rejectedPost).status() === 400, 'Invalid later selection was accepted');
-      await frame.waitForLoadState('load');
+      await frame.waitForLoadState('networkidle');
       consumeExpectedFailure(s.recorder, failure, { status: 400, path: /\/lab\/CA\/BC\/ViewIndex$/ });
       h.assert(sql.value(`SELECT COUNT(*) FROM hl7_link l JOIN hl7_pid p ON p.pid_id=l.pid_id
         JOIN patientLabRouting r ON r.lab_no=p.message_id AND r.lab_type='BCP'
