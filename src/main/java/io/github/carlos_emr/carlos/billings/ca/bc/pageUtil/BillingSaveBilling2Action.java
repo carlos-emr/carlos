@@ -227,10 +227,11 @@ public class BillingSaveBilling2Action extends ActionSupport {
         // Saved and finished with: a repeated submit still finds the bill, but it is the first to
         // go when room is needed, before bills still open in other windows.
         BcBillStaging.release(request);
-        // The button reads "Save and Print Receipt": "& Print" in a request value is CRS rule 932115's Windows
+        // The button posts a machine value. Retain both former display-label values: "& Print" in a request value is CRS rule 932115's Windows
         // "print" command, so the packaged front door answered every Save & Print Receipt with 403 (#4439). The old
         // value is still accepted from a review page rendered before the change.
-        if (RECEIPT_SUBMIT.equals(submit) || LEGACY_RECEIPT_SUBMIT.equals(submit)) {
+        if ("saveAndPrintReceipt".equals(submit)
+                || RECEIPT_SUBMIT.equals(submit) || LEGACY_RECEIPT_SUBMIT.equals(submit)) {
             String redirectUrl = receiptRedirectUrl(request.getContextPath(), billingIds);
             sendReceiptRedirect(response, redirectUrl);
             return NONE;
