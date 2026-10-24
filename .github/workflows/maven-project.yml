@@ -205,6 +205,12 @@ jobs:
             make install
           "
 
+      - name: Compile packaged Edit Appointment servlet
+        run: |
+          docker exec carlos-tomcat-dev bash -c '
+            bash scripts/compile-edit-appointment-jsp.sh /usr/local/tomcat/webapps/carlos
+          '
+
   tests:
     needs: build
     runs-on: ubuntu-latest
