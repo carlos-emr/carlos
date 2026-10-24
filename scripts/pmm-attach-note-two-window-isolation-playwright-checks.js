@@ -35,6 +35,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
+const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
 const TIMEOUT = 30000;
@@ -342,6 +343,61 @@ async function workflow(s) {
     // The workflow harness closes these chart windows after the assertions, before fixture
     // cleanup. Closing them inside the step aborts their background autosave requests and
     // incorrectly reports that expected teardown as a clinical-workflow failure.
+  });
+
+  await s.step('note attachment requires source read and target write access without changing either chart on refusal', async () => {
+    const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
+    s.cleanup(() => fixture.cleanup());
+    const grants = { _demographic: 'r', _appointment: 'r', _eChart: 'r' };
+    const reader = fixture.addLogin(fixture.addRole({ ...grants, '_casemgmt.notes': 'r' }));
+    const writer = fixture.addLogin(fixture.addRole({ ...grants, '_casemgmt.notes': 'w' }));
+    fixture.joinTestLoginPrograms(reader);
+    fixture.joinTestLoginPrograms(writer);
+    fixture.lockPatient(writer, A, ['_casemgmt.notes']);
+    const readState = () => JSON.stringify([
+      sql.rows(`SELECT * FROM casemgmt_note WHERE demographic_no IN (${A},${B},${C}) ORDER BY note_id`),
+      ...['casemgmt_issue_notes', 'casemgmt_note_ext', 'casemgmt_note_link'].map(table => sql.rows(
+        `SELECT * FROM ${table} WHERE note_id IN
+          (SELECT note_id FROM casemgmt_note WHERE demographic_no IN (${A},${B},${C})) ORDER BY note_id`)),
+      sql.rows(`SELECT * FROM eChart WHERE demographicNo IN (${A},${B},${C}) ORDER BY eChartId`),
+    ]);
+    const authenticated = [];
+    for (const actor of [reader, writer]) {
+      const session = await h.newContext(s.context.browser(), config);
+      session.on('page', page => h.wireStrictPage(page, 'pmm-attachment-access', s.recorder));
+      const page = await h.login(session, { ...config, testUser: actor.username }, s.recorder);
+      authenticated.push({ session, csrf: await ui.csrfTokenPresent(page) });
+    }
+    const attach = async (actor, source) => {
+      const response = await actor.session.request.post(h.appUrl(config.baseUrl, '/encounter/IncomingEncounter'), {
+        form: { PEAttach: 'yes', selectId: C, demographicNo: C, appointmentNo: '0', noteId: source,
+          'CSRF-TOKEN': actor.csrf },
+        headers: { 'CSRF-TOKEN': actor.csrf }, maxRedirects: 0, failOnStatusCode: false,
+      });
+      return response;
+    };
+    const before = readState();
+    const beforeNotes = sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${A},${B},${C})`);
+    for (const [index, label] of [[0, 'target write'], [1, 'source read']]) {
+      const response = await attach(authenticated[index], state.notes.A);
+      try {
+        h.assert(response.status() === 403, `Attachment without ${label} access returned HTTP ${response.status()}`);
+        await h.assertRefused(s, { response, table: 'casemgmt_note', where: `demographic_no IN (${A},${B},${C})`,
+          before: beforeNotes, label: `Attachment without ${label} access` });
+      } finally { await response.dispose(); }
+      h.assert(readState() === before, `Attachment refused for ${label} access changed clinical rows`);
+    }
+    // The writer is denied only A's notes: the same authenticated endpoint must still
+    // attach B's readable note to writable C, proving the refusal was a patient boundary.
+    const copies = sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${C}`);
+    const allowed = await attach(authenticated[1], state.notes.B);
+    try {
+      h.assert(allowed.status() === 302 && /\/encounter\/IncomingEncounter\?demographicNo=/.test(allowed.headers().location || ''),
+        `Allowed attachment returned HTTP ${allowed.status()} instead of reopening its target`);
+    } finally { await allowed.dispose(); }
+    h.assert(Number(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${C}`)) === Number(copies) + 1,
+      'The authorized attachment did not copy exactly one readable source note');
+    for (const actor of authenticated) await actor.session.close();
   });
 }
 

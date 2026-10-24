@@ -7,6 +7,7 @@
 const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
 const {textPdf} = require('./lib/stored-pdf-documents');
+const {csrfToken} = require('./lib/front-door-checks');
 const {waitForNavbars} = require('./echart-navbar-modules-playwright-checks');
 const q = h.sqlString;
 
@@ -398,6 +399,152 @@ async function workflow(s) {
           `${route.split('?')[0]} included the denied message in its error response`);
       } finally { await response.dispose(); }
     }
+  });
+
+  const post = async (path, fields) => {
+    const token = await csrfToken(s.schedule, config.baseUrl);
+    return context.request.post(url(path), {
+      data: new URLSearchParams([...fields, ['CSRF-TOKEN', token]]).toString(),
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token},
+      maxRedirects: 0,
+    });
+  };
+  const messageState = () => JSON.stringify({
+    recipients: sql.rows(`SELECT id,message,provider_no,status,remoteLocation,destinationFacilityId,sourceFacilityId
+      FROM messagelisttbl WHERE message IN (${ids.join(',')}) ORDER BY id`),
+    links: sql.rows(`SELECT messageID,demographic_no FROM msgDemoMap
+      WHERE messageID IN (${ids.join(',')}) ORDER BY messageID,demographic_no`),
+  });
+
+  await s.step('shared chart reads preserve remote recipients and refuse message deletion and relinking', async () => {
+    const remoteLocation = Number(sql.value('SELECT COALESCE(MAX(locationId),0) FROM oscarcommlocations')) + 1;
+    h.assert(Number.isSafeInteger(remoteLocation) && remoteLocation > 0 && remoteLocation <= 2147483647,
+      'The remote message location is invalid');
+    sql.execute(`INSERT INTO messagelisttbl(message,provider_no,status,remoteLocation,destinationFacilityId,sourceFacilityId)
+      VALUES(${ids[0]},${q(provider)},'new',${remoteLocation},0,0),
+        (${ids[0]},${q(provider)},'new',${location},123456,0)`);
+    const before = messageState();
+    const page = await context.newPage();
+    try {
+      const response = await page.goto(url(`/messenger/ViewMessage?messageID=${ids[0]}`
+        + `&from=encounter&demographic_no=${patient}`));
+      h.assert(response.status() === 200, `Shared detail returned HTTP ${response.status()}`);
+      await h.assertNotErrorPage(page, 'read-only shared chart message');
+      h.assert((await page.locator('body').innerText()).includes(marker + ' alpha'),
+        'The shared read positive control lost its message');
+      h.assert(await page.locator('button[name="delete"],input[name="linkMsgDemo"]').count() === 0,
+        'A shared chart message offered participant-only mutation controls');
+      h.assert(messageState() === before, 'Reading a shared chart marked a remote recipient read or changed links');
+    } finally { await page.close(); }
+    for (const [path, fields] of [
+      ['/messenger/HandleMessages', [['messageNo', ids[0]], ['delete', 'Delete'], ['chartPatientNo', patient]]],
+      ['/messenger/ViewMessage', [['messageID', ids[0]], ['linkMsgDemo', 'true'], ['demographic_no', patient]]],
+    ]) {
+      const response = await post(path, fields);
+      try {
+        h.assert(response.status() === 404, `${path} allowed a shared reader to mutate a message (HTTP ${response.status()})`);
+        h.assert(messageState() === before, `${path} changed a shared message after refusing its mutation`);
+      } finally { await response.dispose(); }
+    }
+  });
+
+  await s.step('patient-message unlink validates the complete selection before changing any association', async () => {
+    const before = messageState();
+    const route = `/messenger/DisplayDemographicMessages?demographic_no=${patient}`;
+    const get = await context.request.get(url(`${route}&messageNo=${ids[1]}`), {maxRedirects: 0});
+    try {
+      h.assert(get.status() === 405 && get.headers().allow === 'POST',
+        `An unlink GET did not require POST (HTTP ${get.status()})`);
+      h.assert(messageState() === before, 'An unlink GET changed message associations');
+    } finally { await get.dispose(); }
+    // Put the authorized message first: a per-item authorize-then-remove loop would
+    // silently unlink it before discovering that the second message is read-only.
+    const mixed = await post('/messenger/DisplayDemographicMessages', [
+      ['demographic_no', patient], ['messageNo', ids[1]], ['messageNo', ids[0]],
+    ]);
+    try {
+      h.assert(mixed.status() === 404, `A mixed-participation unlink returned HTTP ${mixed.status()}`);
+      h.assert(messageState() === before, 'A refused mixed unlink partially removed an authorized association');
+    } finally { await mixed.dispose(); }
+
+    const page = await context.newPage();
+    try {
+      await page.goto(url(route));
+      await h.assertNotErrorPage(page, 'linked-patient message list');
+      await page.locator(`input[name="messageNo"][value="${ids[1]}"]`).check();
+      const [response] = await Promise.all([page.waitForNavigation(),
+        page.getByRole('button', {name: 'Unlink Messages', exact: true}).click()]);
+      h.assert(response.status() === 200, `Authorized unlink returned HTTP ${response.status()}`);
+      await h.assertNotErrorPage(page, 'authorized patient-message unlink');
+      h.assert(sql.value(`SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${ids[1]} AND demographic_no=${patient}`) === '0'
+        && sql.value(`SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${ids[0]} AND demographic_no=${patient}`) === '1',
+      'Authorized unlink removed the wrong message association');
+      h.assert(await page.locator(`input[name="messageNo"][value="${ids[1]}"]`).count() === 0
+        && await page.locator(`input[name="messageNo"][value="${ids[0]}"]`).count() === 1,
+      'The linked-patient message list did not reflect the authorized unlink');
+    } finally { await page.close(); }
+  });
+
+  await s.step('mailbox and message-detail read archive and restore preserve every remote recipient', async () => {
+    const remoteLocation = Number(sql.value('SELECT COALESCE(MAX(locationId),0) FROM oscarcommlocations')) + 1;
+    const localLocations = [...new Set(['0', location])];
+    sql.execute(`UPDATE messagetbl SET sentbyNo='0' WHERE messageid=${ids[1]};
+      DELETE FROM messagelisttbl WHERE message=${ids[1]};
+      INSERT INTO messagelisttbl(message,provider_no,status,remoteLocation,destinationFacilityId,sourceFacilityId)
+      VALUES ${localLocations.map(local => `(${ids[1]},${q(provider)},'new',${local},0,0)`).join(',')},
+        (${ids[1]},${q(provider)},'new',${remoteLocation},0,0),
+        (${ids[1]},${q(provider)},'new',${location},123456,0)`);
+    const remoteRows = () => JSON.stringify(sql.rows(`SELECT id,status,remoteLocation,destinationFacilityId,sourceFacilityId
+      FROM messagelisttbl WHERE message=${ids[1]} AND (remoteLocation=${remoteLocation} OR destinationFacilityId=123456)
+      ORDER BY id`));
+    const remoteBefore = remoteRows();
+    const page = await context.newPage();
+    try {
+      for (const [button, status, box] of [
+        ['btnRead', 'read', '0'], ['btnUnread', 'new', '0'],
+        ['btnDelete', 'del', '0'], ['btnUnarchive', 'read', '2'],
+      ]) {
+        await page.goto(url(`/messenger/DisplayMessages?boxType=${box}&searchString=`
+          + encodeURIComponent(marker + ' bravo')));
+        await h.assertNotErrorPage(page, `mailbox before ${button}`);
+        await page.locator(`input[name="messageNo"][value="${ids[1]}"]`).first().check();
+        const [response] = await Promise.all([page.waitForNavigation(),
+          page.locator(`button[name="${button}"]`).filter({visible: true}).first().click()]);
+        h.assert(response.status() === 200, `${button} returned HTTP ${response.status()}`);
+        await h.assertNotErrorPage(page, button);
+        h.assert(sql.value(`SELECT COUNT(*) FROM messagelisttbl WHERE message=${ids[1]}
+          AND remoteLocation IN (${localLocations.join(',')}) AND destinationFacilityId=0 AND status=${q(status)}`)
+          === String(localLocations.length), `${button} did not update every configured and legacy local recipient`);
+        h.assert(remoteRows() === remoteBefore, `${button} changed a remote recipient with the same provider number`);
+      }
+
+      sql.execute(`UPDATE messagelisttbl SET status='new' WHERE message=${ids[1]}
+        AND remoteLocation IN (${localLocations.join(',')}) AND destinationFacilityId=0`);
+      await page.goto(url(`/messenger/ViewMessage?messageID=${ids[1]}&boxType=1`));
+      await h.assertNotErrorPage(page, 'sent-mode message detail');
+      h.assert(sql.value(`SELECT COUNT(*) FROM messagelisttbl WHERE message=${ids[1]}
+        AND remoteLocation IN (${localLocations.join(',')}) AND destinationFacilityId=0 AND status='new'`)
+        === String(localLocations.length), 'Sent-mode detail changed an unread recipient');
+      await page.goto(url(`/messenger/ViewMessage?messageID=${ids[1]}`));
+      await h.assertNotErrorPage(page, 'local recipient message detail');
+      h.assert(sql.value(`SELECT COUNT(*) FROM messagelisttbl WHERE message=${ids[1]}
+        AND remoteLocation IN (${localLocations.join(',')}) AND destinationFacilityId=0 AND status='read'`)
+        === String(localLocations.length), 'Opening a message did not mark every local recipient read');
+      h.assert(remoteRows() === remoteBefore, 'Opening a local message marked a remote recipient read');
+      const refused = await context.request.get(url(`/messenger/HandleMessages?messageNo=${ids[1]}&delete=Delete`),
+        {maxRedirects: 0});
+      try {
+        h.assert(refused.status() === 405 && refused.headers().allow === 'POST',
+          `Message deletion did not require POST (HTTP ${refused.status()})`);
+      } finally { await refused.dispose(); }
+      const [deleted] = await Promise.all([page.waitForNavigation(), page.locator('button[name="delete"]').click()]);
+      h.assert(deleted.status() === 200, `Native message deletion returned HTTP ${deleted.status()}`);
+      await h.assertNotErrorPage(page, 'native message deletion');
+      h.assert(sql.value(`SELECT COUNT(*) FROM messagelisttbl WHERE message=${ids[1]}
+        AND remoteLocation IN (${localLocations.join(',')}) AND destinationFacilityId=0 AND status='del'`)
+        === String(localLocations.length), 'Native message deletion did not archive every local recipient');
+      h.assert(remoteRows() === remoteBefore, 'Native message deletion archived a remote recipient');
+    } finally { await page.close(); }
   });
 }
 if (require.main === module) runWorkflow('chart-message-followups', workflow);

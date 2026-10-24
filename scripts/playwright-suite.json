@@ -1180,7 +1180,8 @@
         "ECHART_PROVIDER_NO",
         "EXPECT_FRONT_DOOR"
       ],
-      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the encounter-note draft the chart's autosave stores while the prints run (discarded through the page's own cancel path), the chart's note lock and eChart row and the patient are removed by the patient's key and asserted gone. It no longer types into demo patient 1's chart, whose own stored draft it deleted. No clinic-wide state is changed."
+      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the encounter-note draft the chart's autosave stores while the prints run (discarded through the page's own cancel path), the chart's note lock and eChart row and the patient are removed by the patient's key and asserted gone. It no longer types into demo patient 1's chart, whose own stored draft it deleted. No clinic-wide state is changed.",
+      "notes": "Sixteen real PDF cases, including an actual four-second print delay; native print submission retains the editor, its exact note lock and post-print autosave, while later real navigation releases the lock."
     },
     {
       "name": "echart-vitals-bmi",
@@ -4741,7 +4742,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned prescription and drugs rows for the synthetic patient, a throwaway provider, two owned programs with memberships/admissions and independent drafts; cleanup removes owned clinical rows, programs, relationships and provider. Shared provider defaults are unchanged.",
-      "notes": "Needs pdftotext; the drug profile is HTML + window.print(), so the PDF asserted is the browser print rendering. Also verifies same-patient chart windows retain independent programs through Rx launch, Save And Print, Print & Paste and chart reopening; the other program's draft stays unchanged."
+      "notes": "Needs pdftotext; the drug profile is HTML + window.print(), so the PDF asserted is the browser print rendering. Also verifies same-patient chart windows retain independent programs through Rx launch, Save And Print, Print & Paste and chart reopening; the other program's draft stays unchanged. Signed-context/patient replay and foreign/missing draft references refuse without clinical mutations; a no-draft paste selects its own program, and explicit cross-program editing preserves the source note program and the other window draft."
     },
     {
       "name": "tickler-forward-filters",
@@ -5071,9 +5072,13 @@
     {
       "name": "flowsheet-prevention-print",
       "script": "scripts/flowsheet-prevention-print-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": true,
-      "provinces": ["all"],
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 180,
       "env": [],
       "fixtures": "Owned synthetic patient with three preventions and four A1C readings; all removed and verified by workflow cleanup.",
@@ -6101,8 +6106,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Verifies a real PDF download, matching HTML/PDF totals, ISO dates, two-decimal amounts, active/settled invoice services, and deleted/OHIP/out-of-range exclusion. Requires pdftotext.",
-      "fixtures": "Owned workflow patient and six billing invoices/items with statuses and dates at both boundaries; all removed."
+      "notes": "Verifies a real PDF download, matching HTML/PDF totals, ISO dates, two-decimal amounts, active/settled invoice services, and deleted/OHIP/out-of-range exclusion. Requires pdftotext. Independent statement windows and unsent date-field edits preserve the shown PDF selection; an empty result clears stale rows and disables printing.",
+      "fixtures": "Two owned synthetic patients and seven invoices; cleanup removes only owned rows and verifies their removal."
     },
     {
       "name": "patient-swipe-card-search",
@@ -7348,8 +7353,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient (E-Chart lock taken by opening the chart) and one marker tickler seeded by SQL; cleanup deletes the patient's notes, note links/exts/issue links, casemgmt_issue, casemgmt_cpp, eChart rows and the tickler, and asserts it.",
-      "notes": "Expected to FAIL at the last step 'chart-note writes refuse GET/HEAD, and the tickler note dialog itself saves by POST': CaseManagementEntry method=issueNoteSave and method=ticklerSaveNote write on GET, and ticklerMain.jsp saveNoteDialog() sends its save as a GET."
+      "fixtures": "Two owned synthetic patients and marker ticklers; native chart/tickler notes plus a private copied note and temporary foreign link. Cleanup verifies ownership and removes each owned clinical row.",
+      "notes": "Exercises native issue-note and tickler-note POST saves and revision; all six note-write methods refuse GET/HEAD without changing clinical rows. Cross-patient tickler/note/link substitutions return application403 without copying private history."
     },
     {
       "name": "get-reject-eform-editor",
@@ -9558,8 +9563,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Uses the workflow's owned patient plus a second owned patient; saves one chart note through the E-Chart UI; one throwaway er_clerk login and one throwaway doctor login with the lock rows for the owned patient; cleanup removes notes, eChart row, patients and logins and asserts it.",
-      "notes": "Expected to FAIL at the last step 'a note history is only served for the patient the note belongs to, and not to a login locked out of that patient': CaseManagementEntry method=notehistory and method=history read the note by id alone. Steps 1-3 pass."
+      "fixtures": "Two owned patients and their notes, custom chart-only reader and er_clerk logins, a doctor login with owned patient-lock rows; all notes, eChart rows, patients, owned audit rows, roles and logins removed and verified.",
+      "notes": "Both history routes enforce patient identity, patient record locks and notes-module access; owner and unlocked doctor positive controls retain actual history text, and shared group-note revisions remain bounded."
     },
     {
       "name": "authz-read-admin-objects",
@@ -11419,7 +11424,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Issue #4673: the chart note editor's Attach (PMM 'attach note to client') popup in two chart windows of one login. A's and B's charts each save a note and open their Attach popup, B's last; each popup's client search for C links to and attaches its own chart's note, so C receives one copy of A's note and one of B's. Each source chart is entered for a visit of its own, so its note carries that visit; each copy is a new note of C's own, with a new uuid and no appointment. The popup used to read the note from the session, where the popup opened last replaced it. Also pins the popup's search form: its criteria were checkboxes, the page had no head (so CSRFGuard gave its form no token and every search answered 403) and its stylesheets loaded from outside the application. The search ticks 'Search all clients': PMMFilter, which sets the session's program domain, runs after Struts has answered PMM actions, so a domain search finds no one. The PMM client view (PMmodule/ClientManager) is not driven: its result names a Tiles page that does not exist.",
+      "notes": "Issue #4673: the chart note editor's Attach (PMM 'attach note to client') popup in two chart windows of one login. A's and B's charts each save a note and open their Attach popup, B's last; each popup's client search for C links to and attaches its own chart's note, so C receives one copy of A's note and one of B's. Each source chart is entered for a visit of its own, so its note carries that visit; each copy is a new note of C's own, with a new uuid and no appointment. The popup used to read the note from the session, where the popup opened last replaced it. Also pins the popup's search form: its criteria were checkboxes, the page had no head (so CSRFGuard gave its form no token and every search answered 403) and its stylesheets loaded from outside the application. The search ticks 'Search all clients': PMMFilter, which sets the session's program domain, runs after Struts has answered PMM actions, so a domain search finds no one. The PMM client view (PMmodule/ClientManager) is not driven: its result names a Tiles page that does not exist. Additional source-read and target-write refusals preserve complete owned clinical rows, with an authorized copy positive control.",
       "fixtures": "Owned FAKE patients A/B/C (the run marker as last name) with one visit each for A and B, the notes written for A and B and the copies attached to C; a throwaway login (lib/throwaway-login-fixture.js) with the test login's roles plus an owned role FAKEPW<hex>pmm whose only secObjPrivilege row grants _pmm_management, and the test provider's program memberships. Facility.enablePhoneEncounter (which shows the editor's Attach button) is set for the run and restored to its value, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes every owned row by key and asserts it gone.",
       "mutates": [
         "Facility",
@@ -16255,7 +16260,25 @@
       "env": [],
       "mutates": [],
       "fixtures": "Owned FAKE patient, orphan appointment, CPP/eChart rows and two messages; cleanup removes only owned rows and verifies their removal.",
-      "notes": "Exercises the legacy chart owner and tab navigation, history/reminder POST saves without losing other fields, independent inbox searches and sorting across windows, orphan appointment rendering, and denial of saved attachments to an unrelated provider."
+      "notes": "Exercises the legacy chart owner and tab navigation, history/reminder POST saves without losing other fields, independent inbox searches and sorting across windows, orphan appointment rendering, and denial of saved attachments to an unrelated provider. Shared-chart mutations and mixed-selection unlink are refused without partial changes; native Inbox controls preserve remote recipient rows."
+    },
+    {
+      "name": "chart-context-request-guards",
+      "script": "scripts/chart-context-request-guards-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [
+        "casemgmt_tmpsave"
+      ],
+      "fixtures": "Two owned synthetic patients, one saved note, chart drafts and lock rows; owned roles/logins for registry refusals; a transient trigger scoped to the exact owned draft forces real rollback and is removed and verified. Requires CREATE/DROP TRIGGER in the disposable database; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Signed context forgery, cross-patient and cross-login replay, conflicting parameters, foreign note edit/history/draft references and GET autosave refusal preserve complete clinical rows; registry module and record locks refuse with403; actual database failure preserves the prior draft, reports failure visibly and recovers on retry, including network failures, cleared text and the legacy editor."
     }
   ]
 }

@@ -22,7 +22,9 @@
  * in sequence, not as a matrix: every body is printed once, then every print
  * selection is printed with the worst-case body. The 403 rides on the note in the
  * serialized form rather than on any print checkbox, so one scored body is enough
- * to carry each selection, and 15 prints cover what 56 would. Against the devcontainer
+ * to carry each selection. A final print is delayed past the old three-second
+ * lock suppression: it must retain the editor and its database lock, allow another
+ * draft save, and still release the lock on an actual navigation. Against the devcontainer
  * (no WAF) this check still guards the print path itself — that every selection
  * returns a real PDF rather than an HTML error page. Against a packaged install
  * it is the guard for the WAF exclusion.
@@ -224,7 +226,6 @@ async function login(context) {
   // run, so a regression on that argument surfaces here too. ARGS:noteTxt is NOT
   // covered — that one rides on ajaxSaveNote, which only fires on an explicit
   // save/sign, and this check deliberately never saves a note.
-  wirePage(page, 'echart');
   await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
@@ -414,12 +415,12 @@ async function printChart(page, noteText, flags, expectAutosave) {
 
   await page.locator('#printopAll').check();
 
-  const printResponse = page.waitForResponse(
+  const printResponse = page.context().waitForEvent('response', { predicate:
     (response) => /\/CaseManagementEntry$/.test(new URL(response.url()).pathname)
       && response.request().method() === 'POST'
       && /(?:^|&)method=print(?:&|$)/.test(response.request().postData() || ''),
-    { timeout: 40000 },
-  );
+    timeout: 40000,
+  });
   // Armed before the click. Left dangling on purpose when no download comes (a
   // 403, or an HTML error page): the catch keeps the timeout from surfacing as an
   // unhandled rejection, and the result below records that nothing was received.
@@ -460,11 +461,23 @@ async function printChart(page, noteText, flags, expectAutosave) {
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       acceptDownloads: true,
     });
+    context.on('page', opened => wirePage(opened, 'echart'));
 
     const page = await login(context);
     // Before anything is typed into a chart: refuse a patient that is not test data.
     await verifySyntheticPatient(page);
     await openEchart(page);
+    await page.evaluate(() => {
+      window.__chartPrintUnloadEvents = 0;
+      for (const event of ['beforeunload', 'pagehide']) {
+        window.addEventListener(event, () => { window.__chartPrintUnloadEvents++; });
+      }
+    });
+    const lockState = () => JSON.stringify(sql.rows(`SELECT id,provider_no,note_id,SHA2(session_id,256)
+      FROM casemgmt_note_lock WHERE demographic_no=${demographicNo} ORDER BY id`));
+    assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${demographicNo}`) === '1',
+      'The print regression requires the actual editor database lock');
+    const originalLock = lockState();
 
     // What the note held before this run typed into it: a clinician's restored
     // draft, or just the generated header. Read once, before the first print.
@@ -503,6 +516,45 @@ async function printChart(page, noteText, flags, expectAutosave) {
           pdfSignature: pdf.signature, pdfBytes: pdf.bytes, autosaveStatus,
         });
         printsRemainUseful = response.status() === 200;
+      }
+      if (printsRemainUseful) {
+        let delayedRequests = 0;
+        const slowPrint = async route => {
+          if (route.request().method() === 'POST'
+            && new URL(route.request().url()).pathname.endsWith('/CaseManagementEntry')
+            && new URLSearchParams(route.request().postData() || '').get('method') === 'print') {
+            delayedRequests++;
+            await new Promise(resolve => setTimeout(resolve, 4000));
+          }
+          await route.continue();
+        };
+        const pattern = '**/CaseManagementEntry*';
+        await context.route(pattern, slowPrint);
+        try {
+          const { response, pdf, autosaveStatus } = await printChart(page,
+            `${worstCaseNote}\n${ownedMarker} delayed print`, [], true);
+          printResults.push({ dimension: 'delayed response', label: 'slow print retains editor lock',
+            crs: '932100/932110 attack-rce', status: response.status(),
+            contentType: response.headers()['content-type'] || '', pdfSignature: pdf.signature,
+            pdfBytes: pdf.bytes, autosaveStatus });
+          assert(delayedRequests === 1, 'The slow-print control did not delay exactly one real print request');
+        } finally {
+          await context.unroute(pattern, slowPrint);
+        }
+        assert(await page.evaluate(() => window.__chartPrintUnloadEvents) === 0,
+          'Printing started unloading the editor and could release its note lock');
+        assert(lockState() === originalLock, 'Printing replaced or released the editor database lock');
+        const afterPrint = `${ownedMarker} saved after slow print`;
+        const saved = page.waitForResponse(response => isCaseManagementEntryPost(response, 'autosave')
+          && new URLSearchParams(response.request().postData() || '').get('note') === afterPrint, { timeout: 15000 });
+        await page.evaluate(text => {
+          document.getElementsByName('caseNote_note')[0].value = text;
+          autoSave();
+        }, afterPrint);
+        assert((await saved).status() === 200, 'The draft save after a slow print lost the editor lock');
+        assert(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${demographicNo}
+          AND note LIKE ${h.sqlString(`%${afterPrint}%`)}`) === '1',
+        'The successful post-print autosave did not persist the new draft');
       }
     } finally {
       // Whatever the prints did, do not leave the run's phrases as the patient's
@@ -547,8 +599,8 @@ async function printChart(page, noteText, flags, expectAutosave) {
       `chart print answered application/pdf but the downloaded bytes are not a usable PDF `
       + `(no %PDF- signature, or under ${MIN_PDF_BYTES} bytes): ${JSON.stringify(corrupt, null, 2)}`);
 
-    assert(printResults.length === NOTE_BODIES.length + PRINT_SELECTIONS.length,
-      `only ${printResults.length} of ${NOTE_BODIES.length + PRINT_SELECTIONS.length} print cases ran`);
+    assert(printResults.length === NOTE_BODIES.length + PRINT_SELECTIONS.length + 1,
+      `only ${printResults.length} of ${NOTE_BODIES.length + PRINT_SELECTIONS.length + 1} print cases ran`);
 
     // Every body must be observed in a successful draft save. A 409 reaches the
     // application but means the print lost the lock, so it must fail this check too.
@@ -583,9 +635,19 @@ async function printChart(page, noteText, flags, expectAutosave) {
     if (notices.length) {
       console.log(`Notices (accepted, not failures): ${JSON.stringify(notices, null, 2)}`);
     }
+    assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${demographicNo}`) === '1',
+      'The normal-navigation control requires the editor to still hold its lock');
+    await page.goto(appUrl('/demographic/DemographicEdit',
+      new URLSearchParams({ demographic_no: demographicNo, displaymode: 'edit', dboperation: 'search_detail' }).toString()),
+    { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const releaseDeadline = Date.now() + 10000;
+    while (sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${demographicNo}`) !== '0'
+      && Date.now() < releaseDeadline) await new Promise(resolve => setTimeout(resolve, 50));
+    assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${demographicNo}`) === '0',
+      'A real navigation after printing failed to release the editor lock');
     console.log(`PASS chart print returned a PDF in all ${printResults.length} cases `
       + `(${NOTE_BODIES.length} note bodies, then ${PRINT_SELECTIONS.length} print selections `
-      + `on the worst-case body); ${cleanupOutcome}`);
+      + `on the worst-case body, then one delayed print); post-print autosave persisted; navigation released lock; ${cleanupOutcome}`);
   } finally {
     try {
       if (browser) await closeBrowserWithChartCleanup(browser, baseUrl);

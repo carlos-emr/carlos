@@ -65,6 +65,35 @@ draft, and reopens the originating chart context. The chart/message follow-up al
 checks shared-chart message detail, quote reloads and actual PDF bytes, plus unrelated
 message and unlinked-patient refusals.
 
+The final cross-part review also covers the retained behavior from #4775:
+
+- `chart-context-request-guards` verifies actual signed-context refusals, foreign-note
+  editor/history/draft references, registry and REST draft access, and complete clinical
+  row preservation. An owned database trigger rejects a valid autosave after its draft
+  deletion, proving rollback and visible failure/retry in both editors. Network failure
+  and intentionally clearing all draft text have separate controls.
+- `rx-print-profile` tests refused paste identities and foreign/missing draft references,
+  automatic note selection when no draft exists, and an explicitly selected shared note.
+  Saving that shared note preserves its program and the other program window's draft;
+  successful cleanup removes only the originating chart's draft.
+- `get-reject-chart-notes` drives native chart and tickler writes, refuses GET/HEAD,
+  validates tickler/note/link ownership and retains the tickler editor on a failed save.
+  `authz-read-chart-note-history` covers both history routes, missing module access,
+  patient mismatch and record locks with successful reader controls.
+- The message follow-up checks participant-only mutations, all-or-nothing unlink and
+  configured/legacy local recipients without changing remote recipients. PMM attachment
+  adds source-read and target-write refusals alongside an authorized copy.
+- `billing-on-year-end-statement` uses a real second patient and invoice, independent
+  statement windows, edited-but-unsubmitted dates and an empty-result replacement.
+  `echart-print` includes a delayed PDF, checks that printing retains the editor's exact
+  note lock and subsequent autosave, and checks release on real navigation.
+
+The adjacent sweep includes waiting-list editing/removal, Health Tracker, registry
+status/quick lists, appointment copying and server-rendered message PDFs. BC billing
+uses its own province-correct installation; CAISI and multisite checks retain their
+explicit configuration prerequisites. None of these prerequisites is counted as a pass
+when the workflow is skipped.
+
 Package validation uses an Ubuntu 26.04 systemd container, the pinned DrugRef revision
 and checksum-verified Chromium snapshot. The unreleased `carlos-ctl` 1.2.0 pin is
 built from the repository's documented fallback revision and given a local test
@@ -101,7 +130,7 @@ review also led to explicit query/draft contracts and program identifier range f
 Boundary regressions cover ten-digit IDs, Integer/Long maxima, zero sentinels,
 negative IDs, missing IDs and overflow.
 
-Six broader authorization workflows did not pass. Five reproduced failures documented
+In the original validation round, six broader authorization workflows did not pass. Five reproduced failures documented
 in the existing suite manifest: chart-note writes through GET/HEAD, patient-lock read
 bypasses, note-history patient checks, document descriptions exposed without `_edoc`,
 and registry authorization refusals rendered as HTTP 500. The print/export sweep was
