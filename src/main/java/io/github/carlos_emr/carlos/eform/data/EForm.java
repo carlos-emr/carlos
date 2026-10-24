@@ -1439,8 +1439,8 @@ public class EForm extends EFormBase {
 
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
-    public void setSignatureCode(String contextPath, String userAgent, String demographicNo, String providerId) {
-        String signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(providerId);
+    public void setSignatureCode(String contextPath, String userAgent, String demographicNo, HttpSession session) {
+        String signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(session);
         String imageUrl = contextPath + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
         String storedImgUrl = contextPath + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=";
 

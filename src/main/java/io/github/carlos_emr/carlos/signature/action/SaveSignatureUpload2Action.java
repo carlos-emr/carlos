@@ -68,6 +68,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>405 — non-POST method</li>
  *   <li>400 — missing/non-alphanumeric {@code signatureKey}, or malformed
  *       {@code demographicNo} when {@code saveToDB=true}</li>
+ *   <li>403 — {@code signatureKey} was not issued to this session by the page
+ *       that opened the pad ({@link DigitalSignatureUtils#isIssued})</li>
  *   <li>400 — malformed {@code data:} URI or non-Base64 {@code signatureImage}
  *       on the IPAD branch</li>
  *   <li>413 — raw-stream upload exceeds {@value #MAX_UPLOAD_BYTES} bytes</li>
@@ -128,6 +130,14 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
 
         if (signatureKey == null) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing signature key");
+            return NONE;
+        }
+
+        // Only a key this session was given by the page that opened the pad is accepted, so a
+        // capture is written for, and read back by, that page alone.
+        if (!DigitalSignatureUtils.isIssued(request.getSession(false), signatureKey)) {
+            MiscUtils.getLogger().warn("Refused a signature upload whose key was not issued to this session");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unknown signature request");
             return NONE;
         }
 

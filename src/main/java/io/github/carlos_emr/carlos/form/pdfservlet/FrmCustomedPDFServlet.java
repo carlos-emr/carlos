@@ -41,6 +41,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletContext;
@@ -79,6 +80,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxJob.Direction;
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
+import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -127,6 +129,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private static final float NARROW_PHARMACY_GAP = 5f;
     /** Prescription body top margin when no narrow-page pharmacy block is reserved. */
     private static final float DEFAULT_BODY_TOP_MARGIN = 185f;
+    /** A signature-pad capture's temp file name; group 1 is its request id. */
+    private static final Pattern PAD_FILE_NAME = Pattern.compile("signature_([0-9a-f]{32})\\.jpg");
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
@@ -1538,8 +1542,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      *
      * <p>With that established, the image is, in priority order:</p>
      * <ol>
-     *   <li>the signature-pad capture named by {@code imgFile} — only THIS provider's capture
-     *       ({@code signature_<loggedInProviderNo><digits>.jpg}) inside {@code java.io.tmpdir}, and
+     *   <li>the signature-pad capture named by {@code imgFile} — only a capture made for a page of THIS
+     *       session ({@code signature_<requestId>.jpg} inside {@code java.io.tmpdir}, with a request id
+     *       issued to the session), and
      *       only if it decodes as an image;</li>
      *   <li>the {@link DigitalSignature} stored on the prescription: a hand-drawn signature saved
      *       earlier, or the stamp applied on write. This is also what a reprint renders. It is used
@@ -1613,16 +1618,13 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             try {
                 File tempDir = PathValidationUtils.validateConfiguredDirectory(System.getProperty("java.io.tmpdir"), "java.io.tmpdir");
                 File padFile = PathValidationUtils.validatePath(imgFile, tempDir);
-                // Only THIS provider's signature-pad capture is honoured. The pad writes
-                // signature_<requestId>.jpg into the shared java.io.tmpdir, and the request id is
-                // <providerNo><millis> (DigitalSignatureUtils.generateSignatureRequestId), where
-                // millis is System.currentTimeMillis() — exactly 13 digits from 2001 to 2286.
-                // Requiring EXACTLY 13 trailing digits gives an unambiguous boundary between the
-                // provider number and the timestamp, so a shorter provider number cannot prefix-match
-                // a longer provider's capture (e.g. "99999" claiming "999998"'s file) and fax a
-                // prescription under someone else's freshly drawn signature.
-                String padPattern = "signature_" + Pattern.quote(signingProviderNo) + "\\d{13}\\.jpg";
-                if (padFile.getName().matches(padPattern) && padFile.isFile()) {
+                // Only a capture made for a page of THIS session is honoured. The pad writes
+                // signature_<requestId>.jpg into the shared java.io.tmpdir, and the request id is the
+                // one DigitalSignatureUtils.generateSignatureRequestId issued to this session when
+                // the prescription page opened the pad, so another login's capture is never used.
+                Matcher padName = PAD_FILE_NAME.matcher(padFile.getName());
+                if (padName.matches() && DigitalSignatureUtils.isIssued(req.getSession(false), padName.group(1))
+                        && padFile.isFile()) {
                     byte[] image = Files.readAllBytes(padFile.toPath());
                     if (image.length > 0 && isRenderableImage(image)) {
                         return image;

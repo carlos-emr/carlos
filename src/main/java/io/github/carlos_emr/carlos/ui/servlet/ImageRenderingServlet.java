@@ -247,7 +247,13 @@ public final class ImageRenderingServlet extends HttpServlet {
                     logger.warn("SECURITY WARNING: Path traversal attempt detected in signature request ID: {}", LogSafe.sanitize(signatureRequestId));
                     throw new IllegalArgumentException("Invalid signature request ID");
                 }
-                
+
+                // Only a capture this session's own page asked for is previewed; any other id shows
+                // the same blank image as a pad nobody has signed yet.
+                if (!DigitalSignatureUtils.isIssued(session, signatureRequestId)) {
+                    throw new FileNotFoundException("Signature request id not issued to this session");
+                }
+
                 String tempFilePath = DigitalSignatureUtils.getTempFilePath(signatureRequestId);
 
                 // Use PathValidationUtils to validate the temp file path

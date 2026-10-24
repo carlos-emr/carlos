@@ -2039,12 +2039,13 @@ String signatureImgValue = signatureRetry ? StringUtils.noNull(request.getParame
         : StringUtils.noNull(consultUtil.signatureImg).trim();
 String signatureRequestId = signatureRetry
         ? SignatureReference.parse(true, signatureImgValue, request.getParameter("newSignatureImg")).value() : "";
-if (signatureRequestId.isEmpty() || !signatureRequestId.matches("[a-zA-Z0-9]+")) {
-    signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
+// A retry keeps the pad id it was given only when this session issued it; otherwise the pad gets a new one.
+if (!DigitalSignatureUtils.isIssued(session, signatureRequestId)) {
+    signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(session);
 }
 ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
 if (retryManualSignature) {
-    signatureImgValue = consultationSignatureService.wasManualSignatureCaptured(signatureRequestId)
+    signatureImgValue = consultationSignatureService.wasManualSignatureCaptured(session, signatureRequestId)
             ? signatureRequestId : "";
 }
 String imageUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_preview.name()+"&"+DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY+"="+SafeEncode.forUriComponent(signatureRequestId);

@@ -940,7 +940,7 @@
         <%
             String signatureRequestId = "";
             String imageUrl = "";
-            signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
+            signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(session);
             imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
 
             // Faxing persists a FaxJob, so FrmCustomedPDFServlet requires _rx WRITE for the script's

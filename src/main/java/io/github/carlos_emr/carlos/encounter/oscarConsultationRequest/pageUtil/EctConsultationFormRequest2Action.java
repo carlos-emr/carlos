@@ -520,7 +520,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     // Manual signature from tablet/signature pad. Capture intent up front: a null result
                     // is a genuine failure only when a signature was actually collected (a stamp-less
                     // provider who simply did not sign is the benign, common case).
-                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(manualSignatureRequestId);
+                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(loggedInInfo.getSession(), manualSignatureRequestId);
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
@@ -662,7 +662,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 if (newSignature) {
                     // Manual re-sign from tablet/signature pad. See create-path note: warn only when a
                     // signature was actually collected but failed to persist.
-                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(manualSignatureRequestId);
+                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(loggedInInfo.getSession(), manualSignatureRequestId);
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();

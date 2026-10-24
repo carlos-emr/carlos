@@ -23,12 +23,20 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,6 +54,9 @@ import static org.mockito.Mockito.when;
  * never re-encrypted/persisted (the old destructive double-encrypt bug), and the stored bytes are
  * only returned when they really look like a raster image — otherwise the image is nulled so the
  * signature servlet 404s instead of streaming ciphertext as image/jpeg.</p>
+ *
+ * <p>Also covers {@link DigitalSignatureManagerImpl#processAndSaveDigitalSignature}: only a
+ * signature-pad capture whose request id was issued to the caller's session is saved.</p>
  */
 @Tag("unit")
 @Tag("manager")
@@ -135,5 +146,58 @@ class DigitalSignatureManagerImplUnitTest {
             assertThat(result).isNotNull();
             assertThat(result.getSignatureImage()).isEqualTo(plaintext);
         }
+    }
+
+    @Test
+    @DisplayName("should save the pad capture of a request id issued to the session")
+    void shouldSavePadCapture_whenRequestIdWasIssuedToSession() throws Exception {
+        DigitalSignatureDao dao = mock(DigitalSignatureDao.class);
+        MockHttpSession session = new MockHttpSession();
+        String requestId = DigitalSignatureUtils.generateSignatureRequestId(session);
+        Path capture = Path.of(DigitalSignatureUtils.getTempFilePath(requestId));
+        Files.write(capture, PNG_MAGIC);
+
+        try (MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
+            encryption.when(() -> EncryptionUtils.encrypt(any(byte[].class))).thenReturn(new byte[] {9});
+
+            DigitalSignature saved = new DigitalSignatureManagerImpl(dao)
+                    .processAndSaveDigitalSignature(loggedInInfo(session), requestId, 1373, ModuleType.PRESCRIPTION);
+
+            assertThat(saved).isNotNull();
+            verify(dao).persist(any());
+        } finally {
+            Files.deleteIfExists(capture);
+        }
+    }
+
+    @Test
+    @DisplayName("should save nothing for a request id issued to another session")
+    void shouldSaveNothing_whenRequestIdBelongsToAnotherSession() throws Exception {
+        DigitalSignatureDao dao = mock(DigitalSignatureDao.class);
+        String otherSessionsId = DigitalSignatureUtils.generateSignatureRequestId(new MockHttpSession());
+        Path capture = Path.of(DigitalSignatureUtils.getTempFilePath(otherSessionsId));
+        Files.write(capture, PNG_MAGIC);
+
+        try {
+            DigitalSignature saved = new DigitalSignatureManagerImpl(dao)
+                    .processAndSaveDigitalSignature(loggedInInfo(new MockHttpSession()), otherSessionsId, 1373,
+                            ModuleType.PRESCRIPTION);
+
+            assertThat(saved).isNull();
+            verify(dao, never()).persist(any());
+        } finally {
+            Files.deleteIfExists(capture);
+        }
+    }
+
+    private static LoggedInInfo loggedInInfo(MockHttpSession session) {
+        Facility facility = new Facility();
+        facility.setId(11);
+        facility.setEnableDigitalSignatures(true);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getCurrentFacility()).thenReturn(facility);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(loggedInInfo.getSession()).thenReturn(session);
+        return loggedInInfo;
     }
 }

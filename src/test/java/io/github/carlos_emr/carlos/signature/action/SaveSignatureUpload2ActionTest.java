@@ -37,7 +37,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.UUID;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.struts2.ActionSupport;
@@ -49,6 +48,7 @@ import org.mockito.*;
 import org.owasp.encoder.Encode;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -65,8 +65,6 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("signature")
 class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
-
-    private static final String VALID_KEY_PREFIX = "testkey";
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -86,12 +84,13 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
 
-        // Fresh alphanumeric key per test so parallel runs don't collide on /tmp.
-        signatureKey = VALID_KEY_PREFIX + UUID.randomUUID().toString().replace("-", "");
-
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
         mockRequest.setMethod("POST");
+
+        // A fresh key issued to this request's session, as the page that opens the pad does, so
+        // parallel runs don't collide on /tmp.
+        signatureKey = DigitalSignatureUtils.generateSignatureRequestId(mockRequest.getSession());
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -238,6 +237,34 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"00000000000000000000000000000000", "9999981700000000000"})
+        @DisplayName("should return 403 and write nothing when signatureKey was not issued to this session")
+        void shouldReturn403_whenSignatureKeyWasNotIssued(String unknownKey) throws Exception {
+            mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, unknownKey);
+            mockRequest.setContent(new byte[]{1, 2, 3});
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(new File(DigitalSignatureUtils.getTempFilePath(unknownKey))).doesNotExist();
+            verifyNoInteractions(mockDigitalSignatureManager);
+        }
+
+        @Test
+        @DisplayName("should return 403 when signatureKey was issued to another session")
+        void shouldReturn403_whenSignatureKeyBelongsToAnotherSession() throws Exception {
+            String otherSessionsKey = DigitalSignatureUtils.generateSignatureRequestId(new MockHttpSession());
+            mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, otherSessionsKey);
+            mockRequest.setContent(new byte[]{1, 2, 3});
+
+            action.execute();
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(new File(DigitalSignatureUtils.getTempFilePath(otherSessionsKey))).doesNotExist();
+        }
+
         @Test
         @DisplayName("should return 400 when path validation throws")
         void shouldReturn400_whenPathValidationThrows() throws Exception {
@@ -380,6 +407,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
                 }
             };
             failingRequest.setMethod("POST");
+            failingRequest.setSession(mockRequest.getSession()); // the session the key was issued to
             failingRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureKey);
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(failingRequest);
 
