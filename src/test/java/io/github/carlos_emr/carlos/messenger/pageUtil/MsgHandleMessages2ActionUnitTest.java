@@ -120,6 +120,7 @@ class MsgHandleMessages2ActionUnitTest extends CarlosUnitTestBase {
         request.addParameter(button, "pressed");
 
         assertThat(execute()).isEqualTo("reply");
+        assertThat(request.getAttribute("archiveMessageId")).isEqualTo(MESSAGE_ID);
 
         String handedOver = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
         assertThat(MsgAttachmentStaging.isKey(handedOver)).isTrue();
