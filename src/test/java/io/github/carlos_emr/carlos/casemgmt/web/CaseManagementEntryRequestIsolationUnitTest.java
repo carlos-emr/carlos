@@ -459,7 +459,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         restoredFirst.getGroupNoteClientIds()[0] = "303";
         restoredFirst.getIssueCheckList().getFirst().getIssueDisplay().certain = "uncertain";
         assertThat(restoredSecond).usingRecursiveComparison()
-                .ignoringFieldsOfTypes(CaseManagementNoteLinkDAO.class).isEqualTo(second);
+                .ignoringFieldsMatchingRegexes("(^|.*\\.)caseManagementNoteLinkDao$").isEqualTo(second);
         assertThat(first.getCaseNote().getNote()).contains("11").contains("\r\n").endsWith("  ");
         assertThat(first.getCpp().getReminders()).isEqualTo("Reminder 11");
         assertThat(first.getGroupNoteClientIds()).containsExactly("101", "202");
@@ -606,7 +606,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
 
     private void assertRestoredSessionForm(CaseManagementEntryFormBean restored, CaseManagementEntryFormBean original) {
         assertThat(restored).isNotSameAs(original).usingRecursiveComparison()
-                .ignoringFieldsOfTypes(CaseManagementNoteLinkDAO.class).isEqualTo(original);
+                .ignoringFieldsMatchingRegexes("(^|.*\\.)caseManagementNoteLinkDao$").isEqualTo(original);
         CaseManagementNote note = restored.getCaseNote();
         CaseManagementIssue issue = restored.getIssueCheckList().getFirst().getIssue();
         assertThat(note.getIssues()).singleElement().isSameAs(issue);
