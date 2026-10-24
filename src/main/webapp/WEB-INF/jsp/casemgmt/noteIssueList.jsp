@@ -325,31 +325,32 @@
                 <div id="${winame}" style="margin-left: 20px; display: none;">
                     <div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> acute
+                            <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> <label for="${winame}-acute-true">acute</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> chronic
+                            <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> <label for="${winame}-acute-false">chronic</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> certain
+                            <input type="radio" id="${winame}-certain-true" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-true">certain</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> uncertain
+                            <input type="radio" id="${winame}-certain-false" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-false">uncertain</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> major
+                            <input type="radio" id="${winame}-major-true" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-true">major</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> not major
+                            <input type="radio" id="${winame}-major-false" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-false">not major</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> resolved
+                            <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> <label for="${winame}-resolved-true">resolved</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> unresolved
+                            <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> <label for="${winame}-resolved-false">unresolved</label>
                         </div>
                         <div style="text-align: center;">
-                            <input type="text" name="issueCheckList[${status.index}].issueDisplay.role" size="10" ${disabled ? 'disabled="disabled"' : ''} />
+                            <label for="${winame}-role"><fmt:message key="role"/></label>
+                            <input type="text" id="${winame}-role" name="issueCheckList[${status.index}].issueDisplay.role" size="10" ${disabled ? 'disabled="disabled"' : ''} />
                         </div>
                     </div>
                 </div>
@@ -406,31 +407,32 @@
             <div id="${winame}" style="margin-left: 20px; display: none;">
                 <div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> Acute
+                        <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> <label for="${winame}-acute-true">Acute</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> Chronic
+                        <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> <label for="${winame}-acute-false">Chronic</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> Certain
+                        <input type="radio" id="${winame}-certain-true" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-true">Certain</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> Uncertain
+                        <input type="radio" id="${winame}-certain-false" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-false">Uncertain</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> Major
+                        <input type="radio" id="${winame}-major-true" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-true">Major</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> Not Major
+                        <input type="radio" id="${winame}-major-false" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-false">Not Major</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> Resolved
+                        <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> <label for="${winame}-resolved-true">Resolved</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> Unresolved
+                        <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> <label for="${winame}-resolved-false">Unresolved</label>
                     </div>
                     <div style="text-align: center;">
-                        <input type="text" name="issueCheckList[${status.index}].issueDisplay.role" size="10" ${disabled ? 'disabled="disabled"' : ''} />
+                        <label for="${winame}-role"><fmt:message key="role"/></label>
+                        <input type="text" id="${winame}-role" name="issueCheckList[${status.index}].issueDisplay.role" size="10" ${disabled ? 'disabled="disabled"' : ''} />
                     </div>
                 </div>
             </div>

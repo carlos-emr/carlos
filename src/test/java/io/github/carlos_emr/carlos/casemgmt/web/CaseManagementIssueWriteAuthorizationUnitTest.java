@@ -4,6 +4,8 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
+import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -176,6 +178,88 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
                 any(), any(), any(), any(), any(), any(), any());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missingSession", "missingDatabase", "takenOver", "rotatedSession"})
+    void shouldRefuseIssueDeletionBeforeAnyMutation_whenTheExistingNoteLockIsInvalid(String scenario) throws Exception {
+        var fixture = issueFixture(true);
+        var permissions = (SecurityInfoManager) org.springframework.test.util.ReflectionTestUtils
+                .getField(fixture.action, "securityInfoManager");
+        var user = LoggedInInfo.getLoggedInInfoFromSession(fixture.action.request);
+        when(permissions.hasPrivilege(user, "_eChart", "w", "101")).thenReturn(true);
+        when(permissions.hasPrivilege(user, "_casemgmt.notes", "w", "101")).thenReturn(true);
+        CaseManagementNote note = new CaseManagementNote();
+        note.setId(501L);
+        note.setDemographic_no("101");
+        note.setNote("Existing clinical text");
+        note.setHourOfEncounterTime(1);
+        fixture.form.setCaseNote(note);
+        fixture.action.setDeleteId("0");
+        ((MockHttpServletRequest) fixture.action.request).setParameter("hourOfEncounterTime", "3");
+        var existingIssues = fixture.form.getIssueCheckList();
+        var locks = mock(CasemgmtNoteLockDao.class);
+        injectDependency(fixture.action, "casemgmtNoteLockDao", locks);
+        var captured = new CasemgmtNoteLock();
+        captured.setId(75L);
+        captured.setNoteId(501L);
+        captured.setSessionId("rotatedSession".equals(scenario) ? "previous-session" : fixture.action.request.getSession().getId());
+        if (!"missingSession".equals(scenario)) {
+            fixture.action.request.getSession().setAttribute("casemgmtNoteLock101", captured);
+        }
+        if (!"missingDatabase".equals(scenario)) {
+            var stored = new CasemgmtNoteLock();
+            stored.setSessionId("takenOver".equals(scenario) ? "another-session" : captured.getSessionId());
+            when(locks.find(75L)).thenReturn(stored);
+        }
+
+        assertThat(fixture.action.issueDelete()).isEqualTo("none");
+
+        assertThat(fixture.action.response.getStatus()).isEqualTo(409);
+        verify(fixture.manager).hasAccessRight("note-read-only", "access", "999998", "101", "0");
+        verifyNoMoreInteractions(fixture.manager);
+        assertThat(fixture.form.getIssueCheckList()).isSameAs(existingIssues).hasSize(1);
+        assertThat(note.getNote()).isEqualTo("Existing clinical text");
+        assertThat(note.getHourOfEncounterTime()).isEqualTo(1);
+        assertThat(fixture.action.request.getAttribute("change_flag")).isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {" ", "\t\r\n"})
+    void shouldRefuseIssueDeletionBeforeAnyMutation_whenTheRequiredNoteTextIsBlank(String text) throws Exception {
+        var fixture = issueFixture(true);
+        var permissions = (SecurityInfoManager) org.springframework.test.util.ReflectionTestUtils
+                .getField(fixture.action, "securityInfoManager");
+        var user = LoggedInInfo.getLoggedInInfoFromSession(fixture.action.request);
+        when(permissions.hasPrivilege(user, "_eChart", "w", "101")).thenReturn(true);
+        when(permissions.hasPrivilege(user, "_casemgmt.notes", "w", "101")).thenReturn(true);
+        CaseManagementNote note = new CaseManagementNote();
+        note.setId(501L);
+        note.setDemographic_no("101");
+        note.setNote("Existing clinical text");
+        fixture.form.setCaseNote(note);
+        fixture.action.setDeleteId("0");
+        doReturn(text).when(fixture.action).getCaseNote_note();
+        var captured = new CasemgmtNoteLock();
+        captured.setId(75L);
+        captured.setNoteId(501L);
+        captured.setSessionId(fixture.action.request.getSession().getId());
+        fixture.action.request.getSession().setAttribute("casemgmtNoteLock101", captured);
+        var locks = mock(CasemgmtNoteLockDao.class);
+        when(locks.find(75L)).thenReturn(captured);
+        injectDependency(fixture.action, "casemgmtNoteLockDao", locks);
+        var existingIssues = fixture.form.getIssueCheckList();
+
+        assertThat(fixture.action.issueDelete()).isEqualTo("none");
+
+        assertThat(fixture.action.response.getStatus()).isEqualTo(400);
+        verify(fixture.manager).hasAccessRight("note-read-only", "access", "999998", "101", "0");
+        verifyNoMoreInteractions(fixture.manager);
+        assertThat(fixture.form.getIssueCheckList()).isSameAs(existingIssues).hasSize(1);
+        assertThat(fixture.form.getCaseNote()).isSameAs(note);
+        assertThat(note.getNote()).isEqualTo("Existing clinical text");
+        assertThat(fixture.action.request.getAttribute("change_flag")).isNull();
+    }
+
     record Fixture(CaseManagementEntry2Action action,CaseManagementManager manager,CaseManagementEntryFormBean form) {}
     Fixture issueFixture(boolean accessible) {
         var action=mock(CaseManagementEntry2Action.class,CALLS_REAL_METHODS);
@@ -193,6 +277,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         var form=new CaseManagementEntryFormBean();var box=new CheckBoxBean();
         box.getIssue().setDemographic_no(101);form.setIssueCheckList(new ArrayList<>(List.of(box)));
         request.getSession().setAttribute("caseManagementEntryForm101",form);action.setLineId("0");
+        request.getSession().setAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101", "0");
         return new Fixture(action,manager,form);
     }
 

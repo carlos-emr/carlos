@@ -90,6 +90,7 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         verify(manager).replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");
         verify(manager).getNote("501");
         verify(manager).filterNotes(user, "999998", java.util.List.of(note), "11");
+        verify(manager).hasAccessRight("note-read-only", "access", "999998", "101", "11");
         verifyNoMoreInteractions(manager);
         assertThat(note.getNote()).isEqualTo("Current unsaved text");
     }
@@ -123,8 +124,52 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         action.autosave();
 
         assertThat(response.getStatus()).isEqualTo(400);
-        verifyNoInteractions(locks, manager);
+        verifyNoInteractions(locks);
+        verifyOnlyProgramAuthorization("11");
         assertThat(note.getNote()).isEqualTo("Previous persisted text");
+    }
+
+    @Test
+    void shouldRefuseAutosaveBeforeNoteOrLockAccess_whenTheCapturedProgramIsReadOnly() {
+        when(manager.hasAccessRight("note-read-only", "access", "999998", "101", "11")).thenReturn(true);
+        MockHttpServletRequest other = new MockHttpServletRequest();
+        other.setSession(request.getSession());
+        other.setParameter("demographicNo", "101");
+        ChartProgramContext.remember(other, "22");
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+        verifyNoInteractions(locks);
+        verifyOnlyProgramAuthorization("11");
+    }
+
+    @Test
+    void shouldKeepTheOtherProgramWritable_whenOneChartForTheSamePatientIsReadOnly() {
+        when(manager.hasAccessRight("note-read-only", "access", "999998", "101", "11")).thenReturn(true);
+        action.autosave();
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+
+        MockHttpServletRequest other = new MockHttpServletRequest();
+        other.setSession(request.getSession());
+        other.setParameter("demographicNo", "101");
+        ChartProgramContext.remember(other, "22");
+        request.setParameter(ChartProgramContext.PARAMETER, ChartProgramContext.token(other));
+        request.setParameter("programId", "11");
+        when(manager.filterNotes(user, "999998", java.util.List.of(note), "22")).thenReturn(java.util.List.of(note));
+        response = new MockHttpServletResponse();
+        action.response = response;
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(note.getNote()).isEqualTo("Current unsaved text");
+        assertThat(note.getProgram_no()).isEqualTo("11");
+        verify(manager).hasAccessRight("note-read-only", "access", "999998", "101", "22");
+        verify(manager).replaceTmpSave("999998", "101", "22", "501", "Current unsaved text");
+        verify(manager, never()).replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");
     }
 
     @Test
@@ -185,7 +230,7 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         action.autosave();
 
         assertThat(response.getStatus()).isEqualTo(400);
-        verifyNoInteractions(manager);
+        verifyOnlyProgramAuthorization("11");
         assertThat(note.getNote()).isEqualTo("Previous persisted text");
     }
 
@@ -226,5 +271,10 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         action.autosave();
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(locks, manager);
+    }
+
+    private void verifyOnlyProgramAuthorization(String program) {
+        verify(manager).hasAccessRight("note-read-only", "access", "999998", "101", program);
+        verifyNoMoreInteractions(manager);
     }
 }

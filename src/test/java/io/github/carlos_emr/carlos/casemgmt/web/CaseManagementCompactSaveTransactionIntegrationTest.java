@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDao;
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.HashAuditDao;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -192,6 +193,8 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         ProgramProviderDAO memberships = mock(ProgramProviderDAO.class);
         when(memberships.getProgramProviderByProviderProgramId("999998", 7L)).thenReturn(List.of(originRole));
         target.setProgramProviderDao(memberships);
+        target.setProgramAccessDAO(mock(io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO.class));
+        target.setDemographicDao(mock(DemographicDao.class));
         target.setRoleProgramAccessDAO(mock(RoleProgramAccessDAO.class));
         ProxyFactory proxy = new ProxyFactory(target);
         proxy.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
@@ -300,7 +303,10 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
                     entityManager.remove(issue);
                 }
             }
-            if (caseIssueId != null) entityManager.remove(entityManager.find(CaseManagementIssue.class, caseIssueId));
+            if (caseIssueId != null) {
+                CaseManagementIssue remaining = entityManager.find(CaseManagementIssue.class, caseIssueId);
+                if (remaining != null) entityManager.remove(remaining);
+            }
             entityManager.flush();
             if (pendingLookupId != null) entityManager.remove(entityManager.find(Issue.class, pendingLookupId));
             if (lookupId != null) entityManager.remove(entityManager.find(Issue.class, lookupId));
@@ -753,6 +759,234 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(after.notes().getFirst()).isEqualTo(before.notes().getFirst());
         assertThat(after.identities()).isEqualTo(before.identities());
         assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missingLock", "blankText", "staleRevision"})
+    void shouldKeepIssueNoteAndDraftsUnchanged_whenIssueDeletionCannotSaveItsNote(String refusal) throws Exception {
+        CheckBoxBean checkbox = prepareIssueDeletion();
+        if ("missingLock".equals(refusal)) request.getSession().removeAttribute("casemgmtNoteLock1");
+        if ("blankText".equals(refusal)) doReturn(" \t\n").when(action).getCaseNote_note();
+        if ("staleRevision".equals(refusal)) {
+            tx().executeWithoutResult(status -> {
+                CaseManagementNote concurrent = original.copyForRevision();
+                concurrent.setNote(marker + " concurrent");
+                caseManagementNoteDAO.saveNote(concurrent);
+            });
+        }
+        Snapshot before = snapshot();
+        List<List<String>> cppBefore = tx().execute(status -> raw("SELECT * FROM casemgmt_cpp WHERE demographic_no='1' ORDER BY id"));
+        var originalIssues = form.getIssueCheckList();
+
+        action.issueDelete();
+
+        assertThat(response.getStatus()).isEqualTo("blankText".equals(refusal) ? 400 : 409);
+        assertThat(snapshot()).isEqualTo(before);
+        List<List<String>> cppAfter = tx().execute(status -> raw("SELECT * FROM casemgmt_cpp WHERE demographic_no='1' ORDER BY id"));
+        assertThat(cppAfter).isEqualTo(cppBefore);
+        assertThat(request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"))).isSameAs(form);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(form.getIssueCheckList()).isSameAs(originalIssues).containsExactly(checkbox);
+        assertThat(original.getNote()).isEqualTo(marker + " original");
+        verify(target, never()).deleteIssueById(any());
+        verify(locks, never()).merge(any());
+    }
+
+    @Test
+    void shouldRollBackIssueDeletionAndItsNote_whenStorageFailsAfterTheDelete() throws Exception {
+        CheckBoxBean checkbox = prepareIssueDeletion();
+        Snapshot before = snapshot();
+        List<List<String>> cppBefore = tx().execute(status -> raw("SELECT * FROM casemgmt_cpp WHERE demographic_no='1' ORDER BY id"));
+        var originalIssues = form.getIssueCheckList();
+        IllegalStateException failure = new IllegalStateException("Synthetic failure after deleting the issue");
+        doAnswer(call -> {
+            entityManager.flush();
+            assertThat(entityManager.find(CaseManagementIssue.class, caseIssueId)).isNull();
+            assertThat(raw("SELECT * FROM casemgmt_note WHERE note LIKE :marker", Map.of("marker", marker + "%"))).hasSize(2);
+            assertThat(raw("SELECT * FROM casemgmt_tmpsave WHERE provider_no='999998' AND demographic_no=1 AND program_id=7")).isEmpty();
+            throw failure;
+        }).when(target).getLinkByTableIdDesc(CaseManagementNoteLink.CASEMGMTNOTE, originalId);
+
+        assertThatThrownBy(action::issueDelete).isSameAs(failure);
+
+        assertThat(snapshot()).isEqualTo(before);
+        List<List<String>> cppAfter = tx().execute(status -> raw("SELECT * FROM casemgmt_cpp WHERE demographic_no='1' ORDER BY id"));
+        assertThat(cppAfter).isEqualTo(cppBefore);
+        assertThat(request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"))).isSameAs(form);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(form.getIssueCheckList()).isSameAs(originalIssues).containsExactly(checkbox);
+        assertThat(original.getNote()).isEqualTo(marker + " original");
+        verify(locks, never()).merge(any());
+    }
+
+    @Test
+    void shouldCommitIssueDeletionWithItsNoteAndDraftCleanup_whenAllWritesSucceed() throws Exception {
+        prepareIssueDeletion();
+        Snapshot before = snapshot();
+
+        assertThat(action.issueDelete()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        var committed = (CaseManagementEntryFormBean) request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"));
+        assertThat(committed).isNotSameAs(form);
+        assertThat(committed.getIssueCheckList()).isEmpty();
+        assertThat(committed.getCaseNote().getId()).isNotEqualTo(originalId);
+        assertThat(committed.getCaseNote().getNote()).contains(submittedText);
+        assertThat(snapshot().notes()).hasSize(2);
+        assertThat(snapshot().issues()).isEmpty();
+        assertThat(snapshot().drafts()).containsExactlyElementsOf(otherDrafts(before));
+        tx().executeWithoutResult(status -> assertThat(caseManagementNoteDAO.getNote(committed.getCaseNote().getId()).getIssues()).isEmpty());
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(form.getIssueCheckList()).hasSize(1);
+    }
+
+    private CheckBoxBean prepareIssueDeletion() {
+        CheckBoxBean checkbox = prepareFullIssueSave(true, false);
+        // Native Delete is offered only for an issue not referenced by any saved note.
+        tx().executeWithoutResult(status -> entityManager.find(CaseManagementNote.class, originalId).getIssues().clear());
+        original.getIssues().clear();
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        SecurityInfoManager security = (SecurityInfoManager) ReflectionTestUtils.getField(action, "securityInfoManager");
+        when(security.hasPrivilege(login, "_demographic", "r", "1")).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.issues", "w", "1")).thenReturn(true);
+        action.setDeleteId("0");
+        return checkbox;
+    }
+
+    @Test
+    void shouldPreserveHistoricalAssociations_whenAnUnusedIssueWasLinkedAfterTheEditorOpened() throws Exception {
+        prepareIssueDeletion();
+        tx().executeWithoutResult(status -> entityManager.find(CaseManagementNote.class, originalId)
+                .getIssues().add(entityManager.find(CaseManagementIssue.class, caseIssueId)));
+        Snapshot before = snapshot();
+
+        action.issueDelete();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        tx().executeWithoutResult(status -> assertThat(caseManagementNoteDAO.getNote(originalId).getIssues())
+                .extracting(CaseManagementIssue::getId).containsExactly(caseIssueId));
+        assertThat(form.getIssueCheckList()).hasSize(1);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"))).isSameAs(form);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"success", "stale", "runtime", "checked"})
+    void shouldCommitOrRollBackRealCaisiCppWithIssueDeletion_whenSavingTheRequiredRevision(String scenario) throws Exception {
+        prepareIssueDeletion();
+        CaseManagementCPP backup = tx().execute(status -> {
+            CaseManagementCPP stored = cpps.getCPP("1");
+            if (stored == null) return null;
+            CaseManagementCPP copy = new CaseManagementCPP();
+            org.springframework.beans.BeanUtils.copyProperties(stored, copy);
+            return copy;
+        });
+        Long seededCppId = tx().execute(status -> {
+            CaseManagementCPP stored = cpps.getCPP("1");
+            if (stored == null) {
+                stored = new CaseManagementCPP();
+                stored.setDemographic_no("1");
+                entityManager.persist(stored);
+            }
+            stored.setProviderNo("999998");
+            stored.setOngoingConcerns("Compact transaction issue\n");
+            stored.setMedicalHistory("");
+            stored.setReminders(marker + " retained reminder");
+            CaseManagementIssue issue = entityManager.find(CaseManagementIssue.class, caseIssueId);
+            issue.setMajor(true);
+            issue.setResolved(true);
+            entityManager.flush();
+            return stored.getId();
+        });
+        io.github.carlos_emr.CarlosProperties properties = spy(io.github.carlos_emr.CarlosProperties.getInstance());
+        doReturn(true).when(properties).isCaisiLoaded();
+        var securityRoles = mock(io.github.carlos_emr.carlos.commn.dao.SecRoleDao.class);
+        when(securityRoles.findAllNames()).thenReturn(List.of("doctor"));
+        target.setSecRoleDao(securityRoles);
+        target.setProgramAccessDAO(mock(io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO.class));
+        try (var configuration = mockStatic(io.github.carlos_emr.CarlosProperties.class, CALLS_REAL_METHODS)) {
+            configuration.when(io.github.carlos_emr.CarlosProperties::getInstance).thenReturn(properties);
+            if ("stale".equals(scenario)) {
+                tx().executeWithoutResult(status -> {
+                    CaseManagementNote concurrent = original.copyForRevision();
+                    concurrent.setNote(marker + " concurrent");
+                    caseManagementNoteDAO.saveNote(concurrent);
+                });
+            }
+            Snapshot before = snapshot();
+            List<List<String>> cppBefore = tx().execute(status -> raw("SELECT * FROM casemgmt_cpp WHERE id=" + seededCppId));
+            Exception failure = "checked".equals(scenario)
+                    ? new IOException("Synthetic checked failure after real CPP and issue writes")
+                    : new IllegalStateException("Synthetic runtime failure after real CPP and issue writes");
+            if ("runtime".equals(scenario) || "checked".equals(scenario)) {
+                doAnswer(call -> {
+                    entityManager.flush();
+                    assertThat(entityManager.find(CaseManagementIssue.class, caseIssueId)).isNull();
+                    CaseManagementCPP written = cpps.getCPP("1");
+                    assertThat(written.getOngoingConcerns()).doesNotContain("Compact transaction issue");
+                    assertThat(written.getMedicalHistory()).doesNotContain("Compact transaction issue");
+                    assertThat(written.getReminders()).isEqualTo(marker + " retained reminder");
+                    assertThat(raw("SELECT * FROM casemgmt_note WHERE note LIKE :marker", Map.of("marker", marker + "%"))).hasSize(2);
+                    throw failure;
+                }).when(target).getLinkByTableIdDesc(CaseManagementNoteLink.CASEMGMTNOTE, originalId);
+                assertThatThrownBy(action::issueDelete).isSameAs(failure);
+            } else {
+                action.issueDelete();
+            }
+            if ("success".equals(scenario)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                tx().executeWithoutResult(status -> {
+                    assertThat(entityManager.find(CaseManagementIssue.class, caseIssueId)).isNull();
+                    CaseManagementCPP committed = cpps.getCPP("1");
+                    assertThat(committed.getOngoingConcerns()).doesNotContain("Compact transaction issue");
+                    assertThat(committed.getMedicalHistory()).doesNotContain("Compact transaction issue");
+                    assertThat(committed.getReminders()).isEqualTo(marker + " retained reminder");
+                });
+                assertThat(snapshot().notes()).hasSize(2);
+                assertThat(snapshot().drafts()).containsExactlyElementsOf(otherDrafts(before));
+            } else {
+                assertThat(snapshot()).isEqualTo(before);
+                List<List<String>> cppAfter = tx().execute(status -> raw("SELECT * FROM casemgmt_cpp WHERE id=" + seededCppId));
+                assertThat(cppAfter).isEqualTo(cppBefore);
+                assertThat(request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"))).isSameAs(form);
+                assertThat(form.getCaseNote()).isSameAs(original);
+                assertThat(form.getIssueCheckList()).hasSize(1);
+                if ("stale".equals(scenario)) assertThat(response.getStatus()).isEqualTo(409);
+            }
+        } finally {
+            tx().executeWithoutResult(status -> {
+                if (backup != null) entityManager.merge(backup);
+                else entityManager.remove(entityManager.find(CaseManagementCPP.class, seededCppId));
+            });
+        }
+    }
+
+    @Test
+    void shouldDeleteOnlyTheSelectedPrimaryIssue_whenAnotherProgramHasTheSameCatalogIssue() throws Exception {
+        prepareIssueDeletion();
+        Long otherId = tx().execute(status -> {
+            CaseManagementIssue other = new CaseManagementIssue();
+            other.setDemographic_no(1);
+            other.setIssue_id(lookupId);
+            other.setIssue(entityManager.find(Issue.class, lookupId));
+            other.setProgram_id(9);
+            other.setType("doctor");
+            entityManager.persist(other);
+            return other.getId();
+        });
+        try {
+            List<List<String>> otherBefore = tx().execute(status -> raw("SELECT * FROM casemgmt_issue WHERE id=" + otherId));
+
+            assertThat(action.issueDelete()).isEqualTo("view");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            List<List<String>> otherAfter = tx().execute(status -> raw("SELECT * FROM casemgmt_issue WHERE id=" + otherId));
+            assertThat(otherAfter).isEqualTo(otherBefore);
+            tx().executeWithoutResult(status -> assertThat(entityManager.find(CaseManagementIssue.class, caseIssueId)).isNull());
+        } finally {
+            tx().executeWithoutResult(status -> entityManager.remove(entityManager.find(CaseManagementIssue.class, otherId)));
+        }
     }
 
     private CheckBoxBean prepareFullIssueSave(boolean modern, boolean freshIssue) {

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
@@ -97,6 +98,12 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         request.setParameter("sign", "on");
         request.getSession().setAttribute("userrole", "doctor");
         request.getSession().setAttribute("case_program_id", "7");
+        // The legacy form has no window token, but chart entry captured its own
+        // patient program rather than relying on the login-wide compatibility key.
+        MockHttpServletRequest entry = new MockHttpServletRequest();
+        entry.setSession(request.getSession());
+        entry.setParameter("demographicNo", "101");
+        ChartProgramContext.remember(entry, "7");
         LoggedInInfo user = mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn("999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
@@ -123,6 +130,8 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         note.setHistory("Original FAKE note");
         note.setObservation_date(STORED_DATE);
         when(manager.getNote("501")).thenReturn(note);
+        when(manager.filterNotes(any(), anyString(), anyCollection(), eq("7"))).thenAnswer(call ->
+                new ArrayList<>(call.<java.util.Collection<CaseManagementNote>>getArgument(2)));
         form = new CaseManagementEntryFormBean();
         form.setCaseNote(note);
         form.setIssueCheckList(new ArrayList<>());

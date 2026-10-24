@@ -2630,7 +2630,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         // Preserve the historical contract for REST and other integrations whose
         // originating program is the note's program.
         return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
-                now, userName, user, remoteAddr, lastSavedNoteString, note.getProgram_no(), false);
+                now, userName, user, remoteAddr, lastSavedNoteString, note.getProgram_no(), false, null);
     }
 
     @Override
@@ -2640,13 +2640,28 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                                                      Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString, String draftProgram) throws Exception {
         return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
-                now, userName, user, remoteAddr, lastSavedNoteString, draftProgram, true);
+                now, userName, user, remoteAddr, lastSavedNoteString, draftProgram, true, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram, CaseManagementIssue removedIssue) throws Exception {
+        if (removedIssue == null || removedIssue.getId() == null || removedIssue.getId() <= 0
+                || !Objects.equals(note.getDemographic_no(), String.valueOf(removedIssue.getDemographic_no()))) {
+            throw new SecurityException("Issue deletion does not belong to the note patient");
+        }
+        return saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, locale,
+                now, userName, user, remoteAddr, lastSavedNoteString, draftProgram, true, removedIssue);
     }
 
     private CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
                                                      Date now, String userName, String user, String remoteAddr,
-                                                     String lastSavedNoteString, String draftProgram, boolean explicitChartOrigin) throws Exception {
+                                                     String lastSavedNoteString, String draftProgram, boolean explicitChartOrigin,
+                                                     CaseManagementIssue removedIssue) throws Exception {
         // A failed transaction leaves the editor's submitted object available for retry.
         // Do not retain a failed attempt's added signature or revision counter on it.
         CaseManagementNote submitted = note;
@@ -2658,6 +2673,23 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         Long old_note_id = note.getId();
 
         boolean inCaisi = CarlosProperties.getInstance().isCaisiLoaded();
+
+        if (removedIssue != null) {
+            // Lock the source revision before removing its issue. CPP medical history below
+            // must be derived after the deletion, and all later failures roll it back.
+            previousRevision(note);
+            CaseManagementIssue storedIssue = caseManagementIssueDAO.findById(removedIssue.getId());
+            if (storedIssue == null
+                    || !Objects.equals(note.getDemographic_no(), String.valueOf(storedIssue.getDemographic_no()))
+                    || removedIssue.getIssue_id() != storedIssue.getIssue_id()) {
+                throw new StaleNoteRevisionException();
+            }
+            // The native editor offers Delete only for unused issues. Recheck the
+            // stored links: a stale form must never delete historical note associations.
+            if (!storedIssue.getNotes().isEmpty()) throw new StaleNoteRevisionException();
+            deleteIssueById(storedIssue);
+            if (inCaisi) removeIssueFromCPP(note.getDemographic_no(), storedIssue);
+        }
 
         String role = null;
         String team = null;

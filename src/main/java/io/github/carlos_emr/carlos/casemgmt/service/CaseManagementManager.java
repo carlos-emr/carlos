@@ -455,6 +455,12 @@ public interface CaseManagementManager {
                                                      Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString, String draftProgram) throws Exception;
 
+    /** Removes an unused chart issue and its CPP entry in the same transaction as the required note revision. */
+    public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
+                                                     List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
+                                                     Date now, String userName, String user, String remoteAddr,
+                                                     String lastSavedNoteString, String draftProgram, CaseManagementIssue removedIssue) throws Exception;
+
     public void setCPPMedicalHistory(CaseManagementCPP cpp, String providerNo, List accessRight);
 
     public String listNotes(String code, String providerNo, String demoNo);

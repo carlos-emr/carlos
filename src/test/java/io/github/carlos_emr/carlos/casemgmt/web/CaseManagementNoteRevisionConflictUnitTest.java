@@ -369,7 +369,8 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(request.getAttribute("noteRevisionConflict")).isNull();
         assertThat(request.getAttribute("unsavedNoteText")).isNull();
-        verifyNoInteractions(manager);
+        verify(manager, times(2)).hasAccessRight("note-read-only", "access", "999998", "101", "7");
+        verifyNoMoreInteractions(manager);
     }
 
     @Test

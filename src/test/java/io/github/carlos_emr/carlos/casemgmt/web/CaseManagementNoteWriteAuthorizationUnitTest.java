@@ -21,16 +21,20 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.util.LabelValueBean;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -42,6 +46,7 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.context.WebApplicationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -75,7 +80,9 @@ class CaseManagementNoteWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         action.response = response;
         request.setParameter("demographicNo", "101");
         login = mock(LoggedInInfo.class);
+        when(login.getLoggedInProviderNo()).thenReturn("4249");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        ChartProgramContext.remember(request, "11");
         security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(login, "_demographic", "r", null)).thenReturn(true);
         when(security.hasPrivilege(login, "_eChart", "w", "101")).thenReturn(true);
@@ -140,12 +147,63 @@ class CaseManagementNoteWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(action.caseManagementMgr, notes, ticklers, issues);
     }
 
+    static Stream<Arguments> programReadOnlyWrites() {
+        return Stream.of(METHODS).flatMap(operation -> Stream.of(false, true)
+                .map(dispatch -> Arguments.of(operation, dispatch)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("programReadOnlyWrites")
+    void shouldRefuseBeforeRestoringOrWriting_whenTheCapturedProgramIsReadOnly(String operation, boolean dispatch) throws Exception {
+        when(action.caseManagementMgr.hasAccessRight("note-read-only", "access", "4249", "101", "11")).thenReturn(true);
+        request.setParameter("programId", "22");
+        request.setParameter("method", operation);
+        String formKey = ChartProgramContext.formKey(request, "101");
+        Object retained = new Object();
+        request.getSession().setAttribute(formKey, retained);
+
+        assertThat(dispatch ? action.execute() : invoke(operation)).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(request.getSession().getAttribute(formKey)).isSameAs(retained);
+        assertThat(request.getAttribute("casemgmt_DemoNo")).isNull();
+        verifyOnlyProgramAuthorization("11");
+        verifyNoInteractions(notes, ticklers, issues);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"issueNoteSave", "issueNoteSaveJson", "ajaxsave", "save", "saveAndExit", "ticklerSaveNote"})
+    void shouldUseAuthenticatedDefaultBeforeWriting_whenTheLegacyRequestHasNoCapturedProgram(String operation) throws Exception {
+        request = new MockHttpServletRequest("POST", "/CaseManagementEntry");
+        request.setParameter("demographicNo", "101");
+        request.setParameter("programId", "22");
+        request.setParameter("providerNo", "another-provider");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        action.request = request;
+        EctProgramManager programs = mock(EctProgramManager.class);
+        when(programs.getProgramBeans("4249", null)).thenReturn(List.of(
+                new LabelValueBean("Read-only default", "11"), new LabelValueBean("Other program", "22")));
+        when(programs.getDefaultProgramId("4249")).thenReturn(11);
+        WebApplicationContext context = mock(WebApplicationContext.class);
+        when(context.getBean("ectProgramManager")).thenReturn(programs);
+        request.getServletContext().setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, context);
+        when(action.caseManagementMgr.hasAccessRight("note-read-only", "access", "4249", "101", "11")).thenReturn(true);
+
+        assertThat(invoke(operation)).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(ChartProgramContext.resolve(request)).isNull();
+        verifyOnlyProgramAuthorization("11");
+        verifyNoInteractions(notes, ticklers, issues);
+    }
+
     @Test
     void shouldRefuseTicklerSave_whenTheTicklerBelongsToAnotherPatient() {
         tickler(202);
         assertThat(action.ticklerSaveNote()).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(403);
-        verifyNoInteractions(action.caseManagementMgr, notes, issues);
+        verifyOnlyProgramAuthorization("11");
+        verifyNoInteractions(notes, issues);
     }
 
     @Test
@@ -158,7 +216,8 @@ class CaseManagementNoteWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         when(notes.getNote(77L)).thenReturn(foreign);
         assertThat(action.ticklerSaveNote()).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(403);
-        verifyNoInteractions(action.caseManagementMgr, issues);
+        verifyOnlyProgramAuthorization("11");
+        verifyNoInteractions(issues);
         assertThat(foreign.getHistory()).isEqualTo("Foreign private history");
     }
 
@@ -172,7 +231,8 @@ class CaseManagementNoteWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(CaseManagementNoteLinkDAO.class);
         assertThat(action.ticklerSaveNote()).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(403);
-        verifyNoInteractions(action.caseManagementMgr, issues);
+        verifyOnlyProgramAuthorization("11");
+        verifyNoInteractions(issues);
     }
 
     @Test
@@ -180,7 +240,8 @@ class CaseManagementNoteWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         tickler(101);
         assertThat(action.ticklerSaveNote()).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(500);
-        verifyNoInteractions(action.caseManagementMgr, notes);
+        verifyOnlyProgramAuthorization("11");
+        verifyNoInteractions(notes);
     }
 
     @Test
@@ -260,6 +321,11 @@ class CaseManagementNoteWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         request.setParameter("ticklerNo", "17");
         request.setParameter("value", "Owned tickler note");
         when(ticklers.getTicklerDemographicNo(login, 17)).thenReturn(patient);
+    }
+
+    private void verifyOnlyProgramAuthorization(String program) {
+        verify(action.caseManagementMgr).hasAccessRight("note-read-only", "access", "4249", "101", program);
+        verifyNoMoreInteractions(action.caseManagementMgr);
     }
 
     private String invoke(String operation) throws Exception {

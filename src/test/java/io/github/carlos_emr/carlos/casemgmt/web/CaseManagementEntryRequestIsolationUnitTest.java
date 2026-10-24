@@ -215,6 +215,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         try (var props = mockStatic(CarlosProperties.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             for (String patient : new String[]{"101", "202"}) {
+                ChartProgramContext.remember(request(patient), "7");
                 MockHttpServletRequest request = request(patient);
                 request.setParameter("method", method);
                 // These handlers populate "from" before returning the full editor view.
@@ -237,7 +238,13 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         }
         assertThat(billingParameters(completedRequests.get(0))).containsEntry("demographic_no", "101")
                 .containsEntry("demographic_name", "Adams,Alice").containsEntry("appointment_no", "9001");
-        verifyNoInteractions(manager);
+        if (method.equals("save")) {
+            verify(manager).hasAccessRight("note-read-only", "access", "999998", "101", "7");
+            verify(manager).hasAccessRight("note-read-only", "access", "999998", "202", "7");
+            verifyNoMoreInteractions(manager);
+        } else {
+            verifyNoInteractions(manager);
+        }
     }
 
     @Test
