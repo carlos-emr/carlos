@@ -13,13 +13,13 @@ const section = (start, end) => {
   return jsp.slice(from, to).replace(/<%[\s\S]*?%>/g, '');
 };
 
-function harness(original, value = original, province = 'ON') {
+function harness(original, value = original, province = 'ON', originalProvince = province) {
   const alerts = [];
   let focused = false;
   const context = {
     document: { updatedelete: {
-      postal: { defaultValue: original, value, focus() { focused = true; } },
-      province: { options: [{ value: province }], selectedIndex: 0 },
+      postal: { defaultValue: original, value, dataset: { originalProvince }, focus() { focused = true; } },
+      province: { value: province, options: [{ value: province }], selectedIndex: 0 },
     } },
     alert(message) { alerts.push(message); },
     checkName: () => true, checkDob: () => true, checkHin: () => true,
@@ -61,6 +61,20 @@ test('field-change validation still announces an invalid legacy value', () => {
   const h = harness('UNKNOWN');
   assert.equal(h.context.isPostalCode(), false);
   assert.equal(h.alerts.length, 1);
+});
+
+for (const originalProvince of ['US-NY', 'BC']) {
+  test(`changing province from ${originalProvince} to ON revalidates an unchanged invalid postal code`, () => {
+    const h = harness('12345', '12345', 'ON', originalProvince);
+    assert.equal(h.context.checkTypeInEdit(), false);
+    assert.equal(h.alerts.length, 1);
+  });
+}
+
+test('changing province still accepts an unchanged valid Canadian postal code', () => {
+  const h = harness('K1A0B1', 'K1A0B1', 'ON', 'BC');
+  assert.equal(h.context.checkTypeInEdit(), true);
+  assert.deepEqual(h.alerts, []);
 });
 
 for (const province of ['US', 'US-NY', 'OT']) {

@@ -49,8 +49,20 @@ async function workflow(s) {
     });
   }
 
-  await s.step('changing the postal code to an invalid value blocks the POST and preserves the database', async () => {
+  await s.step('changing province revalidates an unchanged legacy postal code', async () => {
     await edit();
+    const before = archives();
+    await master.locator('[name="province"]').selectOption('BC');
+    const dialogs = await h.withExpectedDialogs(master, () => submit().click());
+    h.assert(dialogs.length === 1 && dialogs[0].text === 'The entered Postal Code is not valid',
+      'Changing province did not revalidate the legacy postal code');
+    h.assert(storedPostal() === 'UNKNOWN' && archives() === before
+      && sql.value(`SELECT province FROM demographic WHERE demographic_no=${patient}`) === 'ON',
+    'The refused province change altered the patient');
+    await master.locator('[name="province"]').selectOption('ON');
+  });
+
+  await s.step('changing the postal code to an invalid value blocks the POST and preserves the database', async () => {
     const before = archives();
     let posts = 0;
     const countPost = request => {

@@ -259,7 +259,8 @@ const postalcode = e.value;
 
 // Existing records may have no postal code or a legacy value. Keep unrelated
 // edits savable; field changes and newly entered values still need validation.
-if (allowUnchanged === true && postalcode === e.defaultValue) return true;
+if (allowUnchanged === true && postalcode === e.defaultValue
+    && document.updatedelete.province.value === e.dataset.originalProvince) return true;
 
 const rePC = /^\s*([a-z]\s?\d\s?){3}\s*$/i;
 

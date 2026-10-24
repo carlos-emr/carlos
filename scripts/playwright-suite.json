@@ -9078,7 +9078,7 @@
       "timeoutSec": 180,
       "env": [],
       "fixtures": "The owned runWorkflow FAKE- patient; cleanup removes demographiccust and demographicExtArchive before the harness removes demographicExt and demographicArchive.",
-      "notes": "Issue #5243: unchanged blank and legacy postal codes allow unrelated city edits; changing to an invalid value raises validation, sends no update POST and stores nothing; a valid correction persists after reopening. PASS expected."
+      "notes": "Issue #5243: unchanged blank and legacy postal codes allow unrelated city edits; changing province revalidates an unchanged legacy code; changing to an invalid value raises validation, sends no update POST and stores nothing; a valid correction persists after reopening. PASS expected."
     },
     {
       "name": "demographic-paper-chart-country",
