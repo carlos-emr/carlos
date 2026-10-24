@@ -1586,13 +1586,14 @@ async function run(s) {
     };
     // Chromium omits an unintercepted Blob beacon's body from request events. A temporary
     // pass-through exposes its real bytes without rewriting the request or mocking its response.
-    const releaseEndpoint = h.appUrl(s.config.baseUrl, '/CaseManagementEntry');
+    const releaseEndpoint = new URL(h.appUrl(s.config.baseUrl, '/CaseManagementEntry'));
+    const releaseUrl = url => url.origin === releaseEndpoint.origin && url.pathname === releaseEndpoint.pathname;
     const passReleaseThrough = async route => {
       const request = route.request();
       if (isOwnedLockRelease(request, A, noteId, provider) && request.frame().page() === chartA) releases.push(request);
       await route.continue();
     };
-    await context.route(releaseEndpoint, passReleaseThrough);
+    await context.route(releaseUrl, passReleaseThrough);
     chartA.on('requestfailed', onFailure);
     try {
       // Real navigation preserves the popup's WindowProxy opener while replacing its patient/document.
@@ -1611,7 +1612,7 @@ async function run(s) {
       consumeDeliveredLockReleases(recorder, candidates);
     } finally {
       chartA.off('requestfailed', onFailure);
-      await context.unroute(releaseEndpoint, passReleaseThrough);
+      await context.unroute(releaseUrl, passReleaseThrough);
     }
     const editor = chartA.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
     // Settle B's own draft through its native Save before protecting every B row. Otherwise a

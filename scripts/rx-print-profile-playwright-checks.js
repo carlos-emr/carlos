@@ -110,6 +110,29 @@ async function workflow(s) {
   h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
   await rx.locator('#searchString').waitFor({ state: 'visible' });
 
+  await s.step('the Rx allergy patient-name link opens the owned Master Record through its native href', async () => {
+    await Promise.all([rx.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+      rx.locator('a[name="cmdAllergies"]').first().click()]);
+    const link = rx.locator('#topLink #topLinkCenterColumn a[href*="/demographic/DemographicEdit"]').first();
+    const expected = new URL(h.appUrl(s.config.baseUrl, '/demographic/DemographicEdit'));
+    const href = new URL(await link.getAttribute('href'), rx.url());
+    h.assert(href.origin === expected.origin && href.pathname === expected.pathname,
+      'The Rx patient-name href has an incorrect application context or Master Record path');
+    h.assert(JSON.stringify(href.searchParams.getAll('demographic_no')) === JSON.stringify([patient]),
+      'The Rx patient-name href does not identify the owned patient exactly once');
+    const record = await s.popup(rx, link, 'rx-patient-master-record');
+    try {
+      const destination = new URL(record.url());
+      h.assert(destination.origin === expected.origin && destination.pathname === expected.pathname
+        && JSON.stringify(destination.searchParams.getAll('demographic_no')) === JSON.stringify([patient]),
+      'The Rx patient-name popup opened an incorrect application path or patient');
+      h.assert(await record.locator('[name="last_name"]').first().inputValue() === marker,
+        'The Rx patient-name popup did not render the owned Master Record');
+    } finally { await record.close(); }
+    await rx.goBack({ waitUntil: 'domcontentloaded' });
+    await rx.locator('#searchString').waitFor({ state: 'visible' });
+  });
+
   await s.step('drug profile Print lists the active drug, hides the archived one until Show All, and prints as a PDF saying the same', async () => {
     const profile = await s.popup(rx, rx.locator('a[onclick*="printDrugProfile"]').first(), 'print-profile');
     h.assert(h.pathOnly(profile.url()).endsWith('/rx/ViewPrintDrugProfile2'), 'Print did not open the drug profile route');

@@ -7,6 +7,7 @@
 const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
 const {textPdf} = require('./lib/stored-pdf-documents');
+const {waitForNavbars} = require('./echart-navbar-modules-playwright-checks');
 const q = h.sqlString;
 
 async function workflow(s) {
@@ -148,6 +149,51 @@ async function workflow(s) {
       VALUES(${id},${q(provider)},'new',${location},0,0);
       INSERT INTO msgDemoMap(messageID,demographic_no) VALUES(${id},${patient})`);
   }
+
+  await s.step('the message E link opens its linked patient chart through the native href', async () => {
+    const page = await context.newPage();
+    try {
+      await page.goto(url(`/messenger/ViewMessage?messageID=${ids[1]}`));
+      await h.assertNotErrorPage(page, 'message with linked patient chart');
+      const link = page.locator('a[href*="/encounter/IncomingEncounter"]');
+      h.assert(await link.count() === 1, 'The owned message does not render one linked-patient E link');
+      const expected = new URL(url('/encounter/IncomingEncounter'));
+      const href = new URL(await link.getAttribute('href'), page.url());
+      h.assert(href.origin === expected.origin && href.pathname === expected.pathname,
+        'The message E href has an incorrect application context or encounter path');
+      h.assert(JSON.stringify(href.searchParams.getAll('demographicNo')) === JSON.stringify([patient])
+        && JSON.stringify(href.searchParams.getAll('curProviderNo')) === JSON.stringify([provider]),
+      'The message E href does not identify the owned patient and provider exactly once');
+
+      // ViewMessage intentionally reuses the named encounter window. Observe its
+      // real navigation when the earlier chart step has already opened that window.
+      const named = [];
+      for (const candidate of context.pages()) {
+        if (candidate !== page && await candidate.evaluate(() => window.name).catch(() => '') === 'encounter') {
+          named.push(candidate);
+        }
+      }
+      h.assert(named.length <= 1, 'More than one encounter window exists in the workflow context');
+      let chart;
+      if (named.length) {
+        [chart] = named;
+        await Promise.all([chart.waitForNavigation({waitUntil: 'domcontentloaded'}), link.click()]);
+      } else {
+        chart = await s.popup(page, link, 'message-linked-patient-chart');
+      }
+      await waitForNavbars(chart, 20000);
+      const destination = new URL(chart.url());
+      const chartPath = new URL(url('/CaseManagementView'));
+      h.assert(destination.origin === chartPath.origin && destination.pathname === chartPath.pathname
+        && JSON.stringify(destination.searchParams.getAll('demographicNo')) === JSON.stringify([patient]),
+      'The message E link opened an incorrect application path or patient chart');
+      h.assert(destination.searchParams.getAll('chartContext').length === 1
+        && Boolean(destination.searchParams.get('chartContext')),
+      'The message E link did not establish exactly one signed chart context');
+      h.assert(await chart.evaluate(() => String(globalThis.demographicNo)) === patient,
+        'The message E link rendered another patient in the chart editor');
+    } finally { await page.close(); }
+  });
 
   await s.step('two inbox windows retain their own searches after the other window changes its filter', async () => {
     const first = await context.newPage();
