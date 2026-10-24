@@ -16360,13 +16360,13 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 240,
+      "timeoutSec": 360,
       "env": [],
       "mutates": [
         "casemgmt_tmpsave"
       ],
-      "fixtures": "Two owned synthetic patients, two saved notes, chart drafts and lock rows; owned roles/logins for registry refusals; a transient trigger scoped to the exact owned draft forces real rollback and is removed and verified. Requires CREATE/DROP TRIGGER in the disposable database; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Signed context forgery, cross-patient and cross-login replay, conflicting parameters, foreign note edit/history/draft references and GET autosave refusal preserve complete clinical rows; registry module and record locks refuse with 403; actual database failure preserves the prior draft, reports failure visibly and recovers on retry, including network failures, cleared text and the legacy editor. HTTP 200 login HTML cannot acknowledge a saved draft in either editor; the implicit existing-note legacy editor submits its actual selected ID."
+      "fixtures": "Two owned synthetic patients, saved notes and an issue link, chart drafts and lock rows; owned roles/logins for registry and issue-write refusals; a transient trigger scoped to the exact owned draft forces real rollback and is removed and verified. Requires CREATE/DROP TRIGGER in the disposable database; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Signed context forgery, cross-patient and cross-login replay, conflicting parameters, foreign note edit/history/draft references and GET autosave refusal preserve complete clinical rows; registry module and record locks refuse with 403. Issue-only write access cannot partially delete an issue attached to a saved note. Actual database failure preserves the prior draft, reports failure visibly and recovers on retry, including network failures, cleared text and the legacy editor. A real 45-second native XHR timeout releases the save guard and allows retry. HTTP 200 login HTML cannot acknowledge a saved draft in either editor; the implicit existing-note legacy editor submits its actual selected ID."
     }
   ]
 }

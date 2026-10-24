@@ -34,6 +34,8 @@ const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { readPatientState, assertPatientStateUnchanged } = require('./echart-two-patient-isolation-playwright-checks');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { checkLegacyAutosave, checkLegacyExistingNoteAutosave, rejectOwnedDraftInsert } = require('./lib/chart-autosave-checks');
+const { checkAutosaveTimeout } = require('./lib/chart-autosave-timeout-checks');
+const { checkIssueDeleteAuthorization } = require('./lib/chart-issue-delete-checks');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { signIn } = require('./lib/authz-read-probe');
 
@@ -179,7 +181,7 @@ async function workflow(s) {
     finally { await get.dispose(); }
     for (const method of ['edit', 'notehistory', 'history']) {
       const response = await context.request.get(`${endpoint}?${new URLSearchParams({
-        method, demographicNo: A, chartContext: token, noteId: foreignNote, from: 'casemgmt',
+        method, demographicNo: A, chartContext: token, noteId: foreignNote, from: 'casemgmt', forceNote: 'true',
       })}`, { maxRedirects: 0 });
       try {
         await applicationStatus(response, 403, `Foreign-note ${method}`);
@@ -203,9 +205,9 @@ async function workflow(s) {
     h.assert(drafts(sql, [A, B]) === stable, 'Cross-login replay changed a draft');
     await separate.close();
   });
+  const fixture = authzReadFixture({ sql, marker, provider, testUser: s.config.testUser });
+  s.cleanup(() => fixture.cleanup());
   await s.step('registry and draft service access boundaries refuse reads and writes without clinical changes', async () => {
-    const fixture = authzReadFixture({ sql, marker, provider, testUser: s.config.testUser });
-    s.cleanup(() => fixture.cleanup());
     const limited = fixture.addLogin(fixture.addRole({ _demographic: 'r', _appointment: 'r', _eChart: 'r' }));
     const locked = fixture.addLogin('doctor');
     fixture.lockPatient(locked, A);
@@ -241,6 +243,7 @@ async function workflow(s) {
     assertPatientStateUnchanged(stableA, readPatientState(sql, A), 'Registry access probes');
     assertPatientStateUnchanged(stableB, readPatientState(sql, B), 'Registry access probes');
   });
+  await checkIssueDeleteAuthorization(s, { fixture, patient: A, program, applicationStatus });
   await s.step('a real server autosave failure preserves the previous draft and visibly recovers on retry', async () => {
     // A scoped INSERT trigger reaches the actual transaction and fails after its delete.
     // The browser submits the valid note identity and its unmodified clinical text.
@@ -341,6 +344,7 @@ async function workflow(s) {
       AND provider_no=${q(provider)} ORDER BY id DESC LIMIT 1`, `${marker}-network-retry`, 'Network retry did not save retained text');
     assertPatientStateUnchanged(stableB, readPatientState(sql, B), 'A network retry');
   });
+  await checkAutosaveTimeout(s, { chart: chartA, patient: A, otherPatient: B, isAutosave, drafts, autosave, pause });
   await checkLegacyAutosave(s, { patient: A, chartContext: token });
   await s.step('REST draft references refuse foreign notes and preserve intentional empty text', async () => {
     const baseline = readPatientState(sql, A);

@@ -71,7 +71,10 @@ The final cross-part review also covers the retained behavior from #4775:
   editor/history/draft references, registry and REST draft access, and complete clinical
   row preservation. An owned database trigger rejects a valid autosave after its draft
   deletion, proving rollback and visible failure/retry in both editors. Network failure
-  and intentionally clearing all draft text have separate controls.
+  and intentionally clearing all draft text have separate controls. A real 45-second
+  native XHR timeout preserves the text, releases the pending-save guard and allows
+  a successful retry. A role allowed to edit issues but unable to save notes cannot
+  partially delete an issue attached to a saved note.
 - `rx-print-profile` tests refused paste identities and foreign/missing draft references,
   automatic note selection when no draft exists, and an explicitly selected shared note.
   Saving that shared note preserves its program and the other program window's draft;

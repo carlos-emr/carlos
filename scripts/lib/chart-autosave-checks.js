@@ -176,9 +176,9 @@ async function checkLegacyExistingNoteAutosave(s, { patient, chartContext, progr
     });
     id = h.insertId(sql, `INSERT INTO casemgmt_note
       (update_date,observation_date,demographic_no,provider_no,note,signed,history,uuid,locked,archived,
-       program_no,reporter_caisi_role,revision)
+       program_no,reporter_caisi_role)
       VALUES (NOW(),NOW(),${patient},${h.sqlString(provider)},${h.sqlString(text)},0,${h.sqlString(text)},
-        UUID(),'0',0,${h.sqlString(program)},${h.sqlString(role)},'1')`, 'implicitly selected unsigned note');
+        UUID(),'0',0,${h.sqlString(program)},${h.sqlString(role)})`, 'implicitly selected unsigned note');
     h.assert(/^[1-9]\d*$/.test(id), 'The selected note fixture was not created');
     const url = h.appUrl(config.baseUrl, `/CaseManagementEntry?${new URLSearchParams({
       method: 'edit', from: 'casemgmt', demographicNo: patient, providerNo: provider,
