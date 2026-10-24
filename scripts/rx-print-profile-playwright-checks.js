@@ -498,18 +498,18 @@ async function workflow(s) {
     // Hold the actual browser request while replaying its exact payload with invalid identities.
     // The unchanged request then continues as the positive control, using the same CSRF carrier.
     let held;
-    let releaseInterceptor;
-    const interceptorFinished = new Promise(resolve => { releaseInterceptor = resolve; });
-    const intercept = async route => {
+    const intercept = route => {
+      const request = route.request();
+      if (request.method() !== 'POST' || request.frame().page() !== isolatedRx) return route.fallback();
+      h.assert(!held, 'The isolated Rx window submitted more than one encounter write');
       held = route;
-      // Keep the handler active until its captured request has explicitly continued or
-      // aborted. Returning early lets Playwright automatically handle the pending route.
-      await interceptorFinished;
     };
     const expectedWriteUrl = new URL(h.appUrl(s.config.baseUrl, '/rx/WriteToEncounter'));
     const writePath = url => url.origin === expectedWriteUrl.origin && url.pathname === expectedWriteUrl.pathname;
-    await isolatedRx.route(writePath, intercept);
-    let interceptionRegistered = true;
+    // The Rx page closes after acknowledging the paste. Keep interception on its live
+    // browser context so it can be removed after continuing the captured request.
+    // Removing the last interceptor while a request is held auto-continues that request.
+    await context.route(writePath, intercept);
     let write;
     try {
       await Promise.all([
@@ -519,10 +519,6 @@ async function workflow(s) {
       await s.step('invalid Rx paste identities refuse without changing either program draft or saved prescriptions',
         () => verifyEncounterWriteRefusals(s, context, held.request(), tokens,
           { patient: referencePatient, note: referenceNote, guarded: guardedNote, draft: capturedDraftId }));
-      // Acknowledged Print & Paste closes this Rx window. Remove the interceptor while
-      // the real request is still held, before that normal lifecycle can close the page.
-      await isolatedRx.unroute(writePath, intercept);
-      interceptionRegistered = false;
       const response = isolatedRx.waitForResponse(isEncounterWrite);
       encounter = context.waitForEvent('page', { timeout: 20000 }).catch(() => null);
       await held.continue();
@@ -531,8 +527,7 @@ async function workflow(s) {
       if (held) await held.abort().catch(() => {});
       throw error;
     } finally {
-      releaseInterceptor();
-      if (interceptionRegistered && !isolatedRx.isClosed()) await isolatedRx.unroute(writePath, intercept);
+      await context.unroute(writePath, intercept);
     }
     const posted = new URLSearchParams(write.request().postData() || '');
     h.assert(write.status() === 200 && write.headers()['x-carlos-encounter-write'] === 'written'
