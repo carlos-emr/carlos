@@ -112,7 +112,9 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
 
     @Test
     void shouldLeaveTheOwnerRowNullsAndNoteOwnershipUntouched_whenDisplayingAnActualLinkedNote() {
-        int owner = 2147483000;
+        // Explicit IDs advance H2's shared identity even after rollback; leave
+        // headroom for the demographic fixtures that run later in this JVM.
+        int owner = 900001;
         entityManager.createNativeQuery("INSERT INTO demographic (demographic_no,first_name,last_name,sex,phone,phone2,chart_no,family_doctor,alias,pronoun,gender) "
                 + "VALUES (:owner,'Group','Synthetic','F',NULL,NULL,NULL,NULL,NULL,NULL,NULL)")
                 .setParameter("owner", owner).executeUpdate();
