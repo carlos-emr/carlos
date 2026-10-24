@@ -49,6 +49,19 @@ const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const isEncounterWrite = response => response.request().method() === 'POST'
   && /\/rx\/WriteToEncounter(?:\?|$)/.test(h.pathOnly(response.url()));
 
+// PrintPaste closes its Rx page after accepting the write headers. Wait for that
+// exact response to settle before the recorder checks for its known close abort.
+async function finishAcknowledgedWrite(response, page) {
+  h.assert(isEncounterWrite(response) && response.status() === 200
+    && response.headers()['x-carlos-encounter-write'] === 'written',
+  'Cannot settle an unacknowledged encounter write');
+  try {
+    await response.finished();
+  } catch (error) {
+    if (!page.isClosed() || response.request().failure()?.errorText !== 'net::ERR_ABORTED') throw error;
+  }
+}
+
 function hasChartContext(request, expected) {
   const contexts = [...new URL(request.url()).searchParams.getAll('chartContext'),
     ...new URLSearchParams(request.postData() || '').getAll('chartContext')];
@@ -100,8 +113,12 @@ async function verifyEncounterWriteRefusals(s, context, request, tokens, referen
     });
     h.assert(response.status() === status, `${label}: expected HTTP ${status}, got ${response.status()}`);
     if (status === 403) {
-      h.assert((await response.text()).includes('Invalid chart context'),
-        `${label}: the chart-context guard did not explain the refusal`);
+      // Production error pages intentionally omit sendError's internal message.
+      // The same CSRF carrier must also reach the action's explicit 409 controls below.
+      const refusalBody = await response.text();
+      h.assert(Object.hasOwn(response.headers(), h.APPLICATION_HEADER)
+        && !h.isWafPage(response.status(), refusalBody),
+      `${label}: the refusal did not come from the application`);
     } else {
       h.assert(response.headers()['x-carlos-encounter-write'] === 'not-written',
         `${label}: the action did not acknowledge that it refused before writing`);
@@ -336,6 +353,7 @@ async function workflow(s) {
     // printIframe() then closes the Rx window, so Chromium reports that one fetch as aborted
     // (net::ERR_ABORTED) AFTER the write was acknowledged and asserted above. Consume exactly that
     // artefact; any other request failure stays for the strict assertion.
+    await finishAcknowledgedWrite(write, rx);
     const aborted = s.recorder.requestFailures.slice(failuresBefore);
     h.assert(aborted.length <= 1 && aborted.every(entry => entry.label === 'rx-module' && entry.errorText === 'net::ERR_ABORTED'
       && entry.resourceType === 'fetch' && h.pathOnly(entry.url).endsWith('/rx/WriteToEncounter')),
@@ -480,7 +498,14 @@ async function workflow(s) {
     // Hold the actual browser request while replaying its exact payload with invalid identities.
     // The unchanged request then continues as the positive control, using the same CSRF carrier.
     let held;
-    const intercept = route => { held = route; };
+    let releaseInterceptor;
+    const interceptorFinished = new Promise(resolve => { releaseInterceptor = resolve; });
+    const intercept = async route => {
+      held = route;
+      // Keep the handler active until its captured request has explicitly continued or
+      // aborted. Returning early lets Playwright automatically handle the pending route.
+      await interceptorFinished;
+    };
     const expectedWriteUrl = new URL(h.appUrl(s.config.baseUrl, '/rx/WriteToEncounter'));
     const writePath = url => url.origin === expectedWriteUrl.origin && url.pathname === expectedWriteUrl.pathname;
     await isolatedRx.route(writePath, intercept);
@@ -506,6 +531,7 @@ async function workflow(s) {
       if (held) await held.abort().catch(() => {});
       throw error;
     } finally {
+      releaseInterceptor();
       if (interceptionRegistered && !isolatedRx.isClosed()) await isolatedRx.unroute(writePath, intercept);
     }
     const posted = new URLSearchParams(write.request().postData() || '');
@@ -534,6 +560,7 @@ async function workflow(s) {
     h.assert(reopenedToken === tokens[0]
       && await opened.locator('#caseManagementEntryForm input[name="chartContext"]').inputValue() === tokens[0],
     'Print & Paste reopened the chart under another program context');
+    await finishAcknowledgedWrite(write, isolatedRx);
     const aborted = s.recorder.requestFailures.slice(failuresBefore);
     h.assert(aborted.length <= 1 && aborted.every(entry => entry.label === 'rx-program-isolation'
       && entry.errorText === 'net::ERR_ABORTED' && entry.resourceType === 'fetch'
@@ -596,6 +623,7 @@ async function workflow(s) {
       await waitForNavbars(nextChart, 30000);
       h.assert(await nextChart.locator('#caseManagementEntryForm input[name="chartContext"]').inputValue() === tokens[1],
         'The no-draft paste reopened the other chart program');
+      await finishAcknowledgedWrite(saved, nextRx);
       const failures = s.recorder.requestFailures.slice(failureStart);
       h.assert(failures.length <= 1 && failures.every(entry => entry.label === 'rx-program-isolation'
         && entry.errorText === 'net::ERR_ABORTED' && entry.resourceType === 'fetch'
