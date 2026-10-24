@@ -74,6 +74,7 @@ async function checkLegacyAutosave(s, { patient, chartContext, opener = s.schedu
   let editor;
   await s.step('the legacy note editor reports an actual autosave failure and saves retained text on retry', async () => {
     const opened = context.waitForEvent('page');
+    opened.catch(() => {}); // Preserve the original rejection while allowing fixture cleanup.
     await opener.evaluate(target => { window.open(target, '_blank'); }, url);
     editor = await opened;
     await editor.locator(NOTE).waitFor({ state: 'visible' });
@@ -88,6 +89,7 @@ async function checkLegacyAutosave(s, { patient, chartContext, opener = s.schedu
     const send = async (text, expectedStatus) => {
       await editor.locator(NOTE).fill(text);
       const responsePromise = editor.waitForResponse(response => isAutosave(response.request()));
+      responsePromise.catch(() => {});
       await editor.evaluate(() => autoSave());
       const response = await responsePromise;
       await response.finished();
@@ -128,8 +130,83 @@ async function checkLegacyAutosave(s, { patient, chartContext, opener = s.schedu
     await expectValue(sql, `SELECT note FROM casemgmt_tmpsave WHERE demographic_no=${patient}
       AND provider_no=${h.sqlString(provider)} ORDER BY id DESC LIMIT 1`, retryText,
     'Legacy retry did not save the retained clinical text');
+    const acknowledged = JSON.stringify(sql.rows(draftQuery));
+    const match = address => address.pathname.endsWith('/CaseManagementEntry');
+    let loginPages = 0;
+    const expired = route => {
+      if (!isAutosave(route.request())) return route.continue();
+      loginPages++;
+      return route.fulfill({ status: 200, contentType: 'text/html',
+        body: '<!doctype html><title>Session expired</title><p>Please sign in again.</p>' });
+    };
+    await editor.route(match, expired);
+    try {
+      await send(`${retryText}-after-timeout`, 200);
+      h.assert(await status.getAttribute('data-autosave-state') === 'failed'
+        && await editor.locator(NOTE).inputValue() === `${retryText}-after-timeout`,
+      'A legacy login page was acknowledged as a saved draft or discarded text');
+      h.assert(loginPages === 1 && JSON.stringify(sql.rows(draftQuery)) === acknowledged,
+        'The legacy login-page probe changed the acknowledged draft');
+    } finally { await editor.unroute(match, expired); }
+    await send(`${retryText}-after-timeout`, 200);
+    h.assert(await status.getAttribute('data-autosave-state') === 'saved', 'Legacy timeout recovery did not confirm the real save');
+    await expectValue(sql, `SELECT note FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+      AND provider_no=${h.sqlString(provider)} ORDER BY id DESC LIMIT 1`, `${retryText}-after-timeout`,
+    'Legacy timeout recovery lost the retained clinical text');
     await editor.close();
   });
 }
 
-module.exports = { checkLegacyAutosave, rejectOwnedDraftInsert };
+/** An implicit existing-note selection must post its actual authorized ID. */
+async function checkLegacyExistingNoteAutosave(s, { patient, chartContext, program }) {
+  const { sql, provider, marker, context, config } = s;
+  h.assert(/^[1-9]\d*$/.test(patient) && /^\d+$/.test(program), 'Existing-note probe needs its owned patient/program');
+  await s.step('the legacy editor autosaves the actual implicitly selected unsigned note', async () => {
+    const text = `${marker}-legacy-selected-note`;
+    const role = sql.value(`SELECT role_id FROM program_provider WHERE provider_no=${h.sqlString(provider)}
+      AND program_id=${program} ORDER BY id LIMIT 1`) || '0';
+    h.assert(/^\d+$/.test(role), 'The owned legacy note role is invalid');
+    let id;
+    s.cleanup(() => {
+      if (!id) return;
+      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${id}
+        AND demographic_no=${patient} AND note=${h.sqlString(text)}`) === '1', 'Legacy selected-note ownership changed');
+      sql.execute(`DELETE FROM casemgmt_note WHERE note_id=${id} AND demographic_no=${patient}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${id}`) === '0', 'The owned selected note survived cleanup');
+    });
+    id = h.insertId(sql, `INSERT INTO casemgmt_note
+      (update_date,observation_date,demographic_no,provider_no,note,signed,history,uuid,locked,archived,
+       program_no,reporter_caisi_role,revision)
+      VALUES (NOW(),NOW(),${patient},${h.sqlString(provider)},${h.sqlString(text)},0,${h.sqlString(text)},
+        UUID(),'0',0,${h.sqlString(program)},${h.sqlString(role)},'1')`, 'implicitly selected unsigned note');
+    h.assert(/^[1-9]\d*$/.test(id), 'The selected note fixture was not created');
+    const url = h.appUrl(config.baseUrl, `/CaseManagementEntry?${new URLSearchParams({
+      method: 'edit', from: 'casemgmt', demographicNo: patient, providerNo: provider,
+      chartContext, forceNote: 'true',
+    })}`);
+    const opened = context.waitForEvent('page');
+    opened.catch(() => {});
+    await s.schedule.evaluate(target => { window.open(target, '_blank'); }, url);
+    const editor = await opened;
+    await editor.locator(NOTE).waitFor({ state: 'visible' });
+    h.assert(await editor.locator(NOTE).inputValue() === text, 'Legacy fallback selected another note');
+    await editor.locator(NOTE).fill(`${text}-draft`);
+    const sent = editor.waitForResponse(response => isAutosave(response.request()));
+    sent.catch(() => {});
+    await editor.evaluate(() => autoSave());
+    const response = await sent;
+    await response.finished();
+    h.assert(response.status() === 200
+      && new URLSearchParams(response.request().postData() || '').get('note_id') === id,
+    'The implicit existing-note autosave lost its actual selected note ID');
+    await editor.locator('#legacyAutosaveStatus[data-autosave-state="saved"]').waitFor();
+    await expectValue(sql, `SELECT note FROM casemgmt_tmpsave WHERE demographic_no=${patient}
+      AND provider_no=${h.sqlString(provider)} AND program_id=${program} ORDER BY id DESC LIMIT 1`, `${text}-draft`,
+    'The implicit existing-note draft was not persisted');
+    h.assert(sql.value(`SELECT note FROM casemgmt_note WHERE note_id=${id}`) === text,
+      'Autosaving the existing note mutated its saved clinical text');
+    await editor.close();
+  });
+}
+
+module.exports = { checkLegacyAutosave, checkLegacyExistingNoteAutosave, rejectOwnedDraftInsert };

@@ -3583,6 +3583,19 @@ function showAutosaveStatus(state, text) {
     statusEl.textContent = text;
 }
 
+function autosaveAcknowledged(response, requestUrl) {
+    if (!(response.status >= 200 && response.status < 300)
+            || typeof response.responseText !== "string" || response.responseText.trim() !== "") return false;
+    if (!response.responseURL) return true;
+    try {
+        var expected = new URL(requestUrl, window.location.href);
+        var actual = new URL(response.responseURL, window.location.href);
+        return actual.origin === expected.origin && actual.pathname === expected.pathname && actual.search === expected.search;
+    } catch (invalidUrl) {
+        return false;
+    }
+}
+
 function autoSave() {
     if (autoSaveOperation || lostNoteLock) return;
     sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
@@ -3601,6 +3614,27 @@ function autoSave() {
             && editor === document.getElementById(caseNote) && cmeFrm === document.forms["caseManagementEntryForm"]
             && String(cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value) === String(nId);
     }
+    function autosaveFailed(req, unexpectedResponse) {
+        if (!currentEditor()) return;
+        if (req.status == 409 && !unexpectedResponse) {
+            lostNoteLock = true;
+            showAutosaveStatus("conflict", draftSaveConflictMessage);
+            return;
+        }
+        // A network failure also has status zero. Only an explicit cancellation
+        // may be ignored; a previous success timestamp must not hide a failed save.
+        var previous = acknowledgedDrafts.get(editor);
+        if (!previous || previous.noteId !== String(nId)) previous = { noteId: String(nId) };
+        // A failed response can follow a committed request. Retry even if the
+        // clinician has meanwhile reverted to the original empty note.
+        previous.needsRetry = true;
+        acknowledgedDrafts.set(editor, previous);
+        showAutosaveStatus("failed", draftSaveFailedMessage);
+        if (typeof console !== "undefined" && console.error) {
+            console.error("CaseManagement autoSave failed", req.status,
+                unexpectedResponse ? "Unexpected autosave response" : req.statusText);
+        }
+    }
     showAutosaveStatus("pending", draftSavingMessage);
 
         autoSaveXhr = CarlosAjax.request(url, {
@@ -3608,6 +3642,12 @@ function autoSave() {
                 postBody: params,
                 onSuccess: function (req) {
                     if (!currentEditor()) return;
+                    // Session expiry may redirect this POST to a login page answering200.
+                    // Only this action's empty acknowledgment confirms a persisted draft.
+                    if (!autosaveAcknowledged(req, url)) {
+                        autosaveFailed(req, true);
+                        return;
+                    }
                     acknowledgedDrafts.set(editor, { noteId: String(nId), text: submittedText, needsRetry: false });
                     var d = new Date();
                     var min = d.getMinutes();
@@ -3620,24 +3660,7 @@ function autoSave() {
                     showAutosaveStatus("saved", fmtDate);
                 },
                 onFailure: function (req) {
-                    if (!currentEditor()) return;
-                    if (req.status == 409) {
-                        lostNoteLock = true;
-                        showAutosaveStatus("conflict", draftSaveConflictMessage);
-                        return;
-                    }
-                    // A network failure also has status zero. Only an explicit cancellation
-                    // may be ignored; a previous success timestamp must not hide a failed save.
-                    var previous = acknowledgedDrafts.get(editor);
-                    if (!previous || previous.noteId !== String(nId)) previous = { noteId: String(nId) };
-                    // A failed response can follow a committed request. Retry even if the
-                    // clinician has meanwhile reverted to the original empty note.
-                    previous.needsRetry = true;
-                    acknowledgedDrafts.set(editor, previous);
-                    showAutosaveStatus("failed", draftSaveFailedMessage);
-                    if (typeof console !== "undefined" && console.error) {
-                        console.error("CaseManagement autoSave failed", req.status, req.statusText);
-                    }
+                    autosaveFailed(req, false);
                 },
                 onComplete: function () {
                     if (autoSaveOperation === operation) {

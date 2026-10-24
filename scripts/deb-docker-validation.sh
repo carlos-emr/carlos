@@ -290,7 +290,8 @@ cmd_up() {
 }
 
 # Runbook section 4 fixtures b, c, d and the CDS export PGP recipient, plus
-# rx_fax_enabled for the Rx fax checks and login_lock=true. Each is test-only
+# rx_fax_enabled for the Rx fax checks, CONSULTATION_AUTO_INCLUDE_MEDICATIONS
+# for the unique-medication-list check, and login_lock=true. Each is test-only
 # state on a disposable install; none relaxes a security default. login_lock
 # keys the failed-login lockout to the username instead of the address: every
 # check logs in from 127.0.0.1, so with the default address lockout one
@@ -335,6 +336,9 @@ stage_fixtures() {
     else echo 'rx_fax_enabled=true' >> \"\$P\"; fi
     if grep -qE '^login_lock' \"\$P\"; then sed -i -E 's#^login_lock.*#login_lock=true#' \"\$P\";
     else echo 'login_lock=true' >> \"\$P\"; fi
+    if grep -qE '^CONSULTATION_AUTO_INCLUDE_MEDICATIONS[[:space:]]*[=:]' \"\$P\"; then
+      sed -i -E 's#^CONSULTATION_AUTO_INCLUDE_MEDICATIONS[[:space:]]*[=:].*#CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true#' \"\$P\"
+    else echo 'CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true' >> \"\$P\"; fi
     carlos-ctl restart" >"$LOG_DIR/fixtures.log" 2>&1 || die "fixture staging failed; see $LOG_DIR/fixtures.log"
   wait_front_door
 }
@@ -424,6 +428,8 @@ export SCREENSHOT_DIR=/tmp/carlos-shots ARTIFACT_DIR=/tmp/carlos-artifacts
 export STORED_DOCUMENT_EXPECT_CONTENT_UPDATES=true
 # This container is disposable: checks that change clinic-wide settings may run.
 export CARLOS_DISPOSABLE_VM=true CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service
+# stage_fixtures enabled this in the disposable install and restarted CARLOS.
+export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true
 # The installed province: 'suite' passes it as --province unless one is given.
 export CARLOS_SUITE_PROVINCE=$suite_province
 export RX_FAX_DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document

@@ -128,6 +128,11 @@
         <sonar.issue.ignore.multicriteria.bcFormFont2008.resourceKey>**/WEB-INF/jsp/form/formBCNewBorn2008*.jsp</sonar.issue.ignore.multicriteria.bcFormFont2008.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine/>
+        <!-- Extra JVM options for forked test JVMs, set with -Dtest.jvmArgs="...". Unlike
+             -DargLine, a command-line value reaches the forks. The report font matrix
+             (scripts/check-report-fonts.sh) uses it to give each scenario its own user.home,
+             because the JDK caches its fontconfig resolution there (issue #5046). -->
+        <test.jvmArgs/>
         <test.forkCount>4</test.forkCount>
         <!-- Log4j Version -->
         <log4j2.version>2.25.5</log4j2.version>
@@ -1852,6 +1857,7 @@
                        -Djdk.attach.allowAttachSelf=true
                        -XX:+EnableDynamicAgentLoading
                        -Djava.awt.headless=true
+                       ${test.jvmArgs}
                      </argLine>
                     <!-- Test filtering by groups when specified -->
                     <groups>${groups}</groups>

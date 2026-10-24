@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.GroupNoteDao;
+import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -30,6 +32,9 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
     private CaseManagementEntry2Action action;
     private MockHttpServletRequest request;
     private CaseManagementNote note;
+    private LoggedInInfo user;
+    private CaseManagementManager manager;
+    private SecurityInfoManager security;
 
     @BeforeEach
     void prepare() {
@@ -41,20 +46,21 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("userrole", "doctor");
         request.setParameter("demographicNo", "101");
         request.setParameter("noteId", "501");
-        LoggedInInfo user = mock(LoggedInInfo.class);
+        user = mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn("4249");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
 
         note = new CaseManagementNote();
+        note.setId(501L);
         note.setNote(NOTE_TEXT);
         note.setDemographic_no("101");
         note.setHistory("earlier revision");
-        CaseManagementManager manager = mock(CaseManagementManager.class);
+        manager = mock(CaseManagementManager.class);
         when(manager.getNote("501")).thenReturn(note);
         when(manager.getHistory("501")).thenReturn(java.util.List.of(note));
         when(manager.isClientInProgramDomain("4249", "101")).thenReturn(true);
         action.caseManagementMgr = manager;
-        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        security = mock(SecurityInfoManager.class);
         injectDependency(action, "securityInfoManager", security);
         when(security.hasPrivilege(eq(user), anyString(), eq("r"), eq("101"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(true);
@@ -76,9 +82,19 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
     void shouldRefuseHistoryWithoutAuditingClinicalRead_whenRequestNamesAnotherPatient() {
         request.setParameter("demographicNo", "999");
         note.setDemographic_no("101");
+        when(security.hasPrivilege(eq(user), anyString(), eq("r"), eq("999"))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(user, 999)).thenReturn(true);
+        when(manager.isClientInProgramDomain("4249", "999")).thenReturn(true);
+        Facility facility = new Facility();
+        facility.setEnableGroupNotes(true);
+        when(user.getCurrentFacility()).thenReturn(facility);
+        GroupNoteDao groups = createAndRegisterMock(GroupNoteDao.class);
+        when(groups.findLinksByDemographic(999)).thenReturn(java.util.List.of());
         assertThat(action.history()).isEqualTo("none");
         assertThat(action.response.getStatus()).isEqualTo(403);
         assertThat(request.getAttribute("history")).isNull();
+        verify(manager).getNote("501");
+        verify(groups).findLinksByDemographic(999);
         logActionMock.verifyNoInteractions();
     }
 }

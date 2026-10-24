@@ -52,6 +52,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Date;
+import java.util.List;
 
 import java.util.Locale;
 
@@ -71,8 +72,8 @@ public class RxWriteToEncounter2Action extends ActionSupport {
      * Appends prescription text to the originating patient's encounter.
      *
      * <p>After the session and prescription-write privilege check, known pre-write
-     * rejection returns HTTP 405 (non-POST) or 409 (missing or
-     * changed Rx patient context, or a missing/mismatched draft note), with
+     * rejection returns HTTP 405 (non-POST), 403 (chart write access denied), or 409
+     * (missing or changed Rx patient context, or an unsafe/stale draft reference), with
      * {@code X-Carlos-Encounter-Write: not-written}.
      * Successful completion sets that header to {@code written}. Exceptions after
      * persistence may mean the write committed: absence of the header is never
@@ -118,7 +119,12 @@ public class RxWriteToEncounter2Action extends ActionSupport {
 
         CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
         CaseManagementTmpSaveDao caseManagementTmpSaveDao = SpringUtils.getBean(CaseManagementTmpSaveDao.class);
-        CaseManagementNote note = getLastSaved(request, demographicNo, loggedInInfo.getLoggedInProviderNo(), caseManagementMgr);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "w", demographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "w", demographicNo)
+                || caseManagementMgr.hasAccessRight("note-read-only", "access",
+                    loggedInInfo.getLoggedInProviderNo(), demographicNo, programNo)) {
+            return rejectBeforeWrite(HttpServletResponse.SC_FORBIDDEN);
+        }
         CaseManagementTmpSave tmpSave = caseManagementMgr.getTmpSave(loggedInInfo.getLoggedInProviderNo(), demographicNo, programNo);
         Date today = new Date();
         if (tmpSave != null) {
@@ -126,33 +132,46 @@ public class RxWriteToEncounter2Action extends ActionSupport {
             // encoding at the rendering boundary, as for the non-draft paths below.
             String noteBody = generateNote(loggedInInfo, request.getParameter("body"), false);
 
-            if (tmpSave.getNoteId() > 0) {
-                note = caseManagementMgr.getNote(String.valueOf(tmpSave.getNoteId()));
+            if (tmpSave.getNoteId() != null && tmpSave.getNoteId() > 0) {
+                CaseManagementNote note = caseManagementMgr.getNote(String.valueOf(tmpSave.getNoteId()));
                 // A draft is keyed to the requested patient, but a legacy or forged note_id
                 // may reference a different record. Never append to that record or consume
                 // the draft. Explicitly selected shared notes can retain their own program.
-                if (note == null || !demographicNo.equals(note.getDemographic_no())) {
+                if (note == null || !demographicNo.equals(note.getDemographic_no())
+                        || !mayAppendDirectly(note, loggedInInfo.getLoggedInProviderNo())) {
                     return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
                 }
-                if (note.getUpdate_date().after(tmpSave.getUpdateDate())) {
-                    note.setNote(tmpSave.getNote() + "\n" + noteBody);
-                    note.setUpdate_date(today);
-                    caseManagementMgr.saveNoteSimple(note);
-                } else {
-                    createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, tmpSave.getNote() + "\n" + noteBody, request.getParameter("sign"));
+                if (!"0".equals(programNo) && caseManagementMgr.filterNotes(loggedInInfo,
+                        loggedInInfo.getLoggedInProviderNo(), List.of(note), programNo).isEmpty()) {
+                    return rejectBeforeWrite(HttpServletResponse.SC_FORBIDDEN);
                 }
+                // A draft cannot replace clinical text saved after it was captured. Leave both
+                // versions intact for the editor's normal revision/conflict workflow.
+                if (note.getUpdate_date() == null || tmpSave.getUpdateDate() == null
+                        || note.getUpdate_date().after(tmpSave.getUpdateDate())) {
+                    return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+                }
+                note.setNote(tmpSave.getNote() + "\n" + noteBody);
+                note.setUpdate_date(today);
+                caseManagementMgr.saveNoteSimple(note);
             } else {
                 createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, tmpSave.getNote() + "\n" + noteBody, request.getParameter("sign"));
             }
             caseManagementTmpSaveDao.remove(tmpSave.getProviderNo(), tmpSave.getDemographicNo(), tmpSave.getProgramId());
-        } else if (note != null) {
-            String noteBody = generateNote(loggedInInfo, request.getParameter("body"), false);
-            note.setNote(note.getNote() + "\n" + noteBody);
-            note.setUpdate_date(today);
-            caseManagementMgr.saveNoteSimple(note);
         } else {
-            String noteBody = generateNote(loggedInInfo, request.getParameter("body"), true);
-            createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, noteBody, request.getParameter("sign"));
+            CaseManagementNote note = getLastSaved(request, demographicNo, loggedInInfo.getLoggedInProviderNo(), caseManagementMgr);
+            if (note != null && demographicNo.equals(note.getDemographic_no())
+                    && mayAppendDirectly(note, loggedInInfo.getLoggedInProviderNo())) {
+                String noteBody = generateNote(loggedInInfo, request.getParameter("body"), false);
+                note.setNote(note.getNote() + "\n" + noteBody);
+                note.setUpdate_date(today);
+                caseManagementMgr.saveNoteSimple(note);
+            } else {
+                // Automatic selection may return a protected legacy note. Prescribing still
+                // works by adding a fresh note owned by this provider in this chart program.
+                String noteBody = generateNote(loggedInInfo, request.getParameter("body"), true);
+                createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, noteBody, request.getParameter("sign"));
+            }
         }
         // Never emit this for an exception after saveNoteSimple: the append may
         // already have committed, so the client must not blindly repeat it.
@@ -164,6 +183,12 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         response.setHeader("X-Carlos-Encounter-Write", "not-written");
         response.setStatus(status);
         return NONE;
+    }
+
+    /** Direct Rx append cannot perform the explicit editor's signed-note amendment workflow. */
+    private static boolean mayAppendDirectly(CaseManagementNote note, String providerNo) {
+        return providerNo.equals(note.getProviderNo()) && !note.isSigned()
+                && !note.isLocked() && !note.isArchived();
     }
 
     private String generateNote(LoggedInInfo loggedInInfo, String noteBody, boolean addDateString) {

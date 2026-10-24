@@ -67,6 +67,8 @@ class DxResearch2ActionTest extends CarlosUnitTestBase {
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
     private dxResearch2Action action;
+    private java.lang.reflect.Field securityField;
+    private Object originalSecurityInfoManager;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -104,8 +106,9 @@ class DxResearch2ActionTest extends CarlosUnitTestBase {
                 return "code not found";
             }
         };
-        java.lang.reflect.Field securityField = dxResearch2Action.class.getDeclaredField("securityInfoManager");
+        securityField = dxResearch2Action.class.getDeclaredField("securityInfoManager");
         securityField.setAccessible(true);
+        originalSecurityInfoManager = securityField.get(null);
         securityField.set(null, mockSecurityInfoManager);
         action.setSelectedCodingSystem("icd9");
         action.setDemographicNo("12345");
@@ -119,7 +122,10 @@ class DxResearch2ActionTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IllegalAccessException {
+        if (securityField != null) {
+            securityField.set(null, originalSecurityInfoManager);
+        }
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }

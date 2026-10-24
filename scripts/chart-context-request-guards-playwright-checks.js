@@ -33,7 +33,7 @@ const { csrfTokenPresent } = require('./lib/playwright-ui');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { readPatientState, assertPatientStateUnchanged } = require('./echart-two-patient-isolation-playwright-checks');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
-const { checkLegacyAutosave, rejectOwnedDraftInsert } = require('./lib/chart-autosave-checks');
+const { checkLegacyAutosave, checkLegacyExistingNoteAutosave, rejectOwnedDraftInsert } = require('./lib/chart-autosave-checks');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { signIn } = require('./lib/authz-read-probe');
 
@@ -64,6 +64,7 @@ async function autosave(chart, text, status = 200, periodic = false) {
   await pause(chart);
   await chart.locator(NOTE).fill(text);
   const answer = chart.waitForResponse(response => isAutosave(response.request()));
+  answer.catch(() => {}); // Await the original below; setup errors must still reach cleanup.
   await chart.evaluate(timerPath => timerPath ? backup() : autoSave(), periodic);
   const response = await answer;
   await response.finished();
@@ -272,6 +273,35 @@ async function workflow(s) {
       AND provider_no=${q(provider)} ORDER BY id DESC LIMIT 1`, '', 'Clearing the editor retained the previous draft');
     assertPatientStateUnchanged(stableB, readPatientState(sql, B), 'Clearing A draft');
   });
+  await s.step('a login page returned with HTTP 200 cannot acknowledge an autosave', async () => {
+    const baseline = drafts(sql, [A, B]);
+    const before = new Set(s.recorder.consoleIssues);
+    const match = url => url.pathname.endsWith(ENDPOINT);
+    let injected = 0;
+    const expired = route => {
+      if (!isAutosave(route.request())) return route.continue();
+      injected++;
+      return route.fulfill({ status: 200, contentType: 'text/html',
+        body: '<!doctype html><title>Session expired</title><p>Please sign in again.</p>' });
+    };
+    await chartA.route(match, expired);
+    try {
+      await autosave(chartA, `${marker}-timeout-retained`, 200);
+      await chartA.locator('#autosaveTime[data-autosave-state="failed"]').waitFor();
+      h.assert(injected === 1 && await chartA.locator(NOTE).inputValue() === `${marker}-timeout-retained`
+        && drafts(sql, [A, B]) === baseline, 'A login-page response lost text or claimed a persistent save');
+      const diagnostics = s.recorder.consoleIssues.filter(entry => !before.has(entry)
+        && /\/js\/newCaseManagementView\.js\.jsp(?:\?|$)/.test(entry.location?.url || '')
+        && entry.text.trim() === 'CaseManagement autoSave failed 200 Unexpected autosave response');
+      h.assert(diagnostics.length === 1, 'The false-success response did not record its exact diagnostic');
+      s.recorder.consoleIssues = s.recorder.consoleIssues.filter(entry => !diagnostics.includes(entry));
+    } finally { await chartA.unroute(match, expired); }
+    await autosave(chartA, `${marker}-timeout-retained`);
+    await chartA.locator('#autosaveTime[data-autosave-state="saved"]').waitFor();
+    await expectValue(sql, `SELECT note FROM casemgmt_tmpsave WHERE demographic_no=${A}
+      AND provider_no=${q(provider)} ORDER BY id DESC LIMIT 1`, `${marker}-timeout-retained`, 'Timeout recovery did not persist retained text');
+    assertPatientStateUnchanged(stableB, readPatientState(sql, B), 'Timeout recovery');
+  });
   await s.step('a network failure is visible and retains text until a successful retry', async () => {
     const baseline = drafts(sql, [A, B]);
     const before = { failures: new Set(s.recorder.requestFailures), console: new Set(s.recorder.consoleIssues) };
@@ -287,6 +317,7 @@ async function workflow(s) {
     await chartA.route(match, disconnect);
     try {
       const failed = chartA.waitForEvent('requestfailed', { predicate: isAutosave });
+      failed.catch(() => {});
       await chartA.evaluate(() => autoSave());
       const request = await failed;
       await chartA.locator('#autosaveTime[data-autosave-state="failed"]').waitFor();
@@ -350,6 +381,7 @@ async function workflow(s) {
       AND provider_no=${q(provider)} ORDER BY id DESC LIMIT 1`, '', 'REST revived a cleared draft');
     assertPatientStateUnchanged(stableB, readPatientState(sql, B), 'REST empty draft save');
   });
+  await checkLegacyExistingNoteAutosave(s, { patient: A, chartContext: token, program });
   // Apart from its explicit owned draft, B gained no clinical data during the test.
   const finalB = readPatientState(sql, B);
   finalB.drafts = beforeB.drafts;

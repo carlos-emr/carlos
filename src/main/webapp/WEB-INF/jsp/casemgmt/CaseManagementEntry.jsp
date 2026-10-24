@@ -206,6 +206,19 @@
             status.textContent = text;
         }
 
+        function legacyAutosaveAcknowledged(response, requestUrl) {
+            if (!(response.status >= 200 && response.status < 300)
+                    || typeof response.responseText !== 'string' || response.responseText.trim() !== '') return false;
+            if (!response.responseURL) return true;
+            try {
+                var expected = new URL(requestUrl, window.location.href);
+                var actual = new URL(response.responseURL, window.location.href);
+                return actual.origin === expected.origin && actual.pathname === expected.pathname && actual.search === expected.search;
+            } catch (invalidUrl) {
+                return false;
+            }
+        }
+
         function autoSave() {
             clearTimeout(legacyAutosaveTimer);
             if (legacyAutosavePending || legacyAutosaveStopped) return;
@@ -214,6 +227,7 @@
             if (XMLHttpRequestObject) {
                 var obj = document.getElementById('caseNote_note');
                 var xhr = XMLHttpRequestObject;
+                var autosaveUrl = '<%=request.getContextPath() %>/CaseManagementEntry';
                 var completed = false;
                 legacyAutosavePending = true;
                 showLegacyAutosaveStatus('pending', '${carlos:forJavaScriptBlock(draftSavingLabel)}');
@@ -222,7 +236,7 @@
                     completed = true;
                     legacyAutosavePending = false;
                     if (legacyAutosaveStopped) return;
-                    if (xhr.status >= 200 && xhr.status < 300) {
+                    if (legacyAutosaveAcknowledged(xhr, autosaveUrl)) {
                         showLegacyAutosaveStatus('saved', '${carlos:forJavaScriptBlock(draftSavedLabel)}');
                     } else if (xhr.status === 409) {
                         legacyAutosaveStopped = true;
@@ -236,12 +250,12 @@
                 xhr.onerror = finish;
                 xhr.ontimeout = finish;
                 xhr.onabort = finish;
-                XMLHttpRequestObject.open("POST", '<%=request.getContextPath() %>/CaseManagementEntry', true);
+                XMLHttpRequestObject.open("POST", autosaveUrl, true);
                 XMLHttpRequestObject.timeout = 45000;
                 XMLHttpRequestObject.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
                 var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
-                var noteId = '<carlos:encode value='<%= request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                var noteId = '<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 var programId = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request)) %>';
                 var chartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
                 XMLHttpRequestObject.send((chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "") + "method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + encodeURIComponent(obj.value));

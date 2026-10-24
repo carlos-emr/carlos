@@ -47,7 +47,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** Checks real note entry points before their locks, session drafts or clinical writes are touched. */
+/**
+ * Checks real note entry points before their locks, session drafts or clinical writes are touched.
+ * @since 2026-10-24
+ */
 @Tag("unit")
 @Tag("release-review")
 class CaseManagementNoteWriteAuthorizationUnitTest extends CarlosUnitTestBase {

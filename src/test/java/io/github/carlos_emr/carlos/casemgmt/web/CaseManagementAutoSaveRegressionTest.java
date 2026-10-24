@@ -124,7 +124,12 @@ class CaseManagementAutoSaveRegressionTest {
                 .as("explicitly cancelled operations must be ignored while real status-zero failures remain visible")
                 .contains("!operation.cancelled", "currentEditor()", "showAutosaveStatus(\"failed\"")
                 .doesNotContain("req.status === 0");
-        String statusHelper = js.substring(js.indexOf("function showAutosaveStatus("), autoSaveStart);
+        int statusStart = js.indexOf("function showAutosaveStatus(");
+        assertThat(statusStart)
+                .as("showAutosaveStatus must exist and be declared before autoSave")
+                .isGreaterThanOrEqualTo(0)
+                .isLessThan(autoSaveStart);
+        String statusHelper = js.substring(statusStart, autoSaveStart);
         assertThat(statusHelper)
                 .as("status updates must guard against the element being gone after chart close")
                 .contains("if (!statusEl) return;");

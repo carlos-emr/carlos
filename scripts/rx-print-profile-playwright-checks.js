@@ -16,9 +16,11 @@
  * which acknowledges the write and leaves one casemgmt_note carrying it; a GET against the same
  * route is refused before any write. Two program windows for the same patient retain their own
  * contexts: the first paste consumes only its program draft, and a later paste with no draft
- * creates a note in its own program without modifying the first note. Nine refusal controls
+ * creates a note in its own program without modifying the first note or a protected candidate.
+ * Fourteen refusal controls
  * replay the real pending paste with invalid patient/login/context identities or a missing or
- * cross-patient draft-note reference; exact clinical snapshots must remain unchanged. Finally,
+ * cross-patient draft-note reference, a noneditable note, or a note newer than the draft;
+ * exact clinical snapshots must remain unchanged. Finally,
  * explicitly editing the first program's shared note from the second program autosaves and saves
  * through the native controls: the note keeps its program, only the second program draft clears,
  * and the first window retains both its persisted draft and unsaved editor text.
@@ -127,6 +129,37 @@ async function verifyEncounterWriteRefusals(s, context, request, tokens, referen
       s.sql.execute(`UPDATE casemgmt_tmpsave SET note_id=0 WHERE id=${reference.draft}`);
     }
   }
+  const q = h.sqlString;
+  const baseline = s.sql.rows(`SELECT provider_no,signed,locked,archived,update_date FROM casemgmt_note
+    WHERE note_id=${reference.guarded}`)[0];
+  h.assert(baseline && baseline.length === 5, 'The owned direct-append guard fixture is missing');
+  const restoreGuard = () => s.sql.execute(`UPDATE casemgmt_note SET provider_no=${q(baseline[0])},
+    signed=${Number(baseline[1])},locked=${Number(baseline[2])},archived=${Number(baseline[3])},
+    update_date=${q(baseline[4])} WHERE note_id=${reference.guarded}`);
+  for (const [label, change] of [
+    ['signed note', 'signed=1'], ['locked note', 'locked=1'], ['archived note', 'archived=1'],
+    ['another author note', `provider_no=${q(s.provider)}`],
+    ['note saved after its draft', 'update_date=DATE_ADD(NOW(),INTERVAL 1 MINUTE)'],
+  ]) {
+    s.sql.execute(`UPDATE casemgmt_note SET ${change} WHERE note_id=${reference.guarded};
+      UPDATE casemgmt_tmpsave SET note_id=${reference.guarded} WHERE id=${reference.draft}`);
+    const before = snapshot();
+    try {
+      const response = await context.request.post(request.url(), {
+        data: original.toString(), headers: baseHeaders, maxRedirects: 0, failOnStatusCode: false,
+      });
+      h.assert(response.status() === 409 && response.headers()['x-carlos-encounter-write'] === 'not-written',
+        `${label}: the direct append was not refused before writing`);
+      h.assert(snapshot() === before, `${label}: the refusal changed a clinical note or consumed either program draft`);
+      await response.dispose();
+    } finally {
+      restoreGuard();
+      s.sql.execute(`UPDATE casemgmt_tmpsave SET note_id=0 WHERE id=${reference.draft}`);
+    }
+  }
+  // The unchanged browser paste is the positive control for a real, owned, unsigned
+  // reference whose persisted text predates the draft, rather than a new-note shortcut.
+  s.sql.execute(`UPDATE casemgmt_tmpsave SET note_id=${reference.guarded} WHERE id=${reference.draft}`);
 }
 
 /** The drug lines the profile page renders (one ViewStaticScript2 link per drug). */
@@ -414,13 +447,18 @@ async function workflow(s) {
         + (SELECT COUNT(*) FROM demographic WHERE demographic_no=${referencePatient})`) === '0',
       'Rx draft reference fixtures were not removed');
     });
-    const referenceNote = h.insertId(sql, `INSERT INTO casemgmt_note
-      (update_date,observation_date,demographic_no,provider_no,note,signed,include_issue_innote,
-       signing_provider_no,encounter_type,program_no,reporter_caisi_role,reporter_program_team,
-       history,locked,archived,position,uuid)
-      VALUES (DATE_ADD(NOW(),INTERVAL 1 MINUTE),NOW(),${referencePatient},${owner},
-        ${q(`${marker}-foreign-note-unchanged`)},0,0,'','',${capturedProgram},${q(role)},'0',
-        ${q(`${marker}-foreign-history-unchanged`)},0,0,0,UUID())`, 'Rx draft reference note');
+    const referenceNoteFor = (targetPatient, program, label, { locked = false, newer = false } = {}) => {
+      const date = newer ? 'DATE_ADD(NOW(),INTERVAL 1 MINUTE)' : 'DATE_SUB(NOW(),INTERVAL 1 DAY)';
+      return h.insertId(sql, `INSERT INTO casemgmt_note
+        (update_date,observation_date,demographic_no,provider_no,note,signed,include_issue_innote,
+         signing_provider_no,encounter_type,program_no,reporter_caisi_role,reporter_program_team,
+         history,locked,archived,position,uuid)
+        VALUES (${date},${date},${targetPatient},${owner},${q(`${marker}-${label}-unchanged`)},
+          0,0,'','',${program},${q(role)},'0',${q(`${marker}-${label}-history-unchanged`)},
+          ${locked ? 1 : 0},0,0,UUID())`, 'Rx guarded note');
+    };
+    const referenceNote = referenceNoteFor(referencePatient, capturedProgram, 'foreign-note', { newer: true });
+    const guardedNote = referenceNoteFor(patient, capturedProgram, 'direct-append-guard');
     const capturedDraftId = sql.value(`SELECT id FROM casemgmt_tmpsave WHERE demographic_no=${patient}
       AND provider_no=${owner} AND program_id=${capturedProgram} AND note_id=0`);
     h.assert(/^[1-9]\d*$/.test(capturedDraftId), 'The original program draft fixture was not found');
@@ -453,7 +491,7 @@ async function workflow(s) {
       ]);
       await s.step('invalid Rx paste identities refuse without changing either program draft or saved prescriptions',
         () => verifyEncounterWriteRefusals(s, context, held.request(), tokens,
-          { patient: referencePatient, note: referenceNote, draft: capturedDraftId }));
+          { patient: referencePatient, note: referenceNote, guarded: guardedNote, draft: capturedDraftId }));
       // Acknowledged Print & Paste closes this Rx window. Remove the interceptor while
       // the real request is still held, before that normal lifecycle can close the page.
       await isolatedRx.unroute(writePath, intercept);
@@ -500,7 +538,7 @@ async function workflow(s) {
     s.recorder.requestFailures.splice(failuresBefore, aborted.length);
 
     let defaultChartAfterPaste;
-    await s.step('Print & Paste without a draft creates a note only in its originating program', async () => {
+    await s.step('Print & Paste without a draft creates its own program note and preserves a protected automatic candidate', async () => {
       const capturedBefore = JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note
         WHERE demographic_no=${patient} AND provider_no=${owner} AND program_no=${q(capturedProgram)} ORDER BY note_id`));
       h.assert(capturedBefore !== '[]', 'The cross-program preservation check has no existing note');
@@ -511,6 +549,8 @@ async function workflow(s) {
         AND provider_no=${owner} AND program_id=${defaultProgram}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}
         AND provider_no=${owner}`) === '0', 'The no-draft paste still has a provider draft');
+      const protectedNote = referenceNoteFor(patient, defaultProgram, 'protected-default-candidate', { locked: true });
+      const protectedBefore = JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${protectedNote}`));
       const launch = await ui.clickOpensPopup(charts[1], charts[1].locator('a[onclick*="/rx/choosePatient"]').first(),
         { context, recorder: s.recorder, label: 'rx-program-isolation', timeout: 30000 });
       const target = new URL(launch.url());
@@ -540,6 +580,8 @@ async function workflow(s) {
       await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
         AND provider_no=${owner} AND program_no=${q(defaultProgram)} AND LOCATE(${q(marker)},note)>0
         AND LOCATE('one tablet daily',note)>0`, '1', 'The no-draft paste did not create its own program note');
+      h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE note_id=${protectedNote}`)) === protectedBefore,
+        'The no-draft paste changed the protected automatic candidate instead of creating a fresh note');
       h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE demographic_no=${patient}
         AND provider_no=${owner} AND program_no=${q(capturedProgram)} ORDER BY note_id`)) === capturedBefore,
       'The no-draft paste appended to or otherwise changed the other program note');

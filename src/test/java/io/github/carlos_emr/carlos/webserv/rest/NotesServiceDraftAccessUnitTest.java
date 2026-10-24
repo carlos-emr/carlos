@@ -49,7 +49,10 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** Draft REST requests authorize their patient and never dereference another chart's note. */
+/**
+ * Draft REST requests authorize their patient and never dereference another chart's note.
+ * @since 2026-10-24
+ */
 @Tag("unit")
 @Tag("security")
 class NotesServiceDraftAccessUnitTest extends CarlosUnitTestBase {

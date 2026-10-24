@@ -44,6 +44,7 @@ import static org.mockito.Mockito.*;
 class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
     private MockHttpSession session;
     private CaseManagementManager manager;
+    private CasemgmtNoteLockDao locks;
     private OscarAppointmentDao appointments;
     private DemographicManager demographics;
     private SecurityInfoManager security;
@@ -55,7 +56,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         manager = createAndRegisterMock(CaseManagementManager.class);
-        createAndRegisterMock(CasemgmtNoteLockDao.class);
+        locks = createAndRegisterMock(CasemgmtNoteLockDao.class);
         appointments = createAndRegisterMock(OscarAppointmentDao.class);
         demographics = createAndRegisterMock(DemographicManager.class);
         security = createAndRegisterMock(SecurityInfoManager.class);
@@ -409,6 +410,47 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
 
     private EditedNote edit(String patient, boolean explicitNew, String encounterType) throws Exception {
         return edit(patient, explicitNew, encounterType, null);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,false", "true,false", "false,true", "true,true"})
+    void shouldPublishFinalEditorNoteIdentity_whenSelectingUnsignedFallbackOrReplacingALockedNote(
+            boolean explicit, boolean locked) throws Exception {
+        MockHttpServletRequest request = request("101");
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "11");
+        if (explicit) request.setParameter("noteId", "501");
+        CaseManagementNote original = new CaseManagementNote();
+        original.setId(501L);
+        original.setDemographic_no("101");
+        original.setProgram_no("11");
+        original.setNote("Existing unsigned clinical note");
+        original.setHistory("Existing history");
+        when(manager.getNote("501")).thenReturn(original);
+        when(manager.getLastSaved("11", "101", "999998")).thenReturn(original);
+        when(manager.isClientInProgramDomain("999998", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "r", "101")).thenReturn(true);
+        when(manager.filterNotes(login, "999998", List.of(original), "11")).thenReturn(List.of(original));
+        if (locked) {
+            io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock otherLock =
+                    new io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock();
+            otherLock.setId(55L);
+            otherLock.setNoteId(501L);
+            otherLock.setProviderNo("888888");
+            otherLock.setSessionId("another-session");
+            when(locks.findByNoteDemo(101, 501L)).thenReturn(otherLock);
+        }
+        try (var props = mockStatic(CarlosProperties.class);
+             var views = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+        CaseManagementEntryFormBean rendered = (CaseManagementEntryFormBean) forms.get(
+                io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, "101"));
+        String expected = locked ? "0" : "501";
+        assertThat(request.getAttribute("noteId")).isEqualTo(expected);
+        assertThat(rendered.getCaseNote().getId()).isEqualTo(locked ? null : 501L);
+        if (!explicit) assertThat(request.getParameter("noteId")).isNull();
     }
 
     @ParameterizedTest

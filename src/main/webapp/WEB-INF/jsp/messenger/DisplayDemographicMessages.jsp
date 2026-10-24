@@ -49,12 +49,11 @@
   
   Request parameters:
   - demographic_no: Patient ID to filter messages
-  - orderby: Sort column and direction
+  - orderby: Validated sort column and direction; defaults to !date
   - moreMessages: Pagination flag
   
   Session attributes:
   - msgSessionBean: Message display session state
-  - orderby: Current sort preference
   
   Display settings:
   - Initial display: 20 messages

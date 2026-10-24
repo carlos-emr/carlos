@@ -494,6 +494,53 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         });
     }
 
+    @ParameterizedTest
+    @CsvSource({"2,0,1,2", "2,1,0,2", "0,2,0,1"})
+    void shouldSubmitReorderedPositions_whenOnlyCppPositionChanges(
+            int oldPosition, int newPosition, int firstSiblingPosition, int secondSiblingPosition) throws Exception {
+        CaseManagementNote firstSibling = prepareCppSave();
+        CaseManagementNote secondSibling = new CaseManagementNote();
+        secondSibling.setId(503L);
+        note.setPosition(oldPosition);
+        firstSibling.setPosition(oldPosition == 0 ? 1 : 0);
+        secondSibling.setPosition(oldPosition == 0 ? 2 : 1);
+        when(manager.getActiveNotes(eq("101"), any(String[].class)))
+                .thenReturn(oldPosition == 0 ? List.of(note, firstSibling, secondSibling)
+                        : List.of(firstSibling, secondSibling, note));
+        request.setParameter("value", note.getNote());
+        request.setParameter("issueChange", "false");
+        request.setParameter("startdate", "");
+        request.setParameter("ageatonset", "");
+        request.setParameter("position", String.valueOf(newPosition));
+        request.setParameter("forward", "none");
+        when(manager.saveCppNoteRevision(any(), any(), any(), any(), any())).thenAnswer(call ->
+                new CaseManagementNoteSaveResult(call.getArgument(0), "Committed chart text"));
+
+        assertThat(action.issueNoteSave()).isNull();
+
+        ArgumentCaptor<CaseManagementNote> draft = ArgumentCaptor.forClass(CaseManagementNote.class);
+        ArgumentCaptor<Map<Long, Integer>> positions = ArgumentCaptor.captor();
+        verify(manager).saveCppNoteRevision(draft.capture(), any(), any(), positions.capture(), any());
+        assertThat(draft.getValue().getPosition()).isEqualTo(newPosition);
+        assertThat(positions.getValue().getOrDefault(502L, firstSibling.getPosition())).isEqualTo(firstSiblingPosition);
+        assertThat(positions.getValue().getOrDefault(503L, secondSibling.getPosition())).isEqualTo(secondSiblingPosition);
+        assertThat(note.getPosition()).isEqualTo(oldPosition);
+    }
+
+    @Test
+    void shouldSkipRevision_whenCppContentAndPositionAreUnchanged() throws Exception {
+        prepareCppSave();
+        request.setParameter("value", note.getNote());
+        request.setParameter("issueChange", "false");
+        request.setParameter("startdate", "");
+        request.setParameter("ageatonset", "");
+        request.setParameter("position", "0");
+
+        assertThat(action.issueNoteSave()).isNull();
+
+        verify(manager, never()).saveCppNoteRevision(any(), any(), any(), any(), any());
+    }
+
     private CaseManagementNote prepareCppSave() {
         Provider provider = new Provider();
         provider.setProviderNo("999998");

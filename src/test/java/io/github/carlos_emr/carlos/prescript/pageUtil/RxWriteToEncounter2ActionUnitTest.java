@@ -16,12 +16,16 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.Date;
+import java.util.ArrayList;
+import java.util.Collection;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,6 +67,8 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(eq(login), eq("_rx"), eq("w"), nullable(String.class))).thenReturn(true);
         // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
         when(security.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(security.hasPrivilege(login, "_eChart", "w", "42")).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "w", "42")).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
         registerMock(SecurityInfoManager.class, security);
         registerMock(CaseManagementManager.class, notes);
@@ -70,6 +76,10 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         note = new CaseManagementNote();
         note.setNote("existing text");
         note.setDemographic_no("42");
+        note.setProviderNo("999998");
+        note.setUpdate_date(new Date(0));
+        when(notes.filterNotes(eq(login), eq("999998"), anyCollection(), anyString()))
+                .thenAnswer(invocation -> new ArrayList<>(invocation.<Collection<CaseManagementNote>>getArgument(2)));
         when(notes.getLastSaved("0", "42", "999998")).thenReturn(note);
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
@@ -186,7 +196,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         when(capturedDraft.getProviderNo()).thenReturn("999998");
         when(capturedDraft.getDemographicNo()).thenReturn(42);
         when(capturedDraft.getProgramId()).thenReturn(7);
-        note.setUpdate_date(new Date(2));
+        note.setUpdate_date(new Date(0));
         when(notes.getTmpSave("999998", "42", "7")).thenReturn(capturedDraft);
         when(notes.getNote("7")).thenReturn(note);
 
@@ -239,7 +249,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         when(tmp.getProviderNo()).thenReturn("999998");
         when(tmp.getDemographicNo()).thenReturn(42);
         when(tmp.getProgramId()).thenReturn(0);
-        note.setUpdate_date(new Date(2));
+        note.setUpdate_date(new Date(0));
         when(notes.getTmpSave("999998", "42", "0")).thenReturn(tmp);
         when(notes.getNote("7")).thenReturn(note);
 
@@ -285,7 +295,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRetainExplicitlySelectedSharedNoteProgram_whenDraftPatientMatches() throws Exception {
         CaseManagementTmpSave draft = referencedDraft();
         note.setProgram_no("8");
-        note.setUpdate_date(new Date(2));
+        note.setUpdate_date(new Date(0));
         when(notes.getTmpSave("999998", "42", "0")).thenReturn(draft);
         when(notes.getNote("7")).thenReturn(note);
 
@@ -296,6 +306,129 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         verify(notes).saveNoteSimple(note);
         verify(tmpDao).remove("999998", 42, 0);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"signed", "locked", "archived", "other-author"})
+    void shouldRejectWithoutConsumingDraft_whenReferencedNoteCannotBeDirectlyAppended(String state) throws Exception {
+        CaseManagementTmpSave draft = referencedDraft();
+        protectNote(state);
+        when(notes.getTmpSave("999998", "42", "0")).thenReturn(draft);
+        when(notes.getNote("7")).thenReturn(note);
+
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        assertThat(note.getNote()).isEqualTo("existing text");
+        verify(notes, never()).saveNoteSimple(any());
+        verifyNoInteractions(tmpDao);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"newer-note", "unknown-note-time", "unknown-draft-time"})
+    void shouldPreserveBothVersions_whenReferencedNoteIsNewerThanDraftOrCannotBeCompared(String state) throws Exception {
+        CaseManagementTmpSave draft = referencedDraft();
+        note.setNote("newer independently saved text");
+        note.setUpdate_date("unknown-note-time".equals(state) ? null : new Date(2));
+        if ("unknown-draft-time".equals(state)) when(draft.getUpdateDate()).thenReturn(null);
+        when(notes.getTmpSave("999998", "42", "0")).thenReturn(draft);
+        when(notes.getNote("7")).thenReturn(note);
+
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        assertThat(note.getNote()).isEqualTo("newer independently saved text");
+        verify(notes, never()).saveNoteSimple(any());
+        verifyNoInteractions(tmpDao);
+    }
+
+    @Test
+    void shouldAppendMatchingDraft_whenStoredNoteTimestampEqualsDraftTimestamp() throws Exception {
+        CaseManagementTmpSave draft = referencedDraft();
+        note.setUpdate_date(new Date(1));
+        when(notes.getTmpSave("999998", "42", "0")).thenReturn(draft);
+        when(notes.getNote("7")).thenReturn(note);
+
+        new RxWriteToEncounter2Action().execute();
+
+        assertThat(note.getNote()).isEqualTo("draft text\nexact prescription text");
+        verify(notes).saveNoteSimple(note);
+        verify(tmpDao).remove("999998", 42, 0);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"_eChart", "_casemgmt.notes"})
+    void shouldRejectBeforeAnyClinicalAccess_whenPatientChartWriteIsDenied(String object) throws Exception {
+        when(security.hasPrivilege(login, object, "w", "42")).thenReturn(false);
+
+        new RxWriteToEncounter2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        verifyNoInteractions(notes, tmpDao);
+    }
+
+    @Test
+    void shouldRejectBeforeReadingDraft_whenProgramGrantsReadOnlyNotes() throws Exception {
+        when(notes.hasAccessRight("note-read-only", "access", "999998", "42", "0")).thenReturn(true);
+
+        new RxWriteToEncounter2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        verify(notes, never()).getTmpSave(anyString(), anyString(), anyString());
+        verify(notes, never()).getLastSaved(anyString(), anyString(), anyString());
+        verify(notes, never()).saveNoteSimple(any());
+        verifyNoInteractions(tmpDao);
+    }
+
+    @Test
+    void shouldRejectWithoutConsumingDraft_whenReferencedNoteIsNoLongerVisibleInCapturedProgram() throws Exception {
+        CaseManagementTmpSave draft = referencedDraft();
+        ChartProgramContext.remember(request, "7");
+        when(notes.getTmpSave("999998", "42", "7")).thenReturn(draft);
+        when(notes.getNote("7")).thenReturn(note);
+        when(notes.filterNotes(eq(login), eq("999998"), anyCollection(), eq("7")))
+                .thenReturn(new ArrayList<>());
+
+        new RxWriteToEncounter2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
+        assertThat(note.getNote()).isEqualTo("existing text");
+        verify(notes, never()).saveNoteSimple(any());
+        verifyNoInteractions(tmpDao);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"signed", "locked", "archived", "other-author"})
+    void shouldCreateFreshOwnedNote_whenAutomaticCandidateCannotBeDirectlyAppended(String state) throws Exception {
+        protectNote(state);
+        registerMock(ProgramManager.class, mock(ProgramManager.class));
+
+        new RxWriteToEncounter2Action().execute();
+
+        assertThat(note.getNote()).isEqualTo("existing text");
+        verify(notes).saveNoteSimple(argThat(saved -> saved != note
+                && "42".equals(saved.getDemographic_no()) && "0".equals(saved.getProgram_no())
+                && "999998".equals(saved.getProviderNo()) && !saved.isSigned()
+                && saved.getNote().endsWith("exact prescription text")
+                && !saved.getNote().contains("existing text")));
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
+        verifyNoInteractions(tmpDao);
+    }
+
+    private void protectNote(String state) {
+        switch (state) {
+            case "signed" -> note.setSigned(true);
+            case "locked" -> note.setLocked(true);
+            case "archived" -> note.setArchived(true);
+            case "other-author" -> note.setProviderNo("999997");
+            default -> throw new IllegalArgumentException("Unknown protected note state");
+        }
     }
 
     private CaseManagementTmpSave referencedDraft() {
@@ -318,7 +451,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         when(tmp.getProviderNo()).thenReturn("999998");
         when(tmp.getDemographicNo()).thenReturn(42);
         when(tmp.getProgramId()).thenReturn(0);
-        note.setUpdate_date(new Date(2));
+        note.setUpdate_date(new Date(0));
         when(notes.getTmpSave("999998", "42", "0")).thenReturn(tmp);
         when(notes.getNote("7")).thenReturn(note);
         doThrow(new IllegalStateException("cleanup failed after commit"))

@@ -86,3 +86,5 @@ jobs:
         run: node scripts/eform-toolbar-browser-check.js
       - name: Check calendar initialization in eForms
         run: node scripts/calendar-eform-browser-check.js
+      - name: Check prevention print popup navigation in Chromium
+        run: node scripts/prevention-print-popup-browser-check.js

@@ -41,10 +41,10 @@
  * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha) and a second FAKE patient (B,
  * PatientBravo, the same marker last name), both with a synthetic BC PHN; five appointments today
  * for A and three for B; one WCB form for each (the patient's details and the injury, as the WCB
- * form page saves them); an owned billing physician created through Administration ▸ Add Provider
- * (so the application's provider caches see it) and deactivated through Update Provider at the
+ * form page saves them); two owned billing physicians created through Administration ▸ Add Provider
+ * (so the application's provider caches see them) and deactivated through Update Provider at the
  * end. Cleanup removes every claim, note, history and recipient row of the two patients, their
- * WCB forms, their appointments, B and the physician, and asserts them gone. BC installs only
+ * WCB forms, their appointments, B and the physicians, and asserts them gone. BC installs only
  * (billregion=BC).
  */
 const { randomInt } = require('node:crypto');
@@ -223,6 +223,14 @@ function ownBillingPhysician(s, admin) {
     ]);
     const providerNo = sql.value(`SELECT provider_no FROM provider WHERE ${owned} AND ohip_no=${q(ohipNo)} AND status='1'`);
     h.assert(providerNo, 'Add Provider did not create the owned billing physician');
+    // A fresh BC package need not have a clinic-wide default_view. This physician owns the
+    // preference; changing physicians must not replace the staged bill's form with null.
+    const billForm = sql.value(`SELECT servicetype FROM ctl_billingservice
+      WHERE servicetype IS NOT NULL AND servicetype<>'' AND servicetype<>'PRI'
+      ORDER BY (servicetype='GP') DESC, servicetype LIMIT 1`);
+    h.assert(billForm, 'The BC install has no non-private billing form for the owned physician');
+    sql.execute(`INSERT INTO property (name, value, provider_no)
+      VALUES ('default_billing_form', ${q(billForm)}, ${q(providerNo)})`);
     return providerNo;
   }
   return { create, deactivate };
@@ -316,9 +324,15 @@ async function save(page, label, button, daySheet = null) {
   const [posted] = await Promise.all([
     page.waitForResponse(r => r.request().method() === 'POST'
       && new URL(r.url()).pathname.endsWith('/billing/CA/BC/SaveBilling'), { timeout: TIMEOUT }),
-    page.locator(`input[type="submit"][name="submit"][value="${button}"]`).click(),
+    page.getByRole('button', { name: button, exact: true }).click(),
   ]);
   h.assert(posted.status() < 400, `${label}'s ${button} answered HTTP ${posted.status()}`);
+  if (button === 'Save and Print Receipt') {
+    const fields = new URLSearchParams(posted.request().postData());
+    h.assert(fields.get('submit') === 'saveAndPrintReceipt',
+      'Save & Print Receipt posted its display label instead of the WAF-safe action value (#5181)');
+    h.assert(fields.get('CSRF-TOKEN'), 'Save & Print Receipt posted without its CSRF token');
+  }
   if (closed) {
     await closed;
     if (refreshed) {
@@ -347,7 +361,11 @@ async function workflow(s) {
   // cleanup removes it; every failure, the scenario's and the teardown's, is reported.
   await withProviderCleanup(async () => {
     const physician = { providerNo: await owner.create() };
-    await billInTwoWindows(s, A, B, physician);
+    const otherOwner = ownBillingPhysician(s, admin);
+    await withProviderCleanup(async () => {
+      physician.otherProviderNo = await otherOwner.create();
+      await billInTwoWindows(s, A, B, physician);
+    }, otherOwner.deactivate, async () => {});
   }, owner.deactivate, () => admin.close());
 }
 
@@ -438,10 +456,9 @@ async function billInTwoWindows(s, A, B, physician) {
   await s.step('one bill window keeps its own bill through in-place reloads, a refused Continue, Go Back and Another Bill', async () => {
     const form = await openBillForm(sheets[0], 'A2');
     const billKey = await form.locator('#bcBillingForm input[name="billKey"]').inputValue();
-    // Each physician change reloads the patient bar and the code table in place. The list holds the
-    // owned physician and nobody else on a bare install, so "Select Provider" is the other choice.
-    const otherPhysician = (await form.locator('#xml_provider option').evaluateAll(options => options.map(o => o.value)))
-      .find(value => value && value !== physician.providerNo) || '';
+    // Both choices are owned physicians with a default form, including on a bare BC install.
+    // Each physician change reloads the patient bar and the code table in place.
+    const otherPhysician = physician.otherProviderNo;
     for (const choice of [physician.providerNo, otherPhysician, physician.providerNo, otherPhysician, physician.providerNo]) {
       await changeAndAwaitReloads(form, '#xml_provider', choice, 2, 'changing the billing physician');
     }
