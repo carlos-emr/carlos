@@ -668,6 +668,7 @@
     "test:gap-billing-bill-form-validations-playwright": "node scripts/gap-billing-bill-form-validations-playwright-checks.js",
     "test:gap-records-demographic-add-fields-playwright": "node scripts/gap-records-demographic-add-fields-playwright-checks.js",
     "test:gap-records-demographic-edit-clinical-playwright": "node scripts/gap-records-demographic-edit-clinical-playwright-checks.js",
+    "test:demographic-postal-validation-playwright": "node scripts/demographic-postal-validation-playwright-checks.js",
     "test:demographic-paper-chart-country-playwright": "node scripts/demographic-paper-chart-country-playwright-checks.js",
     "test:demographic-patient-consents-playwright": "node scripts/demographic-patient-consents-playwright-checks.js",
     "test:demographic-professional-contact-playwright": "node scripts/demographic-professional-contact-playwright-checks.js",

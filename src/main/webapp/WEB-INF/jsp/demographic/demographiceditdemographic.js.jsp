@@ -205,7 +205,7 @@ if ( !checkDob() ) return false;
 if ( !checkHin() ) return false;
 if ( !checkSex() ) return false;
 <% if ("false".equals(CarlosProperties.getInstance().getProperty("skip_postal_code_validation", "false"))) { %>
-if ( !isPostalCode() ) return false;
+if ( !isPostalCode(true) ) return false;
 <% } %>
 if ( !checkRosterStatus() ) return false;
 if ( !checkPatientStatus() ) return false;
@@ -251,13 +251,17 @@ r = r.replace(new RegExp("\\W", 'g'),"");
 return r;
 }
 
-function isPostalCode()
+function isPostalCode(allowUnchanged)
 {
 if(isCanadian()){
-e = document.updatedelete.postal;
-postalcode = e.value;
+const e = document.updatedelete.postal;
+const postalcode = e.value;
 
-rePC = new RegExp(/(^s*([a-z](\s)?\d(\s)?){3}$)s*/i);
+// Existing records may have no postal code or a legacy value. Keep unrelated
+// edits savable; field changes and newly entered values still need validation.
+if (allowUnchanged === true && postalcode === e.defaultValue) return true;
+
+const rePC = /^\s*([a-z]\s?\d\s?){3}\s*$/i;
 
 if (!rePC.test(postalcode)) {
 e.focus();
